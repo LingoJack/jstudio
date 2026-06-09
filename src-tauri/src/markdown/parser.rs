@@ -1,0 +1,708 @@
+use crate::markdown::ir::{
+    Block, BlockKind, Inline, ListData, ListItem, ParsedDocument, SourceRange, TableData,
+};
+use pulldown_cmark::{Event, Tag, TagEnd};
+
+// ---------------------------------------------------------------------------
+// ParseContext — IR accumulation state for the markdown event loop
+// ---------------------------------------------------------------------------
+
+/// Inline 容器类型，用于 inline 嵌套栈
+#[derive(Debug, Clone)]
+enum InlineContainer {
+    Strong,
+    Emphasis,
+    Strikethrough,
+    Link { url: String },
+}
+
+/// 列表栈帧：记录一个 `Tag::List` 所需的状态
+#[derive(Debug)]
+struct ListFrame {
+    ordered: bool,
+    start_index: Option<u64>,
+    items: Vec<ListItem>,
+}
+
+/// 列表项栈帧：记录一个 `Tag::Item` 所需的状态
+#[derive(Debug, Default)]
+struct ItemFrame {
+    checked: Option<bool>,
+    content: Vec<Inline>,
+    children: Vec<Block>,
+}
+
+/// 解析上下文：累积 IR 节点
+struct ParseContext {
+    /// 已解析的 block 列表
+    blocks: Vec<Block>,
+
+    /// 当前 event 的源码范围（由 offset_iter 填充）
+    current_source: SourceRange,
+
+    // --- Inline 累积 ---
+    /// 当前 block 级别的 inline 容器（paragraph / heading content / list item）
+    current_inlines: Vec<Inline>,
+    /// 嵌套栈：记录当前 inline 容器类型
+    inline_stack: Vec<InlineContainer>,
+    /// 嵌套子容器：每层开始一个新的 Vec<Inline>
+    inline_children_stack: Vec<Vec<Inline>>,
+
+    // --- Code block ---
+    in_code_block: bool,
+    code_block_content: String,
+    code_block_lang: String,
+    code_block_fenced: bool,
+
+    // --- List (栈式，支持嵌套) ---
+    /// 列表栈：每进入一个 `Tag::List` push 一帧，`End` 时 pop
+    list_stack: Vec<ListFrame>,
+    /// 列表项栈：每进入一个 `Tag::Item` push 一帧，`End` 时 pop
+    item_stack: Vec<ItemFrame>,
+
+    // --- Heading ---
+    heading_level: Option<u8>,
+
+    // --- Block quote ---
+    blockquote_stack: Vec<Vec<Block>>,
+
+    // --- Image ---
+    image_url: Option<String>,
+    image_alt: String,
+
+    // --- Table ---
+    in_table: bool,
+    table_rows: Vec<Vec<Vec<Inline>>>,
+    current_row: Vec<Vec<Inline>>,
+    current_cell_inlines: Vec<Inline>,
+    table_alignments: Vec<pulldown_cmark::Alignment>,
+    /// 表格单元格内的 inline 栈
+    table_inline_stack: Vec<InlineContainer>,
+    table_inline_children_stack: Vec<Vec<Inline>>,
+}
+
+impl ParseContext {
+    fn new() -> Self {
+        Self {
+            blocks: Vec::new(),
+            current_source: SourceRange::default(),
+            current_inlines: Vec::new(),
+            inline_stack: Vec::new(),
+            inline_children_stack: Vec::new(),
+            in_code_block: false,
+            code_block_content: String::new(),
+            code_block_lang: String::new(),
+            code_block_fenced: false,
+            list_stack: Vec::new(),
+            item_stack: Vec::new(),
+            heading_level: None,
+            blockquote_stack: Vec::new(),
+            image_url: None,
+            image_alt: String::new(),
+            in_table: false,
+            table_rows: Vec::new(),
+            current_row: Vec::new(),
+            current_cell_inlines: Vec::new(),
+            table_alignments: Vec::new(),
+            table_inline_stack: Vec::new(),
+            table_inline_children_stack: Vec::new(),
+        }
+    }
+
+    /// 获取当前 inline 容器（可能在外层或 inline_children_stack 的最内层）
+    fn current_inline_target(&mut self) -> &mut Vec<Inline> {
+        if self.in_table {
+            return self.table_inline_target();
+        }
+        if let Some(children) = self.inline_children_stack.last_mut() {
+            return children;
+        }
+        // 在列表项内：inline 直接追加到当前 item 的 content
+        if let Some(item) = self.item_stack.last_mut() {
+            return &mut item.content;
+        }
+        &mut self.current_inlines
+    }
+
+    /// 表格内 inline 目标
+    fn table_inline_target(&mut self) -> &mut Vec<Inline> {
+        if let Some(children) = self.table_inline_children_stack.last_mut() {
+            children
+        } else {
+            &mut self.current_cell_inlines
+        }
+    }
+
+    /// 将当前 inline 容器 flush 为一个 block（Paragraph）。
+    /// 列表项内不 flush（item 的 inline 已直接写入 item.content）。
+    fn flush_paragraph(&mut self) {
+        if self.current_inlines.is_empty() {
+            return;
+        }
+        if !self.item_stack.is_empty() {
+            return;
+        }
+        let inlines = std::mem::take(&mut self.current_inlines);
+        let block = Block {
+            source: self.current_source,
+            kind: BlockKind::Paragraph(inlines),
+        };
+        self.push_block(block);
+    }
+
+    /// Push block：优先级为 item_stack 顶 > blockquote_stack 顶 > blocks。
+    /// 列表项内产生的 block（如嵌套 List、CodeBlock）成为该 item 的 child。
+    fn push_block(&mut self, block: Block) {
+        if let Some(item) = self.item_stack.last_mut() {
+            item.children.push(block);
+            return;
+        }
+        if let Some(bq_blocks) = self.blockquote_stack.last_mut() {
+            bq_blocks.push(block);
+        } else {
+            self.blocks.push(block);
+        }
+    }
+
+    /// Push inline 到当前目标容器
+    fn push_inline(&mut self, inline: Inline) {
+        self.current_inline_target().push(inline);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Table separator normalization (unchanged from previous implementation)
+// ---------------------------------------------------------------------------
+
+/// 检测 markdown 文本中是否存在列数不足的表格分隔行。
+fn needs_table_separator_fix(md: &str) -> bool {
+    let lines: Vec<&str> = md.lines().collect();
+    for i in 1..lines.len() {
+        let prev = lines[i - 1].trim();
+        let curr = lines[i].trim();
+        if prev.starts_with('|') && is_separator_row(curr) {
+            let header_cols = count_pipe_cells(prev);
+            let sep_cols = count_pipe_cells(curr);
+            if header_cols > 1 && sep_cols < header_cols {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// 补齐所有表格分隔行的列数，使其与对应的表头列数匹配。
+fn normalize_table_separators(md: &str) -> String {
+    let lines: Vec<&str> = md.lines().collect();
+    let mut result = String::with_capacity(md.len());
+    let mut modified = false;
+
+    for i in 0..lines.len() {
+        if i > 0 {
+            let prev = lines[i - 1].trim();
+            let curr = lines[i].trim();
+            if prev.starts_with('|') && is_separator_row(curr) {
+                let header_cols = count_pipe_cells(prev);
+                let sep_cols = count_pipe_cells(curr);
+                if header_cols > 1 && sep_cols < header_cols {
+                    let mut fixed = String::from("|");
+                    for _ in 0..header_cols {
+                        fixed.push_str("---|");
+                    }
+                    result.push_str(&fixed);
+                    modified = true;
+                    result.push('\n');
+                    continue;
+                }
+            }
+        }
+        result.push_str(lines[i]);
+        result.push('\n');
+    }
+
+    if modified {
+        if md.ends_with('\n') && !result.ends_with('\n') {
+            result.push('\n');
+        } else if !md.ends_with('\n') && result.ends_with('\n') {
+            result.pop();
+        }
+        result
+    } else {
+        md.to_string()
+    }
+}
+
+/// 判断一行是否是表格分隔行（仅含 `|`、`-`、`:`、空格）。
+fn is_separator_row(line: &str) -> bool {
+    let trimmed = line.trim();
+    if !trimmed.starts_with('|') {
+        return false;
+    }
+    let inner = trimmed.trim_matches('|').trim();
+    !inner.is_empty()
+        && inner
+            .chars()
+            .all(|c| c == '-' || c == ':' || c == ' ' || c == '|')
+}
+
+/// 统计以 `|` 分隔的行的列数。
+fn count_pipe_cells(line: &str) -> usize {
+    let trimmed = line.trim();
+    if !trimmed.starts_with('|') {
+        return 0;
+    }
+    let segments: Vec<&str> = trimmed.split('|').collect();
+    let count = segments.len().saturating_sub(1);
+    if count > 0 && segments.last().is_some_and(|s| s.trim().is_empty()) {
+        count - 1
+    } else {
+        count
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Byte offset → line number mapping
+// ---------------------------------------------------------------------------
+
+/// 构建行起始字节偏移表
+fn build_line_offsets(text: &str) -> Vec<usize> {
+    let mut offsets = Vec::with_capacity(64);
+    offsets.push(0);
+    for (i, ch) in text.char_indices() {
+        if ch == '\n' {
+            offsets.push(i + 1);
+        }
+    }
+    offsets
+}
+
+/// 将字节偏移转换为行号（0-based）
+fn byte_to_line(byte: usize, line_offsets: &[usize]) -> usize {
+    match line_offsets.binary_search(&(byte + 1)) {
+        Ok(idx) => idx,
+        Err(idx) => idx.saturating_sub(1),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Public API: parse_markdown
+// ---------------------------------------------------------------------------
+
+/// 纯解析：将 Markdown 文本解析为 IR 文档结构。
+/// 不依赖终端宽度或主题，输出与渲染无关的中间表示。
+pub fn parse_markdown(md: &str, max_width: usize) -> ParsedDocument {
+    // 预处理：ANSI/OSC/tab/carriage return/控制字符清洗
+    let normalized_md;
+    let md = if reader_needs_terminal_sanitization(md) {
+        normalized_md = reader_sanitize_terminal_text(md);
+        normalized_md.as_str()
+    } else {
+        md
+    };
+
+    // 预处理：中文引号与加粗标记的零宽空格
+    let mut md_owned;
+    let md = if md.contains("**\u{201C}")
+        || md.contains("**\u{2018}")
+        || md.contains("\u{201D}**")
+        || md.contains("\u{2019}**")
+    {
+        md_owned = md
+            .replace("**\u{201C}", "**\u{200B}\u{201C}")
+            .replace("**\u{2018}", "**\u{200B}\u{2018}")
+            .replace("\u{201D}**", "\u{201D}\u{200B}**")
+            .replace("\u{2019}**", "\u{2019}\u{200B}**");
+        &md_owned as &str
+    } else {
+        md
+    };
+
+    // 预处理：表格分隔行修复（需要 max_width 仅用于判断逻辑，此处保留接口）
+    let separator_fixed;
+    let md = if needs_table_separator_fix(md) {
+        separator_fixed = normalize_table_separators(md);
+        md_owned = separator_fixed;
+        &md_owned as &str
+    } else {
+        md
+    };
+
+    // 使用 max_width 避免未使用警告（表格分隔行修复可能间接用到）
+    let _ = max_width;
+
+    // 构建行偏移表（基于预处理后的文本）
+    let line_offsets = build_line_offsets(md);
+
+    let options = pulldown_cmark::Options::ENABLE_STRIKETHROUGH
+        | pulldown_cmark::Options::ENABLE_TABLES
+        | pulldown_cmark::Options::ENABLE_TASKLISTS;
+    let parser = pulldown_cmark::Parser::new_ext(md, options);
+
+    let mut ctx = ParseContext::new();
+
+    for (event, range) in parser.into_offset_iter() {
+        // 计算当前 event 的源码行范围
+        let source = if !range.is_empty() {
+            SourceRange {
+                start_line: byte_to_line(range.start, &line_offsets),
+                end_line: byte_to_line(range.end.saturating_sub(1), &line_offsets),
+            }
+        } else {
+            SourceRange::default()
+        };
+        ctx.current_source = source;
+        match event {
+            // ===== Heading =====
+            Event::Start(Tag::Heading { level, .. }) => {
+                ctx.flush_paragraph();
+                ctx.heading_level = Some(level as u8);
+            }
+            Event::End(TagEnd::Heading(level)) => {
+                let content = std::mem::take(&mut ctx.current_inlines);
+                let block = Block {
+                    source: ctx.current_source,
+                    kind: BlockKind::Heading {
+                        level: level as u8,
+                        content,
+                    },
+                };
+                ctx.push_block(block);
+                ctx.heading_level = None;
+            }
+
+            // ===== Strong / Emphasis / Strikethrough =====
+            Event::Start(Tag::Strong) => {
+                ctx.inline_stack.push(InlineContainer::Strong);
+                ctx.inline_children_stack.push(Vec::new());
+            }
+            Event::End(TagEnd::Strong) => {
+                ctx.inline_stack.pop();
+                let children = ctx.inline_children_stack.pop().unwrap_or_default();
+                ctx.push_inline(Inline::Strong(children));
+            }
+            Event::Start(Tag::Emphasis) => {
+                ctx.inline_stack.push(InlineContainer::Emphasis);
+                ctx.inline_children_stack.push(Vec::new());
+            }
+            Event::End(TagEnd::Emphasis) => {
+                ctx.inline_stack.pop();
+                let children = ctx.inline_children_stack.pop().unwrap_or_default();
+                ctx.push_inline(Inline::Emphasis(children));
+            }
+            Event::Start(Tag::Strikethrough) => {
+                ctx.inline_stack.push(InlineContainer::Strikethrough);
+                ctx.inline_children_stack.push(Vec::new());
+            }
+            Event::End(TagEnd::Strikethrough) => {
+                ctx.inline_stack.pop();
+                let children = ctx.inline_children_stack.pop().unwrap_or_default();
+                ctx.push_inline(Inline::Strikethrough(children));
+            }
+
+            // ===== Link =====
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                ctx.inline_stack.push(InlineContainer::Link {
+                    url: dest_url.to_string(),
+                });
+                ctx.inline_children_stack.push(Vec::new());
+            }
+            Event::End(TagEnd::Link) => {
+                let container = ctx.inline_stack.pop();
+                let children = ctx.inline_children_stack.pop().unwrap_or_default();
+                if let Some(InlineContainer::Link { url }) = container {
+                    ctx.push_inline(Inline::Link {
+                        text: children,
+                        url,
+                    });
+                }
+            }
+
+            // ===== Code Block =====
+            Event::Start(Tag::CodeBlock(kind)) => {
+                ctx.flush_paragraph();
+                ctx.in_code_block = true;
+                ctx.code_block_content.clear();
+                ctx.code_block_fenced = matches!(kind, pulldown_cmark::CodeBlockKind::Fenced(_));
+                ctx.code_block_lang = match kind {
+                    pulldown_cmark::CodeBlockKind::Fenced(lang) => lang.to_string(),
+                    pulldown_cmark::CodeBlockKind::Indented => String::new(),
+                };
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                let block = Block {
+                    source: ctx.current_source,
+                    kind: BlockKind::CodeBlock {
+                        lang: std::mem::take(&mut ctx.code_block_lang),
+                        code: std::mem::take(&mut ctx.code_block_content),
+                        fenced: ctx.code_block_fenced,
+                    },
+                };
+                ctx.push_block(block);
+                ctx.in_code_block = false;
+                ctx.code_block_fenced = false;
+            }
+
+            // ===== Inline Code =====
+            Event::Code(text) => {
+                if ctx.in_table {
+                    ctx.table_handle_code(&text);
+                } else {
+                    ctx.push_inline(Inline::Code(text.to_string()));
+                }
+            }
+
+            // ===== List =====
+            Event::Start(Tag::List(start)) => {
+                ctx.flush_paragraph();
+                ctx.list_stack.push(ListFrame {
+                    ordered: start.is_some(),
+                    start_index: start,
+                    items: Vec::new(),
+                });
+            }
+            Event::End(TagEnd::List(_)) => {
+                ctx.flush_paragraph();
+                let Some(frame) = ctx.list_stack.pop() else {
+                    continue;
+                };
+                let block = Block {
+                    source: ctx.current_source,
+                    kind: BlockKind::List(ListData {
+                        ordered: frame.ordered,
+                        start_index: frame.start_index,
+                        items: frame.items,
+                    }),
+                };
+                // push_block 会自动处理嵌套：item_stack 顶优先（成为父 item 的 child）
+                ctx.push_block(block);
+            }
+            Event::Start(Tag::Item) => {
+                ctx.item_stack.push(ItemFrame::default());
+            }
+            Event::End(TagEnd::Item) => {
+                let Some(frame) = ctx.item_stack.pop() else {
+                    continue;
+                };
+                let item = ListItem {
+                    checked: frame.checked,
+                    content: frame.content,
+                    children: frame.children,
+                };
+                if let Some(list) = ctx.list_stack.last_mut() {
+                    list.items.push(item);
+                }
+            }
+            Event::TaskListMarker(checked) => {
+                if let Some(item) = ctx.item_stack.last_mut() {
+                    item.checked = Some(checked);
+                }
+            }
+
+            // ===== Paragraph =====
+            Event::Start(Tag::Paragraph) => {
+                // paragraph 开始时无需特殊处理
+            }
+            Event::End(TagEnd::Paragraph) => {
+                ctx.flush_paragraph();
+            }
+
+            // ===== Block Quote =====
+            Event::Start(Tag::BlockQuote(_)) => {
+                ctx.flush_paragraph();
+                ctx.blockquote_stack.push(Vec::new());
+            }
+            Event::End(TagEnd::BlockQuote(_)) => {
+                ctx.flush_paragraph();
+                let inner_blocks = ctx.blockquote_stack.pop().unwrap_or_default();
+                let block = Block {
+                    source: ctx.current_source,
+                    kind: BlockKind::BlockQuote(inner_blocks),
+                };
+                ctx.push_block(block);
+            }
+
+            // ===== Text =====
+            Event::Text(text) => {
+                if ctx.image_url.is_some() {
+                    ctx.image_alt.push_str(&text);
+                } else if ctx.in_code_block {
+                    ctx.code_block_content.push_str(&text);
+                } else if ctx.in_table {
+                    ctx.table_handle_text(&text);
+                } else {
+                    ctx.push_inline(Inline::Text(text.to_string()));
+                }
+            }
+
+            // ===== Soft / Hard Break =====
+            Event::SoftBreak => {
+                if ctx.in_table {
+                    ctx.current_cell_inlines.push(Inline::SoftBreak);
+                } else {
+                    ctx.push_inline(Inline::SoftBreak);
+                }
+            }
+            Event::HardBreak => {
+                if ctx.in_table {
+                    ctx.current_cell_inlines.push(Inline::HardBreak);
+                } else {
+                    ctx.push_inline(Inline::HardBreak);
+                }
+            }
+
+            // ===== Rule =====
+            Event::Rule => {
+                ctx.flush_paragraph();
+                ctx.push_block(Block {
+                    source: ctx.current_source,
+                    kind: BlockKind::Rule,
+                });
+            }
+
+            // ===== HTML Block =====
+            Event::Html(html) | Event::InlineHtml(html) => {
+                let trimmed = html.trim();
+                if trimmed.is_empty() {
+                    // 跳过空 HTML
+                } else if ctx.in_code_block || ctx.in_table {
+                    // 在代码块或表格内，作为文本处理
+                    ctx.push_inline(Inline::Text(html.to_string()));
+                } else {
+                    ctx.flush_paragraph();
+                    ctx.push_block(Block {
+                        source: ctx.current_source,
+                        kind: BlockKind::HtmlBlock(trimmed.to_string()),
+                    });
+                }
+            }
+
+            // ===== Table =====
+            Event::Start(Tag::Table(alignments)) => {
+                ctx.flush_paragraph();
+                ctx.in_table = true;
+                ctx.table_rows.clear();
+                ctx.table_alignments = alignments;
+            }
+            Event::End(TagEnd::Table) => {
+                ctx.flush_paragraph();
+                ctx.in_table = false;
+                let data = TableData {
+                    alignments: std::mem::take(&mut ctx.table_alignments),
+                    rows: std::mem::take(&mut ctx.table_rows),
+                };
+                ctx.push_block(Block {
+                    source: ctx.current_source,
+                    kind: BlockKind::Table(data),
+                });
+            }
+            Event::Start(Tag::TableHead) => {
+                ctx.current_row.clear();
+            }
+            Event::End(TagEnd::TableHead) => {
+                let row = std::mem::take(&mut ctx.current_row);
+                ctx.table_rows.push(row);
+            }
+            Event::Start(Tag::TableRow) => {
+                ctx.current_row.clear();
+            }
+            Event::End(TagEnd::TableRow) => {
+                let row = std::mem::take(&mut ctx.current_row);
+                ctx.table_rows.push(row);
+            }
+            Event::Start(Tag::TableCell) => {
+                ctx.current_cell_inlines.clear();
+                ctx.table_inline_stack.clear();
+                ctx.table_inline_children_stack.clear();
+            }
+            Event::End(TagEnd::TableCell) => {
+                // flush table inline stack
+                ctx.table_flush_inline_stack();
+                let cell = std::mem::take(&mut ctx.current_cell_inlines);
+                ctx.current_row.push(cell);
+            }
+
+            // ===== Image =====
+            Event::Start(Tag::Image { dest_url, .. }) => {
+                ctx.image_url = Some(dest_url.to_string());
+                ctx.image_alt.clear();
+            }
+            Event::End(TagEnd::Image) => {
+                if let Some(url) = ctx.image_url.take() {
+                    let alt = std::mem::take(&mut ctx.image_alt);
+                    ctx.push_inline(Inline::Image { url, alt });
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    // flush 残余 inline
+    ctx.flush_paragraph();
+
+    ParsedDocument {
+        blocks: ctx.blocks,
+        line_to_block: Vec::new(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ParseContext table helpers
+// ---------------------------------------------------------------------------
+
+impl ParseContext {
+    fn table_handle_text(&mut self, text: &str) {
+        self.table_flush_inline_stack();
+        self.current_cell_inlines
+            .push(Inline::Text(text.to_string()));
+    }
+
+    fn table_handle_code(&mut self, text: &str) {
+        self.table_flush_inline_stack();
+        self.current_cell_inlines
+            .push(Inline::Code(text.to_string()));
+    }
+
+    /// Flush inline children stack into current cell
+    fn table_flush_inline_stack(&mut self) {
+        // 如果有未关闭的 inline 栈，将 children 合并回 cell
+        while let Some(children) = self.table_inline_children_stack.pop() {
+            let container = self.table_inline_stack.pop();
+            match container {
+                Some(InlineContainer::Strong) => {
+                    self.current_cell_inlines.push(Inline::Strong(children));
+                }
+                Some(InlineContainer::Emphasis) => {
+                    self.current_cell_inlines.push(Inline::Emphasis(children));
+                }
+                Some(InlineContainer::Strikethrough) => {
+                    self.current_cell_inlines
+                        .push(Inline::Strikethrough(children));
+                }
+                Some(InlineContainer::Link { url }) => {
+                    self.current_cell_inlines.push(Inline::Link {
+                        text: children,
+                        url,
+                    });
+                }
+                None => {
+                    self.current_cell_inlines.extend(children);
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Public API: table parsing helper
+// ---------------------------------------------------------------------------
+
+fn reader_needs_terminal_sanitization(text: &str) -> bool {
+    text.chars().any(|ch| matches!(ch, '\u{0000}'..='\u{0008}' | '\u{000B}' | '\u{000C}' | '\u{000E}'..='\u{001F}' | '\u{007F}'))
+}
+
+fn reader_sanitize_terminal_text(text: &str) -> String {
+    text.chars()
+        .filter(|ch| !matches!(ch, '\u{0000}'..='\u{0008}' | '\u{000B}' | '\u{000C}' | '\u{000E}'..='\u{001F}' | '\u{007F}'))
+        .collect()
+}
