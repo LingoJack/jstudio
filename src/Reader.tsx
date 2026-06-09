@@ -29,6 +29,9 @@ import {
 } from './services'
 import {
   MAX_TABS,
+  ACTIVITY_BAR_WIDTH,
+  MAIN_CONTENT_MIN_RATIO,
+  PINNED_TOC_WIDTH,
   SIDEBAR_DEFAULT,
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -326,24 +329,27 @@ export function Reader() {
   }, [])
 
   // 关闭除指定 tab 以外的所有非 dirty tab；dirty tab 保留
-  const closeOthers = useCallback((keepPath: string) => {
-    setTabs((prev) => {
-      const kept = prev.filter((t) => t.path === keepPath || t.dirty)
-      // 清理 ref 桶
-      for (const t of prev) {
-        if (!kept.some((k) => k.path === t.path)) {
-          delete sourcesRef.current[t.path]
-          delete originalSourcesRef.current[t.path]
-          delete docsRef.current[t.path]
-          delete imagesRef.current[t.path]
+  const closeOthers = useCallback(
+    (keepPath: string) => {
+      setTabs((prev) => {
+        const kept = prev.filter((t) => t.path === keepPath || t.dirty)
+        // 清理 ref 桶
+        for (const t of prev) {
+          if (!kept.some((k) => k.path === t.path)) {
+            delete sourcesRef.current[t.path]
+            delete originalSourcesRef.current[t.path]
+            delete docsRef.current[t.path]
+            delete imagesRef.current[t.path]
+          }
         }
-      }
-      if (!kept.some((t) => t.path === activeTabPath)) {
-        setActiveTabPath(keepPath)
-      }
-      return kept
-    })
-  }, [activeTabPath])
+        if (!kept.some((t) => t.path === activeTabPath)) {
+          setActiveTabPath(keepPath)
+        }
+        return kept
+      })
+    },
+    [activeTabPath]
+  )
 
   // 关闭全部非 dirty tab；dirty tab 保留
   const closeAll = useCallback(() => {
@@ -613,6 +619,14 @@ export function Reader() {
   /** 当前活跃工具 id（用于 Toolbox 高亮选中态） */
   const activeToolId = activeTab?.kind === 'tool' ? (activeTab.toolId ?? null) : null
 
+  /** 主编辑区最小占比：避免侧栏 + 固定目录挤压核心内容。 */
+  const editorMinWidth = useMemo(() => {
+    const tocWidth = showToc && tocPinned ? PINNED_TOC_WIDTH : 0
+    const sidebarTotalWidth = sidebarCollapsed ? 0 : sidebarWidth + 1
+    const reservedWidth = ACTIVITY_BAR_WIDTH + sidebarTotalWidth + tocWidth
+    return `max(0px, calc(${MAIN_CONTENT_MIN_RATIO * 100}vw - ${reservedWidth}px))`
+  }, [showToc, tocPinned, sidebarCollapsed, sidebarWidth])
+
   // —— Loading / Error 屏 ——
   if (loadState.kind === 'loading') {
     return (
@@ -655,8 +669,8 @@ export function Reader() {
         data-theme={theme}
         style={{
           gridTemplateColumns: sidebarCollapsed
-            ? '44px minmax(0, 1fr)'
-            : `44px ${sidebarWidth}px 1px minmax(0, 1fr)`,
+            ? `${ACTIVITY_BAR_WIDTH}px minmax(0, 1fr)`
+            : `${ACTIVITY_BAR_WIDTH}px ${sidebarWidth}px 1px minmax(${editorMinWidth}, 1fr)`,
         }}
       >
         {/* 最左：垂直活动栏 */}
@@ -724,7 +738,9 @@ export function Reader() {
           <div
             className={
               'flex-1 overflow-hidden relative ' +
-              (showToc && tocPinned ? 'grid grid-cols-[minmax(0,1fr)_248px] bg-seeyue-bg' : 'block')
+              (showToc && tocPinned
+                ? 'grid grid-cols-[minmax(0,1fr)_clamp(208px,18vw,248px)] bg-seeyue-bg'
+                : 'block')
             }
           >
             <div className="h-full min-w-0 overflow-hidden relative">
