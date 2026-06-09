@@ -7,7 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 // 要点：
 // - `base: './'`     —— Tauri production asset 使用相对路径
 // - `outDir: 'dist'` —— 与 src-tauri/tauri.conf.json 的 frontendDist 对齐
-// - 入口 HTML 使用 `reader.html`
+// - 入口 HTML 使用 `index.html`
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: './',
@@ -34,7 +34,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: 'reader.html',
+      input: 'index.html',
       output: {
         manualChunks(id) {
           if (
