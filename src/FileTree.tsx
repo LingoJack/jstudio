@@ -29,6 +29,8 @@ interface Props {
   onRenamePath?: (path: string, newName: string) => Promise<string>
   onDeletePath?: (path: string) => Promise<void>
   onShowInFolder?: (path: string) => Promise<void>
+  /** 切换文件树根目录。 */
+  onOpenRoot?: (dir: string) => Promise<void> | void
 }
 
 type CreateKind = 'file' | 'folder'
@@ -76,6 +78,7 @@ export function FileTree(props: Props) {
     onRenamePath,
     onDeletePath,
     onShowInFolder,
+    onOpenRoot,
   } = props
   // 以路径为 key 存储每个已访问目录的状态
   const [nodes, setNodes] = useState<Record<string, NodeState>>({})
@@ -86,46 +89,45 @@ export function FileTree(props: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [renaming, setRenaming] = useState<RenameTarget | null>(null)
   const [renamingError, setRenamingError] = useState<string | null>(null)
+  const [openingRoot, setOpeningRoot] = useState(false)
+  const [openingRootError, setOpeningRootError] = useState<string | null>(null)
 
-  const loadDir = useCallback(
-    async (dir: string) => {
+  const loadDir = useCallback(async (dir: string) => {
+    setNodes((prev) => ({
+      ...prev,
+      [dir]: {
+        loading: true,
+        expanded: true,
+        entries: prev[dir]?.entries ?? null,
+        truncated: prev[dir]?.truncated ?? false,
+        error: null,
+      },
+    }))
+    try {
+      const data = await listDir(dir, false)
       setNodes((prev) => ({
         ...prev,
         [dir]: {
-          loading: true,
+          loading: false,
           expanded: true,
-          entries: prev[dir]?.entries ?? null,
-          truncated: prev[dir]?.truncated ?? false,
+          entries: data.entries,
+          truncated: data.truncated,
           error: null,
         },
       }))
-      try {
-        const data = await listDir(dir, false)
-        setNodes((prev) => ({
-          ...prev,
-          [dir]: {
-            loading: false,
-            expanded: true,
-            entries: data.entries,
-            truncated: data.truncated,
-            error: null,
-          },
-        }))
-      } catch (e) {
-        setNodes((prev) => ({
-          ...prev,
-          [dir]: {
-            loading: false,
-            expanded: true,
-            entries: null,
-            truncated: false,
-            error: String(e),
-          },
-        }))
-      }
-    },
-    []
-  )
+    } catch (e) {
+      setNodes((prev) => ({
+        ...prev,
+        [dir]: {
+          loading: false,
+          expanded: true,
+          entries: null,
+          truncated: false,
+          error: String(e),
+        },
+      }))
+    }
+  }, [])
 
   // 切根目录 → 重载根目录
   useEffect(() => {
@@ -176,7 +178,9 @@ export function FileTree(props: Props) {
     async (target: CreateTarget, name: string) => {
       const creator = target.kind === 'file' ? onCreateFile : onCreateFolder
       if (!creator) {
-        setCreatingError(target.kind === 'file' ? '当前环境不支持新建文件' : '当前环境不支持新建文件夹')
+        setCreatingError(
+          target.kind === 'file' ? '当前环境不支持新建文件' : '当前环境不支持新建文件夹'
+        )
         return
       }
       try {
@@ -247,6 +251,35 @@ export function FileTree(props: Props) {
     [onShowInFolder]
   )
 
+  const openRootDialog = useCallback(() => {
+    if (!onOpenRoot) return
+    setContextMenu(null)
+    setOpeningRootError(null)
+    setOpeningRoot(true)
+  }, [onOpenRoot])
+
+  const submitOpenRoot = useCallback(
+    async (dir: string) => {
+      if (!onOpenRoot) {
+        setOpeningRootError('当前环境不支持打开目录')
+        return
+      }
+      const trimmed = dir.trim()
+      if (!trimmed) {
+        setOpeningRootError('请输入目录路径')
+        return
+      }
+      try {
+        await onOpenRoot(trimmed)
+        setOpeningRoot(false)
+        setOpeningRootError(null)
+      } catch (e) {
+        setOpeningRootError(String(e))
+      }
+    },
+    [onOpenRoot]
+  )
+
   // 路径面包屑分段
   const crumbs = useMemo(() => splitPath(root), [root])
   const filterLower = filter.trim().toLowerCase()
@@ -261,22 +294,39 @@ export function FileTree(props: Props) {
       onClick={() => setContextMenu(null)}
     >
       {/* —— 路径面包屑 —— */}
-      <div
-        className="px-3 pt-2 pb-1.5 text-[11px] text-seeyue-fg-dim flex items-center gap-1 truncate"
-        title={root}
-      >
-        {crumbs.map((seg, i) => (
-          <span key={i} className="flex items-center gap-1 truncate">
-            {i > 0 && <span className="opacity-50">/</span>}
-            <span
-              className={
-                i === crumbs.length - 1 ? 'text-seeyue-fg-strong truncate font-medium' : 'truncate'
-              }
-            >
-              {seg}
+      <div className="px-3 pt-2 pb-1.5 flex items-center gap-2">
+        <div
+          className="min-w-0 flex-1 text-[11px] text-seeyue-fg-dim flex items-center gap-1 truncate"
+          title={root}
+        >
+          {crumbs.map((seg, i) => (
+            <span key={i} className="flex items-center gap-1 truncate">
+              {i > 0 && <span className="opacity-50">/</span>}
+              <span
+                className={
+                  i === crumbs.length - 1
+                    ? 'text-seeyue-fg-strong truncate font-medium'
+                    : 'truncate'
+                }
+              >
+                {seg}
+              </span>
             </span>
-          </span>
-        ))}
+          ))}
+        </div>
+        {onOpenRoot && (
+          <button
+            type="button"
+            className="shrink-0 rounded border border-seeyue-border bg-seeyue-bg px-2 py-1 text-[11px] text-seeyue-fg-muted transition-colors hover:border-seeyue-accent hover:text-seeyue-fg-strong"
+            onClick={(e) => {
+              e.stopPropagation()
+              openRootDialog()
+            }}
+            title="打开其他目录"
+          >
+            打开目录
+          </button>
+        )}
       </div>
 
       {/* —— 搜索框 —— */}
@@ -355,6 +405,24 @@ export function FileTree(props: Props) {
         />
       )}
 
+      {openingRoot && (
+        <PromptDialog
+          title="打开目录"
+          description="输入要作为文件树根目录的本地目录路径："
+          initialValue={root}
+          placeholder="例如 /Users/you/project"
+          confirmLabel="打开"
+          error={openingRootError ?? undefined}
+          onCancel={() => {
+            setOpeningRoot(false)
+            setOpeningRootError(null)
+          }}
+          onConfirm={(dir) => {
+            void submitOpenRoot(dir)
+          }}
+        />
+      )}
+
       {contextMenu && (
         <div
           className="fixed z-50 min-w-[150px] overflow-hidden rounded-md border border-seeyue-border bg-seeyue-bg/95 py-1 text-[13px] text-seeyue-fg shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur"
@@ -363,10 +431,12 @@ export function FileTree(props: Props) {
           onContextMenu={(e) => e.preventDefault()}
         >
           {contextMenu.entry && !contextMenu.entry.is_dir && (
-            <MenuButton onClick={() => {
-              onOpen(contextMenu.entry!.path)
-              setContextMenu(null)
-            }}>
+            <MenuButton
+              onClick={() => {
+                onOpen(contextMenu.entry!.path)
+                setContextMenu(null)
+              }}
+            >
               打开
             </MenuButton>
           )}
@@ -394,10 +464,14 @@ export function FileTree(props: Props) {
             <MenuButton onClick={() => openRenameDialog(contextMenu.entry!)}>重命名</MenuButton>
           )}
           {contextMenu.entry && onDeletePath && (
-            <MenuButton danger onClick={() => void requestDelete(contextMenu.entry!)}>删除</MenuButton>
+            <MenuButton danger onClick={() => void requestDelete(contextMenu.entry!)}>
+              删除
+            </MenuButton>
           )}
           {onShowInFolder && (
-            <MenuButton onClick={() => void requestShowInFolder(contextMenu.entry?.path ?? contextMenu.dir)}>
+            <MenuButton
+              onClick={() => void requestShowInFolder(contextMenu.entry?.path ?? contextMenu.dir)}
+            >
               {contextMenu.entry?.is_dir ? '在访达中打开' : '在访达中显示'}
             </MenuButton>
           )}
@@ -585,10 +659,10 @@ function EntryRow({
             type="button"
             className="shrink-0 inline-flex items-center justify-center w-[18px] h-[18px] rounded border-0 bg-transparent text-seeyue-fg-dim cursor-pointer opacity-0 transition-all duration-150 mr-1 group-hover:opacity-100 group-focus-within:opacity-100 hover:text-seeyue-success hover:bg-[rgba(163,190,140,0.15)] group-data-[active=true]:text-seeyue-fg-strong"
             title="在该目录新建文件"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRequestCreate(entry.path, 'file')
-              }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRequestCreate(entry.path, 'file')
+            }}
           >
             <FilePlus size={12} />
           </button>

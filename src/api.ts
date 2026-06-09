@@ -57,6 +57,11 @@ export async function showInFolder(path: string): Promise<void> {
   return invoke<void>('show_in_folder', { req: { path } })
 }
 
+export async function openDir(path: string): Promise<string> {
+  const resp = await invoke<CreateResp>('open_dir', { req: { path } })
+  return resp.path
+}
+
 export async function readAsset(path: string): Promise<Blob> {
   const resp = await invoke<AssetResp>('read_asset', { path })
   return new Blob([new Uint8Array(resp.bytes)], { type: resp.mime })

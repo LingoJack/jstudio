@@ -22,6 +22,7 @@ import {
   createFile as createFileOnDisk,
   deletePath,
   getInitial,
+  openDir,
   quitReaderWindow,
   readFile,
   renamePath,
@@ -295,27 +296,24 @@ export function Reader() {
     [tabs]
   )
 
-  const forceCloseTab = useCallback(
-    (path: string) => {
-      setTabs((prev) => {
-        const idx = prev.findIndex((t) => t.path === path)
-        if (idx < 0) return prev
-        const next = prev.filter((t) => t.path !== path)
-        setActiveTabPath((currentActivePath) => {
-          if (currentActivePath !== path) return currentActivePath
-          // 切换 active：优先左邻（上一个 tab）→ 右邻 → null
-          return prev[idx - 1]?.path ?? prev[idx + 1]?.path ?? null
-        })
-        return next
+  const forceCloseTab = useCallback((path: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.path === path)
+      if (idx < 0) return prev
+      const next = prev.filter((t) => t.path !== path)
+      setActiveTabPath((currentActivePath) => {
+        if (currentActivePath !== path) return currentActivePath
+        // 切换 active：优先左邻（上一个 tab）→ 右邻 → null
+        return prev[idx - 1]?.path ?? prev[idx + 1]?.path ?? null
       })
-      // 清掉 ref 桶里的内容，不让已关 tab 占内存
-      delete sourcesRef.current[path]
-      delete originalSourcesRef.current[path]
-      delete docsRef.current[path]
-      delete imagesRef.current[path]
-    },
-    []
-  )
+      return next
+    })
+    // 清掉 ref 桶里的内容，不让已关 tab 占内存
+    delete sourcesRef.current[path]
+    delete originalSourcesRef.current[path]
+    delete docsRef.current[path]
+    delete imagesRef.current[path]
+  }, [])
 
   const saveTab = useCallback(
     async (path: string) => {
@@ -395,7 +393,11 @@ export function Reader() {
           }
         })
       )
-      setActiveTabPath((current) => (current && isSameOrChildPath(current, oldPath) ? rebasePath(current, oldPath, newPath) : current))
+      setActiveTabPath((current) =>
+        current && isSameOrChildPath(current, oldPath)
+          ? rebasePath(current, oldPath, newPath)
+          : current
+      )
       setToast({ message: '已重命名', kind: 'success' })
       return newPath
     },
@@ -424,6 +426,13 @@ export function Reader() {
 
   const showInFolderAction = useCallback(async (path: string): Promise<void> => {
     await showInFolder(path)
+  }, [])
+
+  const openRootAction = useCallback(async (dir: string): Promise<void> => {
+    const path = await openDir(dir)
+    setTreeRoot(path)
+    setActiveActivity('files')
+    setToast({ message: '已打开目录', kind: 'success' })
   }, [])
 
   /** 关掉整个 reader 窗口。 */
@@ -580,6 +589,7 @@ export function Reader() {
               onRenamePath={renamePathAction}
               onDeletePath={deletePathAction}
               onShowInFolder={showInFolderAction}
+              onOpenRoot={openRootAction}
             />
           ) : (
             <Toolbox activeToolId={activeToolId} onOpen={openTool} />

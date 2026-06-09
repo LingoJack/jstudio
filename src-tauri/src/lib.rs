@@ -186,6 +186,12 @@ fn show_in_folder(req: PathReq) -> Result<(), String> {
     show_in_folder_inner(&req.path).map_err(|err| err.message())
 }
 
+/// 打开并切换 Reader 根目录。
+#[tauri::command]
+fn open_dir(req: PathReq) -> Result<CreateResp, String> {
+    open_dir_inner(&req.path).map_err(|err| err.message())
+}
+
 /// 读取本地图片/资源。
 #[tauri::command]
 fn read_asset(path: String) -> Result<AssetResp, String> {
@@ -396,6 +402,16 @@ fn validate_leaf_name(name: &str) -> ReaderResult<&str> {
     Ok(name)
 }
 
+fn open_dir_inner(path: &str) -> ReaderResult<CreateResp> {
+    let path = canonicalize_existing(path)?;
+    if !path.is_dir() {
+        return Err(ReaderError::InvalidPath("路径不是目录".to_string()));
+    }
+    Ok(CreateResp {
+        path: display_path(&path),
+    })
+}
+
 fn read_asset_inner(path: &str) -> ReaderResult<AssetResp> {
     let path = canonicalize_existing(path)?;
     ensure_regular_file(&path)?;
@@ -450,6 +466,7 @@ pub fn run() {
             delete_path,
             rename_path,
             show_in_folder,
+            open_dir,
             read_asset,
             quit_reader,
         ])
