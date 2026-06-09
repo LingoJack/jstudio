@@ -15,7 +15,7 @@ import { extractHeadings } from './toc'
 import { Toast } from './Toast'
 import { VerticalSplitter } from './Splitter'
 import { MarkdownBaseDirContext } from './MarkdownIR'
-import { ChevronRight, CopyPath, FileText, Save } from './Icon'
+import { ChevronRight, CopyPath, FileText, FolderOpen, Save } from './Icon'
 import type { ImagePayload, ParsedDocument, RenderedDoc, Tab, ToolId } from './types'
 import {
   createDir,
@@ -315,6 +315,68 @@ export function Reader() {
     delete imagesRef.current[path]
   }, [])
 
+  // 关闭除指定 tab 以外的所有非 dirty tab；dirty tab 保留
+  const closeOthers = useCallback((keepPath: string) => {
+    setTabs((prev) => {
+      const kept = prev.filter((t) => t.path === keepPath || t.dirty)
+      // 清理 ref 桶
+      for (const t of prev) {
+        if (!kept.some((k) => k.path === t.path)) {
+          delete sourcesRef.current[t.path]
+          delete originalSourcesRef.current[t.path]
+          delete docsRef.current[t.path]
+          delete imagesRef.current[t.path]
+        }
+      }
+      if (!kept.some((t) => t.path === activeTabPath)) {
+        setActiveTabPath(keepPath)
+      }
+      return kept
+    })
+  }, [activeTabPath])
+
+  // 关闭全部非 dirty tab；dirty tab 保留
+  const closeAll = useCallback(() => {
+    setTabs((prev) => {
+      const kept = prev.filter((t) => t.dirty)
+      for (const t of prev) {
+        if (!kept.some((k) => k.path === t.path)) {
+          delete sourcesRef.current[t.path]
+          delete originalSourcesRef.current[t.path]
+          delete docsRef.current[t.path]
+          delete imagesRef.current[t.path]
+        }
+      }
+      if (kept.length > 0) {
+        if (!kept.some((t) => t.path === activeTabPath)) {
+          setActiveTabPath(kept[0].path)
+        }
+      } else {
+        setActiveTabPath(null)
+      }
+      return kept
+    })
+  }, [activeTabPath])
+
+  // 仅关闭已保存（非 dirty）的 tab
+  const closeSaved = useCallback(() => {
+    setTabs((prev) => {
+      const kept = prev.filter((t) => t.dirty)
+      for (const t of prev) {
+        if (!kept.some((k) => k.path === t.path)) {
+          delete sourcesRef.current[t.path]
+          delete originalSourcesRef.current[t.path]
+          delete docsRef.current[t.path]
+          delete imagesRef.current[t.path]
+        }
+      }
+      if (!kept.some((t) => t.path === activeTabPath)) {
+        setActiveTabPath(kept[0]?.path ?? null)
+      }
+      return kept
+    })
+  }, [activeTabPath])
+
   const saveTab = useCallback(
     async (path: string) => {
       const t = tabs.find((x) => x.path === path)
@@ -613,6 +675,10 @@ export function Reader() {
             activePath={activeTabPath}
             onActivate={setActiveTabPath}
             onClose={requestCloseTab}
+            onCloseOthers={closeOthers}
+            onCloseAll={closeAll}
+            onCloseSaved={closeSaved}
+            copyPath={copyPath}
           />
           {activeTab && activeTab.kind !== 'tool' && (
             <EditorBar
@@ -658,7 +724,7 @@ export function Reader() {
                   />
                 )
               ) : (
-                <EmptyState />
+                <EmptyState onOpenRoot={() => void openRootAction(treeRoot ?? '')} />
               )}
             </div>
             {/* TOC：未固定时浮于内容区右侧；固定后成为右侧占位栏，不遮挡正文 */}
@@ -849,7 +915,7 @@ function EditorBar({
   )
 }
 
-function EmptyState() {
+function EmptyState({ onOpenRoot }: { onOpenRoot: () => void }) {
   const isMac = navigator.platform.toLowerCase().includes('mac')
   const mod = isMac ? '⌘' : 'Ctrl'
 
@@ -866,6 +932,17 @@ function EmptyState() {
               选择左侧 Explorer 中的文件开始阅读或编辑
             </div>
           </div>
+        </div>
+
+        <div className="mb-7">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md border border-seeyue-border bg-seeyue-panel px-4 py-2 text-[13px] font-medium text-seeyue-fg-strong cursor-pointer transition-all duration-150 hover:border-seeyue-accent hover:text-seeyue-accent"
+            onClick={onOpenRoot}
+          >
+            <FolderOpen size={15} />
+            打开文件夹…
+          </button>
         </div>
 
         <div className="grid max-w-[640px] gap-7 md:grid-cols-2">
@@ -946,9 +1023,7 @@ function useDirtyTitle(activeTab: Tab | null, anyDirty: boolean) {
         }
       }
     }
-    window.addEventListener('beforeunload', handler)
-    // pagehide 在 bfcache 关页时仍会 fire，比 beforeunload 更可靠
-    window.addEventListener('pagehide', () => {
+    function pageHideHandler() {
       if (!anyDirty) {
         try {
           navigator.sendBeacon?.('./api/shutdown')
@@ -956,7 +1031,13 @@ function useDirtyTitle(activeTab: Tab | null, anyDirty: boolean) {
           /* 忽略 */
         }
       }
-    })
-    return () => window.removeEventListener('beforeunload', handler)
+    }
+    window.addEventListener('beforeunload', handler)
+    // pagehide 在 bfcache 关页时仍会 fire，比 beforeunload 更可靠
+    window.addEventListener('pagehide', pageHideHandler)
+    return () => {
+      window.removeEventListener('beforeunload', handler)
+      window.removeEventListener('pagehide', pageHideHandler)
+    }
   }, [anyDirty])
 }

@@ -16,6 +16,7 @@ import {
 } from './Icon'
 import { pickFileIconKind } from './fileIconKind'
 import { PromptDialog } from './PromptDialog'
+import { ConfirmDialog } from './ConfirmDialog'
 import { listDir } from './api'
 
 interface Props {
@@ -41,6 +42,11 @@ interface CreateTarget {
 }
 
 interface RenameTarget {
+  entry: DirEntry
+  parentDir: string
+}
+
+interface DeleteTarget {
   entry: DirEntry
   parentDir: string
 }
@@ -89,6 +95,8 @@ export function FileTree(props: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [renaming, setRenaming] = useState<RenameTarget | null>(null)
   const [renamingError, setRenamingError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [openingRoot, setOpeningRoot] = useState(false)
   const [openingRootError, setOpeningRootError] = useState<string | null>(null)
 
@@ -222,30 +230,33 @@ export function FileTree(props: Props) {
     [loadDir, onRenamePath]
   )
 
-  const requestDelete = useCallback(
-    async (entry: DirEntry) => {
-      if (!onDeletePath) return
-      setContextMenu(null)
-      const kind = entry.is_dir ? '文件夹及其全部内容' : '文件'
-      if (!window.confirm(`确定删除${kind}「${entry.name}」吗？此操作不可撤销。`)) return
-      try {
-        await onDeletePath(entry.path)
-        await loadDir(parentDir(entry.path))
-      } catch (e) {
-        window.alert(String(e))
-      }
-    },
-    [loadDir, onDeletePath]
-  )
+  const requestDelete = useCallback((entry: DirEntry) => {
+    setContextMenu(null)
+    setActionError(null)
+    setDeleting({ entry, parentDir: parentDir(entry.path) })
+  }, [])
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleting || !onDeletePath) return
+    try {
+      await onDeletePath(deleting.entry.path)
+      setDeleting(null)
+      setActionError(null)
+      await loadDir(deleting.parentDir)
+    } catch (e) {
+      setActionError(String(e))
+    }
+  }, [deleting, loadDir, onDeletePath])
 
   const requestShowInFolder = useCallback(
     async (path: string) => {
       if (!onShowInFolder) return
       setContextMenu(null)
+      setActionError(null)
       try {
         await onShowInFolder(path)
       } catch (e) {
-        window.alert(String(e))
+        setActionError(String(e))
       }
     },
     [onShowInFolder]
@@ -289,7 +300,7 @@ export function FileTree(props: Props) {
       className="h-full flex flex-col text-[13px] text-seeyue-fg bg-seeyue-sidebar"
       onContextMenu={(e) => {
         e.preventDefault()
-        setContextMenu({ x: e.clientX, y: e.clientY, dir: root })
+        setContextMenu({ ...clampMenuPosition(e.clientX, e.clientY), dir: root })
       }}
       onClick={() => setContextMenu(null)}
     >
@@ -336,22 +347,34 @@ export function FileTree(props: Props) {
           <input
             type="text"
             value={filter}
-            placeholder="过滤当前目录"
+            placeholder="过滤已展开项"
             onChange={(e) => setFilter(e.target.value)}
             spellCheck={false}
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-seeyue-fg text-[12.5px] font-cjk placeholder:text-seeyue-fg-dim"
           />
           {filter && (
             <button
+              type="button"
               className="inline-flex items-center justify-center w-[26px] h-[26px] rounded text-seeyue-fg-dim bg-transparent border-0 cursor-pointer transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ width: 18, height: 18 }}
               onClick={() => setFilter('')}
               title="清除"
+              aria-label="清除过滤"
             >
               <span style={{ fontSize: 11 }}>×</span>
             </button>
           )}
         </div>
+        {actionError && (
+          <div className="mx-3 mt-1 rounded-md border border-[rgba(191,97,106,0.35)] bg-[rgba(191,97,106,0.08)] px-3 py-2 text-[12px] leading-5 text-seeyue-danger">
+            {actionError}
+          </div>
+        )}
+        {filter && (
+          <p className="mt-1.5 mb-0 text-[11px] leading-4 text-seeyue-fg-dim">
+            仅过滤已加载/已展开的目录项，未展开目录内的文件不会被搜索。
+          </p>
+        )}
       </div>
 
       {/* —— 树体 —— */}
@@ -365,7 +388,7 @@ export function FileTree(props: Props) {
           activePath={activePath}
           filter={filterLower}
           onRequestCreate={onCreateFile || onCreateFolder ? openCreateDialog : undefined}
-          onRequestMenu={setContextMenu}
+          onRequestMenu={(menu) => setContextMenu({ ...menu, ...clampMenuPosition(menu.x, menu.y) })}
         />
       </div>
 
@@ -401,6 +424,27 @@ export function FileTree(props: Props) {
           }}
           onConfirm={(name) => {
             void submitRename(renaming, name)
+          }}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title={deleting.entry.is_dir ? '删除文件夹？' : '删除文件？'}
+          description={
+            deleting.entry.is_dir
+              ? '将删除该文件夹及其中全部内容，此操作不可撤销。'
+              : '将删除该文件，此操作不可撤销。'
+          }
+          detail={deleting.entry.path}
+          confirmLabel="删除"
+          danger
+          onCancel={() => {
+            setDeleting(null)
+            setActionError(null)
+          }}
+          onConfirm={() => {
+            void confirmDelete()
           }}
         />
       )}
@@ -716,6 +760,16 @@ function FileGlyph({ name, isDir, expanded }: { name: string; isDir: boolean; ex
       return <FileImage size={15} />
     default:
       return <FileGeneric size={15} />
+  }
+}
+
+function clampMenuPosition(x: number, y: number, width = 180, height = 240): Pick<ContextMenuState, 'x' | 'y'> {
+  const padding = 8
+  const maxX = Math.max(padding, window.innerWidth - width - padding)
+  const maxY = Math.max(padding, window.innerHeight - height - padding)
+  return {
+    x: Math.min(Math.max(padding, x), maxX),
+    y: Math.min(Math.max(padding, y), maxY),
   }
 }
 
