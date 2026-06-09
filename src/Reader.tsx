@@ -15,7 +15,7 @@ import { extractHeadings } from './toc'
 import { Toast } from './Toast'
 import { VerticalSplitter } from './Splitter'
 import { MarkdownBaseDirContext } from './MarkdownIR'
-import { ChevronRight, CopyPath, FileText, FolderOpen, Save } from './Icon'
+import { AlertTriangle, ChevronRight, CopyPath, FileText, FolderOpen, Save } from './Icon'
 import type { ImagePayload, ParsedDocument, RenderedDoc, Tab, ToolId } from './types'
 import {
   createDir,
@@ -73,6 +73,10 @@ function rebasePath(path: string, oldPrefix: string, newPrefix: string): string 
 export function Reader() {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' })
   const [theme, setThemeState] = useState<ReaderTheme>(readStoredTheme)
+  const [fontScale, setFontScaleState] = useState<number>(() => {
+    const v = parseFloat(localStorage.getItem('jreader.fontScale') ?? '')
+    return Number.isFinite(v) && v >= 0.7 && v <= 2.0 ? v : 1.0
+  })
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabPath, setActiveTabPath] = useState<string | null>(null)
   const [treeRoot, setTreeRoot] = useState<string>('')
@@ -111,6 +115,16 @@ export function Reader() {
     if (!Number.isFinite(n)) return SIDEBAR_DEFAULT
     return Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, n))
   })
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
+    () => localStorage.getItem('jreader.sidebarCollapsed') === '1'
+  )
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('jreader.sidebarCollapsed', next ? '1' : '0')
+      return next
+    })
+  }, [])
   const handleSidebarResize = useCallback((next: number) => {
     setSidebarWidth(next)
     localStorage.setItem(SIDEBAR_LS_KEY, String(Math.round(next)))
@@ -197,6 +211,18 @@ export function Reader() {
     setThemeState(nextTheme)
     localStorage.setItem(THEME_LS_KEY, nextTheme)
   }, [])
+
+  const setFontScale = useCallback((next: number) => {
+    const clamped = Math.round(Math.max(0.7, Math.min(2.0, next)) * 100) / 100
+    setFontScaleState(clamped)
+    localStorage.setItem('jreader.fontScale', String(clamped))
+    document.documentElement.style.setProperty('--jreader-font-scale', String(clamped))
+  }, [])
+
+  // 首次渲染时同步 fontScale 到 CSS 变量（从 localStorage 恢复的值）
+  useEffect(() => {
+    document.documentElement.style.setProperty('--jreader-font-scale', String(fontScale))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * 编辑器报告 source 变化。这是高频回调（按键级别）。
@@ -538,6 +564,7 @@ export function Reader() {
     activeTabPath,
     requestQuit,
     selectActivity,
+    toggleSidebarCollapsed,
   })
   handlersRef.current = {
     saveTab,
@@ -546,6 +573,7 @@ export function Reader() {
     activeTabPath,
     requestQuit,
     selectActivity,
+    toggleSidebarCollapsed,
   }
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -575,6 +603,12 @@ export function Reader() {
       if (e.altKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault()
         handlersRef.current.cycleTab(e.key === 'ArrowLeft' ? -1 : 1)
+        return
+      }
+      // ⌘B 切换侧边栏（VSCode 习惯）
+      if (!e.shiftKey && !e.altKey && k === 'b') {
+        e.preventDefault()
+        handlersRef.current.toggleSidebarCollapsed()
         return
       }
       // ⌘1 / ⌘2 切活动栏（VSCode 习惯）
@@ -607,16 +641,34 @@ export function Reader() {
   // —— Loading / Error 屏 ——
   if (loadState.kind === 'loading') {
     return (
-      <div className="h-full flex items-center justify-center text-seeyue-fg-muted text-sm gap-2">
-        <span className="inline-block w-2 h-2 rounded-full bg-seeyue-accent animate-pulse" />
-        加载中…
+      <div className="h-full flex flex-col items-center justify-center gap-4 text-seeyue-fg-dim">
+        <div className="relative h-10 w-10">
+          <span className="absolute inset-0 rounded-full border-2 border-seeyue-border" />
+          <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-seeyue-accent animate-spin" />
+        </div>
+        <span className="text-[13px] tracking-wide">加载中…</span>
       </div>
     )
   }
   if (loadState.kind === 'error') {
     return (
-      <div className="h-full flex items-center justify-center p-8 text-seeyue-danger text-sm font-mono whitespace-pre-wrap">
-        加载失败：{loadState.message}
+      <div className="h-full flex flex-col items-center justify-center gap-4 p-8">
+        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(191,97,106,0.12)] text-seeyue-danger">
+          <AlertTriangle size={22} />
+        </span>
+        <div className="text-center">
+          <div className="text-[15px] font-medium text-seeyue-fg-strong mb-1">加载失败</div>
+          <div className="text-[13px] text-seeyue-fg-muted font-mono whitespace-pre-wrap break-all max-w-[480px]">
+            {loadState.message}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-seeyue-border bg-seeyue-panel px-3.5 py-1.5 text-[13px] text-seeyue-fg-strong cursor-pointer transition-all duration-150 hover:border-seeyue-accent hover:text-seeyue-accent"
+          onClick={() => window.location.reload()}
+        >
+          重试
+        </button>
       </div>
     )
   }
@@ -627,39 +679,46 @@ export function Reader() {
         className="h-full grid bg-seeyue-bg text-seeyue-fg"
         data-theme={theme}
         style={{
-          // 4 列：[44px 活动栏] [{sidebarWidth}px 侧栏面板] [1px 分隔线/拖拽条] [1fr 主区]
-          gridTemplateColumns: `44px ${sidebarWidth}px 1px minmax(0, 1fr)`,
+          // 折叠时：[44px 活动栏] [1fr 主区]；展开时：[44px] [侧栏宽] [1px 分隔] [1fr]
+          gridTemplateColumns: sidebarCollapsed
+            ? '44px minmax(0, 1fr)'
+            : `44px ${sidebarWidth}px 1px minmax(0, 1fr)`,
         }}
       >
         {/* 最左：垂直活动栏 */}
         <ActivityBar
           active={activeActivity}
           theme={theme}
+          fontScale={fontScale}
           onSelect={selectActivity}
           onThemeChange={setTheme}
+          onFontScaleChange={setFontScale}
         />
 
-        {/* 左：侧栏（按 activeActivity 切换内容） */}
-        <aside className="overflow-hidden">
-          {activeActivity === 'files' ? (
-            <FileTree
-              root={treeRoot}
-              activePath={activeTabPath}
-              onOpen={openFile}
-              onCreateFile={createFile}
-              onCreateFolder={createFolder}
-              onRenamePath={renamePathAction}
-              onDeletePath={deletePathAction}
-              onShowInFolder={showInFolderAction}
-              onOpenRoot={openRootAction}
-            />
-          ) : (
-            <Toolbox activeToolId={activeToolId} onOpen={openTool} />
-          )}
-        </aside>
+        {/* 左：侧栏（按 activeActivity 切换内容）—— 折叠时隐藏 */}
+        {!sidebarCollapsed && (
+          <aside className="overflow-hidden">
+            {activeActivity === 'files' ? (
+              <FileTree
+                root={treeRoot}
+                activePath={activeTabPath}
+                onOpen={openFile}
+                onCreateFile={createFile}
+                onCreateFolder={createFolder}
+                onRenamePath={renamePathAction}
+                onDeletePath={deletePathAction}
+                onShowInFolder={showInFolderAction}
+                onOpenRoot={openRootAction}
+              />
+            ) : (
+              <Toolbox activeToolId={activeToolId} onOpen={openTool} />
+            )}
+          </aside>
+        )}
 
-        {/* 侧栏宽度调节 splitter */}
-        <VerticalSplitter
+        {/* 侧栏宽度调节 splitter —— 折叠时隐藏 */}
+        {!sidebarCollapsed && (
+          <VerticalSplitter
           width={sidebarWidth}
           min={SIDEBAR_MIN}
           max={SIDEBAR_MAX}
@@ -667,6 +726,7 @@ export function Reader() {
           onResize={handleSidebarResize}
           ariaLabel="调节侧栏宽度"
         />
+        )}
 
         {/* 中：Tab 条 + 编辑器顶栏 + 编辑区（TOC 浮于其上） */}
         <main className="flex flex-col overflow-hidden relative">
@@ -947,14 +1007,16 @@ function EmptyState({ onOpenRoot }: { onOpenRoot: () => void }) {
 
         <div className="grid max-w-[640px] gap-7 md:grid-cols-2">
           <WelcomeSection title="开始">
-            <WelcomeAction label="从 Explorer 打开文件" hint="点击左侧文件树中的任意文档" />
-            <WelcomeAction label="打开工具面板" hint={`${mod} 2`} />
+            <WelcomeAction label="从 Explorer 打开文件" hint="点击左侧文件树" />
+            <WelcomeAction label="打开 / 切换工具面板" hint={`${mod} 2`} />
             <WelcomeAction label="切回文件面板" hint={`${mod} 1`} />
+            <WelcomeAction label="切换侧边栏" hint={`${mod} B`} />
           </WelcomeSection>
-          <WelcomeSection title="快捷键">
+          <WelcomeSection title="编辑器快捷键">
             <WelcomeAction label="保存当前文件" hint={`${mod} S`} />
             <WelcomeAction label="关闭当前编辑器" hint={`${mod} W`} />
             <WelcomeAction label="切换前后 Tab" hint={`${mod} Alt ←/→`} />
+            <WelcomeAction label="Diff 对比" hint={`${mod} D`} />
           </WelcomeSection>
         </div>
       </div>

@@ -378,7 +378,7 @@ export function FileTree(props: Props) {
       </div>
 
       {/* —— 树体 —— */}
-      <div className="flex-1 overflow-y-auto pl-3 pr-2 pb-3">
+      <div className="jstudio-tree-body flex-1 overflow-y-auto pl-3 pr-2 pb-3" role="tree">
         <DirNode
           path={root}
           depth={0}
@@ -650,6 +650,7 @@ function EntryRow({
       <div
         className="group flex min-h-7 w-full items-center gap-1 rounded-sm border-0 bg-transparent py-[3px] pr-1.5 text-left text-[13px] leading-snug text-seeyue-fg-muted cursor-pointer relative transition-colors duration-150 hover:bg-seeyue-elevated hover:text-seeyue-fg data-[active=true]:bg-seeyue-accent-mute data-[active=true]:text-seeyue-accent data-[active=true]:font-medium before:content-[''] before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[3px] before:rounded-r before:bg-transparent data-[active=true]:before:bg-seeyue-accent"
         data-active={isActive ? 'true' : undefined}
+        data-file-path={entry.path}
         style={{ paddingLeft: indent }}
         title={entry.path}
         role="button"
@@ -674,6 +675,49 @@ function EntryRow({
               onToggle(entry.path)
             } else {
               onOpen(entry.path)
+            }
+            return
+          }
+          // 键盘导航：上/下/左/右
+          const container = (e.target as HTMLElement).closest('.jstudio-tree-body')
+          if (!container) return
+          const rows = Array.from(
+            container.querySelectorAll<HTMLElement>('[role="button"][data-file-path]'),
+          )
+          const idx = rows.indexOf(e.currentTarget as HTMLElement)
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            const next = rows[idx + 1]
+            next?.focus()
+            next?.scrollIntoView({ block: 'nearest' })
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            const prev = rows[idx - 1]
+            prev?.focus()
+            prev?.scrollIntoView({ block: 'nearest' })
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            if (entry.is_dir && sub?.expanded) {
+              onToggle(entry.path)
+            } else {
+              // 聚焦父目录行
+              const parentRow = container.querySelector<HTMLElement>(
+                `[data-file-path="${CSS.escape(parentDir(entry.path))}"]`,
+              )
+              parentRow?.focus()
+              parentRow?.scrollIntoView({ block: 'nearest' })
+            }
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            if (entry.is_dir) {
+              if (!sub?.expanded) {
+                onToggle(entry.path)
+              } else {
+                // 聚焦第一个子项
+                const next = rows[idx + 1]
+                next?.focus()
+                next?.scrollIntoView({ block: 'nearest' })
+              }
             }
           }
         }}

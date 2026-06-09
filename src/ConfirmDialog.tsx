@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AlertTriangle } from './Icon'
+import { DialogButton } from './DialogButton'
 
 interface Props {
   title: string
@@ -77,22 +78,14 @@ export function ConfirmDialog({
           </div>
         )}
         <div className="flex justify-end gap-2 mt-[18px]">
-          <button
-            type="button"
-            className="px-3.5 py-1.5 text-[12.5px] font-cjk rounded-md border border-transparent cursor-pointer bg-transparent text-seeyue-fg-muted transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated"
-            onClick={onCancel}
-          >
-            {cancelLabel}
-          </button>
-          <button
+          <DialogButton onClick={onCancel}>{cancelLabel}</DialogButton>
+          <DialogButton
             ref={confirmRef}
-            type="button"
-            className="px-3.5 py-1.5 text-[12.5px] font-cjk rounded-md border border-transparent cursor-pointer bg-transparent text-seeyue-fg-muted transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated data-[tone=primary]:bg-seeyue-accent-strong data-[tone=primary]:text-seeyue-fg-strong data-[tone=primary]:hover:bg-seeyue-accent data-[tone=primary]:hover:text-seeyue-bg data-[tone=danger]:text-seeyue-danger data-[tone=danger]:hover:bg-[rgba(191,97,106,0.18)]"
-            data-tone={danger ? 'danger' : 'primary'}
+            tone={danger ? 'danger' : 'primary'}
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </DialogButton>
         </div>
       </div>
     </div>

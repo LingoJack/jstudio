@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Power } from './Icon'
+import { DialogButton } from './DialogButton'
 
 interface Props {
   /** dirty tab 数量（>0 时额外提示「未保存改动会丢失」） */
@@ -44,6 +45,8 @@ export function QuitConfirmDialog({ dirtyCount, onConfirm, onCancel }: Props) {
       <div
         className="min-w-[380px] max-w-[480px] bg-seeyue-panel border border-seeyue-border-strong rounded-[10px] shadow-[0_12px_40px_rgba(0,0,0,0.4)] px-5 py-5 pb-4 animate-seeyue-scale-in"
         onClick={(e) => e.stopPropagation()}
+        role="alertdialog"
+        aria-modal="true"
       >
         <h3 className="m-0 mb-1.5 text-[15px] font-semibold text-seeyue-fg-strong flex items-center gap-2">
           <span style={{ color: 'var(--color-seeyue-warn)' }}>
@@ -63,21 +66,16 @@ export function QuitConfirmDialog({ dirtyCount, onConfirm, onCancel }: Props) {
           )}
         </p>
         <div className="flex justify-end gap-2 mt-[18px]">
-          <button
+          <DialogButton
             ref={cancelBtnRef}
-            className="px-3.5 py-1.5 text-[12.5px] font-cjk rounded-md border border-transparent cursor-pointer bg-transparent text-seeyue-fg-muted transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated data-[tone=primary]:bg-seeyue-accent-strong data-[tone=primary]:text-seeyue-fg-strong data-[tone=primary]:hover:bg-seeyue-accent data-[tone=primary]:hover:text-seeyue-bg data-[tone=danger]:text-seeyue-danger data-[tone=danger]:hover:bg-[rgba(191,97,106,0.18)]"
-            data-tone="primary"
+            tone="primary"
             onClick={onCancel}
           >
             取消
-          </button>
-          <button
-            className="px-3.5 py-1.5 text-[12.5px] font-cjk rounded-md border border-transparent cursor-pointer bg-transparent text-seeyue-fg-muted transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated data-[tone=primary]:bg-seeyue-accent-strong data-[tone=primary]:text-seeyue-fg-strong data-[tone=primary]:hover:bg-seeyue-accent data-[tone=primary]:hover:text-seeyue-bg data-[tone=danger]:text-seeyue-danger data-[tone=danger]:hover:bg-[rgba(191,97,106,0.18)]"
-            data-tone="danger"
-            onClick={onConfirm}
-          >
+          </DialogButton>
+          <DialogButton tone="danger" onClick={onConfirm}>
             关闭 reader
-          </button>
+          </DialogButton>
         </div>
       </div>
     </div>
