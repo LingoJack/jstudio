@@ -20,10 +20,13 @@ import type { ImagePayload, ParsedDocument, RenderedDoc, Tab, ToolId } from './t
 import {
   createDir,
   createFile as createFileOnDisk,
+  deletePath,
   getInitial,
   quitReaderWindow,
   readFile,
+  renamePath,
   saveFile,
+  showInFolder,
 } from './api'
 
 type LoadState = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready' }
@@ -47,6 +50,23 @@ const THEME_LS_KEY = 'jreader.theme'
 function readStoredTheme(): ReaderTheme {
   const stored = localStorage.getItem(THEME_LS_KEY)
   return stored === 'warm' ? 'warm' : 'aliyun'
+}
+
+function filenameFromPath(path: string): string {
+  const normalized = path.replace(/\/+$/, '')
+  const index = normalized.lastIndexOf('/')
+  return index >= 0 ? normalized.slice(index + 1) : normalized
+}
+
+function isSameOrChildPath(path: string, dir: string): boolean {
+  const normalizedDir = dir.replace(/\/+$/, '')
+  return path === normalizedDir || path.startsWith(`${normalizedDir}/`)
+}
+
+function rebasePath(path: string, oldPrefix: string, newPrefix: string): string {
+  const normalizedOld = oldPrefix.replace(/\/+$/, '')
+  if (path === normalizedOld) return newPrefix
+  return `${newPrefix}${path.slice(normalizedOld.length)}`
 }
 
 export function Reader() {
@@ -290,6 +310,7 @@ export function Reader() {
       })
       // 清掉 ref 桶里的内容，不让已关 tab 占内存
       delete sourcesRef.current[path]
+      delete originalSourcesRef.current[path]
       delete docsRef.current[path]
       delete imagesRef.current[path]
     },
@@ -338,6 +359,71 @@ export function Reader() {
    */
   const createFolder = useCallback(async (dir: string, name: string): Promise<string> => {
     return createDir(dir, name)
+  }, [])
+
+  const migrateRefKey = useCallback((oldPath: string, newPath: string) => {
+    if (Object.prototype.hasOwnProperty.call(sourcesRef.current, oldPath)) {
+      sourcesRef.current[newPath] = sourcesRef.current[oldPath]
+      delete sourcesRef.current[oldPath]
+    }
+    if (Object.prototype.hasOwnProperty.call(originalSourcesRef.current, oldPath)) {
+      originalSourcesRef.current[newPath] = originalSourcesRef.current[oldPath]
+      delete originalSourcesRef.current[oldPath]
+    }
+    if (Object.prototype.hasOwnProperty.call(docsRef.current, oldPath)) {
+      docsRef.current[newPath] = docsRef.current[oldPath]
+      delete docsRef.current[oldPath]
+    }
+    if (Object.prototype.hasOwnProperty.call(imagesRef.current, oldPath)) {
+      imagesRef.current[newPath] = imagesRef.current[oldPath]
+      delete imagesRef.current[oldPath]
+    }
+  }, [])
+
+  const renamePathAction = useCallback(
+    async (path: string, newName: string): Promise<string> => {
+      const { old_path: oldPath, new_path: newPath } = await renamePath(path, newName)
+      setTabs((prev) =>
+        prev.map((tab) => {
+          if (!isSameOrChildPath(tab.path, oldPath)) return tab
+          const rebased = rebasePath(tab.path, oldPath, newPath)
+          migrateRefKey(tab.path, rebased)
+          return {
+            ...tab,
+            path: rebased,
+            filename: filenameFromPath(rebased),
+          }
+        })
+      )
+      setActiveTabPath((current) => (current && isSameOrChildPath(current, oldPath) ? rebasePath(current, oldPath, newPath) : current))
+      setToast({ message: '已重命名', kind: 'success' })
+      return newPath
+    },
+    [migrateRefKey]
+  )
+
+  const deletePathAction = useCallback(async (path: string): Promise<void> => {
+    await deletePath(path)
+    setTabs((prev) => {
+      const removed = prev.filter((tab) => isSameOrChildPath(tab.path, path))
+      for (const tab of removed) {
+        delete sourcesRef.current[tab.path]
+        delete originalSourcesRef.current[tab.path]
+        delete docsRef.current[tab.path]
+        delete imagesRef.current[tab.path]
+      }
+      const next = prev.filter((tab) => !isSameOrChildPath(tab.path, path))
+      setActiveTabPath((current) => {
+        if (!current || !isSameOrChildPath(current, path)) return current
+        return next[0]?.path ?? null
+      })
+      return next
+    })
+    setToast({ message: '已删除', kind: 'success' })
+  }, [])
+
+  const showInFolderAction = useCallback(async (path: string): Promise<void> => {
+    await showInFolder(path)
   }, [])
 
   /** 关掉整个 reader 窗口。 */
@@ -491,6 +577,9 @@ export function Reader() {
               onOpen={openFile}
               onCreateFile={createFile}
               onCreateFolder={createFolder}
+              onRenamePath={renamePathAction}
+              onDeletePath={deletePathAction}
+              onShowInFolder={showInFolderAction}
             />
           ) : (
             <Toolbox activeToolId={activeToolId} onOpen={openTool} />

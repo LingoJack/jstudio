@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 mod markdown;
 mod renderer;
@@ -97,6 +98,26 @@ struct CreateResp {
     path: String,
 }
 
+/// 路径操作请求。
+#[derive(Debug, Deserialize)]
+struct PathReq {
+    path: String,
+}
+
+/// 重命名请求。
+#[derive(Debug, Deserialize)]
+struct RenameReq {
+    path: String,
+    new_name: String,
+}
+
+/// 重命名返回值。
+#[derive(Debug, Serialize)]
+struct RenameResp {
+    old_path: String,
+    new_path: String,
+}
+
 /// 资源读取返回值。
 #[derive(Debug, Serialize)]
 struct AssetResp {
@@ -145,6 +166,24 @@ fn create_file(req: CreateReq) -> Result<CreateResp, String> {
 #[tauri::command]
 fn create_dir(req: CreateReq) -> Result<CreateResp, String> {
     create_path_inner(&req.dir, &req.name, CreateKind::Directory).map_err(|err| err.message())
+}
+
+/// 删除文件或目录。
+#[tauri::command]
+fn delete_path(req: PathReq) -> Result<(), String> {
+    delete_path_inner(&req.path).map_err(|err| err.message())
+}
+
+/// 重命名文件或目录。
+#[tauri::command]
+fn rename_path(req: RenameReq) -> Result<RenameResp, String> {
+    rename_path_inner(&req.path, &req.new_name).map_err(|err| err.message())
+}
+
+/// 在系统文件管理器中显示路径。
+#[tauri::command]
+fn show_in_folder(req: PathReq) -> Result<(), String> {
+    show_in_folder_inner(&req.path).map_err(|err| err.message())
 }
 
 /// 读取本地图片/资源。
@@ -249,12 +288,7 @@ fn create_path_inner(dir: &str, name: &str, kind: CreateKind) -> ReaderResult<Cr
     if !dir.is_dir() {
         return Err(ReaderError::InvalidPath("目标父路径不是目录".to_string()));
     }
-    let name = name.trim();
-    if name.is_empty() || name.contains('/') || name.contains('\\') {
-        return Err(ReaderError::InvalidInput(
-            "名称不能为空，且不能包含路径分隔符".to_string(),
-        ));
-    }
+    let name = validate_leaf_name(name)?;
     let target = dir.join(name);
     if target.exists() {
         return Err(ReaderError::InvalidInput("目标已存在".to_string()));
@@ -271,6 +305,95 @@ fn create_path_inner(dir: &str, name: &str, kind: CreateKind) -> ReaderResult<Cr
     Ok(CreateResp {
         path: display_path(&path),
     })
+}
+
+fn delete_path_inner(path: &str) -> ReaderResult<()> {
+    let path = canonicalize_existing(path)?;
+    if path.is_dir() {
+        std::fs::remove_dir_all(path)?;
+    } else if path.is_file() {
+        std::fs::remove_file(path)?;
+    } else {
+        return Err(ReaderError::InvalidPath("路径不是文件或目录".to_string()));
+    }
+    Ok(())
+}
+
+fn rename_path_inner(path: &str, new_name: &str) -> ReaderResult<RenameResp> {
+    let source = canonicalize_existing(path)?;
+    let parent = source
+        .parent()
+        .ok_or_else(|| ReaderError::InvalidPath("无法解析父目录".to_string()))?;
+    let name = validate_leaf_name(new_name)?;
+    let target = parent.join(name);
+    if target.exists() {
+        return Err(ReaderError::InvalidInput("目标已存在".to_string()));
+    }
+    std::fs::rename(&source, &target)?;
+    let target = canonicalize_existing(target)?;
+    Ok(RenameResp {
+        old_path: display_path(&source),
+        new_path: display_path(&target),
+    })
+}
+
+fn show_in_folder_inner(path: &str) -> ReaderResult<()> {
+    let path = canonicalize_existing(path)?;
+    let mut command = show_in_folder_command(&path)?;
+    let status = command.status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(ReaderError::InvalidInput(format!(
+            "打开文件管理器失败，退出状态：{status}"
+        )))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn show_in_folder_command(path: &Path) -> ReaderResult<Command> {
+    let mut command = Command::new("open");
+    if path.is_dir() {
+        command.arg(path);
+    } else {
+        command.arg("-R").arg(path);
+    }
+    Ok(command)
+}
+
+#[cfg(target_os = "windows")]
+fn show_in_folder_command(path: &Path) -> ReaderResult<Command> {
+    let mut command = Command::new("explorer");
+    if path.is_dir() {
+        command.arg(path);
+    } else {
+        command.arg(format!("/select,{}", path.display()));
+    }
+    Ok(command)
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+fn show_in_folder_command(path: &Path) -> ReaderResult<Command> {
+    let dir = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| ReaderError::InvalidPath("无法解析父目录".to_string()))?
+    };
+    let mut command = Command::new("xdg-open");
+    command.arg(dir);
+    Ok(command)
+}
+
+fn validate_leaf_name(name: &str) -> ReaderResult<&str> {
+    let name = name.trim();
+    if name.is_empty() || name.contains('/') || name.contains('\\') {
+        return Err(ReaderError::InvalidInput(
+            "名称不能为空，且不能包含路径分隔符".to_string(),
+        ));
+    }
+    Ok(name)
 }
 
 fn read_asset_inner(path: &str) -> ReaderResult<AssetResp> {
@@ -324,9 +447,12 @@ pub fn run() {
             save_file,
             create_file,
             create_dir,
+            delete_path,
+            rename_path,
+            show_in_folder,
             read_asset,
             quit_reader,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running jstudio reader");
+        .expect("error while running jstudio");
 }

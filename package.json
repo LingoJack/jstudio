@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "jstudio reader Tauri 桌面应用。",
+  "description": "jstudio Tauri 桌面应用。",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
     "tauri": "tauri",

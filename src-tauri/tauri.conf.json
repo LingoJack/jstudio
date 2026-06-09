@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "jstudio reader",
+        "title": "jstudio",
         "width": 1280,
         "height": 860,
         "minWidth": 900,

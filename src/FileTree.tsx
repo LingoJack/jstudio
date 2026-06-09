@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DirEntry } from './types'
 import {
@@ -25,6 +26,9 @@ interface Props {
   onCreateFile?: (dir: string, name: string) => Promise<string>
   /** 新建文件夹请求：父级把新目录创建在 dir 下，并返回新目录绝对路径。 */
   onCreateFolder?: (dir: string, name: string) => Promise<string>
+  onRenamePath?: (path: string, newName: string) => Promise<string>
+  onDeletePath?: (path: string) => Promise<void>
+  onShowInFolder?: (path: string) => Promise<void>
 }
 
 type CreateKind = 'file' | 'folder'
@@ -34,10 +38,16 @@ interface CreateTarget {
   kind: CreateKind
 }
 
+interface RenameTarget {
+  entry: DirEntry
+  parentDir: string
+}
+
 interface ContextMenuState {
   x: number
   y: number
   dir: string
+  entry?: DirEntry
 }
 
 /** 每个目录节点维护的状态 */
@@ -57,7 +67,16 @@ interface NodeState {
  * - 目录行的新建文件入口仅在 hover/focus 时出现，避免常驻工具栏干扰
  */
 export function FileTree(props: Props) {
-  const { root, activePath, onOpen, onCreateFile, onCreateFolder } = props
+  const {
+    root,
+    activePath,
+    onOpen,
+    onCreateFile,
+    onCreateFolder,
+    onRenamePath,
+    onDeletePath,
+    onShowInFolder,
+  } = props
   // 以路径为 key 存储每个已访问目录的状态
   const [nodes, setNodes] = useState<Record<string, NodeState>>({})
   const [filter, setFilter] = useState('')
@@ -65,6 +84,8 @@ export function FileTree(props: Props) {
   const [creating, setCreating] = useState<CreateTarget | null>(null)
   const [creatingError, setCreatingError] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [renaming, setRenaming] = useState<RenameTarget | null>(null)
+  const [renamingError, setRenamingError] = useState<string | null>(null)
 
   const loadDir = useCallback(
     async (dir: string) => {
@@ -173,6 +194,59 @@ export function FileTree(props: Props) {
     [onCreateFile, onCreateFolder, loadDir, onOpen]
   )
 
+  const openRenameDialog = useCallback((entry: DirEntry) => {
+    setContextMenu(null)
+    setRenamingError(null)
+    setRenaming({ entry, parentDir: parentDir(entry.path) })
+  }, [])
+
+  const submitRename = useCallback(
+    async (target: RenameTarget, newName: string) => {
+      if (!onRenamePath) {
+        setRenamingError('当前环境不支持重命名')
+        return
+      }
+      try {
+        await onRenamePath(target.entry.path, newName)
+        setRenaming(null)
+        setRenamingError(null)
+        await loadDir(target.parentDir)
+      } catch (e) {
+        setRenamingError(String(e))
+      }
+    },
+    [loadDir, onRenamePath]
+  )
+
+  const requestDelete = useCallback(
+    async (entry: DirEntry) => {
+      if (!onDeletePath) return
+      setContextMenu(null)
+      const kind = entry.is_dir ? '文件夹及其全部内容' : '文件'
+      if (!window.confirm(`确定删除${kind}「${entry.name}」吗？此操作不可撤销。`)) return
+      try {
+        await onDeletePath(entry.path)
+        await loadDir(parentDir(entry.path))
+      } catch (e) {
+        window.alert(String(e))
+      }
+    },
+    [loadDir, onDeletePath]
+  )
+
+  const requestShowInFolder = useCallback(
+    async (path: string) => {
+      if (!onShowInFolder) return
+      setContextMenu(null)
+      try {
+        await onShowInFolder(path)
+      } catch (e) {
+        window.alert(String(e))
+      }
+    },
+    [onShowInFolder]
+  )
+
   // 路径面包屑分段
   const crumbs = useMemo(() => splitPath(root), [root])
   const filterLower = filter.trim().toLowerCase()
@@ -182,9 +256,7 @@ export function FileTree(props: Props) {
       className="h-full flex flex-col text-[13px] text-seeyue-fg bg-seeyue-sidebar"
       onContextMenu={(e) => {
         e.preventDefault()
-        if (onCreateFile || onCreateFolder) {
-          setContextMenu({ x: e.clientX, y: e.clientY, dir: root })
-        }
+        setContextMenu({ x: e.clientX, y: e.clientY, dir: root })
       }}
       onClick={() => setContextMenu(null)}
     >
@@ -243,7 +315,7 @@ export function FileTree(props: Props) {
           activePath={activePath}
           filter={filterLower}
           onRequestCreate={onCreateFile || onCreateFolder ? openCreateDialog : undefined}
-          onRequestMenu={onCreateFile || onCreateFolder ? setContextMenu : undefined}
+          onRequestMenu={setContextMenu}
         />
       </div>
 
@@ -265,6 +337,24 @@ export function FileTree(props: Props) {
         />
       )}
 
+      {renaming && (
+        <PromptDialog
+          title={renaming.entry.is_dir ? '重命名文件夹' : '重命名文件'}
+          description={`将 ${renaming.entry.path} 重命名为：`}
+          initialValue={renaming.entry.name}
+          placeholder={renaming.entry.name}
+          confirmLabel="重命名"
+          error={renamingError ?? undefined}
+          onCancel={() => {
+            setRenaming(null)
+            setRenamingError(null)
+          }}
+          onConfirm={(name) => {
+            void submitRename(renaming, name)
+          }}
+        />
+      )}
+
       {contextMenu && (
         <div
           className="fixed z-50 min-w-[150px] overflow-hidden rounded-md border border-seeyue-border bg-seeyue-bg/95 py-1 text-[13px] text-seeyue-fg shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur"
@@ -272,7 +362,15 @@ export function FileTree(props: Props) {
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {onCreateFile && (
+          {contextMenu.entry && !contextMenu.entry.is_dir && (
+            <MenuButton onClick={() => {
+              onOpen(contextMenu.entry!.path)
+              setContextMenu(null)
+            }}>
+              打开
+            </MenuButton>
+          )}
+          {onCreateFile && (!contextMenu.entry || contextMenu.entry.is_dir) && (
             <button
               type="button"
               className="flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-seeyue-fg-muted cursor-pointer hover:bg-seeyue-elevated hover:text-seeyue-fg-strong"
@@ -282,7 +380,7 @@ export function FileTree(props: Props) {
               <span>新建文件</span>
             </button>
           )}
-          {onCreateFolder && (
+          {onCreateFolder && (!contextMenu.entry || contextMenu.entry.is_dir) && (
             <button
               type="button"
               className="flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-seeyue-fg-muted cursor-pointer hover:bg-seeyue-elevated hover:text-seeyue-fg-strong"
@@ -291,6 +389,17 @@ export function FileTree(props: Props) {
               <FolderClosed size={14} />
               <span>新建文件夹</span>
             </button>
+          )}
+          {contextMenu.entry && onRenamePath && (
+            <MenuButton onClick={() => openRenameDialog(contextMenu.entry!)}>重命名</MenuButton>
+          )}
+          {contextMenu.entry && onDeletePath && (
+            <MenuButton danger onClick={() => void requestDelete(contextMenu.entry!)}>删除</MenuButton>
+          )}
+          {onShowInFolder && (
+            <MenuButton onClick={() => void requestShowInFolder(contextMenu.entry?.path ?? contextMenu.dir)}>
+              {contextMenu.entry?.is_dir ? '在访达中打开' : '在访达中显示'}
+            </MenuButton>
           )}
         </div>
       )}
@@ -432,7 +541,12 @@ function EntryRow({
           e.preventDefault()
           e.stopPropagation()
           if (onRequestMenu) {
-            onRequestMenu({ x: e.clientX, y: e.clientY, dir: entry.is_dir ? entry.path : parentDir(entry.path) })
+            onRequestMenu({
+              x: e.clientX,
+              y: e.clientY,
+              dir: entry.is_dir ? entry.path : parentDir(entry.path),
+              entry,
+            })
           }
         }}
         onKeyDown={(e) => {
@@ -494,6 +608,21 @@ function EntryRow({
         />
       )}
     </>
+  )
+}
+
+function MenuButton(props: { children: ReactNode; danger?: boolean; onClick: () => void }) {
+  const tone = props.danger
+    ? 'text-rose-300 hover:bg-rose-500/10 hover:text-rose-200'
+    : 'text-seeyue-fg-muted hover:bg-seeyue-elevated hover:text-seeyue-fg-strong'
+  return (
+    <button
+      type="button"
+      className={`flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left cursor-pointer ${tone}`}
+      onClick={props.onClick}
+    >
+      <span>{props.children}</span>
+    </button>
   )
 }
 
