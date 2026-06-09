@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { AlertTriangle } from './Icon'
 import { DialogButton } from './DialogButton'
 
@@ -9,6 +10,17 @@ interface Props {
 }
 
 export function CloseConfirmDialog({ filename, onSave, onDiscard, onCancel }: Props) {
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        onCancel()
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onCancel])
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(20,22,27,0.55)] backdrop-blur-[4px] animate-seeyue-fade-in"

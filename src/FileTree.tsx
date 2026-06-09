@@ -17,7 +17,7 @@ import {
 import { pickFileIconKind } from './fileIconKind'
 import { PromptDialog } from './PromptDialog'
 import { ConfirmDialog } from './ConfirmDialog'
-import { listDir } from './api'
+import { listDir } from './services'
 
 interface Props {
   root: string

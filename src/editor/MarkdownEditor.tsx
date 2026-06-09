@@ -14,7 +14,7 @@ import { extractText } from '../MarkdownIR'
 import { slugify } from '../slug'
 import { renderHighlightedCode } from './code-highlight'
 import { resetInlineCache, renderInlines } from './inline-renderer'
-import { parseMarkdown } from '../api'
+import { parseMarkdown } from '../services'
 
 interface Props {
   path: string
@@ -425,8 +425,16 @@ export function MarkdownEditor({
     [onParsedRef, pathRef, renderDocument]
   )
 
+  const rafRef = useRef<number | null>(null)
+
   useEffect(() => {
-    renderDocument()
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      renderDocument()
+    })
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
   }, [activeRange, renderDocument])
 
   useEffect(() => {
@@ -454,10 +462,25 @@ export function MarkdownEditor({
 
   function scheduleParse(nextSource: string) {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    const delay = adaptiveParseDelay(nextSource)
     debounceTimer.current = setTimeout(() => {
       parseAndRender(nextSource)
-    }, 250)
+    }, delay)
   }
+}
+
+/**
+ * 自适应 parse debounce 延迟。
+ *
+ * 小文档（<500 行）用短延迟保证即时反馈；
+ * 中等文档（500–2000 行）加到 500ms 减少 IPC 压力；
+ * 大文档（>2000 行）用 800ms 避免每次按键都触发昂贵解析。
+ */
+function adaptiveParseDelay(source: string): number {
+  const lineCount = source.split('\n').length
+  if (lineCount < 500) return 250
+  if (lineCount < 2000) return 500
+  return 800
 }
 
 type InterBlockOptions = {

@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityBar, type ActivityKey, type ReaderTheme } from './ActivityBar'
 import { FileTree } from './FileTree'
 import { Toolbox } from './Toolbox'
-import { DiffTool } from './DiffTool'
-import { JsonTool } from './JsonTool'
 import { TabBar } from './TabBar'
 import { CloseConfirmDialog } from './CloseConfirmDialog'
 import { QuitConfirmDialog } from './QuitConfirmDialog'
@@ -15,8 +13,8 @@ import { extractHeadings } from './toc'
 import { Toast } from './Toast'
 import { VerticalSplitter } from './Splitter'
 import { MarkdownBaseDirContext } from './MarkdownIR'
-import { AlertTriangle, ChevronRight, CopyPath, FileText, FolderOpen, Save } from './Icon'
-import type { ImagePayload, ParsedDocument, RenderedDoc, Tab, ToolId } from './types'
+import { AlertTriangle } from './Icon'
+import type { ImagePayload, ParsedDocument, Tab, ToolId } from './types'
 import {
   createDir,
   createFile as createFileOnDisk,
@@ -28,12 +26,22 @@ import {
   renamePath,
   saveFile,
   showInFolder,
-} from './api'
+} from './services'
+import {
+  MAX_TABS,
+  SIDEBAR_DEFAULT,
+  SIDEBAR_MAX,
+  SIDEBAR_MIN,
+  LS_SIDEBAR_WIDTH,
+  LS_THEME,
+} from './constants'
+import { EditorBar } from './app/reader/components/EditorBar'
+import { EmptyState } from './app/reader/components/EmptyState'
+import { ToolHost } from './app/reader/components/ToolHost'
+import { useDirtyTitle } from './app/reader/hooks/useDirtyTitle'
+import { docToTab, ingestDoc, filenameFromPath, isSameOrChildPath, rebasePath } from './utils/doc'
 
 type LoadState = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready' }
-
-/** 同时打开新文件的并发上限（防误点把内存撑爆） */
-const MAX_TABS = 32
 
 /** 工具 tab 标签上显示的名字。新增工具时在这里加一项。 */
 const TOOL_TITLES: Record<ToolId, string> = {
@@ -41,33 +49,9 @@ const TOOL_TITLES: Record<ToolId, string> = {
   json: 'JSON 查看器',
 }
 
-/** 侧栏宽度（活动栏右侧的 FileTree / Toolbox 面板） */
-const SIDEBAR_DEFAULT = 270
-const SIDEBAR_MIN = 180
-const SIDEBAR_MAX = 560
-const SIDEBAR_LS_KEY = 'jreader.sidebarWidth'
-const THEME_LS_KEY = 'jreader.theme'
-
 function readStoredTheme(): ReaderTheme {
-  const stored = localStorage.getItem(THEME_LS_KEY)
+  const stored = localStorage.getItem(LS_THEME)
   return stored === 'warm' ? 'warm' : 'aliyun'
-}
-
-function filenameFromPath(path: string): string {
-  const normalized = path.replace(/\/+$/, '')
-  const index = normalized.lastIndexOf('/')
-  return index >= 0 ? normalized.slice(index + 1) : normalized
-}
-
-function isSameOrChildPath(path: string, dir: string): boolean {
-  const normalizedDir = dir.replace(/\/+$/, '')
-  return path === normalizedDir || path.startsWith(`${normalizedDir}/`)
-}
-
-function rebasePath(path: string, oldPrefix: string, newPrefix: string): string {
-  const normalizedOld = oldPrefix.replace(/\/+$/, '')
-  if (path === normalizedOld) return newPrefix
-  return `${newPrefix}${path.slice(normalizedOld.length)}`
 }
 
 export function Reader() {
@@ -110,7 +94,7 @@ export function Reader() {
    * 初值会被夹紧到 [SIDEBAR_MIN, SIDEBAR_MAX]，防止上一次恶意 / 意外的 0 值。
    */
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    const raw = localStorage.getItem(SIDEBAR_LS_KEY)
+    const raw = localStorage.getItem(LS_SIDEBAR_WIDTH)
     const n = raw ? Number(raw) : SIDEBAR_DEFAULT
     if (!Number.isFinite(n)) return SIDEBAR_DEFAULT
     return Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, n))
@@ -127,7 +111,7 @@ export function Reader() {
   }, [])
   const handleSidebarResize = useCallback((next: number) => {
     setSidebarWidth(next)
-    localStorage.setItem(SIDEBAR_LS_KEY, String(Math.round(next)))
+    localStorage.setItem(LS_SIDEBAR_WIDTH, String(Math.round(next)))
   }, [])
   /** 监听 doc 更新（每次解析完成就 +1）—— 给 TOC 触发重算 */
   const [docVersion, setDocVersion] = useState(0)
@@ -209,7 +193,7 @@ export function Reader() {
 
   const setTheme = useCallback((nextTheme: ReaderTheme) => {
     setThemeState(nextTheme)
-    localStorage.setItem(THEME_LS_KEY, nextTheme)
+    localStorage.setItem(LS_THEME, nextTheme)
   }, [])
 
   const setFontScale = useCallback((next: number) => {
@@ -241,7 +225,7 @@ export function Reader() {
   }, [])
 
   /**
-   * MilkdownEditor 内部 debounce 调 /api/parse 后回调，更新 IR。
+   * MarkdownEditor 内部 debounce 调 /api/parse 后回调，更新 IR。
    * 同样写 ref，再 bump docVersion 触发 TOC 重算（TOC 依赖 path + version）。
    */
   const handleDocParsed = useCallback((path: string, doc: ParsedDocument) => {
@@ -410,7 +394,6 @@ export function Reader() {
       // 图片是只读视图：⌘S 直接 no-op，避免把空 source 覆盖回去毁掉文件
       // 工具 tab 没有"文件内容"概念，⌘S 同样直接忽略
       if (t.kind === 'image' || t.kind === 'tool') return
-      // CM6 文档即源码本身，不再需要 preserveBlankLines 那一套"忠实重建"
       const source = sourcesRef.current[path] ?? ''
       updateTab(path, { saving: 'saving', error: undefined })
       try {
@@ -440,9 +423,7 @@ export function Reader() {
     return createFileOnDisk(dir, name)
   }, [])
 
-  /**
-   * 在指定父目录里创建一个新文件夹，成功返回新目录绝对路径。
-   */
+  /** 在指定父目录里创建一个新文件夹，成功返回新目录绝对路径。 */
   const createFolder = useCallback(async (dir: string, name: string): Promise<string> => {
     return createDir(dir, name)
   }, [])
@@ -551,11 +532,6 @@ export function Reader() {
   )
 
   // —— 全局快捷键：(⌘|⌃) S / W / ⌥← / ⌥→ / 1 / 2 ——
-  // 同时接受 metaKey（macOS ⌘）与 ctrlKey（macOS ⌃ 或 Win/Linux Ctrl）。
-  // 这是因为普通 Chrome 标签页里 ⌘W 会被浏览器吞掉关掉标签，根本传不到 JS；
-  // 此时用户可以退而用 ⌃W 关闭当前 reader tab。
-  // app 模式（`j read` 默认走 Chrome --app=URL）无标签栏，⌘W 才能被网页接收。
-  // 用 ref 保存最新引用，避免每次 tabs 变化都重绑 listener
   const requestQuit = useCallback(() => setQuitting(true), [])
   const handlersRef = useRef({
     saveTab,
@@ -623,7 +599,6 @@ export function Reader() {
   }, [])
 
   // —— TOC ——
-  // docsRef 是 ref（变化不触发渲染），所以 deps 用 path + docVersion
   const headings = useMemo(() => {
     if (!activeTab || activeTab.kind !== 'markdown') return []
     const doc = docsRef.current[activeTab.path]
@@ -679,7 +654,6 @@ export function Reader() {
         className="h-full grid bg-seeyue-bg text-seeyue-fg"
         data-theme={theme}
         style={{
-          // 折叠时：[44px 活动栏] [1fr 主区]；展开时：[44px] [侧栏宽] [1px 分隔] [1fr]
           gridTemplateColumns: sidebarCollapsed
             ? '44px minmax(0, 1fr)'
             : `44px ${sidebarWidth}px 1px minmax(0, 1fr)`,
@@ -719,13 +693,13 @@ export function Reader() {
         {/* 侧栏宽度调节 splitter —— 折叠时隐藏 */}
         {!sidebarCollapsed && (
           <VerticalSplitter
-          width={sidebarWidth}
-          min={SIDEBAR_MIN}
-          max={SIDEBAR_MAX}
-          defaultWidth={SIDEBAR_DEFAULT}
-          onResize={handleSidebarResize}
-          ariaLabel="调节侧栏宽度"
-        />
+            width={sidebarWidth}
+            min={SIDEBAR_MIN}
+            max={SIDEBAR_MAX}
+            defaultWidth={SIDEBAR_DEFAULT}
+            onResize={handleSidebarResize}
+            ariaLabel="调节侧栏宽度"
+          />
         )}
 
         {/* 中：Tab 条 + 编辑器顶栏 + 编辑区（TOC 浮于其上） */}
@@ -838,268 +812,4 @@ export function Reader() {
       </div>
     </MarkdownBaseDirContext.Provider>
   )
-}
-
-// ---------------------------------------------------------------------------
-// helpers / sub-components
-// ---------------------------------------------------------------------------
-
-function docToTab(doc: RenderedDoc): Tab {
-  return {
-    path: doc.path,
-    filename: doc.filename,
-    kind:
-      doc.kind === 'markdown' || doc.kind === 'plain_text' || doc.kind === 'image'
-        ? doc.kind
-        : 'plain_text',
-    dirty: false,
-    saving: 'idle',
-  }
-}
-
-/**
- * 工具 tab 渲染入口。按 toolId 分发到具体工具组件。
- * 列出来 + 路由集中在这里，新增工具时只在这里加 case，Reader 主流程不动。
- */
-function ToolHost({ toolId }: { toolId: ToolId | null }) {
-  switch (toolId) {
-    case 'diff':
-      return <DiffTool />
-    case 'json':
-      return <JsonTool />
-    default:
-      return (
-        <div className="h-full flex flex-col items-center justify-center p-12 text-seeyue-fg-dim text-[13px] text-center">
-          <div className="text-seeyue-fg text-[15px] font-medium mb-1.5">未知工具</div>
-          <div className="text-seeyue-fg-muted mb-4 leading-[1.7]">toolId = {String(toolId)}</div>
-        </div>
-      )
-  }
-}
-
-/**
- * 把一份 RenderedDoc 拆进 sources / docs / images 三个 ref 桶。
- * 与 docToTab 配套使用。
- *
- * sourcesRef：编辑器当前内容（会随按键更新）
- */
-function ingestDoc(
-  doc: RenderedDoc,
-  sourcesRef: React.RefObject<Record<string, string>>,
-  docsRef: React.RefObject<Record<string, ParsedDocument>>,
-  imagesRef: React.RefObject<Record<string, ImagePayload>>,
-  originalSourcesRef: React.RefObject<Record<string, string>>
-) {
-  sourcesRef.current![doc.path] = doc.source
-  originalSourcesRef.current![doc.path] = doc.source
-  if (doc.kind === 'markdown' && doc.payload) {
-    docsRef.current![doc.path] = doc.payload as ParsedDocument
-  } else if (doc.kind === 'image' && doc.payload) {
-    imagesRef.current![doc.path] = doc.payload as ImagePayload
-  }
-}
-
-/**
- * 编辑器顶栏：面包屑 + 状态徽章 + 保存 / 复制路径快捷按钮。
- *
- * 这块取代了「中央区只有 Tab 条」的潦草感，给用户：
- * - 当前文件的路径上下文
- * - 一眼可见的 dirty / saving 状态
- * - 不必去 menu bar 找的常用操作
- */
-function EditorBar({
-  tab,
-  onSave,
-  onCopyPath,
-}: {
-  tab: Tab
-  onSave: () => void
-  onCopyPath: () => void
-}) {
-  const segs = breadcrumb(tab.path)
-  // 图片是只读视图：不显示 dirty / 保存按钮（一旦触发 /api/save 会用空 source 覆盖原文件）
-  const editable = tab.kind !== 'image'
-  return (
-    <div className="flex items-center h-8 px-2.5 bg-seeyue-bg text-xs text-seeyue-fg-dim gap-1.5 border-b border-seeyue-border-dim">
-      <div className="flex-1 min-w-0 flex items-center gap-1 overflow-hidden" title={tab.path}>
-        {segs.map((s, i) => (
-          <span key={i} className="inline-flex min-w-0 items-center gap-1">
-            {i > 0 && <ChevronRight size={13} className="shrink-0 opacity-45" />}
-            <span
-              className={`whitespace-nowrap overflow-hidden text-ellipsis ${i === segs.length - 1 ? 'text-seeyue-fg font-medium' : ''}`}
-            >
-              {s}
-            </span>
-          </span>
-        ))}
-      </div>
-      {editable && tab.dirty && (
-        <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 text-seeyue-accent">
-          <span className="h-1.5 w-1.5 rounded-full bg-current" /> 未保存
-        </span>
-      )}
-      {editable && tab.saving === 'saving' && (
-        <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 text-seeyue-accent">
-          保存中…
-        </span>
-      )}
-      {editable && tab.saving === 'error' && (
-        <span
-          className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 text-seeyue-danger"
-          title={tab.error}
-        >
-          保存失败
-        </span>
-      )}
-      <button
-        className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-md text-seeyue-fg-dim bg-transparent border border-transparent cursor-pointer transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated hover:border-seeyue-border disabled:opacity-30 disabled:cursor-not-allowed"
-        onClick={onCopyPath}
-        title="复制路径"
-        aria-label="复制当前文件路径"
-      >
-        <CopyPath size={14} />
-      </button>
-      {editable && (
-        <button
-          className="inline-flex items-center justify-center w-[26px] h-[26px] rounded text-seeyue-fg-dim bg-transparent border border-transparent cursor-pointer transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated disabled:opacity-35 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-seeyue-fg-dim data-[dirty=true]:text-seeyue-accent data-[dirty=true]:hover:bg-seeyue-accent-mute"
-          onClick={onSave}
-          disabled={!tab.dirty || tab.saving === 'saving'}
-          data-dirty={tab.dirty ? 'true' : undefined}
-          title={tab.dirty ? '保存（⌘S）' : '无更改'}
-          aria-label={tab.dirty ? '保存当前文件' : '当前文件无更改'}
-        >
-          <Save size={14} />
-        </button>
-      )}
-    </div>
-  )
-}
-
-function EmptyState({ onOpenRoot }: { onOpenRoot: () => void }) {
-  const isMac = navigator.platform.toLowerCase().includes('mac')
-  const mod = isMac ? '⌘' : 'Ctrl'
-
-  return (
-    <div className="h-full bg-seeyue-bg text-seeyue-fg-dim">
-      <div className="mx-auto flex h-full max-w-[860px] flex-col justify-center px-16 pb-16">
-        <div className="mb-8 flex items-center gap-3 text-seeyue-fg-strong">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-seeyue-border bg-seeyue-panel text-seeyue-accent">
-            <FileText size={20} />
-          </span>
-          <div>
-            <div className="text-[24px] font-semibold tracking-[-0.02em]">J Reader</div>
-            <div className="mt-1 text-[13px] font-normal text-seeyue-fg-muted">
-              选择左侧 Explorer 中的文件开始阅读或编辑
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-7">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-md border border-seeyue-border bg-seeyue-panel px-4 py-2 text-[13px] font-medium text-seeyue-fg-strong cursor-pointer transition-all duration-150 hover:border-seeyue-accent hover:text-seeyue-accent"
-            onClick={onOpenRoot}
-          >
-            <FolderOpen size={15} />
-            打开文件夹…
-          </button>
-        </div>
-
-        <div className="grid max-w-[640px] gap-7 md:grid-cols-2">
-          <WelcomeSection title="开始">
-            <WelcomeAction label="从 Explorer 打开文件" hint="点击左侧文件树" />
-            <WelcomeAction label="打开 / 切换工具面板" hint={`${mod} 2`} />
-            <WelcomeAction label="切回文件面板" hint={`${mod} 1`} />
-            <WelcomeAction label="切换侧边栏" hint={`${mod} B`} />
-          </WelcomeSection>
-          <WelcomeSection title="编辑器快捷键">
-            <WelcomeAction label="保存当前文件" hint={`${mod} S`} />
-            <WelcomeAction label="关闭当前编辑器" hint={`${mod} W`} />
-            <WelcomeAction label="切换前后 Tab" hint={`${mod} Alt ←/→`} />
-            <WelcomeAction label="Diff 对比" hint={`${mod} D`} />
-          </WelcomeSection>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function WelcomeSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-seeyue-fg-dim">
-        {title}
-      </h2>
-      <div className="grid gap-1.5">{children}</div>
-    </section>
-  )
-}
-
-function WelcomeAction({ label, hint }: { label: string; hint: string }) {
-  return (
-    <div className="group flex min-h-8 items-center justify-between gap-4 rounded-md px-2 py-1.5 text-[13px] text-seeyue-fg-muted transition-colors hover:bg-seeyue-elevated hover:text-seeyue-fg">
-      <span>{label}</span>
-      <kbd className="shrink-0 rounded border border-seeyue-border bg-seeyue-panel px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-seeyue-fg-dim shadow-[inset_0_-1px_0_var(--color-seeyue-border)]">
-        {hint}
-      </kbd>
-    </div>
-  )
-}
-
-function breadcrumb(p: string): string[] {
-  if (!p) return ['(empty)']
-  const parts = p.split('/').filter(Boolean)
-  if (parts.length <= 4) return parts
-  return ['…', ...parts.slice(-3)]
-}
-
-/** 同步 document.title 与 beforeunload 拦截。 */
-function useDirtyTitle(activeTab: Tab | null, anyDirty: boolean) {
-  // title
-  useEffect(() => {
-    const base = activeTab ? `${activeTab.filename} · j reader` : 'j reader'
-    document.title = (activeTab?.dirty ? '● ' : '') + base
-  }, [activeTab, activeTab?.dirty])
-
-  // beforeunload + shutdown beacon
-  useEffect(() => {
-    function handler(e: BeforeUnloadEvent) {
-      if (anyDirty) {
-        e.preventDefault()
-        // Chrome 仍要求 returnValue 设值
-        e.returnValue = ''
-      } else {
-        // sendBeacon 在某些 Chrome 版本（特别是 app 模式关窗口时）会被
-        // cancel；用 keepalive fetch 替代，配合服务端心跳超时双保险。
-        try {
-          void fetch('./api/shutdown', {
-            method: 'POST',
-            keepalive: true,
-          })
-        } catch {
-          /* 忽略 */
-        }
-        // 兜底：旧浏览器不支持 keepalive 时退化到 sendBeacon
-        if (typeof navigator.sendBeacon === 'function') {
-          navigator.sendBeacon('./api/shutdown')
-        }
-      }
-    }
-    function pageHideHandler() {
-      if (!anyDirty) {
-        try {
-          navigator.sendBeacon?.('./api/shutdown')
-        } catch {
-          /* 忽略 */
-        }
-      }
-    }
-    window.addEventListener('beforeunload', handler)
-    // pagehide 在 bfcache 关页时仍会 fire，比 beforeunload 更可靠
-    window.addEventListener('pagehide', pageHideHandler)
-    return () => {
-      window.removeEventListener('beforeunload', handler)
-      window.removeEventListener('pagehide', pageHideHandler)
-    }
-  }, [anyDirty])
 }
