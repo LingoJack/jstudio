@@ -384,7 +384,7 @@ export function MarkdownEditor({
     const editor =
       host.querySelector<HTMLElement>('.md-preferred-focus') ??
       host.querySelector<HTMLElement>(
-        '.md-block-source-input, .md-code-source-input, .md-table-cell-input, .md-code-lang-input'
+        '.md-block-source-input, .md-code-overlay-input, .md-code-lang-input, .md-cell-editing'
       )
     if (editor && document.activeElement !== editor) {
       editor.focus()
@@ -597,22 +597,39 @@ function createCodeBlockEditor(
   lang: string,
   code: string
 ): HTMLElement {
-  const wrap = document.createElement('div')
-  wrap.className = 'md-block md-code-source md-code-wrap'
+  // 复用渲染态 DOM 结构，在此基础上追加透明 textarea overlay
+  const wrap = createCodeBlockElement(lang, code)
+  wrap.classList.add('md-code-editing')
   wrap.dataset.blockType = 'source_code'
   wrap.dataset.startLine = String(options.range.startLine)
   wrap.dataset.endLine = String(options.range.endLine)
 
+  // 移除静态语言标签，改为可编辑输入框
+  const staticLangLabel = wrap.querySelector('.md-code-lang')
+  if (staticLangLabel) staticLangLabel.remove()
+
   const langInput = document.createElement('input')
-  langInput.className = 'md-code-lang-input md-code-lang'
+  langInput.className = 'md-code-lang-input md-code-lang md-preferred-focus'
   langInput.value = lang
   langInput.placeholder = 'code'
   langInput.spellcheck = false
+  wrap.insertBefore(langInput, wrap.firstChild)
 
-  const textarea = createAutoGrowTextarea(
-    'md-code-source-input md-code-content md-preferred-focus',
-    trimCodeBlockDisplayNewline(code)
-  )
+  // 找到 pre > code，追加透明 textarea overlay
+  const pre = wrap.querySelector('.md-code-pre')
+  const codeEl = wrap.querySelector('.md-code-content')
+  if (!pre || !codeEl) {
+    // fallback: 如果结构不对，返回普通编辑器
+    return createRawBlockEditor(options)
+  }
+
+  const rawCode = trimCodeBlockDisplayNewline(code)
+  const textarea = document.createElement('textarea')
+  textarea.className = 'md-code-overlay-input'
+  textarea.spellcheck = false
+  textarea.value = rawCode
+  pre.appendChild(textarea)
+
   const closeEditor = () => {
     langInput.blur()
     textarea.blur()
@@ -622,7 +639,20 @@ function createCodeBlockEditor(
   const emit = () => {
     options.onChange(buildCodeBlockSource(langInput.value, textarea.value))
   }
-  langInput.addEventListener('input', emit)
+
+  const updateHighlight = () => {
+    // 实时更新语法高亮
+    const newCode = textarea.value
+    const newLang = langInput.value || lang
+    const highlighted = renderHighlightedCode(newCode, newLang)
+    codeEl.replaceChildren()
+    codeEl.appendChild(highlighted)
+  }
+
+  langInput.addEventListener('input', () => {
+    emit()
+    updateHighlight()
+  })
   langInput.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 's') {
       event.preventDefault()
@@ -632,12 +662,58 @@ function createCodeBlockEditor(
       event.preventDefault()
       closeEditor()
     }
+    // Tab 键切换到代码编辑区
+    if (event.key === 'Tab' && !event.shiftKey) {
+      event.preventDefault()
+      textarea.focus()
+    }
+    // Shift+Tab 返回上一个 block
+    if (event.key === 'Tab' && event.shiftKey) {
+      event.preventDefault()
+      textarea.blur()
+      options.onMoveLine(-1)
+    }
   })
+
   textarea.addEventListener('input', () => {
-    autoGrowTextarea(textarea)
     emit()
+    updateHighlight()
   })
-  bindCommonEditorKeys(textarea, options, false)
+
+  // Tab 键在 textarea 中插入制表符，不跳转焦点
+  textarea.addEventListener('keydown', (event) => {
+    if (event.key === 'Tab') {
+      event.preventDefault()
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      textarea.value = textarea.value.slice(0, start) + '\t' + textarea.value.slice(end)
+      textarea.selectionStart = textarea.selectionEnd = start + 1
+      emit()
+      updateHighlight()
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+      event.preventDefault()
+      options.onSave()
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeEditor()
+    }
+    // ArrowUp/ArrowDown 边界跳转
+    if (
+      (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey
+    ) {
+      const delta = event.key === 'ArrowUp' ? -1 : 1
+      const movement = getBoundaryLineMovement(textarea, options.range, delta)
+      if (movement && options.onMoveLine(delta, movement)) {
+        event.preventDefault()
+      }
+    }
+  })
+
   langInput.addEventListener('blur', () => {
     setTimeout(() => {
       if (!wrap.contains(document.activeElement)) options.onBlur()
@@ -649,12 +725,6 @@ function createCodeBlockEditor(
     }, 0)
   })
 
-  const pre = document.createElement('pre')
-  pre.className = 'md-code-pre'
-  pre.appendChild(textarea)
-
-  wrap.appendChild(langInput)
-  wrap.appendChild(pre)
   return wrap
 }
 
@@ -662,50 +732,102 @@ function createTableBlockEditor(
   options: SourceBlockEditorOptions,
   alignments: Alignment[]
 ): HTMLElement {
-  const wrap = document.createElement('div')
-  wrap.className = 'md-block md-table-source md-table-wrap'
+  const rows = parseTableSource(options.rawValue)
+
+  // 复用渲染态的表格 DOM 结构
+  const tableData = { alignments, rows: rows.map((row) => row.map((cell) => [{ type: 'text' as const, value: cell }] as Inline[])) }
+  const wrap = createTableElement(tableData, null)
+  wrap.classList.add('md-table-editing')
   wrap.dataset.blockType = 'source_table'
   wrap.dataset.startLine = String(options.range.startLine)
   wrap.dataset.endLine = String(options.range.endLine)
-
-  const rows = parseTableSource(options.rawValue)
-  const table = document.createElement('table')
-  table.className = 'md-table md-table-edit-grid'
 
   const emit = () => {
     options.onChange(buildTableSource(rows, alignments))
   }
 
-  rows.forEach((row, rowIndex) => {
-    const tr = document.createElement('tr')
-    row.forEach((cellValue, columnIndex) => {
-      const cell = document.createElement(rowIndex === 0 ? 'th' : 'td')
-      applyCellAlignment(cell, alignments[columnIndex])
+  // 给每个 th/td 设置 contenteditable
+  const cells = wrap.querySelectorAll<HTMLElement>('th, td')
+  cells.forEach((cell) => {
+    const rowAttr = cell.dataset.row ? Number(cell.dataset.row) : 0
+    const colAttr = cell.dataset.col ? Number(cell.dataset.col) : 0
+    // 转换为 rows 数组索引（row=0 是 header，row>0 是 body）
+    const rowIndex = rowAttr
+    const colIndex = colAttr
+    cell.setAttribute('contenteditable', 'true')
+    cell.classList.add('md-cell-editing')
+    if (rowIndex === 0 && colIndex === 0) cell.classList.add('md-preferred-focus')
 
-      const textarea = createAutoGrowTextarea(
-        'md-table-cell-input md-table-cell-textarea',
-        cellValue
-      )
-      textarea.addEventListener('input', () => {
-        autoGrowTextarea(textarea)
-        rows[rowIndex][columnIndex] = textarea.value
-        emit()
-      })
-      bindCommonEditorKeys(textarea, options, false)
-      textarea.addEventListener('blur', () => {
-        setTimeout(() => {
-          if (!wrap.contains(document.activeElement)) options.onBlur()
-        }, 0)
-      })
-      if (rowIndex === 0 && columnIndex === 0) textarea.classList.add('md-preferred-focus')
+    // 初始化 cell 内容为纯文本（从 Markdown 源码解析来的）
+    const cellText = rows[rowIndex]?.[colIndex] ?? ''
+    cell.textContent = cellText
 
-      cell.appendChild(textarea)
-      tr.appendChild(cell)
+    cell.addEventListener('input', () => {
+      if (rows[rowIndex]) {
+        rows[rowIndex][colIndex] = cell.textContent ?? ''
+      }
+      emit()
     })
-    table.appendChild(tr)
+
+    cell.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+        event.preventDefault()
+        options.onSave()
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        cell.blur()
+        return
+      }
+      // Tab 键导航到下一个 cell
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        const allCells = Array.from(wrap.querySelectorAll<HTMLElement>('th, td'))
+        const currentIndex = allCells.indexOf(cell)
+        const nextIndex = event.shiftKey ? currentIndex - 1 : currentIndex + 1
+        if (nextIndex >= 0 && nextIndex < allCells.length) {
+          allCells[nextIndex].focus()
+          // 全选 next cell 的文本
+          const range = document.createRange()
+          range.selectNodeContents(allCells[nextIndex])
+          const sel = window.getSelection()
+          sel?.removeAllRanges()
+          sel?.addRange(range)
+        } else if (!event.shiftKey) {
+          // Tab 从最后一个 cell 跳出，进入下一个 block
+          options.onMoveLine(1)
+        } else {
+          // Shift+Tab 从第一个 cell 跳出，进入上一个 block
+          options.onMoveLine(-1)
+        }
+      }
+      // ArrowUp/ArrowDown 在 cell 间移动
+      if (
+        (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        const allCells = Array.from(wrap.querySelectorAll<HTMLElement>('th, td'))
+        const currentIdx = allCells.indexOf(cell)
+        const colCount = rows[0]?.length ?? 1
+        const nextCellIdx =
+          event.key === 'ArrowUp' ? currentIdx - colCount : currentIdx + colCount
+        if (nextCellIdx >= 0 && nextCellIdx < allCells.length) {
+          event.preventDefault()
+          allCells[nextCellIdx].focus()
+        }
+      }
+    })
+
+    cell.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (!wrap.contains(document.activeElement)) options.onBlur()
+      }, 0)
+    })
   })
 
-  wrap.appendChild(table)
   return wrap
 }
 
@@ -820,7 +942,9 @@ function getBoundaryLineMovement(
   const cursor = getTextareaDocumentCursor(textarea, range)
   const local = getTextareaLocalCursor(textarea)
   const lineCount = textarea.value.split('\n').length
-  const isCodeContent = textarea.classList.contains('md-code-source-input')
+  const isCodeContent =
+    textarea.classList.contains('md-code-source-input') ||
+    textarea.classList.contains('md-code-overlay-input')
 
   if (delta < 0 && local.line === 0) {
     return isCodeContent ? { line: range.startLine, column: cursor.column } : cursor
@@ -849,7 +973,10 @@ function getTextareaDocumentCursor(textarea: HTMLTextAreaElement, range: LineRan
 }
 
 function getTextareaDocumentLineOffset(textarea: HTMLTextAreaElement): number {
-  return textarea.classList.contains('md-code-source-input') ? 1 : 0
+  return textarea.classList.contains('md-code-source-input') ||
+    textarea.classList.contains('md-code-overlay-input')
+    ? 1
+    : 0
 }
 
 function setTextareaCursorForDocumentLine(
