@@ -64,14 +64,6 @@
     -webkit-text-fill-color: transparent;
   }
 
-  .md-code-lang-input {
-    @apply border-0 outline-none caret-[var(--color-seeyue-accent)];
-  }
-
-  .md-code-lang-input::placeholder {
-    @apply text-seeyue-fg-dim;
-  }
-
   /* ---- 表格 contenteditable cell（Typora 风格） ---- */
   .md-table-wrap.md-table-editing .md-table th,
   .md-table-wrap.md-table-editing .md-table td {
@@ -180,6 +172,23 @@
 
   .md-code-lang {
     @apply absolute top-2 right-3 z-[1] select-none rounded-sm bg-seeyue-code-bg/85 px-1.5 py-0.5 text-[11px] text-seeyue-fg-dim tracking-[0.04em] font-[family-name:var(--font-mono)];
+  }
+
+  .md-code-lang[contenteditable="true"] {
+    @apply cursor-text select-text caret-[var(--color-seeyue-accent)];
+    outline: none;
+    min-width: 30px;
+  }
+
+  .md-code-lang[contenteditable="true"]:focus {
+    background: var(--color-seeyue-elevated);
+    box-shadow: 0 0 0 1px var(--color-seeyue-accent);
+  }
+
+  .md-code-lang[contenteditable="true"]:empty::before {
+    content: 'lang';
+    color: var(--color-seeyue-fg-dim);
+    pointer-events: none;
   }
 
   .md-code-pre {

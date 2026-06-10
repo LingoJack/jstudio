@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import type { InitialResp, ListResp, ParsedDocument, RenderedDoc } from '../types'
 
 interface CreateResp {
@@ -69,4 +70,18 @@ export async function readAsset(path: string): Promise<Blob> {
 
 export async function quitReaderWindow(): Promise<void> {
   return invoke<void>('quit_reader')
+}
+
+/** 打开原生文件选择对话框，返回选中的文件路径（取消返回 null） */
+export async function openFileDialog(): Promise<string | null> {
+  const selected = await dialogOpen({ multiple: false, directory: false })
+  if (!selected) return null
+  return typeof selected === 'string' ? selected : null
+}
+
+/** 打开原生文件夹选择对话框，返回选中的目录路径（取消返回 null） */
+export async function openFolderDialog(): Promise<string | null> {
+  const selected = await dialogOpen({ multiple: false, directory: true })
+  if (!selected) return null
+  return typeof selected === 'string' ? selected : null
 }

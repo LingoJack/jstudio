@@ -17,7 +17,7 @@ import {
 import { pickFileIconKind } from './fileIconKind'
 import { PromptDialog } from './PromptDialog'
 import { ConfirmDialog } from './ConfirmDialog'
-import { listDir } from './services'
+import { listDir, openFolderDialog } from './services'
 
 interface Props {
   root: string
@@ -115,8 +115,6 @@ export function FileTree(props: Props) {
   const [renamingError, setRenamingError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<DeleteTarget | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [openingRoot, setOpeningRoot] = useState(false)
-  const [openingRootError, setOpeningRootError] = useState<string | null>(null)
 
   const loadDir = useCallback(async (dir: string) => {
     setNodes((prev) => ({ ...prev, [dir]: loadingNode(prev[dir]) }))
@@ -242,34 +240,18 @@ export function FileTree(props: Props) {
     [onShowInFolder]
   )
 
-  const openRootDialog = useCallback(() => {
+  const openRootDialog = useCallback(async () => {
     if (!onOpenRoot) return
     setContextMenu(null)
-    setOpeningRootError(null)
-    setOpeningRoot(true)
+    try {
+      const dir = await openFolderDialog()
+      if (dir) {
+        await onOpenRoot(dir)
+      }
+    } catch {
+      // dialog 插件不可用时静默忽略
+    }
   }, [onOpenRoot])
-
-  const submitOpenRoot = useCallback(
-    async (dir: string) => {
-      if (!onOpenRoot) {
-        setOpeningRootError('当前环境不支持打开目录')
-        return
-      }
-      const trimmed = dir.trim()
-      if (!trimmed) {
-        setOpeningRootError('请输入目录路径')
-        return
-      }
-      try {
-        await onOpenRoot(trimmed)
-        setOpeningRoot(false)
-        setOpeningRootError(null)
-      } catch (e) {
-        setOpeningRootError(String(e))
-      }
-    },
-    [onOpenRoot]
-  )
 
   // 路径面包屑分段
   const crumbs = useMemo(() => splitPath(root), [root])
@@ -425,24 +407,6 @@ export function FileTree(props: Props) {
           }}
           onConfirm={() => {
             void confirmDelete()
-          }}
-        />
-      )}
-
-      {openingRoot && (
-        <PromptDialog
-          title="打开目录"
-          description="输入要作为文件树根目录的本地目录路径："
-          initialValue={root}
-          placeholder="例如 /Users/you/project"
-          confirmLabel="打开"
-          error={openingRootError ?? undefined}
-          onCancel={() => {
-            setOpeningRoot(false)
-            setOpeningRootError(null)
-          }}
-          onConfirm={(dir) => {
-            void submitOpenRoot(dir)
           }}
         />
       )}

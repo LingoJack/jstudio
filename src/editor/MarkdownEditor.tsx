@@ -384,7 +384,7 @@ export function MarkdownEditor({
     const editor =
       host.querySelector<HTMLElement>('.md-preferred-focus') ??
       host.querySelector<HTMLElement>(
-        '.md-block-source-input, .md-code-overlay-input, .md-code-lang-input, .md-cell-editing'
+        '.md-block-source-input, .md-code-overlay-input, .md-code-lang[contenteditable], .md-cell-editing'
       )
     if (editor && document.activeElement !== editor) {
       editor.focus()
@@ -604,16 +604,15 @@ function createCodeBlockEditor(
   wrap.dataset.startLine = String(options.range.startLine)
   wrap.dataset.endLine = String(options.range.endLine)
 
-  // 移除静态语言标签，改为可编辑输入框
-  const staticLangLabel = wrap.querySelector('.md-code-lang')
-  if (staticLangLabel) staticLangLabel.remove()
-
-  const langInput = document.createElement('input')
-  langInput.className = 'md-code-lang-input md-code-lang md-preferred-focus'
-  langInput.value = lang
-  langInput.placeholder = 'code'
-  langInput.spellcheck = false
-  wrap.insertBefore(langInput, wrap.firstChild)
+  // 复用渲染态的语言标签 DOM，设为 contenteditable
+  const langLabel = wrap.querySelector('.md-code-lang') as HTMLElement | null
+  if (langLabel) {
+    langLabel.textContent = lang || ''
+    langLabel.setAttribute('contenteditable', 'true')
+    langLabel.spellcheck = false
+    langLabel.classList.add('md-preferred-focus')
+    langLabel.dataset.mdMarker = ''
+  }
 
   // 找到 pre > code，追加透明 textarea overlay
   const pre = wrap.querySelector('.md-code-pre')
@@ -630,30 +629,32 @@ function createCodeBlockEditor(
   textarea.value = rawCode
   pre.appendChild(textarea)
 
+  const getLangValue = () => langLabel?.textContent ?? ''
+
   const closeEditor = () => {
-    langInput.blur()
+    langLabel?.blur()
     textarea.blur()
     options.onBlur()
   }
 
   const emit = () => {
-    options.onChange(buildCodeBlockSource(langInput.value, textarea.value))
+    options.onChange(buildCodeBlockSource(getLangValue(), textarea.value))
   }
 
   const updateHighlight = () => {
     // 实时更新语法高亮
     const newCode = textarea.value
-    const newLang = langInput.value || lang
+    const newLang = getLangValue() || lang
     const highlighted = renderHighlightedCode(newCode, newLang)
     codeEl.replaceChildren()
     codeEl.appendChild(highlighted)
   }
 
-  langInput.addEventListener('input', () => {
+  langLabel?.addEventListener('input', () => {
     emit()
     updateHighlight()
   })
-  langInput.addEventListener('keydown', (event) => {
+  langLabel?.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 's') {
       event.preventDefault()
       options.onSave()
@@ -672,6 +673,11 @@ function createCodeBlockEditor(
       event.preventDefault()
       textarea.blur()
       options.onMoveLine(-1)
+    }
+    // Enter 键切换到代码编辑区
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      textarea.focus()
     }
   })
 
@@ -714,7 +720,7 @@ function createCodeBlockEditor(
     }
   })
 
-  langInput.addEventListener('blur', () => {
+  langLabel?.addEventListener('blur', () => {
     setTimeout(() => {
       if (!wrap.contains(document.activeElement)) options.onBlur()
     }, 0)

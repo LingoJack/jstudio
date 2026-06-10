@@ -22,6 +22,8 @@ import {
   deletePath,
   getInitial,
   openDir,
+  openFileDialog,
+  openFolderDialog,
   quitReaderWindow,
   readFile,
   renamePath,
@@ -548,7 +550,7 @@ export function Reader() {
     [activeTabPath]
   )
 
-  // —— 全局快捷键：(⌘|⌃) S / W / ⌥← / ⌥→ / 1 / 2 ——
+  // —— 全局快捷键：(⌘|⌃) S / W / O / ⌥← / ⌥→ / 1 / 2 ——
   const requestQuit = useCallback(() => setQuitting(true), [])
   const handlersRef = useRef({
     saveTab,
@@ -558,6 +560,10 @@ export function Reader() {
     requestQuit,
     selectActivity,
     toggleSidebarCollapsed,
+    openFile,
+    setTreeRoot,
+    setActiveActivity,
+    setToast,
   })
   handlersRef.current = {
     saveTab,
@@ -567,6 +573,10 @@ export function Reader() {
     requestQuit,
     selectActivity,
     toggleSidebarCollapsed,
+    openFile,
+    setTreeRoot,
+    setActiveActivity,
+    setToast,
   }
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -604,6 +614,35 @@ export function Reader() {
         handlersRef.current.toggleSidebarCollapsed()
         return
       }
+      // ⌘O 打开文件（原生文件选择器）
+      if (!e.shiftKey && k === 'o') {
+        e.preventDefault()
+        void (async () => {
+          try {
+            const path = await openFileDialog()
+            if (path) handlersRef.current.openFile(path)
+          } catch {
+            // dialog 插件不可用时静默忽略
+          }
+        })()
+        return
+      }
+      // ⌘⇧O 打开文件夹（原生文件夹选择器）
+      if (e.shiftKey && k === 'o') {
+        e.preventDefault()
+        void (async () => {
+          try {
+            const dir = await openFolderDialog()
+            if (dir) {
+              handlersRef.current.setTreeRoot(dir)
+              handlersRef.current.setActiveActivity('files')
+            }
+          } catch {
+            // dialog 插件不可用时静默忽略
+          }
+        })()
+        return
+      }
       // ⌘1 / ⌘2 切活动栏（VSCode 习惯）
       if (!e.shiftKey && (k === '1' || k === '2')) {
         e.preventDefault()
@@ -614,6 +653,27 @@ export function Reader() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // —— EmptyState 的自定义事件（通过事件冒泡因为 EmptyState 无法直接访问 openFile） ——
+  useEffect(() => {
+    function onOpenFile(e: Event) {
+      const path = (e as CustomEvent).detail as string
+      if (path) void openFile(path)
+    }
+    function onOpenFolder(e: Event) {
+      const dir = (e as CustomEvent).detail as string
+      if (dir) {
+        setTreeRoot(dir)
+        setActiveActivity('files')
+      }
+    }
+    window.addEventListener('jreader:open-file', onOpenFile)
+    window.addEventListener('jreader:open-folder', onOpenFolder)
+    return () => {
+      window.removeEventListener('jreader:open-file', onOpenFile)
+      window.removeEventListener('jreader:open-folder', onOpenFolder)
+    }
+  }, [openFile])
 
   // —— TOC ——
   const headings = useMemo(() => {
@@ -960,6 +1020,30 @@ function EmptyState() {
   const isMac = navigator.platform.toLowerCase().includes('mac')
   const mod = isMac ? '⌘' : 'Ctrl'
 
+  const handleOpenFile = async () => {
+    try {
+      const path = await openFileDialog()
+      if (path) {
+        // EmptyState 在 Reader 组件内部，但无法直接调用 openFile
+        // 通过自定义事件向上传递
+        window.dispatchEvent(new CustomEvent('jreader:open-file', { detail: path }))
+      }
+    } catch {
+      /* dialog 不可用时静默忽略 */
+    }
+  }
+
+  const handleOpenFolder = async () => {
+    try {
+      const dir = await openFolderDialog()
+      if (dir) {
+        window.dispatchEvent(new CustomEvent('jreader:open-folder', { detail: dir }))
+      }
+    } catch {
+      /* dialog 不可用时静默忽略 */
+    }
+  }
+
   return (
     <div className="h-full bg-seeyue-bg text-seeyue-fg-dim">
       <div className="mx-auto flex h-full max-w-[860px] flex-col justify-center px-16 pb-16">
@@ -977,7 +1061,26 @@ function EmptyState() {
 
         <div className="grid max-w-[640px] gap-7 md:grid-cols-2">
           <WelcomeSection title="开始">
-            <WelcomeAction label="从 Explorer 打开文件" hint="点击左侧文件树中的任意文档" />
+            <button
+              type="button"
+              onClick={handleOpenFile}
+              className="group flex min-h-8 items-center justify-between gap-4 rounded-md px-2 py-1.5 text-[13px] text-seeyue-fg-muted transition-colors hover:bg-seeyue-elevated hover:text-seeyue-fg cursor-pointer w-full text-left"
+            >
+              <span>打开文件…</span>
+              <kbd className="shrink-0 rounded border border-seeyue-border bg-seeyue-panel px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-seeyue-fg-dim shadow-[inset_0_-1px_0_var(--color-seeyue-border)]">
+                {mod}O
+              </kbd>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenFolder}
+              className="group flex min-h-8 items-center justify-between gap-4 rounded-md px-2 py-1.5 text-[13px] text-seeyue-fg-muted transition-colors hover:bg-seeyue-elevated hover:text-seeyue-fg cursor-pointer w-full text-left"
+            >
+              <span>打开文件夹…</span>
+              <kbd className="shrink-0 rounded border border-seeyue-border bg-seeyue-panel px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-seeyue-fg-dim shadow-[inset_0_-1px_0_var(--color-seeyue-border)]">
+                {mod}⇧O
+              </kbd>
+            </button>
             <WelcomeAction label="打开工具面板" hint={`${mod} 2`} />
             <WelcomeAction label="切回文件面板" hint={`${mod} 1`} />
           </WelcomeSection>
