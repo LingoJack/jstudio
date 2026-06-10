@@ -4,9 +4,9 @@
  * 与 FileTree 平级，从 ActivityBar 的"工具箱"按钮切入。
  * 点击一项就把对应工具作为一个特殊 tab 打开（kind = 'tool'）。
  *
- * 后续要再加工具，往 TOOLS 数组加项 + Reader 里给 toolId 加分发即可。
+ * 后续要再加工具，只需要维护 toolRegistry。
  */
-import { Braces, GitCompare } from './Icon'
+import { TOOL_DEFINITIONS } from './toolRegistry'
 import type { ToolId } from './types'
 
 interface Props {
@@ -15,38 +15,12 @@ interface Props {
   onOpen: (toolId: ToolId) => void
 }
 
-interface ToolDef {
-  id: ToolId
-  name: string
-  description: string
-  /** icon 颜色 css var，让每个工具有自己的小色标 */
-  tone: 'accent' | 'success' | 'warn' | 'purple'
-  Icon: typeof GitCompare
-}
-
-const TOOLS: ToolDef[] = [
-  {
-    id: 'diff',
-    name: '文本 Diff',
-    description: '并排比较两段文本，行级差异高亮',
-    tone: 'accent',
-    Icon: GitCompare,
-  },
-  {
-    id: 'json',
-    name: 'JSON 查看器',
-    description: '格式化展示 JSON，支持节点折叠 / 修改',
-    tone: 'success',
-    Icon: Braces,
-  },
-]
-
 export function Toolbox({ activeToolId, onOpen }: Props) {
   return (
     <div className="h-full flex flex-col text-[13px] text-seeyue-fg bg-seeyue-sidebar shadow-[0_0_12px_rgba(0,0,0,0.3)]">
       {/* —— 工具列表 —— */}
       <div className="flex-1 overflow-y-auto px-2 py-2.5">
-        {TOOLS.map((tool) => (
+        {TOOL_DEFINITIONS.map((tool) => (
           <button
             key={tool.id}
             type="button"

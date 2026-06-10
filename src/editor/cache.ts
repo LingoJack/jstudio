@@ -9,6 +9,19 @@
 
 import type { Block } from '../types'
 
+const DEFAULT_RENDER_CACHE_MAX_ENTRIES = 1200
+const DEFAULT_INLINE_CACHE_MAX_ENTRIES = 4000
+
+function pruneMapHead<K, V>(entries: Map<K, V>, maxEntries: number, onDelete?: (value: V) => void) {
+  while (entries.size > maxEntries) {
+    const firstKey = entries.keys().next().value as K | undefined
+    if (firstKey === undefined) return
+    const value = entries.get(firstKey)
+    if (value !== undefined) onDelete?.(value)
+    entries.delete(firstKey)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Block identity key
 // ---------------------------------------------------------------------------
@@ -57,15 +70,29 @@ export class RenderCache {
   private nodes = new Map<string, HTMLElement>()
   /** 上一次渲染的 key 列表 */
   private _lastKeys: string[] = []
+  private readonly maxEntries: number
 
-  /** 获取已缓存的 DOM 节点 */
+  constructor(maxEntries = DEFAULT_RENDER_CACHE_MAX_ENTRIES) {
+    this.maxEntries = maxEntries
+  }
+
+  get size(): number {
+    return this.nodes.size
+  }
+
+  /** 获取已缓存的 DOM 节点，并刷新 LRU 顺序 */
   get(key: string): HTMLElement | undefined {
-    return this.nodes.get(key)
+    const node = this.nodes.get(key)
+    if (!node) return undefined
+    this.nodes.delete(key)
+    this.nodes.set(key, node)
+    return node
   }
 
   /** 缓存 DOM 节点 */
   set(key: string, node: HTMLElement) {
     this.nodes.set(key, node)
+    pruneMapHead(this.nodes, this.maxEntries, (cached) => cached.remove())
   }
 
   /** 记录本次渲染的 key 列表 */
@@ -120,19 +147,38 @@ function djb2(s: string): number {
   return h
 }
 
+interface InlineCacheEntry {
+  text: string
+  fragment: DocumentFragment
+}
+
 export class InlineCache {
-  private fragments = new Map<number, DocumentFragment>()
+  private fragments = new Map<number, InlineCacheEntry>()
+  private readonly maxEntries: number
+
+  constructor(maxEntries = DEFAULT_INLINE_CACHE_MAX_ENTRIES) {
+    this.maxEntries = maxEntries
+  }
+
+  get size(): number {
+    return this.fragments.size
+  }
 
   /** 获取缓存的 inline fragment（返回 clone） */
   get(text: string): DocumentFragment | null {
     const h = djb2(text)
     const cached = this.fragments.get(h)
-    return cached ? (cached.cloneNode(true) as DocumentFragment) : null
+    if (!cached || cached.text !== text) return null
+
+    this.fragments.delete(h)
+    this.fragments.set(h, cached)
+    return cached.fragment.cloneNode(true) as DocumentFragment
   }
 
   /** 缓存 inline fragment */
   set(text: string, frag: DocumentFragment) {
-    this.fragments.set(djb2(text), frag)
+    this.fragments.set(djb2(text), { text, fragment: frag })
+    pruneMapHead(this.fragments, this.maxEntries)
   }
 
   /** 清空 */

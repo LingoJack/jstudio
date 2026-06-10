@@ -15,6 +15,10 @@ export function resetInlineCache() {
   inlineCache.clear()
 }
 
+export function getInlineCacheSize(): number {
+  return inlineCache.size
+}
+
 /**
  * 将 Inline[] 渲染为 DOM 节点并追加到 parent 中。
  * @param inlines Inline[] 数组

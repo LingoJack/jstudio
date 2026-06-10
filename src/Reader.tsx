@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityBar, type ActivityKey, type ReaderTheme } from './ActivityBar'
 import { FileTree } from './FileTree'
 import { Toolbox } from './Toolbox'
-import { DiffTool } from './DiffTool'
-import { JsonTool } from './JsonTool'
 import { TabBar } from './TabBar'
 import { CloseConfirmDialog } from './CloseConfirmDialog'
 import { QuitConfirmDialog } from './QuitConfirmDialog'
@@ -12,6 +10,7 @@ import { PlainTextEditor } from './PlainTextEditor'
 import { ImageViewer } from './ImageViewer'
 import { TableOfContents } from './TableOfContents'
 import { extractHeadings } from './toc'
+import { getToolTitle, ToolRegistryHost } from './toolRegistry'
 import { Toast } from './Toast'
 import { VerticalSplitter } from './Splitter'
 import { MarkdownBaseDirContext } from './MarkdownIR'
@@ -34,12 +33,6 @@ type LoadState = { kind: 'loading' } | { kind: 'error'; message: string } | { ki
 
 /** 同时打开新文件的并发上限（防误点把内存撑爆） */
 const MAX_TABS = 32
-
-/** 工具 tab 标签上显示的名字。新增工具时在这里加一项。 */
-const TOOL_TITLES: Record<ToolId, string> = {
-  diff: '文本 Diff',
-  json: 'JSON 查看器',
-}
 
 /** 侧栏宽度（活动栏右侧的 FileTree / Toolbox 面板） */
 const SIDEBAR_DEFAULT = 270
@@ -68,6 +61,22 @@ function rebasePath(path: string, oldPrefix: string, newPrefix: string): string 
   const normalizedOld = oldPrefix.replace(/\/+$/, '')
   if (path === normalizedOld) return newPrefix
   return `${newPrefix}${path.slice(normalizedOld.length)}`
+}
+
+function moveRecordValue<T>(record: Record<string, T>, oldPath: string, newPath: string) {
+  if (!Object.prototype.hasOwnProperty.call(record, oldPath)) return
+  record[newPath] = record[oldPath]
+  delete record[oldPath]
+}
+
+function deleteRecordValue<T>(record: Record<string, T>, path: string) {
+  delete record[path]
+}
+
+function selectNextActivePath(tabs: Tab[], closingPath: string): string | null {
+  const idx = tabs.findIndex((tab) => tab.path === closingPath)
+  if (idx < 0) return null
+  return tabs[idx - 1]?.path ?? tabs[idx + 1]?.path ?? null
 }
 
 export function Reader() {
@@ -188,6 +197,20 @@ export function Reader() {
   // —— 标题栏 + beforeunload 同步 ——
   useDirtyTitle(activeTab, anyDirty)
 
+  const clearTabResources = useCallback((path: string) => {
+    deleteRecordValue(sourcesRef.current, path)
+    deleteRecordValue(originalSourcesRef.current, path)
+    deleteRecordValue(docsRef.current, path)
+    deleteRecordValue(imagesRef.current, path)
+  }, [])
+
+  const migrateRefKey = useCallback((oldPath: string, newPath: string) => {
+    moveRecordValue(sourcesRef.current, oldPath, newPath)
+    moveRecordValue(originalSourcesRef.current, oldPath, newPath)
+    moveRecordValue(docsRef.current, oldPath, newPath)
+    moveRecordValue(imagesRef.current, oldPath, newPath)
+  }, [])
+
   // —— Tab 操作 ——
   const updateTab = useCallback((path: string, patch: Partial<Tab>) => {
     setTabs((prev) => prev.map((t) => (t.path === path ? { ...t, ...patch } : t)))
@@ -270,7 +293,7 @@ export function Reader() {
       }
       const tab: Tab = {
         path,
-        filename: TOOL_TITLES[toolId] ?? toolId,
+        filename: getToolTitle(toolId),
         kind: 'tool',
         toolId,
         dirty: false,
@@ -303,17 +326,12 @@ export function Reader() {
       const next = prev.filter((t) => t.path !== path)
       setActiveTabPath((currentActivePath) => {
         if (currentActivePath !== path) return currentActivePath
-        // 切换 active：优先左邻（上一个 tab）→ 右邻 → null
-        return prev[idx - 1]?.path ?? prev[idx + 1]?.path ?? null
+        return selectNextActivePath(prev, path)
       })
       return next
     })
-    // 清掉 ref 桶里的内容，不让已关 tab 占内存
-    delete sourcesRef.current[path]
-    delete originalSourcesRef.current[path]
-    delete docsRef.current[path]
-    delete imagesRef.current[path]
-  }, [])
+    clearTabResources(path)
+  }, [clearTabResources])
 
   const saveTab = useCallback(
     async (path: string) => {
@@ -359,25 +377,6 @@ export function Reader() {
     return createDir(dir, name)
   }, [])
 
-  const migrateRefKey = useCallback((oldPath: string, newPath: string) => {
-    if (Object.prototype.hasOwnProperty.call(sourcesRef.current, oldPath)) {
-      sourcesRef.current[newPath] = sourcesRef.current[oldPath]
-      delete sourcesRef.current[oldPath]
-    }
-    if (Object.prototype.hasOwnProperty.call(originalSourcesRef.current, oldPath)) {
-      originalSourcesRef.current[newPath] = originalSourcesRef.current[oldPath]
-      delete originalSourcesRef.current[oldPath]
-    }
-    if (Object.prototype.hasOwnProperty.call(docsRef.current, oldPath)) {
-      docsRef.current[newPath] = docsRef.current[oldPath]
-      delete docsRef.current[oldPath]
-    }
-    if (Object.prototype.hasOwnProperty.call(imagesRef.current, oldPath)) {
-      imagesRef.current[newPath] = imagesRef.current[oldPath]
-      delete imagesRef.current[oldPath]
-    }
-  }, [])
-
   const renamePathAction = useCallback(
     async (path: string, newName: string): Promise<string> => {
       const { old_path: oldPath, new_path: newPath } = await renamePath(path, newName)
@@ -409,10 +408,7 @@ export function Reader() {
     setTabs((prev) => {
       const removed = prev.filter((tab) => isSameOrChildPath(tab.path, path))
       for (const tab of removed) {
-        delete sourcesRef.current[tab.path]
-        delete originalSourcesRef.current[tab.path]
-        delete docsRef.current[tab.path]
-        delete imagesRef.current[tab.path]
+        clearTabResources(tab.path)
       }
       const next = prev.filter((tab) => !isSameOrChildPath(tab.path, path))
       setActiveTabPath((current) => {
@@ -630,7 +626,7 @@ export function Reader() {
             <div className="h-full min-w-0 overflow-hidden relative">
               {activeTab ? (
                 activeTab.kind === 'tool' ? (
-                  <ToolHost toolId={activeTab.toolId ?? null} />
+                  <ToolRegistryHost toolId={activeTab.toolId ?? null} />
                 ) : activeTab.kind === 'markdown' ? (
                   <MarkdownEditor
                     key={activeTab.path}
@@ -728,26 +724,6 @@ function docToTab(doc: RenderedDoc): Tab {
         : 'plain_text',
     dirty: false,
     saving: 'idle',
-  }
-}
-
-/**
- * 工具 tab 渲染入口。按 toolId 分发到具体工具组件。
- * 列出来 + 路由集中在这里，新增工具时只在这里加 case，Reader 主流程不动。
- */
-function ToolHost({ toolId }: { toolId: ToolId | null }) {
-  switch (toolId) {
-    case 'diff':
-      return <DiffTool />
-    case 'json':
-      return <JsonTool />
-    default:
-      return (
-        <div className="h-full flex flex-col items-center justify-center p-12 text-seeyue-fg-dim text-[13px] text-center">
-          <div className="text-seeyue-fg text-[15px] font-medium mb-1.5">未知工具</div>
-          <div className="text-seeyue-fg-muted mb-4 leading-[1.7]">toolId = {String(toolId)}</div>
-        </div>
-      )
   }
 }
 

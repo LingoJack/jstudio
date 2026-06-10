@@ -13,7 +13,7 @@ import type { Alignment, Block, Inline, ListData, ParsedDocument } from '../type
 import { extractText } from '../MarkdownIR'
 import { slugify } from '../slug'
 import { renderHighlightedCode } from './code-highlight'
-import { resetInlineCache, renderInlines } from './inline-renderer'
+import { renderInlines } from './inline-renderer'
 import { parseMarkdown } from '../api'
 
 interface Props {
@@ -231,7 +231,6 @@ export function MarkdownEditor({
     const blocks = docRef.current.blocks
     const ranges = normalizeBlockRanges(blocks, lines)
 
-    resetInlineCache()
     host.replaceChildren()
 
     let nextLine = 0

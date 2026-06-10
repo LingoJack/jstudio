@@ -1,16 +1,14 @@
 import {
-  Braces,
   Close,
   FileMd,
   FileGeneric,
   FileText,
   FileCode,
   FileImage,
-  GitCompare,
-  Toolbox as ToolboxIcon,
 } from './Icon'
 import { pickFileIconKind } from './fileIconKind'
-import type { Tab, ToolId } from './types'
+import { ToolRegistryIcon } from './toolRegistry'
+import type { Tab } from './types'
 
 interface Props {
   tabs: Tab[]
@@ -90,7 +88,7 @@ export function TabBar({ tabs, activePath, onActivate, onClose }: Props) {
 
 function TabIcon({ tab }: { tab: Tab }) {
   if (tab.kind === 'tool') {
-    return <ToolIcon toolId={tab.toolId ?? null} />
+    return <ToolRegistryIcon toolId={tab.toolId ?? null} />
   }
   switch (pickFileIconKind(tab.filename)) {
     case 'markdown':
@@ -106,13 +104,3 @@ function TabIcon({ tab }: { tab: Tab }) {
   }
 }
 
-function ToolIcon({ toolId }: { toolId: ToolId | null }) {
-  switch (toolId) {
-    case 'diff':
-      return <GitCompare size={13} />
-    case 'json':
-      return <Braces size={13} />
-    default:
-      return <ToolboxIcon size={13} />
-  }
-}

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DirEntry } from './types'
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   FileCode,
@@ -61,6 +62,24 @@ interface NodeState {
   error: string | null
 }
 
+function loadingNode(prev: NodeState | undefined): NodeState {
+  return {
+    loading: true,
+    expanded: true,
+    entries: prev?.entries ?? null,
+    truncated: prev?.truncated ?? false,
+    error: null,
+  }
+}
+
+function loadedNode(entries: DirEntry[], truncated: boolean): NodeState {
+  return { loading: false, expanded: true, entries, truncated, error: null }
+}
+
+function errorNode(error: string): NodeState {
+  return { loading: false, expanded: true, entries: null, truncated: false, error }
+}
+
 /**
  * VS Code 风文件树。
  *
@@ -91,41 +110,16 @@ export function FileTree(props: Props) {
   const [renamingError, setRenamingError] = useState<string | null>(null)
   const [openingRoot, setOpeningRoot] = useState(false)
   const [openingRootError, setOpeningRootError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DirEntry | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const loadDir = useCallback(async (dir: string) => {
-    setNodes((prev) => ({
-      ...prev,
-      [dir]: {
-        loading: true,
-        expanded: true,
-        entries: prev[dir]?.entries ?? null,
-        truncated: prev[dir]?.truncated ?? false,
-        error: null,
-      },
-    }))
+    setNodes((prev) => ({ ...prev, [dir]: loadingNode(prev[dir]) }))
     try {
       const data = await listDir(dir, false)
-      setNodes((prev) => ({
-        ...prev,
-        [dir]: {
-          loading: false,
-          expanded: true,
-          entries: data.entries,
-          truncated: data.truncated,
-          error: null,
-        },
-      }))
+      setNodes((prev) => ({ ...prev, [dir]: loadedNode(data.entries, data.truncated) }))
     } catch (e) {
-      setNodes((prev) => ({
-        ...prev,
-        [dir]: {
-          loading: false,
-          expanded: true,
-          entries: null,
-          truncated: false,
-          error: String(e),
-        },
-      }))
+      setNodes((prev) => ({ ...prev, [dir]: errorNode(String(e)) }))
     }
   }, [])
 
@@ -133,33 +127,22 @@ export function FileTree(props: Props) {
   useEffect(() => {
     if (!root) return
     void loadDir(root)
-    setNodes((prev) => {
-      return {
-        [root]: prev[root] ?? {
-          loading: true,
-          expanded: true,
-          entries: null,
-          truncated: false,
-          error: null,
-        },
-      }
-    })
+    setNodes((prev) => ({ [root]: prev[root] ?? loadingNode(undefined) }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [root])
 
   const toggleDir = useCallback(
     (dir: string) => {
-      const state = nodes[dir]
-      if (!state || !state.entries) {
-        void loadDir(dir)
-        return
-      }
-      setNodes((prev) => ({
-        ...prev,
-        [dir]: { ...state, expanded: !state.expanded },
-      }))
+      setNodes((prev) => {
+        const state = prev[dir]
+        if (!state || !state.entries) {
+          void loadDir(dir)
+          return prev
+        }
+        return { ...prev, [dir]: { ...state, expanded: !state.expanded } }
+      })
     },
-    [nodes, loadDir]
+    [loadDir]
   )
 
   const openCreateDialog = useCallback((dir: string, kind: CreateKind) => {
@@ -222,21 +205,28 @@ export function FileTree(props: Props) {
     [loadDir, onRenamePath]
   )
 
-  const requestDelete = useCallback(
-    async (entry: DirEntry) => {
-      if (!onDeletePath) return
-      setContextMenu(null)
-      const kind = entry.is_dir ? '文件夹及其全部内容' : '文件'
-      if (!window.confirm(`确定删除${kind}「${entry.name}」吗？此操作不可撤销。`)) return
-      try {
-        await onDeletePath(entry.path)
-        await loadDir(parentDir(entry.path))
-      } catch (e) {
-        window.alert(String(e))
-      }
-    },
-    [loadDir, onDeletePath]
-  )
+  const requestDelete = useCallback((entry: DirEntry) => {
+    setContextMenu(null)
+    setDeleteError(null)
+    setDeleteTarget(entry)
+  }, [])
+
+  const cancelDelete = useCallback(() => {
+    setDeleteTarget(null)
+    setDeleteError(null)
+  }, [])
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget || !onDeletePath) return
+    try {
+      await onDeletePath(deleteTarget.path)
+      await loadDir(parentDir(deleteTarget.path))
+      setDeleteTarget(null)
+      setDeleteError(null)
+    } catch (e) {
+      setDeleteError(String(e))
+    }
+  }, [deleteTarget, loadDir, onDeletePath])
 
   const requestShowInFolder = useCallback(
     async (path: string) => {
@@ -423,6 +413,17 @@ export function FileTree(props: Props) {
         />
       )}
 
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          entry={deleteTarget}
+          error={deleteError}
+          onCancel={cancelDelete}
+          onConfirm={() => {
+            void confirmDelete()
+          }}
+        />
+      )}
+
       {contextMenu && (
         <div
           className="fixed z-50 min-w-[150px] overflow-hidden rounded-md border border-seeyue-border bg-seeyue-bg/95 py-1 text-[13px] text-seeyue-fg shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur"
@@ -464,7 +465,7 @@ export function FileTree(props: Props) {
             <MenuButton onClick={() => openRenameDialog(contextMenu.entry!)}>重命名</MenuButton>
           )}
           {contextMenu.entry && onDeletePath && (
-            <MenuButton danger onClick={() => void requestDelete(contextMenu.entry!)}>
+            <MenuButton danger onClick={() => requestDelete(contextMenu.entry!)}>
               删除
             </MenuButton>
           )}
@@ -491,6 +492,86 @@ interface DirNodeProps {
   filter: string
   onRequestCreate?: (dir: string, kind: CreateKind) => void
   onRequestMenu?: (menu: ContextMenuState) => void
+}
+
+function DeleteConfirmDialog({
+  entry,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  entry: DirEntry
+  error: string | null
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const itemKind = entry.is_dir ? '文件夹及其全部内容' : '文件'
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 px-4 backdrop-blur-[2px]"
+      role="presentation"
+      onMouseDown={onCancel}
+    >
+      <section
+        className="w-full max-w-[440px] rounded-xl border border-seeyue-border bg-seeyue-bg p-5 text-seeyue-fg shadow-[0_24px_70px_rgba(0,0,0,0.38)]"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-desc"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-400/30 bg-rose-500/10 text-rose-200">
+            <AlertTriangle size={18} aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2
+              id="delete-dialog-title"
+              className="m-0 text-base font-semibold text-seeyue-fg-strong"
+            >
+              确认删除{entry.is_dir ? '文件夹' : '文件'}？
+            </h2>
+            <p
+              id="delete-dialog-desc"
+              className="mt-2 text-[13px] leading-relaxed text-seeyue-fg-muted"
+            >
+              将删除{itemKind}
+              <span className="mx-1 font-medium text-seeyue-fg-strong">{entry.name}</span>
+              。此操作不可撤销，请确认你已不再需要它。
+            </p>
+            <div className="mt-3 rounded-lg border border-seeyue-border bg-seeyue-sidebar px-3 py-2 text-[12px] leading-relaxed text-seeyue-fg-dim break-all">
+              {entry.path}
+            </div>
+          </div>
+        </div>
+        {error && (
+          <div
+            className="mt-4 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[12px] leading-relaxed text-rose-100"
+            role="alert"
+            aria-live="polite"
+          >
+            删除失败：{error}。请检查文件是否被占用或权限是否足够后重试。
+          </div>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-lg border border-seeyue-border bg-seeyue-bg px-3 py-1.5 text-[13px] text-seeyue-fg-muted transition-colors hover:border-seeyue-accent hover:text-seeyue-fg-strong focus:outline-none focus:ring-2 focus:ring-seeyue-accent/45 active:scale-[0.99]"
+            onClick={onCancel}
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            className="rounded-lg border border-rose-400/40 bg-rose-500/15 px-3 py-1.5 text-[13px] font-medium text-rose-100 transition-colors hover:bg-rose-500/25 focus:outline-none focus:ring-2 focus:ring-rose-300/45 active:scale-[0.99]"
+            onClick={onConfirm}
+          >
+            删除
+          </button>
+        </div>
+      </section>
+    </div>
+  )
 }
 
 function DirNode({
