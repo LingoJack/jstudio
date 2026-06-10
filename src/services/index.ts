@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { InitialResp, ListResp, ParsedDocument, RenderedDoc } from './types'
+import type { InitialResp, ListResp, ParsedDocument, RenderedDoc } from '../types'
 
 interface CreateResp {
   path: string

@@ -57,6 +57,7 @@
   --animate-seeyue-fade-in: seeyue-fade-in 0.18s ease;
   --animate-seeyue-scale-in: seeyue-scale-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-seeyue-slide-in: seeyue-slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-seeyue-fade-out-up: seeyue-fade-out-up 0.28s ease forwards;
 }
 
 /* —— 全局基线 —— */
@@ -72,7 +73,7 @@
     background: var(--color-seeyue-bg);
     color: var(--color-seeyue-fg);
     font-family: var(--font-cjk);
-    font-size: 15px;
+    font-size: calc(15px * var(--jreader-font-scale, 1));
     line-height: 1.85;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -83,9 +84,19 @@
     color: var(--color-seeyue-fg-strong);
   }
 
+  /* 全局 focus-visible：统一键盘聚焦轮廓 */
+  :where(button, a, [role="button"], [tabindex="0"]):focus-visible {
+    outline: 2px solid var(--color-seeyue-accent);
+    outline-offset: -1px;
+    border-radius: 3px;
+  }
+  :where(button, a, [role="button"], [tabindex="0"]):focus:not(:focus-visible) {
+    outline: none;
+  }
+
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -145,7 +156,7 @@
 @layer components {
   .seeyue-prose {
     font-family: var(--font-cjk);
-    font-size: 15px;
+    font-size: calc(15px * var(--jreader-font-scale, 1));
     line-height: 1.85;
     color: var(--color-seeyue-fg);
   }
@@ -270,5 +281,27 @@
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+@keyframes seeyue-fade-out-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+/* —— 动效降级：尊重用户系统偏好 —— */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

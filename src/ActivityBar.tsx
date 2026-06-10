@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { CheckCircle, Files, Settings, Toolbox as ToolboxIcon } from './Icon'
 
 /**
- * VS Code 风的最左侧“活动栏”。
+ * VS Code 风的最左侧"活动栏"。
  *
  * 顶部负责文件 / 工具箱视图切换，底部保留 Reader 设置入口。设置入口是通用菜单，
- * 当前只暴露已经可用的颜色主题配置，后续可继续挂载字体大小、快捷键等偏好。
+ * 当前暴露颜色主题配置和编辑器字体大小偏好。
  */
 export type ActivityKey = 'files' | 'toolbox'
 export type ReaderTheme = 'aliyun' | 'warm'
@@ -13,8 +13,10 @@ export type ReaderTheme = 'aliyun' | 'warm'
 interface Props {
   active: ActivityKey
   theme: ReaderTheme
+  fontScale: number
   onSelect: (key: ActivityKey) => void
   onThemeChange: (theme: ReaderTheme) => void
+  onFontScaleChange: (scale: number) => void
 }
 
 interface ItemDef {
@@ -33,7 +35,18 @@ const THEME_OPTIONS: Array<{ key: ReaderTheme; label: string; desc: string }> = 
   { key: 'warm', label: 'Seeyue Warm', desc: '暖色纸张感，适合长时间编辑' },
 ]
 
-export function ActivityBar({ active, theme, onSelect, onThemeChange }: Props) {
+const FONT_SCALE_STEP = 0.1
+const FONT_SCALE_MIN = 0.7
+const FONT_SCALE_MAX = 2.0
+
+export function ActivityBar({
+  active,
+  theme,
+  fontScale,
+  onSelect,
+  onThemeChange,
+  onFontScaleChange,
+}: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement | null>(null)
 
@@ -61,6 +74,8 @@ export function ActivityBar({ active, theme, onSelect, onThemeChange }: Props) {
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [settingsOpen])
+
+  const fontPercent = Math.round(fontScale * 100)
 
   return (
     <nav
@@ -104,6 +119,7 @@ export function ActivityBar({ active, theme, onSelect, onThemeChange }: Props) {
               设置
             </div>
             <div className="p-2">
+              {/* —— 颜色主题 —— */}
               <div className="px-2 py-1.5 text-[11px] font-semibold tracking-[0.08em] uppercase text-seeyue-fg-dim">
                 颜色主题
               </div>
@@ -134,6 +150,49 @@ export function ActivityBar({ active, theme, onSelect, onThemeChange }: Props) {
                     </button>
                   )
                 })}
+              </div>
+
+              {/* —— 字体大小 —— */}
+              <div className="mt-2 pt-2 border-t border-seeyue-border">
+                <div className="px-2 py-1.5 text-[11px] font-semibold tracking-[0.08em] uppercase text-seeyue-fg-dim">
+                  编辑器字体
+                </div>
+                <div className="flex items-center gap-2 px-2.5 py-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center w-7 h-7 rounded border border-seeyue-border bg-transparent text-seeyue-fg-muted cursor-pointer transition-colors duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated disabled:opacity-30 disabled:cursor-not-allowed"
+                    disabled={fontScale <= FONT_SCALE_MIN}
+                    onClick={() => onFontScaleChange(fontScale - FONT_SCALE_STEP)}
+                    aria-label="减小字体"
+                  >
+                    <span className="text-[16px] leading-none select-none">−</span>
+                  </button>
+                  <span className="flex-1 text-center text-[13px] font-medium text-seeyue-fg-strong tabular-nums">
+                    {fontPercent}%
+                  </span>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center w-7 h-7 rounded border border-seeyue-border bg-transparent text-seeyue-fg-muted cursor-pointer transition-colors duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated disabled:opacity-30 disabled:cursor-not-allowed"
+                    disabled={fontScale >= FONT_SCALE_MAX}
+                    onClick={() => onFontScaleChange(fontScale + FONT_SCALE_STEP)}
+                    aria-label="增大字体"
+                  >
+                    <span className="text-[16px] leading-none select-none">+</span>
+                  </button>
+                  {fontScale !== 1.0 && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center h-7 px-2 rounded border border-seeyue-border bg-transparent text-[11px] text-seeyue-fg-dim cursor-pointer transition-colors duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated"
+                      onClick={() => onFontScaleChange(1.0)}
+                      aria-label="重置字体大小"
+                    >
+                      重置
+                    </button>
+                  )}
+                </div>
+                <div className="px-2.5 pb-1 text-[11px] text-seeyue-fg-dim">
+                  范围 70% – 200%，使用 CSS 变量 --jreader-font-scale 控制
+                </div>
               </div>
             </div>
           </div>

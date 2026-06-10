@@ -14,7 +14,7 @@ import { getToolTitle, ToolRegistryHost } from './toolRegistry'
 import { Toast } from './Toast'
 import { VerticalSplitter } from './Splitter'
 import { MarkdownBaseDirContext } from './MarkdownIR'
-import { ChevronRight, CopyPath, FileText, Save } from './Icon'
+import { AlertTriangle } from './Icon'
 import type { ImagePayload, ParsedDocument, RenderedDoc, Tab, ToolId } from './types'
 import {
   createDir,
@@ -27,23 +27,30 @@ import {
   renamePath,
   saveFile,
   showInFolder,
-} from './api'
+} from './services'
+import {
+  MAX_TABS,
+  ACTIVITY_BAR_WIDTH,
+  MAIN_CONTENT_MIN_RATIO,
+  PINNED_TOC_WIDTH,
+  SIDEBAR_DEFAULT,
+  SIDEBAR_MAX,
+  SIDEBAR_MIN,
+  LS_SIDEBAR_WIDTH,
+  LS_THEME,
+} from './constants'
+import { ChevronRight, CopyPath, FileText, Save } from './Icon'
 
 type LoadState = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready' }
 
-/** 同时打开新文件的并发上限（防误点把内存撑爆） */
-const MAX_TABS = 32
+function moveRecordValue<T>(record: Record<string, T>, oldPath: string, newPath: string) {
+  if (!Object.prototype.hasOwnProperty.call(record, oldPath)) return
+  record[newPath] = record[oldPath]
+  delete record[oldPath]
+}
 
-/** 侧栏宽度（活动栏右侧的 FileTree / Toolbox 面板） */
-const SIDEBAR_DEFAULT = 270
-const SIDEBAR_MIN = 180
-const SIDEBAR_MAX = 560
-const SIDEBAR_LS_KEY = 'jreader.sidebarWidth'
-const THEME_LS_KEY = 'jreader.theme'
-
-function readStoredTheme(): ReaderTheme {
-  const stored = localStorage.getItem(THEME_LS_KEY)
-  return stored === 'warm' ? 'warm' : 'aliyun'
+function deleteRecordValue<T>(record: Record<string, T>, path: string) {
+  delete record[path]
 }
 
 function filenameFromPath(path: string): string {
@@ -63,25 +70,24 @@ function rebasePath(path: string, oldPrefix: string, newPrefix: string): string 
   return `${newPrefix}${path.slice(normalizedOld.length)}`
 }
 
-function moveRecordValue<T>(record: Record<string, T>, oldPath: string, newPath: string) {
-  if (!Object.prototype.hasOwnProperty.call(record, oldPath)) return
-  record[newPath] = record[oldPath]
-  delete record[oldPath]
-}
-
-function deleteRecordValue<T>(record: Record<string, T>, path: string) {
-  delete record[path]
-}
-
 function selectNextActivePath(tabs: Tab[], closingPath: string): string | null {
   const idx = tabs.findIndex((tab) => tab.path === closingPath)
   if (idx < 0) return null
   return tabs[idx - 1]?.path ?? tabs[idx + 1]?.path ?? null
 }
 
+function readStoredTheme(): ReaderTheme {
+  const stored = localStorage.getItem(LS_THEME)
+  return stored === 'warm' ? 'warm' : 'aliyun'
+}
+
 export function Reader() {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' })
   const [theme, setThemeState] = useState<ReaderTheme>(readStoredTheme)
+  const [fontScale, setFontScaleState] = useState<number>(() => {
+    const v = parseFloat(localStorage.getItem('jreader.fontScale') ?? '')
+    return Number.isFinite(v) && v >= 0.7 && v <= 2.0 ? v : 1.0
+  })
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabPath, setActiveTabPath] = useState<string | null>(null)
   const [treeRoot, setTreeRoot] = useState<string>('')
@@ -115,14 +121,24 @@ export function Reader() {
    * 初值会被夹紧到 [SIDEBAR_MIN, SIDEBAR_MAX]，防止上一次恶意 / 意外的 0 值。
    */
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    const raw = localStorage.getItem(SIDEBAR_LS_KEY)
+    const raw = localStorage.getItem(LS_SIDEBAR_WIDTH)
     const n = raw ? Number(raw) : SIDEBAR_DEFAULT
     if (!Number.isFinite(n)) return SIDEBAR_DEFAULT
     return Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, n))
   })
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
+    () => localStorage.getItem('jreader.sidebarCollapsed') === '1'
+  )
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('jreader.sidebarCollapsed', next ? '1' : '0')
+      return next
+    })
+  }, [])
   const handleSidebarResize = useCallback((next: number) => {
     setSidebarWidth(next)
-    localStorage.setItem(SIDEBAR_LS_KEY, String(Math.round(next)))
+    localStorage.setItem(LS_SIDEBAR_WIDTH, String(Math.round(next)))
   }, [])
   /** 监听 doc 更新（每次解析完成就 +1）—— 给 TOC 触发重算 */
   const [docVersion, setDocVersion] = useState(0)
@@ -218,8 +234,20 @@ export function Reader() {
 
   const setTheme = useCallback((nextTheme: ReaderTheme) => {
     setThemeState(nextTheme)
-    localStorage.setItem(THEME_LS_KEY, nextTheme)
+    localStorage.setItem(LS_THEME, nextTheme)
   }, [])
+
+  const setFontScale = useCallback((next: number) => {
+    const clamped = Math.round(Math.max(0.7, Math.min(2.0, next)) * 100) / 100
+    setFontScaleState(clamped)
+    localStorage.setItem('jreader.fontScale', String(clamped))
+    document.documentElement.style.setProperty('--jreader-font-scale', String(clamped))
+  }, [])
+
+  // 首次渲染时同步 fontScale 到 CSS 变量（从 localStorage 恢复的值）
+  useEffect(() => {
+    document.documentElement.style.setProperty('--jreader-font-scale', String(fontScale))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * 编辑器报告 source 变化。这是高频回调（按键级别）。
@@ -238,7 +266,7 @@ export function Reader() {
   }, [])
 
   /**
-   * MilkdownEditor 内部 debounce 调 /api/parse 后回调，更新 IR。
+   * MarkdownEditor 内部 debounce 调 /api/parse 后回调，更新 IR。
    * 同样写 ref，再 bump docVersion 触发 TOC 重算（TOC 依赖 path + version）。
    */
   const handleDocParsed = useCallback((path: string, doc: ParsedDocument) => {
@@ -333,6 +361,71 @@ export function Reader() {
     clearTabResources(path)
   }, [clearTabResources])
 
+  // 关闭除指定 tab 以外的所有非 dirty tab；dirty tab 保留
+  const closeOthers = useCallback(
+    (keepPath: string) => {
+      setTabs((prev) => {
+        const kept = prev.filter((t) => t.path === keepPath || t.dirty)
+        // 清理 ref 桶
+        for (const t of prev) {
+          if (!kept.some((k) => k.path === t.path)) {
+            delete sourcesRef.current[t.path]
+            delete originalSourcesRef.current[t.path]
+            delete docsRef.current[t.path]
+            delete imagesRef.current[t.path]
+          }
+        }
+        if (!kept.some((t) => t.path === activeTabPath)) {
+          setActiveTabPath(keepPath)
+        }
+        return kept
+      })
+    },
+    [activeTabPath]
+  )
+
+  // 关闭全部非 dirty tab；dirty tab 保留
+  const closeAll = useCallback(() => {
+    setTabs((prev) => {
+      const kept = prev.filter((t) => t.dirty)
+      for (const t of prev) {
+        if (!kept.some((k) => k.path === t.path)) {
+          delete sourcesRef.current[t.path]
+          delete originalSourcesRef.current[t.path]
+          delete docsRef.current[t.path]
+          delete imagesRef.current[t.path]
+        }
+      }
+      if (kept.length > 0) {
+        if (!kept.some((t) => t.path === activeTabPath)) {
+          setActiveTabPath(kept[0].path)
+        }
+      } else {
+        setActiveTabPath(null)
+      }
+      return kept
+    })
+  }, [activeTabPath])
+
+  // 仅关闭已保存（非 dirty）的 tab
+  const closeSaved = useCallback(() => {
+    setTabs((prev) => {
+      const kept = prev.filter((t) => t.dirty)
+      for (const t of prev) {
+        if (!kept.some((k) => k.path === t.path)) {
+          delete sourcesRef.current[t.path]
+          delete originalSourcesRef.current[t.path]
+          delete docsRef.current[t.path]
+          delete imagesRef.current[t.path]
+        }
+      }
+      if (!kept.some((t) => t.path === activeTabPath)) {
+        setActiveTabPath(kept[0]?.path ?? null)
+      }
+      return kept
+    })
+  }, [activeTabPath])
+
   const saveTab = useCallback(
     async (path: string) => {
       const t = tabs.find((x) => x.path === path)
@@ -340,7 +433,6 @@ export function Reader() {
       // 图片是只读视图：⌘S 直接 no-op，避免把空 source 覆盖回去毁掉文件
       // 工具 tab 没有"文件内容"概念，⌘S 同样直接忽略
       if (t.kind === 'image' || t.kind === 'tool') return
-      // CM6 文档即源码本身，不再需要 preserveBlankLines 那一套"忠实重建"
       const source = sourcesRef.current[path] ?? ''
       updateTab(path, { saving: 'saving', error: undefined })
       try {
@@ -370,9 +462,7 @@ export function Reader() {
     return createFileOnDisk(dir, name)
   }, [])
 
-  /**
-   * 在指定父目录里创建一个新文件夹，成功返回新目录绝对路径。
-   */
+  /** 在指定父目录里创建一个新文件夹，成功返回新目录绝对路径。 */
   const createFolder = useCallback(async (dir: string, name: string): Promise<string> => {
     return createDir(dir, name)
   }, [])
@@ -459,11 +549,6 @@ export function Reader() {
   )
 
   // —— 全局快捷键：(⌘|⌃) S / W / ⌥← / ⌥→ / 1 / 2 ——
-  // 同时接受 metaKey（macOS ⌘）与 ctrlKey（macOS ⌃ 或 Win/Linux Ctrl）。
-  // 这是因为普通 Chrome 标签页里 ⌘W 会被浏览器吞掉关掉标签，根本传不到 JS；
-  // 此时用户可以退而用 ⌃W 关闭当前 reader tab。
-  // app 模式（`j read` 默认走 Chrome --app=URL）无标签栏，⌘W 才能被网页接收。
-  // 用 ref 保存最新引用，避免每次 tabs 变化都重绑 listener
   const requestQuit = useCallback(() => setQuitting(true), [])
   const handlersRef = useRef({
     saveTab,
@@ -472,6 +557,7 @@ export function Reader() {
     activeTabPath,
     requestQuit,
     selectActivity,
+    toggleSidebarCollapsed,
   })
   handlersRef.current = {
     saveTab,
@@ -480,6 +566,7 @@ export function Reader() {
     activeTabPath,
     requestQuit,
     selectActivity,
+    toggleSidebarCollapsed,
   }
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -511,6 +598,12 @@ export function Reader() {
         handlersRef.current.cycleTab(e.key === 'ArrowLeft' ? -1 : 1)
         return
       }
+      // ⌘B 切换侧边栏（VSCode 习惯）
+      if (!e.shiftKey && !e.altKey && k === 'b') {
+        e.preventDefault()
+        handlersRef.current.toggleSidebarCollapsed()
+        return
+      }
       // ⌘1 / ⌘2 切活动栏（VSCode 习惯）
       if (!e.shiftKey && (k === '1' || k === '2')) {
         e.preventDefault()
@@ -523,7 +616,6 @@ export function Reader() {
   }, [])
 
   // —— TOC ——
-  // docsRef 是 ref（变化不触发渲染），所以 deps 用 path + docVersion
   const headings = useMemo(() => {
     if (!activeTab || activeTab.kind !== 'markdown') return []
     const doc = docsRef.current[activeTab.path]
@@ -538,19 +630,45 @@ export function Reader() {
   /** 当前活跃工具 id（用于 Toolbox 高亮选中态） */
   const activeToolId = activeTab?.kind === 'tool' ? (activeTab.toolId ?? null) : null
 
+  /** 主编辑区最小占比：避免侧栏 + 固定目录挤压核心内容。 */
+  const editorMinWidth = useMemo(() => {
+    const tocWidth = showToc && tocPinned ? PINNED_TOC_WIDTH : 0
+    const sidebarTotalWidth = sidebarCollapsed ? 0 : sidebarWidth + 1
+    const reservedWidth = ACTIVITY_BAR_WIDTH + sidebarTotalWidth + tocWidth
+    return `max(0px, calc(${MAIN_CONTENT_MIN_RATIO * 100}vw - ${reservedWidth}px))`
+  }, [showToc, tocPinned, sidebarCollapsed, sidebarWidth])
+
   // —— Loading / Error 屏 ——
   if (loadState.kind === 'loading') {
     return (
-      <div className="h-full flex items-center justify-center text-seeyue-fg-muted text-sm gap-2">
-        <span className="inline-block w-2 h-2 rounded-full bg-seeyue-accent animate-pulse" />
-        加载中…
+      <div className="h-full flex flex-col items-center justify-center gap-4 text-seeyue-fg-dim">
+        <div className="relative h-10 w-10">
+          <span className="absolute inset-0 rounded-full border-2 border-seeyue-border" />
+          <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-seeyue-accent animate-spin" />
+        </div>
+        <span className="text-[13px] tracking-wide">加载中…</span>
       </div>
     )
   }
   if (loadState.kind === 'error') {
     return (
-      <div className="h-full flex items-center justify-center p-8 text-seeyue-danger text-sm font-mono whitespace-pre-wrap">
-        加载失败：{loadState.message}
+      <div className="h-full flex flex-col items-center justify-center gap-4 p-8">
+        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(191,97,106,0.12)] text-seeyue-danger">
+          <AlertTriangle size={22} />
+        </span>
+        <div className="text-center">
+          <div className="text-[15px] font-medium text-seeyue-fg-strong mb-1">加载失败</div>
+          <div className="text-[13px] text-seeyue-fg-muted font-mono whitespace-pre-wrap break-all max-w-[480px]">
+            {loadState.message}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-seeyue-border bg-seeyue-panel px-3.5 py-1.5 text-[13px] text-seeyue-fg-strong cursor-pointer transition-all duration-150 hover:border-seeyue-accent hover:text-seeyue-accent"
+          onClick={() => window.location.reload()}
+        >
+          重试
+        </button>
       </div>
     )
   }
@@ -561,46 +679,53 @@ export function Reader() {
         className="h-full grid bg-seeyue-bg text-seeyue-fg"
         data-theme={theme}
         style={{
-          // 4 列：[44px 活动栏] [{sidebarWidth}px 侧栏面板] [1px 分隔线/拖拽条] [1fr 主区]
-          gridTemplateColumns: `44px ${sidebarWidth}px 1px minmax(0, 1fr)`,
+          gridTemplateColumns: sidebarCollapsed
+            ? `${ACTIVITY_BAR_WIDTH}px minmax(0, 1fr)`
+            : `${ACTIVITY_BAR_WIDTH}px ${sidebarWidth}px 1px minmax(${editorMinWidth}, 1fr)`,
         }}
       >
         {/* 最左：垂直活动栏 */}
         <ActivityBar
           active={activeActivity}
           theme={theme}
+          fontScale={fontScale}
           onSelect={selectActivity}
           onThemeChange={setTheme}
+          onFontScaleChange={setFontScale}
         />
 
-        {/* 左：侧栏（按 activeActivity 切换内容） */}
-        <aside className="overflow-hidden">
-          {activeActivity === 'files' ? (
-            <FileTree
-              root={treeRoot}
-              activePath={activeTabPath}
-              onOpen={openFile}
-              onCreateFile={createFile}
-              onCreateFolder={createFolder}
-              onRenamePath={renamePathAction}
-              onDeletePath={deletePathAction}
-              onShowInFolder={showInFolderAction}
-              onOpenRoot={openRootAction}
-            />
-          ) : (
-            <Toolbox activeToolId={activeToolId} onOpen={openTool} />
-          )}
-        </aside>
+        {/* 左：侧栏（按 activeActivity 切换内容）—— 折叠时隐藏 */}
+        {!sidebarCollapsed && (
+          <aside className="overflow-hidden">
+            {activeActivity === 'files' ? (
+              <FileTree
+                root={treeRoot}
+                activePath={activeTabPath}
+                onOpen={openFile}
+                onCreateFile={createFile}
+                onCreateFolder={createFolder}
+                onRenamePath={renamePathAction}
+                onDeletePath={deletePathAction}
+                onShowInFolder={showInFolderAction}
+                onOpenRoot={openRootAction}
+              />
+            ) : (
+              <Toolbox activeToolId={activeToolId} onOpen={openTool} />
+            )}
+          </aside>
+        )}
 
-        {/* 侧栏宽度调节 splitter */}
-        <VerticalSplitter
-          width={sidebarWidth}
-          min={SIDEBAR_MIN}
-          max={SIDEBAR_MAX}
-          defaultWidth={SIDEBAR_DEFAULT}
-          onResize={handleSidebarResize}
-          ariaLabel="调节侧栏宽度"
-        />
+        {/* 侧栏宽度调节 splitter —— 折叠时隐藏 */}
+        {!sidebarCollapsed && (
+          <VerticalSplitter
+            width={sidebarWidth}
+            min={SIDEBAR_MIN}
+            max={SIDEBAR_MAX}
+            defaultWidth={SIDEBAR_DEFAULT}
+            onResize={handleSidebarResize}
+            ariaLabel="调节侧栏宽度"
+          />
+        )}
 
         {/* 中：Tab 条 + 编辑器顶栏 + 编辑区（TOC 浮于其上） */}
         <main className="flex flex-col overflow-hidden relative">
@@ -609,6 +734,10 @@ export function Reader() {
             activePath={activeTabPath}
             onActivate={setActiveTabPath}
             onClose={requestCloseTab}
+            onCloseOthers={closeOthers}
+            onCloseAll={closeAll}
+            onCloseSaved={closeSaved}
+            copyPath={copyPath}
           />
           {activeTab && activeTab.kind !== 'tool' && (
             <EditorBar
@@ -620,7 +749,9 @@ export function Reader() {
           <div
             className={
               'flex-1 overflow-hidden relative ' +
-              (showToc && tocPinned ? 'grid grid-cols-[minmax(0,1fr)_248px] bg-seeyue-bg' : 'block')
+              (showToc && tocPinned
+                ? 'grid grid-cols-[minmax(0,1fr)_clamp(208px,18vw,248px)] bg-seeyue-bg'
+                : 'block')
             }
           >
             <div className="h-full min-w-0 overflow-hidden relative">
@@ -936,3 +1067,5 @@ function useDirtyTitle(activeTab: Tab | null, anyDirty: boolean) {
     return () => window.removeEventListener('beforeunload', handler)
   }, [anyDirty])
 }
+
+

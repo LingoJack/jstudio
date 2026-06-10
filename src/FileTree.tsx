@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DirEntry } from './types'
 import {
-  AlertTriangle,
   ChevronDown,
   ChevronRight,
   FileCode,
@@ -17,7 +16,8 @@ import {
 } from './Icon'
 import { pickFileIconKind } from './fileIconKind'
 import { PromptDialog } from './PromptDialog'
-import { listDir } from './api'
+import { ConfirmDialog } from './ConfirmDialog'
+import { listDir } from './services'
 
 interface Props {
   root: string
@@ -42,6 +42,11 @@ interface CreateTarget {
 }
 
 interface RenameTarget {
+  entry: DirEntry
+  parentDir: string
+}
+
+interface DeleteTarget {
   entry: DirEntry
   parentDir: string
 }
@@ -108,10 +113,10 @@ export function FileTree(props: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [renaming, setRenaming] = useState<RenameTarget | null>(null)
   const [renamingError, setRenamingError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [openingRoot, setOpeningRoot] = useState(false)
   const [openingRootError, setOpeningRootError] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<DirEntry | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const loadDir = useCallback(async (dir: string) => {
     setNodes((prev) => ({ ...prev, [dir]: loadingNode(prev[dir]) }))
@@ -207,35 +212,31 @@ export function FileTree(props: Props) {
 
   const requestDelete = useCallback((entry: DirEntry) => {
     setContextMenu(null)
-    setDeleteError(null)
-    setDeleteTarget(entry)
-  }, [])
-
-  const cancelDelete = useCallback(() => {
-    setDeleteTarget(null)
-    setDeleteError(null)
+    setActionError(null)
+    setDeleting({ entry, parentDir: parentDir(entry.path) })
   }, [])
 
   const confirmDelete = useCallback(async () => {
-    if (!deleteTarget || !onDeletePath) return
+    if (!deleting || !onDeletePath) return
     try {
-      await onDeletePath(deleteTarget.path)
-      await loadDir(parentDir(deleteTarget.path))
-      setDeleteTarget(null)
-      setDeleteError(null)
+      await onDeletePath(deleting.entry.path)
+      setDeleting(null)
+      setActionError(null)
+      await loadDir(deleting.parentDir)
     } catch (e) {
-      setDeleteError(String(e))
+      setActionError(String(e))
     }
-  }, [deleteTarget, loadDir, onDeletePath])
+  }, [deleting, loadDir, onDeletePath])
 
   const requestShowInFolder = useCallback(
     async (path: string) => {
       if (!onShowInFolder) return
       setContextMenu(null)
+      setActionError(null)
       try {
         await onShowInFolder(path)
       } catch (e) {
-        window.alert(String(e))
+        setActionError(String(e))
       }
     },
     [onShowInFolder]
@@ -279,7 +280,7 @@ export function FileTree(props: Props) {
       className="h-full flex flex-col text-[13px] text-seeyue-fg bg-seeyue-sidebar"
       onContextMenu={(e) => {
         e.preventDefault()
-        setContextMenu({ x: e.clientX, y: e.clientY, dir: root })
+        setContextMenu({ ...clampMenuPosition(e.clientX, e.clientY), dir: root })
       }}
       onClick={() => setContextMenu(null)}
     >
@@ -326,26 +327,38 @@ export function FileTree(props: Props) {
           <input
             type="text"
             value={filter}
-            placeholder="过滤当前目录"
+            placeholder="过滤已展开项"
             onChange={(e) => setFilter(e.target.value)}
             spellCheck={false}
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-seeyue-fg text-[12.5px] font-cjk placeholder:text-seeyue-fg-dim"
           />
           {filter && (
             <button
+              type="button"
               className="inline-flex items-center justify-center w-[26px] h-[26px] rounded text-seeyue-fg-dim bg-transparent border-0 cursor-pointer transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ width: 18, height: 18 }}
               onClick={() => setFilter('')}
               title="清除"
+              aria-label="清除过滤"
             >
               <span style={{ fontSize: 11 }}>×</span>
             </button>
           )}
         </div>
+        {actionError && (
+          <div className="mx-3 mt-1 rounded-md border border-[rgba(191,97,106,0.35)] bg-[rgba(191,97,106,0.08)] px-3 py-2 text-[12px] leading-5 text-seeyue-danger">
+            {actionError}
+          </div>
+        )}
+        {filter && (
+          <p className="mt-1.5 mb-0 text-[11px] leading-4 text-seeyue-fg-dim">
+            仅过滤已加载/已展开的目录项，未展开目录内的文件不会被搜索。
+          </p>
+        )}
       </div>
 
       {/* —— 树体 —— */}
-      <div className="flex-1 overflow-y-auto pl-3 pr-2 pb-3">
+      <div className="jstudio-tree-body flex-1 overflow-y-auto pl-3 pr-2 pb-3" role="tree">
         <DirNode
           path={root}
           depth={0}
@@ -355,7 +368,7 @@ export function FileTree(props: Props) {
           activePath={activePath}
           filter={filterLower}
           onRequestCreate={onCreateFile || onCreateFolder ? openCreateDialog : undefined}
-          onRequestMenu={setContextMenu}
+          onRequestMenu={(menu) => setContextMenu({ ...menu, ...clampMenuPosition(menu.x, menu.y) })}
         />
       </div>
 
@@ -395,6 +408,27 @@ export function FileTree(props: Props) {
         />
       )}
 
+      {deleting && (
+        <ConfirmDialog
+          title={deleting.entry.is_dir ? '删除文件夹？' : '删除文件？'}
+          description={
+            deleting.entry.is_dir
+              ? '将删除该文件夹及其中全部内容，此操作不可撤销。'
+              : '将删除该文件，此操作不可撤销。'
+          }
+          detail={deleting.entry.path}
+          confirmLabel="删除"
+          danger
+          onCancel={() => {
+            setDeleting(null)
+            setActionError(null)
+          }}
+          onConfirm={() => {
+            void confirmDelete()
+          }}
+        />
+      )}
+
       {openingRoot && (
         <PromptDialog
           title="打开目录"
@@ -409,17 +443,6 @@ export function FileTree(props: Props) {
           }}
           onConfirm={(dir) => {
             void submitOpenRoot(dir)
-          }}
-        />
-      )}
-
-      {deleteTarget && (
-        <DeleteConfirmDialog
-          entry={deleteTarget}
-          error={deleteError}
-          onCancel={cancelDelete}
-          onConfirm={() => {
-            void confirmDelete()
           }}
         />
       )}
@@ -494,85 +517,6 @@ interface DirNodeProps {
   onRequestMenu?: (menu: ContextMenuState) => void
 }
 
-function DeleteConfirmDialog({
-  entry,
-  error,
-  onCancel,
-  onConfirm,
-}: {
-  entry: DirEntry
-  error: string | null
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  const itemKind = entry.is_dir ? '文件夹及其全部内容' : '文件'
-  return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 px-4 backdrop-blur-[2px]"
-      role="presentation"
-      onMouseDown={onCancel}
-    >
-      <section
-        className="w-full max-w-[440px] rounded-xl border border-seeyue-border bg-seeyue-bg p-5 text-seeyue-fg shadow-[0_24px_70px_rgba(0,0,0,0.38)]"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-desc"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-400/30 bg-rose-500/10 text-rose-200">
-            <AlertTriangle size={18} aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2
-              id="delete-dialog-title"
-              className="m-0 text-base font-semibold text-seeyue-fg-strong"
-            >
-              确认删除{entry.is_dir ? '文件夹' : '文件'}？
-            </h2>
-            <p
-              id="delete-dialog-desc"
-              className="mt-2 text-[13px] leading-relaxed text-seeyue-fg-muted"
-            >
-              将删除{itemKind}
-              <span className="mx-1 font-medium text-seeyue-fg-strong">{entry.name}</span>
-              。此操作不可撤销，请确认你已不再需要它。
-            </p>
-            <div className="mt-3 rounded-lg border border-seeyue-border bg-seeyue-sidebar px-3 py-2 text-[12px] leading-relaxed text-seeyue-fg-dim break-all">
-              {entry.path}
-            </div>
-          </div>
-        </div>
-        {error && (
-          <div
-            className="mt-4 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[12px] leading-relaxed text-rose-100"
-            role="alert"
-            aria-live="polite"
-          >
-            删除失败：{error}。请检查文件是否被占用或权限是否足够后重试。
-          </div>
-        )}
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-seeyue-border bg-seeyue-bg px-3 py-1.5 text-[13px] text-seeyue-fg-muted transition-colors hover:border-seeyue-accent hover:text-seeyue-fg-strong focus:outline-none focus:ring-2 focus:ring-seeyue-accent/45 active:scale-[0.99]"
-            onClick={onCancel}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-rose-400/40 bg-rose-500/15 px-3 py-1.5 text-[13px] font-medium text-rose-100 transition-colors hover:bg-rose-500/25 focus:outline-none focus:ring-2 focus:ring-rose-300/45 active:scale-[0.99]"
-            onClick={onConfirm}
-          >
-            删除
-          </button>
-        </div>
-      </section>
-    </div>
-  )
-}
 
 function DirNode({
   path,
@@ -687,6 +631,7 @@ function EntryRow({
       <div
         className="group flex min-h-7 w-full items-center gap-1 rounded-sm border-0 bg-transparent py-[3px] pr-1.5 text-left text-[13px] leading-snug text-seeyue-fg-muted cursor-pointer relative transition-colors duration-150 hover:bg-seeyue-elevated hover:text-seeyue-fg data-[active=true]:bg-seeyue-accent-mute data-[active=true]:text-seeyue-accent data-[active=true]:font-medium before:content-[''] before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[3px] before:rounded-r before:bg-transparent data-[active=true]:before:bg-seeyue-accent"
         data-active={isActive ? 'true' : undefined}
+        data-file-path={entry.path}
         style={{ paddingLeft: indent }}
         title={entry.path}
         role="button"
@@ -711,6 +656,49 @@ function EntryRow({
               onToggle(entry.path)
             } else {
               onOpen(entry.path)
+            }
+            return
+          }
+          // 键盘导航：上/下/左/右
+          const container = (e.target as HTMLElement).closest('.jstudio-tree-body')
+          if (!container) return
+          const rows = Array.from(
+            container.querySelectorAll<HTMLElement>('[role="button"][data-file-path]'),
+          )
+          const idx = rows.indexOf(e.currentTarget as HTMLElement)
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            const next = rows[idx + 1]
+            next?.focus()
+            next?.scrollIntoView({ block: 'nearest' })
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            const prev = rows[idx - 1]
+            prev?.focus()
+            prev?.scrollIntoView({ block: 'nearest' })
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            if (entry.is_dir && sub?.expanded) {
+              onToggle(entry.path)
+            } else {
+              // 聚焦父目录行
+              const parentRow = container.querySelector<HTMLElement>(
+                `[data-file-path="${CSS.escape(parentDir(entry.path))}"]`,
+              )
+              parentRow?.focus()
+              parentRow?.scrollIntoView({ block: 'nearest' })
+            }
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            if (entry.is_dir) {
+              if (!sub?.expanded) {
+                onToggle(entry.path)
+              } else {
+                // 聚焦第一个子项
+                const next = rows[idx + 1]
+                next?.focus()
+                next?.scrollIntoView({ block: 'nearest' })
+              }
             }
           }
         }}
@@ -797,6 +785,16 @@ function FileGlyph({ name, isDir, expanded }: { name: string; isDir: boolean; ex
       return <FileImage size={15} />
     default:
       return <FileGeneric size={15} />
+  }
+}
+
+function clampMenuPosition(x: number, y: number, width = 180, height = 240): Pick<ContextMenuState, 'x' | 'y'> {
+  const padding = 8
+  const maxX = Math.max(padding, window.innerWidth - width - padding)
+  const maxY = Math.max(padding, window.innerHeight - height - padding)
+  return {
+    x: Math.min(Math.max(padding, x), maxX),
+    y: Math.min(Math.max(padding, y), maxY),
   }
 }
 
