@@ -29,6 +29,9 @@ export interface BlockProperties {
   jsCode?: string; // html-render behavior script
   imageType?: 'url' | 'base64';
   sandboxTheme?: 'light' | 'dark';
+  sandboxPreviewMode?: 'html' | 'url' | 'file';
+  sandboxPreviewUrl?: string;
+  sandboxPreviewFileName?: string;
 }
 
 export interface Block {

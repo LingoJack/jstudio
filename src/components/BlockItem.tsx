@@ -49,6 +49,7 @@ const ContentEditableBlock = forwardRef<HTMLDivElement, {
       onBlur={onBlur}
       className={`outline-none break-words whitespace-pre-wrap before:pointer-events-none ${shouldShowPlaceholder ? "before:content-[attr(data-placeholder)] before:text-slate-350 dark:before:text-slate-650" : ""} ${className}`}
       data-placeholder={placeholder}
+      data-block-editable="true"
     />
   );
 });
@@ -75,6 +76,8 @@ import {
   Moon,
   RefreshCw,
   FileText,
+  Link,
+  Upload,
 } from "lucide-react";
 
 function HeadingIcon(props: { className?: string }) {
@@ -132,6 +135,16 @@ export default function BlockItem({
   const [sandboxJs, setSandboxJs] = useState(block.properties?.jsCode || "");
   const [sandboxTheme, setSandboxTheme] = useState<"light" | "dark">(
     block.properties?.sandboxTheme || "light",
+  );
+  const [sandboxPreviewMode, setSandboxPreviewMode] = useState<
+    "html" | "url" | "file"
+  >(block.properties?.sandboxPreviewMode || "html");
+  const [sandboxPreviewUrl, setSandboxPreviewUrl] = useState(
+    block.properties?.sandboxPreviewUrl || "",
+  );
+  const [sandboxPreviewFileSrc, setSandboxPreviewFileSrc] = useState("");
+  const [sandboxPreviewFileName, setSandboxPreviewFileName] = useState(
+    block.properties?.sandboxPreviewFileName || "",
   );
   const [sandboxDebouncedSrcDoc, setSandboxDebouncedSrcDoc] = useState("");
   const [runIndicator, setRunIndicator] = useState(0); // For forcing reload
@@ -295,6 +308,10 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       setSandboxCss(block.properties?.cssCode || "");
       setSandboxJs(block.properties?.jsCode || "");
       setSandboxTheme(block.properties?.sandboxTheme || "light");
+      setSandboxPreviewMode(block.properties?.sandboxPreviewMode || "html");
+      setSandboxPreviewUrl(block.properties?.sandboxPreviewUrl || "");
+      setSandboxPreviewFileName(block.properties?.sandboxPreviewFileName || "");
+      setSandboxPreviewFileSrc("");
     }
   }, [block.id, block.type]);
 
@@ -322,11 +339,17 @@ document.getElementById('trigger-react').addEventListener('click', () => {
     cssVal: string,
     jsVal: string,
     themeVal: "light" | "dark",
+    previewModeVal = sandboxPreviewMode,
+    previewUrlVal = sandboxPreviewUrl,
+    previewFileNameVal = sandboxPreviewFileName,
   ) => {
     setSandboxHtml(htmlVal);
     setSandboxCss(cssVal);
     setSandboxJs(jsVal);
     setSandboxTheme(themeVal);
+    setSandboxPreviewMode(previewModeVal);
+    setSandboxPreviewUrl(previewUrlVal);
+    setSandboxPreviewFileName(previewFileNameVal);
     onUpdateBlock({
       content: htmlVal,
       properties: {
@@ -334,8 +357,55 @@ document.getElementById('trigger-react').addEventListener('click', () => {
         cssCode: cssVal,
         jsCode: jsVal,
         sandboxTheme: themeVal,
+        sandboxPreviewMode: previewModeVal,
+        sandboxPreviewUrl: previewUrlVal,
+        sandboxPreviewFileName: previewFileNameVal,
       },
     });
+  };
+
+  const handleSandboxPreviewModeChange = (mode: "html" | "url" | "file") => {
+    handleSandboxChange(
+      sandboxHtml,
+      sandboxCss,
+      sandboxJs,
+      sandboxTheme,
+      mode,
+      sandboxPreviewUrl,
+      sandboxPreviewFileName,
+    );
+  };
+
+  const handleSandboxPreviewUrlChange = (url: string) => {
+    handleSandboxChange(
+      sandboxHtml,
+      sandboxCss,
+      sandboxJs,
+      sandboxTheme,
+      sandboxPreviewMode,
+      url,
+      sandboxPreviewFileName,
+    );
+  };
+
+  const handleSandboxFileSelect = (file: File | null) => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = typeof reader.result === "string" ? reader.result : "";
+      setSandboxPreviewFileSrc(src);
+      handleSandboxChange(
+        sandboxHtml,
+        sandboxCss,
+        sandboxJs,
+        sandboxTheme,
+        "file",
+        sandboxPreviewUrl,
+        file.name,
+      );
+    };
+    reader.readAsDataURL(file);
   };
 
   const loadPresetIntoSandbox = (preset: {
@@ -383,6 +453,93 @@ document.getElementById('trigger-react').addEventListener('click', () => {
     // but not for contentEditable
   }, [rawText, block.type]);
 
+  const isCaretOnEdgeLine = (
+    el: HTMLElement,
+    direction: "up" | "down",
+  ) => {
+    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+      const value = el.value;
+      const cursor = el.selectionStart ?? 0;
+      const currentLineStart = value.lastIndexOf("\n", Math.max(0, cursor - 1)) + 1;
+      const currentLineEndIndex = value.indexOf("\n", cursor);
+      const currentLineEnd = currentLineEndIndex === -1 ? value.length : currentLineEndIndex;
+      const before = value.slice(0, currentLineStart);
+      const after = value.slice(currentLineEnd);
+      return direction === "up" ? !before.includes("\n") : !after.includes("\n");
+    }
+
+    if (!el.isContentEditable) return true;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return false;
+
+    const range = selection.getRangeAt(0);
+    if (!el.contains(range.startContainer) || !el.contains(range.endContainer)) {
+      return false;
+    }
+
+    const probe = range.cloneRange();
+    probe.collapse(true);
+    const rects = probe.getClientRects();
+    let caretRect = rects[0];
+
+    if (!caretRect) {
+      const marker = document.createElement("span");
+      marker.appendChild(document.createTextNode("\u200b"));
+      probe.insertNode(marker);
+      caretRect = marker.getBoundingClientRect();
+      marker.remove();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    const lineRects = Array.from(el.getClientRects()).filter(
+      (rect) => rect.width > 0 && rect.height > 0,
+    );
+
+    if (!caretRect || lineRects.length === 0) return true;
+
+    const edgeValue =
+      direction === "up"
+        ? Math.min(...lineRects.map((rect) => rect.top))
+        : Math.max(...lineRects.map((rect) => rect.bottom));
+    const caretValue = direction === "up" ? caretRect.top : caretRect.bottom;
+
+    return Math.abs(caretValue - edgeValue) <= 3;
+  };
+
+  const moveFocusToSiblingBlock = (
+    current: HTMLElement,
+    direction: "up" | "down",
+  ) => {
+    const blockEl = current.closest<HTMLElement>("[data-block-id]");
+    const sibling = direction === "up"
+      ? blockEl?.previousElementSibling
+      : blockEl?.nextElementSibling;
+    const target = sibling?.querySelector<HTMLElement>(
+      "[data-block-editable='true']",
+    );
+
+    if (!target) return false;
+
+    target.focus();
+    requestAnimationFrame(() => {
+      if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+        const nextValue = direction === "up" ? target.value.length : 0;
+        target.setSelectionRange(nextValue, nextValue);
+      } else if (target.isContentEditable) {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        range.collapse(direction === "down");
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
+    });
+
+    return true;
+  };
+
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLElement>,
   ) => {
@@ -405,6 +562,15 @@ document.getElementById('trigger-react').addEventListener('click', () => {
         return;
       } else if (e.key === "Escape") {
         setShowSlashMenu(false);
+        return;
+      }
+    }
+
+    if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.shiftKey) {
+      const direction = e.key === "ArrowUp" ? "up" : "down";
+      const el = e.currentTarget;
+      if (isCaretOnEdgeLine(el, direction) && moveFocusToSiblingBlock(el, direction)) {
+        e.preventDefault();
         return;
       }
     }
@@ -837,6 +1003,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
     <div
       className="group/block relative flex items-start gap-1 py-1.5"
       id={`block-row-${block.id}`}
+      data-block-id={block.id}
     >
       {/* 1. Left controls (Plus, Delete - Top Aligned for great UX) */}
       <div className="absolute left-[-36px] md:left-[-46px] top-1 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity duration-150 z-10">
@@ -931,6 +1098,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
             <FileText className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
             <div className="flex-1">
               <input
+                data-block-editable="true"
                 ref={elementRef as React.RefObject<HTMLInputElement>}
                 onKeyDown={handleKeyDown}
                 type="text"
@@ -974,6 +1142,8 @@ document.getElementById('trigger-react').addEventListener('click', () => {
               </select>
             </div>
             <textarea
+              data-block-editable="true"
+              onKeyDown={handleKeyDown}
               value={rawText}
               onChange={(e) => handleTextChange(e.target.value)}
               placeholder="// 在此输入代码..."
@@ -1215,6 +1385,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
               </button>
 
               <input
+                data-block-editable="true"
                 ref={elementRef as React.RefObject<HTMLInputElement>}
                 onKeyDown={handleKeyDown}
                 type="text"
@@ -1285,12 +1456,102 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
             {/* Workspaces */}
             {(sandboxTab === "preview" || sandboxTab === "split") && (
-              <iframe
-                title={`Sandbox Preview ${block.id}`}
-                srcDoc={sandboxDebouncedSrcDoc}
-                sandbox="allow-scripts allow-modals"
-                className="w-full h-96 border-none bg-white dark:bg-slate-900"
-              />
+              <div className="border-b border-slate-200 dark:border-slate-800">
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-slate-50/70 dark:bg-[#15171d] border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-800 p-0.5">
+                    {[
+                      { id: "html", label: "代码", icon: FileCode },
+                      { id: "url", label: "网页", icon: Link },
+                      { id: "file", label: "文件", icon: Upload },
+                    ].map((mode) => {
+                      const IconComp = mode.icon;
+                      return (
+                        <button
+                          key={mode.id}
+                          onClick={() =>
+                            handleSandboxPreviewModeChange(
+                              mode.id as "html" | "url" | "file",
+                            )
+                          }
+                          className={`cursor-pointer px-2 py-1 rounded text-[10px] inline-flex items-center gap-1 transition-colors ${
+                            sandboxPreviewMode === mode.id
+                              ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm"
+                              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                          }`}
+                        >
+                          <IconComp className="w-3 h-3" />
+                          {mode.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {sandboxPreviewMode === "url" && (
+                    <input
+                      type="url"
+                      value={sandboxPreviewUrl}
+                      onChange={(e) => handleSandboxPreviewUrlChange(e.target.value)}
+                      placeholder="https://example.com"
+                      className="min-w-[220px] flex-1 bg-white dark:bg-[#0b0c10] border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/60"
+                    />
+                  )}
+
+                  {sandboxPreviewMode === "file" && (
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b0c10] text-[10px] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
+                      <Upload className="w-3 h-3" />
+                      {sandboxPreviewFileName || "选择本地文件"}
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(e) =>
+                          handleSandboxFileSelect(e.target.files?.[0] || null)
+                        }
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {sandboxPreviewMode === "html" && (
+                  <iframe
+                    title={`Sandbox Preview ${block.id}`}
+                    srcDoc={sandboxDebouncedSrcDoc}
+                    sandbox="allow-scripts allow-modals allow-forms allow-popups"
+                    className="w-full h-96 border-none bg-white dark:bg-slate-900"
+                  />
+                )}
+
+                {sandboxPreviewMode === "url" && sandboxPreviewUrl.trim() && (
+                  <iframe
+                    title={`Web Preview ${block.id}`}
+                    src={sandboxPreviewUrl.trim()}
+                    sandbox="allow-scripts allow-modals allow-forms allow-popups allow-same-origin"
+                    className="w-full h-96 border-none bg-white dark:bg-slate-900"
+                  />
+                )}
+
+                {sandboxPreviewMode === "url" && !sandboxPreviewUrl.trim() && (
+                  <div className="h-96 flex flex-col items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
+                    <Link className="w-5 h-5" />
+                    输入远程网页地址后即可预览
+                  </div>
+                )}
+
+                {sandboxPreviewMode === "file" && sandboxPreviewFileSrc && (
+                  <iframe
+                    title={`Local File Preview ${block.id}`}
+                    src={sandboxPreviewFileSrc}
+                    sandbox="allow-scripts allow-modals allow-forms allow-popups allow-same-origin"
+                    className="w-full h-96 border-none bg-white dark:bg-slate-900"
+                  />
+                )}
+
+                {sandboxPreviewMode === "file" && !sandboxPreviewFileSrc && (
+                  <div className="h-96 flex flex-col items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
+                    <Upload className="w-5 h-5" />
+                    选择 HTML、PDF、图片等本地文件进行预览
+                  </div>
+                )}
+              </div>
             )}
 
             {["html", "css", "js"].includes(sandboxTab) && (
