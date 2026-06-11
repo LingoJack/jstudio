@@ -23,6 +23,17 @@ pub fn run() {
             commands::file::show_in_folder,
             commands::dir::open_dir,
             commands::asset::read_asset,
+            commands::studio::open_workspace,
+            commands::studio::list_pages,
+            commands::studio::create_page,
+            commands::studio::get_page,
+            commands::studio::save_page,
+            commands::studio::delete_page,
+            commands::studio::rebuild_graph,
+            commands::studio::get_graph,
+            commands::studio::get_backlinks,
+            commands::studio::list_plugins,
+            commands::studio::get_sync_status,
             commands::app::quit_reader,
         ])
         .run(tauri::generate_context!())

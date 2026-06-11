@@ -13,6 +13,8 @@ pub enum ReaderError {
     InvalidInput(String),
     #[error("{0}")]
     Render(String),
+    #[error("{0}")]
+    Json(#[from] serde_json::Error),
 }
 
 /// 内部使用的 Result 别名。

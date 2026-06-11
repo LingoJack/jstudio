@@ -4,3 +4,4 @@ pub mod app;
 pub mod asset;
 pub mod dir;
 pub mod file;
+pub mod studio;
