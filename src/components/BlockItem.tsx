@@ -27,6 +27,16 @@ const ContentEditableBlock = forwardRef<HTMLDivElement, {
     onChange(e.currentTarget.innerHTML, e.currentTarget.innerText);
   };
 
+  const isEditorContentEmpty = (value: string) => {
+    const normalized = value
+      .replace(/<br\s*\/?>(\s*)/gi, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/<[^>]*>/g, "")
+      .trim();
+    return normalized.length === 0;
+  };
+
+  const shouldShowPlaceholder = isEditorContentEmpty(html);
   const Tag = tagName as any;
 
   return (
@@ -37,7 +47,7 @@ const ContentEditableBlock = forwardRef<HTMLDivElement, {
       onInput={handleInput}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
-      className={`outline-none break-words whitespace-pre-wrap empty:before:content-[attr(data-placeholder)] empty:before:text-slate-350 dark:empty:before:text-slate-650 ${className}`}
+      className={`outline-none break-words whitespace-pre-wrap before:pointer-events-none ${shouldShowPlaceholder ? "before:content-[attr(data-placeholder)] before:text-slate-350 dark:before:text-slate-650" : ""} ${className}`}
       data-placeholder={placeholder}
     />
   );
@@ -75,8 +85,10 @@ const SLASH_COMMANDS = [
   { type: "text", label: "文本", icon: MessageSquare },
   { type: "heading-1", label: "标题1", icon: HeadingIcon },
   { type: "heading-2", label: "标题2", icon: HeadingIcon },
-  { type: "toggle", label: "清单", icon: ChevronRight },
+  { type: "toggle", label: "折叠主题", icon: ChevronRight },
+  { type: "html-render", label: "HTML 沙盒", icon: FileCode },
   { type: "code", label: "代码块", icon: Code },
+  { type: "table", label: "表格", icon: TableIcon },
   { type: "whiteboard", label: "画板", icon: Edit2 },
 ];
 
@@ -527,11 +539,13 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       case "image":
         return { caption: "示例插图" };
       case "canvas":
+      case "whiteboard":
         return { drawingPaths: [] };
       case "html-render":
         return {
           cssCode: "h1 { color: #6366f1; }",
           jsCode: 'console.log("Demo loaded!");',
+          sandboxTheme: "light" as const,
         };
       case "toggle":
         return { isOpen: true };
@@ -821,14 +835,14 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
   return (
     <div
-      className="group/block relative flex items-start gap-1 py-0.5"
+      className="group/block relative flex items-start gap-1 py-1.5"
       id={`block-row-${block.id}`}
     >
       {/* 1. Left controls (Plus, Delete - Top Aligned for great UX) */}
-      <div className="absolute left-[-32px] md:left-[-40px] top-1.5 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity duration-150 z-10">
+      <div className="absolute left-[-36px] md:left-[-46px] top-1 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity duration-150 z-10">
         <button
           onClick={() => onInsertBlockBelow("text")}
-          className="cursor-pointer text-slate-300 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-300 p-0.5 rounded transition-colors"
+          className="cursor-pointer text-slate-300 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors"
           title="在此行下方添加"
         >
           <Plus className="w-4 h-4" />
@@ -836,7 +850,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
         <button
           onClick={() => onDeleteBlock()}
-          className="cursor-pointer text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 p-0.5 rounded transition-colors"
+          className="cursor-pointer text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 p-1 rounded-md transition-colors"
           title="删除此块"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -905,7 +919,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
               onBlur={handleBlur}
               html={rawText}
               onChange={(val, text) => handleTextChange(val, elementRef.current!, text)}
-              placeholder="输入文本，输入 / 快捷唤出菜单..."
+              placeholder=""
               className="w-full text-sm text-slate-700 dark:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0 leading-relaxed block"
             />
           </div>

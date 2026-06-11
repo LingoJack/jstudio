@@ -1,0 +1,14 @@
+/Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/deps/thiserror-207ada749326e440.d: /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/build/thiserror-a14eff465aa41b0f/out/private.rs
+
+/Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/deps/libthiserror-207ada749326e440.rlib: /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/build/thiserror-a14eff465aa41b0f/out/private.rs
+
+/Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/deps/libthiserror-207ada749326e440.rmeta: /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/build/thiserror-a14eff465aa41b0f/out/private.rs
+
+/Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs:
+/Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs:
+/Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs:
+/Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs:
+/Users/jacklingo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs:
+/Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/build/thiserror-a14eff465aa41b0f/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/target/release/build/thiserror-a14eff465aa41b0f/out
