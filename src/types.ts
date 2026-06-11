@@ -1,127 +1,99 @@
-// Rust IR JSON 类型定义 — 与 `src/markdown/ir.rs` 一一对应。
-// IR 由 `parse_markdown` 生成，通过 `/api/file`、`/api/parse` 返回给前端。
-//
-// 序列化形式（adjacently-tagged）：
-//   { "type": "<variant>", "value": <payload> }
-// 单元变体（rule / soft_break / hard_break）没有 `value` 字段。
+export type BlockType =
+  | 'text'
+  | 'heading-1'
+  | 'heading-2'
+  | 'heading-3'
+  | 'code'
+  | 'table'
+  | 'canvas'
+  | 'callout'
+  | 'image'
+  | 'toggle'
+  | 'html-render'
+  | 'whiteboard';
 
-export type Inline =
-  | { type: 'text'; value: string }
-  | { type: 'strong'; value: Inline[] }
-  | { type: 'emphasis'; value: Inline[] }
-  | { type: 'strikethrough'; value: Inline[] }
-  | { type: 'code'; value: string }
-  | { type: 'link'; value: { text: Inline[]; url: string } }
-  | { type: 'image'; value: { url: string; alt: string } }
-  | { type: 'html'; value: string }
-  | { type: 'soft_break' }
-  | { type: 'hard_break' }
-
-export type Alignment = 'none' | 'left' | 'center' | 'right'
-
-export interface ListItem {
-  checked: boolean | null
-  content: Inline[]
-  children: Block[]
+export interface CanvasPath {
+  points: { x: number; y: number }[];
+  color: string;
+  width: number;
 }
 
-export interface ListData {
-  ordered: boolean
-  start_index: number | null
-  items: ListItem[]
+export interface BlockProperties {
+  language?: string;
+  caption?: string;
+  isOpen?: boolean; // toggle state
+  tableData?: string[][]; // rows x columns for table type
+  drawingPaths?: CanvasPath[]; // canvas drawing vector state
+  emoji?: string; // callout block icon
+  cssCode?: string; // html-render styling
+  jsCode?: string; // html-render behavior script
+  imageType?: 'url' | 'base64';
+  sandboxTheme?: 'light' | 'dark';
 }
-
-export interface TableData {
-  alignments: Alignment[]
-  rows: Inline[][][]
-}
-
-export type BlockKind =
-  | { type: 'paragraph'; value: Inline[] }
-  | { type: 'heading'; value: { level: number; content: Inline[] } }
-  | { type: 'code_block'; value: { lang: string; code: string } }
-  | { type: 'table'; value: TableData }
-  | { type: 'list'; value: ListData }
-  | { type: 'block_quote'; value: Block[] }
-  | { type: 'html_block'; value: string }
-  | { type: 'rule' }
 
 export interface Block {
-  source: { start_line: number; end_line: number }
-  kind: BlockKind
+  id: string;
+  type: BlockType;
+  content: string; // also serves as raw code for html-render or markdown text
+  properties?: BlockProperties;
 }
 
-export interface ParsedDocument {
-  blocks: Block[]
+export interface Document {
+  id: string;
+  title: string;
+  emoji: string;
+  createdAt: string;
+  updatedAt: string;
+  blocks: Block[];
+  isFavorite?: boolean;
 }
 
-// `/api/file` 响应：单文件渲染产物
-export type DocKind = 'markdown' | 'plain_text' | 'image' | 'pptx' | 'docx' | 'xlsx'
-
-/**
- * Tab 的实际"种类"。除了文件类（DocKind），还可以是来自 Toolbox 的内置工具。
- * 工具 tab 不对应文件，没有 dirty / saving，路径用伪路径（`tool://<id>`）做唯一 key。
- */
-export type TabKind = DocKind | 'tool'
-
-/** 内置工具 ID。新增工具时在这里加一个分支，并在 Toolbox / Reader 路由里加分发。 */
-export type ToolId = 'diff' | 'json'
-
-export interface ImagePayload {
-  mime: string
-  size: number
+export interface Backlink {
+  sourceId: string;
+  sourceTitle: string;
+  sourceEmoji: string;
 }
 
-export interface RenderedDoc {
-  path: string
-  filename: string
-  kind: DocKind
-  source: string
-  payload: ParsedDocument | ImagePayload | null | unknown
+export interface GraphNode {
+  id: string;
+  label: string;
+  emoji: string;
+  group: 'main' | 'sub';
+  radius: number;
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
 }
 
-// `/api/list` 响应：目录列出结果
-export interface DirEntry {
-  name: string
-  path: string
-  is_dir: boolean
-  size: number
+export interface GraphLink {
+  source: string;
+  target: string;
 }
 
-export interface ListResp {
-  dir: string
-  parent: string | null
-  entries: DirEntry[]
-  truncated: boolean
+export interface Plugin {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  isEnabled: boolean;
+  category: 'Editor' | 'Utility' | 'Theme';
 }
 
-// `/api/initial` 响应
-export interface InitialResp {
-  /** 目录入口时为 null */
-  initial_path: string | null
-  root_dir: string
+export interface SyncConfig {
+  isEnabled: boolean;
+  serverUrl: string;
+  deviceId: string;
+  lastSyncedAt?: string;
+  syncStatus: 'idle' | 'syncing' | 'error' | 'success';
 }
 
-// 编辑器内部使用的 Tab 状态。
-// **不要**把 `source` / `doc` 放进来。
-// 输入文字会以高频率（每个按键）变化，如果走 setState，整个 Reader / TabBar /
-// FileTree 都会跟着 re-render，大文件下会很卡。
-// 改放在 Reader.tsx 的 useRef 桶里：
-//   sourcesRef.current[path]  →  最新 markdown / plain text 内容
-//   docsRef.current[path]     →  最近一次 /api/parse 的 IR（仅 TOC 使用）
-// 只有 dirty / saving / error 这种 UI 必须感知的字段保留在 state 里。
-export interface Tab {
-  /**
-   * 文件 tab：磁盘绝对路径。
-   * 工具 tab：伪路径，形如 `tool://diff`，用作唯一 key。
-   */
-  path: string
-  filename: string
-  kind: TabKind
-  /** 工具 tab 必填；文件 tab 留空 */
-  toolId?: ToolId
-  /** 是否有未保存改动（仅文件 tab 有意义） */
-  dirty: boolean
-  saving: 'idle' | 'saving' | 'error'
-  error?: string
+export interface LocalAsset {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  createdAt: string;
+  content: string; // base64 or placeholder URL
 }

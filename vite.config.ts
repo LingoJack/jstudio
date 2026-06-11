@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// jstudio Tauri 应用构建配置。
+// OmniNote Tauri 应用构建配置。
 //
 // 要点：
 // - `base: './'`     —— Tauri production asset 使用相对路径
@@ -11,15 +11,11 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: './',
-  // Reader SPA 不需要任何 public 资源，禁用 public 目录拷贝以保持产物精简。
   publicDir: false,
   resolve: {
-    alias: [
-      // 关键：把裸 `refractor` 包重定向到 `refractor/core`（empty kernel），
-      // 避免把 ~280 种语言全打进 bundle。子路径 `refractor/<lang>` 不受影响
-      // —— 用精确正则只匹配裸名，子路径仍走 package exports。
-      { find: /^refractor$/, replacement: 'refractor/core' },
-    ],
+    alias: {
+      '@': '.',
+    },
   },
   server: {
     host: '127.0.0.1',
@@ -43,13 +39,12 @@ export default defineConfig({
           ) {
             return 'react-vendor'
           }
-          // refractor 走单独 chunk
-          if (id.includes('node_modules/refractor/')) {
-            return 'editor-vendor'
+          if (id.includes('node_modules/tldraw/')) {
+            return 'whiteboard-vendor'
           }
         },
       },
     },
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
   },
 })
