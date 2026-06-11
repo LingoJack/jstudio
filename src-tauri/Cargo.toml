@@ -1,0 +1,22 @@
+[package]
+name = "jstudio"
+version = "0.1.0"
+description = "OmniNote local knowledge graph desktop app"
+authors = ["Jack Lingo"]
+edition = "2021"
+
+[workspace]
+
+[lib]
+name = "jstudio_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
