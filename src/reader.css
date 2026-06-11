@@ -154,6 +154,52 @@
 }
 
 @layer components {
+  /* —— 通用按钮基础 —— */
+  .seeyue-btn-ghost {
+    @apply inline-flex items-center justify-center bg-transparent border-0 cursor-pointer transition-colors duration-150;
+  }
+  .seeyue-btn-icon {
+    @apply inline-flex items-center justify-center rounded bg-transparent border-0 cursor-pointer transition-colors duration-150;
+  }
+
+  /* —— 右键菜单 —— */
+  .seeyue-context-menu {
+    @apply fixed z-50 min-w-[160px] overflow-hidden rounded-md border border-seeyue-border bg-seeyue-bg/95 py-1 text-[13px] text-seeyue-fg shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur;
+  }
+  .seeyue-menu-item {
+    @apply flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-seeyue-fg-muted cursor-pointer hover:bg-seeyue-elevated hover:text-seeyue-fg-strong;
+  }
+
+  /* —— 活动栏按钮 —— */
+  .seeyue-activity-btn {
+    @apply relative inline-flex items-center justify-center w-10 h-10 rounded-none bg-transparent border-0 text-seeyue-fg-dim cursor-pointer transition-colors duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated focus-visible:outline-2 focus-visible:outline-seeyue-accent focus-visible:outline-offset-[-2px] data-[active=true]:text-seeyue-accent;
+  }
+
+  /* —— Tab 项 —— */
+  .seeyue-tab-item {
+    @apply inline-flex items-center gap-1.5 h-full px-3 pl-3.5 min-w-[128px] max-w-[240px] text-[13px] text-seeyue-fg-muted cursor-pointer relative border-r border-seeyue-border/70 transition-colors duration-150 select-none hover:text-seeyue-fg-strong hover:bg-seeyue-elevated data-[active=true]:text-seeyue-fg-strong data-[active=true]:bg-seeyue-bg;
+  }
+
+  /* —— 文件树行 —— */
+  .seeyue-tree-row {
+    @apply flex min-h-7 w-full items-center gap-1 rounded-sm border-0 bg-transparent py-[3px] pr-1.5 text-left text-[13px] leading-snug text-seeyue-fg-muted cursor-pointer relative transition-colors duration-150 hover:bg-seeyue-elevated hover:text-seeyue-fg data-[active=true]:bg-seeyue-accent-mute data-[active=true]:text-seeyue-accent data-[active=true]:font-medium before:content-[''] before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[3px] before:rounded-r before:bg-transparent data-[active=true]:before:bg-seeyue-accent;
+  }
+
+  /* —— Toast 容器 —— */
+  .seeyue-toast {
+    @apply fixed top-5 right-5 z-60 w-[min(420px,calc(100vw-40px))] flex items-start gap-3 px-4 py-3.5 rounded-2xl bg-seeyue-bg/88 backdrop-blur-xl border border-seeyue-border-dim shadow-[0_18px_55px_rgba(26,22,18,0.22),0_2px_10px_rgba(26,22,18,0.08)] text-[13px] text-seeyue-fg overflow-hidden before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-seeyue-accent data-[tone=error]:before:bg-seeyue-danger data-[tone=success]:before:bg-seeyue-success data-[tone=info]:before:bg-seeyue-accent;
+  }
+
+  /* —— TOC 链接 —— */
+  .seeyue-toc-link {
+    @apply block py-[4px] px-1.5 rounded-md text-[12px] no-underline whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-150;
+  }
+
+  /* —— 工具箱按钮 —— */
+  .seeyue-tool-item {
+    @apply flex items-center gap-2.5 w-full px-2.5 py-2 bg-transparent border-0 rounded-md text-left cursor-pointer text-seeyue-fg transition-colors duration-150 hover:bg-seeyue-elevated data-[active=true]:bg-seeyue-accent-soft data-[active=true]:text-seeyue-fg-strong;
+  }
+
   .seeyue-prose {
     font-family: var(--font-cjk);
     font-size: calc(15px * var(--jreader-font-scale, 1));

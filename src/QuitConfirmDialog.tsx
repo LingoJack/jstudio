@@ -49,7 +49,7 @@ export function QuitConfirmDialog({ dirtyCount, onConfirm, onCancel }: Props) {
         aria-modal="true"
       >
         <h3 className="m-0 mb-1.5 text-[15px] font-semibold text-seeyue-fg-strong flex items-center gap-2">
-          <span style={{ color: 'var(--color-seeyue-warn)' }}>
+          <span className="text-seeyue-warn">
             <Power size={16} />
           </span>
           关闭 reader？
@@ -59,7 +59,7 @@ export function QuitConfirmDialog({ dirtyCount, onConfirm, onCancel }: Props) {
           {dirtyCount > 0 && (
             <>
               <br />
-              <span style={{ color: 'var(--color-seeyue-warn)' }}>
+              <span className="text-seeyue-warn">
                 还有 {dirtyCount} 个文件未保存，关闭后改动会丢失。
               </span>
             </>

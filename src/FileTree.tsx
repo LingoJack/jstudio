@@ -317,13 +317,12 @@ export function FileTree(props: Props) {
           {filter && (
             <button
               type="button"
-              className="inline-flex items-center justify-center w-[26px] h-[26px] rounded text-seeyue-fg-dim bg-transparent border-0 cursor-pointer transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ width: 18, height: 18 }}
+              className="inline-flex items-center justify-center w-[18px] h-[18px] rounded text-seeyue-fg-dim bg-transparent border-0 cursor-pointer transition-all duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={() => setFilter('')}
               title="清除"
               aria-label="清除过滤"
             >
-              <span style={{ fontSize: 11 }}>×</span>
+              <span className="text-[11px]">×</span>
             </button>
           )}
         </div>
@@ -413,7 +412,7 @@ export function FileTree(props: Props) {
 
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-[150px] overflow-hidden rounded-md border border-seeyue-border bg-seeyue-bg/95 py-1 text-[13px] text-seeyue-fg shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur"
+          className="seeyue-context-menu min-w-[150px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
@@ -431,7 +430,7 @@ export function FileTree(props: Props) {
           {onCreateFile && (!contextMenu.entry || contextMenu.entry.is_dir) && (
             <button
               type="button"
-              className="flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-seeyue-fg-muted cursor-pointer hover:bg-seeyue-elevated hover:text-seeyue-fg-strong"
+              className="seeyue-menu-item"
               onClick={() => openCreateDialog(contextMenu.dir, 'file')}
             >
               <FilePlus size={14} />
@@ -441,7 +440,7 @@ export function FileTree(props: Props) {
           {onCreateFolder && (!contextMenu.entry || contextMenu.entry.is_dir) && (
             <button
               type="button"
-              className="flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-seeyue-fg-muted cursor-pointer hover:bg-seeyue-elevated hover:text-seeyue-fg-strong"
+              className="seeyue-menu-item"
               onClick={() => openCreateDialog(contextMenu.dir, 'folder')}
             >
               <FolderClosed size={14} />
@@ -593,7 +592,7 @@ function EntryRow({
   return (
     <>
       <div
-        className="group flex min-h-7 w-full items-center gap-1 rounded-sm border-0 bg-transparent py-[3px] pr-1.5 text-left text-[13px] leading-snug text-seeyue-fg-muted cursor-pointer relative transition-colors duration-150 hover:bg-seeyue-elevated hover:text-seeyue-fg data-[active=true]:bg-seeyue-accent-mute data-[active=true]:text-seeyue-accent data-[active=true]:font-medium before:content-[''] before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[3px] before:rounded-r before:bg-transparent data-[active=true]:before:bg-seeyue-accent"
+        className="seeyue-tree-row group"
         data-active={isActive ? 'true' : undefined}
         data-file-path={entry.path}
         style={{ paddingLeft: indent }}

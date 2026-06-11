@@ -24,7 +24,7 @@ export function Toolbox({ activeToolId, onOpen }: Props) {
           <button
             key={tool.id}
             type="button"
-            className="group flex items-center gap-2.5 w-full px-2.5 py-2 bg-transparent border-0 rounded-md text-left cursor-pointer text-seeyue-fg transition-colors duration-150 hover:bg-seeyue-elevated data-[active=true]:bg-seeyue-accent-soft data-[active=true]:text-seeyue-fg-strong"
+            className="seeyue-tool-item group"
             data-active={tool.id === activeToolId ? 'true' : undefined}
             onClick={() => onOpen(tool.id)}
             title={tool.description}

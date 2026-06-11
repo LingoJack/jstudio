@@ -356,7 +356,7 @@ function JsonNode({ value, path, keyLabel, indexLabel, collapsed, onToggle, onUp
                 <ChevronDown size={11} />
               )
             ) : (
-              <span style={{ display: 'inline-block', width: 11 }} />
+              <span className="inline-block w-[11px]" />
             )}
           </span>
           {indexLabel !== undefined && (
@@ -403,7 +403,7 @@ function JsonNode({ value, path, keyLabel, indexLabel, collapsed, onToggle, onUp
             </div>
             <div className="flex items-center gap-1 py-px cursor-default rounded-sm hover:bg-[rgba(94,129,172,0.08)] cursor-default">
               <span className="shrink-0 inline-flex items-center justify-center w-[13px] text-seeyue-fg-dim cursor-pointer">
-                <span style={{ display: 'inline-block', width: 11 }} />
+                <span className="inline-block w-[11px]" />
               </span>
               <span className="text-seeyue-fg-muted">{close}</span>
             </div>
@@ -417,7 +417,7 @@ function JsonNode({ value, path, keyLabel, indexLabel, collapsed, onToggle, onUp
     <div className="relative">
       <div className="flex items-center gap-1 py-px cursor-default rounded-sm hover:bg-[rgba(94,129,172,0.08)]">
         <span className="shrink-0 inline-flex items-center justify-center w-[13px] text-seeyue-fg-dim cursor-pointer">
-          <span style={{ display: 'inline-block', width: 11 }} />
+          <span className="inline-block w-[11px]" />
         </span>
         {indexLabel !== undefined && (
           <span className="mr-1.5 min-w-5 rounded-sm bg-seeyue-sidebar px-1 text-center text-[10.5px] tabular-nums text-seeyue-fg-dim">

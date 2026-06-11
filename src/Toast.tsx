@@ -38,7 +38,7 @@ export function Toast({ message, kind = 'error', duration = 3000, onClose }: Pro
 
   return (
     <div
-      className={`group fixed top-5 right-5 z-60 w-[min(420px,calc(100vw-40px))] flex items-start gap-3 px-4 py-3.5 rounded-2xl bg-seeyue-bg/88 backdrop-blur-xl border border-seeyue-border-dim shadow-[0_18px_55px_rgba(26,22,18,0.22),0_2px_10px_rgba(26,22,18,0.08)] text-[13px] text-seeyue-fg overflow-hidden before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-seeyue-accent data-[tone=error]:before:bg-seeyue-danger data-[tone=success]:before:bg-seeyue-success data-[tone=info]:before:bg-seeyue-accent ${
+      className={`seeyue-toast group ${
         exiting
           ? 'animate-seeyue-fade-out-up'
           : 'animate-seeyue-slide-in'

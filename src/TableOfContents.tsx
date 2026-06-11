@@ -138,7 +138,7 @@ function TocPanel({
                   document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
                 }}
                 className={
-                  'block py-[4px] px-1.5 rounded-md text-[12px] no-underline whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-150 ' +
+                  'seeyue-toc-link ' +
                   (isActive
                     ? 'text-seeyue-fg-strong font-medium bg-seeyue-accent-soft'
                     : 'text-seeyue-fg-muted hover:text-seeyue-accent hover:bg-seeyue-elevated/60')

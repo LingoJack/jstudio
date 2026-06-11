@@ -86,7 +86,7 @@ export function ActivityBar({
         <button
           key={key}
           type="button"
-          className="relative inline-flex items-center justify-center w-10 h-10 rounded-none bg-transparent border-0 text-seeyue-fg-dim cursor-pointer transition-colors duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated focus-visible:outline-2 focus-visible:outline-seeyue-accent focus-visible:outline-offset-[-2px] data-[active=true]:text-seeyue-accent before:content-[''] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-r before:bg-transparent before:transition-colors before:duration-150 data-[active=true]:before:bg-seeyue-accent"
+          className="seeyue-activity-btn before:content-[''] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-r before:bg-transparent before:transition-colors before:duration-150 data-[active=true]:before:bg-seeyue-accent"
           data-active={key === active ? 'true' : undefined}
           title={title}
           aria-label={title}
@@ -99,7 +99,7 @@ export function ActivityBar({
       <div ref={settingsRef} className="mt-auto relative">
         <button
           type="button"
-          className="relative inline-flex items-center justify-center w-10 h-10 rounded-none bg-transparent border-0 text-seeyue-fg-dim cursor-pointer transition-colors duration-150 hover:text-seeyue-fg-strong hover:bg-seeyue-elevated focus-visible:outline-2 focus-visible:outline-seeyue-accent focus-visible:outline-offset-[-2px] data-[open=true]:text-seeyue-accent data-[open=true]:bg-seeyue-elevated"
+          className="seeyue-activity-btn data-[open=true]:text-seeyue-accent data-[open=true]:bg-seeyue-elevated"
           data-open={settingsOpen ? 'true' : undefined}
           title="设置"
           aria-label="打开 Reader 设置"

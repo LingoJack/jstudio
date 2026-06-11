@@ -33,13 +33,13 @@ export function CloseConfirmDialog({ filename, onSave, onDiscard, onCancel }: Pr
         aria-modal="true"
       >
         <h3 className="m-0 mb-1.5 text-[15px] font-semibold text-seeyue-fg-strong flex items-center gap-2">
-          <span style={{ color: 'var(--color-seeyue-warn)' }}>
+          <span className="text-seeyue-warn">
             <AlertTriangle size={16} />
           </span>
           有未保存的改动
         </h3>
         <p className="m-0 mb-4 text-[13px] text-seeyue-fg-muted leading-[1.7]">
-          <span style={{ color: 'var(--color-seeyue-fg)' }}>{filename}</span> 已修改但未保存，是否保存？
+          <span className="text-seeyue-fg">{filename}</span> 已修改但未保存，是否保存？
         </p>
         <div className="flex justify-end gap-2 mt-[18px]">
           <DialogButton onClick={onCancel}>取消</DialogButton>

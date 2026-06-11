@@ -92,7 +92,7 @@ export function TabBar({
           return (
             <div
               key={tab.path}
-              className="group/tab inline-flex items-center gap-1.5 h-full px-3 pl-3.5 min-w-[128px] max-w-[240px] text-[13px] text-seeyue-fg-muted cursor-pointer relative border-r border-seeyue-border/70 transition-colors duration-150 select-none hover:text-seeyue-fg-strong hover:bg-seeyue-elevated data-[active=true]:text-seeyue-fg-strong data-[active=true]:bg-seeyue-bg after:content-[''] after:absolute after:left-0 after:right-0 after:top-0 after:h-0.5 after:bg-transparent data-[active=true]:after:bg-seeyue-accent"
+              className="seeyue-tab-item group/tab after:content-[''] after:absolute after:left-0 after:right-0 after:top-0 after:h-0.5 after:bg-transparent data-[active=true]:after:bg-seeyue-accent"
               data-active={isActive ? 'true' : undefined}
               onClick={() => onActivate(tab.path)}
               onMouseDown={(e) => {
@@ -105,12 +105,7 @@ export function TabBar({
               title={tab.path}
             >
               <span
-                className="inline-flex items-center justify-center"
-                style={{
-                  width: 14,
-                  height: 14,
-                  color: isActive ? 'var(--color-seeyue-accent)' : 'var(--color-seeyue-fg-muted)',
-                }}
+                className={`inline-flex items-center justify-center w-[14px] h-[14px] ${isActive ? 'text-seeyue-accent' : 'text-seeyue-fg-muted'}`}
               >
                 <TabIcon tab={tab} />
               </span>
@@ -149,7 +144,7 @@ export function TabBar({
       {menu && (
         <div
           ref={menuRef}
-          className="fixed z-50 min-w-[160px] overflow-hidden rounded-md border border-seeyue-border bg-seeyue-bg/95 py-1 text-[13px] text-seeyue-fg shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur"
+          className="seeyue-context-menu"
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
@@ -219,7 +214,7 @@ function MenuButton(props: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-seeyue-fg-muted cursor-pointer hover:bg-seeyue-elevated hover:text-seeyue-fg-strong"
+      className="seeyue-menu-item"
       onClick={props.onClick}
     >
       <span>{props.children}</span>
