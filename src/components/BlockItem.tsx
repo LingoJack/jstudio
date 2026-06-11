@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from "react";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Block, BlockType, CanvasPath, Document } from "../types";
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
@@ -146,6 +147,8 @@ export default function BlockItem({
   const [sandboxPreviewFileName, setSandboxPreviewFileName] = useState(
     block.properties?.sandboxPreviewFileName || "",
   );
+  const [sandboxPreviewLoadKey, setSandboxPreviewLoadKey] = useState(0);
+  const [sandboxWebError, setSandboxWebError] = useState("");
   const [sandboxDebouncedSrcDoc, setSandboxDebouncedSrcDoc] = useState("");
   const [runIndicator, setRunIndicator] = useState(0); // For forcing reload
 
@@ -312,6 +315,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       setSandboxPreviewUrl(block.properties?.sandboxPreviewUrl || "");
       setSandboxPreviewFileName(block.properties?.sandboxPreviewFileName || "");
       setSandboxPreviewFileSrc("");
+      setSandboxWebError("");
     }
   }, [block.id, block.type]);
 
@@ -365,6 +369,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
   };
 
   const handleSandboxPreviewModeChange = (mode: "html" | "url" | "file") => {
+    setSandboxWebError("");
     handleSandboxChange(
       sandboxHtml,
       sandboxCss,
@@ -386,6 +391,46 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       url,
       sandboxPreviewFileName,
     );
+  };
+
+  const normalizeSandboxUrl = (url: string) => {
+    const value = url.trim();
+    if (!value) return "";
+    if (/^(https?:|file:|data:|tauri:)\/\//i.test(value)) return value;
+    return `https://${value}`;
+  };
+
+  const openSandboxWebPreview = () => {
+    const url = normalizeSandboxUrl(sandboxPreviewUrl);
+    if (!url) {
+      setSandboxWebError("请输入要预览的网页地址");
+      return;
+    }
+
+    setSandboxWebError("");
+    setSandboxPreviewLoadKey((prev) => prev + 1);
+  };
+
+  const openSandboxWebPreviewWindow = () => {
+    const url = normalizeSandboxUrl(sandboxPreviewUrl);
+    if (!url) {
+      setSandboxWebError("请输入要预览的网页地址");
+      return;
+    }
+
+    const label = `sandbox-${block.id}-${Date.now()}`.replace(/[^a-zA-Z0-9-/:_]/g, "-");
+    const webview = new WebviewWindow(label, {
+      url,
+      title: `Sandbox: ${url}`,
+      width: 1200,
+      height: 800,
+      resizable: true,
+    });
+
+    webview.once("tauri://error", (event) => {
+      const message = typeof event.payload === "string" ? event.payload : "打开预览窗口失败";
+      setSandboxWebError(message);
+    });
   };
 
   const handleSandboxFileSelect = (file: File | null) => {
@@ -1487,13 +1532,37 @@ document.getElementById('trigger-react').addEventListener('click', () => {
                   </div>
 
                   {sandboxPreviewMode === "url" && (
-                    <input
-                      type="url"
-                      value={sandboxPreviewUrl}
-                      onChange={(e) => handleSandboxPreviewUrlChange(e.target.value)}
-                      placeholder="https://example.com"
-                      className="min-w-[220px] flex-1 bg-white dark:bg-[#0b0c10] border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/60"
-                    />
+                    <div className="min-w-[260px] flex-1 flex items-center gap-1.5">
+                      <input
+                        type="url"
+                        value={sandboxPreviewUrl}
+                        onChange={(e) => handleSandboxPreviewUrlChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            openSandboxWebPreview();
+                          }
+                        }}
+                        placeholder="example.com 或 https://example.com"
+                        className="min-w-0 flex-1 bg-white dark:bg-[#0b0c10] border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/60"
+                      />
+                      <button
+                        type="button"
+                        onClick={openSandboxWebPreview}
+                        className="cursor-pointer px-2 py-1 rounded-md bg-indigo-600 text-white text-[10px] hover:bg-indigo-500 transition-colors"
+                        title="在下方刷新预览"
+                      >
+                        预览
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openSandboxWebPreviewWindow}
+                        className="cursor-pointer px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[10px] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="用独立窗口打开；适合禁止 iframe 嵌入的网站"
+                      >
+                        新窗口
+                      </button>
+                    </div>
                   )}
 
                   {sandboxPreviewMode === "file" && (
@@ -1520,19 +1589,31 @@ document.getElementById('trigger-react').addEventListener('click', () => {
                   />
                 )}
 
-                {sandboxPreviewMode === "url" && sandboxPreviewUrl.trim() && (
-                  <iframe
-                    title={`Web Preview ${block.id}`}
-                    src={sandboxPreviewUrl.trim()}
-                    sandbox="allow-scripts allow-modals allow-forms allow-popups allow-same-origin"
-                    className="w-full h-96 border-none bg-white dark:bg-slate-900"
-                  />
+                {sandboxPreviewMode === "url" && normalizeSandboxUrl(sandboxPreviewUrl) && (
+                  <div className="relative">
+                    <iframe
+                      key={`web-${sandboxPreviewLoadKey}-${normalizeSandboxUrl(sandboxPreviewUrl)}`}
+                      title={`Web Preview ${block.id}`}
+                      src={normalizeSandboxUrl(sandboxPreviewUrl)}
+                      sandbox="allow-scripts allow-modals allow-forms allow-popups allow-same-origin"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-96 border-none bg-white dark:bg-slate-900"
+                    />
+                    <div className="absolute left-2 bottom-2 right-2 pointer-events-none flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                      <span className="truncate bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded">
+                        {normalizeSandboxUrl(sandboxPreviewUrl)}
+                      </span>
+                      <span className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded">
+                        若空白，请点“新窗口”
+                      </span>
+                    </div>
+                  </div>
                 )}
 
-                {sandboxPreviewMode === "url" && !sandboxPreviewUrl.trim() && (
+                {sandboxPreviewMode === "url" && !normalizeSandboxUrl(sandboxPreviewUrl) && (
                   <div className="h-96 flex flex-col items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
                     <Link className="w-5 h-5" />
-                    输入远程网页地址后即可预览
+                    输入远程网页地址后，按 Enter 或点击“预览”
                   </div>
                 )}
 
@@ -1549,6 +1630,12 @@ document.getElementById('trigger-react').addEventListener('click', () => {
                   <div className="h-96 flex flex-col items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
                     <Upload className="w-5 h-5" />
                     选择 HTML、PDF、图片等本地文件进行预览
+                  </div>
+                )}
+
+                {sandboxWebError && sandboxPreviewMode === "url" && (
+                  <div className="px-3 py-2 text-[11px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border-t border-red-100 dark:border-red-900/40">
+                    {sandboxWebError}
                   </div>
                 )}
               </div>
