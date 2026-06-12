@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { Document, Block, BlockType } from '../types';
 import BlockItem from './BlockItem';
 import {
@@ -74,6 +74,99 @@ export default function BlockEditor({
     onUpdateDocument({
       blocks: [...activeDoc.blocks, newBlock],
     });
+  };
+
+  // Title <input> ref & block nodes registry for keyboard navigation.
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const blockNodesRef = useRef<Map<string, HTMLElement>>(new Map());
+
+  const registerBlockNode = useCallback((id: string, node: HTMLElement | null) => {
+    if (node) {
+      blockNodesRef.current.set(id, node);
+    } else {
+      blockNodesRef.current.delete(id);
+    }
+  }, []);
+
+  // Focus the editable child of a block. Used by title → first block (↓)
+  // and by the first block → title (↑) round-trip.
+  const focusBlockEditable = useCallback(
+    (blockId: string, placement: 'start' | 'end' = 'end') => {
+      const node = blockNodesRef.current.get(blockId);
+      if (!node) return false;
+      const editable = node.querySelector<HTMLElement>(
+        "[data-block-editable='true']",
+      );
+      if (!editable) return false;
+
+      editable.focus();
+
+      requestAnimationFrame(() => {
+        if (
+          editable instanceof HTMLTextAreaElement ||
+          editable instanceof HTMLInputElement
+        ) {
+          const pos = placement === 'end' ? editable.value.length : 0;
+          try {
+            editable.setSelectionRange(pos, pos);
+          } catch {
+            /* ignore */
+          }
+        } else if (editable.isContentEditable) {
+          const sel = window.getSelection();
+          if (!sel) return;
+          const range = document.createRange();
+          range.selectNodeContents(editable);
+          range.collapse(placement === 'end');
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      });
+      return true;
+    },
+    [],
+  );
+
+  // Focus the document title input. Used by the first block ↑ to bounce up.
+  const focusTitle = useCallback((placement: 'start' | 'end' = 'end') => {
+    const el = titleInputRef.current;
+    if (!el) return false;
+    el.focus();
+    requestAnimationFrame(() => {
+      const pos = placement === 'end' ? el.value.length : 0;
+      try {
+        el.setSelectionRange(pos, pos);
+      } catch {
+        /* ignore */
+      }
+    });
+    return true;
+  }, []);
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const isAtEnd =
+      el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+    const isAtStart = el.selectionStart === 0 && el.selectionEnd === 0;
+
+    if (e.key === 'ArrowDown' && (isAtEnd || el.value.length === 0)) {
+      // Jump from title into the first block, at its end.
+      if (activeDoc.blocks.length > 0) {
+        e.preventDefault();
+        focusBlockEditable(activeDoc.blocks[0].id, 'end');
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      // Enter on title: insert a fresh text block below and focus it.
+      e.preventDefault();
+      if (activeDoc.blocks.length === 0) {
+        appendBlockAtEnd('text');
+      } else {
+        insertBlockBelowIndex(activeDoc.blocks[0].id, 'text');
+      }
+    } else if (e.key === 'ArrowUp' && isAtStart) {
+      // Nothing to navigate to above the title, swallow to avoid losing focus.
+      e.preventDefault();
+    }
   };
 
   // Insert a block directly below a given block ID
@@ -197,9 +290,12 @@ export default function BlockEditor({
         {/* Document Title header */}
         <div className="pb-4">
           <input
+            ref={titleInputRef}
             type="text"
             value={activeDoc.title}
             onChange={(e) => onUpdateDocument({ title: e.target.value })}
+            onKeyDown={handleTitleKeyDown}
+            data-block-editable="true"
             placeholder="文档标题"
             className="text-4xl font-bold text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none w-full placeholder-slate-300 dark:placeholder-slate-600 pb-1 border-b border-transparent focus:border-[#0e639c]/40 dark:focus:border-[#0e639c]/50 transition-colors duration-200"
           />
@@ -207,9 +303,10 @@ export default function BlockEditor({
 
         {/* Blocks rendering stream */}
         <div className="space-y-2 min-h-[50vh]" id="blocks-container">
-          {activeDoc.blocks.map((block) => (
+          {activeDoc.blocks.map((block, index) => (
             <BlockItem
               key={block.id}
+              ref={(node) => registerBlockNode(block.id, node)}
               block={block}
               documents={documents}
               onUpdateBlock={(fields) => updateBlockContent(block.id, fields)}
@@ -217,6 +314,16 @@ export default function BlockEditor({
               onNavigateToDoc={onSelectDocument}
               onInsertBlockBelow={(type) => insertBlockBelowIndex(block.id, type)}
               autoFocus={newlyCreatedBlockId === block.id}
+              onRequestFocusTitle={() => focusTitle('end')}
+              onRequestFocusBlock={(offset) => {
+                if (offset < 0) {
+                  return focusBlockEditable(activeDoc.blocks[index + offset]?.id ?? '', 'end');
+                }
+                if (offset > 0) {
+                  return focusBlockEditable(activeDoc.blocks[index + offset]?.id ?? '', 'start');
+                }
+                return false;
+              }}
             />
           ))}
         </div>

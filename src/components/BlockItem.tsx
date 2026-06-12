@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Block, BlockType, CanvasPath, Document } from "../types";
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
 import getCaretCoordinates from "textarea-caret";
+
+// Tag names of inline elements the auto-formatter inserts. We treat these as
+// "trap" elements that the caret can get stuck inside, and we provide
+// keyboard hooks to escape them.
+const INLINE_FORMATTED_TAGS = ["CODE", "B", "STRONG", "A", "I", "EM", "U", "SPAN"];
 
 const ContentEditableBlock = forwardRef<HTMLDivElement, {
   html: string;
@@ -96,7 +101,6 @@ const SLASH_COMMANDS = [
 ];
 
 interface BlockItemProps {
-  key?: string | number;
   block: Block;
   documents: Document[];
   onUpdateBlock: (updatedFields: Partial<Block>) => void;
@@ -104,17 +108,35 @@ interface BlockItemProps {
   onNavigateToDoc: (docId: string) => void;
   onInsertBlockBelow: (type: BlockType) => void;
   autoFocus?: boolean;
+  /**
+   * Focus the document title input. The block uses this when the user is at
+   * the very top of the first block and presses ArrowUp. Returns true on
+   * success so the caller can decide whether to suppress the original
+   * keypress.
+   */
+  onRequestFocusTitle?: () => boolean;
+  /**
+   * Focus another block by relative offset (negative = previous, positive = next).
+   * Used as a fallback when there's no DOM sibling (e.g. the very first/last
+   * block in the document). Returns true on success.
+   */
+  onRequestFocusBlock?: (offset: number) => boolean;
 }
 
-export default function BlockItem({
-  block,
-  documents,
-  onUpdateBlock,
-  onDeleteBlock,
-  onNavigateToDoc,
-  onInsertBlockBelow,
-  autoFocus,
-}: BlockItemProps) {
+const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
+  {
+    block,
+    documents,
+    onUpdateBlock,
+    onDeleteBlock,
+    onNavigateToDoc,
+    onInsertBlockBelow,
+    autoFocus,
+    onRequestFocusTitle,
+    onRequestFocusBlock,
+  },
+  forwardedRef,
+) {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const [slashMenuCoords, setSlashMenuCoords] = useState<{
@@ -497,16 +519,76 @@ document.getElementById('trigger-react').addEventListener('click', () => {
     // but not for contentEditable
   }, [rawText, block.type]);
 
+  /**
+   * Get the bounding rect of the current caret position inside a contentEditable.
+   * Uses an inert zero-width marker as a probe so we always get a real rect
+   * (Safari/WebKit often return 0×0 rects from a collapsed Range).
+   */
+  const getCaretRect = (el: HTMLElement): DOMRect | null => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!el.contains(range.startContainer)) return null;
+    if (!range.collapsed) return null;
+
+    const probe = range.cloneRange();
+    probe.collapse(true);
+    const rects = probe.getClientRects();
+    let rect = rects[0] ?? null;
+    if (rect && (rect.width > 0 || rect.height > 0)) return rect;
+
+    // Fallback: drop a zero-width span at the caret, measure, then remove it.
+    const marker = document.createElement("span");
+    marker.appendChild(document.createTextNode("\u200b"));
+    marker.setAttribute("data-caret-probe", "1");
+    const originalStyles = marker.style.cssText;
+    marker.style.cssText =
+      "display:inline-block;width:0;height:1em;line-height:inherit;vertical-align:baseline;";
+    try {
+      probe.insertNode(marker);
+      rect = marker.getBoundingClientRect();
+    } finally {
+      marker.remove();
+      marker.style.cssText = originalStyles;
+      // Selection may have been invalidated by DOM mutation; restore it.
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    return rect;
+  };
+
+  /**
+   * Estimate the line height of a contentEditable by looking at a single
+   * typed character (or the first letter). Falls back to 24px.
+   */
+  const estimateLineHeight = (el: HTMLElement): number => {
+    const computed = window.getComputedStyle(el);
+    const lh = parseFloat(computed.lineHeight);
+    if (Number.isFinite(lh) && lh > 0) return lh;
+    const fs = parseFloat(computed.fontSize);
+    if (Number.isFinite(fs) && fs > 0) return fs * 1.5;
+    return 24;
+  };
+
+  /**
+   * Whether the caret is on the "top" or "bottom" line of a contentEditable,
+   * within half a line height of the element's bounding box.
+   *
+   * For textareas/inputs we use the simple newline index approach, which is
+   * accurate and DOM-agnostic.
+   */
   const isCaretOnEdgeLine = (
     el: HTMLElement,
     direction: "up" | "down",
-  ) => {
+  ): boolean => {
     if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
       const value = el.value;
       const cursor = el.selectionStart ?? 0;
-      const currentLineStart = value.lastIndexOf("\n", Math.max(0, cursor - 1)) + 1;
+      const currentLineStart =
+        value.lastIndexOf("\n", Math.max(0, cursor - 1)) + 1;
       const currentLineEndIndex = value.indexOf("\n", cursor);
-      const currentLineEnd = currentLineEndIndex === -1 ? value.length : currentLineEndIndex;
+      const currentLineEnd =
+        currentLineEndIndex === -1 ? value.length : currentLineEndIndex;
       const before = value.slice(0, currentLineStart);
       const after = value.slice(currentLineEnd);
       return direction === "up" ? !before.includes("\n") : !after.includes("\n");
@@ -516,77 +598,231 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return false;
-
     const range = selection.getRangeAt(0);
-    if (!el.contains(range.startContainer) || !el.contains(range.endContainer)) {
-      return false;
+    if (!el.contains(range.startContainer)) return false;
+
+    // If the user has a non-collapsed selection, never treat the caret as on
+    // the edge — they probably want to move within their selection.
+    if (!range.collapsed) return false;
+
+    const caretRect = getCaretRect(el);
+    if (!caretRect) return true;
+
+    const elRect = el.getBoundingClientRect();
+    if (elRect.height === 0) return true;
+
+    const lineHeight = estimateLineHeight(el);
+    // Allow a small fudge factor equal to half a line so browsers with
+    // sub-pixel layout don't trip the check.
+    const slack = Math.max(2, lineHeight / 2);
+
+    if (direction === "up") {
+      return Math.abs(caretRect.top - elRect.top) <= slack;
     }
+    return Math.abs(caretRect.bottom - elRect.bottom) <= slack;
+  };
 
-    const probe = range.cloneRange();
-    probe.collapse(true);
-    const rects = probe.getClientRects();
-    let caretRect = rects[0];
-
-    if (!caretRect) {
-      const marker = document.createElement("span");
-      marker.appendChild(document.createTextNode("\u200b"));
-      probe.insertNode(marker);
-      caretRect = marker.getBoundingClientRect();
-      marker.remove();
-      selection.removeAllRanges();
-      selection.addRange(range);
+  /**
+   * Walk up the ancestor chain and return the closest element whose tag name
+   * is in `INLINE_FORMATTED_TAGS`, or null.
+   */
+  const findInlineFormatAncestor = (
+    node: Node | null,
+  ): HTMLElement | null => {
+    let cur: Node | null = node;
+    while (cur && cur.nodeType === Node.ELEMENT_NODE) {
+      const el = cur as HTMLElement;
+      if (INLINE_FORMATTED_TAGS.includes(el.tagName)) return el;
+      cur = el.parentElement;
     }
+    return null;
+  };
 
-    const lineRects = Array.from(el.getClientRects()).filter(
-      (rect) => rect.width > 0 && rect.height > 0,
-    );
+  /**
+   * If the current selection is collapsed and sitting at the very end of an
+   * inline format element (e.g. `<code>foo</code>`), move it just after the
+   * element so the user can keep typing plain text.
+   *
+   * Returns true if the caret was moved (so the caller can preventDefault).
+   */
+  const tryEscapeInlineFormat = (
+    el: HTMLElement,
+    direction: "left" | "right",
+  ): boolean => {
+    if (!el.isContentEditable) return false;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return false;
+    const range = selection.getRangeAt(0);
+    if (!range.collapsed) return false;
 
-    if (!caretRect || lineRects.length === 0) return true;
+    const inline = findInlineFormatAncestor(range.startContainer);
+    if (!inline) return false;
+    // Only act on inline elements that are inside our editable host.
+    if (!el.contains(inline)) return false;
 
-    const edgeValue =
-      direction === "up"
-        ? Math.min(...lineRects.map((rect) => rect.top))
-        : Math.max(...lineRects.map((rect) => rect.bottom));
-    const caretValue = direction === "up" ? caretRect.top : caretRect.bottom;
-
-    return Math.abs(caretValue - edgeValue) <= 3;
+    if (direction === "right") {
+      // Caret collapsed and the end of the inline is right after the cursor.
+      if (
+        range.endContainer === inline.lastChild &&
+        range.endOffset === (inline.lastChild?.nodeType === Node.TEXT_NODE
+          ? (inline.lastChild as Text).data.length
+          : inline.childNodes.length)
+      ) {
+        const parent = inline.parentNode;
+        if (!parent) return false;
+        const after = document.createRange();
+        const idx = Array.prototype.indexOf.call(parent.childNodes, inline) + 1;
+        after.setStart(parent, idx);
+        after.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(after);
+        return true;
+      }
+    } else {
+      // Left: caret at the very start of the inline element.
+      if (
+        range.startContainer === inline.firstChild &&
+        range.startOffset === 0
+      ) {
+        const parent = inline.parentNode;
+        if (!parent) return false;
+        const before = document.createRange();
+        const idx = Array.prototype.indexOf.call(parent.childNodes, inline);
+        before.setStart(parent, idx);
+        before.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(before);
+        return true;
+      }
+    }
+    return false;
   };
 
   const moveFocusToSiblingBlock = (
     current: HTMLElement,
     direction: "up" | "down",
-  ) => {
+  ): boolean => {
     const blockEl = current.closest<HTMLElement>("[data-block-id]");
-    const sibling = direction === "up"
-      ? blockEl?.previousElementSibling
-      : blockEl?.nextElementSibling;
+    const sibling =
+      direction === "up"
+        ? (blockEl?.previousElementSibling as HTMLElement | null)
+        : (blockEl?.nextElementSibling as HTMLElement | null);
     const target = sibling?.querySelector<HTMLElement>(
       "[data-block-editable='true']",
     );
 
-    if (!target) return false;
+    if (target) {
+      target.focus();
+      requestAnimationFrame(() => {
+        if (
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLInputElement
+        ) {
+          const pos = direction === "up" ? target.value.length : 0;
+          try {
+            target.setSelectionRange(pos, pos);
+          } catch {
+            /* ignore */
+          }
+        } else if (target.isContentEditable) {
+          const selection = window.getSelection();
+          if (!selection) return;
+          const range = document.createRange();
+          range.selectNodeContents(target);
+          range.collapse(direction === "down");
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      });
+      return true;
+    }
 
-    target.focus();
-    requestAnimationFrame(() => {
-      if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
-        const nextValue = direction === "up" ? target.value.length : 0;
-        target.setSelectionRange(nextValue, nextValue);
-      } else if (target.isContentEditable) {
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(target);
-        range.collapse(direction === "down");
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      }
-    });
-
-    return true;
+    // No DOM sibling (e.g. the first block going up, or the last going down).
+    if (direction === "up" && onRequestFocusTitle) {
+      return onRequestFocusTitle();
+    }
+    if (direction === "up" && onRequestFocusBlock) {
+      return onRequestFocusBlock(-1);
+    }
+    if (direction === "down" && onRequestFocusBlock) {
+      return onRequestFocusBlock(1);
+    }
+    return false;
   };
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLElement>,
-  ) => {
+  /**
+   * Capture the current caret offset in the editable, relative to its content.
+   * Used to restore position after handleBlur rewrites the content.
+   */
+  const captureCaretOffset = (el: HTMLElement): number | null => {
+    if (!el.isContentEditable) {
+      if (
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLInputElement
+      ) {
+        return el.selectionStart ?? 0;
+      }
+      return null;
+    }
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!el.contains(range.startContainer)) return null;
+    const pre = range.cloneRange();
+    pre.selectNodeContents(el);
+    pre.setEnd(range.startContainer, range.startOffset);
+    return pre.toString().length;
+  };
+
+  /**
+   * Restore the caret at a given text offset within a contentEditable host.
+   * Walks text nodes in document order to find the matching position.
+   */
+  const restoreCaretOffset = (el: HTMLElement, offset: number) => {
+    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+      const pos = Math.min(offset, el.value.length);
+      try {
+        el.setSelectionRange(pos, pos);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    if (!el.isContentEditable) return;
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let remaining = offset;
+    let target: Text | null = null;
+    let targetOffset = 0;
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const len = node.data.length;
+      if (remaining <= len) {
+        target = node;
+        targetOffset = remaining;
+        break;
+      }
+      remaining -= len;
+    }
+    if (!target) {
+      // Offset past the end — collapse to the end of the element.
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(r);
+      return;
+    }
+    const r = document.createRange();
+    r.setStart(target, targetOffset);
+    r.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(r);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (showSlashMenu) {
       if (e.key === "ArrowUp") {
         e.preventDefault();
@@ -610,10 +846,29 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       }
     }
 
+    const el = e.currentTarget;
+
+    // ArrowLeft/ArrowRight: let the user escape inline format elements.
+    if (
+      (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      el.isContentEditable
+    ) {
+      if (tryEscapeInlineFormat(el, e.key === "ArrowLeft" ? "left" : "right")) {
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // ArrowUp/ArrowDown: cross-block navigation when on the edge.
     if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.shiftKey) {
       const direction = e.key === "ArrowUp" ? "up" : "down";
-      const el = e.currentTarget;
-      if (isCaretOnEdgeLine(el, direction) && moveFocusToSiblingBlock(el, direction)) {
+      if (
+        isCaretOnEdgeLine(el, direction) &&
+        moveFocusToSiblingBlock(el, direction)
+      ) {
         e.preventDefault();
         return;
       }
@@ -623,7 +878,14 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       e.preventDefault();
       onInsertBlockBelow("text");
     } else if (e.key === "Backspace") {
-      const el = e.currentTarget;
+      // Cmd/Ctrl+Backspace: delete the whole block, merging into the previous
+      // block if any. This is the standard Notion / 飞书 shortcut.
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        onDeleteBlock("");
+        return;
+      }
+
       if (
         (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) &&
         el.selectionStart === 0 &&
@@ -631,17 +893,47 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       ) {
         e.preventDefault();
         onDeleteBlock(rawText);
-      } else if (el.isContentEditable) {
+        return;
+      }
+
+      if (el.isContentEditable) {
         const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0);
-          const preCaretRange = range.cloneRange();
-          preCaretRange.selectNodeContents(el);
-          preCaretRange.setEnd(range.startContainer, range.startOffset);
-          if (preCaretRange.toString().length === 0) {
-             e.preventDefault();
-             onDeleteBlock(el.innerHTML);
+        if (!sel || sel.rangeCount === 0) return;
+        const range = sel.getRangeAt(0);
+        if (!range.collapsed) return; // let browser delete selection
+
+        // Case 1: caret is right after an inline format element -> delete the
+        // entire element in one Backspace.
+        const inline = findInlineFormatAncestor(range.startContainer);
+        if (inline && el.contains(inline)) {
+          const parent = inline.parentNode;
+          if (parent) {
+            // Make sure the caret sits at the very end of the inline element.
+            const inlineRange = document.createRange();
+            inlineRange.selectNodeContents(inline);
+            inlineRange.collapse(false);
+            const isAtInlineEnd =
+              range.startContainer === inlineRange.endContainer &&
+              range.startOffset === inlineRange.endOffset;
+            if (isAtInlineEnd) {
+              e.preventDefault();
+              inline.remove();
+              // The browser will keep the caret in place; that's fine.
+              // Push the new HTML upward to keep state in sync.
+              setRawText(el.innerHTML);
+              onUpdateBlock({ content: el.innerHTML });
+              return;
+            }
           }
+        }
+
+        // Case 2: caret is at the absolute start of the block -> delete block.
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(el);
+        preCaretRange.setEnd(range.startContainer, range.startOffset);
+        if (preCaretRange.toString().length === 0) {
+          e.preventDefault();
+          onDeleteBlock(el.innerHTML);
         }
       }
     }
@@ -651,19 +943,31 @@ document.getElementById('trigger-react').addEventListener('click', () => {
     setRawText(block.content);
   }, [block.content]);
 
-  const handleBlur = () => {
-    // Light Markdown auto-formatting on blur (so cursor doesn't jump during typing)
+  const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
+    // Light Markdown auto-formatting on blur (so cursor doesn't jump during
+    // typing). Capture the caret first so we can put it back after the DOM
+    // rewrite, otherwise the user's cursor "teleports" to the start.
+    const caretOffset = captureCaretOffset(e.currentTarget as HTMLElement);
+
+    // Defensive: don't run formatting when the user is clearly writing raw
+    // HTML (the `>` characters would otherwise become `&gt;` on next render).
+    const hasRawAngleBracket = /[<>]/.test(rawText);
+    if (hasRawAngleBracket) return;
+
     let formatted = rawText;
-    
+
     // **bold** to <b>bold</b>
-    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
     // `code` to <code>code</code>
-    formatted = formatted.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 mx-0.5 rounded bg-slate-100 dark:bg-white/10 text-pink-500 dark:text-pink-400 font-mono text-[13px]">$1</code>');
+    formatted = formatted.replace(
+      /`([^`]+)`/g,
+      '<code class="px-1 py-0.5 mx-0.5 rounded bg-slate-100 dark:bg-white/10 text-pink-500 dark:text-pink-400 font-mono text-[13px]">$1</code>',
+    );
     // [[Wiki]] to link
     formatted = formatted.replace(/\[\[([^\]]+)\]\]/g, (match, titleStr) => {
       const title = titleStr.trim();
       const matchedDoc = documents.find(
-        (d) => d.title.toLowerCase() === title.toLowerCase()
+        (d) => d.title.toLowerCase() === title.toLowerCase(),
       );
       if (matchedDoc) {
         return `<a href="#" data-doc-id="${matchedDoc.id}" class="wiki-link px-1.5 py-0.5 mx-0.5 rounded bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900 border-b border-indigo-500 font-semibold text-indigo-700 dark:text-indigo-400 cursor-pointer text-xs inline-flex items-center gap-1 transition-colors"><span>${title}</span></a>`;
@@ -674,6 +978,13 @@ document.getElementById('trigger-react').addEventListener('click', () => {
     if (formatted !== rawText) {
       setRawText(formatted);
       onUpdateBlock({ content: formatted });
+      // Restore caret position once React has re-rendered the formatted HTML.
+      if (caretOffset != null) {
+        requestAnimationFrame(() => {
+          const host = elementRef.current;
+          if (host) restoreCaretOffset(host, caretOffset);
+        });
+      }
     }
   };
 
@@ -1045,6 +1356,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
   return (
     <div
+      ref={forwardedRef}
       className="group/block relative flex items-start gap-2 py-1.5 px-2 -mx-2 rounded-sm transition-colors duration-200 hover:bg-[#e8e8e8] dark:hover:bg-white/[0.06]"
       id={`block-row-${block.id}`}
       data-block-id={block.id}
@@ -1736,5 +2048,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
       </div>
     </div>
   );
-}
+});
+
+export default BlockItem;
 
