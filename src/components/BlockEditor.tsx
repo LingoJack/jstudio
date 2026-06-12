@@ -162,14 +162,14 @@ export default function BlockEditor({
   return (
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
       
-      {/* 1. Minimal Word-style Toolbar Ribbon Area */}
-      <div className="flex items-center gap-1 py-2 shrink-0 select-none border-b border-slate-100 dark:border-slate-800">
+      {/* 1. Minimal Word-style Toolbar Ribbon Area - enhanced spacing, hover, shadow */}
+      <div className="flex items-center gap-0.5 py-2 px-3 shrink-0 select-none border-b border-slate-100 dark:border-white/[0.04] bg-white dark:bg-[#0d0d0d]">
         {[
-          { type: 'text', icon: MessageSquare, title: '插入文本' },
-          { type: 'heading-2', icon: Heading2, title: '插入副标题' },
-          { type: 'table', icon: TableIcon, title: '插入表格' },
+          { type: 'text', icon: MessageSquare, title: '插入文本 (T)' },
+          { type: 'heading-2', icon: Heading2, title: '插入副标题 (H)' },
+          { type: 'table', icon: TableIcon, title: '插入表格 (Tab)' },
           { type: 'canvas', icon: Palette, title: '插入白板' },
-          { type: 'code', icon: Code, title: '插入代码' },
+          { type: 'code', icon: Code, title: '插入代码 (C)' },
           { type: 'html-render', icon: FileCode, title: '插入HTML沙盒' },
           { type: 'toggle', icon: ChevronDown, title: '插入折叠块' },
         ].map((op) => {
@@ -178,34 +178,35 @@ export default function BlockEditor({
             <button
               key={op.type}
               onClick={() => appendBlockAtEnd(op.type as BlockType)}
-              className="cursor-pointer p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-400 rounded transition-colors"
+              className="cursor-pointer p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg transition-all duration-150 active:scale-95 hover:text-slate-700 dark:hover:text-slate-300 hover:shadow-sm"
               title={op.title}
             >
               <IconComp className="w-4 h-4" />
             </button>
           );
         })}
-        <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 mx-2" />
-        <div className="text-xs text-slate-400 dark:text-slate-500">
-          词数: {wordCount} &nbsp;|&nbsp; 预计阅读 {readTimeMinutes} 分钟
+        <div className="w-px h-4 bg-slate-200 dark:bg-white/[0.06] mx-2" />
+        <div className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+          <FileText className="w-3 h-3" />
+          <span>词数: {wordCount} &nbsp;|&nbsp; 阅读 {readTimeMinutes} 分钟</span>
         </div>
       </div>
 
-      {/* 2. Editor Canvas Area */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-12 py-10 space-y-6 bg-white dark:bg-[#0d0d0d] select-text">
-        {/* Document Title header */}
+      {/* 2. Editor Canvas Area - enhanced padding and spacing */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-8 md:py-12 space-y-6 bg-white dark:bg-[#0d0d0d] select-text">
+        {/* Document Title header - enhanced focus state */}
         <div className="pb-4">
           <input
             type="text"
             value={activeDoc.title}
             onChange={(e) => onUpdateDocument({ title: e.target.value })}
             placeholder="文档标题"
-            className="text-3xl font-bold text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none w-full placeholder-slate-300"
+            className="text-4xl font-bold text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none w-full placeholder-slate-300 dark:placeholder-slate-600 pb-1 border-b border-transparent focus:border-indigo-300 dark:focus:border-indigo-500/30 transition-all duration-200"
           />
         </div>
 
-        {/* Blocks rendering stream */}
-        <div className="space-y-1 min-h-[50vh]" id="blocks-container">
+        {/* Blocks rendering stream - more breathing space */}
+        <div className="space-y-2 min-h-[50vh]" id="blocks-container">
           {activeDoc.blocks.map((block) => (
             <BlockItem
               key={block.id}
@@ -220,16 +221,19 @@ export default function BlockEditor({
           ))}
         </div>
 
-        {/* Dynamic Backlinks View Section - Extremely minimal */}
+        {/* Dynamic Backlinks View Section - enhanced styling */}
         {backlinks.length > 0 && (
-          <div className="pt-10 border-t border-slate-100 dark:border-slate-800 mt-10" id="backlinks-section">
-            <div className="text-xs font-semibold text-slate-400 mb-2">引用链接 ({backlinks.length})</div>
+          <div className="pt-10 mt-10 border-t border-slate-100 dark:border-white/[0.04]" id="backlinks-section">
+            <div className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-1.5">
+              <Link2 className="w-3 h-3" />
+              <span>引用链接 ({backlinks.length})</span>
+            </div>
             <div className="flex flex-wrap gap-2">
               {backlinks.map((link) => (
                 <span
                   key={link.id}
                   onClick={() => onSelectDocument(link.id)}
-                  className="cursor-pointer px-2 py-1 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded text-xs transition-colors hover:text-indigo-500"
+                  className="cursor-pointer px-3 py-1.5 bg-slate-50 dark:bg-white/[0.03] text-slate-600 dark:text-slate-400 rounded-lg text-xs transition-all duration-150 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:shadow-sm active:scale-95"
                 >
                   {link.title}
                 </span>

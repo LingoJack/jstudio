@@ -234,33 +234,33 @@ export default function App() {
   const activeDocument = documents.find((doc) => doc.id === activeDocId);
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-[#09090b] text-slate-850 dark:text-slate-100 transition-colors flex items-center justify-center font-sans tracking-tight relative overflow-hidden p-2">
+    <div className="h-screen bg-zinc-100 dark:bg-[#0a0a0a] text-slate-850 dark:text-slate-100 transition-colors flex flex-col font-sans tracking-tight relative overflow-hidden">
       
-      {/* 💻 Wrapper Frame */}
-      <div className="w-full h-full bg-white dark:bg-[#0f0f11] rounded-xl shadow-2xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden animate-in fade-in duration-300 relative z-10">
+      {/* 💻 Wrapper Frame - full viewport height, responsive padding */}
+      <div className="w-full flex-1 h-full bg-white dark:bg-[#0d0d0d] flex flex-col overflow-hidden animate-in fade-in duration-300 relative z-10 shadow-2xl shadow-black/5 dark:shadow-black/30">
         
-        {/* Minimal Top Navigation */}
-        <div className="h-12 border-b border-slate-100 dark:border-white/5 px-4 flex items-center justify-between shrink-0 select-none bg-white/50 dark:bg-black/20 backdrop-blur-md">
+        {/* Minimal Top Navigation - enhanced with better spacing and hover */}
+        <div className="h-12 border-b border-slate-100 dark:border-white/[0.06] px-3 md:px-4 flex items-center justify-between shrink-0 select-none bg-white/80 dark:bg-[#0d0d0d]/80 backdrop-blur-xl">
           {/* Left: Sidebar toggle & Title */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="cursor-pointer p-1.5 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-600 dark:hover:text-slate-300 transition-all duration-150 active:scale-95"
               title={isSidebarOpen ? "收拢左边栏" : "展开左边栏"}
             >
               {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
             </button>
             <div className="font-semibold text-sm text-slate-600 dark:text-slate-400 hidden sm:flex items-center gap-1.5 ml-1">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
               <span>OmniNote</span>
             </div>
           </div>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-1">
+          {/* Right: Actions - enhanced hover states */}
+          <div className="flex items-center gap-0.5">
             <button
               onClick={handleCreateDocument}
-              className="cursor-pointer bg-slate-800 hover:bg-slate-700 dark:bg-white/10 dark:hover:bg-white/20 text-white rounded px-2.5 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors mr-1"
+              className="cursor-pointer bg-slate-800 hover:bg-slate-700 dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-lg px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all duration-150 active:scale-95 hover:shadow-sm mr-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden md:inline">新建</span>
@@ -270,33 +270,36 @@ export default function App() {
               <>
                 <button
                   onClick={() => handleToggleFavorite(activeDocument.id)}
-                  className={`cursor-pointer p-1.5 rounded transition-colors ${
+                  className={`cursor-pointer p-1.5 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm ${
                     activeDocument.isFavorite
                       ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'
-                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5'
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
                   }`}
+                  title={activeDocument.isFavorite ? "取消收藏" : "收藏"}
                 >
                   <Star className={`w-4 h-4 ${activeDocument.isFavorite ? 'fill-amber-400 border-none' : ''}`} />
                 </button>
 
                 <button
                   onClick={() => handleDeleteDocument(activeDocument.id)}
-                  className="cursor-pointer p-1.5 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                  className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all duration-150 active:scale-95 hover:shadow-sm"
+                  title="删除文档"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 
-                <div className="w-[1px] h-3.5 bg-slate-200 dark:bg-white/10 mx-1 hidden sm:block" />
+                <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-1 hidden sm:block" />
               </>
             )}
 
             <button
               onClick={() => setIsFolderOpen(!isFolderOpen)}
-              className={`cursor-pointer p-1.5 rounded transition-colors ${
+              className={`cursor-pointer p-1.5 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm ${
                 isFolderOpen
                   ? 'bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200'
-                  : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-600'
+                  : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-600'
               }`}
+              title="本地文件夹"
             >
               <FolderDot className="w-4 h-4" />
             </button>
@@ -304,11 +307,12 @@ export default function App() {
             {activeDocument && (
               <button
                 onClick={() => setIsOutlineOpen(!isOutlineOpen)}
-                className={`cursor-pointer p-1.5 rounded transition-colors ${
+                className={`cursor-pointer p-1.5 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm ${
                   isOutlineOpen
                     ? 'bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200'
-                    : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-600'
+                    : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-600'
                 }`}
+                title="大纲面板"
               >
                 {isOutlineOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRight className="w-4 h-4" />}
               </button>
@@ -317,7 +321,7 @@ export default function App() {
         </div>
 
         {/* Workspace Shell Split-Pane */}
-        <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
           {/* Collapsible Left Sidebar */}
           {isSidebarOpen && (
@@ -336,7 +340,7 @@ export default function App() {
           )}
 
           {/* Core dynamic Main Stage Container - edge to edge */}
-          <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#0f0f11] transition-all">
+          <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#0d0d0d] transition-all overflow-hidden">
             {activeDocument ? (
               <div className="w-full h-full flex flex-col">
                 <div className="w-full h-full flex animate-in fade-in duration-300">
@@ -349,7 +353,7 @@ export default function App() {
                     />
                   </div>
                   {isOutlineOpen && (
-                    <div className="hidden lg:block w-56 shrink-0 h-full border-l border-slate-100 dark:border-white/5">
+                    <div className="hidden lg:block w-56 shrink-0 h-full border-l border-slate-100 dark:border-white/[0.04]">
                       <ArticleOutline document={activeDocument} />
                     </div>
                   )}

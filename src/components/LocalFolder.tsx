@@ -239,10 +239,10 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
   const attachmentsCount = assets.filter((a) => !a.type.startsWith('image/')).length;
 
   return (
-    <div className="absolute right-0 top-12 bottom-0 w-80 bg-white/20 dark:bg-black/25 border-l border-slate-200/50 dark:border-white/10 flex flex-col backdrop-blur-2xl z-40 select-none animate-in slide-in-from-right duration-250">
+    <div className="absolute right-2 top-14 bottom-2 w-[min(22rem,calc(100vw-1rem))] bg-white/80 dark:bg-zinc-950/75 border border-slate-200/70 dark:border-white/[0.08] flex flex-col backdrop-blur-2xl z-40 select-none animate-in slide-in-from-right duration-250 rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/40 overflow-hidden">
       
       {/* Drawer Title Header with fresh clean frosted-glass styling */}
-      <div className="p-4 border-b border-slate-200/40 dark:border-white/5 flex items-center justify-between bg-white/30 dark:bg-black/20 backdrop-blur-md">
+      <div className="p-4 border-b border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between bg-white/60 dark:bg-black/20 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <FolderOpen className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
           <div>
@@ -252,7 +252,7 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
         </div>
         <button
           onClick={onClose}
-          className="cursor-pointer p-1.5 rounded-lg hover:bg-white/40 dark:hover:bg-white/10 transition-colors text-slate-500 dark:text-slate-350"
+          className="cursor-pointer p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-all duration-150 text-slate-500 dark:text-slate-300 active:scale-95 hover:text-rose-500"
           title="关闭文件夹面板"
         >
           <X className="w-4 h-4" />
@@ -260,15 +260,15 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
       </div>
 
       {/* Directory Folders Browser Selector Row */}
-      <div className="p-3 bg-white/10 dark:bg-black/10 border-b border-slate-200/30 dark:border-white/5 flex flex-col gap-2">
+      <div className="p-3 bg-white/35 dark:bg-black/10 border-b border-slate-200/50 dark:border-white/[0.06] flex flex-col gap-2">
         <div className="text-[10px] uppercase font-bold text-slate-500 mt-1">目录浏览 (Directories)</div>
         <div className="grid grid-cols-3 gap-1.5">
           <button
             onClick={() => { setActiveFolder('root'); setActiveTab('all'); }}
-            className={`cursor-pointer p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${
+            className={`cursor-pointer p-2 rounded-xl border flex flex-col items-center justify-center transition-all duration-150 active:scale-[0.98] ${
               activeFolder === 'root'
                 ? 'bg-indigo-600/15 border-indigo-500/50 text-indigo-700 dark:text-indigo-300 font-bold'
-                : 'bg-white/30 dark:bg-white/5 border-slate-200/30 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-white/50'
+                : 'bg-white/50 dark:bg-white/[0.04] border-slate-200/50 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-white/[0.08] hover:border-indigo-300/50 dark:hover:border-indigo-500/20 hover:-translate-y-0.5 hover:shadow-sm'
             }`}
           >
             <Folder className="w-5 h-5 text-indigo-500 mb-1" />
@@ -277,10 +277,10 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
 
           <button
             onClick={() => setActiveFolder('images')}
-            className={`cursor-pointer p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${
+            className={`cursor-pointer p-2 rounded-xl border flex flex-col items-center justify-center transition-all duration-150 active:scale-[0.98] ${
               activeFolder === 'images'
                 ? 'bg-indigo-600/15 border-indigo-500/50 text-indigo-700 dark:text-indigo-300 font-bold'
-                : 'bg-white/30 dark:bg-white/5 border-slate-200/30 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-white/50'
+                : 'bg-white/50 dark:bg-white/[0.04] border-slate-200/50 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-white/[0.08] hover:border-indigo-300/50 dark:hover:border-indigo-500/20 hover:-translate-y-0.5 hover:shadow-sm'
             }`}
           >
             <ImageIcon className="w-5 h-5 text-emerald-500 mb-1" />
@@ -289,10 +289,10 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
 
           <button
             onClick={() => setActiveFolder('attachments')}
-            className={`cursor-pointer p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${
+            className={`cursor-pointer p-2 rounded-xl border flex flex-col items-center justify-center transition-all duration-150 active:scale-[0.98] ${
               activeFolder === 'attachments'
                 ? 'bg-indigo-600/15 border-indigo-500/50 text-indigo-700 dark:text-indigo-300 font-bold'
-                : 'bg-white/30 dark:bg-white/5 border-slate-200/30 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-white/50'
+                : 'bg-white/50 dark:bg-white/[0.04] border-slate-200/50 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:bg-white/80 dark:hover:bg-white/[0.08] hover:border-indigo-300/50 dark:hover:border-indigo-500/20 hover:-translate-y-0.5 hover:shadow-sm'
             }`}
           >
             <Folder className="w-5 h-5 text-amber-500 mb-1" />
@@ -302,7 +302,7 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
       </div>
 
       {/* Directory files list filters */}
-      <div className="p-3 border-b border-slate-200/30 dark:border-white/5 space-y-2 bg-white/20 dark:bg-black/20">
+      <div className="p-3 border-b border-slate-200/50 dark:border-white/[0.06] space-y-2 bg-white/35 dark:bg-black/20">
         
         {/* Local Search */}
         <div className="relative">
@@ -312,7 +312,7 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
             placeholder="搜索物理文件夹中缓存..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full text-[11px] pl-8 pr-3 py-1.5 rounded-lg border border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-black/30 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none"
+            className="w-full text-[11px] pl-8 pr-3 py-2 rounded-xl border border-slate-200/60 dark:border-white/[0.06] bg-white/60 dark:bg-black/30 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 dark:focus:border-indigo-500/30 transition-all duration-150"
           />
         </div>
 
@@ -401,12 +401,12 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
           filteredCategoryAssets.map((asset) => (
             <div
               key={asset.id}
-              className="p-2.5 bg-white/40 dark:bg-white/5 border border-slate-200/40 dark:border-white/5 hover:border-indigo-400/40 rounded-xl hover:bg-white/60 dark:hover:bg-white/10 transition-all text-xs flex flex-col gap-2 shadow-xs group"
+              className="p-3.5 bg-white/60 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.06] hover:border-indigo-400/40 rounded-2xl hover:bg-white/90 dark:hover:bg-white/[0.08] transition-all duration-200 text-xs flex flex-col gap-2.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 group"
               id={`asset-file-${asset.id}`}
             >
               <div className="flex items-start justify-between gap-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-white/30 dark:bg-black/30 flex items-center justify-center shrink-0">
+                                    <div className="w-8 h-8 rounded-xl bg-white/70 dark:bg-black/30 flex items-center justify-center shrink-0 shadow-sm border border-slate-200/40 dark:border-white/[0.05]">
                     {getFileIcon(asset.type, asset.name)}
                   </div>
                   <div className="min-w-0">
@@ -432,7 +432,7 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
 
               {/* Thumbnail image previews directly in the folder viewer */}
               {asset.type.startsWith('image/') && asset.content && (
-                <div className="rounded-lg overflow-hidden border border-slate-200/35 bg-white/20 p-1 max-h-24 flex items-center justify-center">
+                <div className="rounded-xl overflow-hidden border border-slate-200/50 dark:border-white/[0.06] bg-white/30 p-1 max-h-28 flex items-center justify-center">
                   <img
                     src={asset.content}
                     alt={asset.name}
