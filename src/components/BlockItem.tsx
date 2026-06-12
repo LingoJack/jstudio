@@ -63,7 +63,6 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
-  Settings,
   CornerDownRight,
   Play,
   Edit2,

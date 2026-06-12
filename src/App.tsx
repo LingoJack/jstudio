@@ -28,57 +28,6 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isOutlineOpen, setIsOutlineOpen] = useState(true);
 
-  // --- SYSTEM ADVANCED CONTROLS TRIGGERED BY SETTINGS ---
-  const handleRestoreDefaults = () => {
-    if (window.confirm('确定恢复初始教学脑图与示例项目吗？当前修改过的内容将会被覆盖。')) {
-      setDocuments(DEFAULT_DOCUMENTS);
-      setActiveDocId(DEFAULT_DOCUMENTS[0].id);
-      localStorage.setItem('omninote_docs', JSON.stringify(DEFAULT_DOCUMENTS));
-    }
-  };
-
-  const handleClearAll = () => {
-    if (window.confirm('确认清空库下的所有文档吗？此操作不可逆。')) {
-      const defaultEmpty: Document = {
-        id: `doc-empty-${Date.now()}`,
-        title: '我的新知识脑图',
-        emoji: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        blocks: [
-          {
-            id: `block-empty-${Date.now()}`,
-            type: 'text',
-            content: '这里是您的新天地！开始记录吧。输入 / 呼出组件大礼包。',
-            properties: {}
-          }
-        ]
-      };
-      setDocuments([defaultEmpty]);
-      setActiveDocId(defaultEmpty.id);
-      localStorage.setItem('omninote_docs', JSON.stringify([defaultEmpty]));
-    }
-  };
-
-  const handleImportData = (importText: string): boolean => {
-    try {
-      const parsed = JSON.parse(importText);
-      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].blocks) {
-        setDocuments(parsed);
-        setActiveDocId(parsed[0].id);
-        localStorage.setItem('omninote_docs', JSON.stringify(parsed));
-        alert('离线备份成功恢复并就绪！');
-        return true;
-      } else {
-        alert('JSON 格式有误，需为一个包含 Document 的标准 Array 格式。');
-        return false;
-      }
-    } catch (err) {
-      alert('解析失败，请检查是否为合格的 JSON 文件文本：' + err);
-      return false;
-    }
-  };
-
   const handleInsertAssetAsBlock = (asset: any) => {
     if (!activeDocId) {
       alert('请先选择或创建一个目标文档，然后再置入此本地附件。');
@@ -332,9 +281,6 @@ export default function App() {
               onToggleFavorite={handleToggleFavorite}
               isDarkMode={isDarkMode}
               onToggleDarkMode={handleToggleDarkMode}
-              onRestoreDefaults={handleRestoreDefaults}
-              onClearAll={handleClearAll}
-              onImportData={handleImportData}
             />
           )}
 
