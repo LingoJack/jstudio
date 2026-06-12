@@ -234,10 +234,10 @@ export default function App() {
   const activeDocument = documents.find((doc) => doc.id === activeDocId);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-850 dark:text-slate-100 transition-colors flex items-center justify-center font-sans tracking-tight relative overflow-hidden md:p-2">
+    <div className="h-screen bg-slate-50 dark:bg-[#09090b] text-slate-850 dark:text-slate-100 transition-colors flex items-center justify-center font-sans tracking-tight relative overflow-hidden p-2">
       
       {/* 💻 Wrapper Frame */}
-      <div className="w-full h-full md:max-w-7xl md:h-[94vh] bg-white dark:bg-[#0f0f11] md:rounded-xl md:shadow-2xl md:border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden animate-in fade-in duration-300 relative z-10">
+      <div className="w-full h-full bg-white dark:bg-[#0f0f11] rounded-xl shadow-2xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden animate-in fade-in duration-300 relative z-10">
         
         {/* Minimal Top Navigation */}
         <div className="h-12 border-b border-slate-100 dark:border-white/5 px-4 flex items-center justify-between shrink-0 select-none bg-white/50 dark:bg-black/20 backdrop-blur-md">
