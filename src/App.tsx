@@ -6,7 +6,6 @@ import BlockEditor from './components/BlockEditor';
 import LocalFolder from './components/LocalFolder';
 import ArticleOutline from './components/ArticleOutline';
 import {
-  Sparkles,
   FileText,
   Info,
   FolderDot,
@@ -234,33 +233,33 @@ export default function App() {
   const activeDocument = documents.find((doc) => doc.id === activeDocId);
 
   return (
-    <div className="h-screen bg-zinc-100 dark:bg-[#0a0a0a] text-slate-850 dark:text-slate-100 transition-colors flex flex-col font-sans tracking-tight relative overflow-hidden">
+    <div className="h-screen bg-[#f3f3f3] dark:bg-[#181818] text-slate-850 dark:text-slate-100 flex flex-col font-sans tracking-tight relative overflow-hidden">
       
-      {/* 💻 Wrapper Frame - full viewport height, responsive padding */}
-      <div className="w-full flex-1 h-full bg-white dark:bg-[#0d0d0d] flex flex-col overflow-hidden animate-in fade-in duration-300 relative z-10 shadow-2xl shadow-black/5 dark:shadow-black/30">
+      {/* Workbench frame */}
+      <div className="w-full flex-1 h-full bg-white dark:bg-[#1e1e1e] flex flex-col overflow-hidden relative z-10">
         
-        {/* Minimal Top Navigation - enhanced with better spacing and hover */}
-        <div className="h-12 border-b border-slate-100 dark:border-white/[0.06] px-3 md:px-4 flex items-center justify-between shrink-0 select-none bg-white/80 dark:bg-[#0d0d0d]/80 backdrop-blur-xl">
+        {/* VS Code style top bar */}
+        <div className="h-10 border-b border-slate-200 dark:border-white/[0.08] px-2 md:px-3 flex items-center justify-between shrink-0 select-none bg-[#f8f8f8] dark:bg-[#181818]">
           {/* Left: Sidebar toggle & Title */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-600 dark:hover:text-slate-300 transition-all duration-150 active:scale-95"
+              className="cursor-pointer p-1.5 rounded-sm text-slate-500 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
               title={isSidebarOpen ? "收拢左边栏" : "展开左边栏"}
             >
               {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
             </button>
-            <div className="font-semibold text-sm text-slate-600 dark:text-slate-400 hidden sm:flex items-center gap-1.5 ml-1">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+            <div className="font-medium text-xs text-slate-600 dark:text-slate-300 hidden sm:flex items-center gap-1.5 ml-1">
+              <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>OmniNote</span>
             </div>
           </div>
 
-          {/* Right: Actions - enhanced hover states */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-0.5">
             <button
               onClick={handleCreateDocument}
-              className="cursor-pointer bg-slate-800 hover:bg-slate-700 dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-lg px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all duration-150 active:scale-95 hover:shadow-sm mr-1"
+              className="cursor-pointer bg-[#0e639c] hover:bg-[#1177bb] dark:bg-[#0e639c] dark:hover:bg-[#1177bb] text-white rounded-sm px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150 mr-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden md:inline">新建</span>
@@ -270,10 +269,10 @@ export default function App() {
               <>
                 <button
                   onClick={() => handleToggleFavorite(activeDocument.id)}
-                  className={`cursor-pointer p-1.5 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm ${
+                  className={`cursor-pointer p-1.5 rounded-sm transition-colors duration-150 ${
                     activeDocument.isFavorite
-                      ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'
-                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
+                      ? 'text-amber-500 hover:bg-slate-200 dark:hover:bg-white/[0.08]'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200 dark:hover:bg-white/[0.08] dark:hover:text-slate-200'
                   }`}
                   title={activeDocument.isFavorite ? "取消收藏" : "收藏"}
                 >
@@ -282,22 +281,22 @@ export default function App() {
 
                 <button
                   onClick={() => handleDeleteDocument(activeDocument.id)}
-                  className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all duration-150 active:scale-95 hover:shadow-sm"
+                  className="cursor-pointer p-1.5 rounded-sm text-slate-500 hover:text-red-600 hover:bg-slate-200 dark:hover:bg-white/[0.08] dark:hover:text-red-400 transition-colors duration-150"
                   title="删除文档"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 
-                <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-1 hidden sm:block" />
+                <div className="w-px h-4 bg-slate-300 dark:bg-white/10 mx-1 hidden sm:block" />
               </>
             )}
 
             <button
               onClick={() => setIsFolderOpen(!isFolderOpen)}
-              className={`cursor-pointer p-1.5 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm ${
+              className={`cursor-pointer p-1.5 rounded-sm transition-colors duration-150 ${
                 isFolderOpen
                   ? 'bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200'
-                  : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-600'
+                  : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-700 dark:hover:text-slate-200'
               }`}
               title="本地文件夹"
             >
@@ -307,10 +306,10 @@ export default function App() {
             {activeDocument && (
               <button
                 onClick={() => setIsOutlineOpen(!isOutlineOpen)}
-                className={`cursor-pointer p-1.5 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm ${
+                className={`cursor-pointer p-1.5 rounded-sm transition-colors duration-150 ${
                   isOutlineOpen
                     ? 'bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200'
-                    : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-600'
+                    : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
                 title="大纲面板"
               >
@@ -340,10 +339,10 @@ export default function App() {
           )}
 
           {/* Core dynamic Main Stage Container - edge to edge */}
-          <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#0d0d0d] transition-all overflow-hidden">
+          <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#1e1e1e] overflow-hidden">
             {activeDocument ? (
               <div className="w-full h-full flex flex-col">
-                <div className="w-full h-full flex animate-in fade-in duration-300">
+                <div className="w-full h-full flex">
                   <div className="flex-1 h-full min-w-0 flex flex-col">
                     <BlockEditor
                       document={activeDocument}
@@ -361,7 +360,7 @@ export default function App() {
               </div>
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-center gap-3">
-                <Info className="w-10 h-10 text-indigo-500 animate-bounce" />
+                <Info className="w-10 h-10 text-slate-400" />
                 <div>
                   <h3 className="font-semibold text-slate-800 dark:text-slate-100">请选择左侧文档</h3>
                   <p className="text-xs text-slate-500 mt-1">创建或选择现有文档立即进行整理编写。</p>

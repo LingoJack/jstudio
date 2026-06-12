@@ -1046,7 +1046,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
   return (
     <div
-      className="group/block relative flex items-start gap-2 py-1.5 px-2 -mx-2 rounded-xl transition-colors duration-200 hover:bg-slate-50/70 dark:hover:bg-white/[0.025]"
+      className="group/block relative flex items-start gap-2 py-1.5 px-2 -mx-2 rounded-sm transition-colors duration-200 hover:bg-[#e8e8e8] dark:hover:bg-white/[0.06]"
       id={`block-row-${block.id}`}
       data-block-id={block.id}
     >
@@ -1062,7 +1062,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
         <button
           onClick={() => onDeleteBlock()}
-          className="cursor-pointer text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all duration-150 active:scale-95"
+          className="cursor-pointer text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 p-1.5 rounded-sm hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150"
           title="删除此块"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -1139,7 +1139,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
         {/* TYPE 5: CALLOUT block */}
         {block.type === "callout" && (
-          <div className="flex items-start gap-3 p-4 bg-indigo-50/60 dark:bg-indigo-500/[0.06] rounded-xl border border-indigo-100 dark:border-indigo-500/10 border-l-4 border-l-indigo-500 shadow-sm transition-all duration-200 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500/20">
+          <div className="flex items-start gap-3 p-4 bg-[#0e639c]/5 dark:bg-[#0e639c]/10 rounded-sm border border-slate-200 dark:border-white/[0.08] border-l-4 border-l-[#0e639c] transition-colors duration-200">
             <FileText className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
             <div className="flex-1">
               <input
@@ -1158,7 +1158,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
         {/* TYPE 6: CODE block */}
         {block.type === "code" && (
-          <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-xl overflow-hidden bg-slate-50/70 dark:bg-[#090a0f] shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-white/[0.12]">
+          <div className="border border-slate-200 dark:border-white/[0.08] rounded-sm overflow-hidden bg-slate-50/70 dark:bg-[#090a0f] transition-colors duration-200">
             <div className="bg-slate-100 dark:bg-[#151720] px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-1.5">
                 <Code className="w-3.5 h-3.5 text-indigo-500" />
@@ -1202,7 +1202,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleImageDrop}
-            className="border border-dashed border-slate-300/80 dark:border-white/[0.12] rounded-xl p-5 flex flex-col items-center justify-center gap-3 bg-slate-50/70 dark:bg-white/[0.025] transition-all duration-200 hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:bg-indigo-50/30 dark:hover:bg-indigo-500/[0.035]"
+            className="border border-dashed border-slate-300 dark:border-white/[0.12] rounded-sm p-5 flex flex-col items-center justify-center gap-3 bg-slate-50/70 dark:bg-white/[0.025] transition-colors duration-200 hover:bg-[#e8e8e8] dark:hover:bg-white/[0.06]"
           >
             {block.content ? (
               <div className="max-w-md w-full">
@@ -1210,7 +1210,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
                   src={block.content}
                   alt={block.properties?.caption || "Image content"}
                   referrerPolicy="no-referrer"
-                  className="rounded-lg object-contain w-full max-h-72 border border-slate-200 dark:border-slate-800 mx-auto"
+                  className="rounded-sm object-contain w-full max-h-72 border border-slate-200 dark:border-slate-800 mx-auto"
                 />
                 <input
                   type="text"
@@ -1229,7 +1229,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
               </div>
             ) : (
               <div className="text-center py-4 space-y-2">
-                <ImageIcon className="w-8 h-8 text-slate-400 mx-auto animate-pulse" />
+                <ImageIcon className="w-8 h-8 text-slate-400 mx-auto" />
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   可拖放本地图片至此 或
                 </p>
@@ -1237,7 +1237,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
                   type="text"
                   placeholder="粘贴在线图片 URL 以加载..."
                   onChange={(e) => onUpdateBlock({ content: e.target.value })}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none w-64 text-center"
+                  className="px-3 py-1.5 text-xs rounded-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none w-64 text-center"
                 />
               </div>
             )}
@@ -1246,7 +1246,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
 
         {/* TYPE 8: DRAWING CANVAS BLOCK (FREE BRUSH SKETCHING) */}
         {block.type === "canvas" && (
-          <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-xl overflow-hidden bg-white dark:bg-black shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-white/[0.12]">
+          <div className="border border-slate-200 dark:border-white/[0.08] rounded-sm overflow-hidden bg-white dark:bg-black transition-colors duration-200">
             {/* Header controls */}
             <div className="bg-slate-50/90 dark:bg-white/[0.04] px-4 py-2.5 border-b border-slate-200/80 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -1263,7 +1263,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
                   <select
                     value={brushWidth}
                     onChange={(e) => setBrushWidth(parseInt(e.target.value))}
-                    className="bg-white dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    className="bg-white dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] rounded-sm px-2 py-1 text-[11px] focus:outline-none focus:border-[#0e639c] transition-colors"
                   >
                     <option value="2">极细 (2px)</option>
                     <option value="4">常规 (4px)</option>
@@ -1315,7 +1315,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
                 onMouseMove={drawOnCanvas}
                 onMouseUp={endCanvasDrawing}
                 onMouseLeave={endCanvasDrawing}
-                className="bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-white/[0.08] rounded-xl cursor-crosshair shadow-inner"
+                className="bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-white/[0.08] rounded-sm cursor-crosshair"
               />
             </div>
 
@@ -1442,7 +1442,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
             </div>
 
             {block.properties?.isOpen && (
-              <div className="pl-6 mt-3 pt-3 border-t border-slate-100 dark:border-white/[0.05] animate-in slide-in-from-top-1 duration-150">
+              <div className="pl-6 mt-3 pt-3 border-t border-slate-100 dark:border-white/[0.05]">
                 <div className="flex items-start gap-2">
                   <CornerDownRight className="w-4 h-4 text-slate-300 mt-1" />
                   <textarea
@@ -1696,7 +1696,7 @@ document.getElementById('trigger-react').addEventListener('click', () => {
         {/* 3. Slash Menu `/` Floating Commands Menu Popover */}
         {showSlashMenu && (
           <div
-            className="absolute z-50 mt-2 w-56 rounded-2xl bg-white/95 dark:bg-[#17181d]/95 border border-slate-200/80 dark:border-white/[0.08] shadow-2xl shadow-black/10 dark:shadow-black/40 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100 text-slate-700 dark:text-slate-300 backdrop-blur-xl p-1"
+            className="absolute z-50 mt-2 w-56 rounded-sm bg-white dark:bg-[#252526] border border-slate-200 dark:border-white/[0.08] shadow-lg overflow-hidden text-slate-700 dark:text-slate-300 p-1"
             style={{
               top: slashMenuCoords ? slashMenuCoords.top : "100%",
               left: slashMenuCoords
