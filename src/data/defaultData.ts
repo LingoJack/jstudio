@@ -30,7 +30,7 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       {
         id: 'block-welcome-3',
         type: 'text',
-        content: '1. HTML 实时渲染: 支持在文档中直接编写 HTML / CSS / JS 代码并运行，制作属于您的互动看板。参考：[[HTML 互动实验室]]。'
+        content: '1. 网页嵌入 & 附件: 支持在文档中内嵌外部网页（URL），也可以添加各种文件附件（HTML、图片等），支持预览和卡片两种展示模式。参考：[[HTML 互动实验室]]。'
       },
       {
         id: 'block-welcome-4',
@@ -59,7 +59,8 @@ export const DEFAULT_DOCUMENTS: Document[] = [
         properties: {
           tableData: [
             ['功能模块', '当前状态', '重要度', '备注说明'],
-            ['HTML 在线渲染', '已实现', '核心', '沙箱化代码执行与预览'],
+            ['HTML 在线渲染', '已实现', '核心', '代码块支持 HTML 渲染预览'],
+            ['网页嵌入 & 附件', '已实现', '核心', 'URL 嵌入 + 文件附件双模式'],
             ['离线数据存储', '已实现', '核心', '不依赖外网的本地状态'],
             ['白板支持 (tldraw)', '已实现', '高级', '引入 tldraw 作为专业画板'],
             ['跨平台云同步', '模拟中', '拓展', '本地多机同步同步演示'],
@@ -90,12 +91,12 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       {
         id: 'block-html-1',
         type: 'heading-1',
-        content: 'HTML 在线沙箱 block 演示'
+        content: 'HTML 渲染与网页嵌入演示'
       },
       {
         id: 'block-html-desc',
         type: 'text',
-        content: '在 OmniNote 中，我们内置了轻量级 HTML 渲染 Block。该组件可以实时读取 HTML/CSS/JS 代码并呈现渲染视图，使得您可以将文档用于设计前端交互、存储自定义工具、或是简单的计数器。'
+        content: '在 OmniNote 中，代码块支持 HTML 语言的渲染预览。点击代码块右上角的 Eye 图标即可切换渲染效果。此外，我们还提供了独立的「网页」块用于嵌入外部 URL，以及「附件」块用于管理各类文件。'
       },
       {
         id: 'block-html-callout',
@@ -107,87 +108,83 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       },
       {
         id: 'block-html-sandbox',
-        type: 'html-render',
-        content: `<div class="interactive-card">
-  <h3>我的动态数据跟踪器</h3>
-  <p>利用局部 HTML 沙箱实现无刷新页面内微型应用。</p>
-  
-  <div class="counter-box">
-    <span id="counter-value">12</span>
-    <button id="add-btn">点击新增记录</button>
+        type: 'code',
+        content: `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .interactive-card {
+      font-family: system-ui, sans-serif;
+      background: linear-gradient(135deg, #1e1e38 0%, #3b3b75 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      max-width: 360px;
+      margin: 16px auto;
+    }
+    .interactive-card h3 { margin-top: 0; color: #a78bfa; }
+    .counter-box { display: flex; align-items: center; gap: 15px; margin: 15px 0; }
+    #counter-value { font-size: 2rem; font-weight: bold; color: #34d399; }
+    button {
+      background-color: #4f46e5; color: white; border: none;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s;
+    }
+    button:hover { background-color: #4338ca; }
+    .progress-bar-container {
+      background-color: rgba(255,255,255,0.1); height: 8px;
+      border-radius: 4px; overflow: hidden;
+    }
+    #progress-bar { background: #34d399; height: 100%; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div class="interactive-card">
+    <h3>我的动态数据跟踪器</h3>
+    <p>点击右侧「渲染」按钮即可预览 HTML 效果。</p>
+    <div class="counter-box">
+      <span id="counter-value">12</span>
+      <button id="add-btn">点击新增记录</button>
+    </div>
+    <div class="progress-bar-container">
+      <div id="progress-bar" style="width: 60%"></div>
+    </div>
   </div>
-  
-  <div class="progress-bar-container">
-    <div id="progress-bar" style="width: 60%"></div>
-  </div>
- </div>`,
+  <script>
+    const btn = document.getElementById('add-btn');
+    const value = document.getElementById('counter-value');
+    const bar = document.getElementById('progress-bar');
+    let count = 12;
+    btn.addEventListener('click', () => {
+      count += 1;
+      value.innerText = count;
+      const percent = Math.min((count / 30) * 100, 100);
+      bar.style.width = percent + '%';
+    });
+  </script>
+</body>
+</html>`,
         properties: {
-          cssCode: `.interactive-card {
-  font-family: system-ui, sans-serif;
-  background: linear-gradient(135deg, #1e1e38 0%, #3b3b75 100%);
-  color: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-}
-.interactive-card h3 {
-  margin-top: 0;
-  color: #a78bfa;
-}
-.counter-box {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin: 15px 0;
-}
-#counter-value {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #34d399;
-}
-button {
-  background-color: #4f46e5;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-button:hover {
-  background-color: #4338ca;
-}
-.progress-bar-container {
-  background-color: rgba(255,255,255,0.1);
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-}
-#progress-bar {
-  background: #34d399;
-  height: 100%;
-  transition: width 0.3s;
-}`,
-          jsCode: `const btn = document.getElementById('add-btn');
-const value = document.getElementById('counter-value');
-const bar = document.getElementById('progress-bar');
-
-let count = 12;
-
-btn.addEventListener('click', () => {
-  count += 1;
-  value.innerText = count;
-  
-  // 计算进度条宽度 (在 0 ~ 100% 之间滚动)
-  const percent = Math.min((count / 30) * 100, 100);
-  bar.style.width = percent + '%';
-});`
+          language: 'html'
+        }
+      },
+      {
+        id: 'block-html-web-embed-demo',
+        type: 'heading-3',
+        content: '网页嵌入示例'
+      },
+      {
+        id: 'block-html-web-embed',
+        type: 'web-embed',
+        content: '',
+        properties: {
+          embedUrl: 'https://example.com'
         }
       },
       {
         id: 'block-html-conclusion',
         type: 'text',
-        content: '通过上面这样的特性，您甚至可以把各种业务看板、小游戏（如 2048、生命游戏）直接集成进双链笔记，使笔记不再是枯燥无声的文字纸张。'
+        content: '通过代码块的渲染功能，您可以把各种交互页面集成进文档。网页块和附件块则分别处理外部链接和文件管理，让文档内容更加丰富。'
       }
     ]
   },

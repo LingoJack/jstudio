@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Prism from 'prismjs';
-import { Copy, Check, Code2 } from 'lucide-react';
+import { Copy, Check, Code2, Eye, Edit3 } from 'lucide-react';
 
 // Import common language definitions
 import 'prismjs/components/prism-javascript';
@@ -85,8 +85,16 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(code);
+  const [showPreview, setShowPreview] = useState(false);
   const codeRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const isHtml = selectedLanguage === 'html';
+
+  // When language changes away from HTML, auto-hide the preview pane.
+  useEffect(() => {
+    if (!isHtml) setShowPreview(false);
+  }, [isHtml]);
 
   // Update edit value when code prop changes
   useEffect(() => {
@@ -171,19 +179,32 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
           </select>
         </div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {editable && !isEditing && (
             <button
               onClick={handleStartEdit}
-              className="p-1 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
+              className="p-1.5 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors text-[var(--vscode-foreground)] opacity-60 hover:opacity-100"
               title="编辑代码"
             >
-              <span className="text-xs text-[var(--vscode-foreground)] opacity-70">编辑</span>
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {isHtml && (
+            <button
+              onClick={() => setShowPreview((v) => !v)}
+              className={`p-1.5 rounded transition-colors ${
+                showPreview
+                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-toolbar-hoverBackground)] opacity-100'
+                  : 'text-[var(--vscode-foreground)] opacity-60 hover:opacity-100 hover:bg-[var(--vscode-toolbar-hoverBackground)]'
+              }`}
+              title={showPreview ? '隐藏渲染预览' : '显示渲染预览'}
+            >
+              <Eye className="w-3.5 h-3.5" />
             </button>
           )}
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors text-xs text-[var(--vscode-foreground)] opacity-70 hover:opacity-100"
+            className="p-1.5 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors text-[var(--vscode-foreground)] opacity-60 hover:opacity-100"
             title={copied ? '已复制' : '复制代码'}
           >
             {copied ? (
@@ -255,6 +276,18 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
           </div>
         )}
       </div>
+
+      {/* HTML Render Preview Pane */}
+      {isHtml && showPreview && (
+        <div className="border-t border-[var(--vscode-widget-border)] bg-white dark:bg-slate-900">
+          <iframe
+            title="HTML 渲染预览"
+            srcDoc={code}
+            sandbox="allow-scripts allow-modals allow-forms allow-popups"
+            className="w-full h-[300px] border-none bg-white dark:bg-slate-900"
+          />
+        </div>
+      )}
     </div>
   );
 };

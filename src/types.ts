@@ -9,7 +9,8 @@ export type BlockType =
   | 'callout'
   | 'image'
   | 'toggle'
-  | 'html-render'
+  | 'web-embed'
+  | 'attachment'
   | 'whiteboard';
 
 export interface CanvasPath {
@@ -25,35 +26,24 @@ export interface BlockProperties {
   tableData?: string[][]; // rows x columns for table type
   drawingPaths?: CanvasPath[]; // canvas drawing vector state
   emoji?: string; // callout block icon
-  cssCode?: string; // html-render styling
-  jsCode?: string; // html-render behavior script
   imageType?: 'url' | 'base64';
-  sandboxTheme?: 'light' | 'dark';
-  /**
-   * @deprecated Kept for legacy document compatibility. The new sandbox
-   * auto-detects the preview source; the user no longer picks a "mode".
-   */
-  sandboxPreviewMode?: 'html' | 'url' | 'file';
-  /**
-   * @deprecated Kept for legacy document compatibility. Use `sandboxUrl`.
-   */
-  sandboxPreviewUrl?: string;
-  /**
-   * @deprecated Kept for legacy document compatibility. Use `sandboxFileName`.
-   */
-  sandboxPreviewFileName?: string;
-  /** URL input value of the sandbox. When non-empty, the preview iframe
-   *  loads this URL (auto-prefixed with `https://` if missing). */
-  sandboxUrl?: string;
-  /** Name of the last file loaded into the sandbox. The file contents
-   *  (data URL) are kept in component state only — not persisted. */
-  sandboxFileName?: string;
+  /** URL input value of the web-embed block. When non-empty, the preview
+   *  iframe loads this URL (auto-prefixed with `https://` if missing). */
+  embedUrl?: string;
+  /** File name of the attachment block. */
+  attachmentName?: string;
+  /** MIME type of the attachment block. */
+  attachmentType?: string;
+  /** Human-readable size of the attachment block (e.g. "12 KB"). */
+  attachmentSize?: string;
+  /** Display mode of the attachment block. */
+  attachmentMode?: 'preview' | 'card';
 }
 
 export interface Block {
   id: string;
   type: BlockType;
-  content: string; // also serves as raw code for html-render or markdown text
+  content: string; // raw code for code blocks, file data URL for attachments, or markdown text
   properties?: BlockProperties;
 }
 

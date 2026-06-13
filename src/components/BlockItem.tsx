@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo } from "react";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Block, BlockType, CanvasPath, Document } from "../types";
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
@@ -9,314 +8,6 @@ import getCaretCoordinates from "textarea-caret";
 // "trap" elements that the caret can get stuck inside, and we provide
 // keyboard hooks to escape them.
 const INLINE_FORMATTED_TAGS = ["CODE", "B", "STRONG", "A", "I", "EM", "U", "SPAN"];
-
-// Preset templates for the sandbox. Module-level so the PresetMenu component
-// can reference it without re-allocating on every BlockItem render.
-const SANDBOX_PRESETS = [
-  {
-    name: "磨砂玻璃卡片",
-    html: `<div class="max-w-sm mx-auto p-8 rounded-2xl bg-white/20 dark:bg-white/10 backdrop-blur-md border border-white/20 shadow-xl flex flex-col items-center justify-center text-center transition-all duration-300 hover:shadow-2xl">
-  <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-indigo-500 flex items-center justify-center text-white text-2xl shadow-lg mb-4 animate-bounce">
-    ✨
-  </div>
-  <h3 class="text-lg font-extrabold text-slate-800 dark:text-white mb-1">交互玻璃计算器</h3>
-  <p class="text-xs text-slate-500 dark:text-slate-300 mb-6 leading-relaxed">Tailwind CDN 及 FontAwesome 已经预加载。体验纯粹的前端快速原型设计！</p>
-
-  <!-- Counter Widget -->
-  <div class="flex items-center gap-6 bg-slate-900/5 dark:bg-black/20 px-6 py-2.5 rounded-full mb-6">
-    <button id="btn-dec" class="w-8 h-8 rounded-full bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow hover:bg-slate-50 active:scale-90 flex items-center justify-center font-bold font-mono transition-transform">-</button>
-    <span id="counter" class="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono w-12 text-center">0</span>
-    <button id="btn-inc" class="w-8 h-8 rounded-full bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow hover:bg-slate-50 active:scale-90 flex items-center justify-center font-bold font-mono transition-transform">+</button>
-  </div>
-
-  <button id="btn-add-p" class="w-full text-xs font-bold text-slate-700 dark:text-white bg-emerald-400/80 hover:bg-emerald-500/80 border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all rounded-md py-1.5 shadow-md">点我生成粒子</button>
-  <button id="btn-clear-p" class="mt-2 text-[10px] text-slate-500 hover:text-red-500 dark:text-slate-400 transition-colors">清空画布</button>
-  <canvas id="particles" class="fixed inset-0 pointer-events-none -z-10"></canvas>
-</div>`,
-    css: ``,
-    js: `// Counter logic
-let count = 0;
-const counter = document.getElementById('counter');
-document.getElementById('btn-inc').onclick = () => { count++; counter.textContent = count; };
-document.getElementById('btn-dec').onclick = () => { count--; counter.textContent = count; };
-
-// Particle system
-const canvas = document.getElementById('particles');
-const ctx = canvas.getContext('2d');
-let particles = [];
-
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
-
-function createParticle() {
-  return {
-    x: Math.random() * canvas.width,
-    y: canvas.height + 10,
-    vx: (Math.random() - 0.5) * 2,
-    vy: -Math.random() * 3 - 1,
-    size: Math.random() * 4 + 2,
-    hue: Math.random() * 360,
-    life: 1.0,
-    decay: Math.random() * 0.01 + 0.005
-  };
-}
-
-for(let i = 0; i < 50; i++) particles.push(createParticle());
-
-document.getElementById('btn-add-p').addEventListener('click', () => {
-  for(let i = 0; i < 20; i++) particles.push(createParticle());
-});
-
-document.getElementById('btn-clear-p').addEventListener('click', () => {
-  particles = [];
-});
-
-function draw() {
-  ctx.fillStyle = 'rgba(11, 15, 25, 0.2)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  particles.forEach((p, idx) => {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life -= p.decay;
-
-    ctx.fillStyle = 'hsla(' + p.hue + ', 80%, 60%, ' + p.life + ')';
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (p.life <= 0 || p.y < -20) {
-      particles[idx] = createParticle();
-      particles[idx].y = canvas.height + 10;
-    }
-  });
-
-  requestAnimationFrame(draw);
-}
-draw();`,
-  },
-  {
-    name: "新丑撞色事件板",
-    html: `<div class="max-w-xs mx-auto p-6 bg-[#ffe4e6] border-4 border-slate-950 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-3">
-  <div class="flex justify-between items-center">
-    <span class="text-[9.5px] font-mono font-black border-2 border-slate-950 px-2 py-0.5 bg-yellow-300 text-slate-950">NEO-BRUTALISM</span>
-    <span class="text-xs font-bold text-slate-900">⚡ ACTIVE</span>
-  </div>
-  <h2 class="text-xl font-black text-slate-950 tracking-tight">像素微件反应堆</h2>
-  <p class="text-xs text-slate-705 leading-normal font-medium">拒绝圆角！采用纯粹的黑度硬核边框和平面色彩块。让纯端排版焕发出别具格调的设计张力。</p>
-
-  <div id="reactor-box" class="p-3 bg-white border-2 border-slate-950 text-xs font-mono font-semibold text-slate-900 text-center transition-all">
-    状态：等待指令载入
-  </div>
-
-  <button id="trigger-react" class="cursor-pointer text-xs font-black border-2 border-slate-950 py-2 bg-indigo-400 hover:bg-slate-950 hover:text-white transition-all shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">试一下触发点击</button>
-</div>`,
-    css: ``,
-    js: `const logTags = [
-  "⚡ 核反应堆稳定",
-  "🧩 CSS 样式层叠正常",
-  "🔮 沙盒内原子扩散完毕",
-  "🔋 电池系统充电 98%",
-  "✨ 离线数据同步完美"
-];
-const box = document.getElementById('reactor-box');
-document.getElementById('trigger-react').addEventListener('click', () => {
-  const chosen = logTags[Math.floor(Math.random() * logTags.length)];
-  box.textContent = chosen;
-  box.style.backgroundColor = 'hsl(' + (Math.random() * 360) + ', 85%, 90%)';
-});`,
-  },
-];
-
-const normalizeSandboxUrl = (url: string) => {
-  const value = url.trim();
-  if (!value) return "";
-  if (/^(https?:|file:|data:|tauri:)\/\//i.test(value)) return value;
-  return `https://${value}`;
-};
-
-interface PresetMenuProps {
-  loadPresetIntoSandbox: (preset: {
-    html: string;
-    css: string;
-    js: string;
-  }) => void;
-}
-
-function PresetMenu({ loadPresetIntoSandbox }: PresetMenuProps) {
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (buttonRef.current && !buttonRef.current.parentElement?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-  return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-      >
-        <Sparkles className="w-3 h-3" />
-        Preset
-        <ChevronDown className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-1 z-30 min-w-[180px] bg-[var(--vscode-quickInput-background)] border border-[var(--vscode-widget-border)] shadow-xl rounded-md py-1 text-xs text-[var(--vscode-foreground)]">
-          {SANDBOX_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              type="button"
-              onClick={() => {
-                loadPresetIntoSandbox(preset);
-                setOpen(false);
-              }}
-              className="w-full text-left px-2.5 py-1.5 hover:bg-[var(--vscode-list-hoverBackground)]"
-            >
-              {preset.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface SandboxPreviewProps {
-  fileSrc: string;
-  fileName: string;
-  url: string;
-  srcDoc: string;
-  runIndicator: number;
-  isDragging: boolean;
-  onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
-}
-
-/**
- * Auto-detects the preview source from `fileSrc > url > srcDoc` and renders a
- * single iframe. Shows a small badge for the current source kind and an
- * empty-state placeholder when no source is available.
- */
-function SandboxPreview({
-  fileSrc,
-  fileName,
-  url,
-  srcDoc,
-  runIndicator,
-  isDragging,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-}: SandboxPreviewProps) {
-  const kind: "file" | "url" | "code" | "empty" = fileSrc
-    ? "file"
-    : normalizeSandboxUrl(url)
-      ? "url"
-      : srcDoc
-        ? "code"
-        : "empty";
-
-  const normalizedUrl = normalizeSandboxUrl(url);
-
-  return (
-    <div
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      className={`relative w-full h-[380px] bg-white dark:bg-slate-900 transition-shadow ${
-        isDragging
-          ? "ring-2 ring-[var(--vscode-focusBorder)] ring-offset-1 ring-offset-[var(--vscode-editor-background)]"
-          : ""
-      }`}
-    >
-      {kind === "file" && (
-        <>
-          <iframe
-            key={`file-${fileName}-${runIndicator}`}
-            title={`File Preview ${fileName}`}
-            src={fileSrc}
-            sandbox="allow-scripts allow-modals allow-forms allow-popups allow-same-origin"
-            className="w-full h-full border-none bg-white dark:bg-slate-900"
-          />
-          <PreviewBadge kind="file">{fileName}</PreviewBadge>
-        </>
-      )}
-
-      {kind === "url" && (
-        <>
-          <iframe
-            key={`web-${normalizedUrl}-${runIndicator}`}
-            title={`Web Preview ${normalizedUrl}`}
-            src={normalizedUrl}
-            sandbox="allow-scripts allow-modals allow-forms allow-popups allow-same-origin"
-            referrerPolicy="no-referrer"
-            className="w-full h-full border-none bg-white dark:bg-slate-900"
-          />
-          <PreviewBadge kind="url">{normalizedUrl}</PreviewBadge>
-        </>
-      )}
-
-      {kind === "code" && (
-        <>
-          <iframe
-            key={`code-${runIndicator}`}
-            title="Code Preview"
-            srcDoc={srcDoc}
-            sandbox="allow-scripts allow-modals allow-forms allow-popups"
-            className="w-full h-full border-none bg-white dark:bg-slate-900"
-          />
-          <PreviewBadge kind="code">Code</PreviewBadge>
-        </>
-      )}
-
-      {kind === "empty" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500">
-          <Sparkles className="w-5 h-5" />
-          <p>写点代码，或者从 URL / File 加载。</p>
-        </div>
-      )}
-
-      {isDragging && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-[var(--vscode-editorWidget-background)]" style={{opacity: 0.5}}>
-          <div className="px-3 py-2 rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] text-xs font-medium shadow-lg">
-            Drop a file or URL to preview
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PreviewBadge({
-  kind,
-  children,
-}: {
-  kind: "file" | "url" | "code";
-  children: React.ReactNode;
-}) {
-  const label = kind === "file" ? "File" : kind === "url" ? "Web" : "Code";
-  return (
-    <div className="absolute top-2 left-2 pointer-events-none flex items-center gap-1.5 text-[10px] text-[var(--vscode-descriptionForeground)] bg-[var(--vscode-editorWidget-background)] backdrop-blur-sm px-1.5 py-0.5 rounded border border-[var(--vscode-widget-border)] max-w-[80%]">
-      <span className="font-semibold uppercase tracking-wide opacity-60">
-        {label}
-      </span>
-      <span className="truncate">{children}</span>
-    </div>
-  );
-}
 
 const ContentEditableBlock = forwardRef<HTMLDivElement, {
   html: string;
@@ -377,22 +68,15 @@ import {
   ChevronRight,
   Trash2,
   CornerDownRight,
-  Play,
   Edit2,
-  Check,
   Plus,
-  ArrowUpDown,
-  FileCode,
-  Sparkles,
-  Eye,
-  Sun,
-  Moon,
-  RefreshCw,
   FileText,
-  Link,
-  Upload,
+  Globe,
+  Paperclip,
 } from "lucide-react";
 import CodeBlock from "./CodeBlock";
+import WebEmbedBlock from "./WebEmbedBlock";
+import AttachmentBlock from "./AttachmentBlock";
 
 function HeadingIcon(props: { className?: string }) {
   return <span className={`text-[10px] font-black ${props.className}`}>H</span>;
@@ -403,9 +87,10 @@ const SLASH_COMMANDS = [
   { type: "heading-1", label: "标题1", icon: HeadingIcon },
   { type: "heading-2", label: "标题2", icon: HeadingIcon },
   { type: "toggle", label: "折叠主题", icon: ChevronRight },
-  { type: "html-render", label: "HTML 沙盒", icon: FileCode },
   { type: "code", label: "代码块", icon: Code },
   { type: "table", label: "表格", icon: TableIcon },
+  { type: "web-embed", label: "网页", icon: Globe },
+  { type: "attachment", label: "附件", icon: Paperclip },
   { type: "whiteboard", label: "画板", icon: Edit2 },
 ];
 
@@ -453,200 +138,6 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
     left: number;
   } | null>(null);
   const [rawText, setRawText] = useState(block.content);
-
-  // Advanced States for Upgraded HTML Sandbox
-  const [sandboxHtml, setSandboxHtml] = useState(block.content || "");
-  const [sandboxCss, setSandboxCss] = useState(block.properties?.cssCode || "");
-  const [sandboxJs, setSandboxJs] = useState(block.properties?.jsCode || "");
-  const [sandboxTheme, setSandboxTheme] = useState<"light" | "dark">(
-    block.properties?.sandboxTheme || "light",
-  );
-  // Sandbox source state. The preview iframe's src/srcDoc is auto-derived
-  // from these (file > url > code); the user never picks a "mode" explicitly.
-  const [sandboxUrl, setSandboxUrl] = useState(
-    block.properties?.sandboxUrl ||
-      (block.properties?.sandboxPreviewMode === "url"
-        ? (block.properties?.sandboxPreviewUrl ?? "")
-        : ""),
-  );
-  const [sandboxFileSrc, setSandboxFileSrc] = useState("");
-  const [sandboxFileName, setSandboxFileName] = useState(
-    block.properties?.sandboxFileName ||
-      (block.properties?.sandboxPreviewMode === "file"
-        ? (block.properties?.sandboxPreviewFileName ?? "")
-        : ""),
-  );
-  const [sandboxDebouncedSrcDoc, setSandboxDebouncedSrcDoc] = useState("");
-  const [sandboxIsDragging, setSandboxIsDragging] = useState(false);
-  const [runIndicator, setRunIndicator] = useState(0); // For forcing reload
-  // Local "code sub-tab": which of HTML/CSS/JS is shown in the editor pane.
-  const [sandboxCodeTab, setSandboxCodeTab] = useState<"html" | "css" | "js">(
-    "html",
-  );
-
-  // Preset templates for quick load list
-  // (SANDBOX_PRESETS is defined at module scope; the PresetMenu component
-  // below reads it directly.)
-
-  // Load block content when initialized to prevent leaks
-  useEffect(() => {
-    if (block.type === "html-render") {
-      setSandboxHtml(block.content || "");
-      setSandboxCss(block.properties?.cssCode || "");
-      setSandboxJs(block.properties?.jsCode || "");
-      setSandboxTheme(block.properties?.sandboxTheme || "light");
-      // URL/FileName read from new fields; fall back to old fields for legacy docs.
-      setSandboxUrl(
-        block.properties?.sandboxUrl ||
-          (block.properties?.sandboxPreviewMode === "url"
-            ? (block.properties?.sandboxPreviewUrl ?? "")
-            : ""),
-      );
-      setSandboxFileName(
-        block.properties?.sandboxFileName ||
-          (block.properties?.sandboxPreviewMode === "file"
-            ? (block.properties?.sandboxPreviewFileName ?? "")
-            : ""),
-      );
-      setSandboxFileSrc("");
-    }
-  }, [block.id, block.type]);
-
-  // Real-time sandboxed debouncer updates (so typing doesn't compile on every keystroke)
-  useEffect(() => {
-    if (block.type !== "html-render") return;
-    const timer = setTimeout(() => {
-      setSandboxDebouncedSrcDoc(
-        compileSandboxSrcDoc(sandboxHtml, sandboxCss, sandboxJs, sandboxTheme),
-      );
-    }, 550); // 550ms debounce
-    return () => clearTimeout(timer);
-  }, [
-    sandboxHtml,
-    sandboxCss,
-    sandboxJs,
-    sandboxTheme,
-    runIndicator,
-    block.type,
-  ]);
-
-  // Auto-saves fields to document state when they change.
-  const handleSandboxCodeChange = (
-    htmlVal: string,
-    cssVal: string,
-    jsVal: string,
-    themeVal: "light" | "dark",
-  ) => {
-    setSandboxHtml(htmlVal);
-    setSandboxCss(cssVal);
-    setSandboxJs(jsVal);
-    setSandboxTheme(themeVal);
-    onUpdateBlock({
-      content: htmlVal,
-      properties: {
-        ...block.properties,
-        cssCode: cssVal,
-        jsCode: jsVal,
-        sandboxTheme: themeVal,
-      },
-    });
-  };
-
-  const handleSandboxUrlChange = (url: string) => {
-    setSandboxUrl(url);
-    onUpdateBlock({
-      properties: {
-        ...block.properties,
-        sandboxUrl: url,
-      },
-    });
-  };
-
-  const handleSandboxClearFile = () => {
-    setSandboxFileSrc("");
-    setSandboxFileName("");
-    onUpdateBlock({
-      properties: {
-        ...block.properties,
-        sandboxFileName: "",
-      },
-    });
-  };
-
-  const handleSandboxClearUrl = () => {
-    handleSandboxUrlChange("");
-  };
-
-  const handleSandboxClearAll = () => {
-    handleSandboxClearFile();
-    handleSandboxClearUrl();
-  };
-
-  const openSandboxWebPreviewWindow = () => {
-    const url = normalizeSandboxUrl(sandboxUrl);
-    if (!url) return;
-
-    const label = `sandbox-${block.id}-${Date.now()}`.replace(/[^a-zA-Z0-9-/:_]/g, "-");
-    const webview = new WebviewWindow(label, {
-      url,
-      title: `Sandbox: ${url}`,
-      width: 1200,
-      height: 800,
-      resizable: true,
-    });
-
-    webview.once("tauri://error", (event) => {
-      // Surfacing the error to the user used to mean setting state; now we
-      // simply log it. The main window keeps the URL in its input.
-      const message = typeof event.payload === "string" ? event.payload : "open preview window failed";
-      console.error("[sandbox] open window error:", message);
-    });
-  };
-
-  const handleSandboxFileSelect = (file: File | null) => {
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const src = typeof reader.result === "string" ? reader.result : "";
-      setSandboxFileSrc(src);
-      setSandboxFileName(file.name);
-      onUpdateBlock({
-        properties: {
-          ...block.properties,
-          sandboxFileName: file.name,
-        },
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSandboxDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setSandboxIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleSandboxFileSelect(e.dataTransfer.files[0]);
-      return;
-    }
-    if (e.dataTransfer.types.includes("text/uri-list")) {
-      const url = e.dataTransfer.getData("text/uri-list").split("\n")[0].trim();
-      if (url) handleSandboxUrlChange(url);
-    }
-  };
-
-  const loadPresetIntoSandbox = (preset: {
-    html: string;
-    css: string;
-    js: string;
-  }) => {
-    handleSandboxCodeChange(
-      preset.html,
-      preset.css,
-      preset.js,
-      sandboxTheme,
-    );
-    setRunIndicator((prev) => prev + 1); // trigger refresh
-  };
 
   // Canvas Drawing States
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1227,11 +718,14 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
       case "canvas":
       case "whiteboard":
         return { drawingPaths: [] };
-      case "html-render":
+      case "web-embed":
+        return { embedUrl: "" };
+      case "attachment":
         return {
-          cssCode: "h1 { color: #6366f1; }",
-          jsCode: 'console.log("Demo loaded!");',
-          sandboxTheme: "light" as const,
+          attachmentName: "",
+          attachmentType: "",
+          attachmentSize: "",
+          attachmentMode: "preview" as const,
         };
       case "toggle":
         return { isOpen: true };
@@ -1387,73 +881,6 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
   const clearCanvasAll = () => {
     setPaths([]);
     onUpdateBlock({ properties: { ...block.properties, drawingPaths: [] } });
-  };
-
-  // --- HTML SANDBOX SANDBOXED IFRAME COMPILATION ---
-  const compileSandboxSrcDoc = (
-    htmlVal = sandboxHtml,
-    cssVal = sandboxCss,
-    jsVal = sandboxJs,
-    themeVal = sandboxTheme,
-  ) => {
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: '#6366f1',
-          }
-        }
-      }
-    }
-  </script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    body { 
-      margin: 0; 
-      padding: 16px; 
-      font-family: system-ui, -apple-system, sans-serif; 
-      background: transparent; 
-      color: #334155;
-      min-height: 100vh;
-      transition: background-color 0.2s, color 0.2s;
-    }
-    body.dark {
-      background-color: #0f172a;
-      color: #f1f5f9;
-    }
-    /* Simple Custom Scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(156, 163, 175, 0.3);
-      border-radius: 9999px;
-    }
-    ${cssVal}
-  </style>
-</head>
-<body class="${themeVal === "dark" ? "dark" : ""}">
-  ${htmlVal}
-  <script>
-    try {
-      ${jsVal}
-    } catch(err) {
-      document.body.insertAdjacentHTML('beforeend', '<div style="color:#ef4444; margin-top:12px; padding:10px; border-radius:8px; border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.05); font-family: monospace; font-size:12px;">⚠️ JS Error: ' + err.message + '</div>');
-    }
-  </script>
-</body>
-</html>`;
   };
 
   // --- TABLE EDITING HANDLERS ---
@@ -1916,176 +1343,17 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
           </div>
         )}
 
-        {/* TYPE 11: LIVE HTML PLAYBOARD & SANDBOX RENDER */}
-        {block.type === "html-render" && (
-          <div className="rounded-sm overflow-hidden bg-[var(--vscode-textBlockQuote-background)]">
-            {/* Slim top toolbar: preset + reload + theme */}
-            <div className="px-2.5 py-1.5 flex items-center justify-between bg-[var(--vscode-textBlockQuote-background)]">
-              <div className="flex items-center gap-1">
-                <PresetMenu loadPresetIntoSandbox={loadPresetIntoSandbox} />
-                <button
-                  type="button"
-                  onClick={() => setRunIndicator((v) => v + 1)}
-                  title="刷新预览"
-                  className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Reload
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  handleSandboxCodeChange(
-                    sandboxHtml,
-                    sandboxCss,
-                    sandboxJs,
-                    sandboxTheme === "light" ? "dark" : "light",
-                  )
-                }
-                title="切换主题"
-                className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-              >
-                {sandboxTheme === "light" ? (
-                  <Moon className="w-3.5 h-3.5" />
-                ) : (
-                  <Sun className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </div>
-
-            {/* Source bar: URL input + File picker + Clear */}
-            <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 bg-[var(--vscode-editor-background)]">
-              <div className="min-w-[180px] flex-1 flex items-center gap-1.5">
-                <Link className="w-3 h-3 text-[var(--vscode-icon-foreground)] opacity-60 shrink-0" />
-                <input
-                  type="url"
-                  value={sandboxUrl}
-                  onChange={(e) => handleSandboxUrlChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setRunIndicator((v) => v + 1);
-                    }
-                  }}
-                  placeholder="example.com 或 https://..."
-                  className="min-w-0 flex-1 bg-transparent border-none text-xs text-[var(--vscode-editor-foreground)] focus:outline-none placeholder:text-[var(--vscode-descriptionForeground)]"
-                />
-                {normalizeSandboxUrl(sandboxUrl) && (
-                  <button
-                    type="button"
-                    onClick={openSandboxWebPreviewWindow}
-                    title="在独立窗口中打开"
-                    className="cursor-pointer px-1.5 py-0.5 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-                  >
-                    打开
-                  </button>
-                )}
-              </div>
-
-              <label className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors">
-                <Upload className="w-3 h-3" />
-                <span className="truncate max-w-[160px]">
-                  {sandboxFileName || "File"}
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) =>
-                    handleSandboxFileSelect(e.target.files?.[0] || null)
-                  }
-                />
-              </label>
-
-              {(sandboxUrl || sandboxFileName) && (
-                <button
-                  type="button"
-                  onClick={handleSandboxClearAll}
-                  title="清除 URL 和文件"
-                  className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {/* Preview pane. Auto-detects source (file > url > code). */}
-            <SandboxPreview
-              fileSrc={sandboxFileSrc}
-              fileName={sandboxFileName}
-              url={sandboxUrl}
-              srcDoc={sandboxDebouncedSrcDoc}
-              runIndicator={runIndicator}
-              isDragging={sandboxIsDragging}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setSandboxIsDragging(true);
-              }}
-              onDragLeave={() => setSandboxIsDragging(false)}
-              onDrop={handleSandboxDrop}
-            />
-
-            {/* Code editor (HTML/CSS/JS sub-tabs). */}
-            <div>
-              <div className="flex items-center gap-1 px-2.5 py-1 bg-[var(--vscode-textBlockQuote-background)]">
-                {[
-                  { id: "html", label: "HTML" },
-                  { id: "css", label: "CSS" },
-                  { id: "js", label: "JS" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setSandboxCodeTab(tab.id as "html" | "css" | "js")}
-                    className={`cursor-pointer px-2 py-1 rounded text-[10px] transition-colors ${
-                      sandboxCodeTab === tab.id
-                        ? "bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]"
-                        : "text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <textarea
-                value={
-                  sandboxCodeTab === "html"
-                    ? sandboxHtml
-                    : sandboxCodeTab === "css"
-                      ? sandboxCss
-                      : sandboxJs
-                }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (sandboxCodeTab === "html")
-                    handleSandboxCodeChange(
-                      val,
-                      sandboxCss,
-                      sandboxJs,
-                      sandboxTheme,
-                    );
-                  else if (sandboxCodeTab === "css")
-                    handleSandboxCodeChange(
-                      sandboxHtml,
-                      val,
-                      sandboxJs,
-                      sandboxTheme,
-                    );
-                  else
-                    handleSandboxCodeChange(
-                      sandboxHtml,
-                      sandboxCss,
-                      val,
-                      sandboxTheme,
-                    );
-                }}
-                className="w-full h-[320px] font-mono text-xs leading-relaxed bg-[var(--vscode-editor-background)] text-[var(--vscode-editor-foreground)] p-4 border-none resize-y focus:outline-none"
-              />
-            </div>
-          </div>
+        {/* TYPE 11: WEB EMBED BLOCK */}
+        {block.type === "web-embed" && (
+          <WebEmbedBlock block={block} onUpdateBlock={onUpdateBlock} />
         )}
 
-        {/* TYPE 12: TLDRAW WHITEBOARD */}
+        {/* TYPE 12: ATTACHMENT BLOCK */}
+        {block.type === "attachment" && (
+          <AttachmentBlock block={block} onUpdateBlock={onUpdateBlock} />
+        )}
+
+        {/* TYPE 13: TLDRAW WHITEBOARD */}
         {block.type === "whiteboard" && (
           <div className="h-[500px] w-full border border-[var(--vscode-widget-border)] rounded-md overflow-hidden relative bg-white dark:bg-black">
             <Tldraw persistenceKey={`tldraw-${block.id}`} />

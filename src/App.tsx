@@ -47,9 +47,14 @@ export default function App() {
     } else {
       newBlock = {
         id: `block-${Date.now()}`,
-        type: 'callout' as const,
-        content: `📁 **已关联本地存储物理附件**: [${asset.name}] (${asset.size})\n*创建时间: ${new Date(asset.createdAt).toLocaleString()} • 双链指令 [[ 建立语义索引*`,
-        properties: { emoji: '📎' }
+        type: 'attachment' as const,
+        content: asset.content || '',
+        properties: {
+          attachmentName: asset.name,
+          attachmentType: asset.type,
+          attachmentSize: asset.size,
+          attachmentMode: 'card' as const,
+        }
       };
     }
 
