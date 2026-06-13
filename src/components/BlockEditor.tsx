@@ -1,22 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { Document, Block, BlockType } from '../types';
 import BlockItem from './BlockItem';
-import {
-  Plus,
-  Link2,
-  BookOpen,
-  Clock,
-  Layers,
-  Sparkles,
-  MessageSquare,
-  Heading2,
-  Table as TableIcon,
-  Palette,
-  Code,
-  FileCode,
-  ChevronDown,
-  FileText
-} from 'lucide-react';
+import { Link2 } from 'lucide-react';
 
 interface BlockEditorProps {
   document: Document;
@@ -45,20 +30,6 @@ export default function BlockEditor({
       });
     });
   }, [documents, activeDoc]);
-
-  const wordCount = useMemo(() => {
-    if (!activeDoc) return 0;
-    return activeDoc.blocks.reduce((acc, block) => {
-      const contentStr = block.content || '';
-      // Approximate Chinese & English word bounds
-      const count = contentStr.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, ' ').split(/\s+/).filter(Boolean).length;
-      return acc + count;
-    }, 0);
-  }, [activeDoc]);
-
-  const readTimeMinutes = useMemo(() => {
-    return Math.max(1, Math.ceil(wordCount / 300)); // Average 300 words/minute
-  }, [wordCount]);
 
   // Add a new block at the end of the document
   const appendBlockAtEnd = (type: BlockType) => {
@@ -254,38 +225,8 @@ export default function BlockEditor({
 
   return (
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
-      
-      {/* 1. Minimal Word-style Toolbar Ribbon Area */}
-      <div className="flex items-center gap-0.5 py-1.5 px-3 shrink-0 select-none border-b border-slate-200 dark:border-white/[0.08] bg-[#f3f3f3] dark:bg-[#1e1e1e]">
-        {[
-          { type: 'text', icon: MessageSquare, title: '插入文本 (T)' },
-          { type: 'heading-2', icon: Heading2, title: '插入副标题 (H)' },
-          { type: 'table', icon: TableIcon, title: '插入表格 (Tab)' },
-          { type: 'canvas', icon: Palette, title: '插入白板' },
-          { type: 'code', icon: Code, title: '插入代码 (C)' },
-          { type: 'html-render', icon: FileCode, title: '插入HTML沙盒' },
-          { type: 'toggle', icon: ChevronDown, title: '插入折叠块' },
-        ].map((op) => {
-          const IconComp = op.icon;
-          return (
-            <button
-              key={op.type}
-              onClick={() => appendBlockAtEnd(op.type as BlockType)}
-              className="cursor-pointer p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08] rounded-sm transition-colors duration-150 hover:text-slate-700 dark:hover:text-slate-200"
-              title={op.title}
-            >
-              <IconComp className="w-4 h-4" />
-            </button>
-          );
-        })}
-        <div className="w-px h-4 bg-slate-300 dark:bg-white/[0.08] mx-2" />
-        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-          <FileText className="w-3 h-3" />
-          <span>词数: {wordCount} &nbsp;|&nbsp; 阅读 {readTimeMinutes} 分钟</span>
-        </div>
-      </div>
 
-      {/* 2. Editor Canvas Area */}
+      {/* Editor Canvas Area */}
       <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-8 md:py-12 space-y-6 bg-white dark:bg-[#1e1e1e] select-text">
         {/* Document Title header */}
         <div className="pb-4">

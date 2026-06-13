@@ -1521,26 +1521,26 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
   return (
     <div
       ref={forwardedRef}
-      className="group/block relative flex items-start gap-2 py-1.5 px-2 -mx-2 rounded-sm transition-colors duration-200 hover:bg-[#e8e8e8] dark:hover:bg-white/[0.06]"
+      className="group/block relative flex items-start gap-2 py-1.5 px-2 -mx-2 rounded-sm"
       id={`block-row-${block.id}`}
       data-block-id={block.id}
     >
-      {/* 1. Left controls (Plus, Delete - Top Aligned for great UX) */}
-      <div className="absolute left-[-40px] md:left-[-50px] top-1.5 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-all duration-200 z-10">
+      {/* Left controls (Plus, Delete) - positioned outside block to avoid overlap */}
+      <div className="absolute -left-8 top-1 flex items-center gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity duration-150 z-20 print:hidden">
         <button
           onClick={() => onInsertBlockBelow("text")}
-          className="cursor-pointer text-slate-300 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors"
+          className="cursor-pointer text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-0.5 rounded transition-colors"
           title="在此行下方添加"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
         </button>
 
         <button
           onClick={() => onDeleteBlock()}
-          className="cursor-pointer text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 p-1.5 rounded-sm hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150"
+          className="cursor-pointer text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-0.5 rounded transition-colors"
           title="删除此块"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="w-3 h-3" />
         </button>
       </div>
 
