@@ -1,6 +1,3 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { storage, AssetInfo } from '../lib/storage';
-import { useStore } from '../store/useStore';
 import {
   Folder,
   Image as ImageIcon,
@@ -16,153 +13,49 @@ import {
   Check,
   FolderOpen,
 } from 'lucide-react';
+import type { AssetInfo } from '../lib/storage';
+import { useLocalFolder } from './blocks/useLocalFolder';
 
 interface LocalFolderProps {
   onClose: () => void;
 }
 
-export default function LocalFolder({ onClose }: LocalFolderProps) {
-  const insertAssetAsBlock = useStore((s) => s.insertAssetAsBlock);
-
-  const [assets, setAssets] = useState<AssetInfo[]>([]);
-  const [thumbCache, setThumbCache] = useState<Record<string, string>>({});
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'images' | 'docs'>('all');
-  const [activeFolder, setActiveFolder] = useState<string>('root');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const refreshAssets = useCallback(async () => {
-    try {
-      const list = await storage.listAssets();
-      setAssets(list);
-    } catch (e) {
-      console.error('Failed to load assets:', e);
-      setAssets([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshAssets();
-  }, [refreshAssets]);
-
-  // Lazily load image thumbnails as base64 data URIs
-  useEffect(() => {
-    for (const asset of assets) {
-      if (
-        asset.type.startsWith('image/') &&
-        !thumbCache[asset.fileName]
-      ) {
-        storage
-          .readAssetBase64(asset.fileName)
-          .then((b64) => {
-            setThumbCache((prev) => ({
-              ...prev,
-              [asset.fileName]: `data:${asset.type};base64,${b64}`,
-            }));
-          })
-          .catch(() => {});
-      }
-    }
-  }, [assets, thumbCache]);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const assetId = `asset-${Date.now()}`;
-    const ext = file.name.split('.').pop() || 'bin';
-
-    // Read file as binary
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = Array.from(new Uint8Array(arrayBuffer));
-
-    try {
-      await storage.saveAsset(assetId, bytes, ext);
-      await refreshAssets();
-    } catch (err) {
-      console.error('Failed to save asset:', err);
-      alert('附件保存失败，请重试。');
-    }
-
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-
-    const assetId = `asset-${Date.now()}`;
-    const ext = file.name.split('.').pop() || 'bin';
-
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = Array.from(new Uint8Array(arrayBuffer));
-
-    try {
-      await storage.saveAsset(assetId, bytes, ext);
-      await refreshAssets();
-    } catch (err) {
-      console.error('Failed to save dropped asset:', err);
-    }
-  };
-
-  const handleDeleteAsset = async (fileName: string, name: string) => {
-    if (confirm(`确定要将附件「${name}」从本地硬盘彻底删除吗？`)) {
-      try {
-        await storage.deleteAsset(fileName);
-        await refreshAssets();
-      } catch (err) {
-        console.error('Failed to delete asset:', err);
-      }
-    }
-  };
-
-  const handleInsertToDoc = async (asset: AssetInfo) => {
-    let content = '';
-    if (asset.type.startsWith('image/')) {
-      try {
-        const b64 = await storage.readAssetBase64(asset.fileName);
-        content = `data:${asset.type};base64,${b64}`;
-      } catch (e) {
-        console.error('Failed to load asset for insertion:', e);
-      }
-    }
-
-    insertAssetAsBlock({
-      name: asset.name,
-      type: asset.type,
-      size: asset.size,
-      content,
-    });
-  };
-
-  const handleCopyRef = (asset: AssetInfo) => {
-    const refCode = asset.type.startsWith('image/')
-      ? `![${asset.name}](${asset.fileName})`
-      : `[附件:${asset.name}](${asset.size})`;
-    navigator.clipboard.writeText(refCode);
-    setCopiedId(asset.fileName);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const getFileIcon = (type: string, name: string) => {
-    if (type.startsWith('image/'))
-      return (
-        <ImageIcon className="w-4 h-4 text-[var(--vscode-symbolIcon-eventForeground)]" />
-      );
-    if (name.endsWith('.sql') || name.endsWith('.db'))
-      return (
-        <Database className="w-4 h-4 text-[var(--vscode-symbolIcon-namespaceForeground)]" />
-      );
-    if (name.endsWith('.csv') || name.endsWith('.xlsx'))
-      return (
-        <FileSpreadsheet className="w-4 h-4 text-[var(--vscode-terminal-ansiGreen)]" />
-      );
+function getFileIcon(type: string, name: string) {
+  if (type.startsWith('image/'))
     return (
-      <FileText className="w-4 h-4 text-[var(--vscode-symbolIcon-fileForeground)]" />
+      <ImageIcon className="w-4 h-4 text-[var(--vscode-symbolIcon-eventForeground)]" />
     );
-  };
+  if (name.endsWith('.sql') || name.endsWith('.db'))
+    return (
+      <Database className="w-4 h-4 text-[var(--vscode-symbolIcon-namespaceForeground)]" />
+    );
+  if (name.endsWith('.csv') || name.endsWith('.xlsx'))
+    return (
+      <FileSpreadsheet className="w-4 h-4 text-[var(--vscode-terminal-ansiGreen)]" />
+    );
+  return (
+    <FileText className="w-4 h-4 text-[var(--vscode-symbolIcon-fileForeground)]" />
+  );
+}
+
+export default function LocalFolder({ onClose }: LocalFolderProps) {
+  const {
+    assets,
+    thumbCache,
+    searchTerm,
+    setSearchTerm,
+    activeTab,
+    setActiveTab,
+    activeFolder,
+    setActiveFolder,
+    copiedId,
+    fileInputRef,
+    handleFileUpload,
+    handleDrop,
+    handleDeleteAsset,
+    handleInsertToDoc,
+    handleCopyRef,
+  } = useLocalFolder(onClose);
 
   const filteredCategoryAssets = assets.filter((asset) => {
     const matchesSearch = asset.name
@@ -180,11 +73,7 @@ export default function LocalFolder({ onClose }: LocalFolderProps) {
   const attachmentsCount = assets.filter((a) => !a.type.startsWith('image/'))
     .length;
 
-  // Calculate total size
-  const totalSizeBytes = assets.reduce(
-    (sum, a) => sum + (a.sizeBytes ?? 0),
-    0,
-  );
+  const totalSizeBytes = assets.reduce((sum, a) => sum + (a.sizeBytes ?? 0), 0);
   const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(1);
   const usagePercent = Math.min(
     100,
@@ -351,84 +240,15 @@ export default function LocalFolder({ onClose }: LocalFolderProps) {
           </div>
         ) : (
           filteredCategoryAssets.map((asset) => (
-            <div
+            <AssetCard
               key={asset.fileName}
-              className="p-2.5 bg-[var(--vscode-editor-background)] border border-[var(--vscode-widget-border)] hover:border-[var(--vscode-list-activeSelectionBackground)] rounded-md hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 text-xs flex flex-col gap-2 group"
-            >
-              <div className="flex items-start justify-between gap-1">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded bg-[var(--vscode-editorWidget-background)] flex items-center justify-center shrink-0 border border-[var(--vscode-widget-border)]">
-                    {getFileIcon(asset.type, asset.name)}
-                  </div>
-                  <div className="min-w-0">
-                    <div
-                      className="font-medium text-[var(--vscode-foreground)] truncate"
-                      title={asset.name}
-                    >
-                      {asset.name}
-                    </div>
-                    <div className="text-[9px] text-[var(--vscode-descriptionForeground)] font-mono flex items-center gap-1.5 mt-0.5">
-                      <span>{asset.size}</span>
-                      <span>•</span>
-                      <span>
-                        {new Date(asset.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => handleDeleteAsset(asset.fileName, asset.name)}
-                  className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="删除物理附件"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {asset.type.startsWith('image/') &&
-                thumbCache[asset.fileName] && (
-                  <div className="rounded overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-1 max-h-24 flex items-center justify-center">
-                    <img
-                      src={thumbCache[asset.fileName]}
-                      alt={asset.name}
-                      className="max-h-20 max-w-full object-contain rounded"
-                    />
-                  </div>
-                )}
-
-              {/* Actions */}
-              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-[var(--vscode-widget-border)]">
-                <button
-                  onClick={() => handleCopyRef(asset)}
-                  className="cursor-pointer bg-[var(--vscode-button-secondaryBackground)] hover:bg-[var(--vscode-button-secondaryHoverBackground)] text-[10px] text-[var(--vscode-button-secondaryForeground)] py-1 px-1.5 rounded border border-[var(--vscode-widget-border)] flex items-center justify-center gap-1.5 transition-colors font-medium"
-                  title="拷贝该附件的 Markdown 或是 Wiki 等引用语法"
-                >
-                  {copiedId === asset.fileName ? (
-                    <>
-                      <Check className="w-3 h-3 text-[var(--vscode-terminal-ansiGreen)]" />
-                      <span className="text-[var(--vscode-terminal-ansiGreen)]">
-                        已拷贝
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      <span>复制引用</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => handleInsertToDoc(asset)}
-                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[10px] text-[var(--vscode-button-foreground)] py-1 px-1.5 rounded flex items-center justify-center gap-1.5 transition-colors font-medium"
-                  title="将该媒体图片/附件一键置入当前文档末尾"
-                >
-                  <ArrowRight className="w-3 h-3" />
-                  <span>置入文档</span>
-                </button>
-              </div>
-            </div>
+              asset={asset}
+              thumbUrl={thumbCache[asset.fileName]}
+              copied={copiedId === asset.fileName}
+              onDelete={handleDeleteAsset}
+              onInsert={handleInsertToDoc}
+              onCopyRef={handleCopyRef}
+            />
           ))
         )}
       </div>
@@ -450,6 +270,102 @@ export default function LocalFolder({ onClose }: LocalFolderProps) {
         <p className="text-[9px] text-[var(--vscode-descriptionForeground)] leading-normal">
           注: 附件物理存储于 ~/.jdata/studio/assets/，无容量限制。
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ================================================================
+// AssetCard — single asset item (extracted for readability)
+// ================================================================
+interface AssetCardProps {
+  asset: AssetInfo;
+  thumbUrl?: string;
+  copied: boolean;
+  onDelete: (fileName: string, name: string) => void;
+  onInsert: (asset: AssetInfo) => void;
+  onCopyRef: (asset: AssetInfo) => void;
+}
+
+function AssetCard({
+  asset,
+  thumbUrl,
+  copied,
+  onDelete,
+  onInsert,
+  onCopyRef,
+}: AssetCardProps) {
+  return (
+    <div className="p-2.5 bg-[var(--vscode-editor-background)] border border-[var(--vscode-widget-border)] hover:border-[var(--vscode-list-activeSelectionBackground)] rounded-md hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 text-xs flex flex-col gap-2 group">
+      <div className="flex items-start justify-between gap-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded bg-[var(--vscode-editorWidget-background)] flex items-center justify-center shrink-0 border border-[var(--vscode-widget-border)]">
+            {getFileIcon(asset.type, asset.name)}
+          </div>
+          <div className="min-w-0">
+            <div
+              className="font-medium text-[var(--vscode-foreground)] truncate"
+              title={asset.name}
+            >
+              {asset.name}
+            </div>
+            <div className="text-[9px] text-[var(--vscode-descriptionForeground)] font-mono flex items-center gap-1.5 mt-0.5">
+              <span>{asset.size}</span>
+              <span>•</span>
+              <span>{new Date(asset.createdAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onDelete(asset.fileName, asset.name)}
+          className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          title="删除物理附件"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {asset.type.startsWith('image/') && thumbUrl && (
+        <div className="rounded overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-1 max-h-24 flex items-center justify-center">
+          <img
+            src={thumbUrl}
+            alt={asset.name}
+            className="max-h-20 max-w-full object-contain rounded"
+          />
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="grid grid-cols-2 gap-1 pt-1 border-t border-[var(--vscode-widget-border)]">
+        <button
+          onClick={() => onCopyRef(asset)}
+          className="cursor-pointer bg-[var(--vscode-button-secondaryBackground)] hover:bg-[var(--vscode-button-secondaryHoverBackground)] text-[10px] text-[var(--vscode-button-secondaryForeground)] py-1 px-1.5 rounded border border-[var(--vscode-widget-border)] flex items-center justify-center gap-1.5 transition-colors font-medium"
+          title="拷贝该附件的 Markdown 或是 Wiki 等引用语法"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3 h-3 text-[var(--vscode-terminal-ansiGreen)]" />
+              <span className="text-[var(--vscode-terminal-ansiGreen)]">
+                已拷贝
+              </span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3" />
+              <span>复制引用</span>
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={() => onInsert(asset)}
+          className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[10px] text-[var(--vscode-button-foreground)] py-1 px-1.5 rounded flex items-center justify-center gap-1.5 transition-colors font-medium"
+          title="将该媒体图片/附件一键置入当前文档末尾"
+        >
+          <ArrowRight className="w-3 h-3" />
+          <span>置入文档</span>
+        </button>
       </div>
     </div>
   );

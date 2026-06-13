@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Block } from "../types";
+import { Block } from "../../types";
+import { IconButton } from "../ui/IconButton";
 import {
   Upload,
   FileText,
@@ -203,42 +204,27 @@ const AttachmentBlock: React.FC<AttachmentBlockProps> = ({
           {/* Mode toggle — only if the file is previewable */}
           {canPreview && (
             <div className="flex items-center gap-0.5 mr-1">
-              <button
-                type="button"
+              <IconButton
                 onClick={() => handleModeToggle("preview")}
                 title="预览模式"
-                className={`cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded transition-colors ${
-                  mode === "preview"
-                    ? "bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]"
-                    : "text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-                }`}
+                variant={mode === "preview" ? "active" : "default"}
               >
                 <Eye className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
+              </IconButton>
+              <IconButton
                 onClick={() => handleModeToggle("card")}
                 title="卡片模式"
-                className={`cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded transition-colors ${
-                  mode === "card"
-                    ? "bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]"
-                    : "text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-                }`}
+                variant={mode === "card" ? "active" : "default"}
               >
                 <CreditCard className="w-3.5 h-3.5" />
-              </button>
+              </IconButton>
             </div>
           )}
 
           {/* Download */}
-          <button
-            type="button"
-            onClick={handleDownload}
-            title="下载文件"
-            className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-          >
+          <IconButton onClick={handleDownload} title="下载文件">
             <Download className="w-3.5 h-3.5" />
-          </button>
+          </IconButton>
 
           {/* Re-upload */}
           <label
@@ -254,14 +240,9 @@ const AttachmentBlock: React.FC<AttachmentBlockProps> = ({
           </label>
 
           {/* Clear */}
-          <button
-            type="button"
-            onClick={handleClear}
-            title="清除"
-            className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-          >
+          <IconButton onClick={handleClear} title="清除" variant="danger">
             <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          </IconButton>
         </div>
       </div>
 

@@ -10,8 +10,8 @@ import TableBlock from './TableBlock';
 import CanvasBlock from './CanvasBlock';
 import WhiteboardBlock from './WhiteboardBlock';
 import CodeBlockWrapper from './CodeBlockWrapper';
-import WebEmbedBlock from '../WebEmbedBlock';
-import AttachmentBlock from '../AttachmentBlock';
+import WebEmbedBlock from './WebEmbedBlock';
+import AttachmentBlock from './AttachmentBlock';
 
 /**
  * Maps each block type to its component.

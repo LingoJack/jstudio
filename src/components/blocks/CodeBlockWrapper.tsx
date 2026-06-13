@@ -1,5 +1,5 @@
 import type { BaseBlockProps } from './types';
-import CodeBlock from '../CodeBlock';
+import CodeBlock from './CodeBlock';
 
 /**
  * TYPE: code — a thin wrapper around the existing standalone CodeBlock.

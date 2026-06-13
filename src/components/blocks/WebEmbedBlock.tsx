@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Block } from "../types";
+import { Block } from "../../types";
+import { IconButton } from "../ui/IconButton";
 import {
   Link,
   RefreshCw,
@@ -120,33 +121,18 @@ const WebEmbedBlock: React.FC<WebEmbedBlockProps> = ({
         <div className="flex items-center gap-0.5">
           {normalizedUrl && (
             <>
-              <button
-                type="button"
-                onClick={handleReload}
-                title="刷新"
-                className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-              >
+              <IconButton onClick={handleReload} title="刷新">
                 <RefreshCw className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={openInNewWindow}
-                title="在独立窗口中打开"
-                className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-              >
+              </IconButton>
+              <IconButton onClick={openInNewWindow} title="在独立窗口中打开">
                 <ExternalLink className="w-3.5 h-3.5" />
-              </button>
+              </IconButton>
             </>
           )}
           {urlInput && (
-            <button
-              type="button"
-              onClick={handleClear}
-              title="清除"
-              className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-            >
+            <IconButton onClick={handleClear} title="清除" variant="danger">
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            </IconButton>
           )}
         </div>
       </div>

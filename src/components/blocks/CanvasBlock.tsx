@@ -10,6 +10,7 @@ interface Point {
 interface DrawingPath {
   points: Point[];
   color: string;
+  width: number;
 }
 
 /**
@@ -69,6 +70,7 @@ export default function CanvasBlock({
       color: getComputedStyle(document.documentElement)
         .getPropertyValue('--vscode-editor-foreground')
         .trim() || '#333',
+      width: 2,
     };
   };
 
