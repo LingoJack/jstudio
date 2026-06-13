@@ -1,7 +1,6 @@
 import { storage, toMeta, DocumentMeta } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
 import type { Document } from '../types';
-import { DEFAULT_DOCUMENTS } from '../data/defaultData';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
 
@@ -42,17 +41,30 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         // index.json doesn't exist yet
       }
 
-      // If still empty, seed defaults
+      // If still empty, create a single blank document
       if (!index || index.length === 0) {
-        for (const doc of DEFAULT_DOCUMENTS) {
-          await storage.saveDocument(doc);
-        }
-        const metas = DEFAULT_DOCUMENTS.map(toMeta);
+        const blankDoc: Document = {
+          id: `doc-${Date.now()}`,
+          title: '',
+          emoji: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          blocks: [
+            {
+              id: `block-${Date.now()}-initial`,
+              type: 'text',
+              content: '',
+              properties: {},
+            },
+          ],
+        };
+        await storage.saveDocument(blankDoc);
+        const metas = [toMeta(blankDoc)];
         await storage.saveIndex(metas);
         index = metas;
       }
 
-      // Load all documents into memory (needed for backlinks).
+      // Load all documents into memory.
       const docs: Document[] = [];
       for (const meta of index) {
         try {
@@ -93,7 +105,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         {
           id: `block-${Date.now()}-initial`,
           type: 'text',
-          content: '欢迎来到新页面！输入 [[ 可引用其它文档名称，输入 / 快速唤出交互块。',
+          content: '',
           properties: {},
         },
       ],
@@ -140,20 +152,6 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
 
     set(stateUpdate as StoreState);
-  },
-
-  toggleFavorite: async (id) => {
-    const { documents, docList } = get();
-    const newDocuments = documents.map((doc) =>
-      doc.id === id ? { ...doc, isFavorite: !doc.isFavorite } : doc,
-    );
-    const newDocList = newDocuments.map(toMeta);
-
-    set({ documents: newDocuments, docList: newDocList });
-
-    scheduleIndexSave(newDocList);
-    const toggled = newDocuments.find((d) => d.id === id);
-    if (toggled) scheduleDocumentSave(toggled);
   },
 
   openDocument: async (id) => {

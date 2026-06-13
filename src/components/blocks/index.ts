@@ -1,7 +1,7 @@
 /** Blocks barrel export */
 export { default as BlockRouter } from './BlockRouter';
 export { default as SlashMenu } from './SlashMenu';
-export { default as ContentEditableBlock } from './ContentEditableBlock';
+export { default as EditableText } from './EditableText';
 export { default as TextBlock } from './TextBlock';
 export { default as HeadingBlock } from './HeadingBlock';
 export { default as CalloutBlock } from './CalloutBlock';

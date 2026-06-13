@@ -1,6 +1,5 @@
 import { storage, toMeta, DocumentMeta } from './storage';
 import type { Document } from '../types';
-import { DEFAULT_DOCUMENTS } from '../data/defaultData';
 
 /**
  * One-time migration from localStorage to the Tauri file system.
@@ -57,9 +56,25 @@ export async function migrateFromLocalStorage(): Promise<{
       }
     }
 
-    // Seed defaults if nothing valid was found.
+    // If no valid docs found, create a single blank document.
     if (docs.length === 0) {
-      docs = DEFAULT_DOCUMENTS;
+      docs = [
+        {
+          id: `doc-${Date.now()}`,
+          title: '',
+          emoji: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          blocks: [
+            {
+              id: `block-${Date.now()}-initial`,
+              type: 'text',
+              content: '',
+              properties: {},
+            },
+          ],
+        },
+      ];
     }
 
     // Write each document + build the index.

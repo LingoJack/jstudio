@@ -38,7 +38,6 @@ export interface StoreState {
   // — ui state (ui slice) —
   isDarkMode: boolean;
   isSidebarOpen: boolean;
-  isOutlineOpen: boolean;
   isFolderOpen: boolean;
   isLoading: boolean;
 
@@ -48,7 +47,6 @@ export interface StoreState {
   // — document ops (documents slice) —
   createDocument: () => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
-  toggleFavorite: (id: string) => Promise<void>;
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
 
@@ -65,11 +63,11 @@ export interface StoreState {
     size: string;
     content: string;
   }) => void;
+  saveImageToDoc: (blob: Blob, afterBlockId?: string) => Promise<string | null>;
 
   // — ui toggles (ui slice) —
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
-  toggleOutline: () => void;
   toggleFolder: () => void;
   setFolderOpen: (open: boolean) => void;
 }

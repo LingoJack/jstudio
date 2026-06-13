@@ -28,7 +28,7 @@ export interface BlockProperties {
   tableData?: string[][]; // rows x columns for table type
   drawingPaths?: CanvasPath[]; // canvas drawing vector state
   emoji?: string; // callout block icon
-  imageType?: 'url' | 'base64';
+  imageType?: 'url' | 'base64' | 'asset';
   /** URL input value of the web-embed block. When non-empty, the preview
    *  iframe loads this URL (auto-prefixed with `https://` if missing). */
   embedUrl?: string;
@@ -56,11 +56,5 @@ export interface Document {
   createdAt: string;
   updatedAt: string;
   blocks: Block[];
-  isFavorite?: boolean;
-}
-
-export interface Backlink {
-  sourceId: string;
-  sourceTitle: string;
-  sourceEmoji: string;
+  isFavorite?: boolean; // deprecated, kept for backward compat
 }

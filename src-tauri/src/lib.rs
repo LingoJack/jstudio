@@ -12,6 +12,8 @@ pub fn run() {
             commands::storage::read_document,
             commands::storage::write_document,
             commands::storage::delete_document,
+            commands::storage::save_doc_asset,
+            commands::storage::read_doc_asset_base64,
             commands::storage::save_asset,
             commands::storage::delete_asset,
             commands::storage::read_asset_base64,

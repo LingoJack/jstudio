@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileText } from 'lucide-react';
 import type { TextBlockProps } from './types';
+import EditableText from './EditableText';
 import SlashMenu from './SlashMenu';
 import { useBlockEditor } from './useBlockEditor';
 
 /**
  * TYPE: callout — a highlighted info card with an icon.
+ * Uses EditableText for multi-line support and native text selection.
  */
 export default function CalloutBlock({
   block,
-  documents,
   onUpdateBlock,
   onDeleteBlock,
   onInsertBlockBelow,
@@ -24,33 +25,15 @@ export default function CalloutBlock({
     setRawText(block.content);
   }, [block.content]);
 
-  useEffect(() => {
-    if (autoFocus && elementRef.current) {
-      elementRef.current.focus();
-      const len = (elementRef.current as HTMLInputElement).value?.length ?? 0;
-      try {
-        (elementRef.current as HTMLInputElement).setSelectionRange(len, len);
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [autoFocus]);
-
-  const {
-    showSlashMenu,
-    slashMenuIndex,
-    slashMenuCoords,
-    handleKeyDown,
-    handleTextChange,
-    executeSlashCommand,
-  } = useBlockEditor({
+  const editor = useBlockEditor({
+    blockId: block.id,
     rawText,
     setRawText,
-    documents,
     onUpdateBlock,
     onDeleteBlock,
     onInsertBlockBelow,
     elementRef,
+    autoFocus,
     onRequestFocusTitle,
     onRequestFocusBlock,
   });
@@ -60,24 +43,24 @@ export default function CalloutBlock({
       <div className="flex items-start gap-3 p-4 bg-[var(--vscode-textBlockQuote-background)] rounded-sm border-l-4 border-l-[var(--vscode-focusBorder)]">
         <FileText className="w-4 h-4 text-[var(--vscode-icon-foreground)] mt-0.5 shrink-0" />
         <div className="flex-1">
-          <input
-            data-block-editable="true"
-            ref={elementRef as React.RefObject<HTMLInputElement>}
-            onKeyDown={handleKeyDown}
-            type="text"
-            value={rawText}
-            onChange={(e) => handleTextChange(e.target.value)}
+          <EditableText
+            ref={elementRef as React.RefObject<HTMLDivElement>}
+            tagName="div"
+            onKeyDown={editor.handleKeyDown}
+            onPaste={editor.handlePaste}
+            html={rawText}
+            onChange={(val, text) => editor.handleTextChange(val, text)}
             placeholder="在此输入高亮提示卡内容..."
-            className="w-full text-sm font-medium text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none focus:ring-0"
+            className="w-full text-sm font-medium text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none min-h-[1.5rem]"
           />
         </div>
       </div>
 
-      {showSlashMenu && (
+      {editor.showSlashMenu && (
         <SlashMenu
-          slashMenuIndex={slashMenuIndex}
-          slashMenuCoords={slashMenuCoords}
-          onExecute={executeSlashCommand}
+          slashMenuIndex={editor.slashMenuIndex}
+          slashMenuCoords={editor.slashMenuCoords}
+          onExecute={editor.executeSlashCommand}
         />
       )}
     </div>

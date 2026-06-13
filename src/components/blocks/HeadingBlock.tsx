@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { TextBlockProps } from './types';
-import ContentEditableBlock from './ContentEditableBlock';
+import EditableText from './EditableText';
 import SlashMenu from './SlashMenu';
 import { useBlockEditor } from './useBlockEditor';
 
@@ -9,9 +9,9 @@ interface HeadingBlockProps extends TextBlockProps {
 }
 
 const STYLES: Record<number, string> = {
-  1: 'w-full text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-[var(--vscode-descriptionForeground)]',
-  2: 'w-full text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-[var(--vscode-descriptionForeground)]',
-  3: 'w-full text-lg font-semibold text-slate-800 dark:text-slate-200 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-[var(--vscode-descriptionForeground)]',
+  1: 'w-full text-2xl font-bold tracking-tight bg-transparent border-none focus:outline-none py-1',
+  2: 'w-full text-xl font-bold tracking-tight bg-transparent border-none focus:outline-none py-1',
+  3: 'w-full text-lg font-semibold tracking-tight bg-transparent border-none focus:outline-none py-0.5',
 };
 
 const PLACEHOLDERS: Record<number, string> = {
@@ -27,12 +27,11 @@ const TAG_NAMES: Record<number, 'h1' | 'h2' | 'h3'> = {
 };
 
 /**
- * TYPE: heading-1 / heading-2 / heading-3 — merged into one component
- * with a `level` prop.
+ * TYPE: heading-1 / heading-2 / heading-3 — uses EditableText
+ * with the appropriate tag and font styling.
  */
 export default function HeadingBlock({
   block,
-  documents,
   onUpdateBlock,
   onDeleteBlock,
   onInsertBlockBelow,
@@ -48,60 +47,37 @@ export default function HeadingBlock({
     setRawText(block.content);
   }, [block.content]);
 
-  useEffect(() => {
-    if (autoFocus && elementRef.current) {
-      elementRef.current.focus();
-      if (elementRef.current.isContentEditable) {
-        const range = document.createRange();
-        range.selectNodeContents(elementRef.current);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-      }
-    }
-  }, [autoFocus]);
-
-  const {
-    showSlashMenu,
-    slashMenuIndex,
-    slashMenuCoords,
-    handleKeyDown,
-    handleTextChange,
-    handleBlur,
-    executeSlashCommand,
-  } = useBlockEditor({
+  const editor = useBlockEditor({
+    blockId: block.id,
     rawText,
     setRawText,
-    documents,
     onUpdateBlock,
     onDeleteBlock,
     onInsertBlockBelow,
     elementRef,
+    autoFocus,
     onRequestFocusTitle,
     onRequestFocusBlock,
   });
 
   return (
     <div className="relative">
-      <ContentEditableBlock
+      <EditableText
         ref={elementRef as React.RefObject<HTMLDivElement>}
         tagName={TAG_NAMES[level]}
-        onKeyDown={handleKeyDown}
-        onBlur={handleBlur}
+        onKeyDown={editor.handleKeyDown}
+        onPaste={editor.handlePaste}
         html={rawText}
-        onChange={(val, text) =>
-          handleTextChange(val, elementRef.current!, text)
-        }
+        onChange={(val, text) => editor.handleTextChange(val, text)}
         placeholder={PLACEHOLDERS[level]}
         className={STYLES[level]}
       />
 
-      {showSlashMenu && (
+      {editor.showSlashMenu && (
         <SlashMenu
-          slashMenuIndex={slashMenuIndex}
-          slashMenuCoords={slashMenuCoords}
-          onExecute={executeSlashCommand}
+          slashMenuIndex={editor.slashMenuIndex}
+          slashMenuCoords={editor.slashMenuCoords}
+          onExecute={editor.executeSlashCommand}
         />
       )}
     </div>

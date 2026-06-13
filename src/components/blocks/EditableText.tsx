@@ -5,10 +5,11 @@ import {
   forwardRef,
 } from 'react';
 
-export interface ContentEditableBlockProps {
+export interface EditableTextProps {
   html: string;
   onChange: (html: string, text: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLDivElement>) => void;
   placeholder?: string;
   className?: string;
@@ -16,23 +17,29 @@ export interface ContentEditableBlockProps {
 }
 
 /**
- * A reusable contentEditable wrapper that syncs its innerHTML with React state.
+ * Unified contentEditable component for all text-like blocks.
  *
- * The caret handling for inline format elements (CODE, B, A, etc.) is done by
- * the parent via the shared keyboard hook. This component is intentionally
- * "dumb" — it only renders and reports changes.
+ * Replaces the old mix of <textarea>, <input>, and contentEditable divs.
+ * contentEditable gives us native text selection, copy, cut, and paste —
+ * no custom caret tracking needed.
+ *
+ * This component is intentionally "dumb": it syncs innerHTML from props
+ * and reports user input via onChange. All keyboard logic lives in
+ * the parent's useBlockEditor hook.
  */
-const ContentEditableBlock = forwardRef<
+const EditableText = forwardRef<
   HTMLDivElement,
-  ContentEditableBlockProps
->(function ContentEditableBlock(
-  { html, onChange, onKeyDown, onBlur, placeholder, className, tagName = 'div' },
+  EditableTextProps
+>(function EditableText(
+  { html, onChange, onKeyDown, onPaste, onBlur, placeholder, className, tagName = 'div' },
   ref,
 ) {
   const localRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => localRef.current!);
 
+  // Only set innerHTML when the external value differs from what's already
+  // rendered — this prevents caret jumps during normal typing.
   useEffect(() => {
     if (localRef.current && localRef.current.innerHTML !== html) {
       localRef.current.innerHTML = html;
@@ -40,19 +47,20 @@ const ContentEditableBlock = forwardRef<
   }, [html]);
 
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-    onChange(e.currentTarget.innerHTML, e.currentTarget.innerText);
+    const el = e.currentTarget;
+    onChange(el.innerHTML, el.innerText);
   };
 
-  const isEditorContentEmpty = (value: string) => {
-    const normalized = value
+  // CSS placeholder via ::before pseudo-element on empty content
+  const isEmpty = (function () {
+    const normalized = html
       .replace(/<br\s*\/?>(\s*)/gi, '')
       .replace(/&nbsp;/gi, ' ')
       .replace(/<[^>]*>/g, '')
       .trim();
     return normalized.length === 0;
-  };
+  })();
 
-  const shouldShowPlaceholder = isEditorContentEmpty(html);
   const Tag = tagName as React.ElementType;
 
   return (
@@ -62,9 +70,10 @@ const ContentEditableBlock = forwardRef<
       suppressContentEditableWarning
       onInput={handleInput}
       onKeyDown={onKeyDown}
+      onPaste={onPaste}
       onBlur={onBlur}
       className={`outline-none break-words whitespace-pre-wrap before:pointer-events-none ${
-        shouldShowPlaceholder
+        isEmpty
           ? 'before:content-[attr(data-placeholder)] before:text-[var(--vscode-descriptionForeground)] before:opacity-60'
           : ''
       } ${className}`}
@@ -74,4 +83,4 @@ const ContentEditableBlock = forwardRef<
   );
 });
 
-export default ContentEditableBlock;
+export default EditableText;

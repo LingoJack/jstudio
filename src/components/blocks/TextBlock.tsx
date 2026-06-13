@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import type { TextBlockProps } from './types';
-import ContentEditableBlock from './ContentEditableBlock';
+import EditableText from './EditableText';
 import SlashMenu from './SlashMenu';
 import { useBlockEditor } from './useBlockEditor';
 
 /**
  * TYPE: text — the default paragraph block.
- * Supports inline Markdown formatting (bold, code, wiki-links) on blur.
+ * Uses a unified contentEditable for native text selection, copy, and paste.
  */
 export default function TextBlock({
   block,
-  documents,
   onUpdateBlock,
   onDeleteBlock,
-  onNavigateToDoc,
   onInsertBlockBelow,
   autoFocus,
   onRequestFocusTitle,
@@ -26,72 +24,37 @@ export default function TextBlock({
     setRawText(block.content);
   }, [block.content]);
 
-  useEffect(() => {
-    if (autoFocus && elementRef.current) {
-      elementRef.current.focus();
-      if (elementRef.current.isContentEditable) {
-        const range = document.createRange();
-        range.selectNodeContents(elementRef.current);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-      }
-    }
-  }, [autoFocus]);
-
-  const {
-    showSlashMenu,
-    slashMenuIndex,
-    slashMenuCoords,
-    handleKeyDown,
-    handleTextChange,
-    handleBlur,
-    executeSlashCommand,
-  } = useBlockEditor({
+  const editor = useBlockEditor({
+    blockId: block.id,
     rawText,
     setRawText,
-    documents,
     onUpdateBlock,
     onDeleteBlock,
     onInsertBlockBelow,
     elementRef,
+    autoFocus,
     onRequestFocusTitle,
     onRequestFocusBlock,
   });
 
   return (
     <div className="relative group/text">
-      <div
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          const link = target.closest('.wiki-link');
-          if (link) {
-            e.preventDefault();
-            const docId = link.getAttribute('data-doc-id');
-            if (docId) onNavigateToDoc(docId);
-          }
-        }}
-      >
-        <ContentEditableBlock
-          ref={elementRef as React.RefObject<HTMLDivElement>}
-          tagName="div"
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          html={rawText}
-          onChange={(val, text) =>
-            handleTextChange(val, elementRef.current!, text)
-          }
-          placeholder=""
-          className="w-full text-sm text-[var(--vscode-foreground)] bg-transparent border-none focus:outline-none focus:ring-0 leading-relaxed block"
-        />
-      </div>
+      <EditableText
+        ref={elementRef as React.RefObject<HTMLDivElement>}
+        tagName="div"
+        onKeyDown={editor.handleKeyDown}
+        onPaste={editor.handlePaste}
+        html={rawText}
+        onChange={(val, text) => editor.handleTextChange(val, text)}
+        placeholder="输入 / 唤出命令"
+        className="w-full text-sm text-[var(--vscode-foreground)] bg-transparent border-none focus:outline-none leading-relaxed min-h-[1.5rem] py-0.5"
+      />
 
-      {showSlashMenu && (
+      {editor.showSlashMenu && (
         <SlashMenu
-          slashMenuIndex={slashMenuIndex}
-          slashMenuCoords={slashMenuCoords}
-          onExecute={executeSlashCommand}
+          slashMenuIndex={editor.slashMenuIndex}
+          slashMenuCoords={editor.slashMenuCoords}
+          onExecute={editor.executeSlashCommand}
         />
       )}
     </div>

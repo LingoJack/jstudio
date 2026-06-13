@@ -1,4 +1,5 @@
 import type { Block, BlockType } from '../types';
+import { storage } from '../lib/storage';
 import { scheduleDocumentSave } from './storeHelpers';
 import type { SliceCreator } from './storeHelpers';
 
@@ -119,7 +120,58 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
   },
 
   // ================================================================
-  // asset insertion
+  // image paste — save to document's own assets folder
+  // ================================================================
+  saveImageToDoc: async (blob: Blob, afterBlockId?: string) => {
+    const { activeDocId, activeDoc, documents } = get();
+    if (!activeDocId || !activeDoc) return null;
+
+    // Generate a unique filename
+    const ext = blob.type.split('/')[1] || 'png';
+    const fileName = `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+
+    // Convert blob to byte array
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(arrayBuffer));
+
+    // Save to document's assets folder
+    await storage.saveDocAsset(activeDocId, fileName, bytes);
+
+    const assetPath = `assets/${fileName}`;
+
+    const newBlock: Block = {
+      id: `block-${Date.now()}`,
+      type: 'image',
+      content: assetPath,
+      properties: {
+        imageType: 'asset' as const,
+        caption: '',
+      },
+    };
+
+    let updatedBlocks: Block[];
+    if (afterBlockId) {
+      const idx = activeDoc.blocks.findIndex((b) => b.id === afterBlockId);
+      updatedBlocks = [...activeDoc.blocks];
+      updatedBlocks.splice(idx + 1, 0, newBlock);
+    } else {
+      updatedBlocks = [...activeDoc.blocks, newBlock];
+    }
+
+    const now = new Date().toISOString();
+    const updatedDoc = { ...activeDoc, blocks: updatedBlocks, updatedAt: now };
+    const newDocuments = documents.map((d) =>
+      d.id === activeDoc.id ? updatedDoc : d,
+    );
+
+    set({ activeDoc: updatedDoc, documents: newDocuments });
+    scheduleDocumentSave(updatedDoc);
+
+    return newBlock.id;
+  },
+
+  // ================================================================
+  // asset insertion (legacy global folder)
   // ================================================================
   insertAssetAsBlock: (asset) => {
     const { activeDocId, activeDoc, documents } = get();

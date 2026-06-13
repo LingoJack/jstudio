@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react';
 import type { TextBlockProps } from './types';
+import EditableText from './EditableText';
 import SlashMenu from './SlashMenu';
 import { useBlockEditor } from './useBlockEditor';
 
 /**
  * TYPE: toggle — a foldable section with a title and collapsible body.
+ * Uses EditableText for the title for consistent editing experience.
  */
 export default function ToggleBlock({
   block,
-  documents,
   onUpdateBlock,
   onDeleteBlock,
   onInsertBlockBelow,
@@ -24,33 +25,15 @@ export default function ToggleBlock({
     setRawText(block.content);
   }, [block.content]);
 
-  useEffect(() => {
-    if (autoFocus && elementRef.current) {
-      elementRef.current.focus();
-      const len = (elementRef.current as HTMLInputElement).value?.length ?? 0;
-      try {
-        (elementRef.current as HTMLInputElement).setSelectionRange(len, len);
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [autoFocus]);
-
-  const {
-    showSlashMenu,
-    slashMenuIndex,
-    slashMenuCoords,
-    handleKeyDown,
-    handleTextChange,
-    executeSlashCommand,
-  } = useBlockEditor({
+  const editor = useBlockEditor({
+    blockId: block.id,
     rawText,
     setRawText,
-    documents,
     onUpdateBlock,
     onDeleteBlock,
     onInsertBlockBelow,
     elementRef,
+    autoFocus,
     onRequestFocusTitle,
     onRequestFocusBlock,
   });
@@ -58,7 +41,7 @@ export default function ToggleBlock({
   return (
     <div className="relative">
       <div className="rounded-sm p-3 bg-[var(--vscode-textBlockQuote-background)]">
-        <div className="flex items-center gap-2 cursor-pointer">
+        <div className="flex items-center gap-2">
           <button
             onClick={() =>
               onUpdateBlock({
@@ -68,7 +51,7 @@ export default function ToggleBlock({
                 },
               })
             }
-            className="cursor-pointer text-[var(--vscode-icon-foreground)]"
+            className="cursor-pointer text-[var(--vscode-icon-foreground)] shrink-0"
           >
             {block.properties?.isOpen ? (
               <ChevronDown className="w-4 h-4" />
@@ -77,22 +60,22 @@ export default function ToggleBlock({
             )}
           </button>
 
-          <input
-            data-block-editable="true"
-            ref={elementRef as React.RefObject<HTMLInputElement>}
-            onKeyDown={handleKeyDown}
-            type="text"
-            value={rawText}
-            onChange={(e) => handleTextChange(e.target.value)}
+          <EditableText
+            ref={elementRef as React.RefObject<HTMLDivElement>}
+            tagName="div"
+            onKeyDown={editor.handleKeyDown}
+            onPaste={editor.handlePaste}
+            html={rawText}
+            onChange={(val, text) => editor.handleTextChange(val, text)}
             placeholder="折叠区主题..."
-            className="w-full text-sm font-semibold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none"
+            className="w-full text-sm font-semibold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none min-h-[1.5rem] flex-1"
           />
         </div>
 
         {block.properties?.isOpen && (
           <div className="pl-6 mt-3 pt-3">
             <div className="flex items-start gap-2">
-              <CornerDownRight className="w-4 h-4 text-[var(--vscode-icon-foreground)] opacity-50 mt-1" />
+              <CornerDownRight className="w-4 h-4 text-[var(--vscode-icon-foreground)] opacity-50 mt-1 shrink-0" />
               <textarea
                 value={block.properties?.caption || ''}
                 onChange={(e) =>
@@ -112,11 +95,11 @@ export default function ToggleBlock({
         )}
       </div>
 
-      {showSlashMenu && (
+      {editor.showSlashMenu && (
         <SlashMenu
-          slashMenuIndex={slashMenuIndex}
-          slashMenuCoords={slashMenuCoords}
-          onExecute={executeSlashCommand}
+          slashMenuIndex={editor.slashMenuIndex}
+          slashMenuCoords={editor.slashMenuCoords}
+          onExecute={editor.executeSlashCommand}
         />
       )}
     </div>

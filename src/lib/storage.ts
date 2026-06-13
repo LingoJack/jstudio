@@ -71,7 +71,14 @@ export const storage = {
   deleteDocument: (docId: string) =>
     invoke<void>('delete_document', { docId }),
 
-  // ---- assets ----
+  // ---- document-scoped assets (per-doc folder) ----
+
+  saveDocAsset: (docId: string, fileName: string, data: number[]) =>
+    invoke<string>('save_doc_asset', { docId, fileName, data }),
+  readDocAssetBase64: (docId: string, fileName: string) =>
+    invoke<string>('read_doc_asset_base64', { docId, fileName }),
+
+  // ---- global assets (legacy shared folder) ----
 
   saveAsset: (id: string, data: number[], ext: string) =>
     invoke<string>('save_asset', { assetId: id, data, ext }),
