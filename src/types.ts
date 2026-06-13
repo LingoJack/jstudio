@@ -29,9 +29,25 @@ export interface BlockProperties {
   jsCode?: string; // html-render behavior script
   imageType?: 'url' | 'base64';
   sandboxTheme?: 'light' | 'dark';
+  /**
+   * @deprecated Kept for legacy document compatibility. The new sandbox
+   * auto-detects the preview source; the user no longer picks a "mode".
+   */
   sandboxPreviewMode?: 'html' | 'url' | 'file';
+  /**
+   * @deprecated Kept for legacy document compatibility. Use `sandboxUrl`.
+   */
   sandboxPreviewUrl?: string;
+  /**
+   * @deprecated Kept for legacy document compatibility. Use `sandboxFileName`.
+   */
   sandboxPreviewFileName?: string;
+  /** URL input value of the sandbox. When non-empty, the preview iframe
+   *  loads this URL (auto-prefixed with `https://` if missing). */
+  sandboxUrl?: string;
+  /** Name of the last file loaded into the sandbox. The file contents
+   *  (data URL) are kept in component state only — not persisted. */
+  sandboxFileName?: string;
 }
 
 export interface Block {
