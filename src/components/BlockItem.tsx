@@ -166,14 +166,14 @@ function PresetMenu({ loadPresetIntoSandbox }: PresetMenuProps) {
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
       >
         <Sparkles className="w-3 h-3" />
         Preset
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-30 min-w-[180px] bg-white dark:bg-[#252526] border border-slate-200 dark:border-white/[0.08] shadow-lg rounded-md py-1 text-xs">
+        <div className="absolute left-0 top-full mt-1 z-30 min-w-[180px] bg-[var(--vscode-quickInput-background)] border border-[var(--vscode-widget-border)] shadow-xl rounded-md py-1 text-xs text-[var(--vscode-foreground)]">
           {SANDBOX_PRESETS.map((preset) => (
             <button
               key={preset.name}
@@ -182,7 +182,7 @@ function PresetMenu({ loadPresetIntoSandbox }: PresetMenuProps) {
                 loadPresetIntoSandbox(preset);
                 setOpen(false);
               }}
-              className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-200"
+              className="w-full text-left px-2.5 py-1.5 hover:bg-[var(--vscode-list-hoverBackground)]"
             >
               {preset.name}
             </button>
@@ -238,7 +238,7 @@ function SandboxPreview({
       onDrop={onDrop}
       className={`relative w-full h-[380px] bg-white dark:bg-slate-900 transition-shadow ${
         isDragging
-          ? "ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-[#111111]"
+          ? "ring-2 ring-[var(--vscode-focusBorder)] ring-offset-1 ring-offset-[var(--vscode-editor-background)]"
           : ""
       }`}
     >
@@ -290,8 +290,8 @@ function SandboxPreview({
       )}
 
       {isDragging && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-indigo-500/5">
-          <div className="px-3 py-2 rounded-md bg-indigo-500 text-white text-xs font-medium shadow-lg">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-[var(--vscode-editorWidget-background)]" style={{opacity: 0.5}}>
+          <div className="px-3 py-2 rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] text-xs font-medium shadow-lg">
             Drop a file or URL to preview
           </div>
         </div>
@@ -309,7 +309,7 @@ function PreviewBadge({
 }) {
   const label = kind === "file" ? "File" : kind === "url" ? "Web" : "Code";
   return (
-    <div className="absolute top-2 left-2 pointer-events-none flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-300 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-700/60 max-w-[80%]">
+    <div className="absolute top-2 left-2 pointer-events-none flex items-center gap-1.5 text-[10px] text-[var(--vscode-descriptionForeground)] bg-[var(--vscode-editorWidget-background)] backdrop-blur-sm px-1.5 py-0.5 rounded border border-[var(--vscode-widget-border)] max-w-[80%]">
       <span className="font-semibold uppercase tracking-wide opacity-60">
         {label}
       </span>
@@ -361,7 +361,7 @@ const ContentEditableBlock = forwardRef<HTMLDivElement, {
       onInput={handleInput}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
-      className={`outline-none break-words whitespace-pre-wrap before:pointer-events-none ${shouldShowPlaceholder ? "before:content-[attr(data-placeholder)] before:text-slate-350 dark:before:text-slate-650" : ""} ${className}`}
+      className={`outline-none break-words whitespace-pre-wrap before:pointer-events-none ${shouldShowPlaceholder ? "before:content-[attr(data-placeholder)] before:text-[var(--vscode-descriptionForeground)] before:opacity-60" : ""} ${className}`}
       data-placeholder={placeholder}
       data-block-editable="true"
     />
@@ -1126,7 +1126,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
     // `code` to <code>code</code>
     formatted = formatted.replace(
       /`([^`]+)`/g,
-      '<code class="px-1 py-0.5 mx-0.5 rounded bg-slate-100 dark:bg-white/10 text-pink-500 dark:text-pink-400 font-mono text-[13px]">$1</code>',
+      '<code class="px-1 py-0.5 mx-0.5 rounded bg-[var(--vscode-textCodeBlock-background)] text-[var(--vscode-textPreformat-foreground)] font-mono text-[13px]">$1</code>',
     );
     // [[Wiki]] to link
     formatted = formatted.replace(/\[\[([^\]]+)\]\]/g, (match, titleStr) => {
@@ -1135,7 +1135,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
         (d) => d.title.toLowerCase() === title.toLowerCase(),
       );
       if (matchedDoc) {
-        return `<a href="#" data-doc-id="${matchedDoc.id}" class="wiki-link px-1.5 py-0.5 mx-0.5 rounded bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900 border-b border-indigo-500 font-semibold text-indigo-700 dark:text-indigo-400 cursor-pointer text-xs inline-flex items-center gap-1 transition-colors"><span>${title}</span></a>`;
+        return `<a href="#" data-doc-id="${matchedDoc.id}" class="wiki-link px-1.5 py-0.5 mx-0.5 rounded border-b border-[var(--vscode-textLink-foreground)] font-semibold text-[var(--vscode-textLink-foreground)] cursor-pointer text-xs inline-flex items-center gap-1 transition-colors" style="background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent)"><span>${title}</span></a>`;
       }
       return match;
     });
@@ -1245,7 +1245,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
     const text = rawText;
     if (!text)
       return (
-        <span className="text-slate-300 dark:text-slate-600">
+        <span className="text-[var(--vscode-descriptionForeground)] opacity-50">
           输入回车另起一行，或输入 / 快速唤出组件...
         </span>
       );
@@ -1266,10 +1266,11 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
             <span
               key={index}
               onClick={() => onNavigateToDoc(matchedDoc.id)}
-              className="px-1.5 py-0.5 mx-0.5 rounded bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900 border-b border-indigo-500 font-semibold text-indigo-700 dark:text-indigo-400 cursor-pointer text-xs inline-flex items-center gap-1 transition-colors"
+              className="px-1.5 py-0.5 mx-0.5 rounded border-b border-[var(--vscode-textLink-foreground)] font-semibold text-[var(--vscode-textLink-foreground)] cursor-pointer text-xs inline-flex items-center gap-1 transition-colors"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent)' }}
               title={`点击跳转至：${matchedDoc.title}`}
             >
-              <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
+              <FileText className="w-3 h-3 text-[var(--vscode-textLink-foreground)] shrink-0" />
               <span>{matchedDoc.title}</span>
             </span>
           );
@@ -1277,10 +1278,11 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
           return (
             <span
               key={index}
-              className="px-1.5 py-0.5 mx-0.5 rounded bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-b border-amber-300 dark:border-amber-800 text-xs inline-flex items-center gap-1"
+              className="px-1.5 py-0.5 mx-0.5 rounded text-[var(--vscode-editorWarning-foreground)] border-b border-[var(--vscode-editorWarning-foreground)] text-xs inline-flex items-center gap-1"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 50%, transparent)' }}
               title="此文档未在本地创建，暂时无法点击跳转。"
             >
-              <FileText className="w-3 h-3 text-amber-500 shrink-0" />
+              <FileText className="w-3 h-3 text-[var(--vscode-editorWarning-foreground)] shrink-0" />
               <span>{titleStr} (未创建)</span>
             </span>
           );
@@ -1289,7 +1291,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
         return (
           <strong
             key={index}
-            className="font-bold text-slate-900 dark:text-slate-100"
+            className="font-bold text-[var(--vscode-foreground)]"
           >
             {part.slice(2, -2)}
           </strong>
@@ -1298,7 +1300,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
         return (
           <code
             key={index}
-            className="px-1 py-0.5 mx-0.5 rounded bg-slate-100 dark:bg-white/10 text-pink-500 dark:text-pink-400 font-mono text-[13px]"
+            className="px-1 py-0.5 mx-0.5 rounded bg-[var(--vscode-textCodeBlock-background)] text-[var(--vscode-textPreformat-foreground)] font-mono text-[13px]"
           >
             {part.slice(1, -1)}
           </code>
@@ -1556,7 +1558,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
             html={rawText}
             onChange={(val, text) => handleTextChange(val, elementRef.current!, text)}
             placeholder="主标题 1"
-            className="w-full text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-slate-300"
+            className="w-full text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-[var(--vscode-descriptionForeground)]"
           />
         )}
 
@@ -1569,7 +1571,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
             html={rawText}
             onChange={(val, text) => handleTextChange(val, elementRef.current!, text)}
             placeholder="主题分类 2"
-            className="w-full text-xl font-bold text-slate-900 dark:text-slate-150 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-slate-300"
+            className="w-full text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-[var(--vscode-descriptionForeground)]"
           />
         )}
 
@@ -1582,7 +1584,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
             html={rawText}
             onChange={(val, text) => handleTextChange(val, elementRef.current!, text)}
             placeholder="小标题 3"
-            className="w-full text-lg font-semibold text-slate-800 dark:text-slate-200 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-slate-300"
+            className="w-full text-lg font-semibold text-slate-800 dark:text-slate-200 tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 placeholder-[var(--vscode-descriptionForeground)]"
           />
         )}
 
@@ -1608,7 +1610,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
               html={rawText}
               onChange={(val, text) => handleTextChange(val, elementRef.current!, text)}
               placeholder=""
-              className="w-full text-sm text-slate-700 dark:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0 leading-relaxed block"
+              className="w-full text-sm text-[var(--vscode-foreground)] bg-transparent border-none focus:outline-none focus:ring-0 leading-relaxed block"
             />
           </div>
         )}
@@ -2085,7 +2087,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
 
         {/* TYPE 12: TLDRAW WHITEBOARD */}
         {block.type === "whiteboard" && (
-          <div className="h-[500px] w-full border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden relative bg-white dark:bg-black">
+          <div className="h-[500px] w-full border border-[var(--vscode-widget-border)] rounded-md overflow-hidden relative bg-white dark:bg-black">
             <Tldraw persistenceKey={`tldraw-${block.id}`} />
           </div>
         )}
@@ -2093,7 +2095,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
         {/* 3. Slash Menu `/` Floating Commands Menu Popover */}
         {showSlashMenu && (
           <div
-            className="absolute z-50 mt-2 w-56 rounded-sm bg-white dark:bg-[#252526] border border-slate-200 dark:border-white/[0.08] shadow-lg overflow-hidden text-slate-700 dark:text-slate-300 p-1"
+            className="absolute z-50 mt-2 w-56 rounded-md bg-[var(--vscode-quickInput-background)] border border-[var(--vscode-widget-border)] shadow-xl overflow-hidden text-[var(--vscode-foreground)] p-1"
             style={{
               top: slashMenuCoords ? slashMenuCoords.top : "100%",
               left: slashMenuCoords
@@ -2111,17 +2113,17 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                     onClick={() => executeSlashCommand(cmd.type as BlockType)}
                     className={`cursor-pointer w-full text-left px-3 py-1.5 flex items-center gap-2.5 transition-colors text-xs font-medium ${
                       isSelected
-                        ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
-                        : "hover:bg-slate-100 dark:hover:bg-white/5"
+                        ? "bg-[var(--vscode-list-activeSelectionBackground)] text-white"
+                        : "hover:bg-[var(--vscode-list-hoverBackground)]"
                     }`}
                     id={`slash-cmd-${cmd.type}`}
                   >
                     <IconComp
-                      className={`w-3.5 h-3.5 ${isSelected ? "text-indigo-500 dark:text-indigo-400" : "text-slate-400"}`}
+                      className={`w-3.5 h-3.5 ${isSelected ? "text-white" : "text-[var(--vscode-descriptionForeground)]"}`}
                     />
                     <span>{cmd.label}</span>
                     {isSelected && (
-                      <span className="ml-auto text-[9px] text-indigo-400 dark:text-indigo-500">
+                      <span className="ml-auto text-[9px] text-white opacity-70">
                         ↵
                       </span>
                     )}

@@ -2,22 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LocalAsset } from '../types';
 import {
   Folder,
-  File,
   Image as ImageIcon,
-  Plus,
+  Search,
   Trash2,
   Copy,
-  Download,
-  Search,
-  ChevronRight,
-  FolderOpen,
   ArrowRight,
   X,
   FileSpreadsheet,
   FileText,
   Database,
   ArrowUpToLine,
-  Check
+  Check,
+  FolderOpen,
 } from 'lucide-react';
 
 // Pre-packaged gorgeous vector design representing of OmniNote Architecture
@@ -67,17 +63,16 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
   const [assets, setAssets] = useState<LocalAsset[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'images' | 'docs'>('all');
-  const [activeFolder, setActiveFolder] = useState<string>('root'); // 'root', 'images', 'attachments'
+  const [activeFolder, setActiveFolder] = useState<string>('root');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load physical workspace folder persistence
   useEffect(() => {
     const saved = localStorage.getItem('omninote_assets');
     if (saved) {
       try {
         setAssets(JSON.parse(saved));
-      } catch (e) {
+      } catch {
         setAssets(INITIAL_ASSETS);
       }
     } else {
@@ -91,7 +86,6 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
     localStorage.setItem('omninote_assets', JSON.stringify(updated));
   };
 
-  // Convert real file uploads to encrypted simulated Base64 physical cache
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -112,15 +106,12 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
         createdAt: new Date().toISOString(),
         content: b64,
       };
-
-      const updated = [newAsset, ...assets];
-      saveAssets(updated);
+      saveAssets([newAsset, ...assets]);
     };
 
     if (file.type.startsWith('image/') || file.type.startsWith('text/')) {
       reader.readAsDataURL(file);
     } else {
-      // Just simulate upload
       reader.onload = () => {
         const newAsset: LocalAsset = {
           id: `asset-${Date.now()}`,
@@ -130,13 +121,11 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
           createdAt: new Date().toISOString(),
           content: '',
         };
-        const updated = [newAsset, ...assets];
-        saveAssets(updated);
+        saveAssets([newAsset, ...assets]);
       };
-      reader.readAsText(file); // trigger read
+      reader.readAsText(file);
     }
 
-    // Reset file input value
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -183,191 +172,142 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
     }
   };
 
-  // Delete physical files
   const handleDeleteAsset = (id: string, name: string) => {
     if (confirm(`确定要将附件「${name}」从本地硬盘及缓存中彻底物理删除吗？`)) {
-      const updated = assets.filter((f) => f.id !== id);
-      saveAssets(updated);
+      saveAssets(assets.filter((f) => f.id !== id));
     }
   };
 
-  // Copy references
   const handleCopyRef = (asset: LocalAsset) => {
     const refCode = asset.type.startsWith('image/')
       ? `![${asset.name}](${asset.content || '(Base64_Payload_Too_Large)'})`
       : `[附件:${asset.name}](${asset.size})`;
-    
     navigator.clipboard.writeText(refCode);
     setCopiedId(asset.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // File type icon distributor
   const getFileIcon = (type: string, name: string) => {
-    if (type.startsWith('image/')) return <ImageIcon className="w-4 h-4 text-emerald-500" />;
-    if (name.endsWith('.sql') || name.endsWith('.db')) return <Database className="w-4 h-4 text-indigo-500" />;
-    if (name.endsWith('.csv') || name.endsWith('.xlsx')) return <FileSpreadsheet className="w-4 h-4 text-green-500" />;
-    return <FileText className="w-4 h-4 text-indigo-400" />;
+    if (type.startsWith('image/')) return <ImageIcon className="w-4 h-4 text-[var(--vscode-symbolIcon-eventForeground)]" />;
+    if (name.endsWith('.sql') || name.endsWith('.db')) return <Database className="w-4 h-4 text-[var(--vscode-symbolIcon-namespaceForeground)]" />;
+    if (name.endsWith('.csv') || name.endsWith('.xlsx')) return <FileSpreadsheet className="w-4 h-4 text-[var(--vscode-terminal-ansiGreen)]" />;
+    return <FileText className="w-4 h-4 text-[var(--vscode-symbolIcon-fileForeground)]" />;
   };
 
-  // Filter based on folders and searches
   const filteredCategoryAssets = assets.filter((asset) => {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
-
-    // Filter folder
-    if (activeFolder === 'images') {
-      return asset.type.startsWith('image/');
-    }
-    if (activeFolder === 'attachments') {
-      return !asset.type.startsWith('image/');
-    }
-
-    // Filter categorization tabs when viewing "all" folders
-    if (activeTab === 'images') {
-      return asset.type.startsWith('image/');
-    }
-    if (activeTab === 'docs') {
-      return !asset.type.startsWith('image/');
-    }
-
+    if (activeFolder === 'images') return asset.type.startsWith('image/');
+    if (activeFolder === 'attachments') return !asset.type.startsWith('image/');
+    if (activeTab === 'images') return asset.type.startsWith('image/');
+    if (activeTab === 'docs') return !asset.type.startsWith('image/');
     return true;
   });
 
-  // Folder statistical indicators
   const imagesCount = assets.filter((a) => a.type.startsWith('image/')).length;
   const attachmentsCount = assets.filter((a) => !a.type.startsWith('image/')).length;
 
+  const folderBtnBase = 'cursor-pointer px-1 py-1.5 rounded-md border flex flex-col items-center justify-center transition-colors duration-150';
+  const folderBtnActive = 'bg-[var(--vscode-list-activeSelectionBackground)] border-[var(--vscode-list-activeSelectionBackground)] text-white font-medium';
+  const folderBtnInactive = 'bg-[var(--vscode-editor-background)] border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-list-activeSelectionBackground)]';
+
+  const tabBtnBase = 'flex-1 py-1 rounded-sm transition-colors';
+  const tabBtnActive = 'bg-[var(--vscode-list-activeSelectionBackground)] font-medium text-white';
+  const tabBtnInactive = 'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+
   return (
-    <div className="absolute right-2 top-12 bottom-2 w-[min(22rem,calc(100vw-1rem))] bg-white dark:bg-[#252526] border border-slate-200 dark:border-white/[0.08] flex flex-col z-40 select-none rounded-sm shadow-lg overflow-hidden">
-      
-      {/* Drawer Title Header */}
-      <div className="px-3 py-2 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between bg-[#f3f3f3] dark:bg-[#1e1e1e]">
+    <div className="absolute right-2 top-12 bottom-2 w-[min(22rem,calc(100vw-1rem))] bg-[var(--vscode-sideBar-background)] border border-[var(--vscode-widget-border)] flex flex-col z-40 select-none rounded-lg shadow-xl overflow-hidden">
+
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-[var(--vscode-widget-border)] flex items-center justify-between bg-[var(--vscode-sideBarSectionHeader-background)]">
         <div className="flex items-center gap-2">
-          <FolderOpen className="w-4 h-4 text-slate-500" />
+          <FolderOpen className="w-4 h-4 text-[var(--vscode-descriptionForeground)]" />
           <div>
-            <h3 className="font-semibold text-xs text-slate-800 dark:text-slate-100">本地共享文件夹</h3>
-            <p className="text-[9px] text-slate-500 dark:text-slate-400">/assets/ (物理脱机暂存目录)</p>
+            <h3 className="font-semibold text-xs text-[var(--vscode-sideBarTitle-foreground)]">本地共享文件夹</h3>
+            <p className="text-[9px] text-[var(--vscode-descriptionForeground)]">/assets/ (物理脱机暂存目录)</p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="cursor-pointer p-1 rounded-sm hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-colors duration-150 text-slate-500 dark:text-slate-300 hover:text-red-500"
+          className="cursor-pointer p-1 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors duration-150 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)]"
           title="关闭文件夹面板"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Directory Folders Browser Selector Row */}
-      <div className="p-2 border-b border-slate-200 dark:border-white/[0.08] flex flex-col gap-1.5 bg-[#f3f3f3] dark:bg-[#1e1e1e]">
-        <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">目录浏览 (Directories)</div>
+      {/* Directory selector */}
+      <div className="p-2 border-b border-[var(--vscode-widget-border)] flex flex-col gap-1.5 bg-[var(--vscode-sideBarSectionHeader-background)]">
+        <div className="text-[10px] uppercase font-semibold text-[var(--vscode-descriptionForeground)]">目录浏览 (Directories)</div>
         <div className="grid grid-cols-3 gap-1">
           <button
             onClick={() => { setActiveFolder('root'); setActiveTab('all'); }}
-            className={`cursor-pointer px-1 py-1.5 rounded-sm border flex flex-col items-center justify-center transition-colors duration-150 ${
-              activeFolder === 'root'
-                ? 'bg-[#0e639c]/10 border-[#0e639c]/50 text-[#0e639c] dark:text-[#4fc3f7] font-medium'
-                : 'bg-white dark:bg-[#2d2d2d] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-[#0e639c]/40'
-            }`}
+            className={`${folderBtnBase} ${activeFolder === 'root' ? folderBtnActive : folderBtnInactive}`}
           >
-            <Folder className="w-4 h-4 text-slate-500 mb-0.5" />
+            <Folder className="w-4 h-4 mb-0.5" />
             <span className="text-[9px] truncate w-full text-center">/assets/</span>
           </button>
-
           <button
             onClick={() => setActiveFolder('images')}
-            className={`cursor-pointer px-1 py-1.5 rounded-sm border flex flex-col items-center justify-center transition-colors duration-150 ${
-              activeFolder === 'images'
-                ? 'bg-[#0e639c]/10 border-[#0e639c]/50 text-[#0e639c] dark:text-[#4fc3f7] font-medium'
-                : 'bg-white dark:bg-[#2d2d2d] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-[#0e639c]/40'
-            }`}
+            className={`${folderBtnBase} ${activeFolder === 'images' ? folderBtnActive : folderBtnInactive}`}
           >
-            <ImageIcon className="w-4 h-4 text-emerald-500 mb-0.5" />
+            <ImageIcon className="w-4 h-4 mb-0.5" />
             <span className="text-[9px] truncate w-full text-center">/images ({imagesCount})</span>
           </button>
-
           <button
             onClick={() => setActiveFolder('attachments')}
-            className={`cursor-pointer px-1 py-1.5 rounded-sm border flex flex-col items-center justify-center transition-colors duration-150 ${
-              activeFolder === 'attachments'
-                ? 'bg-[#0e639c]/10 border-[#0e639c]/50 text-[#0e639c] dark:text-[#4fc3f7] font-medium'
-                : 'bg-white dark:bg-[#2d2d2d] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-[#0e639c]/40'
-            }`}
+            className={`${folderBtnBase} ${activeFolder === 'attachments' ? folderBtnActive : folderBtnInactive}`}
           >
-            <Folder className="w-4 h-4 text-amber-500 mb-0.5" />
+            <Folder className="w-4 h-4 mb-0.5" />
             <span className="text-[9px] truncate w-full text-center">/attachments ({attachmentsCount})</span>
           </button>
         </div>
       </div>
 
-      {/* Directory files list filters */}
-      <div className="p-2 border-b border-slate-200 dark:border-white/[0.08] space-y-1.5 bg-[#f3f3f3] dark:bg-[#1e1e1e]">
-        
-        {/* Local Search */}
+      {/* Filters */}
+      <div className="p-2 border-b border-[var(--vscode-widget-border)] space-y-1.5 bg-[var(--vscode-sideBarSectionHeader-background)]">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--vscode-descriptionForeground)]" />
           <input
             type="text"
             placeholder="搜索物理文件夹中缓存..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full text-[11px] pl-7 pr-2 py-1.5 rounded-sm border border-slate-300 dark:border-white/[0.10] bg-white dark:bg-[#3c3c3c] text-slate-800 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0e639c] transition-colors duration-150"
+            className="w-full text-[11px] pl-7 pr-2 py-1.5 rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:outline-none focus:border-[var(--vscode-focusBorder)] transition-colors duration-150"
           />
         </div>
 
-        {/* Categories Tab selectors (Only visible in root mode) */}
         {activeFolder === 'root' && (
-          <div className="flex bg-white dark:bg-[#2d2d2d] p-0.5 rounded-sm border border-slate-200 dark:border-white/[0.08] text-[10px]">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`flex-1 py-1 rounded-sm ${
-                activeTab === 'all'
-                  ? 'bg-[#e8e8e8] dark:bg-[#37373d] font-medium text-[#0e639c] dark:text-[#4fc3f7]'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`}
-            >
+          <div className="flex bg-[var(--vscode-editor-background)] p-0.5 rounded border border-[var(--vscode-widget-border)] text-[10px]">
+            <button onClick={() => setActiveTab('all')} className={`${tabBtnBase} ${activeTab === 'all' ? tabBtnActive : tabBtnInactive}`}>
               全部 ({assets.length})
             </button>
-            <button
-              onClick={() => setActiveTab('images')}
-              className={`flex-1 py-1 rounded-sm ${
-                activeTab === 'images'
-                  ? 'bg-[#e8e8e8] dark:bg-[#37373d] font-medium text-[#0e639c] dark:text-[#4fc3f7]'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`}
-            >
+            <button onClick={() => setActiveTab('images')} className={`${tabBtnBase} ${activeTab === 'images' ? tabBtnActive : tabBtnInactive}`}>
               图片库 ({imagesCount})
             </button>
-            <button
-              onClick={() => setActiveTab('docs')}
-              className={`flex-1 py-1 rounded-sm ${
-                activeTab === 'docs'
-                  ? 'bg-[#e8e8e8] dark:bg-[#37373d] font-medium text-[#0e639c] dark:text-[#4fc3f7]'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`}
-            >
+            <button onClick={() => setActiveTab('docs')} className={`${tabBtnBase} ${activeTab === 'docs' ? tabBtnActive : tabBtnInactive}`}>
               附件 ({attachmentsCount})
             </button>
           </div>
         )}
       </div>
 
-      {/* Directory listing stream container */}
+      {/* File list */}
       <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         className="flex-1 overflow-y-auto p-2 space-y-1.5 bg-transparent"
       >
-        {/* Drag over Dropzone feedback info card */}
-        <div className="p-2.5 mb-1 bg-[#0e639c]/5 dark:bg-[#0e639c]/10 rounded-sm border border-dashed border-[#0e639c]/30 text-center relative hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+        {/* Dropzone */}
+        <div
+          className="p-2.5 mb-1 bg-[var(--vscode-list-hoverBackground)] rounded border border-dashed border-[var(--vscode-list-activeSelectionBackground)] text-center relative hover:bg-[var(--vscode-editorWidget-background)] transition-colors cursor-pointer"
           onClick={() => fileInputRef.current?.click()}
         >
-          <ArrowUpToLine className="w-4 h-4 text-[#0e639c] dark:text-[#4fc3f7] mx-auto mb-1" />
-          <p className="text-[10px] text-slate-600 dark:text-slate-300 font-medium leading-normal">
+          <ArrowUpToLine className="w-4 h-4 text-[var(--vscode-list-activeSelectionForeground)] mx-auto mb-1" />
+          <p className="text-[10px] text-[var(--vscode-foreground)] font-medium leading-normal">
             点击或拖放本地任意图片/工程文件附件至此
           </p>
-          <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-[9px] text-[var(--vscode-descriptionForeground)] mt-0.5">
             物理落盘到模拟 assets/ 独立数据库
           </p>
           <input
@@ -379,8 +319,8 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
           />
         </div>
 
-        {/* Current Folder Path Header Indicator */}
-        <div className="text-[9px] text-slate-500 dark:text-slate-400 px-1 py-0.5 flex items-center gap-1">
+        {/* Path header */}
+        <div className="text-[9px] text-[var(--vscode-descriptionForeground)] px-1 py-0.5 flex items-center gap-1">
           <span>文件列表</span>
           <span>/</span>
           <span className="font-medium underline">
@@ -389,11 +329,11 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
           <span>({filteredCategoryAssets.length} 项)</span>
         </div>
 
-        {/* Loop Asset Items */}
+        {/* Asset items */}
         {filteredCategoryAssets.length === 0 ? (
           <div className="py-8 text-center space-y-1.5">
-            <Folder className="w-7 h-7 text-slate-400 dark:text-slate-600 mx-auto opacity-50" />
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">
+            <Folder className="w-7 h-7 text-[var(--vscode-descriptionForeground)] mx-auto opacity-40" />
+            <p className="text-[10px] text-[var(--vscode-descriptionForeground)] mt-2">
               该文件夹下空空如也
             </p>
           </div>
@@ -401,19 +341,19 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
           filteredCategoryAssets.map((asset) => (
             <div
               key={asset.id}
-              className="p-2.5 bg-white dark:bg-[#2d2d2d] border border-slate-200 dark:border-white/[0.08] hover:border-[#0e639c]/40 rounded-sm hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors duration-150 text-xs flex flex-col gap-2 group"
+              className="p-2.5 bg-[var(--vscode-editor-background)] border border-[var(--vscode-widget-border)] hover:border-[var(--vscode-list-activeSelectionBackground)] rounded-md hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 text-xs flex flex-col gap-2 group"
               id={`asset-file-${asset.id}`}
             >
               <div className="flex items-start justify-between gap-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-sm bg-slate-100 dark:bg-black/30 flex items-center justify-center shrink-0 border border-slate-200 dark:border-white/[0.06]">
+                  <div className="w-7 h-7 rounded bg-[var(--vscode-editorWidget-background)] flex items-center justify-center shrink-0 border border-[var(--vscode-widget-border)]">
                     {getFileIcon(asset.type, asset.name)}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-medium text-slate-800 dark:text-slate-100 truncate" title={asset.name}>
+                    <div className="font-medium text-[var(--vscode-foreground)] truncate" title={asset.name}>
                       {asset.name}
                     </div>
-                    <div className="text-[9px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                    <div className="text-[9px] text-[var(--vscode-descriptionForeground)] font-mono flex items-center gap-1.5 mt-0.5">
                       <span>{asset.size}</span>
                       <span>•</span>
                       <span>{new Date(asset.createdAt).toLocaleDateString()}</span>
@@ -423,35 +363,34 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
 
                 <button
                   onClick={() => handleDeleteAsset(asset.id, asset.name)}
-                  className="cursor-pointer text-slate-500 hover:text-red-500 p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                   title="删除物理附件"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Thumbnail image previews directly in the folder viewer */}
               {asset.type.startsWith('image/') && asset.content && (
-                <div className="rounded-sm overflow-hidden border border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-black/20 p-1 max-h-24 flex items-center justify-center">
+                <div className="rounded overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-1 max-h-24 flex items-center justify-center">
                   <img
                     src={asset.content}
                     alt={asset.name}
-                    className="max-h-20 max-w-full object-contain rounded-sm"
+                    className="max-h-20 max-w-full object-contain rounded"
                   />
                 </div>
               )}
 
-              {/* Action shortcuts docked cleanly inside element */}
-              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200 dark:border-white/[0.08]">
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-[var(--vscode-widget-border)]">
                 <button
                   onClick={() => handleCopyRef(asset)}
-                  className="cursor-pointer bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.10] text-[10px] text-slate-700 dark:text-slate-300 py-1 px-1.5 rounded-sm border border-slate-200 dark:border-white/[0.08] flex items-center justify-center gap-1.5 transition-colors font-medium"
+                  className="cursor-pointer bg-[var(--vscode-button-secondaryBackground)] hover:bg-[var(--vscode-button-secondaryHoverBackground)] text-[10px] text-[var(--vscode-button-secondaryForeground)] py-1 px-1.5 rounded border border-[var(--vscode-widget-border)] flex items-center justify-center gap-1.5 transition-colors font-medium"
                   title="拷贝该附件的 Markdown 或是 Wiki 等引用语法"
                 >
                   {copiedId === asset.id ? (
                     <>
-                      <Check className="w-3 h-3 text-emerald-500" />
-                      <span className="text-emerald-600 dark:text-emerald-400">已拷贝</span>
+                      <Check className="w-3 h-3 text-[var(--vscode-terminal-ansiGreen)]" />
+                      <span className="text-[var(--vscode-terminal-ansiGreen)]">已拷贝</span>
                     </>
                   ) : (
                     <>
@@ -463,7 +402,7 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
 
                 <button
                   onClick={() => onInsertAsset(asset)}
-                  className="cursor-pointer bg-[#0e639c]/10 hover:bg-[#0e639c]/20 dark:bg-[#0e639c]/20 dark:hover:bg-[#0e639c]/30 text-[10px] text-[#0e639c] dark:text-[#4fc3f7] py-1 px-1.5 rounded-sm border border-[#0e639c]/20 dark:border-[#0e639c]/30 flex items-center justify-center gap-1.5 transition-colors font-medium"
+                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[10px] text-[var(--vscode-button-foreground)] py-1 px-1.5 rounded flex items-center justify-center gap-1.5 transition-colors font-medium"
                   title="将该媒体图片/附件一键置入当前文档末尾进行双链绑定"
                 >
                   <ArrowRight className="w-3 h-3" />
@@ -475,16 +414,16 @@ export default function LocalFolder({ onInsertAsset, onClose }: LocalFolderProps
         )}
       </div>
 
-      {/* Directory capacity progress indicator */}
-      <div className="p-2 border-t border-slate-200 dark:border-white/[0.08] bg-[#f3f3f3] dark:bg-[#1e1e1e] text-[10px] space-y-1">
-        <div className="flex justify-between font-mono text-slate-500 dark:text-slate-400">
+      {/* Capacity footer */}
+      <div className="p-2 border-t border-[var(--vscode-widget-border)] bg-[var(--vscode-sideBarSectionHeader-background)] text-[10px] space-y-1">
+        <div className="flex justify-between font-mono text-[var(--vscode-descriptionForeground)]">
           <span>Tauri Folder Limit</span>
           <span className="font-medium">6.2 MB / 50 MB (12%)</span>
         </div>
-        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 overflow-hidden">
-          <div className="bg-[#0e639c] h-1 rounded-full" style={{ width: '12%' }}></div>
+        <div className="w-full bg-[var(--vscode-editorWidget-background)] rounded-full h-1 overflow-hidden">
+          <div className="bg-[var(--vscode-list-activeSelectionBackground)] h-1 rounded-full" style={{ width: '12%' }}></div>
         </div>
-        <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-normal">
+        <p className="text-[9px] text-[var(--vscode-descriptionForeground)] leading-normal">
           注: 本地文档引擎支持图片/音视频任意附件挂载，体积受本地独立沙盒配额限制。
         </p>
       </div>

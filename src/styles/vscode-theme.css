@@ -99,6 +99,27 @@
   --vscode-token-markup-italic: #800080;
   --vscode-token-markup-raw: #800000;
   --vscode-token-controlKeyword: #AF00DB;
+
+  /* Additional UI Tokens */
+  --vscode-list-activeSelectionForeground: #3B3B3B;
+  --vscode-toolbar-hoverBackground: #E5E5E5;
+  --vscode-toolbar-activeBackground: #E0E0E0;
+  --vscode-sideBarTitle-foreground: #3B3B3B;
+  --vscode-sideBarSectionHeader-background: #F0F0F0;
+  --vscode-sideBarSectionHeader-foreground: #3B3B3B;
+  --vscode-sideBarSectionHeader-border: #E5E5E5;
+  --vscode-input-placeholderForeground: #868686;
+  --vscode-button-secondaryBackground: #EDEDED;
+  --vscode-button-secondaryHoverBackground: #E0E0E0;
+  --vscode-button-secondaryForeground: #3B3B3B;
+  --vscode-editorWarning-foreground: #855A00;
+  --vscode-editorInfo-foreground: #05838B;
+  --vscode-symbolIcon-eventForeground: #C3672C;
+  --vscode-symbolIcon-namespaceForeground: #672179;
+  --vscode-symbolIcon-fileForeground: #007ACC;
+  --vscode-symbolIcon-folderForeground: #C09553;
+  --vscode-terminal-ansiGreen: #00BC00;
+  --vscode-terminal-ansiBlue: #0451A5;
 }
 
 .dark {
@@ -194,6 +215,27 @@
   --vscode-token-markup-italic: #C586C0;
   --vscode-token-markup-raw: #CE9178;
   --vscode-token-controlKeyword: #C586C0;
+
+  /* Additional UI Tokens */
+  --vscode-list-activeSelectionForeground: #FFFFFF;
+  --vscode-toolbar-hoverBackground: #404040;
+  --vscode-toolbar-activeBackground: #505050;
+  --vscode-sideBarTitle-foreground: #CCCCCC;
+  --vscode-sideBarSectionHeader-background: #1F1F1F;
+  --vscode-sideBarSectionHeader-foreground: #CCCCCC;
+  --vscode-sideBarSectionHeader-border: #2B2B2B;
+  --vscode-input-placeholderForeground: #6E6E6E;
+  --vscode-button-secondaryBackground: #3A3D41;
+  --vscode-button-secondaryHoverBackground: #4A4D51;
+  --vscode-button-secondaryForeground: #FFFFFF;
+  --vscode-editorWarning-foreground: #CCA700;
+  --vscode-editorInfo-foreground: #3794FF;
+  --vscode-symbolIcon-eventForeground: #EE9D28;
+  --vscode-symbolIcon-namespaceForeground: #B4009E;
+  --vscode-symbolIcon-fileForeground: #75BEFF;
+  --vscode-symbolIcon-folderForeground: #D4A259;
+  --vscode-terminal-ansiGreen: #4EC9B0;
+  --vscode-terminal-ansiBlue: #6796E6;
 }
 
 /* ============================================
@@ -500,17 +542,11 @@ pre[class*="language-"] {
    ============================================ */
 
 :focus {
-  outline: 2px solid var(--vscode-focusBorder);
-  outline-offset: -2px;
-}
-
-:focus:not(:focus-visible) {
   outline: none;
 }
 
 :focus-visible {
-  outline: 2px solid var(--vscode-focusBorder);
-  outline-offset: -2px;
+  outline: none;
 }
 
 ::selection {
@@ -550,19 +586,13 @@ blockquote {
 input,
 textarea,
 select {
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border);
-  color: var(--vscode-input-foreground);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 13px;
+  font-family: inherit;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 1px solid var(--vscode-focusBorder);
-  border-color: var(--vscode-focusBorder);
+  outline: none;
 }
 
 input::placeholder {
@@ -571,17 +601,8 @@ input::placeholder {
 }
 
 button {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  padding: 6px 14px;
-  border-radius: 4px;
-  font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
-}
-
-button:hover {
-  background: var(--vscode-button-hoverBackground);
 }
 
 /* ============================================
