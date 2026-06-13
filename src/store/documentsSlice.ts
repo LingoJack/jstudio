@@ -41,6 +41,34 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         // index.json doesn't exist yet
       }
 
+      // Clean up legacy preset documents from earlier versions.
+      // These IDs were hardcoded in the old defaultData.ts and should
+      // no longer appear for users who want a clean start.
+      const LEGACY_PRESET_IDS = [
+        'doc-welcome',
+        'doc-shortcuts',
+        'doc-canvas-lab',
+      ];
+      if (index.length > 0) {
+        const filtered = index.filter(
+          (m) => !LEGACY_PRESET_IDS.includes(m.id),
+        );
+        if (filtered.length !== index.length) {
+          // Delete the old document files and rebuild the index
+          for (const old of index) {
+            if (LEGACY_PRESET_IDS.includes(old.id)) {
+              try {
+                await storage.deleteDocument(old.id);
+              } catch {
+                // best-effort cleanup
+              }
+            }
+          }
+          index = filtered;
+          await storage.saveIndex(index);
+        }
+      }
+
       // If still empty, create a single blank document
       if (!index || index.length === 0) {
         const blankDoc: Document = {

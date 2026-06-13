@@ -1,4 +1,6 @@
 /** Blocks barrel export */
+export { default as BlockHandle } from './BlockHandle';
+export { default as BlockContextMenu } from './BlockContextMenu';
 export { default as BlockRouter } from './BlockRouter';
 export { default as SlashMenu } from './SlashMenu';
 export { default as EditableText } from './EditableText';

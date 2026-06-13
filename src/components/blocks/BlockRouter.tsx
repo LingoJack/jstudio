@@ -12,6 +12,7 @@ import WhiteboardBlock from './WhiteboardBlock';
 import CodeBlockWrapper from './CodeBlockWrapper';
 import WebEmbedBlock from './WebEmbedBlock';
 import AttachmentBlock from './AttachmentBlock';
+import BlockHandle from './BlockHandle';
 
 /**
  * Maps each block type to its component.
@@ -26,15 +27,13 @@ const HEADING_LEVELS: Record<string, 1 | 2 | 3> = {
 
 /**
  * The central dispatcher. Given a `block`, renders the appropriate
- * sub-component. This replaces the 1400-line BlockItem's giant
- * `if/else` chain.
- *
- * The outer wrapper div carries the `data-block-id` attribute used by
- * keyboard-navigation logic in `useBlockEditor` to find sibling blocks.
+ * sub-component, wrapped in a Notion-style layout with hover controls
+ * (BlockHandle: + and ⋮⋮ buttons on the left).
  */
 function BlockRouterInner({
   block,
   forwardedRef,
+  onDuplicateBlock,
   ...rest
 }: BlockRouterProps) {
   const type = block.type as BlockType;
@@ -93,7 +92,6 @@ function BlockRouterInner({
         );
         break;
       default:
-        // Unknown type → render as plain text fallback
         content = <TextBlock {...rest} block={block} />;
     }
   }
@@ -105,6 +103,16 @@ function BlockRouterInner({
       data-block-type={type}
       className="block-wrapper group/block relative"
     >
+      {/* Notion-style hover controls: [+] and [⋮⋮] on the left */}
+      <BlockHandle
+        blockType={type}
+        onAddBelow={() => rest.onInsertBlockBelow('text')}
+        onDelete={() => rest.onDeleteBlock()}
+        onDuplicate={() => onDuplicateBlock?.()}
+        onConvertTo={(newType) =>
+          rest.onUpdateBlock({ type: newType, properties: {} })
+        }
+      />
       {content}
     </div>
   );

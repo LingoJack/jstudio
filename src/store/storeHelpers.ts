@@ -55,6 +55,7 @@ export interface StoreState {
   deleteBlock: (blockId: string, mergeContent?: string) => void;
   insertBlockBelow: (blockId: string, type: BlockType) => void;
   appendBlockAtEnd: (type: BlockType) => void;
+  duplicateBlock: (blockId: string) => void;
 
   // — asset insertion (editor slice) —
   insertAssetAsBlock: (asset: {

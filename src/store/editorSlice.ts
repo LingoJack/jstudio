@@ -120,6 +120,36 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
   },
 
   // ================================================================
+  // duplicate block — insert a copy of the block right below itself
+  // ================================================================
+  duplicateBlock: (blockId: string) => {
+    const { activeDoc, documents } = get();
+    if (!activeDoc) return;
+
+    const idx = activeDoc.blocks.findIndex((b) => b.id === blockId);
+    if (idx === -1) return;
+
+    const original = activeDoc.blocks[idx];
+    const copy: Block = {
+      ...original,
+      id: `block-${Date.now()}`,
+      properties: { ...original.properties },
+    };
+
+    const newBlocks = [...activeDoc.blocks];
+    newBlocks.splice(idx + 1, 0, copy);
+
+    const now = new Date().toISOString();
+    const updatedDoc = { ...activeDoc, blocks: newBlocks, updatedAt: now };
+    const newDocuments = documents.map((d) =>
+      d.id === activeDoc.id ? updatedDoc : d,
+    );
+
+    set({ activeDoc: updatedDoc, documents: newDocuments });
+    scheduleDocumentSave(updatedDoc);
+  },
+
+  // ================================================================
   // image paste — save to document's own assets folder
   // ================================================================
   saveImageToDoc: async (blob: Blob, afterBlockId?: string) => {

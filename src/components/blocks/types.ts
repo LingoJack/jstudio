@@ -15,6 +15,7 @@ export interface BaseBlockProps {
   onDeleteBlock: (mergeContent?: string) => void;
   onNavigateToDoc: (docId: string) => void;
   onInsertBlockBelow: (type: BlockType) => void;
+  onDuplicateBlock?: () => void;
   autoFocus?: boolean;
   onRequestFocusTitle?: () => boolean;
   onRequestFocusBlock?: (offset: number) => boolean;

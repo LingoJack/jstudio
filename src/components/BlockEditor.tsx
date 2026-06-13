@@ -11,6 +11,7 @@ export default function BlockEditor() {
   const deleteBlock = useStore((s) => s.deleteBlock);
   const insertBlockBelowStore = useStore((s) => s.insertBlockBelow);
   const appendBlockAtEndStore = useStore((s) => s.appendBlockAtEnd);
+  const duplicateBlockStore = useStore((s) => s.duplicateBlock);
 
   const [newlyCreatedBlockId, setNewlyCreatedBlockId] = useState<string | null>(null);
 
@@ -47,6 +48,21 @@ export default function BlockEditor() {
       deleteBlock(blockId, mergeContent);
     },
     [deleteBlock],
+  );
+
+  const duplicateBlockInline = useCallback(
+    (blockId: string) => {
+      duplicateBlockStore(blockId);
+      setTimeout(() => {
+        const doc = useStore.getState().activeDoc;
+        if (!doc) return;
+        const idx = doc.blocks.findIndex((b) => b.id === blockId);
+        if (idx !== -1 && idx + 1 < doc.blocks.length) {
+          setNewlyCreatedBlockId(doc.blocks[idx + 1].id);
+        }
+      }, 0);
+    },
+    [duplicateBlockStore],
   );
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -147,6 +163,7 @@ export default function BlockEditor() {
               onDeleteBlock={(content) => deleteBlockInline(block.id, content)}
               onNavigateToDoc={() => {}}
               onInsertBlockBelow={(type) => insertBlockBelowIndex(block.id, type)}
+              onDuplicateBlock={() => duplicateBlockInline(block.id)}
               autoFocus={newlyCreatedBlockId === block.id}
               onRequestFocusTitle={() => focusTitle('end')}
               onRequestFocusBlock={(offset) => {
