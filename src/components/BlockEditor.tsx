@@ -1,51 +1,75 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react';
-import { Document, Block, BlockType } from '../types';
-import BlockItem from './BlockItem';
+import { useMemo, useState, useRef, useCallback } from 'react';
+import { BlockType } from '../types';
+import { useStore } from '../store/useStore';
+import BlockRouter from './blocks/BlockRouter';
 import { Link2 } from 'lucide-react';
 
-interface BlockEditorProps {
-  document: Document;
-  documents: Document[];
-  onSelectDocument: (id: string) => void;
-  onUpdateDocument: (updatedFields: Partial<Document>) => void;
-}
+export default function BlockEditor() {
+  const activeDoc = useStore((s) => s.activeDoc);
+  const documents = useStore((s) => s.documents);
+  const openDocument = useStore((s) => s.openDocument);
+  const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
+  const updateBlock = useStore((s) => s.updateBlock);
+  const deleteBlock = useStore((s) => s.deleteBlock);
+  const insertBlockBelowStore = useStore((s) => s.insertBlockBelow);
+  const appendBlockAtEndStore = useStore((s) => s.appendBlockAtEnd);
 
-export default function BlockEditor({
-  document: activeDoc,
-  documents,
-  onSelectDocument,
-  onUpdateDocument,
-}: BlockEditorProps) {
-  
-  const [newlyCreatedBlockId, setNewlyCreatedBlockId] = useState<string | null>(null);
+  const [newlyCreatedBlockId, setNewlyCreatedBlockId] = useState<string | null>(
+    null,
+  );
+
   const backlinks = useMemo(() => {
     if (!activeDoc) return [];
     return documents.filter((doc) => {
       if (doc.id === activeDoc.id) return false;
-      return doc.blocks.some((block) => {
-        return (
+      return doc.blocks.some(
+        (block) =>
           block.content &&
-          block.content.toLowerCase().includes(`[[${activeDoc.title.toLowerCase()}]]`)
-        );
-      });
+          block.content.toLowerCase().includes(`[[${activeDoc.title.toLowerCase()}]]`),
+      );
     });
   }, [documents, activeDoc]);
 
-  // Add a new block at the end of the document
-  const appendBlockAtEnd = (type: BlockType) => {
-    const newBlock: Block = {
-      id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      type,
-      content: '',
-      properties: {},
-    };
+  // Wrap the store's insertBlockBelow so we can capture the new block id
+  // for auto-focus. We generate a predictable id prefix to match.
+  const insertBlockBelowIndex = useCallback(
+    (targetBlockId: string, type: BlockType) => {
+      insertBlockBelowStore(targetBlockId, type);
+      // The store generates the id; we use a microtask to find it.
+      // Simpler: set a flag — the newly inserted block is right after target.
+      // We'll use a setTimeout to read the updated store.
+      setTimeout(() => {
+        const doc = useStore.getState().activeDoc;
+        if (!doc) return;
+        const idx = doc.blocks.findIndex((b) => b.id === targetBlockId);
+        if (idx !== -1 && idx + 1 < doc.blocks.length) {
+          setNewlyCreatedBlockId(doc.blocks[idx + 1].id);
+        }
+      }, 0);
+    },
+    [insertBlockBelowStore],
+  );
 
-    setNewlyCreatedBlockId(newBlock.id);
+  const appendBlockAtEnd = useCallback(
+    (type: BlockType) => {
+      appendBlockAtEndStore(type);
+      setTimeout(() => {
+        const doc = useStore.getState().activeDoc;
+        if (!doc) return;
+        const last = doc.blocks[doc.blocks.length - 1];
+        if (last) setNewlyCreatedBlockId(last.id);
+      }, 0);
+    },
+    [appendBlockAtEndStore],
+  );
 
-    onUpdateDocument({
-      blocks: [...activeDoc.blocks, newBlock],
-    });
-  };
+  const deleteBlockInline = useCallback(
+    (blockId: string, mergeContent?: string) => {
+      deleteBlock(blockId, mergeContent);
+      // Focus logic is handled by BlockItem via onRequestFocusBlock
+    },
+    [deleteBlock],
+  );
 
   // Title <input> ref & block nodes registry for keyboard navigation.
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -59,8 +83,6 @@ export default function BlockEditor({
     }
   }, []);
 
-  // Focus the editable child of a block. Used by title → first block (↓)
-  // and by the first block → title (↑) round-trip.
   const focusBlockEditable = useCallback(
     (blockId: string, placement: 'start' | 'end' = 'end') => {
       const node = blockNodesRef.current.get(blockId);
@@ -98,7 +120,6 @@ export default function BlockEditor({
     [],
   );
 
-  // Focus the document title input. Used by the first block ↑ to bounce up.
   const focusTitle = useCallback((placement: 'start' | 'end' = 'end') => {
     const el = titleInputRef.current;
     if (!el) return false;
@@ -115,19 +136,18 @@ export default function BlockEditor({
   }, []);
 
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!activeDoc) return;
     const el = e.currentTarget;
     const isAtEnd =
       el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
     const isAtStart = el.selectionStart === 0 && el.selectionEnd === 0;
 
     if (e.key === 'ArrowDown' && (isAtEnd || el.value.length === 0)) {
-      // Jump from title into the first block, at its end.
       if (activeDoc.blocks.length > 0) {
         e.preventDefault();
         focusBlockEditable(activeDoc.blocks[0].id, 'end');
       }
     } else if (e.key === 'Enter' && !e.shiftKey) {
-      // Enter on title: insert a fresh text block below and focus it.
       e.preventDefault();
       if (activeDoc.blocks.length === 0) {
         appendBlockAtEnd('text');
@@ -135,97 +155,14 @@ export default function BlockEditor({
         insertBlockBelowIndex(activeDoc.blocks[0].id, 'text');
       }
     } else if (e.key === 'ArrowUp' && isAtStart) {
-      // Nothing to navigate to above the title, swallow to avoid losing focus.
       e.preventDefault();
     }
   };
 
-  // Insert a block directly below a given block ID
-  const insertBlockBelowIndex = (targetBlockId: string, type: BlockType) => {
-    const targetIdx = activeDoc.blocks.findIndex((b) => b.id === targetBlockId);
-    if (targetIdx === -1) return;
-
-    const newBlock: Block = {
-      id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      type,
-      content: '',
-      properties: {},
-    };
-
-    const blocksCopy = [...activeDoc.blocks];
-    blocksCopy.splice(targetIdx + 1, 0, newBlock);
-
-    setNewlyCreatedBlockId(newBlock.id);
-
-    onUpdateDocument({
-      blocks: blocksCopy,
-    });
-  };
-
-  // Modify a single block's values
-  const updateBlockContent = (blockId: string, updatedFields: Partial<Block>) => {
-    const updatedBlocks = activeDoc.blocks.map((b) => {
-      if (b.id === blockId) {
-        return { ...b, ...updatedFields };
-      }
-      return b;
-    });
-
-    onUpdateDocument({
-      blocks: updatedBlocks,
-    });
-  };
-
-  // Delete a block
-  const deleteBlockInline = (blockId: string, mergeContent?: string) => {
-    const targetIdx = activeDoc.blocks.findIndex(b => b.id === blockId);
-    let nextFocusId: string | null = null;
-    let updatedBlocks = [...activeDoc.blocks];
-
-    if (targetIdx > 0) {
-      const prevBlock = updatedBlocks[targetIdx - 1];
-      nextFocusId = prevBlock.id;
-      
-      if (mergeContent !== undefined) {
-         updatedBlocks[targetIdx - 1] = {
-           ...prevBlock,
-           content: prevBlock.content + mergeContent
-         };
-      }
-    } else if (targetIdx === 0 && activeDoc.blocks.length > 1) {
-      nextFocusId = activeDoc.blocks[1].id;
-    }
-
-    // Keep at least one empty block if user clears everything
-    updatedBlocks = updatedBlocks.filter((b) => b.id !== blockId);
-    if (updatedBlocks.length === 0) {
-      const fallbackId = `block-fallback-${Date.now()}`;
-      updatedBlocks = [
-        {
-          id: fallbackId,
-          type: 'text',
-          content: '',
-          properties: {},
-        },
-      ];
-      nextFocusId = fallbackId;
-    }
-
-    if (nextFocusId) {
-      setNewlyCreatedBlockId(nextFocusId);
-    }
-
-    onUpdateDocument({
-      blocks: updatedBlocks,
-    });
-  };
-
-  // Handle emoji quick collection
-  const emojiOptions = ['📝', '🧪', '🎨', '📚', '📆', '🚀', '🧠', '💡', '🏁', '⭐'];
+  if (!activeDoc) return null;
 
   return (
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
-
       {/* Editor Canvas Area */}
       <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-8 md:py-12 space-y-6 bg-[var(--vscode-editor-background)] select-text">
         {/* Document Title header */}
@@ -234,7 +171,7 @@ export default function BlockEditor({
             ref={titleInputRef}
             type="text"
             value={activeDoc.title}
-            onChange={(e) => onUpdateDocument({ title: e.target.value })}
+            onChange={(e) => updateDocumentMeta({ title: e.target.value })}
             onKeyDown={handleTitleKeyDown}
             data-block-editable="true"
             placeholder="文档标题"
@@ -245,23 +182,29 @@ export default function BlockEditor({
         {/* Blocks rendering stream */}
         <div className="space-y-2 min-h-[50vh]" id="blocks-container">
           {activeDoc.blocks.map((block, index) => (
-            <BlockItem
+            <BlockRouter
               key={block.id}
-              ref={(node) => registerBlockNode(block.id, node)}
+              forwardedRef={(node) => registerBlockNode(block.id, node)}
               block={block}
               documents={documents}
-              onUpdateBlock={(fields) => updateBlockContent(block.id, fields)}
+              onUpdateBlock={(fields) => updateBlock(block.id, fields)}
               onDeleteBlock={(content) => deleteBlockInline(block.id, content)}
-              onNavigateToDoc={onSelectDocument}
+              onNavigateToDoc={openDocument}
               onInsertBlockBelow={(type) => insertBlockBelowIndex(block.id, type)}
               autoFocus={newlyCreatedBlockId === block.id}
               onRequestFocusTitle={() => focusTitle('end')}
               onRequestFocusBlock={(offset) => {
                 if (offset < 0) {
-                  return focusBlockEditable(activeDoc.blocks[index + offset]?.id ?? '', 'end');
+                  return focusBlockEditable(
+                    activeDoc.blocks[index + offset]?.id ?? '',
+                    'end',
+                  );
                 }
                 if (offset > 0) {
-                  return focusBlockEditable(activeDoc.blocks[index + offset]?.id ?? '', 'start');
+                  return focusBlockEditable(
+                    activeDoc.blocks[index + offset]?.id ?? '',
+                    'start',
+                  );
                 }
                 return false;
               }}
@@ -271,7 +214,10 @@ export default function BlockEditor({
 
         {/* Dynamic Backlinks View Section */}
         {backlinks.length > 0 && (
-          <div className="pt-10 mt-10 border-t border-[var(--vscode-widget-border)]" id="backlinks-section">
+          <div
+            className="pt-10 mt-10 border-t border-[var(--vscode-widget-border)]"
+            id="backlinks-section"
+          >
             <div className="text-xs font-semibold text-[var(--vscode-descriptionForeground)] mb-3 flex items-center gap-1.5">
               <Link2 className="w-3 h-3" />
               <span>引用链接 ({backlinks.length})</span>
@@ -280,7 +226,7 @@ export default function BlockEditor({
               {backlinks.map((link) => (
                 <span
                   key={link.id}
-                  onClick={() => onSelectDocument(link.id)}
+                  onClick={() => openDocument(link.id)}
                   className="cursor-pointer px-2.5 py-1 bg-[var(--vscode-textBlockQuote-background)] text-[var(--vscode-textLink-foreground)] rounded-sm text-xs transition-colors duration-150 hover:bg-[var(--vscode-list-hoverBackground)]"
                 >
                   {link.title}

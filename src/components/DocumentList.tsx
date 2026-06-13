@@ -1,40 +1,28 @@
-import React, { useState } from 'react';
-import { Document, Plugin } from '../types';
+import { useState } from 'react';
+import { useStore } from '../store/useStore';
 import {
   Search,
-  Plus,
-  BookOpen,
   FolderDot,
   Sun,
   Moon,
   Trash,
   Star,
-  FileText
+  FileText,
 } from 'lucide-react';
 
-interface DocumentListProps {
-  documents: Document[];
-  activeDocId: string;
-  onSelectDocument: (id: string) => void;
-  onDeleteDocument: (id: string) => void;
-  onToggleFavorite: (id: string) => void;
-  isDarkMode: boolean;
-  onToggleDarkMode: () => void;
-}
+export default function DocumentList() {
+  const documents = useStore((s) => s.documents);
+  const activeDocId = useStore((s) => s.activeDocId);
+  const openDocument = useStore((s) => s.openDocument);
+  const deleteDocument = useStore((s) => s.deleteDocument);
+  const toggleFavorite = useStore((s) => s.toggleFavorite);
+  const isDarkMode = useStore((s) => s.isDarkMode);
+  const toggleDarkMode = useStore((s) => s.toggleDarkMode);
 
-export default function DocumentList({
-  documents,
-  activeDocId,
-  onSelectDocument,
-  onDeleteDocument,
-  onToggleFavorite,
-  isDarkMode,
-  onToggleDarkMode,
-}: DocumentListProps) {
   const [search, setSearch] = useState('');
 
   const filteredDocs = documents.filter((doc) =>
-    doc.title.toLowerCase().includes(search.toLowerCase())
+    doc.title.toLowerCase().includes(search.toLowerCase()),
   );
 
   const favoriteDocs = filteredDocs.filter((doc) => doc.isFavorite);
@@ -42,7 +30,6 @@ export default function DocumentList({
 
   return (
     <div className="w-full md:w-60 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10">
-
       {/* Search Input */}
       <div className="relative mb-2">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--vscode-icon-foreground)] opacity-60 pointer-events-none" />
@@ -57,7 +44,6 @@ export default function DocumentList({
 
       {/* Docs List viewports */}
       <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
-
         {/* Favorite section */}
         {favoriteDocs.length > 0 && (
           <div className="space-y-0.5">
@@ -70,7 +56,7 @@ export default function DocumentList({
               {favoriteDocs.map((doc) => (
                 <div
                   key={doc.id}
-                  onClick={() => onSelectDocument(doc.id)}
+                  onClick={() => openDocument(doc.id)}
                   className={`group flex h-7 items-center justify-between px-2 border-l-2 cursor-pointer transition-colors duration-150 ${
                     doc.id === activeDocId
                       ? 'border-[var(--vscode-tab-activeBorderTop)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
@@ -80,15 +66,16 @@ export default function DocumentList({
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <FileText className="w-3.5 h-3.5 opacity-50 shrink-0" />
-                    <span className="text-xs truncate">{doc.title || '无标题'}</span>
+                    <span className="text-xs truncate">
+                      {doc.title || '无标题'}
+                    </span>
                   </div>
 
-                  {/* Sidebar item controls - enhanced hover */}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleFavorite(doc.id);
+                        toggleFavorite(doc.id);
                       }}
                       className="cursor-pointer text-amber-500 p-0.5 hover:text-amber-600 rounded-sm transition-colors duration-150"
                       id={`unfav-${doc.id}`}
@@ -98,7 +85,7 @@ export default function DocumentList({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDeleteDocument(doc.id);
+                        deleteDocument(doc.id);
                       }}
                       className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] p-0.5 rounded-sm transition-colors duration-150"
                       id={`delete-${doc.id}`}
@@ -128,7 +115,7 @@ export default function DocumentList({
               otherDocs.map((doc) => (
                 <div
                   key={doc.id}
-                  onClick={() => onSelectDocument(doc.id)}
+                  onClick={() => openDocument(doc.id)}
                   className={`group flex h-7 items-center justify-between px-2 border-l-2 cursor-pointer transition-colors duration-150 ${
                     doc.id === activeDocId
                       ? 'border-[var(--vscode-tab-activeBorderTop)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
@@ -138,14 +125,16 @@ export default function DocumentList({
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <FileText className="w-3.5 h-3.5 opacity-50 shrink-0" />
-                    <span className="text-xs truncate">{doc.title || '无标题'}</span>
+                    <span className="text-xs truncate">
+                      {doc.title || '无标题'}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleFavorite(doc.id);
+                        toggleFavorite(doc.id);
                       }}
                       className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-amber-500 p-0.5 rounded-sm transition-colors duration-150"
                       title="添加常用"
@@ -156,7 +145,7 @@ export default function DocumentList({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDeleteDocument(doc.id);
+                        deleteDocument(doc.id);
                       }}
                       className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] p-0.5 rounded-sm transition-colors duration-150"
                       id={`delete-${doc.id}`}
@@ -169,21 +158,23 @@ export default function DocumentList({
             )}
           </div>
         </div>
-
       </div>
 
       {/* Footer: Theme toggle */}
       <div className="pt-2 border-t border-[var(--vscode-widget-border)] flex items-center shrink-0">
         <button
-          onClick={onToggleDarkMode}
+          onClick={toggleDarkMode}
           className="cursor-pointer w-7 h-7 text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1.5 rounded-sm flex items-center justify-center transition-colors duration-150"
           id="btn-toggle-theme"
           title="切换外观"
         >
-          {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
+          {isDarkMode ? (
+            <Sun className="w-4 h-4 text-amber-500" />
+          ) : (
+            <Moon className="w-4 h-4" />
+          )}
         </button>
       </div>
-
     </div>
   );
 }

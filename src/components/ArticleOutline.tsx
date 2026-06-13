@@ -1,16 +1,17 @@
-import React from 'react';
-import { Document } from '../types';
+import { useStore } from '../store/useStore';
 import { AlignLeft, ListTree } from 'lucide-react';
 
-interface ArticleOutlineProps {
-  document: Document;
-}
+export default function ArticleOutline() {
+  const activeDoc = useStore((s) => s.activeDoc);
 
-export default function ArticleOutline({ document }: ArticleOutlineProps) {
-  const headings = document.blocks.filter(
-    (block) =>
-      block.type === 'heading-1' || block.type === 'heading-2' || block.type === 'heading-3'
-  );
+  const headings = activeDoc
+    ? activeDoc.blocks.filter(
+        (block) =>
+          block.type === 'heading-1' ||
+          block.type === 'heading-2' ||
+          block.type === 'heading-3',
+      )
+    : [];
 
   const handleHeadingClick = (blockId: string) => {
     const el = window.document.getElementById(`block-row-${blockId}`);
