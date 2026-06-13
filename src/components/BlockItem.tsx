@@ -392,6 +392,7 @@ import {
   Link,
   Upload,
 } from "lucide-react";
+import CodeBlock from "./CodeBlock";
 
 function HeadingIcon(props: { className?: string }) {
   return <span className={`text-[10px] font-black ${props.className}`}>H</span>;
@@ -1526,10 +1527,10 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
       data-block-id={block.id}
     >
       {/* Left controls (Plus, Delete) - positioned outside block to avoid overlap */}
-      <div className="absolute -left-8 top-1 flex items-center gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity duration-150 z-20 print:hidden">
+      <div className="absolute left-0 md:-left-6 lg:-left-8 top-1 flex items-center gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity duration-150 z-20 print:hidden">
         <button
           onClick={() => onInsertBlockBelow("text")}
-          className="cursor-pointer text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-0.5 rounded transition-colors"
+          className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] p-0.5 rounded transition-colors"
           title="在此行下方添加"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -1537,7 +1538,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
 
         <button
           onClick={() => onDeleteBlock()}
-          className="cursor-pointer text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-0.5 rounded transition-colors"
+          className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] p-0.5 rounded transition-colors"
           title="删除此块"
         >
           <Trash2 className="w-3 h-3" />
@@ -1614,8 +1615,8 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
 
         {/* TYPE 5: CALLOUT block */}
         {block.type === "callout" && (
-          <div className="flex items-start gap-3 p-4 bg-[#0e639c]/5 dark:bg-[#0e639c]/10 rounded-sm border border-slate-200 dark:border-white/[0.08] border-l-4 border-l-[#0e639c] transition-colors duration-200">
-            <FileText className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+          <div className="flex items-start gap-3 p-4 bg-[var(--vscode-textBlockQuote-background)] rounded-sm border-l-4 border-l-[var(--vscode-focusBorder)]">
+            <FileText className="w-4 h-4 text-[var(--vscode-icon-foreground)] mt-0.5 shrink-0" />
             <div className="flex-1">
               <input
                 data-block-editable="true"
@@ -1625,7 +1626,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                 value={rawText}
                 onChange={(e) => handleTextChange(e.target.value)}
                 placeholder="在此输入高亮提示卡内容..."
-                className="w-full text-sm font-medium text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none focus:ring-0"
+                className="w-full text-sm font-medium text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none focus:ring-0"
               />
             </div>
           </div>
@@ -1633,43 +1634,18 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
 
         {/* TYPE 6: CODE block */}
         {block.type === "code" && (
-          <div className="border border-slate-200 dark:border-white/[0.08] rounded-sm overflow-hidden bg-slate-50/70 dark:bg-[#090a0f] transition-colors duration-200">
-            <div className="bg-slate-100 dark:bg-[#151720] px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-1.5">
-                <Code className="w-3.5 h-3.5 text-indigo-500" />
-                <span className="font-mono">
-                  {block.properties?.language || "JavaScript"}
-                </span>
-              </div>
-              <select
-                value={block.properties?.language || "javascript"}
-                onChange={(e) =>
-                  onUpdateBlock({
-                    properties: {
-                      ...block.properties,
-                      language: e.target.value,
-                    },
-                  })
-                }
-                className="bg-transparent border-none text-[11px] text-slate-600 dark:text-slate-400 focus:outline-none pl-1 cursor-pointer"
-              >
-                <option value="javascript">JavaScript</option>
-                <option value="typescript">TypeScript</option>
-                <option value="html">HTML Code</option>
-                <option value="css">CSS Syntax</option>
-                <option value="python">Python</option>
-                <option value="rust">Rust</option>
-              </select>
-            </div>
-            <textarea
-              data-block-editable="true"
-              onKeyDown={handleKeyDown}
-              value={rawText}
-              onChange={(e) => handleTextChange(e.target.value)}
-              placeholder="// 在此输入代码..."
-              className="w-full bg-transparent font-mono text-xs leading-relaxed text-slate-800 dark:text-indigo-100 p-5 border-none resize-y min-h-[120px] focus:outline-none focus:ring-0"
-            />
-          </div>
+          <CodeBlock
+            code={rawText}
+            language={block.properties?.language || "javascript"}
+            showLineNumbers={true}
+            editable={true}
+            onChange={(newCode) => handleTextChange(newCode)}
+            onLanguageChange={(lang) =>
+              onUpdateBlock({
+                properties: { ...block.properties, language: lang },
+              })
+            }
+          />
         )}
 
         {/* TYPE 7: IMAGE block */}
@@ -1677,7 +1653,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleImageDrop}
-            className="border border-dashed border-slate-300 dark:border-white/[0.12] rounded-sm p-5 flex flex-col items-center justify-center gap-3 bg-slate-50/70 dark:bg-white/[0.025] transition-colors duration-200 hover:bg-[#e8e8e8] dark:hover:bg-white/[0.06]"
+            className="border border-dashed border-[var(--vscode-widget-border)] rounded-sm p-5 flex flex-col items-center justify-center gap-3 bg-[var(--vscode-textBlockQuote-background)]"
           >
             {block.content ? (
               <div className="max-w-md w-full">
@@ -1685,7 +1661,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                   src={block.content}
                   alt={block.properties?.caption || "Image content"}
                   referrerPolicy="no-referrer"
-                  className="rounded-sm object-contain w-full max-h-72 border border-slate-200 dark:border-slate-800 mx-auto"
+                  className="rounded-sm object-contain w-full max-h-72 mx-auto"
                 />
                 <input
                   type="text"
@@ -1698,21 +1674,21 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                       },
                     })
                   }
-                  placeholder="添加说明文字 ( Caption )..."
-                  className="w-full mt-2 text-center text-xs text-slate-400 bg-transparent border-none focus:outline-none"
+                  placeholder="添加说明文字..."
+                  className="w-full mt-2 text-center text-xs text-[var(--vscode-descriptionForeground)] bg-transparent border-none focus:outline-none"
                 />
               </div>
             ) : (
               <div className="text-center py-4 space-y-2">
-                <ImageIcon className="w-8 h-8 text-slate-400 mx-auto" />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <ImageIcon className="w-8 h-8 text-[var(--vscode-icon-foreground)] mx-auto opacity-60" />
+                <p className="text-xs text-[var(--vscode-descriptionForeground)]">
                   可拖放本地图片至此 或
                 </p>
                 <input
                   type="text"
-                  placeholder="粘贴在线图片 URL 以加载..."
+                  placeholder="粘贴在线图片 URL..."
                   onChange={(e) => onUpdateBlock({ content: e.target.value })}
-                  className="px-3 py-1.5 text-xs rounded-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none w-64 text-center"
+                  className="px-3 py-1.5 text-xs rounded-sm border border-[var(--vscode-widget-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] focus:outline-none w-64 text-center"
                 />
               </div>
             )}
@@ -1721,24 +1697,24 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
 
         {/* TYPE 8: DRAWING CANVAS BLOCK (FREE BRUSH SKETCHING) */}
         {block.type === "canvas" && (
-          <div className="border border-slate-200 dark:border-white/[0.08] rounded-sm overflow-hidden bg-white dark:bg-black transition-colors duration-200">
+          <div className="rounded-sm overflow-hidden bg-[var(--vscode-textBlockQuote-background)]">
             {/* Header controls */}
-            <div className="bg-slate-50/90 dark:bg-white/[0.04] px-4 py-2.5 border-b border-slate-200/80 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
+            <div className="bg-[var(--vscode-textBlockQuote-background)] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Palette className="w-4 h-4 text-indigo-500" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <Palette className="w-4 h-4 text-[var(--vscode-icon-foreground)]" />
+                <span className="text-xs font-semibold text-[var(--vscode-foreground)]">
                   手绘涂鸦 / 脑图画布
                 </span>
               </div>
 
               <div className="flex items-center gap-4">
                 {/* Brush size */}
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <div className="flex items-center gap-1.5 text-xs text-[var(--vscode-descriptionForeground)]">
                   <span>粗细:</span>
                   <select
                     value={brushWidth}
                     onChange={(e) => setBrushWidth(parseInt(e.target.value))}
-                    className="bg-white dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] rounded-sm px-2 py-1 text-[11px] focus:outline-none focus:border-[#0e639c] transition-colors"
+                    className="bg-[var(--vscode-input-background)] border border-[var(--vscode-widget-border)] rounded-sm px-2 py-1 text-[11px] focus:outline-none"
                   >
                     <option value="2">极细 (2px)</option>
                     <option value="4">常规 (4px)</option>
@@ -1762,7 +1738,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                       onClick={() => setBrushColor(color)}
                       className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
                         brushColor === color
-                          ? "ring-2 ring-indigo-500 scale-110"
+                          ? "ring-2 ring-[var(--vscode-focusBorder)] scale-110"
                           : ""
                       }`}
                       style={{ backgroundColor: color }}
@@ -1773,15 +1749,15 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                 {/* Reset button */}
                 <button
                   onClick={clearCanvasAll}
-                  className="cursor-pointer text-[10px] text-rose-500 hover:text-rose-600 font-medium px-2 py-0.5 rounded border border-rose-200/50 dark:border-rose-900/30 hover:bg-rose-50/50"
+                  className="cursor-pointer text-xs text-[var(--vscode-errorForeground)] px-2 py-0.5 rounded"
                 >
-                  清空画布
+                  清空
                 </button>
               </div>
             </div>
 
             {/* Canvas body */}
-            <div className="relative bg-slate-50/50 dark:bg-slate-950/20 py-2 flex justify-center">
+            <div className="relative py-2 flex justify-center">
               <canvas
                 ref={canvasRef}
                 width={550}
@@ -1790,25 +1766,25 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                 onMouseMove={drawOnCanvas}
                 onMouseUp={endCanvasDrawing}
                 onMouseLeave={endCanvasDrawing}
-                className="bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-white/[0.08] rounded-sm cursor-crosshair"
+                className="bg-[var(--vscode-editor-background)] rounded-sm cursor-crosshair"
               />
             </div>
 
-            <div className="p-2 border-t border-slate-100 dark:border-slate-850/50 text-[10px] text-center text-slate-400">
-              提示：鼠标按住并拖动即可书写，绘制路径将自动同步保存。
+            <div className="p-2 text-[10px] text-center text-[var(--vscode-descriptionForeground)]">
+              提示：鼠标按住并拖动即可书写
             </div>
           </div>
         )}
 
         {/* TYPE 9: TABLE block (Custom fully editable grid) */}
         {block.type === "table" && (
-          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-md p-3 bg-white dark:bg-[#111]">
-            <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 mb-2">
+          <div className="overflow-x-auto rounded-sm p-3 bg-[var(--vscode-textBlockQuote-background)]">
+            <div className="text-xs font-semibold text-[var(--vscode-foreground)] flex items-center gap-1 mb-2">
               <TableIcon className="w-3.5 h-3.5" />
-              <span>交互式数据表格 (Table Grid)</span>
+              <span>交互式数据表格</span>
             </div>
 
-            <table className="w-full text-xs text-left text-slate-500 border-collapse">
+            <table className="w-full text-xs text-left text-[var(--vscode-foreground)] border-collapse">
               <tbody>
                 {(block.properties?.tableData || [["A", "B"]]).map(
                   (row, rowIdx) => (
@@ -1816,14 +1792,14 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                       key={rowIdx}
                       className={`${
                         rowIdx === 0
-                          ? "bg-slate-50/90 dark:bg-white/[0.04] font-semibold text-slate-700 dark:text-slate-200"
-                          : "border-b border-slate-100 dark:border-white/[0.05]"
+                          ? "bg-[var(--vscode-list-hoverBackground)] font-semibold"
+                          : ""
                       }`}
                     >
                       {row.map((cell, colIdx) => (
                         <td
                           key={colIdx}
-                          className="p-1.5 border border-slate-200/20 dark:border-white/5"
+                          className="p-1.5"
                         >
                           <input
                             type="text"
@@ -1835,7 +1811,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                                 e.target.value,
                               )
                             }
-                            className="w-full bg-transparent border-none text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 px-1 py-0.5 rounded"
+                            className="w-full bg-transparent border-none text-xs text-[var(--vscode-editor-foreground)] focus:outline-none px-1 py-0.5 rounded"
                           />
                         </td>
                       ))}
@@ -1846,34 +1822,32 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
             </table>
 
             {/* Grid control bar */}
-            <div className="flex flex-wrap items-center gap-3 mt-3 text-[10px] text-slate-500 justify-end border-t border-slate-100 dark:border-white/[0.05] pt-3">
+            <div className="flex flex-wrap items-center gap-3 mt-3 text-[10px] text-[var(--vscode-descriptionForeground)] justify-end pt-3">
               <div className="flex gap-1.5">
                 <button
                   onClick={addTableRow}
-                  className="cursor-pointer bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded hover:bg-indigo-50"
+                  className="cursor-pointer bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] px-2 py-0.5 rounded"
                 >
                   + 新增行
                 </button>
                 <button
                   onClick={removeTableRow}
-                  className="cursor-pointer bg-slate-100 dark:bg-slate-800 text-rose-600 px-2 py-0.5 rounded hover:bg-rose-50"
+                  className="cursor-pointer text-[var(--vscode-errorForeground)] px-2 py-0.5 rounded"
                 >
                   - 裁减行
                 </button>
               </div>
 
-              <div className="h-3 w-[1px] bg-slate-200 dark:bg-slate-850" />
-
               <div className="flex gap-1.5">
                 <button
                   onClick={addTableColumn}
-                  className="cursor-pointer bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded hover:bg-indigo-50"
+                  className="cursor-pointer bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] px-2 py-0.5 rounded"
                 >
                   + 新增列
                 </button>
                 <button
                   onClick={removeTableColumn}
-                  className="cursor-pointer bg-slate-100 dark:bg-slate-800 text-rose-600 px-2 py-0.5 rounded hover:bg-rose-50"
+                  className="cursor-pointer text-[var(--vscode-errorForeground)] px-2 py-0.5 rounded"
                 >
                   - 裁减列
                 </button>
@@ -1884,7 +1858,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
 
         {/* TYPE 10: TOGGLE FOLDABLE BLOCK */}
         {block.type === "toggle" && (
-          <div className="border border-slate-200 dark:border-slate-800 rounded-md p-3 bg-white dark:bg-[#111]">
+          <div className="rounded-sm p-3 bg-[var(--vscode-textBlockQuote-background)]">
             <div className="flex items-center gap-2 cursor-pointer">
               <button
                 onClick={() =>
@@ -1895,7 +1869,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                     },
                   })
                 }
-                className="cursor-pointer text-slate-400 hover:text-slate-600"
+                className="cursor-pointer text-[var(--vscode-icon-foreground)]"
               >
                 {block.properties?.isOpen ? (
                   <ChevronDown className="w-4 h-4" />
@@ -1912,14 +1886,14 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                 value={rawText}
                 onChange={(e) => handleTextChange(e.target.value)}
                 placeholder="折叠区主题..."
-                className="w-full text-sm font-semibold text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none"
+                className="w-full text-sm font-semibold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none"
               />
             </div>
 
             {block.properties?.isOpen && (
-              <div className="pl-6 mt-3 pt-3 border-t border-slate-100 dark:border-white/[0.05]">
+              <div className="pl-6 mt-3 pt-3">
                 <div className="flex items-start gap-2">
-                  <CornerDownRight className="w-4 h-4 text-slate-300 mt-1" />
+                  <CornerDownRight className="w-4 h-4 text-[var(--vscode-icon-foreground)] opacity-50 mt-1" />
                   <textarea
                     value={block.properties?.caption || ""}
                     onChange={(e) =>
@@ -1930,8 +1904,8 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                         },
                       })
                     }
-                    placeholder="折叠详情与附加段落，可输入并在此存储您的折叠展开数据..."
-                    className="w-full text-xs text-slate-600 dark:text-slate-400 bg-transparent border-none resize-none focus:outline-none"
+                    placeholder="折叠详情与附加段落..."
+                    className="w-full text-xs text-[var(--vscode-descriptionForeground)] bg-transparent border-none resize-none focus:outline-none"
                     rows={2}
                   />
                 </div>
@@ -1942,16 +1916,16 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
 
         {/* TYPE 11: LIVE HTML PLAYBOARD & SANDBOX RENDER */}
         {block.type === "html-render" && (
-          <div className="border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden bg-white dark:bg-[#111111] shadow-sm">
-            {/* Slim top toolbar: preset + reload + theme. No more 4 tabs. */}
-            <div className="px-2.5 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-[#15171d]">
+          <div className="rounded-sm overflow-hidden bg-[var(--vscode-textBlockQuote-background)]">
+            {/* Slim top toolbar: preset + reload + theme */}
+            <div className="px-2.5 py-1.5 flex items-center justify-between bg-[var(--vscode-textBlockQuote-background)]">
               <div className="flex items-center gap-1">
                 <PresetMenu loadPresetIntoSandbox={loadPresetIntoSandbox} />
                 <button
                   type="button"
                   onClick={() => setRunIndicator((v) => v + 1)}
                   title="刷新预览"
-                  className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" />
                   Reload
@@ -1968,7 +1942,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                   )
                 }
                 title="切换主题"
-                className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="cursor-pointer inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
               >
                 {sandboxTheme === "light" ? (
                   <Moon className="w-3.5 h-3.5" />
@@ -1978,12 +1952,10 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
               </button>
             </div>
 
-            {/* Source bar: URL input + File picker + Clear. Always visible.
-                No more "代码/网页/文件" mode tabs. The preview iframe decides
-                its source automatically from what's set. */}
-            <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0c10]">
+            {/* Source bar: URL input + File picker + Clear */}
+            <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 bg-[var(--vscode-editor-background)]">
               <div className="min-w-[180px] flex-1 flex items-center gap-1.5">
-                <Link className="w-3 h-3 text-slate-400 shrink-0" />
+                <Link className="w-3 h-3 text-[var(--vscode-icon-foreground)] opacity-60 shrink-0" />
                 <input
                   type="url"
                   value={sandboxUrl}
@@ -1995,21 +1967,21 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                     }
                   }}
                   placeholder="example.com 或 https://..."
-                  className="min-w-0 flex-1 bg-transparent border-none text-xs text-slate-700 dark:text-slate-200 focus:outline-none placeholder:text-slate-400"
+                  className="min-w-0 flex-1 bg-transparent border-none text-xs text-[var(--vscode-editor-foreground)] focus:outline-none placeholder:text-[var(--vscode-descriptionForeground)]"
                 />
                 {normalizeSandboxUrl(sandboxUrl) && (
                   <button
                     type="button"
                     onClick={openSandboxWebPreviewWindow}
-                    title="在独立窗口中打开（适合禁止 iframe 嵌入的站点）"
-                    className="cursor-pointer px-1.5 py-0.5 rounded text-[10px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    title="在独立窗口中打开"
+                    className="cursor-pointer px-1.5 py-0.5 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
                   >
                     打开
                   </button>
                 )}
               </div>
 
-              <label className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <label className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors">
                 <Upload className="w-3 h-3" />
                 <span className="truncate max-w-[160px]">
                   {sandboxFileName || "File"}
@@ -2027,8 +1999,8 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                 <button
                   type="button"
                   onClick={handleSandboxClearAll}
-                  title="清除 URL 和文件，回到代码预览"
-                  className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  title="清除 URL 和文件"
+                  className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   Clear
@@ -2053,8 +2025,8 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
             />
 
             {/* Code editor (HTML/CSS/JS sub-tabs). */}
-            <div className="border-t border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-50/50 dark:bg-[#15171d]">
+            <div>
+              <div className="flex items-center gap-1 px-2.5 py-1 bg-[var(--vscode-textBlockQuote-background)]">
                 {[
                   { id: "html", label: "HTML" },
                   { id: "css", label: "CSS" },
@@ -2065,8 +2037,8 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                     onClick={() => setSandboxCodeTab(tab.id as "html" | "css" | "js")}
                     className={`cursor-pointer px-2 py-1 rounded text-[10px] transition-colors ${
                       sandboxCodeTab === tab.id
-                        ? "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
-                        : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        ? "bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]"
+                        : "text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
                     }`}
                   >
                     {tab.label}
@@ -2105,13 +2077,7 @@ const BlockItem = forwardRef<HTMLDivElement, BlockItemProps>(function BlockItem(
                       sandboxTheme,
                     );
                 }}
-                className={`w-full h-[320px] font-mono text-xs leading-relaxed bg-slate-50/80 dark:bg-[#090a0f] p-4 border-none resize-y focus:outline-none ${
-                  sandboxCodeTab === "html"
-                    ? "text-slate-800 dark:text-amber-200"
-                    : sandboxCodeTab === "css"
-                      ? "text-slate-800 dark:text-sky-200"
-                      : "text-slate-800 dark:text-emerald-200"
-                }`}
+                className="w-full h-[320px] font-mono text-xs leading-relaxed bg-[var(--vscode-editor-background)] text-[var(--vscode-editor-foreground)] p-4 border-none resize-y focus:outline-none"
               />
             </div>
           </div>

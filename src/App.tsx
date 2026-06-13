@@ -182,24 +182,24 @@ export default function App() {
   const activeDocument = documents.find((doc) => doc.id === activeDocId);
 
   return (
-    <div className="h-screen bg-[#f3f3f3] dark:bg-[#181818] text-slate-850 dark:text-slate-100 flex flex-col font-sans tracking-tight relative overflow-hidden">
-      
+    <div className="h-screen bg-[var(--vscode-sideBar-background)] text-[var(--vscode-editor-foreground)] flex flex-col font-sans tracking-tight relative overflow-hidden">
+
       {/* Workbench frame */}
-      <div className="w-full flex-1 h-full bg-white dark:bg-[#1e1e1e] flex flex-col overflow-hidden relative z-10">
-        
+      <div className="w-full flex-1 h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden relative z-10">
+
         {/* VS Code style top bar */}
-        <div className="h-10 border-b border-slate-200 dark:border-white/[0.08] px-2 md:px-3 flex items-center justify-between shrink-0 select-none bg-[#f8f8f8] dark:bg-[#181818]">
+        <div className="h-10 border-b border-[var(--vscode-titleBar-border)] px-2 md:px-3 flex items-center justify-between shrink-0 select-none bg-[var(--vscode-titleBar-background)]">
           {/* Left: Sidebar toggle & Title */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="cursor-pointer p-1.5 rounded-sm text-slate-500 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150"
+              className="cursor-pointer p-1.5 rounded-sm text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150"
               title={isSidebarOpen ? "收拢左边栏" : "展开左边栏"}
             >
               {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
             </button>
-            <div className="font-medium text-xs text-slate-600 dark:text-slate-300 hidden sm:flex items-center gap-1.5 ml-1">
-              <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+            <div className="font-medium text-xs text-[var(--vscode-titleBar-foreground)] hidden sm:flex items-center gap-1.5 ml-1">
+              <FileText className="w-3.5 h-3.5 text-[var(--vscode-icon-foreground)]" />
               <span>OmniNote</span>
             </div>
           </div>
@@ -208,7 +208,7 @@ export default function App() {
           <div className="flex items-center gap-0.5">
             <button
               onClick={handleCreateDocument}
-              className="cursor-pointer bg-[#0e639c] hover:bg-[#1177bb] dark:bg-[#0e639c] dark:hover:bg-[#1177bb] text-white rounded-sm px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150 mr-1"
+              className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded-sm px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150 mr-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden md:inline">新建</span>
@@ -220,8 +220,8 @@ export default function App() {
                   onClick={() => handleToggleFavorite(activeDocument.id)}
                   className={`cursor-pointer p-1.5 rounded-sm transition-colors duration-150 ${
                     activeDocument.isFavorite
-                      ? 'text-amber-500 hover:bg-slate-200 dark:hover:bg-white/[0.08]'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200 dark:hover:bg-white/[0.08] dark:hover:text-slate-200'
+                      ? 'text-amber-500 hover:bg-[var(--vscode-list-hoverBackground)]'
+                      : 'text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
                   }`}
                   title={activeDocument.isFavorite ? "取消收藏" : "收藏"}
                 >
@@ -230,13 +230,13 @@ export default function App() {
 
                 <button
                   onClick={() => handleDeleteDocument(activeDocument.id)}
-                  className="cursor-pointer p-1.5 rounded-sm text-slate-500 hover:text-red-600 hover:bg-slate-200 dark:hover:bg-white/[0.08] dark:hover:text-red-400 transition-colors duration-150"
+                  className="cursor-pointer p-1.5 rounded-sm text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150"
                   title="删除文档"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
-                
-                <div className="w-px h-4 bg-slate-300 dark:bg-white/10 mx-1 hidden sm:block" />
+
+                <div className="w-px h-4 bg-[var(--vscode-widget-border)] mx-1 hidden sm:block" />
               </>
             )}
 
@@ -244,8 +244,8 @@ export default function App() {
               onClick={() => setIsFolderOpen(!isFolderOpen)}
               className={`cursor-pointer p-1.5 rounded-sm transition-colors duration-150 ${
                 isFolderOpen
-                  ? 'bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200'
-                  : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-700 dark:hover:text-slate-200'
+                  ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
+                  : 'text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
               title="本地文件夹"
             >
@@ -257,8 +257,8 @@ export default function App() {
                 onClick={() => setIsOutlineOpen(!isOutlineOpen)}
                 className={`cursor-pointer p-1.5 rounded-sm transition-colors duration-150 ${
                   isOutlineOpen
-                    ? 'bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200'
-                    : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-700 dark:hover:text-slate-200'
+                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
+                    : 'text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
                 }`}
                 title="大纲面板"
               >
@@ -285,7 +285,7 @@ export default function App() {
           )}
 
           {/* Core dynamic Main Stage Container - edge to edge */}
-          <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#1e1e1e] overflow-hidden">
+          <div className="flex-1 min-w-0 h-full bg-[var(--vscode-editor-background)] overflow-hidden">
             {activeDocument ? (
               <div className="w-full h-full flex flex-col">
                 <div className="w-full h-full flex">
@@ -298,7 +298,7 @@ export default function App() {
                     />
                   </div>
                   {isOutlineOpen && (
-                    <div className="hidden lg:block w-56 shrink-0 h-full border-l border-slate-100 dark:border-white/[0.04]">
+                    <div className="hidden lg:block w-56 shrink-0 h-full border-l border-[var(--vscode-widget-border)]">
                       <ArticleOutline document={activeDocument} />
                     </div>
                   )}
@@ -306,10 +306,10 @@ export default function App() {
               </div>
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-center gap-3">
-                <Info className="w-10 h-10 text-slate-400" />
+                <Info className="w-10 h-10 text-[var(--vscode-descriptionForeground)]" />
                 <div>
-                  <h3 className="font-semibold text-slate-800 dark:text-slate-100">请选择左侧文档</h3>
-                  <p className="text-xs text-slate-500 mt-1">创建或选择现有文档立即进行整理编写。</p>
+                  <h3 className="font-semibold text-[var(--vscode-foreground)]">请选择左侧文档</h3>
+                  <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1">创建或选择现有文档立即进行整理编写。</p>
                 </div>
               </div>
             )}

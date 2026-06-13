@@ -1,0 +1,627 @@
+/* VS Code Modern Theme - Dark & Light
+ * Based on VS Code's dark_modern.json and light_modern.json
+ */
+
+/* ============================================
+   CSS Variables for VS Code Modern Theme
+   ============================================ */
+
+:root {
+  /* Light Modern Theme (default) */
+  --vscode-editor-background: #FFFFFF;
+  --vscode-editor-foreground: #3B3B3B;
+  --vscode-sideBar-background: #F8F8F8;
+  --vscode-sideBar-border: #E5E5E5;
+  --vscode-sideBar-foreground: #3B3B3B;
+  --vscode-titleBar-background: #F8F8F8;
+  --vscode-titleBar-border: #E5E5E5;
+  --vscode-titleBar-foreground: #1E1E1E;
+  --vscode-statusBar-background: #F8F8F8;
+  --vscode-statusBar-border: #E5E5E5;
+  --vscode-statusBar-foreground: #3B3B3B;
+  --vscode-activityBar-background: #F8F8F8;
+  --vscode-activityBar-border: #E5E5E5;
+  --vscode-activityBar-foreground: #1F1F1F;
+  --vscode-tab-activeBackground: #FFFFFF;
+  --vscode-tab-activeBorderTop: #005FB8;
+  --vscode-tab-activeForeground: #3B3B3B;
+  --vscode-tab-inactiveBackground: #F8F8F8;
+  --vscode-tab-inactiveForeground: #868686;
+  --vscode-tab-border: #E5E5E5;
+  --vscode-input-background: #FFFFFF;
+  --vscode-input-border: #CECECE;
+  --vscode-input-foreground: #3B3B3B;
+  --vscode-dropdown-background: #FFFFFF;
+  --vscode-dropdown-border: #CECECE;
+  --vscode-button-background: #005FB8;
+  --vscode-button-foreground: #FFFFFF;
+  --vscode-button-hoverBackground: #0258A8;
+  --vscode-focusBorder: #005FB8;
+  --vscode-foreground: #3B3B3B;
+  --vscode-descriptionForeground: #3B3B3B;
+  --vscode-icon-foreground: #3B3B3B;
+  --vscode-errorForeground: #F85149;
+  --vscode-textLink-foreground: #005FB8;
+  --vscode-textLink-activeForeground: #005FB8;
+  --vscode-textBlockQuote-background: #F8F8F8;
+  --vscode-textBlockQuote-border: #E5E5E5;
+  --vscode-textCodeBlock-background: #F8F8F8;
+  --vscode-textPreformat-foreground: #3B3B3B;
+  --vscode-textPreformat-background: #0000001F;
+  --vscode-menu-background: #FFFFFF;
+  --vscode-menu-border: #CECECE;
+  --vscode-menu-selectionBackground: #005FB8;
+  --vscode-menu-selectionForeground: #FFFFFF;
+  --vscode-list-hoverBackground: #F2F2F2;
+  --vscode-list-activeSelectionBackground: #E8E8E8;
+  --vscode-panel-background: #F8F8F8;
+  --vscode-panel-border: #E5E5E5;
+  --vscode-widget-border: #E5E5E5;
+  --vscode-quickInput-background: #F8F8F8;
+  --vscode-editorWidget-background: #F8F8F8;
+  --vscode-editorLineNumber-foreground: #6E7681;
+  --vscode-editorLineNumber-activeForeground: #171184;
+  --vscode-editorIndentGuide-background1: #D3D3D3;
+  --vscode-editorIndentGuide-activeBackground1: #939393;
+  --vscode-editor-selectionBackground: #ADD6FF80;
+  --vscode-editor-inactiveSelectionBackground: #E5EBF1;
+  --vscode-editorGutter-addedBackground: #2EA043;
+  --vscode-editorGutter-deletedBackground: #F85149;
+  --vscode-editorGutter-modifiedBackground: #005FB8;
+  --vscode-badge-background: #CCCCCC;
+  --vscode-badge-foreground: #3B3B3B;
+  --vscode-progressBar-background: #005FB8;
+  --vscode-scrollbarSlider-background: #00000026;
+  --vscode-scrollbarSlider-hoverBackground: #00000040;
+  --vscode-scrollbarSlider-activeBackground: #00000052;
+  
+  /* Syntax Colors - Light+ */
+  --vscode-token-comment: #008000;
+  --vscode-token-keyword: #0000FF;
+  --vscode-token-string: #A31515;
+  --vscode-token-number: #098658;
+  --vscode-token-function: #795E26;
+  --vscode-token-type: #267F99;
+  --vscode-token-variable: #001080;
+  --vscode-token-constant: #0070C1;
+  --vscode-token-operator: #000000;
+  --vscode-token-punctuation: #000000;
+  --vscode-token-invalid: #CD3131;
+  --vscode-token-regexp: #811F3F;
+  --vscode-token-escape: #EE0000;
+  --vscode-token-tag: #800000;
+  --vscode-token-attribute: #E50000;
+  --vscode-token-deleted: #A31515;
+  --vscode-token-inserted: #098658;
+  --vscode-token-changed: #0451A5;
+  --vscode-token-markup-heading: #800000;
+  --vscode-token-markup-bold: #000080;
+  --vscode-token-markup-italic: #800080;
+  --vscode-token-markup-raw: #800000;
+  --vscode-token-controlKeyword: #AF00DB;
+}
+
+.dark {
+  /* Dark Modern Theme */
+  --vscode-editor-background: #1F1F1F;
+  --vscode-editor-foreground: #CCCCCC;
+  --vscode-sideBar-background: #181818;
+  --vscode-sideBar-border: #2B2B2B;
+  --vscode-sideBar-foreground: #CCCCCC;
+  --vscode-titleBar-background: #181818;
+  --vscode-titleBar-border: #2B2B2B;
+  --vscode-titleBar-foreground: #CCCCCC;
+  --vscode-statusBar-background: #181818;
+  --vscode-statusBar-border: #2B2B2B;
+  --vscode-statusBar-foreground: #CCCCCC;
+  --vscode-activityBar-background: #181818;
+  --vscode-activityBar-border: #2B2B2B;
+  --vscode-activityBar-foreground: #D7D7D7;
+  --vscode-tab-activeBackground: #1F1F1F;
+  --vscode-tab-activeBorderTop: #0078D4;
+  --vscode-tab-activeForeground: #FFFFFF;
+  --vscode-tab-inactiveBackground: #181818;
+  --vscode-tab-inactiveForeground: #9D9D9D;
+  --vscode-tab-border: #2B2B2B;
+  --vscode-input-background: #313131;
+  --vscode-input-border: #3C3C3C;
+  --vscode-input-foreground: #CCCCCC;
+  --vscode-dropdown-background: #313131;
+  --vscode-dropdown-border: #3C3C3C;
+  --vscode-button-background: #0078D4;
+  --vscode-button-foreground: #FFFFFF;
+  --vscode-button-hoverBackground: #026EC1;
+  --vscode-focusBorder: #0078D4;
+  --vscode-foreground: #CCCCCC;
+  --vscode-descriptionForeground: #9D9D9D;
+  --vscode-icon-foreground: #CCCCCC;
+  --vscode-errorForeground: #F85149;
+  --vscode-textLink-foreground: #4DAADC;
+  --vscode-textLink-activeForeground: #4DAADC;
+  --vscode-textBlockQuote-background: #2B2B2B;
+  --vscode-textBlockQuote-border: #616161;
+  --vscode-textCodeBlock-background: #2B2B2B;
+  --vscode-textPreformat-foreground: #D0D0D0;
+  --vscode-textPreformat-background: #3C3C3C;
+  --vscode-menu-background: #1F1F1F;
+  --vscode-menu-border: #454545;
+  --vscode-menu-selectionBackground: #0078D4;
+  --vscode-menu-selectionForeground: #FFFFFF;
+  --vscode-list-hoverBackground: #F1F1F133;
+  --vscode-list-activeSelectionBackground: #F1F1F133;
+  --vscode-panel-background: #181818;
+  --vscode-panel-border: #2B2B2B;
+  --vscode-widget-border: #313131;
+  --vscode-quickInput-background: #222222;
+  --vscode-editorWidget-background: #202020;
+  --vscode-editorLineNumber-foreground: #6E7681;
+  --vscode-editorLineNumber-activeForeground: #CCCCCC;
+  --vscode-editorIndentGuide-background1: #404040;
+  --vscode-editorIndentGuide-activeBackground1: #707070;
+  --vscode-editor-selectionBackground: #ADD6FF26;
+  --vscode-editor-inactiveSelectionBackground: #3A3D41;
+  --vscode-editorGutter-addedBackground: #2EA043;
+  --vscode-editorGutter-deletedBackground: #F85149;
+  --vscode-editorGutter-modifiedBackground: #0078D4;
+  --vscode-badge-background: #616161;
+  --vscode-badge-foreground: #F8F8F8;
+  --vscode-progressBar-background: #0078D4;
+  --vscode-scrollbarSlider-background: #79797966;
+  --vscode-scrollbarSlider-hoverBackground: #79797999;
+  --vscode-scrollbarSlider-activeBackground: #797979AA;
+  
+  /* Syntax Colors - Dark+ */
+  --vscode-token-comment: #6A9955;
+  --vscode-token-keyword: #569CD6;
+  --vscode-token-string: #CE9178;
+  --vscode-token-number: #B5CEA8;
+  --vscode-token-function: #DCDCAA;
+  --vscode-token-type: #4EC9B0;
+  --vscode-token-variable: #9CDCFE;
+  --vscode-token-constant: #4FC1FF;
+  --vscode-token-operator: #D4D4D4;
+  --vscode-token-punctuation: #808080;
+  --vscode-token-invalid: #F44747;
+  --vscode-token-regexp: #D16969;
+  --vscode-token-escape: #D7BA7D;
+  --vscode-token-tag: #569CD6;
+  --vscode-token-attribute: #9CDCFE;
+  --vscode-token-deleted: #CE9178;
+  --vscode-token-inserted: #B5CEA8;
+  --vscode-token-changed: #569CD6;
+  --vscode-token-markup-heading: #569CD6;
+  --vscode-token-markup-bold: #569CD6;
+  --vscode-token-markup-italic: #C586C0;
+  --vscode-token-markup-raw: #CE9178;
+  --vscode-token-controlKeyword: #C586C0;
+}
+
+/* ============================================
+   Base Styles - VS Code Modern Look
+   ============================================ */
+
+body {
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   Prism.js Syntax Highlighting - VS Code Theme
+   ============================================ */
+
+/* Base code block styling */
+pre[class*="language-"],
+code[class*="language-"] {
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-textCodeBlock-background);
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  tab-size: 4;
+  hyphens: none;
+}
+
+pre[class*="language-"] {
+  padding: 12px 16px;
+  margin: 0;
+  overflow: auto;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-widget-border);
+}
+
+/* Inline code */
+:not(pre) > code[class*="language-"] {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--vscode-textPreformat-background);
+}
+
+/* Light Theme Token Colors */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--vscode-token-comment);
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: var(--vscode-token-punctuation);
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: var(--vscode-token-number);
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: var(--vscode-token-string);
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: var(--vscode-token-operator);
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: var(--vscode-token-keyword);
+}
+
+.token.function,
+.token.class-name {
+  color: var(--vscode-token-function);
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: var(--vscode-token-variable);
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
+
+/* Dark Theme Overrides (when .dark is present) */
+.dark .token.comment,
+.dark .token.prolog,
+.dark .token.doctype,
+.dark .token.cdata {
+  color: var(--vscode-token-comment);
+}
+
+.dark .token.punctuation {
+  color: var(--vscode-token-punctuation);
+}
+
+.dark .token.property,
+.dark .token.tag,
+.dark .token.boolean,
+.dark .token.number,
+.dark .token.constant,
+.dark .token.symbol,
+.dark .token.deleted {
+  color: var(--vscode-token-number);
+}
+
+.dark .token.selector,
+.dark .token.attr-name,
+.dark .token.string,
+.dark .token.char,
+.dark .token.builtin,
+.dark .token.inserted {
+  color: var(--vscode-token-string);
+}
+
+.dark .token.operator,
+.dark .token.entity,
+.dark .token.url,
+.dark .language-css .token.string,
+.dark .style .token.string {
+  color: var(--vscode-token-operator);
+}
+
+.dark .token.atrule,
+.dark .token.attr-value,
+.dark .token.keyword {
+  color: var(--vscode-token-keyword);
+}
+
+.dark .token.function,
+.dark .token.class-name {
+  color: var(--vscode-token-function);
+}
+
+.dark .token.regex,
+.dark .token.important,
+.dark .token.variable {
+  color: var(--vscode-token-variable);
+}
+
+/* Language-specific overrides */
+
+/* JavaScript/TypeScript */
+.language-javascript .token.keyword,
+.language-typescript .token.keyword,
+.language-js .token.keyword,
+.language-ts .token.keyword {
+  color: var(--vscode-token-keyword);
+}
+
+.language-javascript .token.keyword-control,
+.language-typescript .token.keyword-control,
+.language-js .token.keyword-control,
+.language-ts .token.keyword-control {
+  color: var(--vscode-token-controlKeyword);
+}
+
+/* Python */
+.language-python .token.keyword {
+  color: var(--vscode-token-keyword);
+}
+
+.language-python .token.decorator {
+  color: var(--vscode-token-function);
+}
+
+/* CSS */
+.language-css .token.property {
+  color: var(--vscode-token-variable);
+}
+
+.language-css .token.selector {
+  color: var(--vscode-token-tag);
+}
+
+/* HTML */
+.language-html .token.tag {
+  color: var(--vscode-token-tag);
+}
+
+.language-html .token.attr-name {
+  color: var(--vscode-token-attribute);
+}
+
+.language-html .token.attr-value {
+  color: var(--vscode-token-string);
+}
+
+/* JSON */
+.language-json .token.property {
+  color: var(--vscode-token-variable);
+}
+
+/* Markdown */
+.language-markdown .token.heading {
+  color: var(--vscode-token-markup-heading);
+  font-weight: bold;
+}
+
+.language-markdown .token.bold {
+  color: var(--vscode-token-markup-bold);
+  font-weight: bold;
+}
+
+.language-markdown .token.italic {
+  color: var(--vscode-token-markup-italic);
+  font-style: italic;
+}
+
+.language-markdown .token.code {
+  color: var(--vscode-token-markup-raw);
+}
+
+/* Line Numbers */
+.prism-line-numbers {
+  color: var(--vscode-editorLineNumber-foreground);
+  border-right: 1px solid var(--vscode-widget-border);
+  padding-right: 12px;
+  margin-right: 12px;
+  text-align: right;
+  user-select: none;
+}
+
+.prism-line-numbers .line-number.active {
+  color: var(--vscode-editorLineNumber-activeForeground);
+}
+
+/* ============================================
+   Scrollbar Styling - VS Code Style
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* ============================================
+   Focus & Selection Styles
+   ============================================ */
+
+:focus {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: -2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: -2px;
+}
+
+::selection {
+  background: var(--vscode-editor-selectionBackground);
+}
+
+/* ============================================
+   Link Styles
+   ============================================ */
+
+a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--vscode-textLink-activeForeground);
+  text-decoration: underline;
+}
+
+/* ============================================
+   Blockquote Styles
+   ============================================ */
+
+blockquote {
+  background: var(--vscode-textBlockQuote-background);
+  border-left: 4px solid var(--vscode-textBlockQuote-border);
+  padding: 8px 16px;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+
+/* ============================================
+   Input & Button Styles
+   ============================================ */
+
+input,
+textarea,
+select {
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  color: var(--vscode-input-foreground);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  border-color: var(--vscode-focusBorder);
+}
+
+input::placeholder {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
+}
+
+button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+/* ============================================
+   Panel & Widget Styles
+   ============================================ */
+
+.panel {
+  background: var(--vscode-panel-background);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.widget {
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px;
+}
+
+.quick-input {
+  background: var(--vscode-quickInput-background);
+}
+
+/* ============================================
+   Badge Styles
+   ============================================ */
+
+.badge {
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ============================================
+   Progress Bar Styles
+   ============================================ */
+
+.progress-bar {
+  background: var(--vscode-progressBar-background);
+  height: 2px;
+  border-radius: 1px;
+}

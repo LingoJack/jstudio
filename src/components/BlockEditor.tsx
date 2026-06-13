@@ -227,7 +227,7 @@ export default function BlockEditor({
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
 
       {/* Editor Canvas Area */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-8 md:py-12 space-y-6 bg-white dark:bg-[#1e1e1e] select-text">
+      <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-8 md:py-12 space-y-6 bg-[var(--vscode-editor-background)] select-text">
         {/* Document Title header */}
         <div className="pb-4">
           <input
@@ -238,7 +238,7 @@ export default function BlockEditor({
             onKeyDown={handleTitleKeyDown}
             data-block-editable="true"
             placeholder="文档标题"
-            className="text-4xl font-bold text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none w-full placeholder-slate-300 dark:placeholder-slate-600 pb-1 border-b border-transparent focus:border-[#0e639c]/40 dark:focus:border-[#0e639c]/50 transition-colors duration-200"
+            className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1 border-b border-transparent focus:border-[var(--vscode-focusBorder)] transition-colors duration-200"
           />
         </div>
 
@@ -271,8 +271,8 @@ export default function BlockEditor({
 
         {/* Dynamic Backlinks View Section */}
         {backlinks.length > 0 && (
-          <div className="pt-10 mt-10 border-t border-slate-200 dark:border-white/[0.08]" id="backlinks-section">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
+          <div className="pt-10 mt-10 border-t border-[var(--vscode-widget-border)]" id="backlinks-section">
+            <div className="text-xs font-semibold text-[var(--vscode-descriptionForeground)] mb-3 flex items-center gap-1.5">
               <Link2 className="w-3 h-3" />
               <span>引用链接 ({backlinks.length})</span>
             </div>
@@ -281,7 +281,7 @@ export default function BlockEditor({
                 <span
                   key={link.id}
                   onClick={() => onSelectDocument(link.id)}
-                  className="cursor-pointer px-2.5 py-1 bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400 rounded-sm text-xs transition-colors duration-150 hover:text-[#0e639c] hover:bg-[#0e639c]/10 dark:hover:bg-[#0e639c]/20"
+                  className="cursor-pointer px-2.5 py-1 bg-[var(--vscode-textBlockQuote-background)] text-[var(--vscode-textLink-foreground)] rounded-sm text-xs transition-colors duration-150 hover:bg-[var(--vscode-list-hoverBackground)]"
                 >
                   {link.title}
                 </span>
