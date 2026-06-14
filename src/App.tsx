@@ -3,7 +3,8 @@ import { useStore } from './store/useStore';
 import DocumentList from './components/DocumentList';
 import BlockEditor from './components/BlockEditor';
 import LocalFolder from './components/LocalFolder';
-import { FileText, Info, FolderDot, PanelLeftClose, PanelLeft, Plus, Trash2 } from 'lucide-react';
+import Settings from './components/Settings';
+import { FileText, FolderDot, PanelLeftClose, PanelLeft, Plus, Trash2 } from 'lucide-react';
 
 export default function App() {
   const init = useStore((s) => s.init);
@@ -11,6 +12,7 @@ export default function App() {
   const activeDoc = useStore((s) => s.activeDoc);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isFolderOpen = useStore((s) => s.isFolderOpen);
+  const isSettingsOpen = useStore((s) => s.isSettingsOpen);
 
   const createDocument = useStore((s) => s.createDocument);
   const deleteDocument = useStore((s) => s.deleteDocument);
@@ -47,7 +49,7 @@ export default function App() {
             </button>
             <div className="font-medium text-xs text-[var(--vscode-titleBar-foreground)] hidden sm:flex items-center gap-1.5 ml-1">
               <FileText className="w-3.5 h-3.5 text-[var(--vscode-icon-foreground)]" />
-              <span>OmniNote</span>
+              <span>JStudio</span>
             </div>
           </div>
 
@@ -92,17 +94,26 @@ export default function App() {
           {isSidebarOpen && <DocumentList />}
 
           <div className="flex-1 min-w-0 h-full bg-[var(--vscode-editor-background)] overflow-hidden">
-            {activeDoc ? (
+            {isSettingsOpen ? (
+              <Settings />
+            ) : activeDoc ? (
               <BlockEditor />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center gap-3">
-                <Info className="w-10 h-10 text-[var(--vscode-descriptionForeground)]" />
+              <div className="w-full h-full flex flex-col items-center justify-center text-center gap-4">
+                <FileText className="w-12 h-12 text-[var(--vscode-descriptionForeground)] opacity-40" />
                 <div>
-                  <h3 className="font-semibold text-[var(--vscode-foreground)]">请选择左侧文档</h3>
-                  <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1">
-                    创建或选择现有文档立即进行整理编写。
+                  <h3 className="font-semibold text-base text-[var(--vscode-foreground)]">还没有文档</h3>
+                  <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5">
+                    点击右上角「新建」创建你的第一篇文档
                   </p>
                 </div>
+                <button
+                  onClick={createDocument}
+                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded-sm px-4 py-2 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150 mt-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>新建文档</span>
+                </button>
               </div>
             )}
           </div>

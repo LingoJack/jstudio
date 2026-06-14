@@ -1,7 +1,7 @@
 [package]
 name = "jstudio"
 version = "0.1.0"
-description = "OmniNote local knowledge graph desktop app"
+description = "JStudio local knowledge graph desktop app"
 authors = ["Jack Lingo"]
 edition = "2021"
 

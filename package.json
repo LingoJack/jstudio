@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "OmniNote local knowledge graph Tauri desktop app.",
+  "description": "JStudio local knowledge graph Tauri desktop app.",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
     "build": "tsc -b && vite build",

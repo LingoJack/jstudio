@@ -39,6 +39,7 @@ export interface StoreState {
   isDarkMode: boolean;
   isSidebarOpen: boolean;
   isFolderOpen: boolean;
+  isSettingsOpen: boolean;
   isLoading: boolean;
 
   // — init (documents slice) —
@@ -71,6 +72,8 @@ export interface StoreState {
   toggleSidebar: () => void;
   toggleFolder: () => void;
   setFolderOpen: (open: boolean) => void;
+  toggleSettings: () => void;
+  setSettingsOpen: (open: boolean) => void;
 }
 
 /**

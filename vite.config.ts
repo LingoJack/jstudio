@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// OmniNote Tauri 应用构建配置。
+// JStudio Tauri 应用构建配置。
 //
 // 要点：
 // - `base: './'`     —— Tauri production asset 使用相对路径

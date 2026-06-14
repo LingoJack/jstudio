@@ -69,28 +69,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
       }
 
-      // If still empty, create a single blank document
-      if (!index || index.length === 0) {
-        const blankDoc: Document = {
-          id: `doc-${Date.now()}`,
-          title: '',
-          emoji: '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          blocks: [
-            {
-              id: `block-${Date.now()}-initial`,
-              type: 'text',
-              content: '',
-              properties: {},
-            },
-          ],
-        };
-        await storage.saveDocument(blankDoc);
-        const metas = [toMeta(blankDoc)];
-        await storage.saveIndex(metas);
-        index = metas;
-      }
+      // Load index as-is — no preset documents, no auto-creation.
+      // If the user has zero documents, the UI shows an empty state.
 
       // Load all documents into memory.
       const docs: Document[] = [];
@@ -157,16 +137,19 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
   deleteDocument: async (id) => {
     const { documents, docList, activeDocId } = get();
-    if (documents.length <= 1) {
-      alert('抱歉，本地库中至少需要保留一篇文档，无法继续删除该项目。');
-      return;
-    }
 
+    // Physically delete the document folder + files from disk
     await storage.deleteDocument(id);
 
     const newDocuments = documents.filter((d) => d.id !== id);
     const newDocList = docList.filter((d) => d.id !== id);
-    await storage.saveIndex(newDocList);
+
+    // Update index on disk (may become empty array [])
+    if (newDocList.length > 0) {
+      await storage.saveIndex(newDocList);
+    } else {
+      await storage.saveIndex([]);
+    }
 
     const stateUpdate: Partial<StoreState> = {
       documents: newDocuments,
@@ -174,7 +157,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     };
 
     if (activeDocId === id) {
-      const nextDoc = newDocuments[0];
+      const nextDoc = newDocuments[0] ?? null;
       stateUpdate.activeDoc = nextDoc;
       stateUpdate.activeDocId = nextDoc?.id ?? '';
     }

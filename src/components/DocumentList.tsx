@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Search, FolderDot, Sun, Moon, Trash, FileText } from 'lucide-react';
+import { Search, FolderDot, Trash, FileText, Settings as SettingsIcon } from 'lucide-react';
 
 export default function DocumentList() {
   const documents = useStore((s) => s.documents);
   const activeDocId = useStore((s) => s.activeDocId);
   const openDocument = useStore((s) => s.openDocument);
   const deleteDocument = useStore((s) => s.deleteDocument);
-  const isDarkMode = useStore((s) => s.isDarkMode);
-  const toggleDarkMode = useStore((s) => s.toggleDarkMode);
+  const isSettingsOpen = useStore((s) => s.isSettingsOpen);
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
 
   const [search, setSearch] = useState('');
 
@@ -76,16 +76,19 @@ export default function DocumentList() {
         </div>
       </div>
 
-      {/* Footer: Theme toggle */}
-      <div className="pt-2 border-t border-[var(--vscode-widget-border)] flex items-center shrink-0">
-        <button
-          onClick={toggleDarkMode}
-          className="cursor-pointer w-7 h-7 text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1.5 rounded-sm flex items-center justify-center transition-colors duration-150"
-          title="切换外观"
-        >
-          {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
-        </button>
-      </div>
+      {/* Footer: Settings entry */}
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className={`shrink-0 mt-2 flex items-center gap-2 px-2 py-1.5 rounded-sm border-l-2 transition-colors duration-150 cursor-pointer ${
+          isSettingsOpen
+            ? 'border-[var(--vscode-tab-activeBorderTop)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+            : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+        }`}
+        title="设置"
+      >
+        <SettingsIcon className="w-3.5 h-3.5" />
+        <span className="text-xs">设置</span>
+      </button>
     </div>
   );
 }

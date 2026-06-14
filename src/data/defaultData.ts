@@ -3,7 +3,7 @@ import { Document } from '../types';
 export const DEFAULT_DOCUMENTS: Document[] = [
   {
     id: 'doc-welcome',
-    title: '欢迎体验 OmniNote 本地知识库',
+    title: '欢迎体验 JStudio 本地知识库',
     emoji: '',
     createdAt: new Date(Date.now() - 3600000 * 24 * 3).toISOString(), // 3 days ago
     updatedAt: new Date().toISOString(),
@@ -12,7 +12,7 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       {
         id: 'block-welcome-1',
         type: 'heading-1',
-        content: '欢迎来到 OmniNote 个性化本地文档系统'
+        content: '欢迎来到 JStudio 个性化本地文档系统'
       },
       {
         id: 'block-welcome-callout',
@@ -96,12 +96,12 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       {
         id: 'block-html-desc',
         type: 'text',
-        content: '在 OmniNote 中，代码块支持 HTML 语言的渲染预览。点击代码块右上角的 Eye 图标即可切换渲染效果。此外，我们还提供了独立的「网页」块用于嵌入外部 URL，以及「附件」块用于管理各类文件。'
+        content: '在 JStudio 中，代码块支持 HTML 语言的渲染预览。点击代码块右上角的 Eye 图标即可切换渲染效果。此外，我们还提供了独立的「网页」块用于嵌入外部 URL，以及「附件」块用于管理各类文件。'
       },
       {
         id: 'block-html-callout',
         type: 'callout',
-        content: '这是在 [[欢迎体验 OmniNote 本地知识库]] 提到过的最有趣的特色之一。您可以点击编辑按钮直接修改底下的代码，页面渲染内容会随之立竿见影地更新！',
+        content: '这是在 [[欢迎体验 JStudio 本地知识库]] 提到过的最有趣的特色之一。您可以点击编辑按钮直接修改底下的代码，页面渲染内容会随之立竿见影地更新！',
         properties: {
           emoji: ''
         }
@@ -204,7 +204,7 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       {
         id: 'block-canvas-intro',
         type: 'text',
-        content: '文档中如果只能打字是非常有局限性的。现在，OmniNote 支持了内嵌式 `HTML5 Drawing Canvas`（涂鸦画板）块。您可以使用鼠标、触控笔在页面里随便画线、批改或是勾画脑图。'
+        content: '文档中如果只能打字是非常有局限性的。现在，JStudio 支持了内嵌式 `HTML5 Drawing Canvas`（涂鸦画板）块。您可以使用鼠标、触控笔在页面里随便画线、批改或是勾画脑图。'
       },
       {
         id: 'block-canvas-widget',
@@ -233,7 +233,7 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       {
         id: 'block-canvas-tip',
         type: 'callout',
-        content: '您可以通过调色盘更换颜色，也可以切换线条宽度，甚至是一键清除重画。数据自动保存至本地对应的 Document 节点块。通过 [[欢迎体验 OmniNote 本地知识库]] 就能随时跳转回起点。',
+        content: '您可以通过调色盘更换颜色，也可以切换线条宽度，甚至是一键清除重画。数据自动保存至本地对应的 Document 节点块。通过 [[欢迎体验 JStudio 本地知识库]] 就能随时跳转回起点。',
         properties: {
           emoji: ''
         }

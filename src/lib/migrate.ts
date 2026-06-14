@@ -9,6 +9,15 @@ import type { Document } from '../types';
  * user has a backup, but the app never reads from them again.
  */
 
+/**
+ * Legacy localStorage keys from earlier builds.
+ *
+ * IMPORTANT: do NOT rename these constants — they are the literal keys
+ * written by previous app versions. Renaming would silently strand any
+ * existing user data still living in localStorage and block migration.
+ * The product is now uniformly called "JStudio"; these keys remain only
+ * for one-time backward-compatibility data migration.
+ */
 const OLD_DOCS_KEY = 'omninote_docs';
 const OLD_THEME_KEY = 'omninote_theme';
 const OLD_ASSETS_KEY = 'omninote_assets';
