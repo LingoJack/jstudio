@@ -47,6 +47,7 @@ export interface StoreState {
   // — document ops (documents slice) —
   createDocument: () => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
+  renameDocument: (id: string, title: string) => void;
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
 

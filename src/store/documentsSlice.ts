@@ -112,7 +112,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   createDocument: async () => {
     const newDoc: Document = {
       id: `doc-${Date.now()}`,
-      title: '未命名文档',
+      title: '',
       emoji: '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -191,6 +191,26 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     );
 
     const updatedDoc = newDocuments.find((d) => d.id === activeDocId) ?? null;
+    const newDocList = newDocuments.map(toMeta);
+
+    set({
+      documents: newDocuments,
+      activeDoc: updatedDoc,
+      docList: newDocList,
+    });
+
+    if (updatedDoc) scheduleDocumentSave(updatedDoc);
+    scheduleIndexSave(newDocList);
+  },
+
+  renameDocument: (id, title) => {
+    const { documents, docList } = get();
+    const now = new Date().toISOString();
+
+    const newDocuments = documents.map((doc) =>
+      doc.id === id ? { ...doc, title, updatedAt: now } : doc,
+    );
+    const updatedDoc = newDocuments.find((d) => d.id === id) ?? null;
     const newDocList = newDocuments.map(toMeta);
 
     set({

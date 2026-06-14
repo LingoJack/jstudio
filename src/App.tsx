@@ -3,7 +3,7 @@ import { useStore } from './store/useStore';
 import DocumentList from './components/DocumentList';
 import BlockEditor from './components/BlockEditor';
 import Settings from './components/Settings';
-import { FileText, Settings as SettingsIcon, Plus, Trash2 } from 'lucide-react';
+import { FileText, Settings as SettingsIcon, Plus } from 'lucide-react';
 
 export default function App() {
   const init = useStore((s) => s.init);
@@ -13,7 +13,6 @@ export default function App() {
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
 
   const createDocument = useStore((s) => s.createDocument);
-  const deleteDocument = useStore((s) => s.deleteDocument);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
 
@@ -87,32 +86,6 @@ export default function App() {
           Main content area (right)
          ============================== */}
       <div className="flex-1 min-w-0 h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden relative">
-        {/* Slim action bar (new / delete) */}
-        {!isSettingsOpen && (
-          <div className="h-10 shrink-0 border-b border-[var(--vscode-titleBar-border)] px-3 flex items-center justify-between select-none bg-[var(--vscode-titleBar-background)]">
-            <div className="flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-[var(--vscode-icon-foreground)] opacity-50" />
-              <span className="text-xs text-[var(--vscode-titleBar-foreground)] font-medium">
-                JStudio
-              </span>
-            </div>
-
-            <div className="flex items-center gap-0.5">
-              {activeDoc && (
-                <>
-                  <button
-                    onClick={() => deleteDocument(activeDoc.id)}
-                    className="cursor-pointer p-1.5 rounded-sm text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150"
-                    title="删除文档"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-hidden">
           {isSettingsOpen ? (
