@@ -1,14 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { BlockType } from '../../types';
+import type { BlockType, RichText } from '../../types';
 import { SLASH_COMMANDS, getDefaultProperties } from './shared';
 import { useStore } from '../../store/useStore';
+import { htmlToRichText, richTextToHtml } from '../../lib';
 
 interface UseSurfaceEditorParams {
   surfaceRef: React.RefObject<HTMLDivElement | null>;
   blockNodesRef: React.RefObject<Map<string, HTMLElement>>;
   onInsertBelow: (blockId: string, type: BlockType) => void;
   onAppendEnd: (type: BlockType) => void;
-  onDeleteBlock: (blockId: string, mergeContent?: string) => void;
+  onDeleteBlock: (blockId: string, mergeContent?: RichText[]) => void;
   onDuplicateBlock: (blockId: string) => void;
   onUpdateBlock: (blockId: string, fields: Record<string, unknown>) => void;
   onFocusTitle: () => boolean;
@@ -107,7 +108,8 @@ export function useSurfaceEditor({
   // ------------------------------------------------------------------
   const syncBlockToStore = useCallback(
     (blockId: string, el: HTMLElement) => {
-      onUpdateBlock(blockId, { content: el.innerHTML });
+      const richText = htmlToRichText(el);
+      onUpdateBlock(blockId, { content: richText });
     },
     [onUpdateBlock],
   );
@@ -193,7 +195,7 @@ export function useSurfaceEditor({
       blurSurfaceForMutation(surfaceRef.current);
 
       // Convert the current block in place — it's empty now
-      onUpdateBlock(blockId, { type, content: '', properties: getDefaultProperties(type) });
+      onUpdateBlock(blockId, { type, content: [] as RichText[], properties: getDefaultProperties(type) });
       setSlashMenu(NO_MENU);
 
       // Refocus the block
@@ -433,7 +435,7 @@ export function useSurfaceEditor({
               }
             }
           }
-          onDeleteBlock(blockId, line.innerHTML);
+          onDeleteBlock(blockId, htmlToRichText(line));
         }
         return;
       }
@@ -621,13 +623,14 @@ function detectMarkdownShortcut(
     const level = md[1].length;
     const content = md[2];
     const type = `heading-${level}` as BlockType;
+    const richContent: RichText[] = [{ text: content, annotations: {} }];
     // Blur surface before mutating DOM to prevent WebKit NotFoundError
     // when React re-renders the block as a different element type.
     blurSurfaceForMutation(surface);
-    line.innerHTML = content;
+    line.innerHTML = richTextToHtml(richContent);
     onUpdateBlock(blockId, {
       type,
-      content,
+      content: richContent,
       properties: {},
     });
     return;
@@ -635,12 +638,13 @@ function detectMarkdownShortcut(
 
   if (/^>\s+/.test(text)) {
     const content = text.replace(/^>\s+/, '');
+    const richContent: RichText[] = [{ text: content, annotations: {} }];
     // Same protection as above.
     blurSurfaceForMutation(surface);
-    line.innerHTML = content;
+    line.innerHTML = richTextToHtml(richContent);
     onUpdateBlock(blockId, {
       type: 'callout',
-      content,
+      content: richContent,
       properties: {},
     });
   }

@@ -1,4 +1,4 @@
-import type { Block, BlockType } from '../types';
+import type { Block, BlockType, RichText } from '../types';
 import { storage } from '../lib/storage';
 import { scheduleDocumentSave } from './storeHelpers';
 import type { SliceCreator } from './storeHelpers';
@@ -37,9 +37,15 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
 
     if (targetIdx > 0 && mergeContent !== undefined) {
       const prevBlock = updatedBlocks[targetIdx - 1];
+      // Merge RichText[] arrays: append the deleted block's content
+      // to the previous block.
+      const prevContent = Array.isArray(prevBlock.content)
+        ? prevBlock.content
+        : [];
+      const toMerge = Array.isArray(mergeContent) ? mergeContent : [];
       updatedBlocks[targetIdx - 1] = {
         ...prevBlock,
-        content: prevBlock.content + mergeContent,
+        content: [...prevContent, ...toMerge],
       };
     }
 
@@ -51,7 +57,7 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
         {
           id: `block-fallback-${Date.now()}`,
           type: 'text',
-          content: '',
+          content: [] as RichText[],
           properties: {},
         },
       ];
@@ -77,7 +83,7 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
     const newBlock: Block = {
       id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       type,
-      content: '',
+      content: [] as RichText[],
       properties: {},
     };
 
@@ -101,7 +107,7 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
     const newBlock: Block = {
       id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       type,
-      content: '',
+      content: [] as RichText[],
       properties: {},
     };
 

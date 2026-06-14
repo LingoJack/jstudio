@@ -1,5 +1,7 @@
 /** Block and document domain types */
 
+import type { RichText } from './richText';
+
 export type BlockType =
   | 'text'
   | 'heading-1'
@@ -45,7 +47,24 @@ export interface BlockProperties {
 export interface Block {
   id: string;
   type: BlockType;
-  content: string; // raw code for code blocks, file data URL for attachments, or markdown text
+  /**
+   * Block content.
+   *
+   * - Text-type blocks (text, heading-*, callout, toggle): `RichText[]`
+   *   — inline formatting is stored as an array of annotated text segments,
+   *     not raw HTML.
+   * - Code blocks: `RichText[]` where `content[0].text` holds the raw code.
+   * - Media blocks (image, attachment, web-embed): `string` resource path / URL.
+   *
+   * Legacy documents may still have `content` as a raw HTML string — the
+   * migration layer (`migrate.ts`) converts these to `RichText[]` on load.
+   */
+  content: RichText[] | string;
+  /**
+   * Child block IDs — enables a block tree (nested blocks).
+   * Undefined / empty means this block has no children (leaf block).
+   */
+  children?: string[];
   properties?: BlockProperties;
 }
 
