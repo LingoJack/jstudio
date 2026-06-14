@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback } from 'react';
 import type { BlockType, Block } from '../types';
 import { useStore } from '../store/useStore';
 import BlockRouter from './blocks/BlockRouter';
@@ -10,7 +10,6 @@ export default function BlockEditor() {
   const documents = useStore((s) => s.documents);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
 
-  const [newlyCreatedBlockId, setNewlyCreatedBlockId] = useState<string | null>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const blockNodesRef = useRef<Map<string, HTMLElement>>(new Map());
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -66,16 +65,18 @@ export default function BlockEditor() {
   const insertBlockBelowIndex = useCallback(
     (targetBlockId: string, type: BlockType) => {
       useStore.getState().insertBlockBelow(targetBlockId, type);
-      setTimeout(() => {
-        const doc = useStore.getState().activeDoc;
-        if (!doc) return;
-        const idx = doc.blocks.findIndex((b) => b.id === targetBlockId);
-        if (idx !== -1 && idx + 1 < doc.blocks.length) {
-          const newId = doc.blocks[idx + 1].id;
-          setNewlyCreatedBlockId(newId);
-          focusBlockAt(newId, 'start');
-        }
-      }, 0);
+      // Use double-rAF to ensure React has committed the new DOM node
+      // before we try to focus it. A single rAF can fire before refs are set.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const doc = useStore.getState().activeDoc;
+          if (!doc) return;
+          const idx = doc.blocks.findIndex((b) => b.id === targetBlockId);
+          if (idx !== -1 && idx + 1 < doc.blocks.length) {
+            focusBlockAt(doc.blocks[idx + 1].id, 'start');
+          }
+        }),
+      );
     },
     [focusBlockAt],
   );
@@ -83,15 +84,16 @@ export default function BlockEditor() {
   const appendBlockAtEnd = useCallback(
     (type: BlockType) => {
       useStore.getState().appendBlockAtEnd(type);
-      setTimeout(() => {
-        const doc = useStore.getState().activeDoc;
-        if (!doc) return;
-        const last = doc.blocks[doc.blocks.length - 1];
-        if (last) {
-          setNewlyCreatedBlockId(last.id);
-          focusBlockAt(last.id, 'start');
-        }
-      }, 0);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const doc = useStore.getState().activeDoc;
+          if (!doc) return;
+          const last = doc.blocks[doc.blocks.length - 1];
+          if (last) {
+            focusBlockAt(last.id, 'start');
+          }
+        }),
+      );
     },
     [focusBlockAt],
   );
@@ -150,15 +152,6 @@ export default function BlockEditor() {
   });
 
   // ------------------------------------------------------------------
-  // Auto-focus newly created block
-  // ------------------------------------------------------------------
-  useEffect(() => {
-    if (!newlyCreatedBlockId) return;
-    const timer = setTimeout(() => focusBlockAt(newlyCreatedBlockId, 'start'), 10);
-    return () => clearTimeout(timer);
-  }, [newlyCreatedBlockId, focusBlockAt]);
-
-  // ------------------------------------------------------------------
   // Title keydown
   // ------------------------------------------------------------------
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -173,7 +166,13 @@ export default function BlockEditor() {
         focusBlockAt(activeDoc.blocks[0].id, 'start');
       }
     } else if (e.key === 'Enter' && !e.shiftKey) {
+      // Ignore key auto-repeat to prevent creating multiple blocks at once
+      if (e.repeat) {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
+      e.stopPropagation();
       if (activeDoc.blocks.length === 0) {
         appendBlockAtEnd('text');
       } else {

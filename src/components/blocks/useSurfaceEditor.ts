@@ -299,6 +299,11 @@ export function useSurfaceEditor({
 
       // — Enter: new block (Shift+Enter = line break) —
       if (e.key === 'Enter' && !e.shiftKey) {
+        // Ignore key auto-repeat to prevent creating multiple blocks at once
+        if (e.repeat) {
+          e.preventDefault();
+          return;
+        }
         e.preventDefault();
         const blockId = getCurrentBlockId();
         if (blockId) {
