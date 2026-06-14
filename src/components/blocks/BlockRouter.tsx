@@ -14,21 +14,25 @@ import WebEmbedBlock from './WebEmbedBlock';
 import AttachmentBlock from './AttachmentBlock';
 import BlockHandle from './BlockHandle';
 
-/**
- * Maps each block type to its component.
- *
- * Heading 1/2/3 are handled by a single HeadingBlock with a `level` prop.
- */
 const HEADING_LEVELS: Record<string, 1 | 2 | 3> = {
   'heading-1': 1,
   'heading-2': 2,
   'heading-3': 3,
 };
 
+/** Block types that are pure text and participate in the surface editing. */
+const TEXT_TYPES = new Set(['text', 'heading-1', 'heading-2', 'heading-3', 'callout', 'toggle']);
+
 /**
- * The central dispatcher. Given a `block`, renders the appropriate
- * sub-component, wrapped in a Notion-style layout with hover controls
- * (BlockHandle: + and ⋮⋮ buttons on the left).
+ * The central dispatcher.
+ *
+ * **Surface architecture**: the parent container is one contentEditable.
+ * Text blocks (text, heading, callout, toggle) are plain <div> children
+ * that participate in the surface — enabling native cross-block selection.
+ *
+ * Non-text blocks (image, table, code, etc.) are wrapped in a
+ * `contentEditable=false` island so the browser treats them as atomic
+ * objects that can be selected/navigated as a unit.
  */
 function BlockRouterInner({
   block,
@@ -37,17 +41,14 @@ function BlockRouterInner({
   ...rest
 }: BlockRouterProps) {
   const type = block.type as BlockType;
+  const isTextBlock = TEXT_TYPES.has(type);
 
   let content: React.ReactNode;
 
   // Heading 1/2/3 → HeadingBlock with level
   if (type in HEADING_LEVELS) {
     content = (
-      <HeadingBlock
-        {...rest}
-        block={block}
-        level={HEADING_LEVELS[type]}
-      />
+      <HeadingBlock {...rest} block={block} level={HEADING_LEVELS[type]} />
     );
   } else {
     switch (type) {
@@ -76,26 +77,43 @@ function BlockRouterInner({
         content = <CodeBlockWrapper {...rest} block={block} />;
         break;
       case 'web-embed':
-        content = (
-          <WebEmbedBlock
-            block={block}
-            onUpdateBlock={rest.onUpdateBlock}
-          />
-        );
+        content = <WebEmbedBlock block={block} onUpdateBlock={rest.onUpdateBlock} />;
         break;
       case 'attachment':
-        content = (
-          <AttachmentBlock
-            block={block}
-            onUpdateBlock={rest.onUpdateBlock}
-          />
-        );
+        content = <AttachmentBlock block={block} onUpdateBlock={rest.onUpdateBlock} />;
         break;
       default:
         content = <TextBlock {...rest} block={block} />;
     }
   }
 
+  // Non-text blocks: wrap in contentEditable=false island
+  if (!isTextBlock) {
+    return (
+      <div
+        ref={forwardedRef}
+        data-block-id={block.id}
+        data-block-type={type}
+        data-block-island="true"
+        className="block-wrapper group/block relative"
+      >
+        <BlockHandle
+          blockType={type}
+          onAddBelow={() => rest.onInsertBlockBelow('text')}
+          onDelete={() => rest.onDeleteBlock()}
+          onDuplicate={() => onDuplicateBlock?.()}
+          onConvertTo={(newType) =>
+            rest.onUpdateBlock({ type: newType, properties: {} })
+          }
+        />
+        <div contentEditable={false}>
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  // Text blocks: direct children of the surface
   return (
     <div
       ref={forwardedRef}
@@ -103,7 +121,6 @@ function BlockRouterInner({
       data-block-type={type}
       className="block-wrapper group/block relative"
     >
-      {/* Notion-style hover controls: [+] and [⋮⋮] on the left */}
       <BlockHandle
         blockType={type}
         onAddBelow={() => rest.onInsertBlockBelow('text')}

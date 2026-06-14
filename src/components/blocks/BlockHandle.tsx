@@ -47,7 +47,7 @@ export default function BlockHandle({
     <>
       {/* Hover controls — absolutely positioned on the left */}
       <div
-        className="absolute right-full top-0 flex items-center gap-0.5 pr-1 opacity-0 group-hover/block:opacity-100 transition-opacity duration-100 select-none"
+        className="absolute right-full top-0 flex items-center gap-0.5 pr-1 opacity-0 group-hover/block:opacity-100 group-data-[active]/block:opacity-100 transition-opacity duration-100 select-none"
         contentEditable={false}
       >
         {/* Add button */}

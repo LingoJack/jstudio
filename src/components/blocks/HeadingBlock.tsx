@@ -1,17 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import type { TextBlockProps } from './types';
-import EditableText from './EditableText';
-import SlashMenu from './SlashMenu';
-import { useBlockEditor } from './useBlockEditor';
+import type { BaseBlockProps } from './types';
+import BlockLine from './BlockLine';
 
-interface HeadingBlockProps extends TextBlockProps {
+interface HeadingBlockProps extends BaseBlockProps {
   level: 1 | 2 | 3;
 }
 
 const STYLES: Record<number, string> = {
-  1: 'w-full text-2xl font-bold tracking-tight bg-transparent border-none focus:outline-none py-1',
-  2: 'w-full text-xl font-bold tracking-tight bg-transparent border-none focus:outline-none py-1',
-  3: 'w-full text-lg font-semibold tracking-tight bg-transparent border-none focus:outline-none py-0.5',
+  1: 'w-full text-2xl font-bold tracking-tight py-1',
+  2: 'w-full text-xl font-bold tracking-tight py-1',
+  3: 'w-full text-lg font-semibold tracking-tight py-0.5',
 };
 
 const PLACEHOLDERS: Record<number, string> = {
@@ -27,59 +24,16 @@ const TAG_NAMES: Record<number, 'h1' | 'h2' | 'h3'> = {
 };
 
 /**
- * TYPE: heading-1 / heading-2 / heading-3 — uses EditableText
- * with the appropriate tag and font styling.
+ * TYPE: heading-1 / heading-2 / heading-3
+ * A BlockLine with heading tag and styling.
  */
-export default function HeadingBlock({
-  block,
-  onUpdateBlock,
-  onDeleteBlock,
-  onInsertBlockBelow,
-  autoFocus,
-  onRequestFocusTitle,
-  onRequestFocusBlock,
-  level,
-}: HeadingBlockProps) {
-  const [rawText, setRawText] = useState(block.content);
-  const elementRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    setRawText(block.content);
-  }, [block.content]);
-
-  const editor = useBlockEditor({
-    blockId: block.id,
-    rawText,
-    setRawText,
-    onUpdateBlock,
-    onDeleteBlock,
-    onInsertBlockBelow,
-    elementRef,
-    autoFocus,
-    onRequestFocusTitle,
-    onRequestFocusBlock,
-  });
-
+export default function HeadingBlock({ block, level }: HeadingBlockProps) {
   return (
-    <div className="relative">
-      <EditableText
-        ref={elementRef as React.RefObject<HTMLDivElement>}
-        tagName={TAG_NAMES[level]}
-        onKeyDown={editor.handleKeyDown}
-        onPaste={editor.handlePaste}
-        html={rawText}
-        onChange={(val, text) => editor.handleTextChange(val, text)}
-        placeholder={PLACEHOLDERS[level]}
-        className={STYLES[level]}
-      />
-
-      {editor.showSlashMenu && (
-        <SlashMenu
-          slashMenuIndex={editor.slashMenuIndex}
-          slashMenuCoords={editor.slashMenuCoords}
-          onExecute={editor.executeSlashCommand}
-        />
-      )}
-    </div>
+    <BlockLine
+      tagName={TAG_NAMES[level]}
+      html={block.content}
+      placeholder={PLACEHOLDERS[level]}
+      className={STYLES[level]}
+    />
   );
 }

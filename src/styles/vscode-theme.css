@@ -600,6 +600,30 @@ input::placeholder {
   opacity: 0.6;
 }
 
+/* ============================================
+   Surface editor — Notion style
+   ============================================ */
+
+/* Placeholder: show only when surface is focused AND the line is empty.
+   We detect "empty" via :empty (no child nodes) or :not(:focus) guard. */
+[data-editor-surface]:focus .block-line[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.block-line {
+  position: relative;
+  min-height: 1.5rem;
+}
+
+/* Make sure block lines inside the surface inherit natural text flow */
+[data-editor-surface] .block-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 button {
   font-family: inherit;
   cursor: pointer;
