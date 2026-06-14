@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import type { Block, BlockType } from '../../types';
+import type { Block, BlockType, RichText } from '../../types';
 import type { BaseBlockProps, BlockRouterProps } from './types';
 import TextBlock from './TextBlock';
 import HeadingBlock from './HeadingBlock';
@@ -53,7 +53,7 @@ function BlockRouterInner({
     [block.id, onUpdateBlock],
   );
   const boundDelete = useCallback(
-    (mergeContent?: string) => onDeleteBlock(block.id, mergeContent),
+    (mergeContent?: RichText[]) => onDeleteBlock(block.id, mergeContent),
     [block.id, onDeleteBlock],
   );
   const boundInsertBelow = useCallback(

@@ -155,15 +155,3 @@ export function htmlToRichText(el: Node | null): RichText[] {
   el.childNodes.forEach((child) => walk(child, {}, segments));
   return coalesce(segments);
 }
-
-/**
- * Convert an HTML string into a `RichText[]`.
- *
- * Uses a temporary element for parsing. Useful for migration of legacy data.
- */
-export function htmlStringToRichText(html: string): RichText[] {
-  if (!html || html.trim().length === 0) return [];
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = html;
-  return htmlToRichText(wrapper);
-}

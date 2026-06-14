@@ -28,7 +28,7 @@ export default function ToggleBlock({ block }: BaseBlockProps) {
         </button>
         <BlockLine
           tagName="div"
-          html={block.content}
+          richText={Array.isArray(block.content) ? block.content : []}
           placeholder="折叠区主题..."
           className="w-full text-sm font-semibold text-[var(--vscode-editor-foreground)] flex-1"
         />

@@ -28,10 +28,11 @@ const TAG_NAMES: Record<number, 'h1' | 'h2' | 'h3'> = {
  * A BlockLine with heading tag and styling.
  */
 export default function HeadingBlock({ block, level }: HeadingBlockProps) {
+  const richText = Array.isArray(block.content) ? block.content : [];
   return (
     <BlockLine
       tagName={TAG_NAMES[level]}
-      html={block.content}
+      richText={richText}
       placeholder={PLACEHOLDERS[level]}
       className={STYLES[level]}
     />

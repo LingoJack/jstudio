@@ -10,10 +10,11 @@ import BlockLine from './BlockLine';
  * is handled by useSurfaceEditor at the container level.
  */
 export default function TextBlock({ block }: BaseBlockProps) {
+  const richText = Array.isArray(block.content) ? block.content : [];
   return (
     <BlockLine
       tagName="div"
-      html={block.content}
+      richText={richText}
       placeholder="输入 / 唤出命令"
       className="w-full text-sm text-[var(--vscode-foreground)] leading-relaxed py-0.5"
     />

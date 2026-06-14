@@ -1,4 +1,4 @@
-import type { Document, Block, BlockType } from '../types';
+import type { Document, Block, BlockType, RichText } from '../types';
 import type { DocumentMeta } from '../lib/storage';
 import { storage } from '../lib/storage';
 
@@ -53,7 +53,7 @@ export interface StoreState {
 
   // — block ops (editor slice) —
   updateBlock: (blockId: string, fields: Partial<Block>) => void;
-  deleteBlock: (blockId: string, mergeContent?: string) => void;
+  deleteBlock: (blockId: string, mergeContent?: RichText[]) => void;
   insertBlockBelow: (blockId: string, type: BlockType) => void;
   appendBlockAtEnd: (type: BlockType) => void;
   duplicateBlock: (blockId: string) => void;

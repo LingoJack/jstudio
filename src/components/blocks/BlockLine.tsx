@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
+import type { RichText } from '../../types';
+import { richTextToHtml } from '../../lib';
 
 export interface BlockLineProps {
-  /** HTML content. Only applied on mount or external programmatic change. */
-  html: string;
+  /** Rich text content — rendered to HTML internally. */
+  richText: RichText[];
   placeholder?: string;
   className?: string;
   tagName?: 'div' | 'h1' | 'h2' | 'h3';
@@ -22,7 +24,7 @@ export interface BlockLineProps {
  * (checked by testing if document.activeElement is inside the editor surface).
  */
 export default function BlockLine({
-  html,
+  richText,
   placeholder,
   className,
   tagName = 'div',
@@ -30,6 +32,10 @@ export default function BlockLine({
 }: BlockLineProps) {
   const localRef = useRef<HTMLElement>(null);
   const ref = domRef ?? localRef;
+
+  // Derive HTML from the rich text segments.  This is memoised by the
+  // `richText` reference so it only recomputes when the store updates.
+  const html = richTextToHtml(richText);
 
   // Set initial content on mount
   useEffect(() => {

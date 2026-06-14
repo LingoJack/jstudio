@@ -3,6 +3,7 @@ import { Block } from "../../types";
 import { IconButton } from "../ui/IconButton";
 import { useStore } from "../../store/useStore";
 import { storage } from "../../lib/storage";
+import { contentToString } from "../../lib";
 import {
   Upload,
   FileText,
@@ -80,7 +81,7 @@ const AttachmentBlock: React.FC<AttachmentBlockProps> = ({
   // - `assets/xxx` path → read from document folder via Tauri
   // - anything else (data:, http:, blob:) → use as-is
   useEffect(() => {
-    const content = block.content;
+    const content = contentToString(block.content);
     if (!content) {
       setFileDataUrl('');
       return;
@@ -136,7 +137,7 @@ const AttachmentBlock: React.FC<AttachmentBlockProps> = ({
 
   const handleClear = useCallback(() => {
     // Delete the physical asset file if it's a doc-scoped path.
-    const content = block.content;
+    const content = contentToString(block.content);
     if (content && content.startsWith('assets/') && activeDocId) {
       const assetName = content.slice('assets/'.length);
       storage.deleteDocAsset(activeDocId, assetName).catch(console.error);

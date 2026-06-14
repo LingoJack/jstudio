@@ -1,4 +1,4 @@
-import type { Block, BlockType, Document } from '../../types';
+import type { Block, BlockType, Document, RichText } from '../../types';
 
 /**
  * Props shared by every block-type component.
@@ -12,7 +12,7 @@ export interface BaseBlockProps {
   block: Block;
   documents: Document[];
   onUpdateBlock: (updatedFields: Partial<Block>) => void;
-  onDeleteBlock: (mergeContent?: string) => void;
+  onDeleteBlock: (mergeContent?: RichText[]) => void;
   onNavigateToDoc: (docId: string) => void;
   onInsertBlockBelow: (type: BlockType) => void;
   onDuplicateBlock?: () => void;
@@ -25,7 +25,7 @@ export interface BlockRouterProps {
   block: Block;
   documents: Document[];
   onUpdateBlock: (blockId: string, updatedFields: Partial<Block>) => void;
-  onDeleteBlock: (blockId: string, mergeContent?: string) => void;
+  onDeleteBlock: (blockId: string, mergeContent?: RichText[]) => void;
   onNavigateToDoc: (docId: string) => void;
   onInsertBlockBelow: (blockId: string, type: BlockType) => void;
   onDuplicateBlock?: (blockId: string) => void;

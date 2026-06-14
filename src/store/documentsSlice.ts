@@ -120,7 +120,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         {
           id: `block-${Date.now()}-initial`,
           type: 'text',
-          content: '',
+          content: [],
           properties: {},
         },
       ],

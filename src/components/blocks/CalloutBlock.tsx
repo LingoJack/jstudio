@@ -14,7 +14,7 @@ export default function CalloutBlock({ block }: BaseBlockProps) {
       </span>
       <BlockLine
         tagName="div"
-        html={block.content}
+        richText={Array.isArray(block.content) ? block.content : []}
         placeholder="在此输入高亮提示卡内容..."
         className="w-full text-sm font-medium text-[var(--vscode-editor-foreground)]"
       />

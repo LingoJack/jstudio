@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
-import type { BlockType, Block } from '../types';
+import type { BlockType, Block, RichText } from '../types';
 import { useStore } from '../store/useStore';
+import { contentToString } from '../lib';
 import BlockRouter from './blocks/BlockRouter';
 import SlashMenu from './blocks/SlashMenu';
 import { useSurfaceEditor } from './blocks/useSurfaceEditor';
@@ -148,7 +149,7 @@ export default function BlockEditor() {
   );
 
   const deleteBlockInline = useCallback(
-    (blockId: string, mergeContent?: string) => {
+    (blockId: string, mergeContent?: RichText[]) => {
       const doc = useStore.getState().activeDoc;
       if (!doc) {
         useStore.getState().deleteBlock(blockId, mergeContent);
@@ -164,7 +165,7 @@ export default function BlockEditor() {
       // The offset must be the TEXT length, not the HTML string length.
       const isMerging = mergeContent !== undefined && idx > 0;
       const prevTextLength = isMerging
-        ? htmlTextLength(prevBlock!.content)
+        ? contentToString(prevBlock!.content).length
         : undefined;
 
       useStore.getState().deleteBlock(blockId, mergeContent);
@@ -360,14 +361,4 @@ function getCurrentBlockId(surface: HTMLElement | null): string | null {
     node = node.parentNode;
   }
   return null;
-}
-
-/**
- * Get the visible text length of an HTML string.
- * Used to calculate caret offset after block merge.
- */
-function htmlTextLength(html: string): number {
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  return div.innerText.length;
 }

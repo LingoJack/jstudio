@@ -3,6 +3,7 @@ import { Image as ImageIcon } from 'lucide-react';
 import type { BaseBlockProps } from './types';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
+import { contentToString } from '../../lib';
 
 /**
  * TYPE: image — displays an image.
@@ -19,7 +20,7 @@ export default function ImageBlock({ block, onUpdateBlock }: BaseBlockProps) {
 
   // Resolve asset paths to data URLs for display
   useEffect(() => {
-    const content = block.content;
+    const content = contentToString(block.content);
     const imageType = block.properties?.imageType;
 
     if (!content) {

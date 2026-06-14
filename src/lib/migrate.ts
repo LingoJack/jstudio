@@ -74,7 +74,7 @@ export async function migrateFromLocalStorage(): Promise<{
             {
               id: `block-${Date.now()}-initial`,
               type: 'text',
-              content: '',
+              content: [],
               properties: {},
             },
           ],
