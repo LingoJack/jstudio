@@ -131,7 +131,10 @@ export function useSurfaceEditor({
       const text = line.innerText;
 
       // — Slash menu detection —
-      if (text === '/' || text.endsWith('/')) {
+      // Trigger when the block text is just "/" (empty line) or starts with "/"
+      // followed by a filter query.
+      const trimmed = text.trimStart();
+      if (trimmed.startsWith('/') && !trimmed.includes('\n')) {
         const surface = surfaceRef.current;
         if (surface) {
           const sel = window.getSelection();
@@ -174,24 +177,35 @@ export function useSurfaceEditor({
       const node = blockNodesRef.current.get(blockId);
       const line = node?.querySelector<HTMLElement>('[data-block-line]');
 
-      // Clear the "/" from the block
+      // Clear the slash query (e.g. "/cod" or just "/") from the block
       if (line) {
-        const text = line.innerText;
-        const cleared = text.replace(/\/(\s*)$/, '');
-        line.innerHTML = cleared;
+        line.innerHTML = '';
         syncBlockToStore(blockId, line);
       }
 
-      // Check if block is now empty → convert in place
-      const isEmpty = line ? line.innerText.trim() === '' : true;
-      if (isEmpty) {
-        onUpdateBlock(blockId, { type, content: '', properties: getDefaultProperties(type) });
-      } else {
-        onInsertBelow(blockId, type);
-      }
+      // Convert the current block in place — it's empty now
+      onUpdateBlock(blockId, { type, content: '', properties: getDefaultProperties(type) });
       setSlashMenu(NO_MENU);
+
+      // Refocus the block
+      requestAnimationFrame(() => {
+        const surface = surfaceRef.current;
+        const updatedNode = blockNodesRef.current.get(blockId);
+        const updatedLine = updatedNode?.querySelector<HTMLElement>('[data-block-line]');
+        if (surface && updatedLine) {
+          surface.focus();
+          const sel = window.getSelection();
+          if (sel) {
+            const range = document.createRange();
+            range.selectNodeContents(updatedLine);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        }
+      });
     },
-    [slashMenu.blockId, blockNodesRef, syncBlockToStore, onUpdateBlock, onInsertBelow],
+    [slashMenu.blockId, blockNodesRef, syncBlockToStore, onUpdateBlock, surfaceRef],
   );
 
   // ------------------------------------------------------------------

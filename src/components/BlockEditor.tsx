@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import type { BlockType, Block } from '../types';
 import { useStore } from '../store/useStore';
 import BlockRouter from './blocks/BlockRouter';
+import SlashMenu from './blocks/SlashMenu';
 import { useSurfaceEditor } from './blocks/useSurfaceEditor';
 
 export default function BlockEditor() {
@@ -213,8 +214,17 @@ export default function BlockEditor() {
           onKeyDown={surface.handleKeyDown}
           onPaste={surface.handlePaste}
           onBlur={surface.handleBlur}
-          className="space-y-1 min-h-[50vh] outline-none"
+          className="relative space-y-1 min-h-[50vh] outline-none"
         >
+          {/* Slash command popover */}
+          {surface.slashMenu.visible && (
+            <SlashMenu
+              slashMenuIndex={surface.slashMenu.index}
+              slashMenuCoords={surface.slashMenu.coords}
+              onExecute={surface.executeSlashCommand}
+            />
+          )}
+
           {blocks.map((block) => (
             <BlockRouter
               key={block.id}
