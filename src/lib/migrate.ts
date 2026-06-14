@@ -20,7 +20,6 @@ import type { Document } from '../types';
  */
 const OLD_DOCS_KEY = 'omninote_docs';
 const OLD_THEME_KEY = 'omninote_theme';
-const OLD_ASSETS_KEY = 'omninote_assets';
 
 /** Check whether the file-system store has already been seeded. */
 async function isFileSystemEmpty(): Promise<boolean> {
@@ -35,20 +34,17 @@ async function isFileSystemEmpty(): Promise<boolean> {
 /** Migrate documents + theme from localStorage to ~/.jdata/studio. */
 export async function migrateFromLocalStorage(): Promise<{
   documentCount: number;
-  assetCount: number;
 }> {
   const fsEmpty = await isFileSystemEmpty();
   const oldDocs = localStorage.getItem(OLD_DOCS_KEY);
   const oldTheme = localStorage.getItem(OLD_THEME_KEY);
-  const oldAssets = localStorage.getItem(OLD_ASSETS_KEY);
 
   // Nothing to migrate.
-  if (fsEmpty && !oldDocs && !oldAssets) {
-    return { documentCount: 0, assetCount: 0 };
+  if (fsEmpty && !oldDocs) {
+    return { documentCount: 0 };
   }
 
   let documentCount = 0;
-  let assetCount = 0;
 
   // --- Documents ---
   if (fsEmpty) {
@@ -96,36 +92,6 @@ export async function migrateFromLocalStorage(): Promise<{
     documentCount = docs.length;
   }
 
-  // --- Assets ---
-  if (oldAssets && fsEmpty) {
-    try {
-      const parsed = JSON.parse(oldAssets) as Array<{
-        id: string;
-        name: string;
-        type: string;
-        content: string; // base64 data URI
-      }>;
-
-      if (Array.isArray(parsed)) {
-        for (const asset of parsed) {
-          // Parse "data:image/png;base64,...." → ext + raw bytes
-          const match = /^data:([^;]+);base64,(.+)$/.exec(asset.content);
-          if (!match) continue;
-
-          const mimeType = match[1];
-          const base64Data = match[2];
-          const ext = mimeTypeToExt(mimeType);
-          const bytes = base64ToBytes(base64Data);
-
-          await storage.saveAsset(asset.id, Array.from(bytes), ext);
-          assetCount++;
-        }
-      }
-    } catch {
-      // corrupted assets — skip silently
-    }
-  }
-
   // --- Theme / settings ---
   const settings: Record<string, unknown> = {};
   try {
@@ -147,41 +113,9 @@ export async function migrateFromLocalStorage(): Promise<{
     localStorage.setItem(`${OLD_DOCS_KEY}_migrated_backup`, oldDocs);
     localStorage.removeItem(OLD_DOCS_KEY);
   }
-  if (oldAssets) {
-    localStorage.setItem(`${OLD_ASSETS_KEY}_migrated_backup`, oldAssets);
-    localStorage.removeItem(OLD_ASSETS_KEY);
-  }
   if (oldTheme) {
     localStorage.removeItem(OLD_THEME_KEY);
   }
 
-  return { documentCount, assetCount };
-}
-
-// ---- helpers ----
-
-function base64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function mimeTypeToExt(mime: string): string {
-  const map: Record<string, string> = {
-    'image/png': 'png',
-    'image/jpeg': 'jpg',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-    'image/svg+xml': 'svg',
-    'application/pdf': 'pdf',
-    'text/html': 'html',
-    'text/css': 'css',
-    'text/javascript': 'js',
-    'application/json': 'json',
-    'text/plain': 'txt',
-  };
-  return map[mime] ?? 'bin';
+  return { documentCount };
 }

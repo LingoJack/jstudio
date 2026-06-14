@@ -118,26 +118,6 @@ pub fn delete_document(doc_id: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Save a binary asset into a document's own assets folder.
-/// Path: `documents/{doc_id}/assets/{file_name}`
-#[tauri::command]
-pub fn save_doc_asset(doc_id: String, file_name: String, data: Vec<u8>) -> Result<String, String> {
-    let dir = doc_assets_dir(&doc_id);
-    fs::create_dir_all(&dir).map_err(|e| format!("failed to create assets dir: {e}"))?;
-    let path = dir.join(&file_name);
-    fs::write(&path, &data).map_err(|e| format!("failed to save doc asset: {e}"))?;
-    Ok(file_name)
-}
-
-/// Read a document-scoped asset as base64.
-#[tauri::command]
-pub fn read_doc_asset_base64(doc_id: String, file_name: String) -> Result<String, String> {
-    let path = doc_assets_dir(&doc_id).join(&file_name);
-    let bytes =
-        fs::read(&path).map_err(|e| format!("failed to read doc asset {file_name}: {e}"))?;
-    Ok(general_purpose::STANDARD.encode(&bytes))
-}
-
 /// Read user settings.
 #[tauri::command]
 pub fn read_settings() -> Result<Value, String> {
@@ -156,51 +136,53 @@ pub fn write_settings(settings: Value) -> Result<(), String> {
     fs::write(settings_path(), json).map_err(|e| e.to_string())
 }
 
-// ---- legacy global asset commands (kept for backward compat) ----
+/// Save a binary asset into a document's own assets folder.
+/// Path: `documents/{doc_id}/assets/{file_name}`
+///
+/// If a file with the same name already exists, a numeric suffix is appended
+/// (e.g. `photo.png` → `photo-1.png` → `photo-2.png`) until a free name is found.
+/// Returns the **final** file name used.
+#[tauri::command]
+pub fn save_doc_asset(doc_id: String, file_name: String, data: Vec<u8>) -> Result<String, String> {
+    let dir = doc_assets_dir(&doc_id);
+    fs::create_dir_all(&dir).map_err(|e| format!("failed to create assets dir: {e}"))?;
 
-fn assets_dir() -> PathBuf {
-    studio_dir().join("assets")
+    let final_name = resolve_unique_name(&dir, &file_name);
+    let path = dir.join(&final_name);
+    fs::write(&path, &data).map_err(|e| format!("failed to save doc asset: {e}"))?;
+    Ok(final_name)
 }
 
-/// Save a binary asset to global `assets/{asset_id}.{ext}`. Returns the file name.
+/// Read a document-scoped asset as base64.
 #[tauri::command]
-pub fn save_asset(asset_id: String, data: Vec<u8>, ext: String) -> Result<String, String> {
-    let safe_ext = ext.trim_start_matches('.').to_lowercase();
-    let file_name = format!("{asset_id}.{safe_ext}");
-    let path = assets_dir().join(&file_name);
-    fs::create_dir_all(assets_dir()).map_err(|e| e.to_string())?;
-    fs::write(&path, &data).map_err(|e| format!("failed to save asset: {e}"))?;
-    Ok(file_name)
+pub fn read_doc_asset_base64(doc_id: String, file_name: String) -> Result<String, String> {
+    let path = doc_assets_dir(&doc_id).join(&file_name);
+    let bytes =
+        fs::read(&path).map_err(|e| format!("failed to read doc asset {file_name}: {e}"))?;
+    Ok(general_purpose::STANDARD.encode(&bytes))
 }
 
-/// Delete an asset by file name.
+/// Delete a single asset from a document's assets folder.
 #[tauri::command]
-pub fn delete_asset(file_name: String) -> Result<(), String> {
-    let path = assets_dir().join(&file_name);
+pub fn delete_doc_asset(doc_id: String, file_name: String) -> Result<(), String> {
+    let path = doc_assets_dir(&doc_id).join(&file_name);
     if path.exists() {
-        fs::remove_file(&path).map_err(|e| format!("failed to delete asset {file_name}: {e}"))?;
+        fs::remove_file(&path)
+            .map_err(|e| format!("failed to delete doc asset {file_name}: {e}"))?;
     }
     Ok(())
 }
 
-/// Read an asset as a base64 data-URI-ready string.
+/// List all assets in a document's assets folder with metadata.
 #[tauri::command]
-pub fn read_asset_base64(file_name: String) -> Result<String, String> {
-    let path = assets_dir().join(&file_name);
-    let bytes = fs::read(&path).map_err(|e| format!("failed to read asset {file_name}: {e}"))?;
-    Ok(general_purpose::STANDARD.encode(&bytes))
-}
-
-/// List all assets in the global assets directory with metadata.
-#[tauri::command]
-pub fn list_assets() -> Result<Vec<Value>, String> {
-    let dir = assets_dir();
+pub fn list_doc_assets(doc_id: String) -> Result<Vec<Value>, String> {
+    let dir = doc_assets_dir(&doc_id);
     if !dir.exists() {
         return Ok(Vec::new());
     }
 
     let mut entries = Vec::new();
-    let read = fs::read_dir(&dir).map_err(|e| format!("failed to list assets: {e}"))?;
+    let read = fs::read_dir(&dir).map_err(|e| format!("failed to list doc assets: {e}"))?;
 
     for entry in read.flatten() {
         let file_name = entry.file_name().to_string_lossy().into_owned();
@@ -243,7 +225,44 @@ pub fn list_assets() -> Result<Vec<Value>, String> {
     Ok(entries)
 }
 
+/// One-time cleanup: remove the legacy global `~/.jdata/studio/assets/` directory.
+#[tauri::command]
+pub fn clean_global_assets() -> Result<(), String> {
+    let dir = studio_dir().join("assets");
+    if dir.exists() {
+        fs::remove_dir_all(&dir)
+            .map_err(|e| format!("failed to clean global assets dir: {e}"))?;
+    }
+    Ok(())
+}
+
 // ---- helpers ----
+
+/// Resolve a unique file name inside `dir`.
+///
+/// If `file_name` already exists, inserts a numeric suffix before the extension:
+/// `photo.png` → `photo-1.png` → `photo-2.png` …
+fn resolve_unique_name(dir: &PathBuf, file_name: &str) -> String {
+    let target = dir.join(file_name);
+    if !target.exists() {
+        return file_name.to_string();
+    }
+
+    let (stem, ext) = match file_name.rsplit_once('.') {
+        Some((n, e)) => (n.to_string(), format!(".{e}")),
+        None => (file_name.to_string(), String::new()),
+    };
+
+    for i in 1..u32::MAX {
+        let candidate = format!("{stem}-{i}{ext}");
+        if !dir.join(&candidate).exists() {
+            return candidate;
+        }
+    }
+
+    // Fallback — should never reach here.
+    format!("{stem}-overflow{ext}")
+}
 
 fn guess_mime(ext: &str) -> &'static str {
     match ext {

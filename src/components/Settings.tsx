@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sun, Moon, Info, Palette, Monitor, Github, Heart, ArrowLeft } from 'lucide-react';
+import { Sun, Moon, Info, Palette, Monitor, Github, Heart } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 type SettingsTab = 'appearance' | 'about';
@@ -9,7 +9,6 @@ const APP_VERSION = '0.1.0';
 export default function Settings() {
   const isDarkMode = useStore((s) => s.isDarkMode);
   const toggleDarkMode = useStore((s) => s.toggleDarkMode);
-  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
 
   const tabBtnBase = 'flex items-center gap-2 px-3 py-1.5 rounded-sm transition-colors duration-150 text-xs cursor-pointer';
@@ -22,13 +21,6 @@ export default function Settings() {
     <div className="w-full h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden">
       {/* Page header */}
       <div className="shrink-0 border-b border-[var(--vscode-widget-border)] bg-[var(--vscode-sideBarSectionHeader-background)] px-4 py-2.5 flex items-center gap-3">
-        <button
-          onClick={() => setSettingsOpen(false)}
-          className="cursor-pointer p-1.5 rounded-sm text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150"
-          title="返回"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
         <h2 className="font-semibold text-sm text-[var(--vscode-foreground)]">设置</h2>
       </div>
 

@@ -66,20 +66,23 @@ export default function ImageBlock({ block, onUpdateBlock }: BaseBlockProps) {
     setResolvedSrc(content);
   }, [block.content, block.properties?.imageType, activeDocId]);
 
-  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleImageDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      onUpdateBlock({
-        content: base64,
-        properties: { ...block.properties, imageType: 'base64' },
-      });
-    };
-    reader.readAsDataURL(file);
+    if (!activeDocId) return;
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const savedName = await storage.saveDocAsset(
+      activeDocId,
+      file.name,
+      Array.from(bytes),
+    );
+    onUpdateBlock({
+      content: `assets/${savedName}`,
+      properties: { ...block.properties, imageType: 'asset', caption: file.name },
+    });
   };
 
   return (

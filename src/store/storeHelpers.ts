@@ -38,7 +38,6 @@ export interface StoreState {
   // — ui state (ui slice) —
   isDarkMode: boolean;
   isSidebarOpen: boolean;
-  isFolderOpen: boolean;
   isSettingsOpen: boolean;
   isLoading: boolean;
 
@@ -58,20 +57,12 @@ export interface StoreState {
   appendBlockAtEnd: (type: BlockType) => void;
   duplicateBlock: (blockId: string) => void;
 
-  // — asset insertion (editor slice) —
-  insertAssetAsBlock: (asset: {
-    name: string;
-    type: string;
-    size: string;
-    content: string;
-  }) => void;
+  // — asset ops (editor slice) —
   saveImageToDoc: (blob: Blob, afterBlockId?: string) => Promise<string | null>;
 
   // — ui toggles (ui slice) —
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
-  toggleFolder: () => void;
-  setFolderOpen: (open: boolean) => void;
   toggleSettings: () => void;
   setSettingsOpen: (open: boolean) => void;
 }

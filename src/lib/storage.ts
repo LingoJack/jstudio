@@ -77,16 +77,15 @@ export const storage = {
     invoke<string>('save_doc_asset', { docId, fileName, data }),
   readDocAssetBase64: (docId: string, fileName: string) =>
     invoke<string>('read_doc_asset_base64', { docId, fileName }),
+  deleteDocAsset: (docId: string, fileName: string) =>
+    invoke<void>('delete_doc_asset', { docId, fileName }),
+  listDocAssets: (docId: string) =>
+    invoke<AssetInfo[]>('list_doc_assets', { docId }),
 
-  // ---- global assets (legacy shared folder) ----
+  // ---- maintenance ----
 
-  saveAsset: (id: string, data: number[], ext: string) =>
-    invoke<string>('save_asset', { assetId: id, data, ext }),
-  deleteAsset: (fileName: string) =>
-    invoke<void>('delete_asset', { fileName }),
-  readAssetBase64: (fileName: string) =>
-    invoke<string>('read_asset_base64', { fileName }),
-  listAssets: () => invoke<AssetInfo[]>('list_assets'),
+  /** One-time cleanup: remove the legacy global assets directory. */
+  cleanGlobalAssets: () => invoke<void>('clean_global_assets'),
 
   // ---- settings ----
 

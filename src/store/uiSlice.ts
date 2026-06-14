@@ -5,7 +5,6 @@ import type { SliceCreator } from './storeHelpers';
 export const createUiSlice: SliceCreator = (set, get) => ({
   isDarkMode: true,
   isSidebarOpen: true,
-  isFolderOpen: false,
   isSettingsOpen: false,
   isLoading: true,
 
@@ -18,8 +17,6 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   },
 
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
-  toggleFolder: () => set((s) => ({ isFolderOpen: !s.isFolderOpen })),
-  setFolderOpen: (open) => set({ isFolderOpen: open }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
 });

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Block } from "../../types";
 import { IconButton } from "../ui/IconButton";
+import { useStore } from "../../store/useStore";
+import { storage } from "../../lib/storage";
 import {
   Upload,
   FileText,
@@ -51,18 +53,18 @@ interface AttachmentBlockProps {
  *  - **preview**: HTML files render in an iframe, images render as `<img>`.
  *  - **card**: a compact metadata card (icon, name, size, type, download button).
  *
- * The file's data URL lives in `block.content` but is NOT persisted to
- * localStorage (large files would overflow it). Only metadata is saved via
- * `properties`.
+ * File content is stored as a document-scoped asset path (`assets/xxx`)
+ * and resolved to a data URL at render time via Tauri file I/O.
  */
 const AttachmentBlock: React.FC<AttachmentBlockProps> = ({
   block,
   onUpdateBlock,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeDocId = useStore((s) => s.activeDocId);
 
-  // File data URL — kept in component state only, not persisted.
-  const [fileDataUrl, setFileDataUrl] = useState(block.content || "");
+  // File data URL — resolved from asset path or used directly.
+  const [fileDataUrl, setFileDataUrl] = useState<string>('');
 
   // Metadata from properties (persisted).
   const fileName = block.properties?.attachmentName || "";
@@ -74,45 +76,72 @@ const AttachmentBlock: React.FC<AttachmentBlockProps> = ({
 
   const hasFile = !!fileName;
 
-  // Restore file data when block content changes externally.
+  // Resolve content to a displayable data URL.
+  // - `assets/xxx` path → read from document folder via Tauri
+  // - anything else (data:, http:, blob:) → use as-is
   useEffect(() => {
-    if (block.content) {
-      setFileDataUrl(block.content);
+    const content = block.content;
+    if (!content) {
+      setFileDataUrl('');
+      return;
     }
-  }, [block.id, block.content]);
+
+    if (content.startsWith('assets/') && activeDocId) {
+      const assetName = content.slice('assets/'.length);
+      storage
+        .readDocAssetBase64(activeDocId, assetName)
+        .then((b64) => {
+          const mime = fileType || 'application/octet-stream';
+          setFileDataUrl(`data:${mime};base64,${b64}`);
+        })
+        .catch((e) => {
+          console.error('Failed to load attachment asset:', e);
+          setFileDataUrl('');
+        });
+      return;
+    }
+
+    setFileDataUrl(content);
+  }, [block.id, block.content, activeDocId, fileType]);
 
   const handleFileSelect = useCallback(
-    (file: File | null) => {
-      if (!file) return;
+    async (file: File | null) => {
+      if (!file || !activeDocId) return;
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl =
-          typeof reader.result === "string" ? reader.result : "";
-        setFileDataUrl(dataUrl);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const savedName = await storage.saveDocAsset(
+        activeDocId,
+        file.name,
+        Array.from(bytes),
+      );
 
-        // Auto-select mode based on file type.
-        const previewable = isPreviewable(file.type);
-        const autoMode: "preview" | "card" = previewable ? "preview" : "card";
-        setMode(autoMode);
+      // Auto-select mode based on file type.
+      const previewable = isPreviewable(file.type);
+      const autoMode: "preview" | "card" = previewable ? "preview" : "card";
+      setMode(autoMode);
 
-        onUpdateBlock({
-          content: dataUrl,
-          properties: {
-            ...block.properties,
-            attachmentName: file.name,
-            attachmentType: file.type,
-            attachmentSize: formatFileSize(file.size),
-            attachmentMode: autoMode,
-          },
-        });
-      };
-      reader.readAsDataURL(file);
+      onUpdateBlock({
+        content: `assets/${savedName}`,
+        properties: {
+          ...block.properties,
+          attachmentName: file.name,
+          attachmentType: file.type,
+          attachmentSize: formatFileSize(file.size),
+          attachmentMode: autoMode,
+        },
+      });
     },
-    [block.properties, onUpdateBlock],
+    [block.properties, onUpdateBlock, activeDocId],
   );
 
   const handleClear = useCallback(() => {
+    // Delete the physical asset file if it's a doc-scoped path.
+    const content = block.content;
+    if (content && content.startsWith('assets/') && activeDocId) {
+      const assetName = content.slice('assets/'.length);
+      storage.deleteDocAsset(activeDocId, assetName).catch(console.error);
+    }
+
     setFileDataUrl("");
     onUpdateBlock({
       content: "",
@@ -124,7 +153,7 @@ const AttachmentBlock: React.FC<AttachmentBlockProps> = ({
         attachmentMode: "preview",
       },
     });
-  }, [block.properties, onUpdateBlock]);
+  }, [block.properties, onUpdateBlock, block.content, activeDocId]);
 
   const handleModeToggle = useCallback(
     (newMode: "preview" | "card") => {

@@ -19,6 +19,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.init();
       await migrateFromLocalStorage();
 
+      // One-time cleanup: remove the legacy global assets directory.
+      try {
+        await storage.cleanGlobalAssets();
+      } catch {
+        // ignore — best-effort cleanup
+      }
+
       // Load settings
       let theme: 'dark' | 'light' = 'dark';
       try {

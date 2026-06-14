@@ -281,6 +281,35 @@ pre[class*="language-"] {
   border: 1px solid var(--vscode-widget-border);
 }
 
+/* Inside .code-block-container the <pre> is part of a unified card —
+   strip the standalone frame so there's no "box-in-box" look.
+   Do NOT set padding here — it's controlled by Tailwind classes on the <pre>
+   so the overlay <textarea> can share the exact same padding. */
+.code-block-container pre[class*="language-"] {
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  overflow: visible;
+}
+
+/* The edit-mode textarea replaces the <pre> entirely (click-to-edit).
+   Reset all browser defaults so it visually matches the highlighted <pre>. */
+.code-block-container .code-edit-area {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: normal;
+  tab-size: 4;
+  white-space: pre;
+  word-wrap: normal;
+  word-break: normal;
+  word-spacing: normal;
+  overflow: auto;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Inline code */
 :not(pre) > code[class*="language-"] {
   padding: 2px 6px;

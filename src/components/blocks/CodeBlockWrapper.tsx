@@ -18,7 +18,7 @@ export default function CodeBlockWrapper({
       language={language}
       editable
       showLineNumbers
-      className="rounded-sm overflow-hidden border border-[var(--vscode-widget-border)]"
+      className="rounded-lg overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-textCodeBlock-background)]"
       onChange={(code) => onUpdateBlock({ content: code })}
       onLanguageChange={(lang) =>
         onUpdateBlock({
