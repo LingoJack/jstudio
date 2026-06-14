@@ -21,12 +21,18 @@ export interface BaseBlockProps {
   onRequestFocusBlock?: (offset: number) => boolean;
 }
 
-/**
- * Props for the block wrapper (BlockRouter). Identical to BaseBlockProps
- * but also forwards a ref to the outer div.
- */
-export interface BlockRouterProps extends BaseBlockProps {
-  forwardedRef?: React.Ref<HTMLDivElement>;
+export interface BlockRouterProps {
+  block: Block;
+  documents: Document[];
+  onUpdateBlock: (blockId: string, updatedFields: Partial<Block>) => void;
+  onDeleteBlock: (blockId: string, mergeContent?: string) => void;
+  onNavigateToDoc: (docId: string) => void;
+  onInsertBlockBelow: (blockId: string, type: BlockType) => void;
+  onDuplicateBlock?: (blockId: string) => void;
+  autoFocus?: boolean;
+  forwardedRef?: (node: HTMLElement | null) => void;
+  onRequestFocusTitle?: () => boolean;
+  onRequestFocusBlock?: (offset: number) => boolean;
 }
 
 /**

@@ -145,18 +145,11 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   deleteDocument: async (id) => {
     const { documents, docList, activeDocId } = get();
 
-    // Physically delete the document folder + files from disk
-    await storage.deleteDocument(id);
-
+    // Update in-memory state FIRST so the UI reacts immediately even if
+    // disk operations fail. This prevents the app from getting stuck in
+    // an inconsistent state (e.g. black screen if storage throws).
     const newDocuments = documents.filter((d) => d.id !== id);
     const newDocList = docList.filter((d) => d.id !== id);
-
-    // Update index on disk (may become empty array [])
-    if (newDocList.length > 0) {
-      await storage.saveIndex(newDocList);
-    } else {
-      await storage.saveIndex([]);
-    }
 
     const stateUpdate: Partial<StoreState> = {
       documents: newDocuments,
@@ -170,6 +163,19 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
 
     set(stateUpdate as StoreState);
+
+    // Now persist to disk — failures are logged but don't crash the app.
+    try {
+      await storage.deleteDocument(id);
+    } catch (e) {
+      console.error('Failed to delete document from disk:', e);
+    }
+
+    try {
+      await storage.saveIndex(newDocList);
+    } catch (e) {
+      console.error('Failed to save index after delete:', e);
+    }
   },
 
   openDocument: async (id) => {

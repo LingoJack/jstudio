@@ -189,7 +189,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
               value={code}
               onChange={(e) => onChange?.(e.target.value)}
               onBlur={() => setIsEditing(false)}
-              onScroll={() => {
+              onScroll={(e) => {
                 // Keep line-number gutter in sync with textarea scroll
                 if (showLineNumbers && editScrollRef.current) {
                   editScrollRef.current.scrollTop = e.currentTarget.scrollTop;

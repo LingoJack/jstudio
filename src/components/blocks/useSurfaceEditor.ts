@@ -61,7 +61,7 @@ export function useSurfaceEditor({
   const getCurrentBlockId = useCallback((): string | null => {
     const surface = surfaceRef.current;
     if (!surface) return null;
-    const sel = window.getSelection();
+    const sel = safeGetSelection();
     if (!sel || sel.rangeCount === 0) return null;
     let node: Node | null = sel.anchorNode;
     while (node && node !== surface) {
@@ -137,7 +137,7 @@ export function useSurfaceEditor({
       if (trimmed.startsWith('/') && !trimmed.includes('\n')) {
         const surface = surfaceRef.current;
         if (surface) {
-          const sel = window.getSelection();
+          const sel = safeGetSelection();
           if (sel && sel.rangeCount > 0) {
             const range = sel.getRangeAt(0);
             const rect = range.getBoundingClientRect();
@@ -162,7 +162,7 @@ export function useSurfaceEditor({
       }
 
       // — Markdown shortcuts —
-      detectMarkdownShortcut(text, blockId, line, onUpdateBlock);
+      detectMarkdownShortcut(text, blockId, line, onUpdateBlock, surfaceRef.current);
     },
     [getCurrentBlockId, blockNodesRef, syncBlockToStore, surfaceRef, slashMenu.visible, onUpdateBlock],
   );
@@ -183,6 +183,15 @@ export function useSurfaceEditor({
         syncBlockToStore(blockId, line);
       }
 
+      // CRITICAL: Blur the surface before mutating the DOM.
+      // When a text block is converted to a non-text block (e.g. code),
+      // React removes the old [data-block-line] element. If the browser's
+      // Selection still references that node, WebKit throws
+      // "NotFoundError: The object can not be found here."
+      // removeAllRanges() alone is insufficient — WebKit auto-restores
+      // a range inside the focused contentEditable. Blur forces release.
+      blurSurfaceForMutation(surfaceRef.current);
+
       // Convert the current block in place — it's empty now
       onUpdateBlock(blockId, { type, content: '', properties: getDefaultProperties(type) });
       setSlashMenu(NO_MENU);
@@ -191,10 +200,13 @@ export function useSurfaceEditor({
       requestAnimationFrame(() => {
         const surface = surfaceRef.current;
         const updatedNode = blockNodesRef.current.get(blockId);
-        const updatedLine = updatedNode?.querySelector<HTMLElement>('[data-block-line]');
-        if (surface && updatedLine) {
+        if (!surface || !updatedNode) return;
+
+        // For text-type blocks, focus the [data-block-line]
+        const updatedLine = updatedNode.querySelector<HTMLElement>('[data-block-line]');
+        if (updatedLine) {
           surface.focus();
-          const sel = window.getSelection();
+          const sel = safeGetSelection();
           if (sel) {
             const range = document.createRange();
             range.selectNodeContents(updatedLine);
@@ -202,6 +214,18 @@ export function useSurfaceEditor({
             sel.removeAllRanges();
             sel.addRange(range);
           }
+          return;
+        }
+
+        // For non-text blocks (code, image, etc.), try focusing the island's
+        // first interactive child, or just focus the surface.
+        const focusable = updatedNode.querySelector<HTMLElement>(
+          'input, textarea, [contenteditable="true"], [tabindex]',
+        );
+        if (focusable) {
+          focusable.focus();
+        } else {
+          surface.focus();
         }
       });
     },
@@ -247,6 +271,15 @@ export function useSurfaceEditor({
   // ------------------------------------------------------------------
   // KeyDown — the big one
   // ------------------------------------------------------------------
+  // Helper: sync the block that currently contains the caret
+  const syncCurrentBlock = useCallback(() => {
+    const blockId = getCurrentBlockId();
+    if (!blockId) return;
+    const node = blockNodesRef.current.get(blockId);
+    const line = node?.querySelector<HTMLElement>('[data-block-line]');
+    if (line) syncBlockToStore(blockId, line);
+  }, [getCurrentBlockId, blockNodesRef, syncBlockToStore]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       // — Slash menu navigation —
@@ -314,26 +347,92 @@ export function useSurfaceEditor({
         return;
       }
 
-      // — Backspace at block start → merge —
+      // — Backspace at block start → merge or delete island —
       if (e.key === 'Backspace') {
         const surface = surfaceRef.current;
         if (!surface) return;
-        const sel = window.getSelection();
+        const sel = safeGetSelection();
         if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return;
 
         const blockId = getCurrentBlockId();
         if (!blockId) return;
         const node = blockNodesRef.current.get(blockId);
-        const line = node?.querySelector<HTMLElement>('[data-block-line]');
-        if (!line) return;
+        if (!node) return;
 
-        // Check caret is at the very start of the block
+        // Check if this is a non-text island block (code, image, table, etc.)
+        const isIsland = node.getAttribute('data-block-island') === 'true';
+        const line = node.querySelector<HTMLElement>('[data-block-line]');
+
+        if (!line && !isIsland) return;
+
+        if (isIsland) {
+          // For non-text blocks, Backspace should just delete the whole block.
+          // We don't merge content because island blocks aren't text-based.
+          // But we DO need to check if the selection is actually on this island.
+          // If the caret is inside an island child (e.g. a code editor textarea),
+          // let the browser handle it normally (don't intercept).
+          const selCheck = safeGetSelection();
+          if (selCheck && selCheck.anchorNode) {
+            let walker: Node | null = selCheck.anchorNode;
+            let insideIsland = false;
+            while (walker && walker !== surface) {
+              if (walker === node) { insideIsland = true; break; }
+              walker = walker.parentNode;
+            }
+            // If the caret is inside a focusable child of the island
+            // (textarea, input, etc.), let the child handle Backspace.
+            if (insideIsland) {
+              const active = document.activeElement;
+              if (
+                active &&
+                active !== surface &&
+                node.contains(active) &&
+                (active.tagName === 'TEXTAREA' ||
+                  active.tagName === 'INPUT' ||
+                  (active as HTMLElement).isContentEditable)
+              ) {
+                return; // let the child handle it
+              }
+            }
+          }
+          e.preventDefault();
+          // CRITICAL: Blur surface before DOM mutation to prevent
+          // WebKit NotFoundError when React removes this node.
+          blurSurfaceForMutation(surface);
+          onDeleteBlock(blockId);
+          return;
+        }
+
+        // For text blocks: check caret is at the very start of the block
         const range = sel.getRangeAt(0);
         const preRange = range.cloneRange();
         preRange.selectNodeContents(line);
         preRange.setEnd(range.startContainer, range.startOffset);
         if (preRange.toString().length === 0) {
           e.preventDefault();
+          // CRITICAL: Blur surface before DOM mutation to prevent
+          // WebKit NotFoundError when React removes this node.
+          blurSurfaceForMutation(surface);
+
+          // Check if the previous block is a non-text island. If so, don't
+          // merge text content into it — just delete this block and focus
+          // the previous island.
+          const doc = useStore.getState().activeDoc;
+          if (doc) {
+            const idx = doc.blocks.findIndex((b) => b.id === blockId);
+            if (idx > 0) {
+              const prevBlock = doc.blocks[idx - 1];
+              const TEXT_TYPES_SET = new Set([
+                'text', 'heading-1', 'heading-2', 'heading-3', 'callout', 'toggle',
+              ]);
+              if (!TEXT_TYPES_SET.has(prevBlock.type as string)) {
+                // Previous block is non-text: just delete current block,
+                // don't merge content.
+                onDeleteBlock(blockId);
+                return;
+              }
+            }
+          }
           onDeleteBlock(blockId, line.innerHTML);
         }
         return;
@@ -341,14 +440,14 @@ export function useSurfaceEditor({
 
       // — ArrowUp/Down: navigate between blocks —
       if (e.key === 'ArrowUp' && !e.shiftKey) {
-        const surface = surfaceRef.current;
         const el = getLineFromCaret();
         if (el && isAtFirstLine(el)) {
-          if (onFocusTitle()) {
+          // Try previous block first; if there is none, fall through to title
+          if (onFocusBlock(-1)) {
             e.preventDefault();
             return;
           }
-          if (onFocusBlock(-1)) {
+          if (onFocusTitle()) {
             e.preventDefault();
             return;
           }
@@ -379,15 +478,6 @@ export function useSurfaceEditor({
     ],
   );
 
-  // Helper: sync the block that currently contains the caret
-  function syncCurrentBlock() {
-    const blockId = getCurrentBlockId();
-    if (!blockId) return;
-    const node = blockNodesRef.current.get(blockId);
-    const line = node?.querySelector<HTMLElement>('[data-block-line]');
-    if (line) syncBlockToStore(blockId, line);
-  }
-
   return {
     handleInput,
     handleKeyDown,
@@ -402,11 +492,72 @@ export function useSurfaceEditor({
 // Helpers
 // ====================================================================
 
+/**
+ * Safely get the current selection. In WebKit, accessing selection
+ * properties after a DOM node has been removed can throw
+ * "NotFoundError: The object can not be found here."
+ * This wrapper catches that and returns null.
+ */
+function safeGetSelection(): Selection | null {
+  try {
+    const sel = window.getSelection();
+    if (!sel) return null;
+    // Touch rangeCount to force WebKit to validate — if the underlying
+    // range references a detached node, this is where it throws.
+    void sel.rangeCount;
+    return sel;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Safely remove all ranges from the current selection.
+ * Wrapped in try-catch for the same WebKit reason.
+ */
+function safeRemoveAllRanges(): void {
+  try {
+    window.getSelection()?.removeAllRanges();
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Blur the contentEditable surface and clear selection BEFORE a DOM mutation
+ * (block type conversion, deletion, etc.).
+ *
+ * This is the ONLY reliable way to prevent WebKit's
+ * "NotFoundError: The object can not be found here." which is thrown
+ * internally by React's commit phase when it removes a DOM node that
+ * the browser's Selection still references.
+ *
+ * `removeAllRanges()` alone is NOT enough — WebKit auto-restores a
+ * default range inside the focused contentEditable. Blurring first
+ * forces WebKit to fully release the selection.
+ */
+function blurSurfaceForMutation(surface: HTMLElement | null): void {
+  if (!surface) return;
+  try {
+    // 1. Remove all ranges first.
+    window.getSelection()?.removeAllRanges();
+  } catch { /* ignore */ }
+  // 2. Blur the surface so WebKit releases its internal selection state.
+  if (document.activeElement === surface) {
+    surface.blur();
+  }
+}
+
 /** Get the [data-block-line] element that contains the caret. */
 function getLineFromCaret(): HTMLElement | null {
-  const sel = window.getSelection();
+  const sel = safeGetSelection();
   if (!sel || sel.rangeCount === 0) return null;
-  let node: Node | null = sel.anchorNode;
+  let node: Node | null;
+  try {
+    node = sel.anchorNode;
+  } catch {
+    return null;
+  }
   while (node) {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement;
@@ -418,7 +569,7 @@ function getLineFromCaret(): HTMLElement | null {
 }
 
 function isAtFirstLine(el: HTMLElement): boolean {
-  const sel = window.getSelection();
+  const sel = safeGetSelection();
   if (!sel || sel.rangeCount === 0) return true;
   const range = sel.getRangeAt(0);
   if (!range.collapsed) return false;
@@ -431,7 +582,7 @@ function isAtFirstLine(el: HTMLElement): boolean {
 }
 
 function isAtLastLine(el: HTMLElement): boolean {
-  const sel = window.getSelection();
+  const sel = safeGetSelection();
   if (!sel || sel.rangeCount === 0) return true;
   const range = sel.getRangeAt(0);
   if (!range.collapsed) return false;
@@ -459,12 +610,16 @@ function detectMarkdownShortcut(
   blockId: string,
   line: HTMLElement,
   onUpdateBlock: (id: string, fields: Record<string, unknown>) => void,
+  surface: HTMLElement | null,
 ) {
   const md = text.match(/^(#{1,3})\s+(.*)/s);
   if (md) {
     const level = md[1].length;
     const content = md[2];
     const type = `heading-${level}` as BlockType;
+    // Blur surface before mutating DOM to prevent WebKit NotFoundError
+    // when React re-renders the block as a different element type.
+    blurSurfaceForMutation(surface);
     line.innerHTML = content;
     onUpdateBlock(blockId, {
       type,
@@ -476,6 +631,8 @@ function detectMarkdownShortcut(
 
   if (/^>\s+/.test(text)) {
     const content = text.replace(/^>\s+/, '');
+    // Same protection as above.
+    blurSurfaceForMutation(surface);
     line.innerHTML = content;
     onUpdateBlock(blockId, {
       type: 'callout',

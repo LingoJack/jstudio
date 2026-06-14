@@ -1,6 +1,6 @@
-import { memo } from 'react';
-import type { BlockType } from '../../types';
-import type { BlockRouterProps } from './types';
+import { memo, useCallback } from 'react';
+import type { Block, BlockType } from '../../types';
+import type { BaseBlockProps, BlockRouterProps } from './types';
 import TextBlock from './TextBlock';
 import HeadingBlock from './HeadingBlock';
 import CalloutBlock from './CalloutBlock';
@@ -37,53 +37,97 @@ const TEXT_TYPES = new Set(['text', 'heading-1', 'heading-2', 'heading-3', 'call
 function BlockRouterInner({
   block,
   forwardedRef,
+  onUpdateBlock,
+  onDeleteBlock,
+  onInsertBlockBelow,
   onDuplicateBlock,
   ...rest
 }: BlockRouterProps) {
   const type = block.type as BlockType;
   const isTextBlock = TEXT_TYPES.has(type);
 
+  // Stable callbacks bound to this block's ID — created once per block.
+  // The parent passes stable (blockId, ...) callbacks so memo isn't broken.
+  const boundUpdate = useCallback(
+    (fields: Partial<Block>) => onUpdateBlock(block.id, fields),
+    [block.id, onUpdateBlock],
+  );
+  const boundDelete = useCallback(
+    (mergeContent?: string) => onDeleteBlock(block.id, mergeContent),
+    [block.id, onDeleteBlock],
+  );
+  const boundInsertBelow = useCallback(
+    (t: BlockType) => onInsertBlockBelow(block.id, t),
+    [block.id, onInsertBlockBelow],
+  );
+  const boundDuplicate = useCallback(
+    () => onDuplicateBlock?.(block.id),
+    [block.id, onDuplicateBlock],
+  );
+
+  // Build the props that every block type needs.
+  const blockProps: BaseBlockProps = {
+    ...rest,
+    block,
+    onUpdateBlock: boundUpdate,
+    onDeleteBlock: boundDelete,
+    onInsertBlockBelow: boundInsertBelow,
+  };
+
   let content: React.ReactNode;
 
   // Heading 1/2/3 → HeadingBlock with level
   if (type in HEADING_LEVELS) {
     content = (
-      <HeadingBlock {...rest} block={block} level={HEADING_LEVELS[type]} />
+      <HeadingBlock
+        {...blockProps}
+        level={HEADING_LEVELS[type]}
+      />
     );
   } else {
     switch (type) {
       case 'text':
-        content = <TextBlock {...rest} block={block} />;
+        content = <TextBlock {...blockProps} />;
         break;
       case 'callout':
-        content = <CalloutBlock {...rest} block={block} />;
+        content = <CalloutBlock {...blockProps} />;
         break;
       case 'toggle':
-        content = <ToggleBlock {...rest} block={block} />;
+        content = <ToggleBlock {...blockProps} />;
         break;
       case 'image':
-        content = <ImageBlock {...rest} block={block} />;
+        content = <ImageBlock {...blockProps} />;
         break;
       case 'table':
-        content = <TableBlock {...rest} block={block} />;
+        content = <TableBlock {...blockProps} />;
         break;
       case 'canvas':
-        content = <CanvasBlock {...rest} block={block} />;
+        content = <CanvasBlock {...blockProps} />;
         break;
       case 'whiteboard':
-        content = <WhiteboardBlock {...rest} block={block} />;
+        content = <WhiteboardBlock {...blockProps} />;
         break;
       case 'code':
-        content = <CodeBlockWrapper {...rest} block={block} />;
+        content = <CodeBlockWrapper {...blockProps} />;
         break;
       case 'web-embed':
-        content = <WebEmbedBlock block={block} onUpdateBlock={rest.onUpdateBlock} />;
+        content = (
+          <WebEmbedBlock
+            block={block}
+            onUpdateBlock={boundUpdate}
+          />
+        );
         break;
       case 'attachment':
-        content = <AttachmentBlock block={block} onUpdateBlock={rest.onUpdateBlock} />;
+        content = (
+          <AttachmentBlock
+            block={block}
+            onUpdateBlock={boundUpdate}
+          />
+        );
         break;
       default:
-        content = <TextBlock {...rest} block={block} />;
+        content = <TextBlock {...blockProps} />;
     }
   }
 
@@ -99,11 +143,11 @@ function BlockRouterInner({
       >
         <BlockHandle
           blockType={type}
-          onAddBelow={() => rest.onInsertBlockBelow('text')}
-          onDelete={() => rest.onDeleteBlock()}
-          onDuplicate={() => onDuplicateBlock?.()}
+          onAddBelow={() => boundInsertBelow('text')}
+          onDelete={() => boundDelete()}
+          onDuplicate={() => boundDuplicate()}
           onConvertTo={(newType) =>
-            rest.onUpdateBlock({ type: newType, properties: {} })
+            boundUpdate({ type: newType, properties: {} })
           }
         />
         <div contentEditable={false}>
@@ -123,11 +167,11 @@ function BlockRouterInner({
     >
       <BlockHandle
         blockType={type}
-        onAddBelow={() => rest.onInsertBlockBelow('text')}
-        onDelete={() => rest.onDeleteBlock()}
-        onDuplicate={() => onDuplicateBlock?.()}
+        onAddBelow={() => boundInsertBelow('text')}
+        onDelete={() => boundDelete()}
+        onDuplicate={() => boundDuplicate()}
         onConvertTo={(newType) =>
-          rest.onUpdateBlock({ type: newType, properties: {} })
+          boundUpdate({ type: newType, properties: {} })
         }
       />
       {content}

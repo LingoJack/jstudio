@@ -26,20 +26,69 @@ export default function BlockEditor() {
   // Focus helpers
   // ------------------------------------------------------------------
   const focusBlockAt = useCallback(
-    (blockId: string, placement: 'start' | 'end' = 'end') => {
+    (
+      blockId: string,
+      placement: 'start' | 'end' = 'end',
+      charOffset?: number,
+    ) => {
       const node = blockNodesRef.current.get(blockId);
-      if (!node) return false;
-      const line = node.querySelector<HTMLElement>('[data-block-line]');
       const surface = surfaceRef.current;
-      if (!surface || !line) return false;
+      if (!surface || !node) return false;
+      const line = node.querySelector<HTMLElement>('[data-block-line]');
+
+      // For non-text blocks (code, image, etc.) there's no [data-block-line].
+      // Focus the surface and try to place the caret at the block boundary.
+      if (!line) {
+        surface.focus();
+        // Try focusing within the island block (e.g. its first focusable child)
+        const focusable = node.querySelector<HTMLElement>(
+          'input, textarea, [contenteditable="true"], [tabindex]',
+        );
+        if (focusable) {
+          requestAnimationFrame(() => focusable.focus());
+        }
+        return true;
+      }
 
       surface.focus();
       requestAnimationFrame(() => {
-        const sel = window.getSelection();
+        let sel: Selection | null;
+        try {
+          sel = window.getSelection();
+        } catch {
+          return;
+        }
         if (!sel) return;
         const range = document.createRange();
-        range.selectNodeContents(line);
-        range.collapse(placement === 'end');
+
+        if (charOffset !== undefined) {
+          // Place caret at a specific character offset within the line.
+          // This is used after block merge to position at the boundary.
+          const walker = document.createTreeWalker(
+            line,
+            NodeFilter.SHOW_TEXT,
+            null,
+          );
+          let remaining = charOffset;
+          let textNode: Text | null = null;
+          while (walker.nextNode()) {
+            textNode = walker.currentNode as Text;
+            if (remaining <= textNode.length) {
+              range.setStart(textNode, remaining);
+              range.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(range);
+              return;
+            }
+            remaining -= textNode.length;
+          }
+          // Fallback: place at end if offset exceeds content
+          range.selectNodeContents(line);
+          range.collapse(false);
+        } else {
+          range.selectNodeContents(line);
+          range.collapse(placement === 'end');
+        }
         sel.removeAllRanges();
         sel.addRange(range);
       });
@@ -106,14 +155,38 @@ export default function BlockEditor() {
         return;
       }
       const idx = doc.blocks.findIndex((b) => b.id === blockId);
-      const prevBlockId = idx > 0 ? doc.blocks[idx - 1].id : null;
+      const isOnlyBlock = doc.blocks.length === 1;
+      const prevBlock = idx > 0 ? doc.blocks[idx - 1] : null;
+      const prevBlockId = prevBlock?.id ?? null;
+
+      // Only calculate char offset when actually merging content (Backspace).
+      // For handle-delete (no merge), we just focus at end of previous block.
+      // The offset must be the TEXT length, not the HTML string length.
+      const isMerging = mergeContent !== undefined && idx > 0;
+      const prevTextLength = isMerging
+        ? htmlTextLength(prevBlock!.content)
+        : undefined;
 
       useStore.getState().deleteBlock(blockId, mergeContent);
 
-      if (prevBlockId) {
-        requestAnimationFrame(() => focusBlockAt(prevBlockId, 'end'));
+      if (isOnlyBlock) {
+        // The store creates a fallback text block. Focus it after mount.
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const updatedDoc = useStore.getState().activeDoc;
+            if (updatedDoc && updatedDoc.blocks.length > 0) {
+              focusBlockAt(updatedDoc.blocks[0].id, 'start');
+            } else {
+              focusTitle('end');
+            }
+          }),
+        );
+      } else if (prevBlockId) {
+        requestAnimationFrame(() =>
+          focusBlockAt(prevBlockId, 'end', prevTextLength),
+        );
       } else {
-        // Deleted the first block — focus title
+        // Deleted the first block (but not the only one) — focus title
         requestAnimationFrame(() => focusTitle('end'));
       }
     },
@@ -125,6 +198,20 @@ export default function BlockEditor() {
       useStore.getState().duplicateBlock(blockId);
     },
     [],
+  );
+
+  // Stable callbacks for BlockRouter — accept blockId as first arg so they
+  // don't need to be re-created per block (preserves memo).
+  const stableUpdateBlock = useCallback(
+    (blockId: string, fields: Partial<Block>) => {
+      useStore.getState().updateBlock(blockId, fields);
+    },
+    [],
+  );
+  const stableNavigateToDoc = useCallback((_docId: string) => {}, []);
+  const stableInsertBelow = useCallback(
+    (blockId: string, type: BlockType) => insertBlockBelowIndex(blockId, type),
+    [insertBlockBelowIndex],
   );
 
   // ------------------------------------------------------------------
@@ -230,11 +317,11 @@ export default function BlockEditor() {
               forwardedRef={(node) => registerBlockNode(block.id, node)}
               block={block}
               documents={documents}
-              onUpdateBlock={(fields) => useStore.getState().updateBlock(block.id, fields)}
-              onDeleteBlock={(content) => deleteBlockInline(block.id, content)}
-              onNavigateToDoc={() => {}}
-              onInsertBlockBelow={(type) => insertBlockBelowIndex(block.id, type)}
-              onDuplicateBlock={() => duplicateBlockInline(block.id)}
+              onUpdateBlock={stableUpdateBlock}
+              onDeleteBlock={deleteBlockInline}
+              onNavigateToDoc={stableNavigateToDoc}
+              onInsertBlockBelow={stableInsertBelow}
+              onDuplicateBlock={duplicateBlockInline}
             />
           ))}
         </div>
@@ -250,9 +337,20 @@ export default function BlockEditor() {
 /** Find the block ID of the block that currently contains the caret. */
 function getCurrentBlockId(surface: HTMLElement | null): string | null {
   if (!surface) return null;
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return null;
-  let node: Node | null = sel.anchorNode;
+  let sel: Selection | null;
+  try {
+    sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+  } catch {
+    return null;
+  }
+  let node: Node | null;
+  try {
+    node = sel.anchorNode;
+  } catch {
+    return null;
+  }
+  if (!node) return null;
   while (node && node !== surface) {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement;
@@ -262,4 +360,14 @@ function getCurrentBlockId(surface: HTMLElement | null): string | null {
     node = node.parentNode;
   }
   return null;
+}
+
+/**
+ * Get the visible text length of an HTML string.
+ * Used to calculate caret offset after block merge.
+ */
+function htmlTextLength(html: string): number {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.innerText.length;
 }
