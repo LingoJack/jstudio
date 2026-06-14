@@ -179,9 +179,21 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   },
 
   openDocument: async (id) => {
-    const { documents } = get();
+    const { documents, activeDocId } = get();
+    if (id === activeDocId) return;
     const doc = documents.find((d) => d.id === id);
     if (doc) {
+      // CRITICAL: Move focus to <body> and clear selection before switching.
+      // React will remove all old block DOM nodes (commitDeletionEffects).
+      // If the browser's Selection still references one of those nodes,
+      // WebKit throws "NotFoundError: The object can not be found here."
+      try {
+        const surface = document.querySelector('[data-editor-surface]') as HTMLElement | null;
+        if (surface && (document.activeElement === surface || surface.contains(document.activeElement))) {
+          (document.body as HTMLElement).focus();
+        }
+        window.getSelection()?.removeAllRanges();
+      } catch { /* ignore */ }
       set({ activeDoc: doc, activeDocId: id });
     }
   },

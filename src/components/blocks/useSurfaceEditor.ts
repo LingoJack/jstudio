@@ -524,29 +524,33 @@ function safeRemoveAllRanges(): void {
 }
 
 /**
- * Blur the contentEditable surface and clear selection BEFORE a DOM mutation
- * (block type conversion, deletion, etc.).
+ * Release the contentEditable surface's selection binding BEFORE a DOM mutation
+ * (block type conversion, deletion, document switch, etc.).
  *
  * This is the ONLY reliable way to prevent WebKit's
  * "NotFoundError: The object can not be found here." which is thrown
- * internally by React's commit phase when it removes a DOM node that
- * the browser's Selection still references.
+ * internally by React's commitDeletionEffects (removeChild) when it
+ * removes a DOM node that the browser's Selection still references.
  *
- * `removeAllRanges()` alone is NOT enough — WebKit auto-restores a
- * default range inside the focused contentEditable. Blurring first
- * forces WebKit to fully release the selection.
+ * Strategy: move focus to <body> (a non-contentEditable element) and
+ * clear the selection. This forces WebKit to fully detach its
+ * internal selection state from the contentEditable.
  */
-function blurSurfaceForMutation(surface: HTMLElement | null): void {
+function releaseSurfaceSelection(surface: HTMLElement | null): void {
   if (!surface) return;
+  // 1. Move focus to <body> — this is more reliable than .blur() because
+  //    .blur() on a contentEditable can leave WebKit's caret in place.
+  if (document.activeElement === surface || surface.contains(document.activeElement)) {
+    (document.body as HTMLElement).focus();
+  }
+  // 2. Clear the selection AFTER focus has moved away from the surface.
   try {
-    // 1. Remove all ranges first.
     window.getSelection()?.removeAllRanges();
   } catch { /* ignore */ }
-  // 2. Blur the surface so WebKit releases its internal selection state.
-  if (document.activeElement === surface) {
-    surface.blur();
-  }
 }
+
+/** Backwards-compatible alias. */
+const blurSurfaceForMutation = releaseSurfaceSelection;
 
 /** Get the [data-block-line] element that contains the caret. */
 function getLineFromCaret(): HTMLElement | null {

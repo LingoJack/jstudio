@@ -79,11 +79,15 @@ export default function BlockHandle({
             <BlockContextMenu
               blockType={blockType}
               onDelete={() => {
-                // Blur the surface to fully release WebKit's selection
-                // before React removes this DOM node.
-                const surface = document.querySelector('[data-editor-surface]') as HTMLElement | null;
-                if (surface && document.activeElement === surface) surface.blur();
-                try { window.getSelection()?.removeAllRanges(); } catch { /* ignore */ }
+                // Move focus to <body> and clear selection before DOM mutation
+                // to prevent WebKit NotFoundError during React's removeChild.
+                try {
+                  const surface = document.querySelector('[data-editor-surface]') as HTMLElement | null;
+                  if (surface && (document.activeElement === surface || surface.contains(document.activeElement))) {
+                    (document.body as HTMLElement).focus();
+                  }
+                  window.getSelection()?.removeAllRanges();
+                } catch { /* ignore */ }
                 onDelete();
                 setMenuOpen(false);
               }}
@@ -96,10 +100,14 @@ export default function BlockHandle({
                 setMenuOpen(false);
               }}
               onConvertTo={(type) => {
-                // Blur the surface before type conversion (DOM node replacement).
-                const surface = document.querySelector('[data-editor-surface]') as HTMLElement | null;
-                if (surface && document.activeElement === surface) surface.blur();
-                try { window.getSelection()?.removeAllRanges(); } catch { /* ignore */ }
+                // Move focus to <body> and clear selection before type conversion.
+                try {
+                  const surface = document.querySelector('[data-editor-surface]') as HTMLElement | null;
+                  if (surface && (document.activeElement === surface || surface.contains(document.activeElement))) {
+                    (document.body as HTMLElement).focus();
+                  }
+                  window.getSelection()?.removeAllRanges();
+                } catch { /* ignore */ }
                 onConvertTo(type);
                 setMenuOpen(false);
               }}
