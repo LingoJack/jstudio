@@ -52,7 +52,7 @@ jstudio/
 │   │
 │   └── components/
 │       ├── BlockEditor.tsx     # 编辑器主体（单一 contentEditable surface）
-│       ├── DocumentList.tsx    # 侧边栏文档列表
+│       ├── DocumentList.tsx    # 侧边栏文档列表（含「新建文档」入口）
 │       ├── LocalFolder.tsx     # 本地资源面板
 │       ├── ui/IconButton.tsx   # 通用图标按钮
 │       └── blocks/
@@ -78,6 +78,27 @@ jstudio/
         └── commands/
             └── storage.rs      # 14 个文件系统存储命令
 ```
+
+## UI 布局（三栏）
+
+```
+┌──────┬─────────────────┬──────────────────────────────┐
+│      │                 │  Slim action bar (品牌+删除)  │
+│ Act. │  Document List  ├──────────────────────────────┤
+│ Bar  │  (搜索/列表/    │                              │
+│      │   新建入口 [+])  │      BlockEditor             │
+│ 48px │  240px          │      (flex-1)                │
+└──────┴─────────────────┴──────────────────────────────┘
+```
+
+| 区域 | 组件 | 职责 |
+|------|------|------|
+| Activity Bar | `App.tsx` 内联 | 文档 / 设置 入口切换（48px 固定宽） |
+| Sidebar | `DocumentList.tsx` | 文档搜索 + 列表 + **新建文档**（头部 `+` 按钮） |
+| Action Bar | `App.tsx` 内联 | 品牌标识 + 删除当前文档（不含新建） |
+| Main | `BlockEditor.tsx` / `Settings.tsx` | 文档编辑 / 设置页（按 `isSettingsOpen` 切换） |
+
+> **新建文档**入口位于 `DocumentList` 头部，不在顶部 action bar。
 
 ## 数据存储
 

@@ -69,6 +69,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const codeRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editScrollRef = useRef<HTMLDivElement>(null);
 
   const isHtml = resolveLanguage(selectedLanguage) === 'markup';
 
@@ -166,35 +167,58 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
 
       {/* --- Code area: edit mode (textarea) --- */}
       {!showPreview && isEditing && editable && (
-        <div className="overflow-auto max-h-[500px]">
-          <textarea
-            ref={textareaRef}
-            value={code}
-            onChange={(e) => onChange?.(e.target.value)}
-            onBlur={() => setIsEditing(false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                setIsEditing(false);
-              }
-              if (e.key === 'Tab') {
-                e.preventDefault();
-                const el = e.currentTarget;
-                const start = el.selectionStart;
-                const end = el.selectionEnd;
-                const newValue = code.substring(0, start) + '  ' + code.substring(end);
-                onChange?.(newValue);
-                requestAnimationFrame(() => {
-                  el.selectionStart = el.selectionEnd = start + 2;
-                });
-              }
-            }}
-            className="code-edit-area w-full min-h-[80px] pt-8 pr-4 pb-4 pl-4 font-mono text-[13px] leading-[1.6] bg-transparent text-[var(--vscode-editor-foreground)] border-none resize-none outline-none whitespace-pre"
-            spellCheck={false}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-          />
+        <div
+          ref={editScrollRef}
+          className="overflow-auto max-h-[500px]"
+        >
+          <div className="flex min-h-[80px]">
+            {showLineNumbers && (
+              <div className="line-numbers shrink-0 pt-8 pr-3 pl-4 text-right select-none pointer-events-none">
+                {Array.from({ length: lineCount }, (_, i) => (
+                  <div
+                    key={i}
+                    className="text-[13px] leading-[1.6] text-[var(--vscode-editorLineNumber-foreground)]"
+                  >
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea
+              ref={textareaRef}
+              value={code}
+              onChange={(e) => onChange?.(e.target.value)}
+              onBlur={() => setIsEditing(false)}
+              onScroll={() => {
+                // Keep line-number gutter in sync with textarea scroll
+                if (showLineNumbers && editScrollRef.current) {
+                  editScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setIsEditing(false);
+                }
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  const el = e.currentTarget;
+                  const start = el.selectionStart;
+                  const end = el.selectionEnd;
+                  const newValue = code.substring(0, start) + '  ' + code.substring(end);
+                  onChange?.(newValue);
+                  requestAnimationFrame(() => {
+                    el.selectionStart = el.selectionEnd = start + 2;
+                  });
+                }
+              }}
+              className="code-edit-area flex-1 m-0 pt-8 pr-4 pb-4 pl-4 font-mono text-[13px] leading-[1.6] bg-transparent text-[var(--vscode-editor-foreground)] border-none resize-none outline-none whitespace-pre"
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+            />
+          </div>
         </div>
       )}
 

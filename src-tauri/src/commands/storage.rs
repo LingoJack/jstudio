@@ -230,8 +230,7 @@ pub fn list_doc_assets(doc_id: String) -> Result<Vec<Value>, String> {
 pub fn clean_global_assets() -> Result<(), String> {
     let dir = studio_dir().join("assets");
     if dir.exists() {
-        fs::remove_dir_all(&dir)
-            .map_err(|e| format!("failed to clean global assets dir: {e}"))?;
+        fs::remove_dir_all(&dir).map_err(|e| format!("failed to clean global assets dir: {e}"))?;
     }
     Ok(())
 }

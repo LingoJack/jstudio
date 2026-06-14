@@ -98,14 +98,6 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-0.5">
-              <button
-                onClick={createDocument}
-                className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded-sm px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">新建</span>
-              </button>
-
               {activeDoc && (
                 <>
                   <button
@@ -133,7 +125,7 @@ export default function App() {
               <div>
                 <h3 className="font-semibold text-base text-[var(--vscode-foreground)]">还没有文档</h3>
                 <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5">
-                  点击右上角「新建」创建你的第一篇文档
+                  点击左侧文档列表顶部的「+」创建你的第一篇文档
                 </p>
               </div>
               <button

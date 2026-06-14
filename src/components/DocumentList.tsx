@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Search, FolderDot, Trash, FileText } from 'lucide-react';
+import { Search, FolderDot, Trash, FileText, Plus } from 'lucide-react';
 
 export default function DocumentList() {
   const documents = useStore((s) => s.documents);
   const activeDocId = useStore((s) => s.activeDocId);
   const openDocument = useStore((s) => s.openDocument);
   const deleteDocument = useStore((s) => s.deleteDocument);
+  const createDocument = useStore((s) => s.createDocument);
 
   const [search, setSearch] = useState('');
 
@@ -17,10 +18,19 @@ export default function DocumentList() {
   return (
     <div className="w-60 shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10">
       {/* Header */}
-      <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5 px-1.5 mb-1 shrink-0">
-        <FolderDot className="w-3 h-3" />
-        <span>全部文档 {filteredDocs.length}</span>
-      </h4>
+      <div className="flex items-center justify-between px-1.5 mb-1 shrink-0">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5">
+          <FolderDot className="w-3 h-3" />
+          <span>全部文档 {filteredDocs.length}</span>
+        </h4>
+        <button
+          onClick={createDocument}
+          className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-0.5 rounded-sm transition-colors duration-150"
+          title="新建文档"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
 
       {/* Search */}
       <div className="relative mb-2 shrink-0">
