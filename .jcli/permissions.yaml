@@ -3,4 +3,5 @@ allow:
 - Shell(git branch:*)
 - Shell(ls -la:*)
 - Shell(find /Users/lingojack/dev_custom/jcli/apps/jstudio/src:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/src/components/blocks/:*)
 deny: []

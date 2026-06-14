@@ -1,279 +1,168 @@
-import { useRef, useCallback } from 'react';
-import type { BlockType, Block, RichText } from '../types';
+/**
+ * BlockEditor — the main document editing surface.
+ *
+ * This is a thin wrapper around BlockNote's `BlockNoteView`. BlockNote handles
+ * all contentEditable complexity (cursor, selection, undo/redo, paste, slash
+ * commands, drag-and-drop). We only manage:
+ *
+ *   1. Document title input
+ *   2. Initial content loading when switching documents
+ *   3. Debounced content sync back to our Zustand store
+ *
+ * Data flow:
+ *
+ *   store.activeDoc.blocks  →  ourBlocksToBlockNote()  →  editor initialContent
+ *   editor.document         →  blockNoteToOurBlocks()  →  store.setActiveDocBlocks()
+ *
+ * The two systems are decoupled by the adapter layer (`lib/blockNoteAdapter`).
+ */
+
+import { useEffect, useRef, useCallback } from 'react';
+import { useCreateBlockNote } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/mantine';
+import '@blocknote/core/fonts/inter.css';
+import '@blocknote/mantine/style.css';
+
 import { useStore } from '../store/useStore';
-import { contentToString } from '../lib';
-import BlockRouter from './blocks/BlockRouter';
-import SlashMenu from './blocks/SlashMenu';
-import { useSurfaceEditor } from './blocks/useSurfaceEditor';
+import { storage } from '../lib/storage';
+import {
+  ourBlocksToBlockNote,
+  blockNoteToOurBlocks,
+} from '../lib/blockNoteAdapter';
+import type { Block } from '../types';
 
 export default function BlockEditor() {
   const activeDoc = useStore((s) => s.activeDoc);
-  const documents = useStore((s) => s.documents);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
 
-  const surfaceRef = useRef<HTMLDivElement>(null);
-  const blockNodesRef = useRef<Map<string, HTMLElement>>(new Map());
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  /** Tracks the document ID currently loaded into the editor to prevent
+   *  reload loops. */
+  const loadedDocIdRef = useRef<string | null>(null);
+  /** Debounce timer for store sync. */
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Guard: skip onChange when we programmatically replace content. */
+  const isReplacingRef = useRef(false);
 
   // ------------------------------------------------------------------
-  // Block node registry — maps block IDs to DOM elements
+  // Image upload handler — saves to document's local assets folder
   // ------------------------------------------------------------------
-  const registerBlockNode = useCallback((id: string, node: HTMLElement | null) => {
-    if (node) blockNodesRef.current.set(id, node);
-    else blockNodesRef.current.delete(id);
-  }, []);
-
-  // ------------------------------------------------------------------
-  // Focus helpers
-  // ------------------------------------------------------------------
-  const focusBlockAt = useCallback(
-    (
-      blockId: string,
-      placement: 'start' | 'end' = 'end',
-      charOffset?: number,
-    ) => {
-      const node = blockNodesRef.current.get(blockId);
-      const surface = surfaceRef.current;
-      if (!surface || !node) return false;
-      const line = node.querySelector<HTMLElement>('[data-block-line]');
-
-      // For non-text blocks (code, image, etc.) there's no [data-block-line].
-      // Focus the surface and try to place the caret at the block boundary.
-      if (!line) {
-        surface.focus();
-        // Try focusing within the island block (e.g. its first focusable child)
-        const focusable = node.querySelector<HTMLElement>(
-          'input, textarea, [contenteditable="true"], [tabindex]',
-        );
-        if (focusable) {
-          requestAnimationFrame(() => focusable.focus());
-        }
-        return true;
+  const uploadFile = useCallback(
+    async (file: File): Promise<string> => {
+      const activeDocId = useStore.getState().activeDocId;
+      if (!activeDocId) {
+        // Fallback: return a data URL if no active doc
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
       }
 
-      surface.focus();
-      requestAnimationFrame(() => {
-        let sel: Selection | null;
-        try {
-          sel = window.getSelection();
-        } catch {
-          return;
-        }
-        if (!sel) return;
-        const range = document.createRange();
+      const ext = file.type.split('/')[1] || 'png';
+      const fileName = `image-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 7)}.${ext}`;
 
-        if (charOffset !== undefined) {
-          // Place caret at a specific character offset within the line.
-          // This is used after block merge to position at the boundary.
-          const walker = document.createTreeWalker(
-            line,
-            NodeFilter.SHOW_TEXT,
-            null,
-          );
-          let remaining = charOffset;
-          let textNode: Text | null = null;
-          while (walker.nextNode()) {
-            textNode = walker.currentNode as Text;
-            if (remaining <= textNode.length) {
-              range.setStart(textNode, remaining);
-              range.collapse(true);
-              sel.removeAllRanges();
-              sel.addRange(range);
-              return;
-            }
-            remaining -= textNode.length;
-          }
-          // Fallback: place at end if offset exceeds content
-          range.selectNodeContents(line);
-          range.collapse(false);
-        } else {
-          range.selectNodeContents(line);
-          range.collapse(placement === 'end');
-        }
-        sel.removeAllRanges();
-        sel.addRange(range);
-      });
-      return true;
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = Array.from(new Uint8Array(arrayBuffer));
+      await storage.saveDocAsset(activeDocId, fileName, bytes);
+
+      // BlockNote needs a displayable URL. We read it back as base64 data URL.
+      const base64 = await storage.readDocAssetBase64(activeDocId, fileName);
+      const mime = file.type || 'image/png';
+      return `data:${mime};base64,${base64}`;
     },
     [],
   );
 
-  const focusTitle = useCallback((placement: 'start' | 'end' = 'end') => {
-    const el = titleInputRef.current;
-    if (!el) return false;
-    el.focus();
-    requestAnimationFrame(() => {
-      const pos = placement === 'end' ? el.value.length : 0;
-      try { el.setSelectionRange(pos, pos); } catch { /* ignore */ }
-    });
-    return true;
-  }, []);
-
   // ------------------------------------------------------------------
-  // Block operations (wrap store methods with focus management)
+  // Create the BlockNote editor instance (once)
   // ------------------------------------------------------------------
-  const insertBlockBelowIndex = useCallback(
-    (targetBlockId: string, type: BlockType) => {
-      useStore.getState().insertBlockBelow(targetBlockId, type);
-      // Use double-rAF to ensure React has committed the new DOM node
-      // before we try to focus it. A single rAF can fire before refs are set.
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          const doc = useStore.getState().activeDoc;
-          if (!doc) return;
-          const idx = doc.blocks.findIndex((b) => b.id === targetBlockId);
-          if (idx !== -1 && idx + 1 < doc.blocks.length) {
-            focusBlockAt(doc.blocks[idx + 1].id, 'start');
-          }
-        }),
-      );
-    },
-    [focusBlockAt],
-  );
-
-  const appendBlockAtEnd = useCallback(
-    (type: BlockType) => {
-      useStore.getState().appendBlockAtEnd(type);
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          const doc = useStore.getState().activeDoc;
-          if (!doc) return;
-          const last = doc.blocks[doc.blocks.length - 1];
-          if (last) {
-            focusBlockAt(last.id, 'start');
-          }
-        }),
-      );
-    },
-    [focusBlockAt],
-  );
-
-  const deleteBlockInline = useCallback(
-    (blockId: string, mergeContent?: RichText[]) => {
-      const doc = useStore.getState().activeDoc;
-      if (!doc) {
-        useStore.getState().deleteBlock(blockId, mergeContent);
-        return;
-      }
-      const idx = doc.blocks.findIndex((b) => b.id === blockId);
-      const isOnlyBlock = doc.blocks.length === 1;
-      const prevBlock = idx > 0 ? doc.blocks[idx - 1] : null;
-      const prevBlockId = prevBlock?.id ?? null;
-
-      // Only calculate char offset when actually merging content (Backspace).
-      // For handle-delete (no merge), we just focus at end of previous block.
-      // The offset must be the TEXT length, not the HTML string length.
-      const isMerging = mergeContent !== undefined && idx > 0;
-      const prevTextLength = isMerging
-        ? contentToString(prevBlock!.content).length
-        : undefined;
-
-      useStore.getState().deleteBlock(blockId, mergeContent);
-
-      if (isOnlyBlock) {
-        // The store creates a fallback text block. Focus it after mount.
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            const updatedDoc = useStore.getState().activeDoc;
-            if (updatedDoc && updatedDoc.blocks.length > 0) {
-              focusBlockAt(updatedDoc.blocks[0].id, 'start');
-            } else {
-              focusTitle('end');
-            }
-          }),
-        );
-      } else if (prevBlockId) {
-        requestAnimationFrame(() =>
-          focusBlockAt(prevBlockId, 'end', prevTextLength),
-        );
-      } else {
-        // Deleted the first block (but not the only one) — focus title
-        requestAnimationFrame(() => focusTitle('end'));
-      }
-    },
-    [focusBlockAt, focusTitle],
-  );
-
-  const duplicateBlockInline = useCallback(
-    (blockId: string) => {
-      useStore.getState().duplicateBlock(blockId);
-    },
-    [],
-  );
-
-  // Stable callbacks for BlockRouter — accept blockId as first arg so they
-  // don't need to be re-created per block (preserves memo).
-  const stableUpdateBlock = useCallback(
-    (blockId: string, fields: Partial<Block>) => {
-      useStore.getState().updateBlock(blockId, fields);
-    },
-    [],
-  );
-  const stableNavigateToDoc = useCallback((_docId: string) => {}, []);
-  const stableInsertBelow = useCallback(
-    (blockId: string, type: BlockType) => insertBlockBelowIndex(blockId, type),
-    [insertBlockBelowIndex],
-  );
-
-  // ------------------------------------------------------------------
-  // Surface editor hook — handles all keyboard/input at container level
-  // ------------------------------------------------------------------
-  const surface = useSurfaceEditor({
-    surfaceRef,
-    blockNodesRef,
-    onInsertBelow: insertBlockBelowIndex,
-    onAppendEnd: appendBlockAtEnd,
-    onDeleteBlock: deleteBlockInline,
-    onDuplicateBlock: duplicateBlockInline,
-    onUpdateBlock: (blockId, fields) => useStore.getState().updateBlock(blockId, fields),
-    onFocusTitle: () => focusTitle('end'),
-    onFocusBlock: (offset) => {
-      const doc = useStore.getState().activeDoc;
-      if (!doc) return false;
-      const currentBlockId = getCurrentBlockId(surfaceRef.current);
-      if (!currentBlockId) return false;
-      const idx = doc.blocks.findIndex((b) => b.id === currentBlockId);
-      const target = doc.blocks[idx + offset];
-      if (target) return focusBlockAt(target.id, offset < 0 ? 'end' : 'start');
-      return false;
-    },
+  const editor = useCreateBlockNote({
+    initialContent: [
+      { type: 'paragraph', content: [] },
+    ],
+    uploadFile,
   });
 
   // ------------------------------------------------------------------
-  // Title keydown
+  // Load content when switching documents
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!activeDoc) {
+      loadedDocIdRef.current = null;
+      return;
+    }
+
+    // Only reload if the document actually changed
+    if (loadedDocIdRef.current === activeDoc.id) return;
+    loadedDocIdRef.current = activeDoc.id;
+
+    isReplacingRef.current = true;
+    const bnBlocks = ourBlocksToBlockNote(activeDoc.blocks);
+    editor.replaceBlocks(editor.document, bnBlocks);
+    // Reset the guard after ProseMirror has processed the transaction
+    requestAnimationFrame(() => {
+      isReplacingRef.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDoc?.id]);
+
+  // ------------------------------------------------------------------
+  // Debounced content sync — editor → store
+  // ------------------------------------------------------------------
+  const handleChange = useCallback(() => {
+    // Skip if this change was triggered by our own replaceBlocks
+    if (isReplacingRef.current) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      const blocks: Block[] = blockNoteToOurBlocks(editor.document);
+      useStore.getState().setActiveDocBlocks(blocks);
+    }, 300);
+  }, [editor]);
+
+  // ------------------------------------------------------------------
+  // Cleanup debounce timer on unmount
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Title keydown — Enter / Arrow navigation
   // ------------------------------------------------------------------
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!activeDoc) return;
     const el = e.currentTarget;
-    const isAtEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
-    const isAtStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const isAtEnd =
+      el.selectionStart === el.value.length &&
+      el.selectionEnd === el.value.length;
 
-    if (e.key === 'ArrowDown' && (isAtEnd || el.value.length === 0)) {
-      if (activeDoc.blocks.length > 0) {
-        e.preventDefault();
-        focusBlockAt(activeDoc.blocks[0].id, 'start');
-      }
+    if (e.key === 'ArrowDown' && isAtEnd) {
+      e.preventDefault();
+      // Focus the first block in the editor
+      editor.focus();
     } else if (e.key === 'Enter' && !e.shiftKey) {
-      // Ignore key auto-repeat to prevent creating multiple blocks at once
       if (e.repeat) {
         e.preventDefault();
         return;
       }
       e.preventDefault();
       e.stopPropagation();
-      if (activeDoc.blocks.length === 0) {
-        appendBlockAtEnd('text');
-      } else {
-        insertBlockBelowIndex(activeDoc.blocks[0].id, 'text');
-      }
-    } else if (e.key === 'ArrowUp' && isAtStart) {
-      e.preventDefault();
+      editor.focus();
     }
   };
 
   if (!activeDoc) return null;
-
-  const blocks = activeDoc.blocks;
 
   return (
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
@@ -291,74 +180,15 @@ export default function BlockEditor() {
           />
         </div>
 
-        {/* Blocks surface — ONE contentEditable for the entire document */}
-        <div
-          ref={surfaceRef}
-          contentEditable
-          suppressContentEditableWarning
-          data-editor-surface="true"
-          onInput={surface.handleInput}
-          onKeyDown={surface.handleKeyDown}
-          onPaste={surface.handlePaste}
-          onBlur={surface.handleBlur}
-          className="relative space-y-1 min-h-[50vh] outline-none"
-        >
-          {/* Slash command popover */}
-          {surface.slashMenu.visible && (
-            <SlashMenu
-              slashMenuIndex={surface.slashMenu.index}
-              slashMenuCoords={surface.slashMenu.coords}
-              onExecute={surface.executeSlashCommand}
-            />
-          )}
-
-          {blocks.map((block) => (
-            <BlockRouter
-              key={block.id}
-              forwardedRef={(node) => registerBlockNode(block.id, node)}
-              block={block}
-              documents={documents}
-              onUpdateBlock={stableUpdateBlock}
-              onDeleteBlock={deleteBlockInline}
-              onNavigateToDoc={stableNavigateToDoc}
-              onInsertBlockBelow={stableInsertBelow}
-              onDuplicateBlock={duplicateBlockInline}
-            />
-          ))}
+        {/* BlockNote Editor */}
+        <div className="bn-editor-container min-h-[50vh]">
+          <BlockNoteView
+            editor={editor}
+            onChange={handleChange}
+            theme="dark"
+          />
         </div>
       </div>
     </div>
   );
-}
-
-// ====================================================================
-// Helpers
-// ====================================================================
-
-/** Find the block ID of the block that currently contains the caret. */
-function getCurrentBlockId(surface: HTMLElement | null): string | null {
-  if (!surface) return null;
-  let sel: Selection | null;
-  try {
-    sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
-  } catch {
-    return null;
-  }
-  let node: Node | null;
-  try {
-    node = sel.anchorNode;
-  } catch {
-    return null;
-  }
-  if (!node) return null;
-  while (node && node !== surface) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-      const id = el.getAttribute?.('data-block-id');
-      if (id) return id;
-    }
-    node = node.parentNode;
-  }
-  return null;
 }

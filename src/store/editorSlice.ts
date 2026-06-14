@@ -156,6 +156,23 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
   },
 
   // ================================================================
+  // batch replace — used by BlockNote editor to sync all blocks at once
+  // ================================================================
+  setActiveDocBlocks: (blocks: Block[]) => {
+    const { activeDoc, documents } = get();
+    if (!activeDoc) return;
+
+    const now = new Date().toISOString();
+    const updatedDoc = { ...activeDoc, blocks, updatedAt: now };
+    const newDocuments = documents.map((d) =>
+      d.id === activeDoc.id ? updatedDoc : d,
+    );
+
+    set({ activeDoc: updatedDoc, documents: newDocuments });
+    scheduleDocumentSave(updatedDoc);
+  },
+
+  // ================================================================
   // image paste — save to document's own assets folder
   // ================================================================
   saveImageToDoc: async (blob: Blob, afterBlockId?: string) => {

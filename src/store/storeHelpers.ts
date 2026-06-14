@@ -58,6 +58,11 @@ export interface StoreState {
   appendBlockAtEnd: (type: BlockType) => void;
   duplicateBlock: (blockId: string) => void;
 
+  // — batch ops (editor slice) —
+  // Replaces all blocks of the active document in one shot. Used by the
+  // BlockNote editor to sync content changes without per-block dispatch.
+  setActiveDocBlocks: (blocks: Block[]) => void;
+
   // — asset ops (editor slice) —
   saveImageToDoc: (blob: Blob, afterBlockId?: string) => Promise<string | null>;
 

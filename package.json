@@ -15,7 +15,13 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@blocknote/code-block": "^0.51.4",
+    "@blocknote/core": "^0.51.4",
+    "@blocknote/mantine": "^0.51.4",
+    "@blocknote/react": "^0.51.4",
+    "@blocknote/shadcn": "^0.51.4",
     "@google/genai": "^2.4.0",
+    "@mantine/core": "^9.3.1",
     "@tailwindcss/vite": "^4.1.14",
     "@tauri-apps/api": "^2.9.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
