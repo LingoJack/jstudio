@@ -4,4 +4,12 @@ allow:
 - Shell(ls -la:*)
 - Shell(find /Users/lingojack/dev_custom/jcli/apps/jstudio/src:*)
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/src/components/blocks/:*)
+- Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio:*)
+- Write
+- Shell(cat /Users/jacklingo/dev_custom/jcli/apps/jstudio/package.json:*)
+- Edit
+- Shell(npx tsc:*)
+- Shell(npm run:*)
+- Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/node_modules/@blocknote/core/src/:*)
+- Shell(cd /Users/jacklingo/dev_custom/jcli/apps/jstudio:*)
 deny: []

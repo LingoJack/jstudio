@@ -719,3 +719,76 @@ button {
   height: 2px;
   border-radius: 1px;
 }
+
+/* ============================================
+   BlockNote 编辑器样式适配
+   ============================================ */
+
+/* 修复双重 padding：BlockNote 默认给 .bn-editor 加了 54px 内边距，
+   而我们的容器外层已用 Tailwind 的 px-* 控制间距，这里清零避免叠加。 */
+.bn-editor-container .bn-editor {
+  padding-inline: 0 !important;
+}
+
+/* 代码块 — 背景与文字色随主题切换 */
+.bn-block-content[data-content-type="codeBlock"] {
+  background-color: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-editor-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px;
+}
+.bn-block-content[data-content-type="codeBlock"] > div > select {
+  color: var(--vscode-descriptionForeground);
+}
+.bn-block-content[data-content-type="codeBlock"] > div > select > option {
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editorWidget-background);
+}
+
+/* 引用块 */
+[data-content-type="quote"] blockquote {
+  border-left: 3px solid var(--vscode-textBlockQuote-border);
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-textBlockQuote-background);
+  padding: 8px 14px;
+  border-radius: 0 4px 4px 0;
+  margin: 0;
+}
+
+/* 分割线 */
+[data-content-type="divider"] hr {
+  border: none;
+  border-top: 1px solid var(--vscode-panel-border);
+  margin: 12px 0;
+}
+
+/* 分页符 */
+.bn-block-content[data-content-type="pageBreak"] > div {
+  border-top-color: var(--vscode-panel-border);
+}
+
+/* 文件/图片上传按钮 */
+[data-file-block] .bn-add-file-button {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-descriptionForeground);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px;
+}
+[data-file-block] .bn-add-file-button:hover,
+[data-file-block] .bn-file-name-with-icon:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+/* 选中块的边框（拖拽/点选时） */
+.ProseMirror-selectednode > .bn-block-content {
+  outline-color: var(--vscode-focusBorder);
+}
+
+/* 行内代码 */
+.bn-inline-content code {
+  background: var(--vscode-textPreformat-background);
+  color: var(--vscode-textPreformat-foreground);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.9em;
+}

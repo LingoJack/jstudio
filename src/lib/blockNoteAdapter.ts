@@ -14,11 +14,10 @@
  *   text                         →   paragraph
  *   heading-1/2/3                →   heading (level 1/2/3)
  *   code                         →   codeBlock
- *   callout                      →   alert (warn)   [P0 fallback]
  *   image                        →   image
- *   table                        →   *table (P1, not yet)
- *   toggle                       →   toggleListItem (P1, not yet)
- *   attachment / web-embed / …   →   paragraph fallback
+ *
+ *   (Other BlockNote block types — table, file, etc. — can be added
+ *    incrementally in the future by extending this mapping.)
  *
  *   OUR RICHTEXT ANNOTATIONS     →   BLOCKNOTE STYLES
  *   ─────────────────────────────────────────────────────────
@@ -164,11 +163,6 @@ function ourTypeToBNType(type: BlockType): string {
       return 'heading';
     case 'code':
       return 'codeBlock';
-    case 'callout':
-      // BlockNote's built-in block is "alert" — but "alert" is available
-      // only via @blocknote/alert. For P0 we fall back to quote, which is
-      // always available and looks similar (colored background block).
-      return 'quote';
     case 'image':
       return 'image';
     default:
@@ -191,10 +185,7 @@ export function ourBlockToBlockNote(block: Block): PartialBlock {
 
   // --- Content extraction ---
   // Text-type blocks store RichText[]; media blocks store a string URL.
-  const isMediaBlock =
-    block.type === 'image' ||
-    block.type === 'attachment' ||
-    block.type === 'web-embed';
+  const isMediaBlock = block.type === 'image';
 
   // --- Build base partial block ---
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -243,9 +234,6 @@ export function ourBlockToBlockNote(block: Block): PartialBlock {
     };
   }
 
-  // Callout → quote: we lose the emoji but keep text
-  // (Future: use BlockNote alert block for proper callout support)
-
   return partial as PartialBlock;
 }
 
@@ -278,9 +266,6 @@ function bnTypeToOurType(
     }
     case 'codeBlock':
       return 'code';
-    case 'quote':
-    case 'alert':
-      return 'callout';
     case 'image':
       return 'image';
     default:

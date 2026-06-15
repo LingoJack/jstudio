@@ -18,7 +18,11 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useCreateBlockNote } from '@blocknote/react';
+import {
+  useCreateBlockNote,
+  SuggestionMenuController,
+} from '@blocknote/react';
+import { getDefaultReactSlashMenuItems } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
@@ -34,6 +38,7 @@ import type { Block } from '../types';
 export default function BlockEditor() {
   const activeDoc = useStore((s) => s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
+  const isDarkMode = useStore((s) => s.isDarkMode);
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   /** Tracks the document ID currently loaded into the editor to prevent
@@ -85,6 +90,38 @@ export default function BlockEditor() {
     ],
     uploadFile,
   });
+
+  // ------------------------------------------------------------------
+  // Slash menu — only show items we support.
+  // We disable BlockNote's default slash menu and render our own
+  // SuggestionMenuController with a filtered item list.
+  // ------------------------------------------------------------------
+  const allowedKeys = [
+    'heading',
+    'heading_2',
+    'heading_3',
+    'code_block',
+    'image',
+  ];
+
+  const getSlashMenuItems = useCallback(
+    async (query: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const all = getDefaultReactSlashMenuItems(editor as any);
+      const filtered = all.filter((item: any) =>
+        allowedKeys.includes(item.key),
+      );
+      // Simple client-side filtering by query
+      if (!query) return filtered;
+      const q = query.toLowerCase();
+      return filtered.filter(
+        (item: any) =>
+          item.title?.toLowerCase().includes(q) ||
+          item.aliases?.some((a: string) => a.toLowerCase().includes(q)),
+      );
+    },
+    [editor],
+  );
 
   // ------------------------------------------------------------------
   // Load content when switching documents
@@ -185,8 +222,14 @@ export default function BlockEditor() {
           <BlockNoteView
             editor={editor}
             onChange={handleChange}
-            theme="dark"
-          />
+            theme={isDarkMode ? "dark" : "light"}
+            slashMenu={false}
+          >
+            <SuggestionMenuController
+              triggerCharacter="/"
+              getItems={getSlashMenuItems}
+            />
+          </BlockNoteView>
         </div>
       </div>
     </div>
