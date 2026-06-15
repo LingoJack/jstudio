@@ -721,57 +721,35 @@ button {
 }
 
 /* ============================================
-   BlockNote 编辑器样式适配
+   TipTap / ProseMirror 编辑器样式适配
    ============================================ */
 
-/* 缩小编辑器内 H1 字号，使其明显小于文档标题（text-4xl = 2.25rem / 36px）。
-   BlockNote 默认用 --level: 3em（48px），这里覆写为 1.75rem（28px）。
-   同时为 H2/H3 设定合理的层级梯度。
-   注意：--level 和 --prev-level 必须同步覆盖，否则字号切换动画会有跳变。 */
-[data-content-type="heading"] {
-  --level: 1.75rem; /* H1: 28px — 远小于 36px 的文档标题 */
-}
-[data-content-type="heading"][data-level="2"] {
-  --level: 1.5rem; /* H2: 24px */
-}
-[data-content-type="heading"][data-level="3"] {
-  --level: 1.25rem; /* H3: 20px */
-}
-
-/* 动画过渡用的 prev-level 变量，必须与上面保持一致 */
-[data-prev-level="1"] {
-  --prev-level: 1.75rem;
-}
-[data-prev-level="2"] {
-  --prev-level: 1.5rem;
-}
-[data-prev-level="3"] {
-  --prev-level: 1.25rem;
-}
-
-/* 修复双重 padding：BlockNote 默认给 .bn-editor 加了 54px 内边距，
-   而我们的容器外层已用 Tailwind 的 px-* 控制间距，这里清零避免叠加。 */
-.bn-editor-container .bn-editor {
-  padding-inline: 0 !important;
-}
+/* 标题层级：H1 明显小于文档标题，H2/H3 逐级递减 */
+.ProseMirror h1 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; }
+.ProseMirror h2 { font-size: 1.5rem; font-weight: 700; margin-top: 1.25em; margin-bottom: 0.5em; }
+.ProseMirror h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; }
 
 /* 代码块 — 背景与文字色随主题切换 */
-.bn-block-content[data-content-type="codeBlock"] {
+.ProseMirror pre {
   background-color: var(--vscode-textCodeBlock-background);
   color: var(--vscode-editor-foreground);
   border: 1px solid var(--vscode-widget-border);
   border-radius: 6px;
+  padding: 12px 14px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  overflow-x: auto;
 }
-.bn-block-content[data-content-type="codeBlock"] > div > select {
-  color: var(--vscode-descriptionForeground);
-}
-.bn-block-content[data-content-type="codeBlock"] > div > select > option {
-  color: var(--vscode-editor-foreground);
-  background: var(--vscode-editorWidget-background);
+.ProseMirror pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
 }
 
 /* 引用块 */
-[data-content-type="quote"] blockquote {
+.ProseMirror blockquote {
   border-left: 3px solid var(--vscode-textBlockQuote-border);
   color: var(--vscode-descriptionForeground);
   background: var(--vscode-textBlockQuote-background);
@@ -781,39 +759,101 @@ button {
 }
 
 /* 分割线 */
-[data-content-type="divider"] hr {
+.ProseMirror hr {
   border: none;
   border-top: 1px solid var(--vscode-panel-border);
   margin: 12px 0;
 }
 
-/* 分页符 */
-.bn-block-content[data-content-type="pageBreak"] > div {
-  border-top-color: var(--vscode-panel-border);
+/* 选中节点的边框 */
+.ProseMirror-selectednode {
+  outline: 2px solid var(--vscode-focusBorder);
+  border-radius: 4px;
 }
 
-/* 文件/图片上传按钮 */
-[data-file-block] .bn-add-file-button {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-descriptionForeground);
-  border: 1px solid var(--vscode-widget-border);
+/* 图片节点 */
+.ProseMirror img {
+  max-width: 100%;
   border-radius: 6px;
-}
-[data-file-block] .bn-add-file-button:hover,
-[data-file-block] .bn-file-name-with-icon:hover {
-  background-color: var(--vscode-list-hoverBackground);
-}
-
-/* 选中块的边框（拖拽/点选时） */
-.ProseMirror-selectednode > .bn-block-content {
-  outline-color: var(--vscode-focusBorder);
 }
 
 /* 行内代码 */
-.bn-inline-content code {
+.ProseMirror code {
   background: var(--vscode-textPreformat-background);
   color: var(--vscode-textPreformat-foreground);
   border-radius: 3px;
   padding: 1px 5px;
   font-size: 0.9em;
+}
+
+/* 链接 */
+.ProseMirror a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* 占位文本（空文档时显示） */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--vscode-input-placeholderForeground);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Slash Menu 弹窗样式 */
+.slash-menu {
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  min-width: 220px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.slash-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+  font: inherit;
+}
+.slash-menu__item.is-active,
+.slash-menu__item:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.slash-menu__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.slash-menu__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.slash-menu__title {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.slash-menu__desc {
+  font-size: 0.75rem;
+  color: var(--vscode-descriptionForeground);
 }

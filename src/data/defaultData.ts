@@ -27,7 +27,7 @@ export const DEFAULT_DOCUMENTS: Document[] = [
       {
         id: 'block-welcome-4',
         type: 'text',
-        content: '1. 块级设计: 基于 BlockNote 的块编辑器，支持标题、文本、代码、图片等多种块类型。'
+        content: '1. 块级设计: 基于 TipTap 的块编辑器，支持标题、文本、代码、图片等多种块类型。'
       },
       {
         id: 'block-welcome-5',

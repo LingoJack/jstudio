@@ -1,8 +1,8 @@
 /**
  * BlockEditor — the main document editing surface.
  *
- * This is a thin wrapper around BlockNote's `BlockNoteView`. BlockNote handles
- * all contentEditable complexity (cursor, selection, undo/redo, paste, slash
+ * This is a TipTap-based editor. TipTap (via ProseMirror) handles all
+ * contentEditable complexity (cursor, selection, undo/redo, paste, slash
  * commands, drag-and-drop). We only manage:
  *
  *   1. Document title input
@@ -11,35 +11,42 @@
  *
  * Data flow:
  *
- *   store.activeDoc.blocks  →  ourBlocksToBlockNote()  →  editor initialContent
- *   editor.document         →  blockNoteToOurBlocks()  →  store.setActiveDocBlocks()
+ *   store.activeDoc.blocks  →  ourBlocksToTiptapJSON()  →  editor.setContent()
+ *   editor.getJSON()        →  tiptapJSONToOurBlocks()  →  store.setActiveDocBlocks()
  *
- * The two systems are decoupled by the adapter layer (`lib/blockNoteAdapter`).
+ * The two systems are decoupled by the adapter layer (`lib/tiptapAdapter`).
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import {
-  useCreateBlockNote,
-  SuggestionMenuController,
-} from '@blocknote/react';
-import { getDefaultReactSlashMenuItems } from '@blocknote/react';
-import { BlockNoteView } from '@blocknote/mantine';
-import '@blocknote/core/fonts/inter.css';
-import '@blocknote/mantine/style.css';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
+import Underline from '@tiptap/extension-underline';
+import { TextStyle } from '@tiptap/extension-text-style';
+
+import Color from '@tiptap/extension-color';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, common } from 'lowlight';
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
 import {
-  ourBlocksToBlockNote,
-  blockNoteToOurBlocks,
-} from '../lib/blockNoteAdapter';
-import { CodeBlockEnterOverride } from '../lib/codeBlockEnterOverride';
+  ourBlocksToTiptapJSON,
+  tiptapJSONToOurBlocks,
+} from '../lib/tiptapAdapter';
+import { SlashMenuExtension } from '../lib/tiptapExtensions';
 import type { Block } from '../types';
+
+// ---------------------------------------------------------------------------
+// Lowlight instance — register common languages for syntax highlighting
+// ---------------------------------------------------------------------------
+const lowlight = createLowlight(common);
 
 export default function BlockEditor() {
   const activeDoc = useStore((s) => s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
-  const isDarkMode = useStore((s) => s.isDarkMode);
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   /** Tracks the document ID currently loaded into the editor to prevent
@@ -47,8 +54,10 @@ export default function BlockEditor() {
   const loadedDocIdRef = useRef<string | null>(null);
   /** Debounce timer for store sync. */
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Guard: skip onChange when we programmatically replace content. */
+  /** Guard: skip onUpdate when we programmatically replace content. */
   const isReplacingRef = useRef(false);
+  /** Stable ref to the editor for use in callbacks without re-creating editor. */
+  const editorRef = useRef<Editor | null>(null);
 
   // ------------------------------------------------------------------
   // Image upload handler — saves to document's local assets folder
@@ -74,7 +83,7 @@ export default function BlockEditor() {
       const bytes = Array.from(new Uint8Array(arrayBuffer));
       await storage.saveDocAsset(activeDocId, fileName, bytes);
 
-      // BlockNote needs a displayable URL. We read it back as base64 data URL.
+      // Read it back as base64 data URL for display.
       const base64 = await storage.readDocAssetBase64(activeDocId, fileName);
       const mime = file.type || 'image/png';
       return `data:${mime};base64,${base64}`;
@@ -83,52 +92,108 @@ export default function BlockEditor() {
   );
 
   // ------------------------------------------------------------------
-  // Create the BlockNote editor instance (once)
+  // Debounced content sync — editor → store
   // ------------------------------------------------------------------
-  const editor = useCreateBlockNote({
-    initialContent: [
-      { type: 'paragraph', content: [] },
+  const handleChange = useCallback(({ editor }: { editor: Editor }) => {
+    // Skip if this change was triggered by our own setContent
+    if (isReplacingRef.current) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      const json = editor.getJSON();
+      const blocks: Block[] = tiptapJSONToOurBlocks(json.content ?? []);
+      useStore.getState().setActiveDocBlocks(blocks);
+    }, 300);
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Create the TipTap editor instance (once)
+  // ------------------------------------------------------------------
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        codeBlock: false, // replaced by CodeBlockLowlight
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
+      }),
+      Placeholder.configure({
+        placeholder: '输入 / 唤起命令菜单…',
+      }),
+      Image.configure({ inline: false }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+      }),
+      Underline,
+      TextStyle,
+      Color,
+      SlashMenuExtension,
     ],
-    uploadFile,
-    extensions: [CodeBlockEnterOverride],
+    content: { type: 'doc', content: [{ type: 'paragraph' }] },
+    onUpdate: handleChange,
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none',
+      },
+      handlePaste: (view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (!file) continue;
+
+            event.preventDefault();
+            // Upload then insert — async, so we use the editor ref
+            uploadFile(file).then((src) => {
+              editorRef.current
+                ?.chain()
+                .focus()
+                .setImage({ src, alt: '' })
+                .run();
+            });
+            return true;
+          }
+        }
+        return false;
+      },
+      handleDrop: (view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return false;
+
+        for (const file of Array.from(files)) {
+          if (file.type.startsWith('image/')) {
+            event.preventDefault();
+            uploadFile(file).then((src) => {
+              editorRef.current
+                ?.chain()
+                .focus()
+                .setImage({ src, alt: '' })
+                .run();
+            });
+            return true;
+          }
+        }
+        return false;
+      },
+    },
   });
 
-  // ------------------------------------------------------------------
-  // Slash menu — only show items we support.
-  // We disable BlockNote's default slash menu and render our own
-  // SuggestionMenuController with a filtered item list.
-  // ------------------------------------------------------------------
-  const allowedKeys = [
-    'heading',
-    'heading_2',
-    'heading_3',
-    'code_block',
-    'image',
-  ];
-
-  const getSlashMenuItems = useCallback(
-    async (query: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const all = getDefaultReactSlashMenuItems(editor as any);
-      const filtered = all.filter((item: any) =>
-        allowedKeys.includes(item.key),
-      );
-      // Simple client-side filtering by query
-      if (!query) return filtered;
-      const q = query.toLowerCase();
-      return filtered.filter(
-        (item: any) =>
-          item.title?.toLowerCase().includes(q) ||
-          item.aliases?.some((a: string) => a.toLowerCase().includes(q)),
-      );
-    },
-    [editor],
-  );
+  // Keep editor ref in sync for async callbacks (paste/drop handlers)
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   // ------------------------------------------------------------------
   // Load content when switching documents
   // ------------------------------------------------------------------
   useEffect(() => {
+    if (!editor) return;
     if (!activeDoc) {
       loadedDocIdRef.current = null;
       return;
@@ -139,31 +204,14 @@ export default function BlockEditor() {
     loadedDocIdRef.current = activeDoc.id;
 
     isReplacingRef.current = true;
-    const bnBlocks = ourBlocksToBlockNote(activeDoc.blocks);
-    editor.replaceBlocks(editor.document, bnBlocks);
+    const tiptapContent = ourBlocksToTiptapJSON(activeDoc.blocks);
+    editor.commands.setContent(tiptapContent);
     // Reset the guard after ProseMirror has processed the transaction
     requestAnimationFrame(() => {
       isReplacingRef.current = false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDoc?.id]);
-
-  // ------------------------------------------------------------------
-  // Debounced content sync — editor → store
-  // ------------------------------------------------------------------
-  const handleChange = useCallback(() => {
-    // Skip if this change was triggered by our own replaceBlocks
-    if (isReplacingRef.current) return;
-
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      const blocks: Block[] = blockNoteToOurBlocks(editor.document);
-      useStore.getState().setActiveDocBlocks(blocks);
-    }, 300);
-  }, [editor]);
+  }, [activeDoc?.id, editor]);
 
   // ------------------------------------------------------------------
   // Cleanup debounce timer on unmount
@@ -180,7 +228,7 @@ export default function BlockEditor() {
   // Title keydown — Enter / Arrow navigation
   // ------------------------------------------------------------------
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!activeDoc) return;
+    if (!activeDoc || !editor) return;
     const el = e.currentTarget;
     const isAtEnd =
       el.selectionStart === el.value.length &&
@@ -188,8 +236,8 @@ export default function BlockEditor() {
 
     if (e.key === 'ArrowDown' && isAtEnd) {
       e.preventDefault();
-      // Focus the first block in the editor
-      editor.focus();
+      // Focus the editor and place cursor at the start
+      editor.commands.focus('start');
     } else if (e.key === 'Enter' && !e.shiftKey) {
       if (e.repeat) {
         e.preventDefault();
@@ -197,22 +245,21 @@ export default function BlockEditor() {
       }
       e.preventDefault();
       e.stopPropagation();
-      editor.focus();
+      editor.commands.focus('start');
     }
   };
 
   // ------------------------------------------------------------------
-  // Ctrl+A — select all blocks in the editor
-  // BlockNote/ProseMirror 默认的 Ctrl+A 只能选中当前 contentEditable 内的内容，
-  // 但在 BlockNote 中体验不佳。这里拦截后用 setSelection 全选所有 block。
+  // Ctrl+A — select all in the editor
+  // TipTap's default Ctrl+A only selects within the current contentEditable,
+  // but the experience is improved by explicitly selecting the entire doc.
   // ------------------------------------------------------------------
   const handleEditorKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!editor) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        const blocks = editor.document;
-        if (blocks.length === 0) return;
         e.preventDefault();
-        editor.setSelection(blocks[0], blocks[blocks.length - 1]);
+        editor.chain().focus().selectAll().run();
       }
     },
     [editor],
@@ -236,19 +283,12 @@ export default function BlockEditor() {
           />
         </div>
 
-        {/* BlockNote Editor */}
-        <div className="bn-editor-container min-h-[50vh]" onKeyDown={handleEditorKeyDown}>
-          <BlockNoteView
-            editor={editor}
-            onChange={handleChange}
-            theme={isDarkMode ? "dark" : "light"}
-            slashMenu={false}
-          >
-            <SuggestionMenuController
-              triggerCharacter="/"
-              getItems={getSlashMenuItems}
-            />
-          </BlockNoteView>
+        {/* TipTap Editor */}
+        <div
+          className="tiptap-editor-container min-h-[50vh]"
+          onKeyDown={handleEditorKeyDown}
+        >
+          <EditorContent editor={editor} />
         </div>
       </div>
     </div>

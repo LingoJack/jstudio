@@ -60,7 +60,7 @@ export interface StoreState {
 
   // — batch ops (editor slice) —
   // Replaces all blocks of the active document in one shot. Used by the
-  // BlockNote editor to sync content changes without per-block dispatch.
+  // TipTap editor to sync content changes without per-block dispatch.
   setActiveDocBlocks: (blocks: Block[]) => void;
 
   // — asset ops (editor slice) —

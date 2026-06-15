@@ -156,7 +156,7 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
   },
 
   // ================================================================
-  // batch replace — used by BlockNote editor to sync all blocks at once
+  // batch replace — used by TipTap editor to sync all blocks at once
   // ================================================================
   setActiveDocBlocks: (blocks: Block[]) => {
     const { activeDoc, documents } = get();

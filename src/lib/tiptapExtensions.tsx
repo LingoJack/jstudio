@@ -1,0 +1,386 @@
+/**
+ * TipTap extensions and Slash Menu configuration.
+ *
+ * This module provides:
+ *  - A Slash Menu built on TipTap's Suggestion API. Typing `/` at the start
+ *    of an empty line (or after a space) opens a command palette.
+ *  - A React render component for the popup list.
+ *
+ * Supported commands:
+ *   /heading  (or /h1) → heading level 1
+ *   /heading2 (or /h2) → heading level 2
+ *   /heading3 (or /h3) → heading level 3
+ *   /code              → code block
+ *   /image             → image
+ */
+
+import { Extension } from '@tiptap/core';
+import { Suggestion, type SuggestionOptions, type SuggestionProps } from '@tiptap/suggestion';
+import { PluginKey } from '@tiptap/pm/state';
+import tippy, { type Instance as TippyInstance } from 'tippy.js';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+
+import type { Editor, Range } from '@tiptap/core';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** A single slash-menu command item. */
+export interface SlashCommandItem {
+  /** Display title in the menu. */
+  title: string;
+  /** Short description shown beneath the title. */
+  description: string;
+  /** Emoji or short icon character. */
+  icon: string;
+  /** Aliases used for filtering (lowercased, without the leading `/`). */
+  aliases: string[];
+  /** The command that mutates the editor when this item is selected. */
+  command: (props: { editor: Editor; range: Range }) => void;
+}
+
+/** Props passed to the React popup component. */
+interface SlashMenuRenderProps {
+  items: SlashCommandItem[];
+  selectedIndex: number;
+  onSelectItem: (index: number) => void;
+}
+
+/** Handle exposed to the suggestion renderer for imperative control. */
+export interface SlashMenuRenderHandle {
+  onKeyDown: (props: { event: KeyboardEvent }) => boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Command definitions
+// ---------------------------------------------------------------------------
+
+/**
+ * The full list of slash commands. Filtering by query happens at render time
+ * in the `items` callback passed to Suggestion.
+ */
+export const slashCommands: SlashCommandItem[] = [
+  {
+    title: 'Heading 1',
+    description: 'Big section heading',
+    icon: 'H1',
+    aliases: ['heading', 'h1', 'heading1'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setNode('heading', { level: 1 }).run(),
+  },
+  {
+    title: 'Heading 2',
+    description: 'Medium section heading',
+    icon: 'H2',
+    aliases: ['heading2', 'h2'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setNode('heading', { level: 2 }).run(),
+  },
+  {
+    title: 'Heading 3',
+    description: 'Small section heading',
+    icon: 'H3',
+    aliases: ['heading3', 'h3'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run(),
+  },
+  {
+    title: 'Code Block',
+    description: 'Display formatted code',
+    icon: '<>',
+    aliases: ['code', 'codeblock', 'snippet'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setNode('codeBlock').run(),
+  },
+  {
+    title: 'Image',
+    description: 'Embed an image from a URL',
+    icon: 'IMG',
+    aliases: ['image', 'img', 'picture', 'photo'],
+    command: ({ editor, range }) => {
+      const src = window.prompt('Enter image URL');
+      if (!src) {
+        // User cancelled — just remove the slash query and keep focus.
+        editor.chain().focus().deleteRange(range).setNode('paragraph').run();
+        return;
+      }
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setImage({ src, alt: '' })
+        .run();
+    },
+  },
+];
+
+/**
+ * Filter the command list by the current query string.
+ *
+ * Matching is case-insensitive against title and aliases.
+ */
+export function filterSlashCommands(query: string): SlashCommandItem[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return slashCommands;
+
+  return slashCommands.filter((item) => {
+    if (item.title.toLowerCase().includes(q)) return true;
+    return item.aliases.some((alias) => alias.toLowerCase().includes(q));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// React popup component
+// ---------------------------------------------------------------------------
+
+/**
+ * The React component that renders the slash-menu popup list.
+ *
+ * It is rendered into a detached DOM node managed by tippy.js. Imperative
+ * keyboard navigation is handled via a ref handle (`onKeyDown`).
+ */
+export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderProps>(
+  function SlashMenuList({ items, selectedIndex, onSelectItem }, ref) {
+    const [activeIndex, setActiveIndex] = useState(
+      Math.min(selectedIndex, Math.max(items.length - 1, 0)),
+    );
+
+    // Keep local active index in sync when the parent reports a new selection
+    // (e.g. via arrow-key handling done outside the component).
+    useEffect(() => {
+      setActiveIndex((prev) => {
+        if (items.length === 0) return 0;
+        return Math.min(prev, items.length - 1);
+      });
+    }, [items.length]);
+
+    const selectIndex = useCallback(
+      (index: number) => {
+        const clamped = Math.max(0, Math.min(index, items.length - 1));
+        const item = items[clamped];
+        if (item) onSelectItem(clamped);
+      },
+      [items, onSelectItem],
+    );
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+          if (event.key === 'ArrowUp') {
+            setActiveIndex((prev) => (prev <= 0 ? items.length - 1 : prev - 1));
+            return true;
+          }
+          if (event.key === 'ArrowDown') {
+            setActiveIndex((prev) => (prev >= items.length - 1 ? 0 : prev + 1));
+            return true;
+          }
+          if (event.key === 'Enter') {
+            selectIndex(activeIndex);
+            return true;
+          }
+          return false;
+        },
+      }),
+      [items.length, activeIndex, selectIndex],
+    );
+
+    if (items.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="slash-menu" role="listbox" aria-label="Slash commands">
+        {items.map((item, index) => (
+          <button
+            key={item.title}
+            type="button"
+            role="option"
+            aria-selected={index === activeIndex}
+            className={`slash-menu__item${index === activeIndex ? ' is-active' : ''}`}
+            onMouseEnter={() => setActiveIndex(index)}
+            onClick={() => selectIndex(index)}
+          >
+            <span className="slash-menu__icon">{item.icon}</span>
+            <span className="slash-menu__text">
+              <span className="slash-menu__title">{item.title}</span>
+              <span className="slash-menu__desc">{item.description}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Suggestion render() implementation (bridges Suggestion ↔ React via tippy)
+// ---------------------------------------------------------------------------
+
+/**
+ * Factory that returns the `render` object expected by TipTap's Suggestion
+ * plugin. It creates a tippy.js popup and mounts the React `SlashMenuList`
+ * component inside it.
+ */
+function createSlashMenuRenderer<TItem extends SlashCommandItem>() {
+  return (): {
+    onStart: (props: SuggestionProps<TItem>) => void;
+    onUpdate: (props: SuggestionProps<TItem>) => void;
+    onKeyDown: (props: { event: KeyboardEvent; view: unknown; range: Range }) => boolean;
+    onExit: () => void;
+  } => {
+    let componentRef: SlashMenuRenderHandle | null = null;
+    let popup: TippyInstance | null = null;
+    let reactRoot: Root | null = null;
+
+    /** Mount (or update) the React list inside the tippy popup. */
+    const renderList = (
+      props: SuggestionProps<TItem>,
+      onSelectIndex: (index: number) => void,
+    ) => {
+      if (!reactRoot) return;
+      reactRoot.render(
+        <SlashMenuList
+          ref={(node) => {
+            componentRef = node;
+          }}
+          items={props.items}
+          selectedIndex={0}
+          onSelectItem={onSelectIndex}
+        />,
+      );
+    };
+
+    return {
+      onStart: (props) => {
+        const popupEl = document.createElement('div');
+        reactRoot = createRoot(popupEl);
+
+        const onSelectIndex = (index: number) => {
+          const item = props.items[index];
+          if (item) props.command(item);
+        };
+
+        renderList(props, onSelectIndex);
+
+        popup = tippy(document.body, {
+          getReferenceClientRect: () => {
+            const rect = props.clientRect?.();
+            return rect ?? new DOMRect(0, 0, 0, 0);
+          },
+          appendTo: () => document.body,
+          content: popupEl,
+          showOnCreate: true,
+          interactive: true,
+          trigger: 'manual',
+          placement: 'bottom-start',
+        });
+
+        // Keep a local copy of items for keyboard nav fallback.
+      },
+
+      onUpdate: (props) => {
+        const onSelectIndex = (index: number) => {
+          const item = props.items[index];
+          if (item) props.command(item);
+        };
+        renderList(props, onSelectIndex);
+
+        if (popup) {
+          const rect = props.clientRect?.();
+          if (rect) {
+            popup.setProps({
+              getReferenceClientRect: () => rect,
+            });
+          }
+        }
+      },
+
+      onKeyDown: (props) => {
+        if (props.event.key === 'Escape') {
+          popup?.hide();
+          return true;
+        }
+        return componentRef?.onKeyDown({ event: props.event }) ?? false;
+      },
+
+      onExit: () => {
+        if (popup) {
+          popup.destroy();
+        }
+        popup = null;
+        if (reactRoot) {
+          reactRoot.unmount();
+        }
+        reactRoot = null;
+        componentRef = null;
+      },
+    };
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public: the Slash Menu TipTap extension
+// ---------------------------------------------------------------------------
+
+/** Dedicated plugin key so the suggestion plugin can be identified. */
+export const slashMenuPluginKey = new PluginKey('slashMenu');
+
+/**
+ * Build the Suggestion options for the slash menu. Exposed so callers can
+ * customize before creating the extension if needed.
+ */
+export function getSlashMenuSuggestion(): Omit<SuggestionOptions<SlashCommandItem>, 'editor'> {
+  return {
+    pluginKey: slashMenuPluginKey,
+    char: '/',
+    startOfLine: false,
+    allowSpaces: false,
+    allowedPrefixes: [' '],
+    items: ({ query }) => filterSlashCommands(query),
+    render: createSlashMenuRenderer<SlashCommandItem>(),
+    command: ({ editor, range, props }) => {
+      props.command({ editor, range });
+    },
+  };
+}
+
+/**
+ * The Slash Menu TipTap extension. Add this to the editor's `extensions`
+ * array to enable `/`-triggered commands.
+ *
+ * @example
+ * ```ts
+ * import { SlashMenuExtension } from './lib/tiptapExtensions';
+ *
+ * const editor = useEditor({
+ *   extensions: [StarterKit, SlashMenuExtension],
+ * });
+ * ```
+ */
+export const SlashMenuExtension = Extension.create({
+  name: 'slashMenu',
+
+  addProseMirrorPlugins() {
+    const suggestionOptions = getSlashMenuSuggestion();
+    return [
+      Suggestion<SlashCommandItem, SlashCommandItem>({
+        ...suggestionOptions,
+        editor: this.editor,
+      }),
+    ];
+  },
+});
+
+// Re-export commonly used bits for convenience.
+export type { SuggestionProps };
