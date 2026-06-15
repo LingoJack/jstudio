@@ -33,6 +33,7 @@ import {
   ourBlocksToBlockNote,
   blockNoteToOurBlocks,
 } from '../lib/blockNoteAdapter';
+import { CodeBlockEnterOverride } from '../lib/codeBlockEnterOverride';
 import type { Block } from '../types';
 
 export default function BlockEditor() {
@@ -89,6 +90,7 @@ export default function BlockEditor() {
       { type: 'paragraph', content: [] },
     ],
     uploadFile,
+    extensions: [CodeBlockEnterOverride],
   });
 
   // ------------------------------------------------------------------

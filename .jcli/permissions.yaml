@@ -12,4 +12,5 @@ allow:
 - Shell(npm run:*)
 - Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/node_modules/@blocknote/core/src/:*)
 - Shell(cd /Users/jacklingo/dev_custom/jcli/apps/jstudio:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
 deny: []
