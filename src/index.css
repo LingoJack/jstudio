@@ -3,3 +3,18 @@
 /* Tailwind v4: 使 dark: 变体基于 .dark 类而非 prefers-color-scheme 媒体查询，
    与 App.tsx 中在 <html> 上切换 .dark 类的逻辑保持一致 */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * BlockNote SideMenu 隔离修复
+ *
+ * BlockNote 的 SideMenu 扩展在 document 上注册了 capture 阶段的 mousemove 监听，
+ * 并使用 250px 邻近阈值来判断是否显示 block 侧边的 drag handle。
+ * 这会导致鼠标悬停在左侧文档列表（距离编辑器 < 250px）时，
+ * 编辑器的 side menu（Add 按钮 + DragHandle）被错误触发。
+ *
+ * 修复：仅当鼠标真正悬停在编辑器容器上时才显示 side menu。
+ */
+.bn-editor-container:not(:hover) .bn-side-menu {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
