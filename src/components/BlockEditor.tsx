@@ -199,6 +199,23 @@ export default function BlockEditor() {
     }
   };
 
+  // ------------------------------------------------------------------
+  // Ctrl+A — select all blocks in the editor
+  // BlockNote/ProseMirror 默认的 Ctrl+A 只能选中当前 contentEditable 内的内容，
+  // 但在 BlockNote 中体验不佳。这里拦截后用 setSelection 全选所有 block。
+  // ------------------------------------------------------------------
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        const blocks = editor.document;
+        if (blocks.length === 0) return;
+        e.preventDefault();
+        editor.setSelection(blocks[0], blocks[blocks.length - 1]);
+      }
+    },
+    [editor],
+  );
+
   if (!activeDoc) return null;
 
   return (
@@ -218,7 +235,7 @@ export default function BlockEditor() {
         </div>
 
         {/* BlockNote Editor */}
-        <div className="bn-editor-container min-h-[50vh]">
+        <div className="bn-editor-container min-h-[50vh]" onKeyDown={handleEditorKeyDown}>
           <BlockNoteView
             editor={editor}
             onChange={handleChange}

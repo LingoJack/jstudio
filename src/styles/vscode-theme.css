@@ -724,6 +724,31 @@ button {
    BlockNote 编辑器样式适配
    ============================================ */
 
+/* 缩小编辑器内 H1 字号，使其明显小于文档标题（text-4xl = 2.25rem / 36px）。
+   BlockNote 默认用 --level: 3em（48px），这里覆写为 1.75rem（28px）。
+   同时为 H2/H3 设定合理的层级梯度。
+   注意：--level 和 --prev-level 必须同步覆盖，否则字号切换动画会有跳变。 */
+[data-content-type="heading"] {
+  --level: 1.75rem; /* H1: 28px — 远小于 36px 的文档标题 */
+}
+[data-content-type="heading"][data-level="2"] {
+  --level: 1.5rem; /* H2: 24px */
+}
+[data-content-type="heading"][data-level="3"] {
+  --level: 1.25rem; /* H3: 20px */
+}
+
+/* 动画过渡用的 prev-level 变量，必须与上面保持一致 */
+[data-prev-level="1"] {
+  --prev-level: 1.75rem;
+}
+[data-prev-level="2"] {
+  --prev-level: 1.5rem;
+}
+[data-prev-level="3"] {
+  --prev-level: 1.25rem;
+}
+
 /* 修复双重 padding：BlockNote 默认给 .bn-editor 加了 54px 内边距，
    而我们的容器外层已用 Tailwind 的 px-* 控制间距，这里清零避免叠加。 */
 .bn-editor-container .bn-editor {
