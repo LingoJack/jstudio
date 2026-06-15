@@ -119,6 +119,7 @@ export default function BlockEditor() {
       }),
       CodeBlockLowlight.configure({
         lowlight,
+        exitOnTripleEnter: false,
       }),
       Placeholder.configure({
         placeholder: '输入 / 唤起命令菜单…',
@@ -137,7 +138,7 @@ export default function BlockEditor() {
     onUpdate: handleChange,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none',
+        class: 'max-w-none focus:outline-none',
       },
       handlePaste: (view, event) => {
         const items = event.clipboardData?.items;

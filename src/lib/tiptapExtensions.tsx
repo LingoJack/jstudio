@@ -200,21 +200,33 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
     }
 
     return (
-      <div className="slash-menu" role="listbox" aria-label="Slash commands">
+      <div
+        className="min-w-[220px] max-h-[280px] overflow-y-auto rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-1 shadow-lg"
+        role="listbox"
+        aria-label="Slash commands"
+      >
         {items.map((item, index) => (
           <button
             key={item.title}
             type="button"
             role="option"
             aria-selected={index === activeIndex}
-            className={`slash-menu__item${index === activeIndex ? ' is-active' : ''}`}
+            className={`flex w-full items-center gap-2.5 rounded px-2.5 py-1.5 text-left font-inherit cursor-pointer border-none ${
+              index === activeIndex
+                ? 'bg-[var(--vscode-list-hoverBackground)]'
+                : 'bg-transparent'
+            } text-[var(--vscode-editor-foreground)]`}
             onMouseEnter={() => setActiveIndex(index)}
             onClick={() => selectIndex(index)}
           >
-            <span className="slash-menu__icon">{item.icon}</span>
-            <span className="slash-menu__text">
-              <span className="slash-menu__title">{item.title}</span>
-              <span className="slash-menu__desc">{item.description}</span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[var(--vscode-button-secondaryBackground)] text-[0.75rem] font-semibold text-[var(--vscode-descriptionForeground)]">
+              {item.icon}
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[0.875rem] font-medium">{item.title}</span>
+              <span className="text-[0.75rem] text-[var(--vscode-descriptionForeground)]">
+                {item.description}
+              </span>
             </span>
           </button>
         ))}
