@@ -8,9 +8,9 @@
 
 :root {
   /* Light Modern Theme (default) */
-  --vscode-editor-background: #FFFFFF;
+  --vscode-editor-background: #F8F8F8;
   --vscode-editor-foreground: #3B3B3B;
-  --vscode-sideBar-background: #F8F8F8;
+  --vscode-sideBar-background: #FFFFFF;
   --vscode-sideBar-border: #E5E5E5;
   --vscode-sideBar-foreground: #3B3B3B;
   --vscode-titleBar-background: #F8F8F8;
@@ -19,16 +19,16 @@
   --vscode-statusBar-background: #F8F8F8;
   --vscode-statusBar-border: #E5E5E5;
   --vscode-statusBar-foreground: #3B3B3B;
-  --vscode-activityBar-background: #F8F8F8;
+  --vscode-activityBar-background: #FFFFFF;
   --vscode-activityBar-border: #E5E5E5;
   --vscode-activityBar-foreground: #1F1F1F;
-  --vscode-tab-activeBackground: #FFFFFF;
+  --vscode-tab-activeBackground: #F8F8F8;
   --vscode-tab-activeBorderTop: #005FB8;
   --vscode-tab-activeForeground: #3B3B3B;
-  --vscode-tab-inactiveBackground: #F8F8F8;
+  --vscode-tab-inactiveBackground: #FFFFFF;
   --vscode-tab-inactiveForeground: #868686;
   --vscode-tab-border: #E5E5E5;
-  --vscode-input-background: #FFFFFF;
+  --vscode-input-background: #F8F8F8;
   --vscode-input-border: #CECECE;
   --vscode-input-foreground: #3B3B3B;
   --vscode-dropdown-background: #FFFFFF;
@@ -124,24 +124,24 @@
 
 .dark {
   /* Dark Modern Theme */
-  --vscode-editor-background: #1F1F1F;
+  --vscode-editor-background: #181818;
   --vscode-editor-foreground: #CCCCCC;
-  --vscode-sideBar-background: #181818;
+  --vscode-sideBar-background: #1F1F1F;
   --vscode-sideBar-border: #2B2B2B;
   --vscode-sideBar-foreground: #CCCCCC;
-  --vscode-titleBar-background: #181818;
+  --vscode-titleBar-background: #1F1F1F;
   --vscode-titleBar-border: #2B2B2B;
   --vscode-titleBar-foreground: #CCCCCC;
-  --vscode-statusBar-background: #181818;
+  --vscode-statusBar-background: #1F1F1F;
   --vscode-statusBar-border: #2B2B2B;
   --vscode-statusBar-foreground: #CCCCCC;
-  --vscode-activityBar-background: #181818;
+  --vscode-activityBar-background: #1F1F1F;
   --vscode-activityBar-border: #2B2B2B;
   --vscode-activityBar-foreground: #D7D7D7;
-  --vscode-tab-activeBackground: #1F1F1F;
+  --vscode-tab-activeBackground: #181818;
   --vscode-tab-activeBorderTop: #0078D4;
   --vscode-tab-activeForeground: #FFFFFF;
-  --vscode-tab-inactiveBackground: #181818;
+  --vscode-tab-inactiveBackground: #1F1F1F;
   --vscode-tab-inactiveForeground: #9D9D9D;
   --vscode-tab-border: #2B2B2B;
   --vscode-input-background: #313131;

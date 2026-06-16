@@ -39,7 +39,9 @@ export default function App() {
       {/* ==============================
           Activity Bar (left-most)
          ============================== */}
-      <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
+      <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 pt-12 select-none relative">
+        {/* macOS 标题栏拖拽区域（红绿灯按钮所在区域） */}
+        <div className="absolute top-0 left-0 right-0 h-12" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
         {/* Top: Documents entry */}
         <div className="flex flex-col items-center gap-1">
           <button
@@ -90,6 +92,8 @@ export default function App() {
           Main content area (right)
          ============================== */}
       <div className="flex-1 min-w-0 h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden relative">
+        {/* macOS 标题栏拖拽区域 */}
+        <div className="absolute top-0 left-0 right-0 h-12 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-hidden">
           {isSettingsOpen ? (

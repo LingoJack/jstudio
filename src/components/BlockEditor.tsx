@@ -324,7 +324,7 @@ export default function BlockEditor() {
 
   return (
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
-      <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-8 md:py-12 bg-[var(--vscode-editor-background)] select-text">
+      <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-12 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text">
         {/* Document Title */}
         <div className="pb-4">
           <input
