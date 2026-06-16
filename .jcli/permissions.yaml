@@ -16,4 +16,7 @@ allow:
 - Shell(ls -R:*)
 - Shell(cd /Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri:*)
 - Read
+- Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/src:*)
+- Shell(cat /Users/jacklingo/dev_custom/jcli/apps/jstudio/node_modules/lowlight/package.json:*)
+- Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/node_modules/lowlight/lib/common.js:*)
 deny: []
