@@ -261,7 +261,7 @@ pre[class*="language-"],
 code[class*="language-"] {
   color: var(--vscode-editor-foreground);
   background: var(--vscode-textCodeBlock-background);
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  font-family: Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
   text-align: left;
@@ -295,7 +295,7 @@ pre[class*="language-"] {
 /* The edit-mode textarea replaces the <pre> entirely (click-to-edit).
    Reset all browser defaults so it visually matches the highlighted <pre>. */
 .code-block-container .code-edit-area {
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  font-family: Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
   letter-spacing: normal;
@@ -877,7 +877,7 @@ button {
   border: 1px solid var(--vscode-widget-border);
   border-radius: 6px;
   padding: 12px 14px;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: Monaco, var(--vscode-editor-font-family, monospace);
   font-size: 0.9em;
   overflow-x: auto;
 }
@@ -970,7 +970,7 @@ button {
 .code-block-wrapper .code-block-body .hljs {
   background: transparent;
   color: var(--vscode-editor-foreground);
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  font-family: Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
   white-space: pre;
