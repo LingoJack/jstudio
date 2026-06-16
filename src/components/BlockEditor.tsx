@@ -29,7 +29,6 @@ import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 
 import Color from '@tiptap/extension-color';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
 
 import { useStore } from '../store/useStore';
@@ -39,6 +38,7 @@ import {
   tiptapJSONToOurBlocks,
 } from '../lib/tiptapAdapter';
 import { SlashMenuExtension } from '../lib/tiptapExtensions';
+import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import type { Block } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ export default function BlockEditor() {
       StarterKit.configure({
         codeBlock: false, // replaced by CodeBlockLowlight
       }),
-      CodeBlockLowlight.configure({
+      CodeBlockWithChrome.configure({
         lowlight,
         defaultLanguage: 'plaintext',
         exitOnTripleEnter: false,

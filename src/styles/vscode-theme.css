@@ -801,3 +801,200 @@ button {
   pointer-events: none;
   height: 0;
 }
+
+/* ============================================
+   highlight.js (lowlight) Token Colors
+   映射 hljs-* 类名到 VSCode token 语义颜色
+   ============================================ */
+
+/* 注释 */
+.hljs-comment,
+.hljs-quote {
+  color: var(--vscode-token-comment);
+  font-style: italic;
+}
+
+/* 关键字、控制流 */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: var(--vscode-token-keyword);
+}
+
+/* 内置类型、常量 */
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-type,
+.hljs-class,
+.hljs-name {
+  color: var(--vscode-token-type);
+}
+
+/* 数字、布尔值 */
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-meta {
+  color: var(--vscode-token-number);
+}
+
+/* 字符串、正则 */
+.hljs-string,
+.hljs-subst,
+.hljs-addition,
+.hljs-attribute,
+.hljs-regexp,
+.hljs-deletion {
+  color: var(--vscode-token-string);
+}
+
+/* 函数名、方法名 */
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-section {
+  color: var(--vscode-token-function);
+}
+
+/* 标签名（HTML/XML/JSX） */
+.hljs-tag {
+  color: var(--vscode-token-tag);
+}
+
+/* 属性名 */
+.hljs-attr,
+.hljs-attribute,
+.hljs-property {
+  color: var(--vscode-token-attribute);
+}
+
+/* 操作符、标点 */
+.hljs-operator,
+.hljs-punctuation,
+.hljs-meta.prompt {
+  color: var(--vscode-token-operator);
+}
+
+/* 模板语法 ${ } / {{ }} */
+.hljs-template-tag {
+  color: var(--vscode-token-keyword);
+}
+
+/* 变量 */
+.hljs-variable,
+.hljs-params {
+  color: var(--vscode-token-variable);
+}
+
+/* 通用强调 */
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+/* ============================================
+   Code Block NodeView (Chrome) Styles
+   ============================================ */
+
+/* 整个代码块外层容器 */
+.code-block-wrapper {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-widget-border);
+  background: var(--vscode-textCodeBlock-background);
+}
+
+/* 顶部语言栏 */
+.code-block-wrapper .code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--vscode-textCodeBlock-background);
+  border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+/* 代码内容区 */
+.code-block-wrapper .code-block-body {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--vscode-textCodeBlock-background);
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+
+/* NodeViewContent 渲染的 div.hljs — 代码高亮由 hljs-* token 规则着色 */
+.code-block-wrapper pre code.hljs,
+.code-block-wrapper .code-block-body .hljs {
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 4;
+  padding: 0;
+}
+
+/* 语言下拉框 */
+.code-block-wrapper .lang-select {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.code-block-wrapper .lang-select:hover {
+  color: var(--vscode-editor-foreground);
+}
+
+.code-block-wrapper .lang-select option {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+}
+
+/* 复制按钮 — 放在语言栏右侧，hover 时高亮 */
+.code-block-wrapper .copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.code-block-wrapper:hover .copy-btn {
+  opacity: 1;
+}
+
+.code-block-wrapper .copy-btn:hover {
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-toolbar-hoverBackground);
+}
