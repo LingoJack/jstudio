@@ -45,7 +45,14 @@ import type { Block } from '../types';
 const lowlight = createLowlight(common);
 
 export default function BlockEditor() {
-  const activeDoc = useStore((s) => s.activeDoc);
+  // Only subscribe to the fields this component actually renders, so that
+  // setActiveDocBlocks() (fires on every debounce tick) — which replaces the
+  // activeDoc reference — does NOT trigger a re-render here.  Re-rendering the
+  // component while ProseMirror is mid-transaction causes visible cursor lag,
+  // especially inside code blocks.
+  const activeDocId = useStore((s) => s.activeDocId);
+  const activeDocTitle = useStore((s) => s.activeDoc?.title ?? '');
+  const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -195,24 +202,28 @@ export default function BlockEditor() {
   // ------------------------------------------------------------------
   useEffect(() => {
     if (!editor) return;
-    if (!activeDoc) {
+    if (!hasActiveDoc) {
       loadedDocIdRef.current = null;
       return;
     }
 
     // Only reload if the document actually changed
-    if (loadedDocIdRef.current === activeDoc.id) return;
-    loadedDocIdRef.current = activeDoc.id;
+    if (loadedDocIdRef.current === activeDocId) return;
+    loadedDocIdRef.current = activeDocId;
+
+    // Read blocks from the store directly (not via subscription) so
+    // re-renders triggered by setActiveDocBlocks don't cause reload loops.
+    const blocks = useStore.getState().activeDoc?.blocks ?? [];
 
     isReplacingRef.current = true;
-    const tiptapContent = ourBlocksToTiptapJSON(activeDoc.blocks);
+    const tiptapContent = ourBlocksToTiptapJSON(blocks);
     editor.commands.setContent(tiptapContent);
     // Reset the guard after ProseMirror has processed the transaction
     requestAnimationFrame(() => {
       isReplacingRef.current = false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDoc?.id, editor]);
+  }, [activeDocId, editor]);
 
   // ------------------------------------------------------------------
   // Cleanup debounce timer on unmount
@@ -229,7 +240,7 @@ export default function BlockEditor() {
   // Title keydown — Enter / Arrow navigation
   // ------------------------------------------------------------------
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!activeDoc || !editor) return;
+    if (!editor) return;
     const el = e.currentTarget;
     const isAtEnd =
       el.selectionStart === el.value.length &&
@@ -251,22 +262,15 @@ export default function BlockEditor() {
   };
 
   // ------------------------------------------------------------------
-  // Ctrl+A — select all in the editor
-  // TipTap's default Ctrl+A only selects within the current contentEditable,
-  // but the experience is improved by explicitly selecting the entire doc.
+  // Ctrl+A / Cmd+A — select all in the editor.
+  // We intentionally do NOT override this: ProseMirror's built-in Mod-a
+  // keymap already selects all text in the document with correct text-level
+  // selection styling.  The previous custom handler called selectAll()
+  // which produces NodeSelection on block nodes (code blocks, images),
+  // showing a "selected node" blue outline instead of normal text highlight.
   // ------------------------------------------------------------------
-  const handleEditorKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!editor) return;
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        e.preventDefault();
-        editor.chain().focus().selectAll().run();
-      }
-    },
-    [editor],
-  );
 
-  if (!activeDoc) return null;
+  if (!hasActiveDoc) return null;
 
   return (
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
@@ -276,7 +280,7 @@ export default function BlockEditor() {
           <input
             ref={titleInputRef}
             type="text"
-            value={activeDoc.title}
+            value={activeDocTitle}
             onChange={(e) => updateDocumentMeta({ title: e.target.value })}
             onKeyDown={handleTitleKeyDown}
             placeholder="文档标题"
@@ -285,10 +289,7 @@ export default function BlockEditor() {
         </div>
 
         {/* TipTap Editor */}
-        <div
-          className="tiptap-editor-container min-h-[50vh]"
-          onKeyDown={handleEditorKeyDown}
-        >
+        <div className="tiptap-editor-container min-h-[50vh]">
           <EditorContent editor={editor} />
         </div>
       </div>

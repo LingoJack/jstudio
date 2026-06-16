@@ -19,6 +19,7 @@ pub fn run() {
             commands::storage::clean_global_assets,
             commands::storage::read_settings,
             commands::storage::write_settings,
+            commands::storage::read_file_bytes,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

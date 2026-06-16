@@ -87,6 +87,10 @@ export const storage = {
   /** One-time cleanup: remove the legacy global assets directory. */
   cleanGlobalAssets: () => invoke<void>('clean_global_assets'),
 
+  /** Read raw bytes from an arbitrary file path (e.g. from file dialog). */
+  readFileBytes: (path: string) =>
+    invoke<number[]>('read_file_bytes', { path }),
+
   // ---- settings ----
 
   loadSettings: () => invoke<AppSettings>('read_settings'),

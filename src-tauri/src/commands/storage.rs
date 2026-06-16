@@ -235,6 +235,13 @@ pub fn clean_global_assets() -> Result<(), String> {
     Ok(())
 }
 
+/// Read raw bytes from an arbitrary file path (returned by the file dialog).
+/// Returns the data as a byte array (serialized as a Vec<u8>).
+#[tauri::command]
+pub fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
+    fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))
+}
+
 // ---- helpers ----
 
 /// Resolve a unique file name inside `dir`.

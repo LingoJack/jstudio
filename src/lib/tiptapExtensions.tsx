@@ -31,6 +31,9 @@ import { createRoot, type Root } from 'react-dom/client';
 
 import type { Editor, Range } from '@tiptap/core';
 
+import { useStore } from '../store/useStore';
+import { storage } from './storage';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -104,22 +107,43 @@ export const slashCommands: SlashCommandItem[] = [
   },
   {
     title: 'Image',
-    description: 'Embed an image from a URL',
+    description: 'Insert image from file',
     icon: 'IMG',
     aliases: ['image', 'img', 'picture', 'photo'],
-    command: ({ editor, range }) => {
-      const src = window.prompt('Enter image URL');
-      if (!src) {
+    command: async ({ editor, range }) => {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }],
+      });
+      if (!filePath || typeof filePath !== 'string') {
         // User cancelled — just remove the slash query and keep focus.
         editor.chain().focus().deleteRange(range).setNode('paragraph').run();
         return;
       }
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setImage({ src, alt: '' })
-        .run();
+
+      // Read file bytes via Rust backend, save to doc assets, insert as data URL.
+      const activeDocId = useStore.getState().activeDocId;
+      try {
+        const bytes = await storage.readFileBytes(filePath);
+        const ext = filePath.split('.').pop()?.toLowerCase() || 'png';
+        const fileName = `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+
+        if (activeDocId) {
+          await storage.saveDocAsset(activeDocId, fileName, bytes);
+          const base64 = await storage.readDocAssetBase64(activeDocId, fileName);
+          const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+          editor.chain().focus().deleteRange(range).setImage({ src: `data:${mime};base64,${base64}`, alt: '' }).run();
+        } else {
+          // Fallback: base64 data URL directly
+          const binary = String.fromCharCode(...bytes);
+          const base64 = btoa(binary);
+          const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+          editor.chain().focus().deleteRange(range).setImage({ src: `data:${mime};base64,${base64}`, alt: '' }).run();
+        }
+      } catch {
+        editor.chain().focus().deleteRange(range).setNode('paragraph').run();
+      }
     },
   },
 ];
