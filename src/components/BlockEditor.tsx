@@ -19,6 +19,8 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
@@ -43,6 +45,45 @@ import type { Block } from '../types';
 // Lowlight instance — register common languages for syntax highlighting
 // ---------------------------------------------------------------------------
 const lowlight = createLowlight(common);
+
+// ---------------------------------------------------------------------------
+// SelectAllText — overrides ProseMirror's default Mod-a keymap.
+// The built-in "selectAll" command creates an AllSelection, whose DOM Range
+// extends to the very end of the editor DOM (.ProseMirror).  When the last
+// block is a <pre><code>…</code></pre>, WebKit paints the ::selection
+// background across the full width of the <pre> element's bottom padding,
+// producing a thick blue bar below the code.  By re-creating the selection as
+// a TextSelection (from doc start to the last text position inside the last
+// block), the DOM range stays within text nodes and the highlight renders
+// correctly.
+// ---------------------------------------------------------------------------
+const SelectAllText = Extension.create({
+  name: 'select-all-text',
+  addKeyboardShortcuts() {
+    return {
+      'Mod-a': ({ editor }) => {
+        const { state, view } = editor;
+        const { tr, doc } = state;
+
+        // Walk the document to find the end position of the very last text
+        // node.  This keeps the DOM selection range inside text nodes,
+        // avoiding the AllSelection bug where WebKit paints a full-width
+        // ::selection bar across <pre> bottom padding.
+        let lastTextEnd = -1;
+        doc.descendants((node, pos) => {
+          if (node.isText) lastTextEnd = pos + node.nodeSize;
+          return true;
+        });
+
+        const end = lastTextEnd >= 0 ? lastTextEnd : doc.content.size;
+        const selection = TextSelection.create(doc, 0, end);
+        tr.setSelection(selection);
+        view.dispatch(tr);
+        return true;
+      },
+    };
+  },
+});
 
 export default function BlockEditor() {
   // Only subscribe to the fields this component actually renders, so that
@@ -139,6 +180,7 @@ export default function BlockEditor() {
       Underline,
       TextStyle,
       Color,
+      SelectAllText,
       SlashMenuExtension,
     ],
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
@@ -260,15 +302,6 @@ export default function BlockEditor() {
       editor.commands.focus('start');
     }
   };
-
-  // ------------------------------------------------------------------
-  // Ctrl+A / Cmd+A — select all in the editor.
-  // We intentionally do NOT override this: ProseMirror's built-in Mod-a
-  // keymap already selects all text in the document with correct text-level
-  // selection styling.  The previous custom handler called selectAll()
-  // which produces NodeSelection on block nodes (code blocks, images),
-  // showing a "selected node" blue outline instead of normal text highlight.
-  // ------------------------------------------------------------------
 
   if (!hasActiveDoc) return null;
 

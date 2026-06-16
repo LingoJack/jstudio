@@ -15,4 +15,5 @@ allow:
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
 - Shell(ls -R:*)
 - Shell(cd /Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri:*)
+- Read
 deny: []

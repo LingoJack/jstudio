@@ -8,7 +8,11 @@ import { FileText, Settings as SettingsIcon, Plus } from 'lucide-react';
 export default function App() {
   const init = useStore((s) => s.init);
   const isLoading = useStore((s) => s.isLoading);
-  const activeDoc = useStore((s) => s.activeDoc);
+  // Subscribe to a boolean only — NOT the activeDoc object reference.
+  // setActiveDocBlocks() (fires on every 300ms debounce tick) replaces the
+  // activeDoc reference, which would re-render App and cascade to BlockEditor,
+  // causing ProseMirror cursor lag (especially in code blocks).
+  const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
 
@@ -90,7 +94,7 @@ export default function App() {
         <div className="flex-1 min-h-0 overflow-hidden">
           {isSettingsOpen ? (
             <Settings />
-          ) : activeDoc ? (
+          ) : hasActiveDoc ? (
             <BlockEditor />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-center gap-4">
