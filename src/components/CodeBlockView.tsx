@@ -1,10 +1,17 @@
 /**
  * CodeBlockView — React NodeView for the code block node.
  *
- * Wraps CodeBlockLowlight rendering with:
- *   1. A language badge in the top-right corner.
- *   2. A copy-to-clipboard icon button that appears on hover,
- *      positioned just below the language badge (top-right area).
+ * Layout:
+ *   ┌──────────────────────────────┐
+ *   │                  [lang ▾]    │  ← language badge (top-right, floating)
+ *   │  const x = 1;                │
+ *   │  console.log(x);             │
+ *   │                      [copy]  │  ← copy icon (below lang, hover-only)
+ *   └──────────────────────────────┘
+ *
+ * Both the language selector and the copy button float as absolutely
+ * positioned overlays on the code body. The copy button sits directly
+ * below the language badge and only appears on hover.
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -44,6 +51,12 @@ const LANGUAGES: { value: string; label: string }[] = [
   { value: 'diff', label: 'Diff' },
 ];
 
+/** Display label for a language value (e.g. "typescript" → "TypeScript"). */
+function getLanguageLabel(value: string): string {
+  const found = LANGUAGES.find((l) => l.value === value);
+  return found ? found.label : value || 'Plain Text';
+}
+
 export default function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
   const [copied, setCopied] = useState(false);
@@ -67,13 +80,14 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
 
   return (
     <NodeViewWrapper as="div" className="code-block-wrapper">
-      {/* Top bar: language selector (right-aligned) */}
-      <div className="code-block-header">
+      {/* Language badge — floats in the top-right corner of the code body */}
+      <div className="code-lang-badge" contentEditable={false}>
+        <span className="code-lang-label">{getLanguageLabel(language)}</span>
         <select
           value={language}
           onChange={handleLanguageChange}
-          contentEditable={false}
-          className="lang-select"
+          className="code-lang-select"
+          aria-label="Select language"
         >
           {LANGUAGES.map(({ value, label }) => (
             <option key={value} value={value}>
@@ -81,19 +95,19 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
             </option>
           ))}
         </select>
-        {/* Copy button — right side of the header bar, always subtle,
-            becomes prominent on hover */}
-        <button
-          type="button"
-          onClick={handleCopy}
-          contentEditable={false}
-          className="copy-btn"
-          title="复制代码"
-          aria-label="Copy code"
-        >
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-        </button>
       </div>
+
+      {/* Copy button — floats below the language badge, appears on hover */}
+      <button
+        type="button"
+        onClick={handleCopy}
+        contentEditable={false}
+        className="code-copy-btn"
+        title="复制代码"
+        aria-label="Copy code"
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
 
       {/* Code content — highlighted by lowlight */}
       <pre ref={codeRef} className="code-block-body">

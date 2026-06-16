@@ -913,24 +913,13 @@ button {
   background: var(--vscode-textCodeBlock-background);
 }
 
-/* 顶部语言栏 */
-.code-block-wrapper .code-block-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 3px 8px;
-  background: var(--vscode-textCodeBlock-background);
-  border-bottom: 1px solid var(--vscode-widget-border);
-}
-
 /* 代码内容区 */
 .code-block-wrapper .code-block-body {
   margin: 0;
   border: none;
   border-radius: 0;
   background: var(--vscode-textCodeBlock-background);
-  padding: 12px 14px;
+  padding: 14px 16px;
   overflow-x: auto;
 }
 
@@ -947,40 +936,75 @@ button {
   padding: 0;
 }
 
-/* 语言下拉框 */
-.code-block-wrapper .lang-select {
+/* ---- 语言徽章 (top-right, floating) ---- */
+
+.code-block-wrapper .code-lang-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  border-radius: 4px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s ease;
+}
+
+.code-block-wrapper .code-lang-badge:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.code-lang-label {
+  display: inline-block;
+  padding: 2px 8px;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--vscode-descriptionForeground);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition: color 0.15s ease, background 0.15s ease;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
 }
 
-.code-block-wrapper .lang-select:hover {
+.code-block-wrapper .code-lang-badge:hover .code-lang-label {
   color: var(--vscode-editor-foreground);
 }
 
-.code-block-wrapper .lang-select option {
-  background: var(--vscode-dropdown-background);
-  color: var(--vscode-dropdown-foreground);
+/* Native <select> is invisible — sits on top of the label so that clicking
+   the badge opens the native dropdown without showing the default widget. */
+.code-lang-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: 11px;
 }
 
-/* 复制按钮 — 放在语言栏右侧，hover 时高亮 */
-.code-block-wrapper .copy-btn {
+.code-lang-select option {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-foreground, var(--vscode-editor-foreground));
+}
+
+/* ---- 复制按钮 (below language badge, hover-only) ---- */
+
+.code-block-wrapper .code-copy-btn {
+  position: absolute;
+  top: 34px; /* sits right below the language badge */
+  right: 8px;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
   background: transparent;
   border: none;
@@ -990,11 +1014,11 @@ button {
   transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
-.code-block-wrapper:hover .copy-btn {
+.code-block-wrapper:hover .code-copy-btn {
   opacity: 1;
 }
 
-.code-block-wrapper .copy-btn:hover {
+.code-block-wrapper .code-copy-btn:hover {
   color: var(--vscode-editor-foreground);
   background: var(--vscode-toolbar-hoverBackground);
 }
