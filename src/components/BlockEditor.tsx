@@ -39,6 +39,7 @@ import {
 } from '../lib/tiptapAdapter';
 import { SlashMenuExtension } from '../lib/tiptapExtensions';
 import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
+import { BlockNavigation } from '../lib/blockNavigation';
 import type { Block } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -176,6 +177,14 @@ export default function BlockEditor() {
   // ------------------------------------------------------------------
   // Create the TipTap editor instance (once)
   // ------------------------------------------------------------------
+  const focusTitleEnd = useCallback(() => {
+    const el = titleInputRef.current;
+    if (!el) return;
+    el.focus();
+    const len = el.value.length;
+    el.setSelectionRange(len, len);
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -199,6 +208,9 @@ export default function BlockEditor() {
       Color,
       SelectAllText,
       SlashMenuExtension,
+      BlockNavigation.configure({
+        onExitToTitle: () => focusTitleEnd(),
+      }),
     ],
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     onUpdate: handleChange,
@@ -297,26 +309,56 @@ export default function BlockEditor() {
 
   // ------------------------------------------------------------------
   // Title keydown — Enter / Arrow navigation
+  //
+  // The document title is a plain <input> sitting above the TipTap editor.
+  // These shortcuts bridge the gap between the two:
+  //
+  //   Enter         → insert a new empty paragraph at the very top of the
+  //                   editor (i.e. below the title) and focus it.
+  //   Cmd/Ctrl+Enter→ focus the first existing block at its start.
+  //   ArrowDown / →  → focus the first block (↓ at end-of-text, → at end).
+  //   ArrowUp / ←    → native <input> caret movement (no cross-over).
   // ------------------------------------------------------------------
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!editor) return;
     const el = e.currentTarget;
+    const len = el.value.length;
     const isAtEnd =
-      el.selectionStart === el.value.length &&
-      el.selectionEnd === el.value.length;
+      el.selectionStart === len && el.selectionEnd === len;
 
-    if (e.key === 'ArrowDown' && isAtEnd) {
+    // Cmd/Ctrl+Enter — jump straight into the first existing block.
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      // Focus the editor and place cursor at the start
       editor.commands.focus('start');
-    } else if (e.key === 'Enter' && !e.shiftKey) {
+      return;
+    }
+
+    // Enter — insert a fresh paragraph below the title and edit it.
+    if (e.key === 'Enter' && !e.shiftKey) {
       if (e.repeat) {
         e.preventDefault();
         return;
       }
       e.preventDefault();
       e.stopPropagation();
+      editor
+        .chain()
+        .focus()
+        // Insert an empty paragraph at document position 0 (before the first
+        // block) so the cursor lands on a blank line instead of diving into
+        // an existing block (e.g. a code block).
+        .insertContentAt(0, { type: 'paragraph' })
+        // Position 1 is inside the newly inserted paragraph.
+        .setTextSelection(1)
+        .run();
+      return;
+    }
+
+    // ArrowDown (anywhere) or ArrowRight (at end) → enter the editor.
+    if (e.key === 'ArrowDown' || (e.key === 'ArrowRight' && isAtEnd)) {
+      e.preventDefault();
       editor.commands.focus('start');
+      return;
     }
   };
 
