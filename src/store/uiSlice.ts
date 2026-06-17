@@ -1,7 +1,8 @@
 import { storage, type ThemeMode } from '../lib/storage';
 import type { SliceCreator } from './storeHelpers';
 import {
-  DEFAULT_FONT_ID,
+  DEFAULT_LATIN_FONT_ID,
+  DEFAULT_CJK_FONT_ID,
   DEFAULT_FONT_SIZE,
   MIN_FONT_SIZE,
   MAX_FONT_SIZE,

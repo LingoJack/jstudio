@@ -22,8 +22,10 @@ export interface DocumentMeta {
 
 export interface AppSettings {
   theme?: ThemeMode;
-  /** Font preset id — see FONT_PRESETS in lib/fonts.ts */
+  /** Latin font preset id — see LATIN_FONTS in lib/fonts.ts */
   fontId?: string;
+  /** CJK (Chinese) font preset id — see CJK_FONTS in lib/fonts.ts */
+  cjkFontId?: string;
   /** Editor base font size in pixels (12–22) */
   fontSize?: number;
   [key: string]: unknown;

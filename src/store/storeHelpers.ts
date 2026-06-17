@@ -43,6 +43,7 @@ export interface StoreState {
   isLoading: boolean;
   searchQuery: string;
   fontId: string;
+  cjkFontId: string;
   fontSize: number;
 
   // — init (documents slice) —
@@ -78,6 +79,7 @@ export interface StoreState {
   setSettingsOpen: (open: boolean) => void;
   setSearchQuery: (q: string) => void;
   setFontId: (id: string) => void;
+  setCjkFontId: (id: string) => void;
   setFontSize: (size: number) => void;
 }
 
