@@ -38,14 +38,14 @@ export default function GeneralSection() {
         </p>
 
         {error ? (
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-md bg-[var(--vscode-inputValidation-errorBackground)] border border-[var(--vscode-inputValidation-errorBorder)]">
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[var(--vscode-inputValidation-errorBackground)] border border-[var(--vscode-inputValidation-errorBorder)]">
             <AlertCircle className="w-4 h-4 text-[var(--vscode-errorForeground)] shrink-0" />
             <span className="text-[11px] text-[var(--vscode-errorForeground)]">
               {error}
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-md bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
             <Folder className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
             <span className="text-xs text-[var(--vscode-foreground)] truncate flex-1 font-mono">
               {dataPath ?? '加载中…'}
@@ -53,7 +53,7 @@ export default function GeneralSection() {
             <button
               onClick={handleOpen}
               disabled={!dataPath || opening}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[11px] bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               {opening ? (
                 <Loader2 className="w-3 h-3 animate-spin" />

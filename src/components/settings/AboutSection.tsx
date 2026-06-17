@@ -25,7 +25,7 @@ export default function AboutSection() {
           href="https://github.com/LingoJack/jcli"
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-md text-xs text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2.5 rounded text-xs text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
         >
           <Github className="w-4 h-4 opacity-70 shrink-0" />
           <span className="opacity-70">GitHub</span>
@@ -35,7 +35,7 @@ export default function AboutSection() {
         </a>
         <a
           href="mailto:lingojack@qq.com"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-md text-xs text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2.5 rounded text-xs text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
         >
           <Mail className="w-4 h-4 opacity-70 shrink-0" />
           <span className="opacity-70">联系作者</span>
