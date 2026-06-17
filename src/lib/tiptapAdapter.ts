@@ -15,6 +15,7 @@
  *   heading-1/2/3                →   heading (attrs.level = 1/2/3)
  *   code                         →   codeBlock
  *   image                        →   image
+ *   file                         →   fileBlock
  *
  *   OUR RICHTEXT ANNOTATIONS     →   TIPTAP MARKS
  *   ─────────────────────────────────────────────────────────
@@ -175,6 +176,8 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'codeBlock';
     case 'image':
       return 'image';
+    case 'file':
+      return 'fileBlock';
     default:
       return 'paragraph';
   }
@@ -205,6 +208,8 @@ function tiptapTypeToOurType(
       return 'code';
     case 'image':
       return 'image';
+    case 'fileBlock':
+      return 'file';
     default:
       return 'text';
   }
@@ -260,6 +265,17 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         width: block.properties?.width ?? null,
         height: block.properties?.height ?? null,
         align: block.properties?.align ?? 'center',
+      };
+      break;
+    }
+    case 'file': {
+      const src = typeof block.content === 'string' ? block.content : '';
+      json.attrs = {
+        src,
+        fileName: block.properties?.fileName ?? '',
+        fileSize: block.properties?.fileSize ?? 0,
+        fileType: block.properties?.fileType ?? '',
+        displayMode: block.properties?.fileDisplayMode ?? 'card',
       };
       break;
     }
@@ -330,6 +346,18 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         width,
         height,
         align,
+      };
+      break;
+    }
+    case 'file': {
+      const src = typeof attrs.src === 'string' ? attrs.src : '';
+      block.content = src;
+      block.properties = {
+        fileName: typeof attrs.fileName === 'string' ? attrs.fileName : '',
+        fileSize: typeof attrs.fileSize === 'number' ? attrs.fileSize : 0,
+        fileType: typeof attrs.fileType === 'string' ? attrs.fileType : '',
+        fileDisplayMode:
+          attrs.displayMode === 'preview' ? 'preview' : 'card',
       };
       break;
     }

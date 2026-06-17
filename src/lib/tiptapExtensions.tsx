@@ -12,6 +12,7 @@
  *   /heading3 (or /h3) → heading level 3
  *   /code              → code block
  *   /image             → image
+ *   /file              → file attachment
  */
 
 import { Extension } from '@tiptap/core';
@@ -111,6 +112,17 @@ export const slashCommands: SlashCommandItem[] = [
       // Insert an empty image node (placeholder). The user clicks the
       // placeholder afterwards to pick a file.
       editor.chain().focus().deleteRange(range).setImage({ src: '' }).run();
+    },
+  },
+  {
+    title: 'File',
+    description: 'Upload a file attachment',
+    icon: 'FILE',
+    aliases: ['file', 'attachment', 'upload', 'doc', 'pdf', 'document'],
+    command: ({ editor, range }) => {
+      // Insert an empty fileBlock node (placeholder). The user clicks the
+      // placeholder afterwards to pick a file.
+      editor.chain().focus().deleteRange(range).setFile().run();
     },
   },
 ];

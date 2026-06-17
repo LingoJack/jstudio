@@ -24,6 +24,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '../lib/imageExtension';
+import { FileExtension } from '../lib/fileExtension';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -176,7 +177,40 @@ export default function BlockEditor() {
   );
 
   // ------------------------------------------------------------------
-  // Debounced content sync — editor → store
+  // File attachment upload handler — for non-image files (drag & drop)
+  // ------------------------------------------------------------------
+  const uploadAttachment = useCallback(
+    async (file: File): Promise<Record<string, unknown>> => {
+      const activeDocId = useStore.getState().activeDocId;
+      const originalName = file.name || 'file';
+      const ext = originalName.split('.').pop()?.toLowerCase() || 'bin';
+      const mime = file.type || 'application/octet-stream';
+
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = Array.from(new Uint8Array(arrayBuffer));
+      const sizeBytes = bytes.length;
+
+      let dataUrl: string;
+      if (activeDocId) {
+        const storedName = `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        await storage.saveDocAsset(activeDocId, storedName, bytes);
+        const base64 = await storage.readDocAssetBase64(activeDocId, storedName);
+        dataUrl = `data:${mime};base64,${base64}`;
+      } else {
+        const binary = String.fromCharCode(...bytes);
+        const base64 = btoa(binary);
+        dataUrl = `data:${mime};base64,${base64}`;
+      }
+
+      return {
+        src: dataUrl,
+        fileName: originalName,
+        fileSize: sizeBytes,
+        fileType: mime,
+      };
+    },
+    [],
+  );
   // ------------------------------------------------------------------
   const handleChange = useCallback(({ editor }: { editor: Editor }) => {
     // Skip if this change was triggered by our own setContent
@@ -218,6 +252,7 @@ export default function BlockEditor() {
         placeholder: '输入 / 唤起命令菜单…',
       }),
       Image.configure({ inline: false, allowBase64: true }),
+      FileExtension,
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -277,7 +312,19 @@ export default function BlockEditor() {
             return true;
           }
         }
-        return false;
+        // Non-image files → insert as file attachment blocks
+        for (const file of Array.from(files)) {
+          event.preventDefault();
+          // Upload file and insert as fileBlock
+          uploadAttachment(file).then((attrs) => {
+            editorRef.current
+              ?.chain()
+              .focus()
+              .setFile(attrs)
+              .run();
+          });
+        }
+        return true;
       },
     },
   });

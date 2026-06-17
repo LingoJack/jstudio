@@ -8,7 +8,8 @@ export type BlockType =
   | 'heading-2'
   | 'heading-3'
   | 'code'
-  | 'image';
+  | 'image'
+  | 'file';
 
 export interface BlockProperties {
   language?: string; // code block syntax
@@ -17,6 +18,14 @@ export interface BlockProperties {
   width?: number; // image display width (px)
   height?: number; // image display height (px)
   align?: 'left' | 'center'; // image alignment
+  /** File attachment: MIME type of the uploaded file. */
+  fileType?: string;
+  /** File attachment: original file name. */
+  fileName?: string;
+  /** File attachment: file size in bytes. */
+  fileSize?: number;
+  /** File attachment: display mode — compact card or inline preview. */
+  fileDisplayMode?: 'card' | 'preview';
 }
 
 export interface Block {
