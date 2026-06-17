@@ -24,6 +24,8 @@
 import { Extension } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 
+import { slashMenuPluginKey } from './tiptapExtensions';
+
 export interface BlockNavigationOptions {
   /** Called when the cursor should leave the editor upward to the title. */
   onExitToTitle?: () => void;
@@ -42,9 +44,20 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     const editor = this.editor;
 
     // -----------------------------------------------------------------
+    // Helper: check whether the slash-menu suggestion is currently open.
+    // When it is, arrow keys must be forwarded to the suggestion popup
+    // for item navigation, so BlockNavigation should stand aside.
+    // -----------------------------------------------------------------
+    const isSuggestionActive = () => {
+      const pluginState = slashMenuPluginKey.getState(editor.state);
+      return !!(pluginState && pluginState.active);
+    };
+
+    // -----------------------------------------------------------------
     // ArrowUp — at the first block's top boundary, exit to the title.
     // -----------------------------------------------------------------
     const onArrowUp = () => {
+      if (isSuggestionActive()) return false;
       const { state, view } = editor;
       const { selection } = state;
       if (!selection.empty) return false;
@@ -66,6 +79,7 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     // ArrowLeft — at the first block's start, exit to the title.
     // -----------------------------------------------------------------
     const onArrowLeft = () => {
+      if (isSuggestionActive()) return false;
       const { state } = editor;
       const { selection } = state;
       if (!selection.empty) return false;
@@ -83,6 +97,7 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     // ArrowDown — escape a trailing code block by inserting a paragraph.
     // -----------------------------------------------------------------
     const onArrowDown = () => {
+      if (isSuggestionActive()) return false;
       const { state, view } = editor;
       const { selection } = state;
       if (!selection.empty) return false;

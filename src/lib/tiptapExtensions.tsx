@@ -164,26 +164,42 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
       [items, onSelectItem],
     );
 
+    // --- Stable refs for imperative keyboard handling ---
+    // We keep the latest values in refs so that `useImperativeHandle` can
+    // have a stable (empty-dep) identity.  This guarantees the parent
+    // (Suggestion plugin) always calls the up-to-date handler, avoiding
+    // stale closures where arrow-key navigation silently breaks.
+    const itemsLenRef = useRef(items.length);
+    const activeIndexRef = useRef(activeIndex);
+    const selectIndexRef = useRef(selectIndex);
+
+    itemsLenRef.current = items.length;
+    activeIndexRef.current = activeIndex;
+    selectIndexRef.current = selectIndex;
+
     useImperativeHandle(
       ref,
       () => ({
         onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+          const len = itemsLenRef.current;
           if (event.key === 'ArrowUp') {
-            setActiveIndex((prev) => (prev <= 0 ? items.length - 1 : prev - 1));
+            if (len === 0) return true;
+            setActiveIndex((prev) => (prev <= 0 ? len - 1 : prev - 1));
             return true;
           }
           if (event.key === 'ArrowDown') {
-            setActiveIndex((prev) => (prev >= items.length - 1 ? 0 : prev + 1));
+            if (len === 0) return true;
+            setActiveIndex((prev) => (prev >= len - 1 ? 0 : prev + 1));
             return true;
           }
           if (event.key === 'Enter') {
-            selectIndex(activeIndex);
+            selectIndexRef.current(activeIndexRef.current);
             return true;
           }
           return false;
         },
       }),
-      [items.length, activeIndex, selectIndex],
+      [], // stable — never recreated
     );
 
     if (items.length === 0) {
