@@ -80,7 +80,27 @@ const SelectAllText = Extension.create({
     return {
       'Mod-a': ({ editor }) => {
         const { state, view } = editor;
-        const { tr, doc } = state;
+        const { tr, doc, selection } = state;
+
+        // If the cursor is inside a code block, select only that code
+        // block's content instead of the entire document.
+        const { $from } = selection;
+        let codeBlockDepth = -1;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === 'codeBlock') {
+            codeBlockDepth = d;
+            break;
+          }
+        }
+
+        if (codeBlockDepth >= 0) {
+          const codeBlockNode = $from.node(codeBlockDepth);
+          const start = $from.start(codeBlockDepth);
+          const end = start + codeBlockNode.content.size;
+          tr.setSelection(TextSelection.create(doc, start, end));
+          view.dispatch(tr);
+          return true;
+        }
 
         // Walk the document to find the end position of the very last text
         // node.  This keeps the DOM selection range inside text nodes,
@@ -93,8 +113,7 @@ const SelectAllText = Extension.create({
         });
 
         const end = lastTextEnd >= 0 ? lastTextEnd : doc.content.size;
-        const selection = TextSelection.create(doc, 0, end);
-        tr.setSelection(selection);
+        tr.setSelection(TextSelection.create(doc, 0, end));
         view.dispatch(tr);
         return true;
       },

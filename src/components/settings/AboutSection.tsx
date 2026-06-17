@@ -1,12 +1,14 @@
-import { Palette } from 'lucide-react';
+import appIcon from '../../assets/app-icon.png';
 
 export default function AboutSection() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-lg bg-[var(--vscode-button-background)] flex items-center justify-center shrink-0">
-          <Palette className="w-5 h-5 text-[var(--vscode-button-foreground)]" />
-        </div>
+        <img
+          src={appIcon}
+          alt="JStudio"
+          className="w-11 h-11 rounded-lg shrink-0 object-cover"
+        />
         <div>
           <p className="text-sm font-semibold text-[var(--vscode-foreground)]">
             JStudio

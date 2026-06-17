@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Palette, Info, type LucideIcon } from 'lucide-react';
+import { Palette, Info, Settings2, type LucideIcon } from 'lucide-react';
 import AppearanceSection from './settings/AppearanceSection';
 import AboutSection from './settings/AboutSection';
+import GeneralSection from './settings/GeneralSection';
 
 // ────────────────────────────────────────────────
 // Settings sections
 // ────────────────────────────────────────────────
-type SectionId = 'appearance' | 'about';
+type SectionId = 'general' | 'appearance' | 'about';
 
 interface NavItem {
   id: SectionId;
@@ -15,17 +16,19 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: 'general', label: '通用', icon: Settings2 },
   { id: 'appearance', label: '外观', icon: Palette },
   { id: 'about', label: '关于', icon: Info },
 ];
 
 const SECTIONS: Record<SectionId, () => React.ReactElement> = {
+  general: GeneralSection,
   appearance: AppearanceSection,
   about: AboutSection,
 };
 
 export default function Settings() {
-  const [activeSection, setActiveSection] = useState<SectionId>('appearance');
+  const [activeSection, setActiveSection] = useState<SectionId>('general');
   const ActiveSection = SECTIONS[activeSection];
 
   return (

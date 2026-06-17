@@ -24,4 +24,5 @@ allow:
 - Shell(git log:*)
 - Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/gen/:*)
 - Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/src/store:*)
+- Shell(cd /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
 deny: []
