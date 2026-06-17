@@ -26,6 +26,8 @@ export interface BlockProperties {
   fileSize?: number;
   /** File attachment: display mode — compact card or inline preview. */
   fileDisplayMode?: 'card' | 'preview';
+  /** File attachment: preview display width (px). Undefined = auto. */
+  fileWidth?: number;
 }
 
 export interface Block {

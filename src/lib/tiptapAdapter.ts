@@ -359,6 +359,7 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         fileType: typeof attrs.fileType === 'string' ? attrs.fileType : '',
         fileDisplayMode:
           attrs.displayMode === 'preview' ? 'preview' : 'card',
+        fileWidth: typeof attrs.width === 'number' ? attrs.width : undefined,
       };
       break;
     }
