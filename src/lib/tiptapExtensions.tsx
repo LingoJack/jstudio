@@ -176,6 +176,18 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
       [items, onSelectItem],
     );
 
+    // --- Scroll active item into view on navigation ---
+    // When the user navigates with arrow keys (or hovers), the highlighted
+    // item must stay visible inside the scrollable list container.
+    const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+    useEffect(() => {
+      const el = itemRefs.current[activeIndex];
+      if (el) {
+        el.scrollIntoView({ block: 'nearest' });
+      }
+    }, [activeIndex]);
+
     // --- Stable refs for imperative keyboard handling ---
     // We keep the latest values in refs so that `useImperativeHandle` can
     // have a stable (empty-dep) identity.  This guarantees the parent
@@ -227,6 +239,9 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
         {items.map((item, index) => (
           <button
             key={item.title}
+            ref={(node) => {
+              itemRefs.current[index] = node;
+            }}
             type="button"
             role="option"
             aria-selected={index === activeIndex}

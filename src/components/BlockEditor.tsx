@@ -25,6 +25,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '../lib/imageExtension';
 import { FileExtension } from '../lib/fileExtension';
+import { bytesToDataUrl, fileToDataUrl, genStoredName } from '../lib/upload';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -150,28 +151,7 @@ export default function BlockEditor() {
   const uploadFile = useCallback(
     async (file: File): Promise<string> => {
       const activeDocId = useStore.getState().activeDocId;
-      if (!activeDocId) {
-        // Fallback: return a data URL if no active doc
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-      }
-
-      const ext = file.type.split('/')[1] || 'png';
-      const fileName = `image-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 7)}.${ext}`;
-
-      const arrayBuffer = await file.arrayBuffer();
-      const bytes = Array.from(new Uint8Array(arrayBuffer));
-      await storage.saveDocAsset(activeDocId, fileName, bytes);
-
-      // Read it back as base64 data URL for display.
-      const base64 = await storage.readDocAssetBase64(activeDocId, fileName);
-      const mime = file.type || 'image/png';
-      return `data:${mime};base64,${base64}`;
+      return fileToDataUrl(file, activeDocId, 'image');
     },
     [],
   );
@@ -189,18 +169,9 @@ export default function BlockEditor() {
       const arrayBuffer = await file.arrayBuffer();
       const bytes = Array.from(new Uint8Array(arrayBuffer));
       const sizeBytes = bytes.length;
+      const storedName = genStoredName('file', ext);
 
-      let dataUrl: string;
-      if (activeDocId) {
-        const storedName = `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
-        await storage.saveDocAsset(activeDocId, storedName, bytes);
-        const base64 = await storage.readDocAssetBase64(activeDocId, storedName);
-        dataUrl = `data:${mime};base64,${base64}`;
-      } else {
-        const binary = String.fromCharCode(...bytes);
-        const base64 = btoa(binary);
-        dataUrl = `data:${mime};base64,${base64}`;
-      }
+      const dataUrl = await bytesToDataUrl(bytes, mime, activeDocId, storedName);
 
       return {
         src: dataUrl,

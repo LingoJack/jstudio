@@ -1334,17 +1334,19 @@ button {
   width: 100%;
 }
 
-/* ─── Loaded figure — transparent border, focusBorder when selected ─── */
+/* ─── Loaded figure ───
+   常态: 1px widget-border 边框（可见）
+   选中: 2px focusBorder 边框（蓝色高亮） */
 
 .file-block-figure {
   position: relative;
   border-radius: 8px;
-  border: 2px solid transparent;
+  border: 1px solid var(--vscode-widget-border);
   transition: border-color 0.15s;
 }
 
 .file-block-figure.is-selected {
-  border-color: var(--vscode-focusBorder);
+  border: 2px solid var(--vscode-focusBorder);
 }
 
 /* ─── Hover toolbar (top-right corner) ─── */
@@ -1353,7 +1355,7 @@ button {
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 5;
+  z-index: 10;
   display: flex;
   gap: 2px;
   padding: 3px;
@@ -1361,12 +1363,6 @@ button {
   border: 1px solid var(--vscode-widget-border);
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.file-block-figure:hover .file-block-toolbar {
-  opacity: 1;
 }
 
 .file-block-toolbar-btn {
@@ -1453,8 +1449,20 @@ button {
 /* ─── Preview mode ─── */
 
 .file-block-preview {
+  position: relative;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* Transparent overlay — only when NOT selected.
+   Sits above <iframe> so the user can click to select the node
+   (iframes eat mouse events). Disappears once selected. */
+.file-block-preview-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: pointer;
+  background: transparent;
 }
 
 /* HTML / PDF iframe */
@@ -1524,4 +1532,29 @@ button {
   padding: 40px;
   color: var(--vscode-descriptionForeground);
   font-size: 0.85em;
+}
+
+/* ─── Resize handle (bottom-right) — same visual as image-resize-handle ─── */
+
+.file-block-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 10;
+}
+
+.file-block-resize-handle::before {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--vscode-focusBorder);
+  border-bottom: 2px solid var(--vscode-focusBorder);
+  border-bottom-right-radius: 2px;
+  opacity: 0.8;
 }

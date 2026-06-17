@@ -276,6 +276,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         fileSize: block.properties?.fileSize ?? 0,
         fileType: block.properties?.fileType ?? '',
         displayMode: block.properties?.fileDisplayMode ?? 'card',
+        width: block.properties?.fileWidth ?? null,
       };
       break;
     }

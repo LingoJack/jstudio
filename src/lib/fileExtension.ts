@@ -11,6 +11,7 @@
  *   fileSize    — file size in bytes
  *   fileType    — MIME type
  *   displayMode — 'card' | 'preview'
+ *   width       — display width in px (null = auto)
  */
 
 import { Node } from '@tiptap/core';
@@ -23,6 +24,7 @@ export interface FileNodeAttributes {
   fileSize: number;
   fileType: string;
   displayMode: 'card' | 'preview';
+  width: number | null;
 }
 
 declare module '@tiptap/core' {
@@ -90,6 +92,17 @@ export const FileExtension = Node.create({
           'data-display-mode': attrs.displayMode ?? 'card',
         }),
       },
+      width: {
+        default: null,
+        parseHTML: (el) => {
+          const w = el.getAttribute('data-width');
+          return w ? Number(w) : null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.width) return {};
+          return { 'data-width': attrs.width };
+        },
+      },
     };
   },
 
@@ -122,6 +135,7 @@ export const FileExtension = Node.create({
                 fileSize: 0,
                 fileType: '',
                 displayMode: 'card',
+                width: null,
                 ...attrs,
               },
             },

@@ -10,136 +10,41 @@
  * Preview support:
  *   - HTML / SVG  → sandboxed <iframe>
  *   - PDF         → <iframe> (browser native PDF viewer)
- *   - DOCX        → mammoth.js converts to HTML, rendered in a sandboxed iframe
+ *   - DOCX        → mammoth.js converts to HTML, rendered in a container
  *   - Image       → <img>
  *   - Text (txt, md, json, csv, code, etc.) → <pre>
  *
- * A hover toolbar in the top-right corner lets the user toggle between
- * `card` and `preview` display modes.
+ * Selection model:
+ *   - When NOT selected, a transparent overlay sits above <iframe> previews
+ *     so the user can click to select the node (iframes eat mouse events).
+ *   - When selected, the overlay disappears so the user can interact with
+ *     the preview content. A floating toolbar (top-right) and resize handle
+ *     (bottom-right) appear, matching ImageView's UX.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper } from '@tiptap/react';
-import {
-  File as FileIcon,
-  Eye,
-  PanelsTopLeft,
-  Loader2,
-} from 'lucide-react';
+import { File as FileIcon, Eye, PanelsTopLeft, Loader2 } from 'lucide-react';
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
+import {
+  formatFileSize,
+  getExtension,
+  getMimeType,
+  getPreviewCategory,
+  getCategoryLabel,
+  type PreviewCategory,
+} from '../lib/fileUtils';
+import { bytesToDataUrl, genStoredName } from '../lib/upload';
+import { UploadIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
-
-/** Upload icon (inline SVG — matches ImageView). */
-function UploadIcon() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-/** Format bytes into a human-readable string. */
-function formatFileSize(bytes: number): string {
-  if (!bytes || bytes <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const val = bytes / Math.pow(1024, i);
-  return `${i === 0 ? val.toFixed(0) : val.toFixed(1)} ${units[i]}`;
-}
-
-/** Extract file extension from a file name. */
-function getExtension(fileName: string): string {
-  const parts = fileName.split('.');
-  return parts.length > 1 ? parts.pop()!.toLowerCase() : '';
-}
-
-/** Category of a file for determining preview behaviour. */
-type PreviewCategory =
-  | 'html'
-  | 'pdf'
-  | 'docx'
-  | 'image'
-  | 'text'
-  | 'other';
-
-const TEXT_EXTENSIONS = new Set([
-  'txt', 'md', 'markdown', 'json', 'csv', 'xml', 'yaml', 'yml',
-  'js', 'ts', 'jsx', 'tsx', 'css', 'scss', 'less',
-  'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift', 'c', 'cpp', 'h', 'hpp',
-  'cs', 'php', 'sh', 'bash', 'zsh', 'sql', 'graphql', 'toml', 'ini',
-  'conf', 'config', 'env', 'log', 'diff', 'dockerfile',
-]);
-
-/** Determine the preview category from MIME type and file extension. */
-function getPreviewCategory(
-  fileType: string,
-  fileName: string,
-): PreviewCategory {
-  const ext = getExtension(fileName);
-
-  if (fileType === 'text/html' || ext === 'html' || ext === 'htm') return 'html';
-  if (fileType === 'image/svg+xml' || ext === 'svg') return 'html';
-  if (fileType === 'application/pdf' || ext === 'pdf') return 'pdf';
-  if (
-    fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    ext === 'docx'
-  )
-    return 'docx';
-  if (fileType.startsWith('image/')) return 'image';
-  if (
-    fileType.startsWith('text/') ||
-    TEXT_EXTENSIONS.has(ext) ||
-    ext === 'dockerfile'
-  )
-    return 'text';
-
-  return 'other';
-}
-
-/** Return the lucide icon element for a file category (used in card mode). */
-function getCategoryLabel(category: PreviewCategory): string {
-  switch (category) {
-    case 'html':
-      return 'HTML';
-    case 'pdf':
-      return 'PDF';
-    case 'docx':
-      return 'DOCX';
-    case 'image':
-      return 'IMAGE';
-    case 'text':
-      return 'TEXT';
-    default:
-      return 'FILE';
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /* DOCX preview via mammoth (lazy-loaded)                            */
 /* ------------------------------------------------------------------ */
 
-/**
- * Convert a DOCX data URL to an HTML string using mammoth.js.
- *
- * mammoth is dynamically imported so it doesn't bloat the initial bundle.
- */
+/** Convert a DOCX data URL to an HTML string using mammoth.js. */
 async function docxToHtml(dataUrl: string): Promise<string> {
   const mammoth = await import('mammoth/mammoth.browser');
   const base64 = dataUrl.split(',')[1] ?? '';
@@ -154,129 +59,171 @@ async function docxToHtml(dataUrl: string): Promise<string> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Extension filters for the Tauri dialog                             */
+/* ------------------------------------------------------------------ */
+
+const FILE_EXTENSIONS = [
+  'html', 'htm', 'pdf', 'docx',
+  'txt', 'md', 'json', 'csv', 'xml', 'yaml', 'yml',
+  'js', 'ts', 'jsx', 'tsx', 'css', 'scss',
+  'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift',
+  'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sh',
+  'sql', 'toml', 'ini', 'log',
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg',
+];
+
+/* ------------------------------------------------------------------ */
 /* Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function FileView({ node, selected, updateAttributes }: NodeViewProps) {
-  const {
-    src,
-    fileName,
-    fileSize,
-    fileType,
-    displayMode,
-  } = node.attrs as FileNodeAttributes;
+export default function FileView({
+  node,
+  selected,
+  updateAttributes,
+}: NodeViewProps) {
+  const { src, fileName, fileSize, fileType, displayMode, width } =
+    node.attrs as FileNodeAttributes;
 
   const [loading, setLoading] = useState(false);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
   const [docxLoading, setDocxLoading] = useState(false);
-
-  /* -------------------------------------------------------------- */
-  /* Upload handler                                                 */
-  /* -------------------------------------------------------------- */
-
-  const handlePlaceholderClick = useCallback(async () => {
-    if (src) return; // already has a file
-    setLoading(true);
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const filePath = await open({
-        multiple: false,
-        filters: [
-          {
-            name: 'Files',
-            extensions: [
-              'html', 'htm', 'pdf', 'docx',
-              'txt', 'md', 'json', 'csv', 'xml', 'yaml', 'yml',
-              'js', 'ts', 'jsx', 'tsx', 'css', 'scss',
-              'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift',
-              'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sh',
-              'sql', 'toml', 'ini', 'log',
-              'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg',
-            ],
-          },
-        ],
-      });
-      if (!filePath || typeof filePath !== 'string') return;
-
-      const activeDocId = useStore.getState().activeDocId;
-
-      // Extract original file name from the path.
-      const originalName = filePath.split(/[/\\]/).pop() || 'file';
-      const ext = getExtension(originalName);
-
-      // Determine MIME type.
-      const mimeMap: Record<string, string> = {
-        html: 'text/html', htm: 'text/html',
-        pdf: 'application/pdf',
-        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        svg: 'image/svg+xml',
-        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-        gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
-        json: 'application/json',
-      };
-      const mime = mimeMap[ext] || 'application/octet-stream';
-
-      const bytes = await storage.readFileBytes(filePath);
-      const sizeBytes = bytes.length;
-
-      let dataUrl: string;
-      if (activeDocId) {
-        const storedName = `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext || 'bin'}`;
-        await storage.saveDocAsset(activeDocId, storedName, bytes);
-        const base64 = await storage.readDocAssetBase64(activeDocId, storedName);
-        dataUrl = `data:${mime};base64,${base64}`;
-      } else {
-        // Fallback: encode directly.
-        const binary = String.fromCharCode(...bytes);
-        const base64 = btoa(binary);
-        dataUrl = `data:${mime};base64,${base64}`;
-      }
-
-      // Auto-select display mode: HTML/PDF/image/docx start in preview,
-      // everything else starts as card.
-      const category = getPreviewCategory(mime, originalName);
-      const autoMode: 'card' | 'preview' =
-        category === 'other' || category === 'text' ? 'card' : 'preview';
-
-      updateAttributes({
-        src: dataUrl,
-        fileName: originalName,
-        fileSize: sizeBytes,
-        fileType: mime,
-        displayMode: autoMode,
-      });
-    } catch {
-      // silently ignore — user can click again
-    } finally {
-      setLoading(false);
-    }
-  }, [src, updateAttributes]);
-
-  /* -------------------------------------------------------------- */
-  /* DOCX preview: load on demand when entering preview mode        */
-  /* -------------------------------------------------------------- */
 
   const category = useMemo(
     () => getPreviewCategory(fileType, fileName),
     [fileType, fileName],
   );
 
+  const canPreview = category !== 'other';
+  const isPreviewMode = displayMode === 'preview' && canPreview;
+
+  /* -------------------------------------------------------------- */
+  /* Upload handler                                                 */
+  /* -------------------------------------------------------------- */
+
+  const handlePlaceholderClick = useCallback(async () => {
+    if (src) return;
+    setLoading(true);
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: 'Files', extensions: FILE_EXTENSIONS }],
+      });
+      if (!filePath || typeof filePath !== 'string') return;
+
+      const activeDocId = useStore.getState().activeDocId;
+      const originalName = filePath.split(/[/\\]/).pop() || 'file';
+      const ext = getExtension(originalName);
+      const mime = getMimeType(ext);
+
+      const bytes = await storage.readFileBytes(filePath);
+      const sizeBytes = bytes.length;
+      const storedName = genStoredName('file', ext);
+      const dataUrl = await bytesToDataUrl(bytes, mime, activeDocId, storedName);
+
+      // Auto-select initial display mode.
+      const autoMode: 'card' | 'preview' =
+        category === 'other' || category === 'text' ? 'card' : 'preview';
+      const actualCategory = getPreviewCategory(mime, originalName);
+      const autoModeFinal: 'card' | 'preview' =
+        actualCategory === 'other' || actualCategory === 'text'
+          ? 'card'
+          : 'preview';
+
+      updateAttributes({
+        src: dataUrl,
+        fileName: originalName,
+        fileSize: sizeBytes,
+        fileType: mime,
+        displayMode: autoModeFinal,
+        width: null,
+      });
+    } catch {
+      // silently ignore
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, updateAttributes]);
+
+  /* -------------------------------------------------------------- */
+  /* DOCX preview: load on demand                                   */
+  /* -------------------------------------------------------------- */
+
   useEffect(() => {
-    if (category === 'docx' && displayMode === 'preview' && src && !docxHtml && !docxLoading) {
+    if (
+      category === 'docx' &&
+      isPreviewMode &&
+      src &&
+      !docxHtml &&
+      !docxLoading
+    ) {
       setDocxLoading(true);
       docxToHtml(src)
         .then((html) => setDocxHtml(html))
-        .catch(() => setDocxHtml('<p style="color:#f85149;">Failed to load DOCX</p>'))
+        .catch(() =>
+          setDocxHtml('<p style="color:#f85149;">Failed to load DOCX</p>'),
+        )
         .finally(() => setDocxLoading(false));
     }
-  }, [category, displayMode, src, docxHtml, docxLoading]);
+  }, [category, isPreviewMode, src, docxHtml, docxLoading]);
 
   /* -------------------------------------------------------------- */
-  /* Hover toolbar: toggle card / preview                           */
+  /* Resize: drag the bottom-right handle                           */
   /* -------------------------------------------------------------- */
 
-  const canPreview = category !== 'other';
-  const isPreviewMode = displayMode === 'preview' && canPreview;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resizingRef = useRef(false);
+  const [displayWidth, setDisplayWidth] = useState<number | null>(width ?? null);
+  const displayWidthRef = useRef<number | null>(displayWidth);
+  displayWidthRef.current = displayWidth;
+
+  // Keep local display width in sync when the node attr changes externally.
+  useEffect(() => {
+    if (!resizingRef.current) {
+      setDisplayWidth(width ?? null);
+    }
+  }, [width]);
+
+  const onResizeStart = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const startX = e.clientX;
+      const startWidth =
+        displayWidth ?? containerRef.current?.offsetWidth ?? 400;
+
+      resizingRef.current = true;
+
+      const onMove = (ev: PointerEvent) => {
+        const delta = ev.clientX - startX;
+        const newWidth = Math.max(200, startWidth + delta);
+        setDisplayWidth(newWidth);
+      };
+
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        resizingRef.current = false;
+        const finalWidth = displayWidthRef.current ?? startWidth;
+        updateAttributes({ width: finalWidth });
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    },
+    [displayWidth, updateAttributes],
+  );
+
+  /* -------------------------------------------------------------- */
+  /* Inline styles driven by displayWidth                           */
+  /* -------------------------------------------------------------- */
+
+  const frameStyle: React.CSSProperties = {};
+  if (displayWidth) {
+    frameStyle.width = `${displayWidth}px`;
+  }
 
   /* -------------------------------------------------------------- */
   /* Render                                                         */
@@ -284,7 +231,7 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
 
   return (
     <NodeViewWrapper className="file-block-wrapper" as="div">
-      <div className="file-block-container">
+      <div className="file-block-container" ref={containerRef}>
         {/* Placeholder state */}
         {!src ? (
           <button
@@ -295,21 +242,31 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
             aria-label="点击选择文件"
           >
             <span className="image-node-placeholder-icon">
-              {loading ? <Loader2 size={28} className="animate-spin" /> : <UploadIcon />}
+              {loading ? (
+                <Loader2 size={28} className="animate-spin" />
+              ) : (
+                <UploadIcon />
+              )}
             </span>
             <span className="image-node-placeholder-text">
               {loading ? '加载中…' : '点击上传文件'}
             </span>
           </button>
         ) : (
-          /* Loaded state — transparent border, focusBorder when selected */
-          <div className={`file-block-figure ${selected ? 'is-selected' : ''} ${isPreviewMode ? 'is-preview' : 'is-card'}`}>
-            {/* Hover toolbar (top-right) — toggle display mode */}
-            {canPreview && (
+          /* Loaded state */
+          <div
+            className={`file-block-figure ${selected ? 'is-selected' : ''} ${
+              isPreviewMode ? 'is-preview' : 'is-card'
+            }`}
+          >
+            {/* Floating toolbar (top-right) — visible when selected */}
+            {selected && canPreview && (
               <div className="file-block-toolbar" contentEditable={false}>
                 <button
                   type="button"
-                  className={`file-block-toolbar-btn ${!isPreviewMode ? 'is-active' : ''}`}
+                  className={`file-block-toolbar-btn ${
+                    !isPreviewMode ? 'is-active' : ''
+                  }`}
                   onClick={() => updateAttributes({ displayMode: 'card' })}
                   title="卡片模式"
                 >
@@ -317,7 +274,9 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
                 </button>
                 <button
                   type="button"
-                  className={`file-block-toolbar-btn ${isPreviewMode ? 'is-active' : ''}`}
+                  className={`file-block-toolbar-btn ${
+                    isPreviewMode ? 'is-active' : ''
+                  }`}
                   onClick={() => updateAttributes({ displayMode: 'preview' })}
                   title="预览模式"
                 >
@@ -337,9 +296,13 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
                     {fileName}
                   </span>
                   <span className="file-block-card-meta">
-                    <span className="file-block-card-type">{getCategoryLabel(category)}</span>
+                    <span className="file-block-card-type">
+                      {getCategoryLabel(category)}
+                    </span>
                     <span className="file-block-card-dot">·</span>
-                    <span className="file-block-card-size">{formatFileSize(fileSize)}</span>
+                    <span className="file-block-card-size">
+                      {formatFileSize(fileSize)}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -348,6 +311,12 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
             {/* Preview mode */}
             {isPreviewMode && (
               <div className="file-block-preview" contentEditable={false}>
+                {/* Transparent overlay when NOT selected — lets the user
+                    click to select the node even over an <iframe>. */}
+                {!selected && (
+                  <div className="file-block-preview-overlay" />
+                )}
+
                 {/* HTML / SVG */}
                 {category === 'html' && (
                   <iframe
@@ -355,6 +324,7 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
                     className="file-block-preview-frame"
                     sandbox="allow-same-origin"
                     title={fileName}
+                    style={frameStyle}
                   />
                 )}
 
@@ -364,19 +334,27 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
                     src={src}
                     className="file-block-preview-frame"
                     title={fileName}
+                    style={frameStyle}
                   />
                 )}
 
                 {/* Image */}
                 {category === 'image' && (
-                  <div className="file-block-preview-image-wrap">
-                    <img src={src} alt={fileName} className="file-block-preview-image" />
+                  <div className="file-block-preview-image-wrap" style={frameStyle}>
+                    <img
+                      src={src}
+                      alt={fileName}
+                      className="file-block-preview-image"
+                    />
                   </div>
                 )}
 
                 {/* DOCX */}
                 {category === 'docx' && (
-                  <div className="file-block-preview-docx">
+                  <div
+                    className="file-block-preview-docx"
+                    style={displayWidth ? { width: `${displayWidth}px` } : undefined}
+                  >
                     {docxLoading ? (
                       <div className="file-block-preview-loading">
                         <Loader2 size={20} className="animate-spin" />
@@ -385,7 +363,9 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
                     ) : (
                       <div
                         className="file-block-preview-docx-content"
-                        dangerouslySetInnerHTML={{ __html: docxHtml ?? '<p>加载中…</p>' }}
+                        dangerouslySetInnerHTML={{
+                          __html: docxHtml ?? '<p>加载中…</p>',
+                        }}
                       />
                     )}
                   </div>
@@ -393,7 +373,18 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
 
                 {/* Text */}
                 {category === 'text' && (
-                  <FileTextPreview src={src} />
+                  <div style={displayWidth ? { width: `${displayWidth}px` } : undefined}>
+                    <FileTextPreview src={src} />
+                  </div>
+                )}
+
+                {/* Resize handle (bottom-right), visible when selected */}
+                {selected && (
+                  <div
+                    className="file-block-resize-handle"
+                    onPointerDown={onResizeStart}
+                    contentEditable={false}
+                  />
                 )}
               </div>
             )}
@@ -408,9 +399,7 @@ export default function FileView({ node, selected, updateAttributes }: NodeViewP
 /* Text preview sub-component                                         */
 /* ------------------------------------------------------------------ */
 
-/**
- * Fetches the text content from a data URL and renders it in a <pre>.
- */
+/** Fetches the text content from a data URL and renders it in a <pre>. */
 function FileTextPreview({ src }: { src: string }) {
   const [text, setText] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -418,7 +407,6 @@ function FileTextPreview({ src }: { src: string }) {
   useEffect(() => {
     setLoading(true);
     try {
-      // src is a data URL — extract the content portion.
       const commaIdx = src.indexOf(',');
       const header = src.substring(5, commaIdx); // strip "data:"
       const isBase64 = header.includes('base64');
