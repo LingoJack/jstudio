@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
-import { Search, FolderDot, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
+import { FolderDot, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface ContextMenuState {
   x: number;
@@ -15,15 +15,15 @@ export default function DocumentList() {
   const deleteDocument = useStore((s) => s.deleteDocument);
   const createDocument = useStore((s) => s.createDocument);
   const renameDocument = useStore((s) => s.renameDocument);
+  const searchQuery = useStore((s) => s.searchQuery);
 
-  const [search, setSearch] = useState('');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   const filteredDocs = documents.filter((doc) =>
-    (doc.title || '').toLowerCase().includes(search.toLowerCase()),
+    (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // close context menu on any click
@@ -67,9 +67,7 @@ export default function DocumentList() {
   };
 
   return (
-    <div className="w-60 shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 pt-12 select-none z-10 relative">
-      {/* macOS 标题栏拖拽区域 */}
-      <div data-tauri-drag-region className="absolute top-0 left-0 right-0 h-12" />
+    <div className="w-60 shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10 relative">
       {/* Header */}
       <div className="flex items-center justify-between px-1.5 mb-1 shrink-0">
         <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5">
@@ -83,18 +81,6 @@ export default function DocumentList() {
         >
           <Plus className="w-3.5 h-3.5" />
         </button>
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-2 shrink-0">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--vscode-icon-foreground)] opacity-60 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="查找文档..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-7 text-xs pl-7 pr-2 rounded-sm border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-60 focus:outline-none focus:border-[var(--vscode-focusBorder)] transition-colors duration-150"
-        />
       </div>
 
       {/* Documents list */}

@@ -7,6 +7,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   isSidebarOpen: true,
   isSettingsOpen: false,
   isLoading: true,
+  searchQuery: '',
 
   toggleDarkMode: () => {
     const next = !get().isDarkMode;
@@ -19,4 +20,5 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
+  setSearchQuery: (q) => set({ searchQuery: q }),
 });

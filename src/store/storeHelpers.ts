@@ -40,6 +40,7 @@ export interface StoreState {
   isSidebarOpen: boolean;
   isSettingsOpen: boolean;
   isLoading: boolean;
+  searchQuery: string;
 
   // — init (documents slice) —
   init: () => Promise<void>;
@@ -71,6 +72,7 @@ export interface StoreState {
   toggleSidebar: () => void;
   toggleSettings: () => void;
   setSettingsOpen: (open: boolean) => void;
+  setSearchQuery: (q: string) => void;
 }
 
 /**
