@@ -9,7 +9,7 @@ export default function AboutSection() {
         <img
           src={appIcon}
           alt="JStudio"
-          className="w-28 h-28 rounded-[1.75rem] shrink-0 object-cover shadow-2xl ring-1 ring-black/5"
+          className="w-32 h-32 rounded-2xl shrink-0 object-cover"
         />
         <h1 className="text-xl font-bold tracking-tight text-[var(--vscode-foreground)]">
           JStudio
