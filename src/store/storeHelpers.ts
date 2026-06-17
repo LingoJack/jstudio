@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta } from '../lib/storage';
+import type { DocumentMeta, ThemeMode } from '../lib/storage';
 import { storage } from '../lib/storage';
 
 /**
@@ -36,6 +36,7 @@ export interface StoreState {
   documents: Document[];
 
   // — ui state (ui slice) —
+  themeMode: ThemeMode;
   isDarkMode: boolean;
   isSidebarOpen: boolean;
   isSettingsOpen: boolean;
@@ -68,6 +69,7 @@ export interface StoreState {
   saveImageToDoc: (blob: Blob, afterBlockId?: string) => Promise<string | null>;
 
   // — ui toggles (ui slice) —
+  setThemeMode: (mode: ThemeMode) => void;
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
   toggleSettings: () => void;

@@ -1,202 +1,177 @@
 import { useState } from 'react';
-import { Sun, Moon, Info, Palette, Monitor, Github, Heart } from 'lucide-react';
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Palette,
+  Info,
+  type LucideIcon,
+} from 'lucide-react';
 import { useStore } from '../store/useStore';
+import type { ThemeMode } from '../lib/storage';
 
-type SettingsTab = 'appearance' | 'about';
+// ────────────────────────────────────────────────
+// Settings sections
+// ────────────────────────────────────────────────
+type SectionId = 'appearance' | 'about';
 
-const APP_VERSION = '0.1.0';
+interface NavItem {
+  id: SectionId;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'appearance', label: '外观', icon: Palette },
+  { id: 'about', label: '关于', icon: Info },
+];
+
+const themeOptions: {
+  value: ThemeMode;
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+}[] = [
+  { value: 'light', label: '浅色', icon: Sun, desc: '始终使用浅色主题' },
+  { value: 'dark', label: '深色', icon: Moon, desc: '始终使用深色主题' },
+  { value: 'system', label: '跟随系统', icon: Monitor, desc: '自动匹配操作系统外观' },
+];
 
 export default function Settings() {
-  const isDarkMode = useStore((s) => s.isDarkMode);
-  const toggleDarkMode = useStore((s) => s.toggleDarkMode);
-  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+  const themeMode = useStore((s) => s.themeMode);
+  const setThemeMode = useStore((s) => s.setThemeMode);
 
-  const tabBtnBase = 'flex items-center gap-2 px-3 py-1.5 rounded-sm transition-colors duration-150 text-xs cursor-pointer';
-  const tabBtnActive =
-    'bg-[var(--vscode-list-activeSelectionBackground)] font-medium text-white';
-  const tabBtnInactive =
-    'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+  const [activeSection, setActiveSection] = useState<SectionId>('appearance');
 
   return (
-    <div className="w-full h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden">
-      {/* Page header */}
-      <div className="shrink-0 border-b border-[var(--vscode-widget-border)] bg-[var(--vscode-sideBarSectionHeader-background)] px-4 py-2.5 flex items-center gap-3">
-        <h2 className="font-semibold text-sm text-[var(--vscode-foreground)]">设置</h2>
-      </div>
-
-      {/* Tab bar */}
-      <div className="shrink-0 border-b border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] px-4 py-2 flex items-center gap-1">
-        <button
-          onClick={() => setActiveTab('appearance')}
-          className={`${tabBtnBase} ${activeTab === 'appearance' ? tabBtnActive : tabBtnInactive}`}
-        >
-          <Palette className="w-3.5 h-3.5" />
-          <span>外观</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('about')}
-          className={`${tabBtnBase} ${activeTab === 'about' ? tabBtnActive : tabBtnInactive}`}
-        >
-          <Info className="w-3.5 h-3.5" />
-          <span>关于</span>
-        </button>
-      </div>
-
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-6 py-8">
-          {activeTab === 'appearance' && (
-            <AppearanceTab
-              isDarkMode={isDarkMode}
-              onToggleTheme={toggleDarkMode}
-            />
-          )}
-          {activeTab === 'about' && <AboutTab />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ================================================================
-// AppearanceTab — theme & display preferences
-// ================================================================
-interface AppearanceTabProps {
-  isDarkMode: boolean;
-  onToggleTheme: () => void;
-}
-
-function AppearanceTab({ isDarkMode, onToggleTheme }: AppearanceTabProps) {
-  return (
-    <div className="space-y-6">
-      {/* Section: Theme */}
-      <section>
-        <h3 className="text-[11px] uppercase font-semibold text-[var(--vscode-descriptionForeground)] mb-3">
-          主题 (Theme)
-        </h3>
-        <div className="grid grid-cols-2 gap-3 max-w-md">
-          {/* Dark option */}
-          <button
-            onClick={() => {
-              if (!isDarkMode) onToggleTheme();
-            }}
-            className={`cursor-pointer p-4 rounded-lg border flex flex-col items-center gap-2.5 transition-colors duration-150 ${
-              isDarkMode
-                ? 'bg-[var(--vscode-list-activeSelectionBackground)] border-[var(--vscode-list-activeSelectionBackground)] text-white'
-                : 'bg-[var(--vscode-sideBar-background)] border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-list-activeSelectionBackground)]'
-            }`}
-          >
-            <Moon className="w-6 h-6" />
-            <span className="text-xs font-medium">深色模式</span>
-          </button>
-
-          {/* Light option */}
-          <button
-            onClick={() => {
-              if (isDarkMode) onToggleTheme();
-            }}
-            className={`cursor-pointer p-4 rounded-lg border flex flex-col items-center gap-2.5 transition-colors duration-150 ${
-              !isDarkMode
-                ? 'bg-[var(--vscode-list-activeSelectionBackground)] border-[var(--vscode-list-activeSelectionBackground)] text-white'
-                : 'bg-[var(--vscode-sideBar-background)] border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-list-activeSelectionBackground)]'
-            }`}
-          >
-            <Sun className="w-6 h-6" />
-            <span className="text-xs font-medium">浅色模式</span>
-          </button>
-        </div>
-        <p className="text-[11px] text-[var(--vscode-descriptionForeground)] leading-relaxed mt-3">
-          主题偏好会自动保存到本地，下次打开应用时恢复。
-        </p>
-      </section>
-    </div>
-  );
-}
-
-// ================================================================
-// AboutTab — application info
-// ================================================================
-function AboutTab() {
-  return (
-    <div className="space-y-6">
-      {/* Logo & name */}
-      <div className="flex flex-col items-center gap-3 py-6">
-        <div className="w-20 h-20 rounded-2xl bg-[var(--vscode-list-activeSelectionBackground)] flex items-center justify-center shadow-lg">
-          <Monitor className="w-10 h-10 text-white" />
-        </div>
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-[var(--vscode-foreground)]">
-            JStudio
+    <div className="w-full h-full flex bg-[var(--vscode-editor-background)]">
+      {/* ── Left navigation ── */}
+      <nav className="w-52 shrink-0 bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col py-4 select-none">
+        {/* Title */}
+        <div className="px-4 mb-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+            设置
           </h2>
-          <p className="text-xs text-[var(--vscode-descriptionForeground)] font-mono mt-1">
-            v{APP_VERSION}
-          </p>
         </div>
-      </div>
 
-      {/* Tagline */}
-      <div className="bg-[var(--vscode-sideBar-background)] border border-[var(--vscode-widget-border)] rounded-lg p-4">
-        <p className="text-sm text-[var(--vscode-foreground)] leading-relaxed text-center">
-          离线优先的本地 Notion 风格知识库编辑器
-        </p>
-        <p className="text-xs text-[var(--vscode-descriptionForeground)] leading-relaxed text-center mt-2">
-          实时 HTML 渲染 · 双向链接 · 知识图谱可视化 · 涂鸦画板 · 斜杠命令
-        </p>
-      </div>
-
-      {/* Tech stack */}
-      <section>
-        <h3 className="text-[11px] uppercase font-semibold text-[var(--vscode-descriptionForeground)] mb-2.5">
-          技术栈
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {['Tauri 2', 'React 19', 'TypeScript', 'Zustand', 'TailwindCSS', 'tldraw'].map(
-            (tech) => (
-              <span
-                key={tech}
-                className="text-[11px] px-2.5 py-1 rounded-full bg-[var(--vscode-sideBar-background)] border border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)]"
+        {/* Nav items */}
+        <div className="flex-1 space-y-0.5 px-2">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = activeSection === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-sm text-xs transition-colors duration-150 cursor-pointer ${
+                  active
+                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+                    : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                }`}
               >
-                {tech}
-              </span>
-            ),
-          )}
+                <Icon className="w-4 h-4 opacity-70" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </div>
-      </section>
+      </nav>
 
-      {/* Privacy note */}
-      <div className="bg-[var(--vscode-sideBar-background)] border border-[var(--vscode-widget-border)] rounded-lg p-3.5 flex items-start gap-3">
-        <Heart className="w-4 h-4 text-[var(--vscode-errorForeground)] mt-0.5 shrink-0" />
-        <div>
-          <div className="text-xs font-semibold text-[var(--vscode-foreground)]">
-            隐私优先
+      {/* ── Right content ── */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Header */}
+        <div className="px-8 py-4 border-b border-[var(--vscode-sideBar-border)] shrink-0">
+          <h3 className="text-sm font-semibold text-[var(--vscode-foreground)]">
+            {NAV_ITEMS.find((n) => n.id === activeSection)?.label}
+          </h3>
+        </div>
+
+        {/* Content — scrollable, max-width for readability */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-xl mx-auto px-8 py-6">
+            {activeSection === 'appearance' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--vscode-foreground)] mb-1">
+                    主题
+                  </label>
+                  <p className="text-[11px] text-[var(--vscode-descriptionForeground)] mb-4">
+                    选择应用的外观风格
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {themeOptions.map((opt) => {
+                      const Icon = opt.icon;
+                      const selected = themeMode === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setThemeMode(opt.value)}
+                          className={`flex flex-col items-center gap-2 p-5 rounded-md border-2 transition-all duration-150 cursor-pointer ${
+                            selected
+                              ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                              : 'border-transparent bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-widget-border)]'
+                          }`}
+                        >
+                          <Icon
+                            className={`w-6 h-6 ${selected ? 'text-[var(--vscode-foreground)]' : 'text-[var(--vscode-descriptionForeground)]'}`}
+                          />
+                          <span
+                            className={`text-xs ${selected ? 'text-[var(--vscode-foreground)] font-medium' : 'text-[var(--vscode-sideBar-foreground)]'}`}
+                          >
+                            {opt.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-[11px] text-[var(--vscode-descriptionForeground)] mt-3">
+                    {themeOptions.find((t) => t.value === themeMode)?.desc}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'about' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-lg bg-[var(--vscode-button-background)] flex items-center justify-center shrink-0">
+                    <Palette className="w-5 h-5 text-[var(--vscode-button-foreground)]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--vscode-foreground)]">
+                      JStudio
+                    </p>
+                    <p className="text-[11px] text-[var(--vscode-descriptionForeground)]">
+                      轻量级笔记与画布工作台
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-[var(--vscode-sideBar-border)] pt-4 space-y-2.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--vscode-descriptionForeground)]">
+                      版本
+                    </span>
+                    <span className="text-[var(--vscode-foreground)]">
+                      {__APP_VERSION__}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--vscode-descriptionForeground)]">
+                      技术栈
+                    </span>
+                    <span className="text-[var(--vscode-foreground)]">
+                      Tauri + React + TipTap
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <p className="text-[11px] text-[var(--vscode-descriptionForeground)] leading-relaxed mt-1">
-            所有数据保存在本地文件系统，无云端依赖，隐私不出本机。
-          </p>
         </div>
       </div>
-
-      {/* Links */}
-      <section>
-        <h3 className="text-[11px] uppercase font-semibold text-[var(--vscode-descriptionForeground)] mb-2.5">
-          链接
-        </h3>
-        <a
-          href="https://github.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[var(--vscode-sideBar-background)] border border-[var(--vscode-widget-border)] hover:bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-list-activeSelectionBackground)] transition-colors duration-150 cursor-pointer"
-        >
-          <Github className="w-4 h-4 text-[var(--vscode-descriptionForeground)]" />
-          <span className="text-xs text-[var(--vscode-foreground)]">
-            源代码仓库
-          </span>
-        </a>
-      </section>
-
-      <p className="text-[10px] text-[var(--vscode-descriptionForeground)] text-center pt-2">
-        © {new Date().getFullYear()} JStudio · Made with ♥
-      </p>
     </div>
   );
 }

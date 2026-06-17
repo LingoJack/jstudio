@@ -16,3 +16,17 @@ export const useStore = create<StoreState>((set, get) => ({
   ...(createEditorSlice(set, get) as StoreState),
   ...(createUiSlice(set, get) as StoreState),
 }));
+
+/**
+ * When themeMode === 'system', react to OS dark/light changes in real time.
+ */
+if (typeof window !== 'undefined' && window.matchMedia) {
+  const mql = window.matchMedia('(prefers-color-scheme: dark)');
+  mql.addEventListener('change', (e) => {
+    if (useStore.getState().themeMode !== 'system') return;
+    const isDark = e.matches;
+    if (isDark) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    useStore.setState({ isDarkMode: isDark });
+  });
+}

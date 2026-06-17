@@ -1,5 +1,6 @@
-import { storage, toMeta, DocumentMeta } from '../lib/storage';
+import { storage, toMeta, DocumentMeta, type ThemeMode } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
+import { resolveDark } from './uiSlice';
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
@@ -27,18 +28,18 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       }
 
       // Load settings
-      let theme: 'dark' | 'light' = 'dark';
+      let themeMode: ThemeMode = 'dark';
       try {
         const settings = await storage.loadSettings();
-        if (settings.theme === 'light') theme = 'light';
+        if (settings.theme === 'light' || settings.theme === 'system') {
+          themeMode = settings.theme;
+        }
       } catch {
         // ignore
       }
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      const isDark = resolveDark(themeMode);
+      if (isDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
 
       // Load index
       let index: DocumentMeta[] = [];
@@ -97,7 +98,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         documents: docs,
         activeDoc: docs[0] ?? null,
         activeDocId: firstId,
-        isDarkMode: theme === 'dark',
+        themeMode,
+        isDarkMode: isDark,
         isLoading: false,
       });
     } catch (e) {

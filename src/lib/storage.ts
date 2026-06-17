@@ -2,6 +2,11 @@ import { invoke } from '@tauri-apps/api/core';
 import type { Document } from '../types';
 
 /**
+ * Theme preference — `system` follows the OS color scheme.
+ */
+export type ThemeMode = 'dark' | 'light' | 'system';
+
+/**
  * Lightweight document metadata — used for the sidebar list.
  * Excludes `blocks` so the sidebar can render instantly without
  * loading every document's full content.
@@ -16,7 +21,7 @@ export interface DocumentMeta {
 }
 
 export interface AppSettings {
-  theme?: 'dark' | 'light';
+  theme?: ThemeMode;
   [key: string]: unknown;
 }
 

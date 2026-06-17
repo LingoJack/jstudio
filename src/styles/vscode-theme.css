@@ -918,6 +918,14 @@ button {
   border-radius: 6px;
 }
 
+/* 选中图片节点时隐藏 ProseMirror 默认的 block 级外框，
+   只保留 image-node-figure 自身的边框即可。
+   ProseMirror-selectednode 由 ProseMirror 加在 NodeViewWrapper 的父容器上，
+   故用 :has() 匹配。 */
+.ProseMirror-selectednode:has(> .image-node-wrapper) {
+  outline: none;
+}
+
 /* ─── Image NodeView (React) ─────────────────────────────────────────────── */
 
 .image-node-wrapper {
