@@ -953,6 +953,7 @@ button {
   border-radius: 8px;
   border: 1px solid var(--vscode-widget-border);
   background: var(--vscode-textCodeBlock-background);
+  margin: 0.75em 0;
 }
 
 /* 代码内容区 */

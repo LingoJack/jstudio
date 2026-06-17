@@ -13,6 +13,10 @@
  *      otherwise hard to leave (exitOnTripleEnter is disabled).
  *   3. Cmd/Ctrl+Enter → insert an empty paragraph ABOVE the current block and
  *      focus it ("上方插入一行").
+ *   4. Backspace inside an EMPTY codeBlock → convert it back to a plain
+ *      paragraph (Notion-style "delete block"). Only fires when the block has
+ *      no text content, so normal text editing inside a code block is
+ *      unaffected.
  */
 
 import { Extension } from '@tiptap/core';
@@ -119,11 +123,35 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       return true;
     };
 
+    // -----------------------------------------------------------------
+    // Backspace — convert an EMPTY codeBlock into a plain paragraph.
+    // -----------------------------------------------------------------
+    const onBackspace = () => {
+      const { state } = editor;
+      const { selection } = state;
+      if (!selection.empty) return false;
+      const $head = selection.$head;
+      if ($head.depth < 1) return false;
+      const parent = $head.parent;
+      if (parent.type.name !== 'codeBlock') return false;
+      // Only when the block is completely empty.
+      if (parent.content.size !== 0) return false;
+      const blockPos = $head.before(1);
+      editor
+        .chain()
+        .focus()
+        .setNodeSelection(blockPos)
+        .deleteSelection()
+        .run();
+      return true;
+    };
+
     return {
       ArrowUp: onArrowUp,
       ArrowLeft: onArrowLeft,
       ArrowDown: onArrowDown,
       'Mod-Enter': onModEnter,
+      Backspace: onBackspace,
     };
   },
 });
