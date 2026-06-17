@@ -51,7 +51,7 @@ export default function Settings() {
               <button
                 key={item.id}
                 onClick={() => setActiveSection(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-sm text-xs transition-colors duration-150 cursor-pointer ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded text-xs transition-colors duration-150 cursor-pointer ${
                   active
                     ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
                     : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'

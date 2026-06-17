@@ -76,7 +76,7 @@ export default function DocumentList() {
         </h4>
         <button
           onClick={createDocument}
-          className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-0.5 rounded-sm transition-colors duration-150"
+          className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-0.5 rounded transition-colors duration-150"
           title="新建文档"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -117,7 +117,7 @@ export default function DocumentList() {
                     if (e.key === 'Enter') commitRename();
                     if (e.key === 'Escape') setRenamingId(null);
                   }}
-                  className="flex-1 min-w-0 h-5 text-xs bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded-sm px-1 focus:outline-none"
+                  className="flex-1 min-w-0 h-5 text-xs bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1 focus:outline-none"
                   placeholder="输入文档名称"
                 />
               ) : (
@@ -134,7 +134,7 @@ export default function DocumentList() {
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-[120px] py-1 rounded-sm border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-xs"
+          className="fixed z-50 min-w-[120px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-xs"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >

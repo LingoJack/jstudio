@@ -55,7 +55,7 @@ export default function App() {
                 setSettingsOpen(false);
                 if (!isSidebarOpen) toggleSidebar();
               }}
-              className={`w-10 h-10 flex items-center justify-center rounded-sm transition-colors duration-150 cursor-pointer relative ${
+              className={`w-10 h-10 flex items-center justify-center rounded transition-colors duration-150 cursor-pointer relative ${
                 !isSettingsOpen
                   ? 'text-[var(--vscode-foreground)]'
                   : 'text-[var(--vscode-activityBar-foreground)] opacity-60 hover:opacity-100'
@@ -74,7 +74,7 @@ export default function App() {
           <div className="flex flex-col items-center gap-1">
             <button
               onClick={() => setSettingsOpen(true)}
-              className={`w-10 h-10 flex items-center justify-center rounded-sm transition-colors duration-150 cursor-pointer relative ${
+              className={`w-10 h-10 flex items-center justify-center rounded transition-colors duration-150 cursor-pointer relative ${
                 isSettingsOpen
                   ? 'text-[var(--vscode-foreground)]'
                   : 'text-[var(--vscode-activityBar-foreground)] opacity-60 hover:opacity-100'
@@ -110,7 +110,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={createDocument}
-                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded-sm px-4 py-2 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150 mt-1"
+                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded px-4 py-2 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150 mt-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>新建文档</span>

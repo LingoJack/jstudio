@@ -113,17 +113,22 @@ export const FileExtension = Node.create({
       setFile:
         (attrs) =>
         ({ commands }) => {
-          return commands.insertContent({
-            type: 'fileBlock',
-            attrs: {
-              src: '',
-              fileName: '',
-              fileSize: 0,
-              fileType: '',
-              displayMode: 'card',
-              ...attrs,
+          return commands.insertContent([
+            {
+              type: 'fileBlock',
+              attrs: {
+                src: '',
+                fileName: '',
+                fileSize: 0,
+                fileType: '',
+                displayMode: 'card',
+                ...attrs,
+              },
             },
-          });
+            {
+              type: 'paragraph',
+            },
+          ]);
         },
     };
   },

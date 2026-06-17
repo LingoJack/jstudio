@@ -429,5 +429,3 @@ function FileTextPreview({ src }: { src: string }) {
 
   return <pre className="file-block-preview-text">{text}</pre>;
 }
-
-export default FileView;

@@ -1295,3 +1295,253 @@ button {
   color: var(--vscode-editor-foreground);
   background: var(--vscode-toolbar-hoverBackground);
 }
+
+/* ============================================
+   File Attachment NodeView Styles
+   ============================================ */
+
+/* 整个文件附件外层容器 */
+.file-block-wrapper {
+  margin: 0.75em 0;
+}
+
+/* ─── Placeholder state (no file uploaded yet) ─── */
+
+.file-block-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+  min-height: 120px;
+  border: 2px dashed var(--vscode-input-border, #3c3c3c);
+  border-radius: 8px;
+  background: var(--vscode-input-background, rgba(128, 128, 128, 0.08));
+  color: var(--vscode-descriptionForeground, #999);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  font: inherit;
+  padding: 20px;
+}
+
+.file-block-placeholder:hover {
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+}
+
+.file-block-placeholder:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.file-block-placeholder-icon {
+  display: flex;
+  opacity: 0.7;
+}
+
+.file-block-placeholder-text {
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.file-block-placeholder-hint {
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+
+/* ─── Container (loaded state) ─── */
+
+.file-block-container {
+  position: relative;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-widget-border);
+  background: var(--vscode-editor-background);
+  transition: border-color 0.15s;
+}
+
+.file-block-container.is-preview {
+  border-color: var(--vscode-widget-border);
+  background: var(--vscode-textCodeBlock-background);
+}
+
+/* ─── Hover toolbar (top-right corner) ─── */
+
+.file-block-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.file-block-container:hover .file-block-toolbar {
+  opacity: 1;
+}
+
+.file-block-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.file-block-toolbar-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-foreground);
+}
+
+.file-block-toolbar-btn.is-active {
+  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
+  color: var(--vscode-list-activeSelectionForeground, #fff);
+}
+
+/* ─── Card mode ─── */
+
+.file-block-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  user-select: none;
+}
+
+.file-block-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--vscode-textBlockQuote-background);
+  color: var(--vscode-textLink-foreground);
+  flex-shrink: 0;
+}
+
+.file-block-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-block-card-name {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-block-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.file-block-card-type {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.file-block-card-dot {
+  opacity: 0.5;
+}
+
+/* ─── Preview mode ─── */
+
+.file-block-preview {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* HTML / PDF iframe */
+.file-block-preview-frame {
+  width: 100%;
+  min-height: 400px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  display: block;
+}
+
+/* Image */
+.file-block-preview-image-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+}
+
+.file-block-preview-image {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+/* DOCX */
+.file-block-preview-docx {
+  padding: 16px 20px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.file-block-preview-docx-content {
+  font-size: 0.9em;
+  line-height: 1.7;
+  color: var(--vscode-editor-foreground);
+}
+
+.file-block-preview-docx-content h1 { font-size: 1.5em; font-weight: 700; margin: 0.8em 0 0.4em; }
+.file-block-preview-docx-content h2 { font-size: 1.3em; font-weight: 700; margin: 0.8em 0 0.4em; }
+.file-block-preview-docx-content h3 { font-size: 1.15em; font-weight: 600; margin: 0.8em 0 0.4em; }
+.file-block-preview-docx-content p { margin: 0.5em 0; }
+.file-block-preview-docx-content table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+.file-block-preview-docx-content td,
+.file-block-preview-docx-content th { border: 1px solid var(--vscode-widget-border); padding: 6px 10px; }
+.file-block-preview-docx-content img { max-width: 100%; }
+
+/* Text */
+.file-block-preview-text {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--vscode-editor-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* Loading spinner */
+.file-block-preview-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.85em;
+}
