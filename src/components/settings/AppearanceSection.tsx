@@ -35,7 +35,7 @@ export default function AppearanceSection() {
               <button
                 key={opt.value}
                 onClick={() => setThemeMode(opt.value)}
-                className={`flex flex-col items-center gap-2 p-5 rounded-md border-2 transition-all duration-150 cursor-pointer ${
+                className={`flex flex-col items-center gap-2 p-5 rounded-lg border-2 transition-all duration-150 cursor-pointer ${
                   selected
                     ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
                     : 'border-transparent bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-widget-border)]'

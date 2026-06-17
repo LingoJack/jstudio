@@ -30,7 +30,7 @@ export default function TitleBar() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           data-tauri-drag-region={false}
-          className="w-full h-6 text-xs pl-7 pr-2 rounded-sm border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-60 focus:outline-none focus:border-[var(--vscode-focusBorder)] transition-colors duration-150"
+          className="w-full h-6 text-xs pl-7 pr-2 rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-60 focus:outline-none focus:border-[var(--vscode-focusBorder)] transition-colors duration-150"
         />
       </div>
     </div>

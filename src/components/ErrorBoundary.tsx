@@ -41,7 +41,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           </pre>
           <button
             onClick={this.handleReload}
-            className="px-4 py-1.5 text-xs rounded-sm border border-[var(--vscode-button-border)] bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] cursor-pointer hover:opacity-90"
+            className="px-4 py-1.5 text-xs rounded border border-[var(--vscode-button-border)] bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] cursor-pointer hover:opacity-90"
           >
             重试
           </button>
