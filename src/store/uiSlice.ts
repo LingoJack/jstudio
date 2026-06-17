@@ -1,5 +1,12 @@
 import { storage, type ThemeMode } from '../lib/storage';
 import type { SliceCreator } from './storeHelpers';
+import {
+  DEFAULT_FONT_ID,
+  DEFAULT_FONT_SIZE,
+  MIN_FONT_SIZE,
+  MAX_FONT_SIZE,
+  resolveFontFamily,
+} from '../lib/fonts';
 
 /**
  * Resolve a theme preference to the actual dark/light value.
@@ -17,7 +24,19 @@ function applyDark(isDark: boolean) {
   else document.documentElement.classList.remove('dark');
 }
 
-/** UI slice — panel visibility, theme, and loading state. */
+/**
+ * Push font settings into the DOM by writing CSS custom properties on
+ * <html>.  vscode-theme.css reads --jstudio-font-family /
+ * --jstudio-font-size on `body` and `.ProseMirror`.
+ */
+export function applyFont(fontId: string, fontSize: number) {
+  const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, fontSize));
+  const root = document.documentElement;
+  root.style.setProperty('--jstudio-font-family', resolveFontFamily(fontId));
+  root.style.setProperty('--jstudio-font-size', `${clamped}px`);
+}
+
+/** UI slice — panel visibility, theme, font, and loading state. */
 export const createUiSlice: SliceCreator = (set, get) => ({
   themeMode: 'dark',
   isDarkMode: true,
@@ -25,6 +44,8 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   isSettingsOpen: false,
   isLoading: true,
   searchQuery: '',
+  fontId: DEFAULT_FONT_ID,
+  fontSize: DEFAULT_FONT_SIZE,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -46,4 +67,17 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
   setSearchQuery: (q) => set({ searchQuery: q }),
+
+  setFontId: (id) => {
+    applyFont(id, get().fontSize);
+    set({ fontId: id });
+    storage.saveSettings({ fontId: id }).catch(console.error);
+  },
+
+  setFontSize: (size) => {
+    const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, size));
+    applyFont(get().fontId, clamped);
+    set({ fontSize: clamped });
+    storage.saveSettings({ fontSize: clamped }).catch(console.error);
+  },
 });

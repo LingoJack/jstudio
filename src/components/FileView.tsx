@@ -24,13 +24,32 @@ import {
   File as FileIcon,
   Eye,
   PanelsTopLeft,
-  Upload,
   Loader2,
 } from 'lucide-react';
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
 import type { FileNodeAttributes } from '../lib/fileExtension';
+
+/** Upload icon (inline SVG — matches ImageView). */
+function UploadIcon() {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -138,7 +157,7 @@ async function docxToHtml(dataUrl: string): Promise<string> {
 /* Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function FileView({ node, updateAttributes }: NodeViewProps) {
+export default function FileView({ node, selected, updateAttributes }: NodeViewProps) {
   const {
     src,
     fileName,
@@ -265,123 +284,122 @@ export default function FileView({ node, updateAttributes }: NodeViewProps) {
 
   return (
     <NodeViewWrapper className="file-block-wrapper" as="div">
-      {/* Placeholder state */}
-      {!src ? (
-        <button
-          type="button"
-          className="file-block-placeholder"
-          onClick={handlePlaceholderClick}
-          disabled={loading}
-          aria-label="点击选择文件"
-        >
-          <span className="file-block-placeholder-icon">
-            {loading ? <Loader2 size={28} className="animate-spin" /> : <Upload size={28} />}
-          </span>
-          <span className="file-block-placeholder-text">
-            {loading ? '加载中…' : '点击上传文件'}
-          </span>
-          <span className="file-block-placeholder-hint">
-            支持 HTML、PDF、DOCX、图片、文本等
-          </span>
-        </button>
-      ) : (
-        /* Loaded state */
-        <div className={`file-block-container ${isPreviewMode ? 'is-preview' : 'is-card'}`}>
-          {/* Hover toolbar (top-right) — toggle display mode */}
-          {canPreview && (
-            <div className="file-block-toolbar" contentEditable={false}>
-              <button
-                type="button"
-                className={`file-block-toolbar-btn ${!isPreviewMode ? 'is-active' : ''}`}
-                onClick={() => updateAttributes({ displayMode: 'card' })}
-                title="卡片模式"
-              >
-                <PanelsTopLeft size={15} />
-              </button>
-              <button
-                type="button"
-                className={`file-block-toolbar-btn ${isPreviewMode ? 'is-active' : ''}`}
-                onClick={() => updateAttributes({ displayMode: 'preview' })}
-                title="预览模式"
-              >
-                <Eye size={15} />
-              </button>
-            </div>
-          )}
-
-          {/* Card mode */}
-          {!isPreviewMode && (
-            <div className="file-block-card" contentEditable={false}>
-              <div className="file-block-card-icon">
-                <FileIcon size={24} />
+      <div className="file-block-container">
+        {/* Placeholder state */}
+        {!src ? (
+          <button
+            type="button"
+            className="image-node-placeholder"
+            onClick={handlePlaceholderClick}
+            disabled={loading}
+            aria-label="点击选择文件"
+          >
+            <span className="image-node-placeholder-icon">
+              {loading ? <Loader2 size={28} className="animate-spin" /> : <UploadIcon />}
+            </span>
+            <span className="image-node-placeholder-text">
+              {loading ? '加载中…' : '点击上传文件'}
+            </span>
+          </button>
+        ) : (
+          /* Loaded state — transparent border, focusBorder when selected */
+          <div className={`file-block-figure ${selected ? 'is-selected' : ''} ${isPreviewMode ? 'is-preview' : 'is-card'}`}>
+            {/* Hover toolbar (top-right) — toggle display mode */}
+            {canPreview && (
+              <div className="file-block-toolbar" contentEditable={false}>
+                <button
+                  type="button"
+                  className={`file-block-toolbar-btn ${!isPreviewMode ? 'is-active' : ''}`}
+                  onClick={() => updateAttributes({ displayMode: 'card' })}
+                  title="卡片模式"
+                >
+                  <PanelsTopLeft size={15} />
+                </button>
+                <button
+                  type="button"
+                  className={`file-block-toolbar-btn ${isPreviewMode ? 'is-active' : ''}`}
+                  onClick={() => updateAttributes({ displayMode: 'preview' })}
+                  title="预览模式"
+                >
+                  <Eye size={15} />
+                </button>
               </div>
-              <div className="file-block-card-info">
-                <span className="file-block-card-name" title={fileName}>
-                  {fileName}
-                </span>
-                <span className="file-block-card-meta">
-                  <span className="file-block-card-type">{getCategoryLabel(category)}</span>
-                  <span className="file-block-card-dot">·</span>
-                  <span className="file-block-card-size">{formatFileSize(fileSize)}</span>
-                </span>
+            )}
+
+            {/* Card mode */}
+            {!isPreviewMode && (
+              <div className="file-block-card" contentEditable={false}>
+                <div className="file-block-card-icon">
+                  <FileIcon size={24} />
+                </div>
+                <div className="file-block-card-info">
+                  <span className="file-block-card-name" title={fileName}>
+                    {fileName}
+                  </span>
+                  <span className="file-block-card-meta">
+                    <span className="file-block-card-type">{getCategoryLabel(category)}</span>
+                    <span className="file-block-card-dot">·</span>
+                    <span className="file-block-card-size">{formatFileSize(fileSize)}</span>
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Preview mode */}
-          {isPreviewMode && (
-            <div className="file-block-preview" contentEditable={false}>
-              {/* HTML / SVG */}
-              {(category === 'html') && (
-                <iframe
-                  src={src}
-                  className="file-block-preview-frame"
-                  sandbox="allow-same-origin"
-                  title={fileName}
-                />
-              )}
+            {/* Preview mode */}
+            {isPreviewMode && (
+              <div className="file-block-preview" contentEditable={false}>
+                {/* HTML / SVG */}
+                {category === 'html' && (
+                  <iframe
+                    src={src}
+                    className="file-block-preview-frame"
+                    sandbox="allow-same-origin"
+                    title={fileName}
+                  />
+                )}
 
-              {/* PDF */}
-              {category === 'pdf' && (
-                <iframe
-                  src={src}
-                  className="file-block-preview-frame"
-                  title={fileName}
-                />
-              )}
+                {/* PDF */}
+                {category === 'pdf' && (
+                  <iframe
+                    src={src}
+                    className="file-block-preview-frame"
+                    title={fileName}
+                  />
+                )}
 
-              {/* Image */}
-              {category === 'image' && (
-                <div className="file-block-preview-image-wrap">
-                  <img src={src} alt={fileName} className="file-block-preview-image" />
-                </div>
-              )}
+                {/* Image */}
+                {category === 'image' && (
+                  <div className="file-block-preview-image-wrap">
+                    <img src={src} alt={fileName} className="file-block-preview-image" />
+                  </div>
+                )}
 
-              {/* DOCX */}
-              {category === 'docx' && (
-                <div className="file-block-preview-docx">
-                  {docxLoading ? (
-                    <div className="file-block-preview-loading">
-                      <Loader2 size={20} className="animate-spin" />
-                      <span>正在解析 DOCX…</span>
-                    </div>
-                  ) : (
-                    <div
-                      className="file-block-preview-docx-content"
-                      dangerouslySetInnerHTML={{ __html: docxHtml ?? '<p>加载中…</p>' }}
-                    />
-                  )}
-                </div>
-              )}
+                {/* DOCX */}
+                {category === 'docx' && (
+                  <div className="file-block-preview-docx">
+                    {docxLoading ? (
+                      <div className="file-block-preview-loading">
+                        <Loader2 size={20} className="animate-spin" />
+                        <span>正在解析 DOCX…</span>
+                      </div>
+                    ) : (
+                      <div
+                        className="file-block-preview-docx-content"
+                        dangerouslySetInnerHTML={{ __html: docxHtml ?? '<p>加载中…</p>' }}
+                      />
+                    )}
+                  </div>
+                )}
 
-              {/* Text */}
-              {category === 'text' && (
-                <FileTextPreview src={src} />
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                {/* Text */}
+                {category === 'text' && (
+                  <FileTextPreview src={src} />
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </NodeViewWrapper>
   );
 }

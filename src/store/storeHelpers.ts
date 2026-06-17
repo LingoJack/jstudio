@@ -42,6 +42,8 @@ export interface StoreState {
   isSettingsOpen: boolean;
   isLoading: boolean;
   searchQuery: string;
+  fontId: string;
+  fontSize: number;
 
   // — init (documents slice) —
   init: () => Promise<void>;
@@ -75,6 +77,8 @@ export interface StoreState {
   toggleSettings: () => void;
   setSettingsOpen: (open: boolean) => void;
   setSearchQuery: (q: string) => void;
+  setFontId: (id: string) => void;
+  setFontSize: (size: number) => void;
 }
 
 /**

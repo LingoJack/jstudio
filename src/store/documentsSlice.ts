@@ -1,6 +1,7 @@
 import { storage, toMeta, DocumentMeta, type ThemeMode } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
-import { resolveDark } from './uiSlice';
+import { resolveDark, applyFont } from './uiSlice';
+import { DEFAULT_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../lib/fonts';
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
@@ -29,10 +30,18 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
       // Load settings
       let themeMode: ThemeMode = 'dark';
+      let fontId = DEFAULT_FONT_ID;
+      let fontSize = DEFAULT_FONT_SIZE;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
           themeMode = settings.theme;
+        }
+        if (typeof settings.fontId === 'string' && settings.fontId) {
+          fontId = settings.fontId;
+        }
+        if (typeof settings.fontSize === 'number') {
+          fontSize = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, settings.fontSize));
         }
       } catch {
         // ignore
@@ -40,6 +49,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       const isDark = resolveDark(themeMode);
       if (isDark) document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
+      applyFont(fontId, fontSize);
 
       // Load index
       let index: DocumentMeta[] = [];
@@ -100,6 +110,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         activeDocId: firstId,
         themeMode,
         isDarkMode: isDark,
+        fontId,
+        fontSize,
         isLoading: false,
       });
     } catch (e) {

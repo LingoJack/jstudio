@@ -22,6 +22,10 @@ export interface DocumentMeta {
 
 export interface AppSettings {
   theme?: ThemeMode;
+  /** Font preset id — see FONT_PRESETS in lib/fonts.ts */
+  fontId?: string;
+  /** Editor base font size in pixels (12–22) */
+  fontSize?: number;
   [key: string]: unknown;
 }
 
