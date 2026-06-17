@@ -23,7 +23,7 @@ import { Extension } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import Image from '@tiptap/extension-image';
+import Image from '../lib/imageExtension';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -198,7 +198,7 @@ export default function BlockEditor() {
       Placeholder.configure({
         placeholder: '输入 / 唤起命令菜单…',
       }),
-      Image.configure({ inline: false }),
+      Image.configure({ inline: false, allowBase64: true }),
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -313,11 +313,10 @@ export default function BlockEditor() {
   // The document title is a plain <input> sitting above the TipTap editor.
   // These shortcuts bridge the gap between the two:
   //
-  //   Enter         → insert a new empty paragraph at the very top of the
-  //                   editor (i.e. below the title) and focus it.
-  //   Cmd/Ctrl+Enter→ focus the first existing block at its start.
-  //   ArrowDown / →  → focus the first block (↓ at end-of-text, → at end).
-  //   ArrowUp / ←    → native <input> caret movement (no cross-over).
+  //   Enter / Cmd+Enter → insert a new empty paragraph at the very top of
+  //                       the editor (i.e. below the title) and focus it.
+  //   ArrowDown / →     → focus the first block (↓ at end-of-text, → at end).
+  //   ArrowUp / ←       → native <input> caret movement (no cross-over).
   // ------------------------------------------------------------------
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!editor) return;
@@ -326,19 +325,13 @@ export default function BlockEditor() {
     const isAtEnd =
       el.selectionStart === len && el.selectionEnd === len;
 
-    // Cmd/Ctrl+Enter — jump straight into the first existing block.
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      editor.commands.focus('start');
-      return;
-    }
-
-    // Enter — insert a fresh paragraph below the title and edit it.
-    if (e.key === 'Enter' && !e.shiftKey) {
-      if (e.repeat) {
-        e.preventDefault();
-        return;
-      }
+    // Enter / Cmd+Enter — insert a fresh paragraph below the title and edit it.
+    // (Title is the top-most element; there is no "insert above" here.)
+    if (
+      e.key === 'Enter' &&
+      !e.shiftKey &&
+      (e.metaKey || e.ctrlKey ? true : !e.repeat)
+    ) {
       e.preventDefault();
       e.stopPropagation();
       editor

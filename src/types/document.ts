@@ -14,6 +14,9 @@ export interface BlockProperties {
   language?: string; // code block syntax
   caption?: string; // image block caption
   imageType?: 'url' | 'base64' | 'asset';
+  width?: number; // image display width (px)
+  height?: number; // image display height (px)
+  align?: 'left' | 'center'; // image alignment
 }
 
 export interface Block {

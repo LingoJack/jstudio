@@ -69,7 +69,7 @@ export default function DocumentList() {
   return (
     <div className="w-60 shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 pt-12 select-none z-10 relative">
       {/* macOS 标题栏拖拽区域 */}
-      <div className="absolute top-0 left-0 right-0 h-12" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+      <div data-tauri-drag-region className="absolute top-0 left-0 right-0 h-12" />
       {/* Header */}
       <div className="flex items-center justify-between px-1.5 mb-1 shrink-0">
         <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5">

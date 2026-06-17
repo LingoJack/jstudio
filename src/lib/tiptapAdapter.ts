@@ -257,6 +257,9 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       json.attrs = {
         src,
         alt: block.properties?.caption ?? '',
+        width: block.properties?.width ?? null,
+        height: block.properties?.height ?? null,
+        align: block.properties?.align ?? 'center',
       };
       break;
     }
@@ -317,10 +320,16 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     case 'image': {
       const src = typeof attrs.src === 'string' ? attrs.src : '';
       const alt = typeof attrs.alt === 'string' ? attrs.alt : '';
+      const width = typeof attrs.width === 'number' ? attrs.width : undefined;
+      const height = typeof attrs.height === 'number' ? attrs.height : undefined;
+      const align = attrs.align === 'left' || attrs.align === 'center' ? attrs.align : 'center';
       block.content = src;
       block.properties = {
         caption: alt,
         imageType: 'url',
+        width,
+        height,
+        align,
       };
       break;
     }

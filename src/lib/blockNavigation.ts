@@ -11,9 +11,11 @@
  *   2. ArrowDown at the end of the LAST block when it is a codeBlock → insert
  *      a new empty paragraph below and move the cursor there. Code blocks are
  *      otherwise hard to leave (exitOnTripleEnter is disabled).
- *   3. Cmd/Ctrl+Enter → insert an empty paragraph ABOVE the current block and
- *      focus it ("上方插入一行").
- *   4. Backspace inside an EMPTY codeBlock → convert it back to a plain
+ *   3. Cmd/Ctrl+Enter → insert an empty paragraph BELOW the current block
+ *      and focus it ("下方插入一行").
+ *   4. Cmd/Ctrl+Shift+Enter → insert an empty paragraph ABOVE the current
+ *      block and focus it ("上方插入一行").
+ *   5. Backspace inside an EMPTY codeBlock → convert it back to a plain
  *      paragraph (Notion-style "delete block"). Only fires when the block has
  *      no text content, so normal text editing inside a code block is
  *      unaffected.
@@ -107,9 +109,26 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     };
 
     // -----------------------------------------------------------------
-    // Cmd/Ctrl+Enter — insert an empty paragraph ABOVE the current block.
+    // Cmd/Ctrl+Enter — insert an empty paragraph BELOW the current block.
     // -----------------------------------------------------------------
     const onModEnter = () => {
+      const { state } = editor;
+      const { selection } = state;
+      const $head = selection.$head;
+      if ($head.depth < 1) return false;
+      const after = $head.after(1);
+      const tr = state.tr;
+      const para = state.schema.nodes.paragraph.create();
+      tr.insert(after, para);
+      tr.setSelection(TextSelection.create(tr.doc, after + 1));
+      editor.view.dispatch(tr);
+      return true;
+    };
+
+    // -----------------------------------------------------------------
+    // Cmd/Ctrl+Shift+Enter — insert an empty paragraph ABOVE the current block.
+    // -----------------------------------------------------------------
+    const onModShiftEnter = () => {
       const { state } = editor;
       const { selection } = state;
       const $head = selection.$head;
@@ -151,6 +170,7 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       ArrowLeft: onArrowLeft,
       ArrowDown: onArrowDown,
       'Mod-Enter': onModEnter,
+      'Mod-Shift-Enter': onModShiftEnter,
       Backspace: onBackspace,
     };
   },
