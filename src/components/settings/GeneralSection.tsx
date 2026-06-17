@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { FolderOpen, Folder, Loader2, AlertCircle } from 'lucide-react';
-import { openPath } from '@tauri-apps/plugin-opener';
 import { storage } from '../../lib/storage';
 
 export default function GeneralSection() {
@@ -18,8 +17,9 @@ export default function GeneralSection() {
   const handleOpen = async () => {
     if (!dataPath) return;
     setOpening(true);
+    setError(null);
     try {
-      await openPath(dataPath);
+      await storage.openDataDir();
     } catch (e) {
       setError(String(e));
     } finally {

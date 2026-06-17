@@ -1249,6 +1249,10 @@ button {
   background: var(--vscode-list-hoverBackground);
 }
 
+.code-lang-option.is-highlighted {
+  background: var(--vscode-list-hoverBackground);
+}
+
 .code-lang-option.is-active {
   background: var(--vscode-list-activeSelectionBackground);
   color: var(--vscode-list-activeSelectionForeground);

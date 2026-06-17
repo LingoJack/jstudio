@@ -64,7 +64,7 @@ function getLanguageLabel(value: string): string {
   return found ? found.label : value || 'Plain Text';
 }
 
-export default function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
+export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
@@ -72,9 +72,12 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
   // ---- Language dropdown state ----
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const badgeRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const savedSelectionRef = useRef<number | null>(null);
 
   const handleCopy = useCallback(() => {
     const codeEl = codeRef.current?.querySelector('.hljs');
@@ -90,8 +93,30 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
       updateAttributes({ language: value });
       setDropdownOpen(false);
       setSearchQuery('');
+      setHighlightedIndex(0);
+
+      // Restore editor focus after the dropdown closes. Use a microtask
+      // so React has time to unmount the search input first.
+      const savedPos = savedSelectionRef.current;
+      queueMicrotask(() => {
+        editor.commands.focus();
+        if (savedPos != null) {
+          // Place cursor at the saved position (clamped to the code block).
+          try {
+            const codeBlockPos = typeof getPos === 'function' ? getPos() : null;
+            if (codeBlockPos != null) {
+              const nodeStart = codeBlockPos + 1; // +1 to enter the node
+              const nodeEnd = nodeStart + node.content.size;
+              const clamped = Math.max(nodeStart, Math.min(savedPos, nodeEnd));
+              editor.commands.setTextSelection(clamped);
+            }
+          } catch {
+            // best-effort; focus alone is sufficient fallback
+          }
+        }
+      });
     },
-    [updateAttributes],
+    [updateAttributes, editor, getPos, node],
   );
 
   // Close dropdown on outside click / Escape
@@ -107,6 +132,7 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
       ) {
         setDropdownOpen(false);
         setSearchQuery('');
+        setHighlightedIndex(0);
       }
     };
 
@@ -114,6 +140,7 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
       if (e.key === 'Escape') {
         setDropdownOpen(false);
         setSearchQuery('');
+        setHighlightedIndex(0);
       }
     };
 
@@ -129,8 +156,14 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
   }, [dropdownOpen]);
 
   const toggleDropdown = useCallback(() => {
-    setDropdownOpen((prev) => !prev);
-  }, []);
+    setDropdownOpen((prev) => {
+      if (!prev) {
+        // Opening — save current editor selection so we can restore it later
+        savedSelectionRef.current = editor.state.selection.from;
+      }
+      return !prev;
+    });
+  }, [editor]);
 
   const filteredLanguages = searchQuery
     ? LANGUAGES.filter(({ label, value }) => {
@@ -138,6 +171,26 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
         return label.toLowerCase().includes(q) || value.toLowerCase().includes(q);
       })
     : LANGUAGES;
+
+  // Reset highlight when the filtered list changes
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    // Default to the currently selected language if it's in the filtered
+    // list, otherwise fall back to the first item.
+    const currentIdx = filteredLanguages.findIndex((l) => l.value === language);
+    setHighlightedIndex(currentIdx >= 0 ? currentIdx : 0);
+  }, [searchQuery, dropdownOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const list = listRef.current;
+    if (!list) return;
+    const item = list.children[highlightedIndex] as HTMLElement | undefined;
+    if (item) {
+      item.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedIndex, dropdownOpen]);
 
   return (
     <NodeViewWrapper as="div" className="code-block-wrapper">
@@ -165,26 +218,39 @@ export default function CodeBlockView({ node, updateAttributes }: NodeViewProps)
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'ArrowDown') {
                   e.preventDefault();
-                  const first = filteredLanguages[0];
-                  if (first) selectLanguage(first.value);
+                  if (filteredLanguages.length === 0) return;
+                  setHighlightedIndex((prev) =>
+                    prev >= filteredLanguages.length - 1 ? 0 : prev + 1,
+                  );
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  if (filteredLanguages.length === 0) return;
+                  setHighlightedIndex((prev) =>
+                    prev <= 0 ? filteredLanguages.length - 1 : prev - 1,
+                  );
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const item = filteredLanguages[highlightedIndex] ?? filteredLanguages[0];
+                  if (item) selectLanguage(item.value);
                 }
               }}
               placeholder="搜索语言…"
               className="code-lang-search-input"
             />
           </div>
-          <div className="code-lang-list">
+          <div ref={listRef} className="code-lang-list">
             {filteredLanguages.length === 0 ? (
               <div className="code-lang-empty">无匹配语言</div>
             ) : (
-              filteredLanguages.map(({ value, label }) => (
+              filteredLanguages.map(({ value, label }, index) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => selectLanguage(value)}
-                  className={`code-lang-option ${value === language ? 'is-active' : ''}`}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  className={`code-lang-option ${value === language ? 'is-active' : ''} ${index === highlightedIndex ? 'is-highlighted' : ''}`}
                 >
                   {label}
                 </button>

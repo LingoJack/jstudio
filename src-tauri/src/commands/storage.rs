@@ -2,6 +2,7 @@ use base64::{engine::general_purpose, Engine as _};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::UNIX_EPOCH;
 
 /// Return the root data directory: `~/.jdata/studio/`
@@ -51,6 +52,32 @@ pub fn ensure_studio_dir() -> Result<String, String> {
     }
 
     Ok(base.to_string_lossy().into_owned())
+}
+
+/// Open the studio data directory in the system file manager.
+#[tauri::command]
+pub fn open_studio_dir() -> Result<(), String> {
+    let base = studio_dir();
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = Command::new("open");
+        c.arg(&base);
+        c
+    };
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = Command::new("explorer");
+        c.arg(&base);
+        c
+    };
+    #[cfg(target_os = "linux")]
+    let mut cmd = {
+        let mut c = Command::new("xdg-open");
+        c.arg(&base);
+        c
+    };
+    cmd.spawn().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Read the document metadata index.

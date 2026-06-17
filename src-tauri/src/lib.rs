@@ -20,6 +20,7 @@ pub fn run() {
             commands::storage::read_settings,
             commands::storage::write_settings,
             commands::storage::read_file_bytes,
+            commands::storage::open_studio_dir,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

@@ -96,6 +96,9 @@ export const storage = {
   readFileBytes: (path: string) =>
     invoke<number[]>('read_file_bytes', { path }),
 
+  /** Open the studio data directory in the system file manager. */
+  openDataDir: () => invoke<void>('open_studio_dir'),
+
   // ---- settings ----
 
   loadSettings: () => invoke<AppSettings>('read_settings'),
