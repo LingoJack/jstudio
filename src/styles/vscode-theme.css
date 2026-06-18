@@ -1300,14 +1300,14 @@ button {
 }
 
 /* ─── Loaded figure ───
-   常态: 2px transparent（与 image-node-figure 一致）
+   常态: 2px widget-border（浅灰，始终可见边界）
    选中: 2px focusBorder 边框（蓝色高亮） */
 
 .file-block-figure {
   position: relative;
   display: inline-block;
   border-radius: 8px;
-  border: 2px solid transparent;
+  border: 2px solid var(--vscode-widget-border);
   transition: border-color 0.15s;
 }
 

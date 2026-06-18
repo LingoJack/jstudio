@@ -266,23 +266,41 @@ export default function BlockEditor() {
           }
         }
 
-        // 2. Fallback for Tauri WebView: system-level image copies (screenshots,
-        //    Finder copies) do NOT appear in clipboardData.items. Check the
-        //    native clipboard asynchronously. If an image is found, insert it
-        //    and suppress the default text paste.
+        // 2. Tauri WebView fallback: system-level image copies (screenshots,
+        //    Finder file copies) may NOT appear as image/* in clipboardData.
+        //    We probe the native clipboard via Tauri's clipboard-manager plugin.
+        //
+        //    To avoid interfering with normal text pastes, we split into two
+        //    sub-cases based on whether there is "spill" text we must suppress:
+        const hasFileItem = Array.from(items).some((i) => i.kind === 'file');
+        const plainText = event.clipboardData?.getData('text/plain') ?? '';
+        const htmlText = event.clipboardData?.getData('text/html') ?? '';
+
+        // Plain text paste (has text, no file item) → let it pass through,
+        // zero interference with normal typing.
+        if (!hasFileItem && (plainText || htmlText)) return false;
+
+        // Here: either a file-kind item is present (Finder copy / drag), or
+        // clipboardData is completely empty (pure screenshot to clipboard).
+        // In both cases we probe the native clipboard. preventDefault now in
+        // case there is spill text; if no image is found we restore the text.
+        event.preventDefault();
         getClipboardImageAsFile().then((file) => {
-          if (!file) return;
-          event.preventDefault();
-          uploadFile(file).then((src) => {
-            editorRef.current
-              ?.chain()
-              .focus()
-              .setImage({ src, alt: '' })
-              .run();
-          });
+          const editor = editorRef.current;
+          if (!editor) return;
+
+          if (file) {
+            uploadFile(file).then((src) => {
+              editor.chain().focus().setImage({ src, alt: '' }).run();
+            });
+          } else if (htmlText) {
+            editor.chain().focus().insertContent(htmlText).run();
+          } else if (plainText) {
+            editor.chain().focus().insertContent(plainText).run();
+          }
         });
 
-        return false;
+        return true;
       },
       handleDrop: (view, event) => {
         const files = event.dataTransfer?.files;

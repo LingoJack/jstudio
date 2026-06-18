@@ -35,4 +35,6 @@ allow:
 - Shell(cat -n:*)
 - Shell(grep -E:*)
 - Shell(npm install:*)
+- Shell(cargo build:*)
+- Shell(git stash:*)
 deny: []
