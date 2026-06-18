@@ -1,33 +1,23 @@
 /**
- * TableControls — hover controls + context menu for TipTap tables.
+ * TableControls — floating toolbar for TipTap tables.
  *
- * Features:
- *   • Hovering the row area on the left edge shows a [+] button to insert a row below.
- *   • Hovering the column area on the top edge shows a [+] button to insert a column to the right.
- *   • Right-click on a row header → context menu: Insert row above/below, Delete row.
- *   • Right-click on a column header → context menu: Insert col left/right, Delete column.
- *   • Right-click on a cell → context menu: Delete table.
+ * When the editor selection (cursor) is inside a table, a toolbar appears
+ * at the table's top-right corner with buttons for:
+ *   • Add row above / below
+ *   • Add column left / right
+ *   • Delete row / column / table
  *
- * This component is rendered once per editor and uses event delegation on the
- * editor DOM (`.ProseMirror`) to detect which table is being hovered.
+ * Right-clicking a cell also opens a context menu with the same actions
+ * scoped to the row or column that was clicked.
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
-import { Plus, Trash2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type ContextMenuType = 'row' | 'column' | 'cell';
-
-interface ContextMenuState {
-  visible: boolean;
-  x: number;
-  y: number;
-  type: ContextMenuType;
-}
+import {
+  Plus,
+  Trash2,
+  ChevronDown,
+} from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -38,274 +28,221 @@ interface TableControlsProps {
 }
 
 export default function TableControls({ editor }: TableControlsProps) {
-  const [addBtn, setAddBtn] = useState<{
-    visible: boolean;
+  // Position of the floating toolbar
+  const [toolbar, setToolbar] = useState<{ x: number; y: number } | null>(null);
+  // Context menu (right-click)
+  const [menu, setMenu] = useState<{
     x: number;
     y: number;
-    kind: 'row' | 'column';
-  }>({ visible: false, x: 0, y: 0, kind: 'row' });
-
-  const [menu, setMenu] = useState<ContextMenuState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    type: 'cell',
-  });
-
-  const containerRef = useRef<HTMLDivElement | null>(null);
+    type: 'row' | 'column' | 'cell';
+  } | null>(null);
 
   // -------------------------------------------------------------------------
-  // Helper: find the closest <table> inside the editor for a given cell
-  // -------------------------------------------------------------------------
-  const getTableFromCell = useCallback((cell: HTMLElement): HTMLTableElement | null => {
-    return cell.closest('table');
-  }, []);
-
-  // -------------------------------------------------------------------------
-  // Mouse move: detect row/column hover edges to show [+] buttons
+  // Track selection: show toolbar when cursor is inside a table
   // -------------------------------------------------------------------------
   useEffect(() => {
-    const editorEl = editor.view.dom as HTMLElement;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const table = target.closest('table');
-      if (!table) {
-        setAddBtn((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+    const updateToolbar = () => {
+      // Check if current selection is inside a table node
+      const isTable = editor.isActive('table');
+      if (!isTable) {
+        setToolbar(null);
         return;
       }
 
-      // Only react when hovering over a cell (th/td)
-      const cell = target.closest('th, td');
-      if (!cell) {
-        setAddBtn((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+      // Find the actual <table> DOM element in the editor
+      const editorDom = editor.view.dom as HTMLElement;
+      const tableEl = editorDom.querySelector('table');
+      if (!tableEl) {
+        setToolbar(null);
         return;
       }
 
-      const tableRect = table.getBoundingClientRect();
-      const cellRect = cell.getBoundingClientRect();
-
-      // --- Row + button ---
-      // Show on the left edge, vertically aligned with the hovered row.
-      // The + appears just below the hovered row.
-      if (e.clientX - tableRect.left < 28) {
-        setAddBtn({
-          visible: true,
-          x: tableRect.left - 14,
-          y: cellRect.bottom - 11,
-          kind: 'row',
-        });
-        return;
-      }
-
-      // --- Column + button ---
-      // Show on the top edge, horizontally aligned with the hovered column.
-      // The + appears just to the right of the hovered column.
-      if (e.clientY - tableRect.top < 28) {
-        setAddBtn({
-          visible: true,
-          x: cellRect.right - 11,
-          y: tableRect.top - 14,
-          kind: 'column',
-        });
-        return;
-      }
-
-      setAddBtn((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+      const rect = tableEl.getBoundingClientRect();
+      // Position at top-right of the table, slightly offset
+      setToolbar({
+        x: rect.right,
+        y: rect.top - 4,
+      });
     };
 
-    const handleMouseLeave = () => {
-      setAddBtn((prev) => (prev.visible ? { ...prev, visible: false } : prev));
-    };
+    editor.on('selectionUpdate', updateToolbar);
+    editor.on('focus', updateToolbar);
+    editor.on('blur', () => {
+      // Small delay so clicking the toolbar buttons doesn't lose it
+      setTimeout(updateToolbar, 150);
+    });
 
-    editorEl.addEventListener('mousemove', handleMouseMove);
-    editorEl.addEventListener('mouseleave', handleMouseLeave);
+    // Also update on scroll / resize so the toolbar stays anchored
+    const scrollContainer = editor.view.dom.closest(
+      '.editor-scroll-container',
+    ) as HTMLElement | null;
+    const handleScroll = () => updateToolbar();
+    scrollContainer?.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleScroll);
+
+    updateToolbar();
+
     return () => {
-      editorEl.removeEventListener('mousemove', handleMouseMove);
-      editorEl.removeEventListener('mouseleave', handleMouseLeave);
+      editor.off('selectionUpdate', updateToolbar);
+      editor.off('focus', updateToolbar);
+      editor.off('blur', updateToolbar);
+      scrollContainer?.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
     };
   }, [editor]);
 
   // -------------------------------------------------------------------------
-  // Context menu (right-click)
+  // Right-click context menu
   // -------------------------------------------------------------------------
   useEffect(() => {
-    const editorEl = editor.view.dom as HTMLElement;
+    const editorDom = editor.view.dom as HTMLElement;
 
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const cell = target.closest('th, td');
       if (!cell) return;
 
-      const table = getTableFromCell(cell as HTMLElement);
+      const table = (cell as HTMLElement).closest('table');
       if (!table) return;
 
       e.preventDefault();
 
-      const isHeaderRow = target.closest('th') !== null;
-      const isFirstCol = (cell as HTMLElement).cellIndex === 0;
-
-      // Determine menu type: row header area (left edge) → row menu,
-      // column header area (top row) → column menu, otherwise cell menu.
       const tableRect = table.getBoundingClientRect();
-      const onLeftEdge = e.clientX - tableRect.left < 28;
-      const onTopEdge = e.clientY - tableRect.top < 28;
+      const onLeftEdge = e.clientX - tableRect.left < 24;
+      const onTopEdge = e.clientY - tableRect.top < 24;
 
-      let type: ContextMenuType = 'cell';
+      let type: 'row' | 'column' | 'cell' = 'cell';
       if (onLeftEdge) type = 'row';
       else if (onTopEdge) type = 'column';
 
-      // Focus the cell so editor commands know the context position
       editor.commands.focus();
-
-      setMenu({
-        visible: true,
-        x: e.clientX,
-        y: e.clientY,
-        type,
-      });
+      setMenu({ x: e.clientX, y: e.clientY, type });
     };
 
-    const handleClick = () => {
-      setMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev));
-    };
+    const handleClick = () => setMenu(null);
 
-    editorEl.addEventListener('contextmenu', handleContextMenu);
+    editorDom.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('click', handleClick);
     return () => {
-      editorEl.removeEventListener('contextmenu', handleContextMenu);
+      editorDom.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('click', handleClick);
     };
-  }, [editor, getTableFromCell]);
+  }, [editor]);
 
   // -------------------------------------------------------------------------
-  // Command handlers
+  // Command runner
   // -------------------------------------------------------------------------
-  const runCmd = useCallback(
+  const run = useCallback(
     (fn: () => boolean) => {
       editor.chain().focus().run();
       fn();
-      setMenu((prev) => ({ ...prev, visible: false }));
+      setMenu(null);
     },
     [editor],
   );
 
   // -------------------------------------------------------------------------
-  // [+] button click — insert row/column
-  // -------------------------------------------------------------------------
-  const handleAddClick = useCallback(() => {
-    if (addBtn.kind === 'row') {
-      runCmd(() => editor.commands.addRowAfter());
-    } else {
-      runCmd(() => editor.commands.addColumnAfter());
-    }
-  }, [addBtn.kind, editor, runCmd]);
-
-  // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
   return (
-    <div ref={containerRef}>
-      {/* Floating [+] button */}
-      {addBtn.visible && (
-        <button
-          type="button"
-          onClick={handleAddClick}
-          className="fixed z-50 flex h-6 w-6 items-center justify-center rounded-full border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] text-[var(--vscode-editor-foreground)] shadow-md transition-opacity hover:bg-[var(--vscode-list-hoverBackground)]"
+    <>
+      {/* Floating toolbar at table's top-right corner */}
+      {toolbar && (
+        <div
+          className="fixed z-40 flex items-center gap-0.5 rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-0.5 shadow-lg"
           style={{
-            left: `${addBtn.x}px`,
-            top: `${addBtn.y}px`,
+            left: `${toolbar.x}px`,
+            top: `${toolbar.y}px`,
+            transform: 'translate(100%, -100%)',
           }}
+          // Prevent editor blur from hiding the toolbar when clicking buttons
+          onMouseDown={(e) => e.preventDefault()}
         >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+          <ToolbarBtn
+            title="上方插入行"
+            onClick={() => run(() => editor.commands.addRowBefore())}
+          >
+            <span className="text-[0.7rem] font-medium leading-none">行↑</span>
+          </ToolbarBtn>
+          <ToolbarBtn
+            title="下方插入行"
+            onClick={() => run(() => editor.commands.addRowAfter())}
+          >
+            <span className="text-[0.7rem] font-medium leading-none">行↓</span>
+          </ToolbarBtn>
+          <ToolbarDivider />
+          <ToolbarBtn
+            title="左侧插入列"
+            onClick={() => run(() => editor.commands.addColumnBefore())}
+          >
+            <span className="text-[0.7rem] font-medium leading-none">列←</span>
+          </ToolbarBtn>
+          <ToolbarBtn
+            title="右侧插入列"
+            onClick={() => run(() => editor.commands.addColumnAfter())}
+          >
+            <span className="text-[0.7rem] font-medium leading-none">列→</span>
+          </ToolbarBtn>
+          <ToolbarDivider />
+          <ToolbarBtn
+            title="删除行"
+            onClick={() => run(() => editor.commands.deleteRow())}
+          >
+            <span className="text-[0.7rem] font-medium leading-none text-[var(--vscode-errorForeground)]">删行</span>
+          </ToolbarBtn>
+          <ToolbarBtn
+            title="删除列"
+            onClick={() => run(() => editor.commands.deleteColumn())}
+          >
+            <span className="text-[0.7rem] font-medium leading-none text-[var(--vscode-errorForeground)]">删列</span>
+          </ToolbarBtn>
+          <ToolbarDivider />
+          <ToolbarBtn
+            title="删除表格"
+            onClick={() => run(() => editor.commands.deleteTable())}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-[var(--vscode-errorForeground)]" />
+          </ToolbarBtn>
+        </div>
       )}
 
-      {/* Context menu */}
-      {menu.visible && (
+      {/* Right-click context menu */}
+      {menu && (
         <div
-          className="fixed z-50 min-w-[160px] rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] py-1 shadow-lg"
+          className="fixed z-50 min-w-[150px] rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] py-1 shadow-xl"
           style={{ left: `${menu.x}px`, top: `${menu.y}px` }}
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.preventDefault()}
         >
           {menu.type === 'row' && (
             <>
-              <MenuItem
-                icon={<ArrowUp className="h-3.5 w-3.5" />}
-                label="上方插入行"
-                onClick={() => runCmd(() => editor.commands.addRowBefore())}
-              />
-              <MenuItem
-                icon={<ArrowDown className="h-3.5 w-3.5" />}
-                label="下方插入行"
-                onClick={() => runCmd(() => editor.commands.addRowAfter())}
-              />
-              <MenuDivider />
-              <MenuItem
-                icon={<Trash2 className="h-3.5 w-3.5" />}
-                label="删除行"
-                danger
-                onClick={() => runCmd(() => editor.commands.deleteRow())}
-              />
+              <MenuItem label="上方插入行" onClick={() => run(() => editor.commands.addRowBefore())} />
+              <MenuItem label="下方插入行" onClick={() => run(() => editor.commands.addRowAfter())} />
+              <MenuSep />
+              <MenuItem label="删除行" danger onClick={() => run(() => editor.commands.deleteRow())} />
             </>
           )}
-
           {menu.type === 'column' && (
             <>
-              <MenuItem
-                icon={<ArrowLeft className="h-3.5 w-3.5" />}
-                label="左侧插入列"
-                onClick={() => runCmd(() => editor.commands.addColumnBefore())}
-              />
-              <MenuItem
-                icon={<ArrowRight className="h-3.5 w-3.5" />}
-                label="右侧插入列"
-                onClick={() => runCmd(() => editor.commands.addColumnAfter())}
-              />
-              <MenuDivider />
-              <MenuItem
-                icon={<Trash2 className="h-3.5 w-3.5" />}
-                label="删除列"
-                danger
-                onClick={() => runCmd(() => editor.commands.deleteColumn())}
-              />
+              <MenuItem label="左侧插入列" onClick={() => run(() => editor.commands.addColumnBefore())} />
+              <MenuItem label="右侧插入列" onClick={() => run(() => editor.commands.addColumnAfter())} />
+              <MenuSep />
+              <MenuItem label="删除列" danger onClick={() => run(() => editor.commands.deleteColumn())} />
             </>
           )}
-
           {menu.type === 'cell' && (
             <>
-              <MenuItem
-                icon={<ArrowUp className="h-3.5 w-3.5" />}
-                label="上方插入行"
-                onClick={() => runCmd(() => editor.commands.addRowBefore())}
-              />
-              <MenuItem
-                icon={<ArrowDown className="h-3.5 w-3.5" />}
-                label="下方插入行"
-                onClick={() => runCmd(() => editor.commands.addRowAfter())}
-              />
-              <MenuItem
-                icon={<ArrowLeft className="h-3.5 w-3.5" />}
-                label="左侧插入列"
-                onClick={() => runCmd(() => editor.commands.addColumnBefore())}
-              />
-              <MenuItem
-                icon={<ArrowRight className="h-3.5 w-3.5" />}
-                label="右侧插入列"
-                onClick={() => runCmd(() => editor.commands.addColumnAfter())}
-              />
-              <MenuDivider />
-              <MenuItem
-                icon={<Trash2 className="h-3.5 w-3.5" />}
-                label="删除表格"
-                danger
-                onClick={() => runCmd(() => editor.commands.deleteTable())}
-              />
+              <MenuItem label="上方插入行" onClick={() => run(() => editor.commands.addRowBefore())} />
+              <MenuItem label="下方插入行" onClick={() => run(() => editor.commands.addRowAfter())} />
+              <MenuItem label="左侧插入列" onClick={() => run(() => editor.commands.addColumnBefore())} />
+              <MenuItem label="右侧插入列" onClick={() => run(() => editor.commands.addColumnAfter())} />
+              <MenuSep />
+              <MenuItem label="删除表格" danger onClick={() => run(() => editor.commands.deleteTable())} />
             </>
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -313,13 +250,38 @@ export default function TableControls({ editor }: TableControlsProps) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+function ToolbarBtn({
+  title,
+  onClick,
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="flex h-7 min-w-7 items-center justify-center rounded px-1.5 text-[var(--vscode-editor-foreground)] transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+    >
+      {children}
+    </button>
+  );
+}
+
+function ToolbarDivider() {
+  return (
+    <div className="mx-0.5 h-4 w-px bg-[var(--vscode-widget-border)]" />
+  );
+}
+
 function MenuItem({
-  icon,
   label,
   onClick,
   danger,
 }: {
-  icon: React.ReactNode;
   label: string;
   onClick: () => void;
   danger?: boolean;
@@ -328,20 +290,17 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[0.8rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
+      className={`flex w-full items-center px-3 py-1.5 text-left text-[0.8rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
         danger
           ? 'text-[var(--vscode-errorForeground)]'
           : 'text-[var(--vscode-editor-foreground)]'
       }`}
     >
-      <span className="flex h-3.5 w-3.5 items-center justify-center">{icon}</span>
       {label}
     </button>
   );
 }
 
-function MenuDivider() {
-  return (
-    <div className="my-1 h-px bg-[var(--vscode-widget-border)]" />
-  );
+function MenuSep() {
+  return <div className="my-1 h-px bg-[var(--vscode-widget-border)]" />;
 }

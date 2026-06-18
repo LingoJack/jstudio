@@ -1715,8 +1715,8 @@ button {
 
 /* Wrapper around the table — horizontal scroll for wide tables */
 .ProseMirror .tableWrapper {
-  margin: 12px 0;
-  border-radius: 6px;
+  margin: 16px 0;
+  border-radius: 8px;
   border: 1px solid var(--vscode-widget-border);
   overflow-x: auto;
 }
@@ -1747,6 +1747,17 @@ button {
   vertical-align: top;
   box-sizing: border-box;
   position: relative;
+  transition: background-color 0.1s;
+}
+
+/* Hover effect on cells for better interactivity feedback */
+.ProseMirror .tableWrapper td:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* Header hover — slightly different shade */
+.ProseMirror .tableWrapper th:hover {
+  background: var(--vscode-list-hoverBackground);
 }
 
 /* Empty cells: show a faint dot so the cursor target is visible */
@@ -1764,12 +1775,6 @@ button {
   left: 0; right: 0; top: 0; bottom: 0;
   background: var(--vscode-editor-selectionBackground);
   pointer-events: none;
-}
-
-/* Spacing so the hover [+] buttons on edges are not clipped */
-.ProseMirror .tableWrapper {
-  padding-left: 20px;
-  padding-top: 20px;
 }
 
 /* Make table cells inside the editor focusable-looking on hover */

@@ -1,115 +1,117 @@
 /**
  * TableSizeSelector — Notion-style grid picker for choosing table dimensions.
  *
- * Renders a hoverable N×N grid. The user drags their mouse to select rows ×
- * cols, and clicks to confirm. A label below the grid shows the current
- * selection (e.g. "3 × 3").
+ * Renders a fixed-position popup with a hoverable N×N grid. The user drags
+ * their mouse across cells to select rows × cols, clicks to confirm, or
+ * clicks outside / presses Escape to cancel.
  *
- * Usage:
- *   mountTableSizeSelector(editor, range)
- *     → shows the grid as a tippy popup at the cursor position
- *     → on confirm, inserts a table with the chosen dimensions
+ * Unlike the previous tippy-based version, this uses a simple fixed overlay
+ * with pointer-events transparency so it never closes prematurely.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import type { Editor, Range } from '@tiptap/core';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Maximum selectable grid size (rows × cols). */
-const MAX_SIZE = 10;
-/** Default cell size in px for the grid. */
-const CELL_SIZE = 22;
-/** Gap between cells in px. */
-const CELL_GAP = 4;
+const MAX_SIZE = 8;
+const CELL_SIZE = 24;
+const CELL_GAP = 3;
 
 // ---------------------------------------------------------------------------
 // React component: the grid picker
 // ---------------------------------------------------------------------------
 
 interface GridPickerProps {
+  anchorX: number;
+  anchorY: number;
   onSelect: (rows: number, cols: number) => void;
   onCancel: () => void;
 }
 
-function GridPicker({ onSelect, onCancel }: GridPickerProps) {
+function GridPicker({ anchorX, anchorY, onSelect, onCancel }: GridPickerProps) {
   const [hovered, setHovered] = useState({ rows: 1, cols: 1 });
 
-  const handleMouseMove = (r: number, c: number) => {
-    setHovered({ rows: r, cols: c });
-  };
+  // Click outside or Escape to cancel
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onCancel]);
 
   return (
+    // Full-screen transparent backdrop — click anywhere to close.
     <div
-      className="rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-3 shadow-lg"
-      onMouseLeave={() => onCancel()}
+      className="fixed inset-0 z-[9999]"
+      onClick={onCancel}
     >
+      {/* The actual grid card, positioned at the cursor anchor */}
       <div
-        className="grid select-none"
+        className="absolute rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-3 shadow-xl"
         style={{
-          gridTemplateColumns: `repeat(${MAX_SIZE}, ${CELL_SIZE}px)`,
-          gap: `${CELL_GAP}px`,
+          left: `${anchorX}px`,
+          top: `${anchorY + 8}px`,
+          // Prevent the backdrop's onClick from firing when clicking the card
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {Array.from({ length: MAX_SIZE }, (_, r) =>
-          Array.from({ length: MAX_SIZE }, (_, c) => {
-            const isSelected = r < hovered.rows && c < hovered.cols;
-            return (
-              <div
-                key={`${r}-${c}`}
-                onMouseEnter={() => handleMouseMove(r + 1, c + 1)}
-                onClick={() => onSelect(r + 1, c + 1)}
-                className="rounded-sm cursor-pointer transition-colors duration-75"
-                style={{
-                  width: `${CELL_SIZE}px`,
-                  height: `${CELL_SIZE}px`,
-                  backgroundColor: isSelected
-                    ? 'var(--vscode-button-background)'
-                    : 'var(--vscode-editor-inactiveSelectionBackground)',
-                  border: isSelected
-                    ? '1px solid var(--vscode-button-background)'
-                    : '1px solid transparent',
-                }}
-              />
-            );
-          }),
-        )}
-      </div>
-      <div className="mt-2 text-center text-xs text-[var(--vscode-descriptionForeground)]">
-        {hovered.rows} × {hovered.cols}
+        <div
+          className="grid select-none"
+          style={{
+            gridTemplateColumns: `repeat(${MAX_SIZE}, ${CELL_SIZE}px)`,
+            gap: `${CELL_GAP}px`,
+          }}
+        >
+          {Array.from({ length: MAX_SIZE }, (_, r) =>
+            Array.from({ length: MAX_SIZE }, (_, c) => {
+              const isSelected = r < hovered.rows && c < hovered.cols;
+              return (
+                <div
+                  key={`${r}-${c}`}
+                  onMouseEnter={() => setHovered({ rows: r + 1, cols: c + 1 })}
+                  onClick={() => onSelect(r + 1, c + 1)}
+                  className="cursor-pointer rounded-[3px] transition-colors duration-50"
+                  style={{
+                    width: `${CELL_SIZE}px`,
+                    height: `${CELL_SIZE}px`,
+                    backgroundColor: isSelected
+                      ? 'var(--vscode-button-background)'
+                      : 'var(--vscode-editor-inactiveSelectionBackground)',
+                  }}
+                />
+              );
+            }),
+          )}
+        </div>
+        <div className="mt-2 text-center text-xs text-[var(--vscode-descriptionForeground)]">
+          {hovered.rows} × {hovered.cols}
+        </div>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Public: mount the grid picker as a tippy popup
+// Public: mount the grid picker as a portal
 // ---------------------------------------------------------------------------
+
+let activeRoot: Root | null = null;
+let activeEl: HTMLDivElement | null = null;
 
 /**
  * Show the table size selector popup at the given cursor position.
- *
- * When the user confirms a size, the `/table` text range is deleted and a
- * table of the chosen dimensions is inserted.
  */
 export function mountTableSizeSelector(editor: Editor, range: Range): void {
-  let popup: TippyInstance | null = null;
-  let reactRoot: Root | null = null;
+  // Clean up any existing instance
+  unmountTableSizeSelector();
 
-  const cleanup = () => {
-    if (popup) {
-      popup.destroy();
-      popup = null;
-    }
-    if (reactRoot) {
-      reactRoot.unmount();
-      reactRoot = null;
-    }
-  };
+  const { from } = range;
+  const coords = editor.view.coordsAtPos(from);
 
   const handleSelect = (rows: number, cols: number) => {
     editor
@@ -118,44 +120,38 @@ export function mountTableSizeSelector(editor: Editor, range: Range): void {
       .deleteRange(range)
       .insertTable({ rows, cols, withHeaderRow: true })
       .run();
-    cleanup();
+    unmountTableSizeSelector();
   };
 
   const handleCancel = () => {
-    cleanup();
+    // Restore editor focus so the user's `/table` text is still there
+    editor.chain().focus().run();
+    unmountTableSizeSelector();
   };
 
-  // Create a virtual element positioned at the current cursor coordinates
-  const popupEl = document.createElement('div');
-  reactRoot = createRoot(popupEl);
-
-  reactRoot.render(
-    <GridPicker onSelect={handleSelect} onCancel={handleCancel} />,
+  activeEl = document.createElement('div');
+  document.body.appendChild(activeEl);
+  activeRoot = createRoot(activeEl);
+  activeRoot.render(
+    <GridPicker
+      anchorX={coords.left}
+      anchorY={coords.bottom}
+      onSelect={handleSelect}
+      onCancel={handleCancel}
+    />,
   );
+}
 
-  // Use the editor's DOM to get cursor position for popup placement
-  const { from } = range;
-  const start = editor.view.coordsAtPos(from);
-  const virtualElement = {
-    getBoundingClientRect: () =>
-      ({
-        width: 0,
-        height: 0,
-        top: start.bottom,
-        bottom: start.bottom,
-        left: start.left,
-        right: start.left,
-      }) as DOMRect,
-  };
-
-  popup = tippy(document.body, {
-    getReferenceClientRect: () => virtualElement.getBoundingClientRect(),
-    appendTo: () => document.body,
-    content: popupEl,
-    showOnCreate: true,
-    interactive: true,
-    trigger: 'manual',
-    placement: 'bottom-start',
-    onHidden: () => cleanup(),
-  });
+/**
+ * Remove the table size selector popup if it exists.
+ */
+export function unmountTableSizeSelector(): void {
+  if (activeRoot) {
+    activeRoot.unmount();
+    activeRoot = null;
+  }
+  if (activeEl) {
+    activeEl.remove();
+    activeEl = null;
+  }
 }
