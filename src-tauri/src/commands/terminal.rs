@@ -87,6 +87,12 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
         cmd.cwd(cwd);
     }
 
+    // Ensure the shell runs in a UTF-8 capable environment so that
+    // multibyte input/output (CJK, emoji, etc.) is handled correctly.
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("LANG", "en_US.UTF-8");
+    cmd.env("LC_ALL", "en_US.UTF-8");
+
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
 
     let session_id = format!(
@@ -109,18 +115,51 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
     };
 
     // Spawn reader thread — forwards shell output to the frontend.
+    //
+    // UTF-8 safety: a multibyte character (e.g. emoji, CJK) can be split
+    // across two `read()` calls at the 4096-byte boundary.  We accumulate
+    // raw bytes in `leftover` and only decode the portion that forms
+    // complete UTF-8 sequences, carrying any trailing partial bytes to
+    // the next iteration.
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
 
     let sid = session_id.clone();
     let app_clone = app.clone();
     std::thread::spawn(move || {
-        let mut buf = [0u8; 4096];
+        let mut buf = [0u8; 8192];
+        let mut leftover: Vec<u8> = Vec::new();
         loop {
-            match reader.read(&mut buf) {
+            // Read into the buffer past any leftover bytes.
+            let offset = leftover.len();
+            let read_start = offset.min(buf.len());
+            // Move leftover to the front of buf.
+            if read_start > 0 {
+                buf[..read_start].copy_from_slice(&leftover);
+            }
+
+            match reader.read(&mut buf[read_start..]) {
                 Ok(0) => break, // EOF — shell exited
                 Ok(n) => {
-                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app_clone.emit(&format!("pty-data-{sid}"), PtyDataPayload { data });
+                    let total = read_start + n;
+                    // Find the longest valid UTF-8 prefix.
+                    let (valid_len, remaining) = match std::str::from_utf8(&buf[..total]) {
+                        Ok(s) => (s.len(), 0), // entire buffer is valid
+                        Err(e) => (e.valid_up_to(), total - e.valid_up_to()),
+                    };
+
+                    if valid_len > 0 {
+                        let data =
+                            unsafe { String::from_utf8_unchecked(buf[..valid_len].to_vec()) };
+                        let _ = app_clone.emit(&format!("pty-data-{sid}"), PtyDataPayload { data });
+                    }
+
+                    // Save incomplete trailing bytes for next iteration.
+                    leftover.clear();
+                    if remaining > 0 && remaining < 4 {
+                        leftover.extend_from_slice(&buf[valid_len..valid_len + remaining]);
+                    }
+                    // If remaining >= 4 we have invalid bytes (not a partial
+                    // sequence) — discard them to avoid an infinite loop.
                 }
                 Err(_) => break,
             }
