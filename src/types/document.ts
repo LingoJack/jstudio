@@ -79,6 +79,8 @@ export interface TableCellData {
   colspan?: number;
   /** Vertical span (default 1). */
   rowspan?: number;
+  /** Text alignment for all paragraphs in this cell. */
+  align?: 'left' | 'center' | 'right';
 }
 
 /** A single table row. */

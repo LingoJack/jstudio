@@ -33,6 +33,7 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
+import TextAlign from '@tiptap/extension-text-align';
 
 import Color from '@tiptap/extension-color';
 import { createLowlight, common } from 'lowlight';
@@ -241,6 +242,9 @@ export default function BlockEditor() {
       TableRow,
       TableHeader,
       TableCell,
+      TextAlign.configure({
+        types: ['paragraph', 'heading'],
+      }),
       SelectAllText,
       SlashMenuExtension,
       BlockNavigation.configure({

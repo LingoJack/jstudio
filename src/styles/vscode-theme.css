@@ -1717,7 +1717,7 @@ button {
 .ProseMirror .tableWrapper {
   margin: 16px 0;
   border-radius: 8px;
-  border: 1px solid var(--vscode-widget-border);
+  border: 2px solid var(--vscode-panel-border, var(--vscode-widget-border));
   overflow-x: auto;
 }
 
@@ -1741,7 +1741,7 @@ button {
 /* Body cells */
 .ProseMirror .tableWrapper th,
 .ProseMirror .tableWrapper td {
-  border: 1px solid var(--vscode-widget-border);
+  border: 1.5px solid var(--vscode-panel-border, var(--vscode-widget-border));
   padding: 6px 12px;
   min-width: 80px;
   vertical-align: top;

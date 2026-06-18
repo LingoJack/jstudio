@@ -240,10 +240,16 @@ function tableDataToTiptap(data: TableData): JSONContent[] {
       const cellType = row.isHeader ? 'tableHeader' : 'tableCell';
       const cellNode: JSONContent = {
         type: cellType,
-        content: cell.content.map((paragraph) => ({
-          type: 'paragraph',
-          content: richTextToTiptapInline(paragraph),
-        })),
+        content: cell.content.map((paragraph) => {
+          const paraNode: JSONContent = {
+            type: 'paragraph',
+            content: richTextToTiptapInline(paragraph),
+          };
+          if (cell.align) {
+            paraNode.attrs = { textAlign: cell.align };
+          }
+          return paraNode;
+        }),
       };
       const attrs: Record<string, number> = {};
       if (cell.colspan && cell.colspan > 1) attrs.colspan = cell.colspan;
@@ -271,9 +277,18 @@ function tiptapToTableData(node: JSONContent): TableData {
       if (cellNode.type !== 'tableHeader' && cellNode.type !== 'tableCell') continue;
 
       const paragraphs: RichText[][] = [];
+      let cellAlign: 'left' | 'center' | 'right' | undefined;
       for (const child of cellNode.content ?? []) {
         if (child.type === 'paragraph') {
           paragraphs.push(tiptapInlineToRichText(child.content ?? []));
+          // Capture textAlign from the first paragraph that has it.
+          const ta = child.attrs?.textAlign;
+          if (
+            !cellAlign &&
+            (ta === 'left' || ta === 'center' || ta === 'right')
+          ) {
+            cellAlign = ta;
+          }
         }
       }
       // Ensure at least one paragraph so empty cells stay editable.
@@ -284,6 +299,7 @@ function tiptapToTableData(node: JSONContent): TableData {
       const rowspan = cellNode.attrs?.rowspan;
       if (typeof colspan === 'number' && colspan > 1) cell.colspan = colspan;
       if (typeof rowspan === 'number' && rowspan > 1) cell.rowspan = rowspan;
+      if (cellAlign) cell.align = cellAlign;
       cells.push(cell);
     }
 

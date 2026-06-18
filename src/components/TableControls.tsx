@@ -6,17 +6,19 @@
  *   • Add row above / below
  *   • Add column left / right
  *   • Delete row / column / table
+ *   • Text alignment (left / center / right)
  *
  * Right-clicking a cell also opens a context menu with the same actions
  * scoped to the row or column that was clicked.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import {
-  Plus,
   Trash2,
-  ChevronDown,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -37,59 +39,89 @@ export default function TableControls({ editor }: TableControlsProps) {
     type: 'row' | 'column' | 'cell';
   } | null>(null);
 
+  // Current alignment of the selected cell(s)
+  const [align, setAlign] = useState<'left' | 'center' | 'right' | null>(null);
+
+  // Ref to track if we're interacting with toolbar (prevents hiding on blur)
+  const interactingRef = useRef(false);
+
   // -------------------------------------------------------------------------
-  // Track selection: show toolbar when cursor is inside a table
+  // Core: detect table and update toolbar position + alignment
   // -------------------------------------------------------------------------
-  useEffect(() => {
-    const updateToolbar = () => {
-      // Check if current selection is inside a table node
-      const isTable = editor.isActive('table');
-      if (!isTable) {
-        setToolbar(null);
-        return;
+  const updateAll = useCallback(() => {
+    // Check if current selection is inside a table node
+    const { $from } = editor.state.selection;
+    let tableDepth = -1;
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type.name === 'table') {
+        tableDepth = d;
+        break;
       }
+    }
 
-      // Find the actual <table> DOM element in the editor
-      const editorDom = editor.view.dom as HTMLElement;
-      const tableEl = editorDom.querySelector('table');
-      if (!tableEl) {
-        setToolbar(null);
-        return;
-      }
+    if (tableDepth === -1) {
+      setToolbar(null);
+      setAlign(null);
+      return;
+    }
 
-      const rect = tableEl.getBoundingClientRect();
-      // Position at top-right of the table, slightly offset
-      setToolbar({
-        x: rect.right,
-        y: rect.top - 4,
-      });
-    };
+    // Find the actual <table> DOM element
+    const editorDom = editor.view.dom as HTMLElement;
+    const tableEl = editorDom.querySelector('table');
+    if (!tableEl) {
+      setToolbar(null);
+      return;
+    }
 
-    editor.on('selectionUpdate', updateToolbar);
-    editor.on('focus', updateToolbar);
-    editor.on('blur', () => {
-      // Small delay so clicking the toolbar buttons doesn't lose it
-      setTimeout(updateToolbar, 150);
+    const rect = tableEl.getBoundingClientRect();
+    // Position toolbar above the table, right-aligned to table's right edge
+    setToolbar({
+      x: rect.right,
+      y: rect.top,
     });
 
-    // Also update on scroll / resize so the toolbar stays anchored
+    // Update alignment state
+    if (editor.isActive({ textAlign: 'center' })) setAlign('center');
+    else if (editor.isActive({ textAlign: 'right' })) setAlign('right');
+    else setAlign('left');
+  }, [editor]);
+
+  // -------------------------------------------------------------------------
+  // Listen to ALL editor state changes (transaction is the most reliable)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    editor.on('transaction', updateAll);
+    editor.on('focus', updateAll);
+
+    const handleBlur = () => {
+      // Delay to allow toolbar button clicks to register
+      setTimeout(() => {
+        if (!interactingRef.current) {
+          setToolbar(null);
+          setMenu(null);
+        }
+      }, 200);
+    };
+    editor.on('blur', handleBlur);
+
+    // Update on scroll / resize
+    const handleScroll = () => updateAll();
     const scrollContainer = editor.view.dom.closest(
-      '.editor-scroll-container',
+      '[class*="scroll"], [class*="overflow"]',
     ) as HTMLElement | null;
-    const handleScroll = () => updateToolbar();
     scrollContainer?.addEventListener('scroll', handleScroll);
     window.addEventListener('resize', handleScroll);
 
-    updateToolbar();
+    updateAll();
 
     return () => {
-      editor.off('selectionUpdate', updateToolbar);
-      editor.off('focus', updateToolbar);
-      editor.off('blur', updateToolbar);
+      editor.off('transaction', updateAll);
+      editor.off('focus', updateAll);
+      editor.off('blur', handleBlur);
       scrollContainer?.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleScroll);
     };
-  }, [editor]);
+  }, [editor, updateAll]);
 
   // -------------------------------------------------------------------------
   // Right-click context menu
@@ -119,7 +151,12 @@ export default function TableControls({ editor }: TableControlsProps) {
       setMenu({ x: e.clientX, y: e.clientY, type });
     };
 
-    const handleClick = () => setMenu(null);
+    const handleClick = (e: MouseEvent) => {
+      // Don't close if clicking inside the toolbar or menu
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-table-control]')) return;
+      setMenu(null);
+    };
 
     editorDom.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('click', handleClick);
@@ -137,6 +174,16 @@ export default function TableControls({ editor }: TableControlsProps) {
       editor.chain().focus().run();
       fn();
       setMenu(null);
+      // Force update toolbar position after DOM change
+      setTimeout(updateAll, 50);
+    },
+    [editor, updateAll],
+  );
+
+  const setAlignment = useCallback(
+    (value: 'left' | 'center' | 'right') => {
+      editor.chain().focus().setTextAlign(value).run();
+      setAlign(value);
     },
     [editor],
   );
@@ -146,61 +193,60 @@ export default function TableControls({ editor }: TableControlsProps) {
   // -------------------------------------------------------------------------
   return (
     <>
-      {/* Floating toolbar at table's top-right corner */}
+      {/* Floating toolbar above the table */}
       {toolbar && (
         <div
-          className="fixed z-40 flex items-center gap-0.5 rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-0.5 shadow-lg"
+          data-table-control
+          className="fixed z-[100] flex items-center gap-0.5 rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-0.5 shadow-lg"
           style={{
             left: `${toolbar.x}px`,
             top: `${toolbar.y}px`,
-            transform: 'translate(100%, -100%)',
+            // Position: right-aligned to table's right edge, sitting above the table
+            transform: 'translate(-100%, calc(-100% - 4px))',
           }}
-          // Prevent editor blur from hiding the toolbar when clicking buttons
-          onMouseDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            interactingRef.current = true;
+          }}
+          onMouseUp={() => {
+            interactingRef.current = false;
+          }}
+          onMouseLeave={() => {
+            interactingRef.current = false;
+          }}
         >
-          <ToolbarBtn
-            title="上方插入行"
-            onClick={() => run(() => editor.commands.addRowBefore())}
-          >
+          <ToolbarBtn title="上方插入行" onClick={() => run(() => editor.commands.addRowBefore())}>
             <span className="text-[0.7rem] font-medium leading-none">行↑</span>
           </ToolbarBtn>
-          <ToolbarBtn
-            title="下方插入行"
-            onClick={() => run(() => editor.commands.addRowAfter())}
-          >
+          <ToolbarBtn title="下方插入行" onClick={() => run(() => editor.commands.addRowAfter())}>
             <span className="text-[0.7rem] font-medium leading-none">行↓</span>
           </ToolbarBtn>
           <ToolbarDivider />
-          <ToolbarBtn
-            title="左侧插入列"
-            onClick={() => run(() => editor.commands.addColumnBefore())}
-          >
+          <ToolbarBtn title="左侧插入列" onClick={() => run(() => editor.commands.addColumnBefore())}>
             <span className="text-[0.7rem] font-medium leading-none">列←</span>
           </ToolbarBtn>
-          <ToolbarBtn
-            title="右侧插入列"
-            onClick={() => run(() => editor.commands.addColumnAfter())}
-          >
+          <ToolbarBtn title="右侧插入列" onClick={() => run(() => editor.commands.addColumnAfter())}>
             <span className="text-[0.7rem] font-medium leading-none">列→</span>
           </ToolbarBtn>
           <ToolbarDivider />
-          <ToolbarBtn
-            title="删除行"
-            onClick={() => run(() => editor.commands.deleteRow())}
-          >
+          <ToolbarBtn title="左对齐" active={align === 'left'} onClick={() => setAlignment('left')}>
+            <AlignLeft className="h-3.5 w-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn title="居中对齐" active={align === 'center'} onClick={() => setAlignment('center')}>
+            <AlignCenter className="h-3.5 w-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn title="右对齐" active={align === 'right'} onClick={() => setAlignment('right')}>
+            <AlignRight className="h-3.5 w-3.5" />
+          </ToolbarBtn>
+          <ToolbarDivider />
+          <ToolbarBtn title="删除行" onClick={() => run(() => editor.commands.deleteRow())}>
             <span className="text-[0.7rem] font-medium leading-none text-[var(--vscode-errorForeground)]">删行</span>
           </ToolbarBtn>
-          <ToolbarBtn
-            title="删除列"
-            onClick={() => run(() => editor.commands.deleteColumn())}
-          >
+          <ToolbarBtn title="删除列" onClick={() => run(() => editor.commands.deleteColumn())}>
             <span className="text-[0.7rem] font-medium leading-none text-[var(--vscode-errorForeground)]">删列</span>
           </ToolbarBtn>
           <ToolbarDivider />
-          <ToolbarBtn
-            title="删除表格"
-            onClick={() => run(() => editor.commands.deleteTable())}
-          >
+          <ToolbarBtn title="删除表格" onClick={() => run(() => editor.commands.deleteTable())}>
             <Trash2 className="h-3.5 w-3.5 text-[var(--vscode-errorForeground)]" />
           </ToolbarBtn>
         </div>
@@ -209,7 +255,8 @@ export default function TableControls({ editor }: TableControlsProps) {
       {/* Right-click context menu */}
       {menu && (
         <div
-          className="fixed z-50 min-w-[150px] rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] py-1 shadow-xl"
+          data-table-control
+          className="fixed z-[100] min-w-[150px] rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] py-1 shadow-xl"
           style={{ left: `${menu.x}px`, top: `${menu.y}px` }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.preventDefault()}
@@ -254,17 +301,23 @@ function ToolbarBtn({
   title,
   onClick,
   children,
+  active,
 }: {
   title: string;
   onClick: () => void;
   children: React.ReactNode;
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className="flex h-7 min-w-7 items-center justify-center rounded px-1.5 text-[var(--vscode-editor-foreground)] transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+      className={`flex h-7 min-w-7 items-center justify-center rounded px-1.5 transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
+        active
+          ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-button-background)]'
+          : 'text-[var(--vscode-editor-foreground)]'
+      }`}
     >
       {children}
     </button>
@@ -272,9 +325,7 @@ function ToolbarBtn({
 }
 
 function ToolbarDivider() {
-  return (
-    <div className="mx-0.5 h-4 w-px bg-[var(--vscode-widget-border)]" />
-  );
+  return <div className="mx-0.5 h-4 w-px bg-[var(--vscode-widget-border)]" />;
 }
 
 function MenuItem({
