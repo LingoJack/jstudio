@@ -32,15 +32,25 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   return (
     <BubbleMenu
       editor={editor}
-      shouldShow={({ editor, state }) => {
-        // Only show when there is an actual (non-empty) text selection
+      shouldShow={({ state }) => {
         const { empty, from, to } = state.selection;
-        if (empty) return false;
-        // Don't show inside code block nodes (they have their own formatting)
-        if (editor.isActive('codeBlock')) return false;
-        // Avoid degenerate ranges
-        if (from === to) return false;
-        return true;
+        if (empty || from === to) return false;
+
+        // Walk every node covered by the selection.  If the range includes
+        // any non-text block node (image / file / code-block), suppress the
+        // menu.  Text inside paragraphs, headings, and table cells is fine.
+        const blockedTypes = new Set(['image', 'fileBlock', 'codeBlock']);
+        let hasNonText = false;
+
+        state.doc.nodesBetween(from, to, (node) => {
+          if (blockedTypes.has(node.type.name)) {
+            hasNonText = true;
+            return false; // stop traversing this branch
+          }
+          return true; // keep descending into children
+        });
+
+        return !hasNonText;
       }}
       className="bubble-menu"
     >
