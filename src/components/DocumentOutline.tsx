@@ -244,19 +244,19 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
   );
 
   return (
-    <div className="w-[220px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
+    <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
       {/* Header */}
       <div className="flex items-center gap-1.5 px-3 py-3 shrink-0">
-        <ListTree className="w-3.5 h-3.5 text-[var(--vscode-descriptionForeground)]" />
-        <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+        <ListTree className="w-4 h-4 text-[var(--vscode-descriptionForeground)]" />
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
           大纲
         </h4>
       </div>
 
       {/* Outline items */}
-      <div className="flex-1 overflow-y-auto px-1.5 pb-3 space-y-0">
+      <div className="flex-1 overflow-y-auto px-1.5 pb-3 space-y-0.5">
         {headings.length === 0 ? (
-          <p className="text-[10px] text-[var(--vscode-descriptionForeground)] px-2 py-2">
+          <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
             文档中暂无标题
           </p>
         ) : (
@@ -264,14 +264,14 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
             <div
               key={item.id}
               onClick={() => handleHeadingClick(item)}
-              className={`cursor-pointer rounded px-2 py-1 text-xs transition-colors duration-150 border-l-2 truncate ${
+              className={`cursor-pointer rounded-md py-1.5 pr-2 text-sm leading-snug transition-colors duration-150 truncate ${
                 activeId === item.id
-                  ? 'border-[var(--vscode-list-activeSelectionBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-                  : 'border-transparent text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                  ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+                  : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
               style={{
-              paddingLeft: `${8 + (item.level - 1) * 12}px`,
-            }}
+                paddingLeft: `${8 + (item.level - 1) * 14}px`,
+              }}
               title={item.text}
             >
               {item.text}

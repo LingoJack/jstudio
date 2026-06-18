@@ -295,18 +295,26 @@ export default function BlockEditor() {
       {/* Outline panel (conditional) */}
       {editor && isOutlineOpen && <DocumentOutline editor={editor} />}
 
-      {/* Outline toggle icon — fixed top-right of editor area */}
-      <button
-        onClick={toggleOutline}
-        title={isOutlineOpen ? '隐藏大纲' : '显示大纲'}
-        className={`absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
-          isOutlineOpen
-            ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
-            : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-        }`}
-      >
-        <ListTree className="w-4 h-4" />
-      </button>
+      {/* Outline toggle icon
+          - When outline is CLOSED: floats at top-right of editor area
+          - When outline is OPEN: sits inside outline header, no overlap */}
+      {isOutlineOpen ? (
+        <button
+          onClick={toggleOutline}
+          title="隐藏大纲"
+          className="absolute top-2.5 right-2 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        >
+          <ListTree className="w-4 h-4" />
+        </button>
+      ) : (
+        <button
+          onClick={toggleOutline}
+          title="显示大纲"
+          className="absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        >
+          <ListTree className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 }
