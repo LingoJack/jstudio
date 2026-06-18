@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { storage } from '../lib/storage';
-import { FolderDot, FileText, Plus, Pencil, Trash2, FolderOpen, Copy, CopyPlus } from 'lucide-react';
+import { useSidebarResize } from '../hooks/useSidebarResize';
+import { FolderDot, FileText, Plus } from 'lucide-react';
+import DocumentContextMenu from './DocumentContextMenu';
 
 interface ContextMenuState {
   x: number;
@@ -20,16 +22,13 @@ export default function DocumentList() {
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
-  const setSidebarWidth = useStore((s) => s.setSidebarWidth);
+
+  const { onResizeStart } = useSidebarResize();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [isResizing, setIsResizing] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const resizingRef = useRef(false);
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(0);
 
   const filteredDocs = documents.filter((doc) =>
     (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
@@ -109,41 +108,6 @@ export default function DocumentList() {
     setContextMenu(null);
   }, []);
 
-  // --- Resize sidebar by dragging the right edge ---
-  const onResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizingRef.current = true;
-    startXRef.current = e.clientX;
-    startWidthRef.current = sidebarWidth;
-    setIsResizing(true);
-  }, [sidebarWidth]);
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const onMouseMove = (e: MouseEvent) => {
-      if (!resizingRef.current) return;
-      const delta = e.clientX - startXRef.current;
-      setSidebarWidth(startWidthRef.current + delta);
-    };
-    const onMouseUp = () => {
-      resizingRef.current = false;
-      setIsResizing(false);
-    };
-
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [isResizing, setSidebarWidth]);
-
   return (
     <div
       className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10 relative"
@@ -211,62 +175,26 @@ export default function DocumentList() {
           ))
         )}
       </div>
-
+ 
       {/* Context menu */}
       {contextMenu && (
-        <div
-          className="fixed z-50 min-w-[160px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => {
-              const doc = documents.find((d) => d.id === contextMenu.docId);
-              if (doc) startRename(doc.id, doc.title || '');
-            }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-          >
-            <Pencil className="w-4 h-4 opacity-70" />
-            <span>{t('doclist.rename')}</span>
-          </button>
-          {/* Divider */}
-          <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
-          <button
-            onClick={() => handleOpenInFinder(contextMenu.docId)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-          >
-            <FolderOpen className="w-4 h-4 opacity-70" />
-            <span>{t('doclist.openInFinder')}</span>
-          </button>
-          <button
-            onClick={() => handleCopyPath(contextMenu.docId)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-          >
-            <Copy className="w-4 h-4 opacity-70" />
-            <span>{t('doclist.copyPath')}</span>
-          </button>
-          <button
-            onClick={() => handleCopyRelativePath(contextMenu.docId)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-          >
-            <CopyPlus className="w-4 h-4 opacity-70" />
-            <span>{t('doclist.copyRelativePath')}</span>
-          </button>
-          {/* Divider */}
-          <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
-          <button
-            onClick={() => {
-              deleteDocument(contextMenu.docId);
-              setContextMenu(null);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-          >
-            <Trash2 className="w-4 h-4 opacity-70" />
-            <span>{t('doclist.delete')}</span>
-          </button>
-        </div>
+        <DocumentContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onRename={() => {
+            const doc = documents.find((d) => d.id === contextMenu.docId);
+            if (doc) startRename(doc.id, doc.title || '');
+          }}
+          onDelete={() => {
+            deleteDocument(contextMenu.docId);
+            setContextMenu(null);
+          }}
+          onOpenInFinder={() => handleOpenInFinder(contextMenu.docId)}
+          onCopyPath={() => handleCopyPath(contextMenu.docId)}
+          onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
+        />
       )}
-
+ 
       {/* Resize handle */}
       <div
         onMouseDown={onResizeStart}

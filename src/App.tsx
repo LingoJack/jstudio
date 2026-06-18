@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
+import TitleBar from './components/TitleBar';
+import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
 import BlockEditor from './components/BlockEditor';
 import Settings from './components/Settings';
-import TitleBar from './components/TitleBar';
-import { FileText, Settings as SettingsIcon, Plus } from 'lucide-react';
+import EmptyState from './components/EmptyState';
 
 export default function App() {
   const { t } = useI18n();
@@ -18,11 +19,6 @@ export default function App() {
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
-  const activityBarBorder = useStore((s) => s.activityBarBorder);
-
-  const createDocument = useStore((s) => s.createDocument);
-  const toggleSidebar = useStore((s) => s.toggleSidebar);
-  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
 
   useEffect(() => {
     init();
@@ -50,44 +46,7 @@ export default function App() {
          ============================== */}
       <div className="flex-1 min-h-0 flex">
         {/* Activity Bar (left-most) */}
-        <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
-          {/* Top: Documents entry */}
-          <div className="flex flex-col items-center gap-1">
-            <button
-              onClick={() => {
-                setSettingsOpen(false);
-                if (!isSidebarOpen) toggleSidebar();
-              }}
-              className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
-                !isSettingsOpen
-                  ? activityBarBorder
-                    ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
-                    : 'text-[var(--vscode-foreground)]'
-                  : 'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]'
-              }`}
-              title={t('app.documents')}
-            >
-              <FileText className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Bottom: Settings entry */}
-          <div className="flex flex-col items-center gap-1">
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
-                isSettingsOpen
-                  ? activityBarBorder
-                    ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
-                    : 'text-[var(--vscode-foreground)]'
-                  : 'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]'
-              }`}
-              title={t('app.settings')}
-            >
-              <SettingsIcon className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+        <ActivityBar />
 
         {/* Secondary sidebar: Document list */}
         {isSidebarOpen && !isSettingsOpen && <DocumentList />}
@@ -100,24 +59,7 @@ export default function App() {
             ) : hasActiveDoc ? (
               <BlockEditor />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center gap-4">
-                <FileText className="w-12 h-12 text-[var(--vscode-descriptionForeground)] opacity-40" />
-                <div>
-                  <h3 className="font-semibold text-base text-[var(--vscode-foreground)]">
-                    {t('doclist.noMatch')}
-                  </h3>
-                  <p className="text-sm text-[var(--vscode-descriptionForeground)] mt-1.5">
-                    {t('doclist.newDocument')}
-                  </p>
-                </div>
-                <button
-                  onClick={createDocument}
-                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors duration-150 mt-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{t('doclist.newDocument')}</span>
-                </button>
-              </div>
+              <EmptyState />
             )}
           </div>
         </div>
