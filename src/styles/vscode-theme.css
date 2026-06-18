@@ -1075,6 +1075,12 @@ button {
   color: var(--vscode-list-activeSelectionForeground, var(--vscode-editor-foreground));
 }
 
+.bubble-menu-btn.is-focused {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+  background: var(--vscode-list-hoverBackground);
+}
+
 /* Dark theme refinements */
 .dark .bubble-menu {
   border-color: var(--vscode-menu-border, rgba(255, 255, 255, 0.12));
@@ -1832,4 +1838,228 @@ button {
 .ProseMirror .tableWrapper th > p:empty::before {
   content: "\200b"; /* zero-width space */
 }
+
+/* ============================================
+   Preview Modal (fullscreen preview for file blocks)
+   ============================================ */
+
+.preview-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  animation: preview-modal-fade-in 0.2s ease;
+}
+
+@keyframes preview-modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.preview-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.preview-modal-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.preview-modal-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
+}
+
+.preview-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preview-modal-type {
+  background: var(--vscode-badge-background, rgba(128, 128, 128, 0.25));
+  color: var(--vscode-badge-foreground, var(--vscode-foreground));
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.preview-modal-dot {
+  color: var(--vscode-descriptionForeground);
+}
+
+.preview-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.preview-modal-close:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
+.preview-modal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 24px;
+}
+
+/* --- iframe (HTML/PDF) --- */
+.preview-modal-frame {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+  border-radius: 8px;
+  background: white;
+}
+
+/* --- image with zoom --- */
+.preview-modal-image-area {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.preview-modal-image {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  border-radius: 8px;
+  transition: transform 0.05s ease-out;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.preview-modal-zoom-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  user-select: none;
+}
+
+.preview-modal-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.preview-modal-zoom-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
+.preview-modal-zoom-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  min-width: 42px;
+  text-align: center;
+  user-select: none;
+}
+
+/* --- DOCX --- */
+.preview-modal-docx {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.preview-modal-docx-content {
+  max-width: 800px;
+  width: 100%;
+  background: white;
+  color: #333;
+  padding: 48px 64px;
+  border-radius: 8px;
+  min-height: 100%;
+}
+
+/* --- Text --- */
+.preview-modal-text {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 24px 32px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+}
+
+/* --- Loading --- */
+.preview-modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px;
+}
+
+.preview-modal-fallback {
+  color: var(--vscode-descriptionForeground);
+  font-size: 15px;
+}
+
 
