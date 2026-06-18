@@ -55,17 +55,13 @@ export default function App() {
                 setSettingsOpen(false);
                 if (!isSidebarOpen) toggleSidebar();
               }}
-              className={`w-10 h-10 flex items-center justify-center rounded transition-colors duration-150 cursor-pointer relative ${
+              className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
                 !isSettingsOpen
                   ? 'text-[var(--vscode-foreground)]'
-                  : 'text-[var(--vscode-activityBar-foreground)] opacity-60 hover:opacity-100'
+                  : 'text-[var(--vscode-activityBar-foreground)] opacity-50 hover:opacity-90'
               }`}
               title="文档"
             >
-              {/* Active indicator bar */}
-              {!isSettingsOpen && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-r bg-[var(--vscode-tab-activeBorderTop)]" />
-              )}
               <FileText className="w-5 h-5" />
             </button>
           </div>
@@ -74,16 +70,13 @@ export default function App() {
           <div className="flex flex-col items-center gap-1">
             <button
               onClick={() => setSettingsOpen(true)}
-              className={`w-10 h-10 flex items-center justify-center rounded transition-colors duration-150 cursor-pointer relative ${
+              className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
                 isSettingsOpen
                   ? 'text-[var(--vscode-foreground)]'
-                  : 'text-[var(--vscode-activityBar-foreground)] opacity-60 hover:opacity-100'
+                  : 'text-[var(--vscode-activityBar-foreground)] opacity-50 hover:opacity-90'
               }`}
               title="设置"
             >
-              {isSettingsOpen && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-r bg-[var(--vscode-tab-activeBorderTop)]" />
-              )}
               <SettingsIcon className="w-5 h-5" />
             </button>
           </div>
