@@ -876,6 +876,37 @@ button {
   margin: 12px 0;
 }
 
+/* 列表 — 无序列表 / 有序列表 */
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror li {
+  margin: 0.15em 0;
+}
+
+.ProseMirror li > p {
+  margin: 0;
+}
+
+/* 嵌套列表 — 缩进递进 */
+.ProseMirror ul ul,
+.ProseMirror ol ol,
+.ProseMirror ul ol,
+.ProseMirror ol ul {
+  margin: 0.15em 0;
+}
+
 /* 选中节点的边框 */
 .ProseMirror-selectednode {
   outline: 2px solid var(--vscode-focusBorder);

@@ -10,6 +10,8 @@
  *   /heading  (or /h1) → heading level 1
  *   /heading2 (or /h2) → heading level 2
  *   /heading3 (or /h3) → heading level 3
+ *   /bullet   (or /ul)  → bullet list
+ *   /numbered (or /ol)  → numbered list
  *   /code              → code block
  *   /image             → image
  *   /file              → file attachment
@@ -95,6 +97,22 @@ export const slashCommands: SlashCommandItem[] = [
     aliases: ['heading3', 'h3'],
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run(),
+  },
+  {
+    title: 'Bullet List',
+    description: 'Create a simple bulleted list',
+    icon: '• —',
+    aliases: ['bullet', 'ul', 'unordered', 'unorder', 'list', '无序'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleBulletList().run(),
+  },
+  {
+    title: 'Numbered List',
+    description: 'Create a list with numbering',
+    icon: '1.',
+    aliases: ['numbered', 'ordered', 'ol', 'number', '有序'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
   },
   {
     title: 'Code Block',

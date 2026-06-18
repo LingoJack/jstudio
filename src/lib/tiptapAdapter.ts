@@ -16,6 +16,9 @@
  *   code                         →   codeBlock
  *   image                        →   image
  *   file                         →   fileBlock
+ *   table                        →   table
+ *   bullet-list                  →   bulletList
+ *   ordered-list                 →   orderedList
  *
  *   OUR RICHTEXT ANNOTATIONS     →   TIPTAP MARKS
  *   ─────────────────────────────────────────────────────────
@@ -180,6 +183,10 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'fileBlock';
     case 'table':
       return 'table';
+    case 'bullet-list':
+      return 'bulletList';
+    case 'ordered-list':
+      return 'orderedList';
     default:
       return 'paragraph';
   }
@@ -214,6 +221,10 @@ function tiptapTypeToOurType(
       return 'file';
     case 'table':
       return 'table';
+    case 'bulletList':
+      return 'bullet-list';
+    case 'orderedList':
+      return 'ordered-list';
     default:
       return 'text';
   }
@@ -383,6 +394,23 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       }
       break;
     }
+    case 'bullet-list':
+    case 'ordered-list': {
+      // content is RichText[][] — each element is one list item (paragraph).
+      const items = block.content as unknown as RichText[][];
+      json.content = items.map((item) => ({
+        type: 'listItem',
+        content: [
+          {
+            type: 'paragraph',
+            ...(item.length > 0
+              ? { content: richTextToTiptapInline(item) }
+              : {}),
+          },
+        ],
+      }));
+      break;
+    }
     default:
       // Fallback: treat as plain paragraph.
       break;
@@ -471,6 +499,26 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
       block.properties = {
         tableData: tiptapToTableData(node),
       };
+      break;
+    }
+    case 'bullet-list':
+    case 'ordered-list': {
+      // TipTap: bulletList/orderedList > listItem > paragraph > inline text
+      // Our model: RichText[][] — each item is one paragraph.
+      const items: RichText[][] = [];
+      for (const listItem of node.content ?? []) {
+        if (listItem.type !== 'listItem') continue;
+        for (const child of listItem.content ?? []) {
+          if (child.type === 'paragraph') {
+            items.push(tiptapInlineToRichText(child.content ?? []));
+          }
+        }
+        // Ensure empty list items still get an entry
+        if ((listItem.content ?? []).length === 0) {
+          items.push([]);
+        }
+      }
+      block.content = items as unknown as RichText[] | string;
       break;
     }
     default:

@@ -10,7 +10,9 @@ export type BlockType =
   | 'code'
   | 'image'
   | 'file'
-  | 'table';
+  | 'table'
+  | 'bullet-list'
+  | 'ordered-list';
 
 export interface BlockProperties {
   language?: string; // code block syntax
