@@ -72,15 +72,30 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       const isTab = key === 'Tab';
       const isEnter = key === 'Enter';
       const isSpace = key === ' ';
+      const isEscape = key === 'Escape';
       const isArrowLeft = key === 'ArrowLeft';
       const isArrowRight = key === 'ArrowRight';
 
-      if (!isTab && !isEnter && !isSpace && !isArrowLeft && !isArrowRight) {
+      if (
+        !isTab &&
+        !isEnter &&
+        !isSpace &&
+        !isEscape &&
+        !isArrowLeft &&
+        !isArrowRight
+      ) {
         return;
       }
 
       e.preventDefault();
       e.stopPropagation();
+
+      // Escape — clear selection to dismiss the BubbleMenu
+      if (isEscape) {
+        const { from } = editor.state.selection;
+        editor.chain().setTextSelection(from).focus().run();
+        return;
+      }
 
       const itemCount = ITEMS.length;
       const current = activeIndexRef.current;
