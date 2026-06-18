@@ -41,6 +41,43 @@ import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
 
 /* ------------------------------------------------------------------ */
+/* Data URL charset fix (for legacy data URLs created before the fix) */
+/* ------------------------------------------------------------------ */
+
+const TEXT_MIME_PREFIXES = [
+  'text/',
+  'application/json',
+  'application/xml',
+  'application/javascript',
+  'image/svg+xml',
+];
+
+/**
+ * Ensure a data URL has `charset=utf-8` for text-based MIME types.
+ *
+ * Older files may have been stored without an explicit charset, causing
+ * the browser to decode them as latin1 and produce garbled text (mojibake)
+ * for non-ASCII characters. This injects the charset into the data URL
+ * header when it's missing.
+ */
+function ensureUtf8Charset(dataUrl: string): string {
+  if (!dataUrl.startsWith('data:')) return dataUrl;
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx === -1) return dataUrl;
+  const header = dataUrl.substring(5, commaIdx); // strip "data:"
+  if (header.includes('charset')) return dataUrl;
+
+  // header is like "text/html;base64" or "text/html"
+  const isBase64 = header.includes('base64');
+  const mime = header.replace(';base64', '').trim();
+
+  if (!TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p))) return dataUrl;
+
+  const newHeader = `${mime};charset=utf-8${isBase64 ? ';base64' : ''}`;
+  return `data:${newHeader},${dataUrl.substring(commaIdx + 1)}`;
+}
+
+/* ------------------------------------------------------------------ */
 /* DOCX preview via mammoth (lazy-loaded)                            */
 /* ------------------------------------------------------------------ */
 
@@ -94,6 +131,12 @@ export default function FileView({
     () => getPreviewCategory(fileType, fileName),
     [fileType, fileName],
   );
+
+  /**
+   * Patched src: ensures text-based data URLs include `charset=utf-8`
+   * so HTML/SVG/text previews render correctly instead of mojibake.
+   */
+  const safeSrc = useMemo(() => ensureUtf8Charset(src ?? ''), [src]);
 
   const canPreview = category !== 'other';
   const isPreviewMode = displayMode === 'preview' && canPreview;
@@ -354,7 +397,7 @@ export default function FileView({
                 {/* HTML / SVG */}
                 {category === 'html' && (
                   <iframe
-                    src={src}
+                    src={safeSrc}
                     className="file-block-preview-frame"
                     sandbox="allow-same-origin"
                     title={fileName}
@@ -364,7 +407,7 @@ export default function FileView({
                 {/* PDF */}
                 {category === 'pdf' && (
                   <iframe
-                    src={src}
+                    src={safeSrc}
                     className="file-block-preview-frame"
                     title={fileName}
                   />
@@ -374,7 +417,7 @@ export default function FileView({
                 {category === 'image' && (
                   <div className="file-block-preview-image-wrap">
                     <img
-                      src={src}
+                      src={safeSrc}
                       alt={fileName}
                       className="file-block-preview-image"
                     />
@@ -401,7 +444,7 @@ export default function FileView({
                 )}
 
                 {/* Text */}
-                {category === 'text' && <FileTextPreview src={src} />}
+                {category === 'text' && <FileTextPreview src={safeSrc} />}
               </div>
             )}
 

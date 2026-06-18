@@ -29,6 +29,31 @@ export interface UploadResult {
 /* ------------------------------------------------------------------ */
 
 /**
+ * For text-based MIME types, append `;charset=utf-8` so the browser
+ * decodes the content as UTF-8 instead of defaulting to latin1.
+ *
+ * This is critical for HTML/SVG/text previews rendered in <iframe> —
+ * without an explicit charset, non-ASCII characters (e.g. Chinese)
+ * appear as garbled text (mojibake).
+ */
+function withCharset(mime: string): string {
+  const textPrefixes = [
+    'text/',
+    'application/json',
+    'application/xml',
+    'application/javascript',
+    'image/svg+xml',
+  ];
+  if (
+    !mime.includes('charset') &&
+    textPrefixes.some((p) => mime.startsWith(p))
+  ) {
+    return `${mime};charset=utf-8`;
+  }
+  return mime;
+}
+
+/**
  * Convert an array of bytes to a base64 data URL.
  *
  * When an `activeDocId` is provided, the bytes are persisted to the
@@ -41,15 +66,16 @@ export async function bytesToDataUrl(
   activeDocId?: string | null,
   storedName?: string,
 ): Promise<string> {
+  const fullMime = withCharset(mime);
   if (activeDocId && storedName) {
     await storage.saveDocAsset(activeDocId, storedName, bytes);
     const base64 = await storage.readDocAssetBase64(activeDocId, storedName);
-    return `data:${mime};base64,${base64}`;
+    return `data:${fullMime};base64,${base64}`;
   }
   // Fallback: encode directly in-memory.
   const binary = String.fromCharCode(...bytes);
   const base64 = btoa(binary);
-  return `data:${mime};base64,${base64}`;
+  return `data:${fullMime};base64,${base64}`;
 }
 
 /**
