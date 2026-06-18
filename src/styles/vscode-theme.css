@@ -1244,9 +1244,14 @@ button {
   text-align: center;
 }
 
-/* ---- 复制按钮 (in toolbar, hover-only) ---- */
+/* ---- 复制按钮 (hover-only) ---- */
 
+/* 默认：多行时位于语言徽章正下方 */
 .code-block-wrapper .code-copy-btn {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1259,6 +1264,11 @@ button {
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+/* 单行时：跟随工具条 flex 布局，排在语言徽章左侧 */
+.code-block-wrapper .code-toolbar .code-copy-btn {
+  position: static;
 }
 
 .code-block-wrapper:hover .code-copy-btn {

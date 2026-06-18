@@ -1,14 +1,22 @@
 /**
  * CodeBlockView — React NodeView for the code block node.
  *
- * Layout:
+ * Layout (multi-line, default):
  *   ┌──────────────────────────────┐
- *   │  const x = 1;       [copy][lang ▾]  │  ← top-right toolbar (copy + language)
- *   │  console.log(x);                │
+ *   │                  [lang ▾]    │  ← language badge (top-right)
+ *   │  const x = 1;                │
+ *   │  console.log(x);             │
+ *   │                      [copy]  │  ← copy icon (below badge, hover)
  *   └──────────────────────────────┘
  *
- * The copy button and language selector share a single top-right toolbar
- * so the copy icon never overflows below a one-line code block.
+ * Layout (single line / too short):
+ *   ┌──────────────────────────────┐
+ *   │  const x = 1;      [copy][lang ▾] │  ← both in top-right toolbar
+ *   └──────────────────────────────┘
+ *
+ * A ResizeObserver watches the code body height. When it's too short to
+ * fit the copy button below the badge (< 60px), the button moves inline
+ * next to the badge to avoid overflowing the wrapper.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -68,6 +76,21 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
   // Whether the code block has non-empty content (controls copy-button visibility)
   const hasContent = node.textContent.trim().length > 0;
+
+  // Whether the code body is tall enough to host the copy button below the
+  // language badge (badge bottom ~30px + copy button 26px + margin ≈ 60px).
+  // When too short (single line), we render the copy button inline next to
+  // the language badge instead of absolutely below it.
+  const [canFitBelow, setCanFitBelow] = useState(true);
+  useEffect(() => {
+    const el = codeRef.current;
+    if (!el) return;
+    const update = () => setCanFitBelow(el.scrollHeight >= 60);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // ---- Language dropdown state ----
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -194,9 +217,11 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
   return (
     <NodeViewWrapper as="div" className="code-block-wrapper">
-      {/* Top-right toolbar: copy button (hover-only) + language selector */}
+      {/* Top-right toolbar: always holds the language badge.
+          When the code body is too short (single line), the copy button
+          also lives here, to the left of the badge. */}
       <div className="code-toolbar" contentEditable={false}>
-        {hasContent && (
+        {hasContent && !canFitBelow && (
           <button
             type="button"
             onClick={handleCopy}
@@ -218,6 +243,20 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
           <ChevronDown size={12} className="code-lang-chevron" />
         </div>
       </div>
+
+      {/* Copy button — only when content exists AND there is room below the badge */}
+      {hasContent && canFitBelow && (
+        <button
+          type="button"
+          onClick={handleCopy}
+          contentEditable={false}
+          className="code-copy-btn"
+          title="复制代码"
+          aria-label="Copy code"
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+      )}
 
       {/* Custom dropdown panel */}
       {dropdownOpen && (
