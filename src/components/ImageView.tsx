@@ -9,12 +9,13 @@
  *      (bottom-right corner) appear.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper } from '@tiptap/react';
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
 import { bytesToDataUrl, genStoredName } from '../lib/upload';
+import { useNodeResize } from '../hooks/useNodeResize';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 
 interface ImageNodeAttrs {
@@ -65,64 +66,37 @@ export default function ImageView({ node, selected, updateAttributes }: ImageVie
   }, [src, updateAttributes]);
 
   // -----------------------------------------------------------------------
-  // Resize: drag the bottom-right handle
+  // Resize: drag the bottom-right handle (via shared useNodeResize hook)
   // -----------------------------------------------------------------------
 
-  const imgRef = useRef<HTMLImageElement>(null);
-  const resizingRef = useRef(false);
-  const [displayWidth, setDisplayWidth] = useState<number | null>(width ?? null);
+  // Read natural aspect ratio at commit time so we can persist height too.
+  const imgElRef = useRef<HTMLImageElement | null>(null);
 
-  // Keep local display width in sync when the node attr changes externally
-  useEffect(() => {
-    if (!resizingRef.current) {
-      setDisplayWidth(width ?? null);
-    }
-  }, [width]);
-
-  const onResizeStart = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const startX = e.clientX;
-      const startWidth = displayWidth ?? imgRef.current?.offsetWidth ?? 300;
-      const ratio =
-        imgRef.current && imgRef.current.naturalHeight && imgRef.current.naturalWidth
-          ? imgRef.current.naturalHeight / imgRef.current.naturalWidth
-          : 0;
-
-      resizingRef.current = true;
-
-      const onMove = (ev: PointerEvent) => {
-        const delta = ev.clientX - startX;
-        const newWidth = Math.max(80, startWidth + delta);
-        setDisplayWidth(newWidth);
-      };
-
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        resizingRef.current = false;
-        // Commit to node attrs
-        const finalWidth = displayWidthRef.current ?? startWidth;
+  const { ref: resizeRef, displayWidth, onResizeStart } =
+    useNodeResize<HTMLImageElement>({
+      width,
+      updateAttributes,
+      minWidth: 80,
+      fallbackWidth: 300,
+      onCommit: (finalWidth) => {
+        const img = imgElRef.current;
+        const ratio =
+          img && img.naturalHeight && img.naturalWidth
+            ? img.naturalHeight / img.naturalWidth
+            : 0;
         const newAttrs: { width: number; height?: number } = { width: finalWidth };
         if (ratio > 0) {
           newAttrs.height = Math.round(finalWidth * ratio);
         }
-        updateAttributes(newAttrs);
-      };
+        return newAttrs;
+      },
+    });
 
-      // Use a ref so onUp always reads the latest value
-      displayWidthRef.current = displayWidth ?? startWidth;
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-    },
-    [displayWidth, updateAttributes],
-  );
-
-  // Ref mirror for the pointer-up handler to read the latest width
-  const displayWidthRef = useRef<number | null>(displayWidth);
-  displayWidthRef.current = displayWidth;
+  // Merge the two refs (hook's ref + our local imgElRef) onto the <img>.
+  const setImgRef = useCallback((el: HTMLImageElement | null) => {
+    resizeRef.current = el;
+    imgElRef.current = el;
+  }, []);
 
   // -----------------------------------------------------------------------
   // Render
@@ -184,7 +158,7 @@ export default function ImageView({ node, selected, updateAttributes }: ImageVie
             )}
 
             <img
-              ref={imgRef}
+              ref={setImgRef}
               src={src}
               alt={alt ?? ''}
               title={title ?? undefined}

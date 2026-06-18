@@ -34,80 +34,15 @@ import {
   getMimeType,
   getPreviewCategory,
   getCategoryLabel,
+  ensureUtf8Charset,
+  FILE_EXTENSIONS,
   type PreviewCategory,
 } from '../lib/fileUtils';
+import { docxToHtml } from '../lib/docxPreview';
 import { bytesToDataUrl, genStoredName } from '../lib/upload';
+import { useNodeResize } from '../hooks/useNodeResize';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
-
-/* ------------------------------------------------------------------ */
-/* Data URL charset fix (for legacy data URLs created before the fix) */
-/* ------------------------------------------------------------------ */
-
-const TEXT_MIME_PREFIXES = [
-  'text/',
-  'application/json',
-  'application/xml',
-  'application/javascript',
-  'image/svg+xml',
-];
-
-/**
- * Ensure a data URL has `charset=utf-8` for text-based MIME types.
- *
- * Older files may have been stored without an explicit charset, causing
- * the browser to decode them as latin1 and produce garbled text (mojibake)
- * for non-ASCII characters. This injects the charset into the data URL
- * header when it's missing.
- */
-function ensureUtf8Charset(dataUrl: string): string {
-  if (!dataUrl.startsWith('data:')) return dataUrl;
-  const commaIdx = dataUrl.indexOf(',');
-  if (commaIdx === -1) return dataUrl;
-  const header = dataUrl.substring(5, commaIdx); // strip "data:"
-  if (header.includes('charset')) return dataUrl;
-
-  // header is like "text/html;base64" or "text/html"
-  const isBase64 = header.includes('base64');
-  const mime = header.replace(';base64', '').trim();
-
-  if (!TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p))) return dataUrl;
-
-  const newHeader = `${mime};charset=utf-8${isBase64 ? ';base64' : ''}`;
-  return `data:${newHeader},${dataUrl.substring(commaIdx + 1)}`;
-}
-
-/* ------------------------------------------------------------------ */
-/* DOCX preview via mammoth (lazy-loaded)                            */
-/* ------------------------------------------------------------------ */
-
-/** Convert a DOCX data URL to an HTML string using mammoth.js. */
-async function docxToHtml(dataUrl: string): Promise<string> {
-  const mammoth = await import('mammoth/mammoth.browser');
-  const base64 = dataUrl.split(',')[1] ?? '';
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const arrayBuffer = bytes.buffer;
-  const result = await mammoth.convertToHtml({ arrayBuffer });
-  return result.value || '<p style="color:#999;">Empty document</p>';
-}
-
-/* ------------------------------------------------------------------ */
-/* Extension filters for the Tauri dialog                             */
-/* ------------------------------------------------------------------ */
-
-const FILE_EXTENSIONS = [
-  'html', 'htm', 'pdf', 'docx',
-  'txt', 'md', 'json', 'csv', 'xml', 'yaml', 'yml',
-  'js', 'ts', 'jsx', 'tsx', 'css', 'scss',
-  'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift',
-  'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sh',
-  'sql', 'toml', 'ini', 'log',
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg',
-];
 
 /* ------------------------------------------------------------------ */
 /* Component                                                          */
@@ -214,63 +149,32 @@ export default function FileView({
   }, [category, isPreviewMode, src, docxHtml, docxLoading]);
 
   /* -------------------------------------------------------------- */
-  /* Resize: drag the bottom-right handle                           */
+  /* Resize: drag the bottom-right handle (via shared useNodeResize) */
   /* -------------------------------------------------------------- */
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const figureRef = useRef<HTMLDivElement>(null);
-  const resizingRef = useRef(false);
-  const [displayWidth, setDisplayWidth] = useState<number | null>(width ?? null);
-  const displayWidthRef = useRef<number | null>(displayWidth);
-  displayWidthRef.current = displayWidth;
 
-  // Keep local display width in sync when the node attr changes externally.
-  useEffect(() => {
-    if (!resizingRef.current) {
-      setDisplayWidth(width ?? null);
-    }
-  }, [width]);
+  // Separate ref for reading DOM in maxWidth (before hook call).
+  const figureRefInternal = useRef<HTMLDivElement>(null);
 
-  const onResizeStart = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
+  const { ref: figureRef, displayWidth, onResizeStart } =
+    useNodeResize<HTMLDivElement>({
+      width,
+      updateAttributes,
+      minWidth: 200,
+      fallbackWidth: 400,
+      maxWidth: () => {
+        const el = figureRefInternal.current;
+        const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
+        return (editorSurface?.clientWidth ?? window.innerWidth) - 24;
+      },
+    });
 
-      const startX = e.clientX;
-      const startWidth =
-        displayWidth ?? figureRef.current?.offsetWidth ?? 400;
-
-      /* upper bound: editor surface visible width (minus a small margin) */
-      const editorSurface = figureRef.current?.closest(
-        '.ProseMirror'
-      ) as HTMLElement | null;
-      const maxWidth =
-        (editorSurface?.clientWidth ?? window.innerWidth) - 24;
-
-      resizingRef.current = true;
-
-      const onMove = (ev: PointerEvent) => {
-        const delta = ev.clientX - startX;
-        const newWidth = Math.min(
-          Math.max(200, startWidth + delta),
-          maxWidth
-        );
-        setDisplayWidth(newWidth);
-      };
-
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        resizingRef.current = false;
-        const finalWidth = displayWidthRef.current ?? startWidth;
-        updateAttributes({ width: finalWidth });
-      };
-
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-    },
-    [displayWidth, updateAttributes],
-  );
+  // Merge hook's ref + internal ref onto the same DOM element.
+  const setFigureRef = useCallback((el: HTMLDivElement | null) => {
+    figureRef.current = el;
+    figureRefInternal.current = el;
+  }, []);
 
   /* -------------------------------------------------------------- */
   /* Inline styles driven by displayWidth                           */
@@ -313,7 +217,7 @@ export default function FileView({
         ) : (
           /* Loaded state */
           <div
-            ref={figureRef}
+            ref={setFigureRef}
             className={`file-block-figure ${selected ? 'is-selected' : ''} ${
               isPreviewMode ? 'is-preview' : 'is-card'
             }`}

@@ -58,6 +58,57 @@ export function getMimeType(ext: string): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* Data URL charset fix                                               */
+/* ------------------------------------------------------------------ */
+
+const TEXT_MIME_PREFIXES = [
+  'text/',
+  'application/json',
+  'application/xml',
+  'application/javascript',
+  'image/svg+xml',
+];
+
+/**
+ * Ensure a data URL has `charset=utf-8` for text-based MIME types.
+ *
+ * Older files may have been stored without an explicit charset, causing
+ * the browser to decode them as latin1 and produce garbled text (mojibake)
+ * for non-ASCII characters. This injects the charset into the data URL
+ * header when it's missing.
+ */
+export function ensureUtf8Charset(dataUrl: string): string {
+  if (!dataUrl.startsWith('data:')) return dataUrl;
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx === -1) return dataUrl;
+  const header = dataUrl.substring(5, commaIdx); // strip "data:"
+  if (header.includes('charset')) return dataUrl;
+
+  const isBase64 = header.includes('base64');
+  const mime = header.replace(';base64', '').trim();
+
+  if (!TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p))) return dataUrl;
+
+  const newHeader = `${mime};charset=utf-8${isBase64 ? ';base64' : ''}`;
+  return `data:${newHeader},${dataUrl.substring(commaIdx + 1)}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Extension filters for the Tauri dialog                             */
+/* ------------------------------------------------------------------ */
+
+/** File extensions accepted by the file picker dialog. */
+export const FILE_EXTENSIONS = [
+  'html', 'htm', 'pdf', 'docx',
+  'txt', 'md', 'json', 'csv', 'xml', 'yaml', 'yml',
+  'js', 'ts', 'jsx', 'tsx', 'css', 'scss',
+  'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift',
+  'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sh',
+  'sql', 'toml', 'ini', 'log',
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg',
+];
+
+/* ------------------------------------------------------------------ */
 /* Preview category                                                   */
 /* ------------------------------------------------------------------ */
 
