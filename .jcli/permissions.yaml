@@ -34,4 +34,5 @@ allow:
 - Shell(find src-tauri:*)
 - Shell(cat -n:*)
 - Shell(grep -E:*)
+- Shell(npm install:*)
 deny: []

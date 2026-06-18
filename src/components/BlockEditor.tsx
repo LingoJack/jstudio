@@ -42,6 +42,7 @@ import {
 import { SlashMenuExtension } from '../lib/tiptapExtensions';
 import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import { BlockNavigation } from '../lib/blockNavigation';
+import { getClipboardImageAsFile } from '../lib/clipboardImage';
 import type { Block } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -247,13 +248,13 @@ export default function BlockEditor() {
         const items = event.clipboardData?.items;
         if (!items) return false;
 
+        // 1. Browser clipboard has image → use it directly (standard path)
         for (const item of Array.from(items)) {
           if (item.type.startsWith('image/')) {
             const file = item.getAsFile();
             if (!file) continue;
 
             event.preventDefault();
-            // Upload then insert — async, so we use the editor ref
             uploadFile(file).then((src) => {
               editorRef.current
                 ?.chain()
@@ -264,6 +265,23 @@ export default function BlockEditor() {
             return true;
           }
         }
+
+        // 2. Fallback for Tauri WebView: system-level image copies (screenshots,
+        //    Finder copies) do NOT appear in clipboardData.items. Check the
+        //    native clipboard asynchronously. If an image is found, insert it
+        //    and suppress the default text paste.
+        getClipboardImageAsFile().then((file) => {
+          if (!file) return;
+          event.preventDefault();
+          uploadFile(file).then((src) => {
+            editorRef.current
+              ?.chain()
+              .focus()
+              .setImage({ src, alt: '' })
+              .run();
+          });
+        });
+
         return false;
       },
       handleDrop: (view, event) => {
