@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper } from '@tiptap/react';
-import { File as FileIcon, Eye, PanelsTopLeft, Loader2 } from 'lucide-react';
+import { File as FileIcon, Eye, PanelsTopLeft, Loader2, Maximize2 } from 'lucide-react';
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
@@ -43,6 +43,7 @@ import { bytesToDataUrl, genStoredName } from '../lib/upload';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
+import PreviewModal from './PreviewModal';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                          */
@@ -61,6 +62,7 @@ export default function FileView({
   const [loading, setLoading] = useState(false);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
   const [docxLoading, setDocxLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const category = useMemo(
     () => getPreviewCategory(fileType, fileName),
@@ -261,6 +263,16 @@ export default function FileView({
                     >
                       {isPreviewMode ? <PanelsTopLeft size={15} /> : <Eye size={15} />}
                     </button>
+                    {isPreviewMode && (
+                      <button
+                        type="button"
+                        className="file-block-toolbar-btn"
+                        onClick={() => setShowModal(true)}
+                        title="放大预览"
+                      >
+                        <Maximize2 size={15} />
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -363,6 +375,17 @@ export default function FileView({
           </div>
         )}
       </div>
+
+      {/* Fullscreen preview modal */}
+      {showModal && src && (
+        <PreviewModal
+          src={src}
+          fileName={fileName}
+          fileSize={fileSize}
+          category={category}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </NodeViewWrapper>
   );
 }
