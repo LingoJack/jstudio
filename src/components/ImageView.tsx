@@ -10,12 +10,13 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import { type NodeViewProps, NodeViewWrapper } from '@tiptap/react';
+import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react';
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
 import { bytesToDataUrl, genStoredName } from '../lib/upload';
 import { useNodeResize } from '../hooks/useNodeResize';
+import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 
 interface ImageNodeAttrs {
@@ -27,10 +28,16 @@ interface ImageNodeAttrs {
   align: 'left' | 'center';
 }
 
-type ImageViewProps = NodeViewProps;
-
-export default function ImageView({ node, selected, updateAttributes }: ImageViewProps) {
+export default function ImageView({ node, selected, updateAttributes, editor }: NodeViewProps) {
   const { src, alt, title, width, height, align } = node.attrs as ImageNodeAttrs;
+
+  // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
+  const toolbarBtnCount = 2; // align-left, align-center
+  const { activeIndex, registerButton } = useNodeToolbarNav(
+    selected,
+    (editor as Editor | null) ?? null,
+    toolbarBtnCount,
+  );
 
   // -----------------------------------------------------------------------
   // Placeholder state: click to pick an image file
@@ -140,7 +147,10 @@ export default function ImageView({ node, selected, updateAttributes }: ImageVie
               <div className="image-toolbar" contentEditable={false}>
                 <button
                   type="button"
-                  className={`image-toolbar-btn ${effectiveAlign === 'left' ? 'is-active' : ''}`}
+                  ref={registerButton(0)}
+                  className={`image-toolbar-btn ${effectiveAlign === 'left' ? 'is-active' : ''} ${
+                    activeIndex === 0 ? 'is-focused' : ''
+                  }`}
                   onClick={() => updateAttributes({ align: 'left' })}
                   title="左对齐"
                 >
@@ -148,7 +158,10 @@ export default function ImageView({ node, selected, updateAttributes }: ImageVie
                 </button>
                 <button
                   type="button"
-                  className={`image-toolbar-btn ${effectiveAlign === 'center' ? 'is-active' : ''}`}
+                  ref={registerButton(1)}
+                  className={`image-toolbar-btn ${effectiveAlign === 'center' ? 'is-active' : ''} ${
+                    activeIndex === 1 ? 'is-focused' : ''
+                  }`}
                   onClick={() => updateAttributes({ align: 'center' })}
                   title="居中"
                 >

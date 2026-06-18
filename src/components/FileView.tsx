@@ -23,7 +23,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type NodeViewProps, NodeViewWrapper } from '@tiptap/react';
+import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react';
 import { File as FileIcon, Eye, PanelsTopLeft, Loader2, Maximize2 } from 'lucide-react';
 
 import { useStore } from '../store/useStore';
@@ -41,6 +41,7 @@ import {
 import { docxToHtml } from '../lib/docxPreview';
 import { bytesToDataUrl, genStoredName } from '../lib/upload';
 import { useNodeResize } from '../hooks/useNodeResize';
+import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
 import PreviewModal from './PreviewModal';
@@ -53,9 +54,22 @@ export default function FileView({
   node,
   selected,
   updateAttributes,
+  editor,
 }: NodeViewProps) {
   const { src, fileName, fileSize, fileType, displayMode, width, align } =
     node.attrs as FileNodeAttributes;
+
+  // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
+  const canPreview = getPreviewCategory(fileType, fileName) !== 'other';
+  const isPreviewMode = displayMode === 'preview' && canPreview;
+  // Button count depends on whether preview buttons are shown:
+  //   align-left, align-center, [toggle preview], [maximize]
+  const toolbarBtnCount = 2 + (canPreview ? (isPreviewMode ? 2 : 1) : 0);
+  const { activeIndex, registerButton } = useNodeToolbarNav(
+    selected,
+    (editor as Editor | null) ?? null,
+    toolbarBtnCount,
+  );
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
 
@@ -74,9 +88,6 @@ export default function FileView({
    * so HTML/SVG/text previews render correctly instead of mojibake.
    */
   const safeSrc = useMemo(() => ensureUtf8Charset(src ?? ''), [src]);
-
-  const canPreview = category !== 'other';
-  const isPreviewMode = displayMode === 'preview' && canPreview;
 
   /* -------------------------------------------------------------- */
   /* Upload handler                                                 */
@@ -230,9 +241,10 @@ export default function FileView({
               <div className="file-block-toolbar" contentEditable={false}>
                 <button
                   type="button"
+                  ref={registerButton(0)}
                   className={`file-block-toolbar-btn ${
                     effectiveAlign === 'left' ? 'is-active' : ''
-                  }`}
+                  } ${activeIndex === 0 ? 'is-focused' : ''}`}
                   onClick={() => updateAttributes({ align: 'left' })}
                   title="左对齐"
                 >
@@ -240,9 +252,10 @@ export default function FileView({
                 </button>
                 <button
                   type="button"
+                  ref={registerButton(1)}
                   className={`file-block-toolbar-btn ${
                     effectiveAlign === 'center' ? 'is-active' : ''
-                  }`}
+                  } ${activeIndex === 1 ? 'is-focused' : ''}`}
                   onClick={() => updateAttributes({ align: 'center' })}
                   title="居中"
                 >
@@ -253,7 +266,10 @@ export default function FileView({
                     <span className="file-block-toolbar-divider" />
                     <button
                       type="button"
-                      className="file-block-toolbar-btn"
+                      ref={registerButton(2)}
+                      className={`file-block-toolbar-btn ${
+                        activeIndex === 2 ? 'is-focused' : ''
+                      }`}
                       onClick={() =>
                         updateAttributes({
                           displayMode: isPreviewMode ? 'card' : 'preview',
@@ -266,7 +282,10 @@ export default function FileView({
                     {isPreviewMode && (
                       <button
                         type="button"
-                        className="file-block-toolbar-btn"
+                        ref={registerButton(3)}
+                        className={`file-block-toolbar-btn ${
+                          activeIndex === 3 ? 'is-focused' : ''
+                        }`}
                         onClick={() => setShowModal(true)}
                         title="放大预览"
                       >

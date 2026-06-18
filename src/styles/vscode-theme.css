@@ -1014,6 +1014,12 @@ button {
   color: var(--vscode-list-activeSelectionForeground, #fff);
 }
 
+.image-toolbar-btn.is-focused {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+
 /* Resize handle (bottom-right corner), visible only when selected */
 .image-resize-handle {
   position: absolute;
@@ -1417,6 +1423,12 @@ button {
 .file-block-toolbar-btn.is-active {
   background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
   color: var(--vscode-list-activeSelectionForeground, #fff);
+}
+
+.file-block-toolbar-btn.is-focused {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
 }
 
 .file-block-toolbar-divider {
