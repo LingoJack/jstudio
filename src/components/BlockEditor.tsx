@@ -19,13 +19,10 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
-import { Extension } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '../lib/imageExtension';
 import { FileExtension } from '../lib/fileExtension';
-import { bytesToDataUrl, fileToDataUrl, genStoredName } from '../lib/upload';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -36,10 +33,8 @@ import TableCell from '@tiptap/extension-table-cell';
 import TextAlign from '@tiptap/extension-text-align';
 
 import Color from '@tiptap/extension-color';
-import { createLowlight, common } from 'lowlight';
 
 import { useStore } from '../store/useStore';
-import { storage } from '../lib/storage';
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
@@ -47,88 +42,12 @@ import {
 import { SlashMenuExtension } from '../lib/tiptapExtensions';
 import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import { BlockNavigation } from '../lib/blockNavigation';
-import { getClipboardImageAsFile } from '../lib/clipboardImage';
+import { lowlight } from '../lib/extensions/lowlight';
+import { SelectAllText } from '../lib/extensions/selectAllText';
+import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
 import TableControls from './TableControls';
+import FormatBubbleMenu from './FormatBubbleMenu';
 import type { Block } from '../types';
-
-// ---------------------------------------------------------------------------
-// Lowlight instance — register common languages for syntax highlighting
-// ---------------------------------------------------------------------------
-// Performance note:
-//   When a code block has no `language` attribute (e.g. created via /code
-//   slash command), CodeBlockLowlight falls back to `lowlight.highlightAuto()`,
-//   which synchronously tries every registered grammar (37 languages) to
-//   "guess" the language.  This is the #1 cause of cursor lag when pressing
-//   Enter inside code blocks.
-//
-//   Two mitigations:
-//     1. defaultLanguage: 'plaintext' — tells CodeBlockLowlight to use the
-//        near-zero-cost `highlight('plaintext', …)` path instead of
-//        highlightAuto for untyped code blocks.
-//     2. Override `highlightAuto` on our lowlight instance as a safety net
-//        so any other caller also takes the fast plaintext path instead of
-//        the expensive auto-detection.
-const lowlight = createLowlight(common);
-lowlight.highlightAuto = (value: string) =>
-  lowlight.highlight('plaintext', value) as ReturnType<typeof lowlight.highlight>;
-
-// ---------------------------------------------------------------------------
-// SelectAllText — overrides ProseMirror's default Mod-a keymap.
-// The built-in "selectAll" command creates an AllSelection, whose DOM Range
-// extends to the very end of the editor DOM (.ProseMirror).  When the last
-// block is a <pre><code>…</code></pre>, WebKit paints the ::selection
-// background across the full width of the <pre> element's bottom padding,
-// producing a thick blue bar below the code.  By re-creating the selection as
-// a TextSelection (from doc start to the last text position inside the last
-// block), the DOM range stays within text nodes and the highlight renders
-// correctly.
-// ---------------------------------------------------------------------------
-const SelectAllText = Extension.create({
-  name: 'select-all-text',
-  addKeyboardShortcuts() {
-    return {
-      'Mod-a': ({ editor }) => {
-        const { state, view } = editor;
-        const { tr, doc, selection } = state;
-
-        // If the cursor is inside a code block, select only that code
-        // block's content instead of the entire document.
-        const { $from } = selection;
-        let codeBlockDepth = -1;
-        for (let d = $from.depth; d > 0; d--) {
-          if ($from.node(d).type.name === 'codeBlock') {
-            codeBlockDepth = d;
-            break;
-          }
-        }
-
-        if (codeBlockDepth >= 0) {
-          const codeBlockNode = $from.node(codeBlockDepth);
-          const start = $from.start(codeBlockDepth);
-          const end = start + codeBlockNode.content.size;
-          tr.setSelection(TextSelection.create(doc, start, end));
-          view.dispatch(tr);
-          return true;
-        }
-
-        // Walk the document to find the end position of the very last text
-        // node.  This keeps the DOM selection range inside text nodes,
-        // avoiding the AllSelection bug where WebKit paints a full-width
-        // ::selection bar across <pre> bottom padding.
-        let lastTextEnd = -1;
-        doc.descendants((node, pos) => {
-          if (node.isText) lastTextEnd = pos + node.nodeSize;
-          return true;
-        });
-
-        const end = lastTextEnd >= 0 ? lastTextEnd : doc.content.size;
-        tr.setSelection(TextSelection.create(doc, 0, end));
-        view.dispatch(tr);
-        return true;
-      },
-    };
-  },
-});
 
 export default function BlockEditor() {
   // Only subscribe to the fields this component actually renders, so that
@@ -153,42 +72,7 @@ export default function BlockEditor() {
   const editorRef = useRef<Editor | null>(null);
 
   // ------------------------------------------------------------------
-  // Image upload handler — saves to document's local assets folder
-  // ------------------------------------------------------------------
-  const uploadFile = useCallback(
-    async (file: File): Promise<string> => {
-      const activeDocId = useStore.getState().activeDocId;
-      return fileToDataUrl(file, activeDocId, 'image');
-    },
-    [],
-  );
-
-  // ------------------------------------------------------------------
-  // File attachment upload handler — for non-image files (drag & drop)
-  // ------------------------------------------------------------------
-  const uploadAttachment = useCallback(
-    async (file: File): Promise<Record<string, unknown>> => {
-      const activeDocId = useStore.getState().activeDocId;
-      const originalName = file.name || 'file';
-      const ext = originalName.split('.').pop()?.toLowerCase() || 'bin';
-      const mime = file.type || 'application/octet-stream';
-
-      const arrayBuffer = await file.arrayBuffer();
-      const bytes = Array.from(new Uint8Array(arrayBuffer));
-      const sizeBytes = bytes.length;
-      const storedName = genStoredName('file', ext);
-
-      const dataUrl = await bytesToDataUrl(bytes, mime, activeDocId, storedName);
-
-      return {
-        src: dataUrl,
-        fileName: originalName,
-        fileSize: sizeBytes,
-        fileType: mime,
-      };
-    },
-    [],
-  );
+  // Debounced content sync: editor → store
   // ------------------------------------------------------------------
   const handleChange = useCallback(({ editor }: { editor: Editor }) => {
     // Skip if this change was triggered by our own setContent
@@ -206,7 +90,7 @@ export default function BlockEditor() {
   }, []);
 
   // ------------------------------------------------------------------
-  // Create the TipTap editor instance (once)
+  // Focus the title input at end (used by BlockNavigation extension)
   // ------------------------------------------------------------------
   const focusTitleEnd = useCallback(() => {
     const el = titleInputRef.current;
@@ -257,95 +141,8 @@ export default function BlockEditor() {
       attributes: {
         class: 'max-w-none focus:outline-none',
       },
-      handlePaste: (view, event) => {
-        const items = event.clipboardData?.items;
-        if (!items) return false;
-
-        // 1. Browser clipboard has image → use it directly (standard path)
-        for (const item of Array.from(items)) {
-          if (item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (!file) continue;
-
-            event.preventDefault();
-            uploadFile(file).then((src) => {
-              editorRef.current
-                ?.chain()
-                .focus()
-                .setImage({ src, alt: '' })
-                .run();
-            });
-            return true;
-          }
-        }
-
-        // 2. Tauri WebView fallback: system-level image copies (screenshots,
-        //    Finder file copies) may NOT appear as image/* in clipboardData.
-        //    We probe the native clipboard via Tauri's clipboard-manager plugin.
-        //
-        //    To avoid interfering with normal text pastes, we split into two
-        //    sub-cases based on whether there is "spill" text we must suppress:
-        const hasFileItem = Array.from(items).some((i) => i.kind === 'file');
-        const plainText = event.clipboardData?.getData('text/plain') ?? '';
-        const htmlText = event.clipboardData?.getData('text/html') ?? '';
-
-        // Plain text paste (has text, no file item) → let it pass through,
-        // zero interference with normal typing.
-        if (!hasFileItem && (plainText || htmlText)) return false;
-
-        // Here: either a file-kind item is present (Finder copy / drag), or
-        // clipboardData is completely empty (pure screenshot to clipboard).
-        // In both cases we probe the native clipboard. preventDefault now in
-        // case there is spill text; if no image is found we restore the text.
-        event.preventDefault();
-        getClipboardImageAsFile().then((file) => {
-          const editor = editorRef.current;
-          if (!editor) return;
-
-          if (file) {
-            uploadFile(file).then((src) => {
-              editor.chain().focus().setImage({ src, alt: '' }).run();
-            });
-          } else if (htmlText) {
-            editor.chain().focus().insertContent(htmlText).run();
-          } else if (plainText) {
-            editor.chain().focus().insertContent(plainText).run();
-          }
-        });
-
-        return true;
-      },
-      handleDrop: (view, event) => {
-        const files = event.dataTransfer?.files;
-        if (!files || files.length === 0) return false;
-
-        for (const file of Array.from(files)) {
-          if (file.type.startsWith('image/')) {
-            event.preventDefault();
-            uploadFile(file).then((src) => {
-              editorRef.current
-                ?.chain()
-                .focus()
-                .setImage({ src, alt: '' })
-                .run();
-            });
-            return true;
-          }
-        }
-        // Non-image files → insert as file attachment blocks
-        for (const file of Array.from(files)) {
-          event.preventDefault();
-          // Upload file and insert as fileBlock
-          uploadAttachment(file).then((attrs) => {
-            editorRef.current
-              ?.chain()
-              .focus()
-              .setFile(attrs)
-              .run();
-          });
-        }
-        return true;
-      },
+      handlePaste: createPasteHandler(editorRef),
+      handleDrop: createDropHandler(editorRef),
     },
   });
 
@@ -483,6 +280,9 @@ export default function BlockEditor() {
         <div className="tiptap-editor-container min-h-[50vh]">
           <EditorContent editor={editor} />
         </div>
+
+        {/* Selection-triggered formatting toolbar (Bold/Italic/Strike/Code) */}
+        {editor && <FormatBubbleMenu editor={editor} />}
 
         {/* Table hover controls + context menu */}
         {editor && <TableControls editor={editor} />}

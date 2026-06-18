@@ -37,4 +37,5 @@ allow:
 - Shell(npm install:*)
 - Shell(cargo build:*)
 - Shell(git stash:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@tiptap/:*)
 deny: []

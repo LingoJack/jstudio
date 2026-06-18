@@ -1039,6 +1039,50 @@ button {
   font-size: 0.9em;
 }
 
+/* ─── BubbleMenu (selection formatting toolbar) ────────────────────────── */
+.bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--vscode-menu-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-menu-border, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  z-index: 100;
+}
+
+.bubble-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.bubble-menu-btn:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.bubble-menu-btn.is-active {
+  background: var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.2));
+  color: var(--vscode-list-activeSelectionForeground, var(--vscode-editor-foreground));
+}
+
+/* Dark theme refinements */
+.dark .bubble-menu {
+  border-color: var(--vscode-menu-border, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── End BubbleMenu ───────────────────────────────────────────────────── */
+
 /* 链接 */
 .ProseMirror a {
   color: var(--vscode-textLink-foreground);
