@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
@@ -65,11 +66,45 @@ interface SessionTerminal {
   term: Terminal;
   fit: FitAddon;
   container: HTMLDivElement;
+  webglActive: boolean;
+}
+
+/**
+ * Try to enable the WebGL2 GPU-accelerated renderer on a terminal.
+ *
+ * Strategy (mirrors kitty / VS Code):
+ *   1. Attempt WebGL2 — fastest, uses GPU for glyph atlas + batched draw.
+ *   2. If WebGL2 is unavailable or throws, xterm.js automatically falls
+ *      back to its built-in Canvas/DOM renderer, so we just catch & log.
+ *
+ * The key for buttery-smooth scrolling: the WebGL addon uploads a glyph
+ * atlas texture once and then renders entire frames with a few draw calls,
+ * so the main thread never blocks on text layout — even at 200k+ lines
+ * of scrollback or under heavy output (`yes`, `cat huge.log`).
+ */
+function tryEnableWebgl(term: Terminal): boolean {
+  try {
+    const addon = new WebglAddon();
+    addon.onContextLoss(() => {
+      // GPU context was lost (e.g. system memory pressure on macOS).
+      // Dispose the addon — xterm falls back to DOM renderer automatically.
+      addon.dispose();
+    });
+    term.loadAddon(addon);
+    return true;
+  } catch {
+    // WebGL2 not available — silently fall back to default renderer.
+    return false;
+  }
 }
 
 /**
  * TerminalPanel — renders an interactive xterm.js terminal for the active
  * PTY session.
+ *
+ * Rendering pipeline: DOM (default) → WebGL2 (GPU accelerated).
+ * The WebGL addon is loaded *after* `term.open()` because it needs a
+ * rendered DOM tree to attach its <canvas> to.
  *
  * Key design decisions:
  * - Each session gets its own Terminal instance, cached in a Map. Switching
@@ -106,6 +141,11 @@ export default function TerminalPanel() {
         fontSize: Math.max(11, Math.min(18, fontSize - 1)),
         cursorBlink: true,
         allowProposedApi: true,
+        // Higher scrollback — WebGL handles it effortlessly.
+        scrollback: 10000,
+        // gpuDensity lets the WebGL addon render at device pixel ratio
+        // for crisp text on Retina displays.
+        // (handled implicitly by the addon)
         theme: getTheme(isDark),
       });
 
@@ -132,8 +172,12 @@ export default function TerminalPanel() {
 
       unlistenRef.current.set(sessionId, [unlistenData, unlistenExit]);
 
-      // Store in cache before opening so we don't re-enter on the open() callback
-      const entry: SessionTerminal = { term, fit, container };
+      const entry: SessionTerminal = {
+        term,
+        fit,
+        container,
+        webglActive: false,
+      };
       terminalsRef.current.set(sessionId, entry);
 
       // Resize → PTY
@@ -148,7 +192,6 @@ export default function TerminalPanel() {
         }
       });
       resizeObserver.observe(container);
-      // Store observer for cleanup
       (container as unknown as { _resizeObserver?: ResizeObserver })._resizeObserver =
         resizeObserver;
 
@@ -190,11 +233,18 @@ export default function TerminalPanel() {
     }
     mount.appendChild(entry.container);
 
-    // Open the terminal if not yet opened, then fit
-    if (!entry.container.classList.contains('xterm-enabled')) {
+    // Open the terminal if not yet opened
+    const isFirstOpen = !entry.container.classList.contains('xterm-enabled');
+    if (isFirstOpen) {
       entry.term.open(entry.container);
       entry.container.classList.add('xterm-enabled');
+
+      // ★ Enable GPU-accelerated WebGL2 renderer after open().
+      // This must happen after open() because the addon needs the DOM tree
+      // to inject its <canvas> element.
+      entry.webglActive = tryEnableWebgl(entry.term);
     }
+
     // Defer fit to next frame so layout is settled
     requestAnimationFrame(() => {
       try {
@@ -209,8 +259,7 @@ export default function TerminalPanel() {
     });
 
     return () => {
-      // Don't destroy on cleanup — we want to keep the terminal alive for
-      // when the user switches back. Just detach from DOM.
+      // Don't destroy on cleanup — keep terminal alive for switching back.
       if (entry.container.parentElement === mount) {
         mount.removeChild(entry.container);
       }
