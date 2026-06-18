@@ -2,6 +2,7 @@ import { Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import type { ThemeMode } from '../../lib/storage';
+import { TERMINAL_THEMES } from '../../lib/terminalThemes';
 
 export default function AppearanceSection() {
   const { t } = useI18n();
@@ -9,6 +10,8 @@ export default function AppearanceSection() {
   const setThemeMode = useStore((s) => s.setThemeMode);
   const activityBarBorder = useStore((s) => s.activityBarBorder);
   const setActivityBarBorder = useStore((s) => s.setActivityBarBorder);
+  const terminalThemeId = useStore((s) => s.terminalThemeId);
+  const setTerminalThemeId = useStore((s) => s.setTerminalThemeId);
 
   const themeOptions: {
     value: ThemeMode;
@@ -93,6 +96,70 @@ export default function AppearanceSection() {
             }`}
           />
         </button>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* Terminal theme selector */}
+      <div>
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('appearance.terminalTheme')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-5">
+          {t('appearance.terminalThemeDesc')}
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          {TERMINAL_THEMES.map((th) => {
+            const selected = terminalThemeId === th.id;
+            return (
+              <button
+                key={th.id}
+                onClick={() => setTerminalThemeId(th.id)}
+                className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all duration-150 cursor-pointer text-left ${
+                  selected
+                    ? 'border-[var(--vscode-focusBorder)]'
+                    : 'border-transparent hover:border-[var(--vscode-widget-border)]'
+                }`}
+                style={{ background: th.ui.panelBg }}
+              >
+                {/* Mini terminal preview swatch */}
+                <div
+                  className="w-12 h-12 rounded-md shrink-0 flex items-center justify-center font-mono text-xs"
+                  style={{
+                    background: th.background,
+                    color: th.foreground,
+                    border: `1px solid ${th.ui.barBorder}`,
+                  }}
+                >
+                  <span style={{ color: th.green }}>$</span>
+                  <span style={{ color: th.cursor }} className="ml-0.5">_</span>
+                </div>
+                <div className="min-w-0">
+                  <div
+                    className="text-sm font-medium truncate"
+                    style={{ color: th.foreground }}
+                  >
+                    {t(`appearance.terminalTheme_${th.id}`)}
+                  </div>
+                  {/* Color row indicator */}
+                  <div className="flex gap-1 mt-1.5">
+                    {[th.red, th.green, th.yellow, th.blue, th.magenta, th.cyan].map(
+                      (c) => (
+                        <span
+                          key={c}
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ background: c }}
+                        />
+                      ),
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -95,6 +95,10 @@ export const translations = {
     'appearance.systemDesc': '自动匹配操作系统外观',
     'appearance.activityBarBorder': '图标边框',
     'appearance.activityBarBorderDesc': '为左侧导航栏的选中图标显示彩色边框',
+    'appearance.terminalTheme': '终端主题',
+    'appearance.terminalThemeDesc': '选择终端配色方案（对齐 kitty 主题）',
+    'appearance.terminalTheme_anthropic-dark': 'Anthropic Dark',
+    'appearance.terminalTheme_anthropic-light': 'Anthropic Light',
 
     // ── About section ──
     'about.contactAuthor': '联系作者',
@@ -230,6 +234,10 @@ export const translations = {
     'appearance.systemDesc': 'Automatically match the OS appearance',
     'appearance.activityBarBorder': 'Icon Border',
     'appearance.activityBarBorderDesc': 'Show a colored border on the selected sidebar icon',
+    'appearance.terminalTheme': 'Terminal Theme',
+    'appearance.terminalThemeDesc': 'Choose a terminal color scheme (matches kitty themes)',
+    'appearance.terminalTheme_anthropic-dark': 'Anthropic Dark',
+    'appearance.terminalTheme_anthropic-light': 'Anthropic Light',
 
     // ── About section ──
     'about.contactAuthor': 'Contact Author',

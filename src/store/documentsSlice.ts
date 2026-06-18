@@ -36,6 +36,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let sidebarWidth: number | undefined;
       let language: Language = 'zh';
       let activityBarBorder = false;
+      let terminalThemeId: string | undefined;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
@@ -58,6 +59,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.activityBarBorder === 'boolean') {
           activityBarBorder = settings.activityBarBorder;
+        }
+        if (typeof settings.terminalThemeId === 'string' && settings.terminalThemeId) {
+          terminalThemeId = settings.terminalThemeId;
         }
       } catch {
         // ignore
@@ -132,6 +136,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         cjkFontId,
         fontSize,
         ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
+        ...(terminalThemeId !== undefined ? { terminalThemeId } : {}),
         isLoading: false,
       });
     } catch (e) {

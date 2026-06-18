@@ -51,6 +51,7 @@ export interface StoreState {
   fontSize: number;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
+  terminalThemeId: string;
 
   // — terminal state (terminal slice) —
   sessions: TerminalSession[];
@@ -97,6 +98,7 @@ export interface StoreState {
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;
   setActiveSidebarView: (view: 'documents' | 'terminal') => void;
+  setTerminalThemeId: (id: string) => void;
 
   // — terminal ops (terminal slice) —
   createSession: () => Promise<void>;

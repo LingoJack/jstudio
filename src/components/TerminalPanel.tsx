@@ -5,202 +5,153 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
+import {
+  getTerminalTheme,
+  type TerminalTheme,
+} from '../lib/terminalThemes';
 import '@xterm/xterm/css/xterm.css';
-
-// ────────────────────────────────────────────────
-// Theme: Tokyo Night Moon (matches kitty config)
-// ────────────────────────────────────────────────
-
-/**
- * Tokyo Night Moon — lifted directly from kitty theme-anthropic-dark.conf.
- * Dark mode uses the real palette; light mode is a softened variant for
- * daytime use.
- */
-function getTheme(isDark: boolean) {
-  return isDark
-    ? {
-        background: '#222436',
-        foreground: '#c8d3f5',
-        cursor: '#00AAFF',
-        cursorAccent: '#222436',
-        selectionBackground: '#2d3f76',
-        selectionForeground: '#c8d3f5',
-        // ANSI normal (color0–color7)
-        black: '#1b1d2b',
-        red: '#ff757f',
-        green: '#c3e88d',
-        yellow: '#ffc777',
-        blue: '#82aaff',
-        magenta: '#c099ff',
-        cyan: '#86e1fc',
-        white: '#828bb8',
-        // ANSI bright (color8–color15)
-        brightBlack: '#444a73',
-        brightRed: '#ff757f',
-        brightGreen: '#c3e88d',
-        brightYellow: '#ffc777',
-        brightBlue: '#82aaff',
-        brightMagenta: '#c099ff',
-        brightCyan: '#86e1fc',
-        brightWhite: '#c8d3f5',
-        // Extended (color16–color17)
-        extended: ['#ff966c', '#c53b53'],
-      }
-    : {
-        background: '#e1e2e7',
-        foreground: '#373641',
-        cursor: '#00AAFF',
-        cursorAccent: '#e1e2e7',
-        selectionBackground: '#b6bfe2',
-        selectionForeground: '#373641',
-        black: '#e9e9ed',
-        red: '#f52a4e',
-        green: '#49ad2c',
-        yellow: '#b08800',
-        blue: '#3a64ea',
-        magenta: '#c41de0',
-        cyan: '#1c8ed0',
-        white: '#373641',
-        brightBlack: '#8b8d97',
-        brightRed: '#f52a4e',
-        brightGreen: '#49ad2c',
-        brightYellow: '#b08800',
-        brightBlue: '#3a64ea',
-        brightMagenta: '#c41de0',
-        brightCyan: '#1c8ed0',
-        brightWhite: '#4f505c',
-        extended: ['#ff966c', '#c53b53'],
-      };
-}
 
 // ────────────────────────────────────────────────
 // Cursor trail effect (kitty-style)
 // ────────────────────────────────────────────────
 
 /**
- * CursorTrail — mimics kitty's `cursor_trail` + `cursor_trail_decay` feature.
+ * CursorTrail — mimics kitty's `cursor_trail` + `cursor_trail_decay`.
  *
- * kitty draws a fading trail behind the cursor as it moves. We replicate this
- * with a transparent <canvas> overlay on top of xterm.js. On every cursor
- * position change (tracked via a poll loop on `term.buffer.active`), we
- * "stamp" the cursor cell onto a trail buffer. Each frame, the trail cells
- * decay toward zero opacity (decay 0.1 → slow fade, matching kitty config).
+ * kitty draws a fading trail behind the cursor as it moves.  We replicate
+ * this with a transparent <canvas> layered *inside* the xterm screen
+ * container (positioned over `.xterm-rows`).
  *
- * kitty params from the config:
- *   cursor_trail 3            → trail length ~3 cells worth of persistence
- *   cursor_trail_decay 0.1 0.4 → decay range (start_fast, end_slow)
+ * ── Why the previous version didn't work ──
+ * The old code measured `term.dimensions?.css.cell` which is unreliable
+ * in the beta, and placed the canvas at the container origin — but xterm
+ * adds its own padding / scrollbar, so the canvas grid never aligned with
+ * the actual character cells.
+ *
+ * ── Fix ──
+ * We query `.xterm-rows` via getBoundingClientRect() every frame to get
+ * the *real* pixel position of the character grid, then compute cell size
+ * as `rowsRect.width / term.cols`.  The canvas is positioned to exactly
+ * cover `.xterm-rows`, so canvas pixel (0,0) === top-left of the first
+ * character cell.  This guarantees perfect alignment.
+ *
+ * kitty params:  cursor_trail 3, cursor_trail_decay 0.1 0.4
  */
 class CursorTrail {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private term: Terminal;
+  private container: HTMLElement;
   private color: string;
-  private trailCells: Map<string, number> = new Map(); // "x,y" → opacity [0..1]
-  private lastCursorX = -1;
-  private lastCursorY = -1;
+  private trail = new Map<string, number>(); // "x,y" → opacity
+  private lastX = -1;
+  private lastY = -1;
   private rafId: number | null = null;
   private running = false;
+  private cellW = 8;
+  private cellH = 16;
+  private gridLeft = 0;
+  private gridTop = 0;
 
   constructor(term: Terminal, container: HTMLElement, color: string) {
     this.term = term;
+    this.container = container;
     this.color = color;
 
     this.canvas = document.createElement('canvas');
-    this.canvas.style.position = 'absolute';
-    this.canvas.style.top = '0';
-    this.canvas.style.left = '0';
-    this.canvas.style.width = '100%';
-    this.canvas.style.height = '100%';
-    this.canvas.style.pointerEvents = 'none';
-    this.canvas.style.zIndex = '10';
+    Object.assign(this.canvas.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none',
+      zIndex: '5',
+    } as CSSStyleDeclaration);
     container.appendChild(this.canvas);
-
     this.ctx = this.canvas.getContext('2d')!;
   }
 
-  /** Start the animation loop. */
   start() {
     if (this.running) return;
     this.running = true;
     this.loop();
   }
 
-  /** Stop and clean up. */
   dispose() {
     this.running = false;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     this.canvas.remove();
   }
 
-  /** Update the trail color (e.g. on theme switch). */
   setColor(color: string) {
     this.color = color;
   }
 
-  /** Resize the canvas to match the terminal dimensions. */
+  /** Recalculate canvas size + cell metrics (call on resize). */
   resize() {
-    const rect = this.canvas.parentElement!.getBoundingClientRect();
+    const rect = this.container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
+    this.canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  /** Measure the actual character grid from the rendered DOM. */
+  private measureGrid() {
+    const rowsEl = this.container.querySelector('.xterm-rows') as HTMLElement | null;
+    const screenEl = this.container.querySelector('.xterm-screen') as HTMLElement | null;
+    if (!rowsEl || !screenEl) return;
+
+    const rowsRect = rowsEl.getBoundingClientRect();
+    const screenRect = screenEl.getBoundingClientRect();
+
+    this.cellW = rowsRect.width / Math.max(1, this.term.cols);
+    this.cellH = this.term.dimensions?.css.cell.height || rowsRect.height / Math.max(1, this.term.rows);
+    // Offset of the rows grid relative to our canvas container.
+    this.gridLeft = rowsRect.left - screenRect.left;
+    this.gridTop = rowsRect.top - screenRect.top;
   }
 
   private loop = () => {
     if (!this.running) return;
 
-    const cellWidth = this.term.element!.querySelector('.xterm-rows') as HTMLElement;
-    if (!cellWidth) {
-      this.rafId = requestAnimationFrame(this.loop);
-      return;
-    }
+    this.measureGrid();
 
-    // Get current cell dimensions from the rendered rows.
-    const cellW = this.term.dimensions?.css.cell.width ?? 8;
-    const cellH = this.term.dimensions?.css.cell.height ?? 16;
-
-    // Check if cursor moved.
     const buf = this.term.buffer.active;
     const cx = buf.cursorX;
     const cy = buf.baseY + buf.cursorY;
 
-    if (cx !== this.lastCursorX || cy !== this.lastCursorY) {
-      // Cursor jumped — stamp the new position with full opacity, and leave
-      // the old position to begin decaying.
-      const key = `${cx},${cy}`;
-      this.trailCells.set(key, 1.0);
-      this.lastCursorX = cx;
-      this.lastCursorY = cy;
+    // Stamp new position when cursor moves.
+    if (cx !== this.lastX || cy !== this.lastY) {
+      this.trail.set(`${cx},${cy}`, 1.0);
+      this.lastX = cx;
+      this.lastY = cy;
     }
 
-    // Decay all trail cells and draw them.
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    const toDelete: string[] = [];
+    // Clear + redraw all trail cells with decay.
+    const dpr = window.devicePixelRatio || 1;
+    this.ctx.clearRect(0, 0, this.canvas.width / dpr, this.canvas.height / dpr);
 
-    for (const [key, opacity] of this.trailCells) {
-      if (opacity <= 0.01) {
+    const toDelete: string[] = [];
+    for (const [key, opacity] of this.trail) {
+      if (opacity <= 0.02) {
         toDelete.push(key);
         continue;
       }
-      // Draw the trail cell as a subtle underline bar (matches underline cursor).
       const [x, y] = key.split(',').map(Number);
-      const px = x * cellW;
-      const py = y * cellH;
+      const px = this.gridLeft + x * this.cellW;
+      const py = this.gridTop + y * this.cellH;
 
-      this.ctx.globalAlpha = opacity * 0.5;
+      // Draw an underline-height bar at the bottom of the cell.
+      this.ctx.globalAlpha = opacity * 0.45;
       this.ctx.fillStyle = this.color;
-      // Draw a 2px underline-height bar at the bottom of the cell.
-      this.ctx.fillRect(px, py + cellH - 2, cellW, 2);
+      this.ctx.fillRect(px, py + this.cellH - 2.5, this.cellW, 2.5);
 
-      // Decay: kitty uses 0.1–0.4 range. We apply a frame-based decay
-      // that mirrors "fast at first, slower as it fades".
-      const newOpacity = opacity * 0.88; // ~0.1 per-frame decay at start
-      this.trailCells.set(key, newOpacity);
+      // Decay — kitty uses 0.1–0.4 range; 0.88/frame approximates this.
+      this.trail.set(key, opacity * 0.88);
     }
-
-    for (const key of toDelete) {
-      this.trailCells.delete(key);
-    }
+    for (const key of toDelete) this.trail.delete(key);
 
     this.rafId = requestAnimationFrame(this.loop);
   };
@@ -217,14 +168,7 @@ interface SessionTerminal {
   trail: CursorTrail | null;
 }
 
-// ────────────────────────────────────────────────
-// WebGL2 GPU-accelerated renderer
-// ────────────────────────────────────────────────
-
-/**
- * Try to enable the WebGL2 GPU-accelerated renderer.
- * Falls back to xterm's DOM renderer if unavailable.
- */
+/** Try WebGL2 GPU-accelerated renderer; fall back silently. */
 function tryEnableWebgl(term: Terminal): boolean {
   try {
     const addon = new WebglAddon();
@@ -243,7 +187,7 @@ function tryEnableWebgl(term: Terminal): boolean {
 export default function TerminalPanel() {
   const activeSessionId = useStore((s) => s.activeSessionId);
   const removeSessionState = useStore((s) => s.removeSessionState);
-  const isDark = useStore((s) => s.isDarkMode);
+  const terminalThemeId = useStore((s) => s.terminalThemeId);
   const fontFamily = useStore((s) => s.fontId);
   const fontSize = useStore((s) => s.fontSize);
 
@@ -251,13 +195,13 @@ export default function TerminalPanel() {
   const terminalsRef = useRef<Map<string, SessionTerminal>>(new Map());
   const unlistenRef = useRef<Map<string, UnlistenFn[]>>(new Map());
 
+  const theme = getTerminalTheme(terminalThemeId);
+
   // ── Setup a terminal for a given session ──────────────────────────
   const setupTerminal = useCallback(
-    (sessionId: string): SessionTerminal => {
+    (sessionId: string, theme: TerminalTheme): SessionTerminal => {
       const cached = terminalsRef.current.get(sessionId);
       if (cached) return cached;
-
-      const theme = getTheme(isDark);
 
       const container = document.createElement('div');
       container.style.position = 'relative';
@@ -267,21 +211,42 @@ export default function TerminalPanel() {
       const term = new Terminal({
         fontFamily: `'${fontFamily}', 'monaco', monospace`,
         fontSize: Math.max(12, Math.min(18, fontSize - 1)),
-        // ── kitty cursor settings ──
-        // cursor_shape underline → xterm cursorStyle: 'underline'
+        // kitty: cursor_shape underline
         cursorStyle: 'underline',
         cursorBlink: true,
         cursorWidth: 2,
-        // ── general ──
         allowProposedApi: true,
         scrollback: 10000,
-        theme,
+        theme: {
+          background: theme.background,
+          foreground: theme.foreground,
+          cursor: theme.cursor,
+          cursorAccent: theme.cursorAccent,
+          selectionBackground: theme.selectionBackground,
+          selectionForeground: theme.selectionForeground,
+          black: theme.black,
+          red: theme.red,
+          green: theme.green,
+          yellow: theme.yellow,
+          blue: theme.blue,
+          magenta: theme.magenta,
+          cyan: theme.cyan,
+          white: theme.white,
+          brightBlack: theme.brightBlack,
+          brightRed: theme.brightRed,
+          brightGreen: theme.brightGreen,
+          brightYellow: theme.brightYellow,
+          brightBlue: theme.brightBlue,
+          brightMagenta: theme.brightMagenta,
+          brightCyan: theme.brightCyan,
+          brightWhite: theme.brightWhite,
+        },
       });
 
       const fit = new FitAddon();
       term.loadAddon(fit);
 
-      // Keyboard input → PTY (xterm.js encodes as UTF-8 by default)
+      // Keyboard input → PTY
       term.onData((data) => {
         storage.ptyWrite(sessionId, data).catch(console.error);
       });
@@ -301,21 +266,14 @@ export default function TerminalPanel() {
 
       unlistenRef.current.set(sessionId, [unlistenData, unlistenExit]);
 
-      const entry: SessionTerminal = {
-        term,
-        fit,
-        container,
-        trail: null,
-      };
+      const entry: SessionTerminal = { term, fit, container, trail: null };
       terminalsRef.current.set(sessionId, entry);
 
-      // Resize → PTY + trail canvas resize
+      // Resize → PTY + trail canvas
       const resizeObserver = new ResizeObserver(() => {
         try {
           fit.fit();
-          storage
-            .ptyResize(sessionId, term.cols, term.rows)
-            .catch(console.error);
+          storage.ptyResize(sessionId, term.cols, term.rows).catch(console.error);
           entry.trail?.resize();
         } catch {
           // ignore
@@ -327,10 +285,10 @@ export default function TerminalPanel() {
 
       return entry;
     },
-    [fontFamily, fontSize, isDark, removeSessionState],
+    [fontFamily, fontSize, removeSessionState],
   );
 
-  // ── Destroy a terminal for a given session ────────────────────────
+  // ── Destroy a terminal ────────────────────────────────────────────
   const destroyTerminal = useCallback((sessionId: string) => {
     const entry = terminalsRef.current.get(sessionId);
     if (entry) {
@@ -343,9 +301,7 @@ export default function TerminalPanel() {
     }
     const unlistens = unlistenRef.current.get(sessionId);
     if (unlistens) {
-      unlistens.forEach((u) => {
-        u.then((fn) => fn()).catch(() => {});
-      });
+      unlistens.forEach((u) => u.then((fn) => fn()).catch(() => {}));
       unlistenRef.current.delete(sessionId);
     }
   }, []);
@@ -354,36 +310,29 @@ export default function TerminalPanel() {
   useEffect(() => {
     if (!activeSessionId || !mountRef.current) return;
 
-    const entry = setupTerminal(activeSessionId);
+    const entry = setupTerminal(activeSessionId, theme);
 
-    // Clear mount point, append the active container
     const mount = mountRef.current;
-    while (mount.firstChild) {
-      mount.removeChild(mount.firstChild);
-    }
+    while (mount.firstChild) mount.removeChild(mount.firstChild);
     mount.appendChild(entry.container);
 
-    // Open the terminal if not yet opened
     const isFirstOpen = !entry.container.classList.contains('xterm-enabled');
     if (isFirstOpen) {
       entry.term.open(entry.container);
       entry.container.classList.add('xterm-enabled');
 
-      // ★ Enable GPU-accelerated WebGL2 renderer
+      // GPU-accelerated renderer
       tryEnableWebgl(entry.term);
 
-      // ★ Enable kitty-style cursor trail animation
-      const theme = getTheme(isDark);
-      entry.trail = new CursorTrail(
-        entry.term,
-        entry.container,
-        theme.cursor as string,
-      );
-      entry.trail.resize();
-      entry.trail.start();
+      // ★ Kitty-style cursor trail
+      entry.trail = new CursorTrail(entry.term, entry.container, theme.cursor);
+      // Defer start until DOM is settled so measureGrid() can find .xterm-rows
+      requestAnimationFrame(() => {
+        entry.trail?.resize();
+        entry.trail?.start();
+      });
     }
 
-    // Defer fit to next frame so layout is settled
     requestAnimationFrame(() => {
       try {
         entry.fit.fit();
@@ -402,23 +351,44 @@ export default function TerminalPanel() {
         mount.removeChild(entry.container);
       }
     };
-  }, [activeSessionId, setupTerminal, isDark]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId]);
 
   // ── Cleanup on unmount ────────────────────────────────────────────
   useEffect(() => {
-    return () => {
-      terminalsRef.current.forEach((_, id) => destroyTerminal(id));
-    };
+    return () => terminalsRef.current.forEach((_, id) => destroyTerminal(id));
   }, [destroyTerminal]);
 
-  // ── Theme change → update all terminals ───────────────────────────
+  // ── Terminal theme change → live update ───────────────────────────
   useEffect(() => {
-    const theme = getTheme(isDark);
     terminalsRef.current.forEach(({ term, trail }) => {
-      term.options.theme = theme;
-      trail?.setColor(theme.cursor as string);
+      term.options.theme = {
+        background: theme.background,
+        foreground: theme.foreground,
+        cursor: theme.cursor,
+        cursorAccent: theme.cursorAccent,
+        selectionBackground: theme.selectionBackground,
+        selectionForeground: theme.selectionForeground,
+        black: theme.black,
+        red: theme.red,
+        green: theme.green,
+        yellow: theme.yellow,
+        blue: theme.blue,
+        magenta: theme.magenta,
+        cyan: theme.cyan,
+        white: theme.white,
+        brightBlack: theme.brightBlack,
+        brightRed: theme.brightRed,
+        brightGreen: theme.brightGreen,
+        brightYellow: theme.brightYellow,
+        brightBlue: theme.brightBlue,
+        brightMagenta: theme.brightMagenta,
+        brightCyan: theme.brightCyan,
+        brightWhite: theme.brightWhite,
+      };
+      trail?.setColor(theme.cursor);
     });
-  }, [isDark]);
+  }, [theme]);
 
   // ── Font change → update all terminals ────────────────────────────
   useEffect(() => {
@@ -438,23 +408,21 @@ export default function TerminalPanel() {
   });
 
   return (
-    <div className="w-full h-full flex flex-col" style={{ background: '#222436' }}>
-      {/* Terminal bar — active session indicator */}
+    <div
+      className="w-full h-full flex flex-col"
+      style={{ background: theme.ui.panelBg }}
+    >
       <div
         className="shrink-0 h-9 flex items-center px-3 border-b"
-        style={{
-          background: '#1e2030',
-          borderColor: '#2f334d',
-        }}
+        style={{ background: theme.ui.barBg, borderColor: theme.ui.barBorder }}
       >
         <span
           className="text-xs font-medium"
-          style={{ color: '#82aaff' }}
+          style={{ color: theme.ui.barFg }}
         >
           {activeSessionId ? `◆ ${activeSessionId}` : ''}
         </span>
       </div>
-      {/* Terminal mount point */}
       <div ref={mountRef} className="flex-1 min-h-0 overflow-hidden" />
     </div>
   );

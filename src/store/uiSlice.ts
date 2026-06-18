@@ -8,6 +8,7 @@ import {
   MAX_FONT_SIZE,
   resolveFontFamily,
 } from '../lib/fonts';
+import { DEFAULT_TERMINAL_THEME_ID } from '../lib/terminalThemes';
 
 /** Sidebar width constraints (px). */
 const MIN_SIDEBAR_WIDTH = 180;
@@ -64,6 +65,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   fontSize: DEFAULT_FONT_SIZE,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents',
+  terminalThemeId: DEFAULT_TERMINAL_THEME_ID,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -128,5 +130,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     );
     set({ sidebarWidth: clamped });
     storage.saveSettings({ sidebarWidth: clamped }).catch(console.error);
+  },
+
+  setTerminalThemeId: (id) => {
+    set({ terminalThemeId: id });
+    storage.saveSettings({ terminalThemeId: id }).catch(console.error);
   },
 });
