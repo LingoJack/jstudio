@@ -57,8 +57,8 @@ export default function App() {
               }}
               className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
                 !isSettingsOpen
-                  ? 'text-[var(--vscode-foreground)]'
-                  : 'text-[var(--vscode-activityBar-foreground)] opacity-50 hover:opacity-90'
+                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                  : 'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
               title="文档"
             >
@@ -72,8 +72,8 @@ export default function App() {
               onClick={() => setSettingsOpen(true)}
               className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
                 isSettingsOpen
-                  ? 'text-[var(--vscode-foreground)]'
-                  : 'text-[var(--vscode-activityBar-foreground)] opacity-50 hover:opacity-90'
+                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                  : 'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
               title="设置"
             >
