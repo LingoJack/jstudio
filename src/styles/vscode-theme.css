@@ -1091,13 +1091,21 @@ button {
   padding: 0;
 }
 
-/* ---- 语言徽章 (top-right, floating) ---- */
+/* ---- 顶部工具条 (copy + language badge, top-right) ---- */
 
-.code-block-wrapper .code-lang-badge {
+.code-block-wrapper .code-toolbar {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ---- 语言徽章 ---- */
+
+.code-block-wrapper .code-lang-badge {
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
@@ -1236,13 +1244,9 @@ button {
   text-align: center;
 }
 
-/* ---- 复制按钮 (below language badge, hover-only) ---- */
+/* ---- 复制按钮 (in toolbar, hover-only) ---- */
 
 .code-block-wrapper .code-copy-btn {
-  position: absolute;
-  top: 34px; /* sits right below the language badge */
-  right: 8px;
-  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;

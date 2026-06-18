@@ -3,15 +3,12 @@
  *
  * Layout:
  *   ┌──────────────────────────────┐
- *   │                  [lang ▾]    │  ← language selector (top-right, floating)
- *   │  const x = 1;                │
- *   │  console.log(x);             │
- *   │                      [copy]  │  ← copy icon (below lang, hover-only)
+ *   │  const x = 1;       [copy][lang ▾]  │  ← top-right toolbar (copy + language)
+ *   │  console.log(x);                │
  *   └──────────────────────────────┘
  *
- * Both the language selector and the copy button float as absolutely
- * positioned overlays on the code body. The copy button sits directly
- * below the language badge and only appears on hover.
+ * The copy button and language selector share a single top-right toolbar
+ * so the copy icon never overflows below a one-line code block.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -68,6 +65,9 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const language = (node.attrs?.language as string | undefined) || '';
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
+
+  // Whether the code block has non-empty content (controls copy-button visibility)
+  const hasContent = node.textContent.trim().length > 0;
 
   // ---- Language dropdown state ----
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -194,17 +194,29 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
   return (
     <NodeViewWrapper as="div" className="code-block-wrapper">
-      {/* Language selector — floats in the top-right corner of the code body */}
-      <div
-        ref={badgeRef}
-        className="code-lang-badge"
-        contentEditable={false}
-        onClick={toggleDropdown}
-        role="button"
-        tabIndex={0}
-      >
-        <span className="code-lang-label">{getLanguageLabel(language)}</span>
-        <ChevronDown size={12} className="code-lang-chevron" />
+      {/* Top-right toolbar: copy button (hover-only) + language selector */}
+      <div className="code-toolbar" contentEditable={false}>
+        {hasContent && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="code-copy-btn"
+            title="复制代码"
+            aria-label="Copy code"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        )}
+        <div
+          ref={badgeRef}
+          className="code-lang-badge"
+          onClick={toggleDropdown}
+          role="button"
+          tabIndex={0}
+        >
+          <span className="code-lang-label">{getLanguageLabel(language)}</span>
+          <ChevronDown size={12} className="code-lang-chevron" />
+        </div>
       </div>
 
       {/* Custom dropdown panel */}
@@ -259,18 +271,6 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
           </div>
         </div>
       )}
-
-      {/* Copy button — floats below the language badge, appears on hover */}
-      <button
-        type="button"
-        onClick={handleCopy}
-        contentEditable={false}
-        className="code-copy-btn"
-        title="复制代码"
-        aria-label="Copy code"
-      >
-        {copied ? <Check size={14} /> : <Copy size={14} />}
-      </button>
 
       {/* Code content — highlighted by lowlight */}
       <pre ref={codeRef} className="code-block-body">
