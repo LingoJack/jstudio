@@ -392,11 +392,31 @@ export default function BlockEditor() {
     }
   };
 
+  // ------------------------------------------------------------------
+  // Click on blank area below editor content — focus end of document
+  // ------------------------------------------------------------------
+  const handleBlankAreaClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!editor) return;
+      const target = e.target as HTMLElement;
+      // Skip if clicking inside ProseMirror (editor handles its own clicks)
+      if (target.closest('.ProseMirror')) return;
+      // Skip if clicking the title input
+      if (target.tagName === 'INPUT') return;
+      // Focus to end of document (works even if last block is an empty paragraph)
+      editor.chain().focus('end').run();
+    },
+    [editor],
+  );
+
   if (!hasActiveDoc) return null;
 
   return (
     <div className="flex flex-col h-full bg-transparent overflow-hidden">
-      <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text">
+      <div
+        className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+        onClick={handleBlankAreaClick}
+      >
         {/* Document Title */}
         <div className="pb-4">
           <input
