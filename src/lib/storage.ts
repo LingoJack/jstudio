@@ -52,6 +52,14 @@ export interface AssetInfo {
 }
 
 /**
+ * Lightweight terminal session info returned by the Rust PTY backend.
+ */
+export interface TerminalSessionInfo {
+  id: string;
+  title: string;
+}
+
+/**
  * Convert a full Document to its lightweight metadata form.
  */
 export function toMeta(doc: Document): DocumentMeta {
@@ -127,4 +135,29 @@ export const storage = {
   loadSettings: () => invoke<AppSettings>('read_settings'),
   saveSettings: (settings: AppSettings) =>
     invoke<void>('write_settings', { settings }),
+
+  // ---- terminal (PTY) ----
+
+  /** Spawn a new PTY shell session. Returns session id + default title. */
+  ptyCreate: (opts: { cwd?: string; cols: number; rows: number }) =>
+    invoke<TerminalSessionInfo>('pty_create', { params: opts }),
+
+  /** Write user input to the PTY (keyboard → shell). */
+  ptyWrite: (sessionId: string, data: string) =>
+    invoke<void>('pty_write', { sessionId, data }),
+
+  /** Resize the PTY to match the terminal panel dimensions. */
+  ptyResize: (sessionId: string, cols: number, rows: number) =>
+    invoke<void>('pty_resize', { sessionId, cols, rows }),
+
+  /** Kill a session and remove it from the registry. */
+  ptyKill: (sessionId: string) =>
+    invoke<void>('pty_kill', { sessionId }),
+
+  /** Return all active sessions (id + title). */
+  ptyList: () => invoke<TerminalSessionInfo[]>('pty_list'),
+
+  /** Rename a session. */
+  ptySetTitle: (sessionId: string, title: string) =>
+    invoke<void>('pty_set_title', { sessionId, title }),
 };

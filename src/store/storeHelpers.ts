@@ -1,5 +1,6 @@
 import type { Document, Block, BlockType, RichText } from '../types';
 import type { DocumentMeta, ThemeMode, Language } from '../lib/storage';
+import type { TerminalSession } from './terminalSlice';
 import { storage } from '../lib/storage';
 
 /**
@@ -49,6 +50,11 @@ export interface StoreState {
   cjkFontId: string;
   fontSize: number;
   sidebarWidth: number;
+  activeSidebarView: 'documents' | 'terminal';
+
+  // — terminal state (terminal slice) —
+  sessions: TerminalSession[];
+  activeSessionId: string | null;
 
   // — init (documents slice) —
   init: () => Promise<void>;
@@ -90,6 +96,14 @@ export interface StoreState {
   setSidebarWidth: (width: number) => void;
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;
+  setActiveSidebarView: (view: 'documents' | 'terminal') => void;
+
+  // — terminal ops (terminal slice) —
+  createSession: () => Promise<void>;
+  closeSession: (id: string) => Promise<void>;
+  renameSession: (id: string, title: string) => void;
+  setActiveSession: (id: string) => void;
+  removeSessionState: (id: string) => void;
 }
 
 /**

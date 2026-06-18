@@ -1,0 +1,220 @@
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::io::Read;
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter};
+
+// ────────────────────────────────────────────────
+// Session state
+// ────────────────────────────────────────────────
+
+/// A live PTY session.
+/// - `writer`: obtained via `master.take_writer()` — writes here go to the shell.
+/// - `master`: kept alive for resize calls (`resize` takes `&self`).
+/// - `child`:  the spawned shell process (for kill / wait).
+struct PtySession {
+    id: String,
+    title: String,
+    writer: Box<dyn std::io::Write + Send>,
+    master: Box<dyn MasterPty + Send>,
+    child: Box<dyn portable_pty::Child + Send + Sync>,
+}
+
+/// Lightweight info returned to the frontend.
+#[derive(Serialize, Clone)]
+pub struct SessionInfo {
+    id: String,
+    title: String,
+}
+
+/// Payload emitted with the `pty-data-{id}` event.
+#[derive(Serialize, Clone)]
+struct PtyDataPayload {
+    data: String,
+}
+
+/// Parameters for `pty_create`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateParams {
+    cwd: Option<String>,
+    cols: u16,
+    rows: u16,
+}
+
+// Global session registry, keyed by session id.
+static SESSIONS: std::sync::LazyLock<Mutex<HashMap<String, PtySession>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+// ────────────────────────────────────────────────
+// Commands
+// ────────────────────────────────────────────────
+
+/// Spawn a new PTY shell session.
+///
+/// Returns the session id. A background thread continuously reads shell
+/// output and emits `pty-data-{id}` events; when the shell exits, a
+/// `pty-exit-{id}` event is emitted.
+#[tauri::command]
+pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, String> {
+    let pty_system = native_pty_system();
+
+    let pair = pty_system
+        .openpty(PtySize {
+            rows: params.rows,
+            cols: params.cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| e.to_string())?;
+
+    // Determine shell.
+    #[cfg(target_os = "windows")]
+    let cmd = CommandBuilder::new("cmd.exe");
+    #[cfg(not(target_os = "windows"))]
+    let cmd = {
+        if let Ok(shell) = std::env::var("SHELL") {
+            CommandBuilder::new(&shell)
+        } else {
+            CommandBuilder::new("/bin/sh")
+        }
+    };
+
+    // Set working directory.
+    let mut cmd = cmd;
+    if let Some(cwd) = &params.cwd {
+        cmd.cwd(cwd);
+    }
+
+    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+
+    let session_id = format!(
+        "term-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0)
+    );
+
+    // Drop slave — the child holds an fd to it.
+    drop(pair.slave);
+
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let title = "Terminal".to_string();
+
+    let info = SessionInfo {
+        id: session_id.clone(),
+        title: title.clone(),
+    };
+
+    // Spawn reader thread — forwards shell output to the frontend.
+    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+
+    let sid = session_id.clone();
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 4096];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) => break, // EOF — shell exited
+                Ok(n) => {
+                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let _ = app_clone.emit(&format!("pty-data-{sid}"), PtyDataPayload { data });
+                }
+                Err(_) => break,
+            }
+        }
+        // Notify frontend that the session has ended.
+        let _ = app_clone.emit(&format!("pty-exit-{sid}"), ());
+    });
+
+    // Keep the master alive (needed for resize).
+    let master = pair.master;
+
+    // Store the session.
+    {
+        let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+        sessions.insert(
+            session_id.clone(),
+            PtySession {
+                id: session_id,
+                title,
+                writer,
+                master,
+                child,
+            },
+        );
+    }
+
+    Ok(info)
+}
+
+/// Write user input to the PTY (keyboard → shell).
+#[tauri::command]
+pub fn pty_write(session_id: String, data: String) -> Result<(), String> {
+    let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(&session_id)
+        .ok_or_else(|| format!("session not found: {session_id}"))?;
+    session
+        .writer
+        .write_all(data.as_bytes())
+        .map_err(|e| e.to_string())?;
+    session.writer.flush().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Resize the PTY (e.g. when the terminal panel is resized).
+#[tauri::command]
+pub fn pty_resize(session_id: String, cols: u16, rows: u16) -> Result<(), String> {
+    let sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get(&session_id)
+        .ok_or_else(|| format!("session not found: {session_id}"))?;
+    session
+        .master
+        .resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Kill a session and remove it from the registry.
+#[tauri::command]
+pub fn pty_kill(session_id: String) -> Result<(), String> {
+    let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    if let Some(mut session) = sessions.remove(&session_id) {
+        let _ = session.child.kill();
+        let _ = session.child.wait();
+    }
+    Ok(())
+}
+
+/// Return a list of all active sessions (id + title).
+#[tauri::command]
+pub fn pty_list() -> Result<Vec<SessionInfo>, String> {
+    let sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    Ok(sessions
+        .values()
+        .map(|s| SessionInfo {
+            id: s.id.clone(),
+            title: s.title.clone(),
+        })
+        .collect())
+}
+
+/// Rename a session.
+#[tauri::command]
+pub fn pty_set_title(session_id: String, title: String) -> Result<(), String> {
+    let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(&session_id)
+        .ok_or_else(|| format!("session not found: {session_id}"))?;
+    session.title = title;
+    Ok(())
+}

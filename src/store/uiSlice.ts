@@ -45,6 +45,9 @@ export function applyFont(fontId: string, cjkFontId: string, fontSize: number) {
   root.style.setProperty('--jstudio-font-size', `${clamped}px`);
 }
 
+/** Which sidebar panel is currently active. */
+export type SidebarView = 'documents' | 'terminal';
+
 /** UI slice — panel visibility, theme, font, and loading state. */
 export const createUiSlice: SliceCreator = (set, get) => ({
   themeMode: 'dark',
@@ -60,6 +63,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   cjkFontId: DEFAULT_CJK_FONT_ID,
   fontSize: DEFAULT_FONT_SIZE,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
+  activeSidebarView: 'documents',
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -83,6 +87,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
   setSearchQuery: (q) => set({ searchQuery: q }),
+  setActiveSidebarView: (view) => set({ activeSidebarView: view }),
 
   setLanguage: (lang: Language) => {
     set({ language: lang });

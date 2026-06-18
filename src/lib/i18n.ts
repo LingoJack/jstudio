@@ -24,6 +24,7 @@ export const translations = {
     // ── App / Activity Bar ──
     'app.documents': '文档',
     'app.settings': '设置',
+    'app.terminal': '终端',
 
     // ── SearchBar ──
     'search.placeholder': '搜索文档...',
@@ -42,6 +43,16 @@ export const translations = {
     'doclist.copyPath': '复制路径',
     'doclist.copyRelativePath': '复制相对路径',
     'doclist.copied': '已复制到剪贴板',
+
+    // ── Terminal ──
+    'terminal.sessions': '终端会话',
+    'terminal.newSession': '新建终端',
+    'terminal.empty': '没有活跃的终端会话',
+    'terminal.close': '关闭终端',
+    'terminal.rename': '重命名',
+    'terminal.untitled': '终端',
+    'terminal.renamePlaceholder': '输入终端名称',
+    'terminal.clickToCreate': '点击 + 创建一个新终端',
 
     // ── DocumentOutline ──
     'outline.title': '大纲',
@@ -148,6 +159,7 @@ export const translations = {
     // ── App / Activity Bar ──
     'app.documents': 'Documents',
     'app.settings': 'Settings',
+    'app.terminal': 'Terminal',
 
     // ── SearchBar ──
     'search.placeholder': 'Search documents...',
@@ -166,6 +178,16 @@ export const translations = {
     'doclist.copyPath': 'Copy Path',
     'doclist.copyRelativePath': 'Copy Relative Path',
     'doclist.copied': 'Copied to clipboard',
+
+    // ── Terminal ──
+    'terminal.sessions': 'Terminal Sessions',
+    'terminal.newSession': 'New Terminal',
+    'terminal.empty': 'No active terminal sessions',
+    'terminal.close': 'Close Terminal',
+    'terminal.rename': 'Rename',
+    'terminal.untitled': 'Terminal',
+    'terminal.renamePlaceholder': 'Enter terminal name',
+    'terminal.clickToCreate': 'Click + to create a new terminal',
 
     // ── DocumentOutline ──
     'outline.title': 'Outline',

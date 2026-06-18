@@ -26,6 +26,13 @@ pub fn run() {
             commands::storage::get_doc_path,
             commands::storage::set_preview_data,
             commands::storage::get_preview_data,
+            // ── terminal (PTY) ──
+            commands::terminal::pty_create,
+            commands::terminal::pty_write,
+            commands::terminal::pty_resize,
+            commands::terminal::pty_kill,
+            commands::terminal::pty_list,
+            commands::terminal::pty_set_title,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");
