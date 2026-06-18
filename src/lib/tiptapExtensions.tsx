@@ -177,14 +177,26 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
     );
 
     // --- Scroll active item into view on navigation ---
-    // When the user navigates with arrow keys (or hovers), the highlighted
-    // item must stay visible inside the scrollable list container.
+    // Manually scroll the menu container only (NOT scrollIntoView, which
+    // would also scroll outer editor containers and cause the tippy popup
+    // to jump/reposition).
     const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const containerRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
+      const container = containerRef.current;
       const el = itemRefs.current[activeIndex];
-      if (el) {
-        el.scrollIntoView({ block: 'nearest' });
+      if (!container || !el) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+
+      if (elRect.top < containerRect.top) {
+        // Item is above visible area — scroll up
+        container.scrollTop -= containerRect.top - elRect.top;
+      } else if (elRect.bottom > containerRect.bottom) {
+        // Item is below visible area — scroll down
+        container.scrollTop += elRect.bottom - containerRect.bottom;
       }
     }, [activeIndex]);
 
@@ -232,6 +244,7 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
 
     return (
       <div
+        ref={containerRef}
         className="min-w-[220px] max-h-[280px] overflow-y-auto rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-1 shadow-lg"
         role="listbox"
         aria-label="Slash commands"
