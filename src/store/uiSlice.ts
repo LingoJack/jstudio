@@ -50,6 +50,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   themeMode: 'dark',
   isDarkMode: true,
   isSidebarOpen: true,
+  isOutlineOpen: false,
   isSettingsOpen: false,
   isLoading: true,
   searchQuery: '',
