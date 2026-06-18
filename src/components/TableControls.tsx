@@ -18,10 +18,11 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import {
   Trash2,
+  Rows3,
+  Columns3,
   AlignLeft,
   AlignCenter,
   AlignRight,
-  ChevronDown,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -159,7 +160,7 @@ export default function TableControls({ editor }: TableControlsProps) {
     >
       {/* Row dropdown */}
       <Dropdown
-        label="行"
+        icon={<Rows3 className="h-4 w-4" />}
         isOpen={open === 'row'}
         onHover={() => setOpen('row')}
       >
@@ -171,7 +172,7 @@ export default function TableControls({ editor }: TableControlsProps) {
 
       {/* Column dropdown */}
       <Dropdown
-        label="列"
+        icon={<Columns3 className="h-4 w-4" />}
         isOpen={open === 'column'}
         onHover={() => setOpen('column')}
       >
@@ -183,7 +184,7 @@ export default function TableControls({ editor }: TableControlsProps) {
 
       {/* Align dropdown */}
       <Dropdown
-        label="对齐"
+        icon={<AlignLeft className="h-4 w-4" />}
         isOpen={open === 'align'}
         onHover={() => setOpen('align')}
       >
@@ -228,29 +229,27 @@ export default function TableControls({ editor }: TableControlsProps) {
 // ---------------------------------------------------------------------------
 
 interface DropdownProps {
-  label: string;
+  icon: React.ReactNode;
   isOpen: boolean;
   onHover: () => void;
   children: React.ReactNode;
 }
 
-function Dropdown({ label, isOpen, onHover, children }: DropdownProps) {
+function Dropdown({ icon, isOpen, onHover, children }: DropdownProps) {
   return (
     <div className="relative flex items-center">
       <button
         type="button"
         onMouseEnter={onHover}
-        className="flex h-7 items-center gap-1 rounded px-2 text-[0.78rem] text-[var(--vscode-editor-foreground)] transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+        className="flex h-7 w-7 items-center justify-center rounded text-[var(--vscode-editor-foreground)] transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
       >
-        {label}
-        <ChevronDown className="h-3 w-3 opacity-60" />
+        {icon}
       </button>
 
       {/* Dropdown panel */}
       {isOpen && (
         <div
           className="absolute right-0 top-full z-[101] mt-1 min-w-[130px] rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] py-1 shadow-xl"
-          // Keep open when hovering the panel itself
           onMouseEnter={onHover}
         >
           {children}
