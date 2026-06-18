@@ -25,4 +25,5 @@ allow:
 - Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/src-tauri/gen/:*)
 - Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/src/store:*)
 - Shell(cd /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
+- Shell(wc -l:*)
 deny: []

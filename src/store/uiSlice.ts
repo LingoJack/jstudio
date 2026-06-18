@@ -30,10 +30,13 @@ function applyDark(isDark: boolean) {
  * <html>.  vscode-theme.css reads --jstudio-font-family /
  * --jstudio-font-size on `body` and `.ProseMirror`.
  */
-export function applyFont(fontId: string, fontSize: number) {
+export function applyFont(fontId: string, cjkFontId: string, fontSize: number) {
   const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, fontSize));
   const root = document.documentElement;
-  root.style.setProperty('--jstudio-font-family', resolveFontFamily(fontId));
+  root.style.setProperty(
+    '--jstudio-font-family',
+    resolveFontFamily(fontId, cjkFontId),
+  );
   root.style.setProperty('--jstudio-font-size', `${clamped}px`);
 }
 
@@ -45,7 +48,8 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   isSettingsOpen: false,
   isLoading: true,
   searchQuery: '',
-  fontId: DEFAULT_FONT_ID,
+  fontId: DEFAULT_LATIN_FONT_ID,
+  cjkFontId: DEFAULT_CJK_FONT_ID,
   fontSize: DEFAULT_FONT_SIZE,
 
   setThemeMode: (mode) => {
@@ -70,14 +74,23 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setSearchQuery: (q) => set({ searchQuery: q }),
 
   setFontId: (id) => {
-    applyFont(id, get().fontSize);
+    const s = get();
+    applyFont(id, s.cjkFontId, s.fontSize);
     set({ fontId: id });
     storage.saveSettings({ fontId: id }).catch(console.error);
   },
 
+  setCjkFontId: (id) => {
+    const s = get();
+    applyFont(s.fontId, id, s.fontSize);
+    set({ cjkFontId: id });
+    storage.saveSettings({ cjkFontId: id }).catch(console.error);
+  },
+
   setFontSize: (size) => {
     const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, size));
-    applyFont(get().fontId, clamped);
+    const s = get();
+    applyFont(s.fontId, s.cjkFontId, clamped);
     set({ fontSize: clamped });
     storage.saveSettings({ fontSize: clamped }).catch(console.error);
   },

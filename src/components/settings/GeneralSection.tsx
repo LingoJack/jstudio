@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { FolderOpen, Folder, Loader2, AlertCircle, Type, Minus, Plus } from 'lucide-react';
+import { FolderOpen, Folder, Loader2, AlertCircle, Minus, Plus } from 'lucide-react';
 import { storage } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
 import {
-  FONT_PRESETS,
+  LATIN_FONTS,
+  CJK_FONTS,
+  resolveFontFamily,
   MIN_FONT_SIZE,
   MAX_FONT_SIZE,
 } from '../../lib/fonts';
+import FontDropdown from '../ui/FontDropdown';
 
 export default function GeneralSection() {
   const [dataPath, setDataPath] = useState<string | null>(null);
@@ -15,8 +18,10 @@ export default function GeneralSection() {
 
   // Font settings from store
   const fontId = useStore((s) => s.fontId);
+  const cjkFontId = useStore((s) => s.cjkFontId);
   const fontSize = useStore((s) => s.fontSize);
   const setFontId = useStore((s) => s.setFontId);
+  const setCjkFontId = useStore((s) => s.setCjkFontId);
   const setFontSize = useStore((s) => s.setFontSize);
 
   useEffect(() => {
@@ -39,36 +44,41 @@ export default function GeneralSection() {
     }
   };
 
+  // Combined preview font-family for the preview box
+  const previewFontFamily = resolveFontFamily(fontId, cjkFontId);
+
   return (
     <div className="space-y-6">
-      {/* ---- 字体设置 ---- */}
+      {/* ---- 英文字体 ---- */}
       <div>
         <label className="block text-xs font-medium text-[var(--vscode-foreground)] mb-1">
-          字体
+          英文字体
         </label>
         <p className="text-[11px] text-[var(--vscode-descriptionForeground)] mb-3">
-          编辑器和界面的英文字体，中文始终使用苹方 (PingFang SC)
+          编辑器和界面的拉丁字母字体
         </p>
+        <FontDropdown
+          options={LATIN_FONTS}
+          value={fontId}
+          onChange={setFontId}
+          searchPlaceholder="搜索英文字体…"
+        />
+      </div>
 
-        <div className="relative">
-          <select
-            value={fontId}
-            onChange={(e) => setFontId(e.target.value)}
-            className="w-full appearance-none px-3 py-2.5 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-xs text-[var(--vscode-foreground)] cursor-pointer hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 focus:outline-none focus:border-[var(--vscode-focusBorder)]"
-            style={{
-              fontFamily:
-                FONT_PRESETS.find((f) => f.id === fontId)?.fontFamily ??
-                undefined,
-            }}
-          >
-            {FONT_PRESETS.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
-          <Type className="w-3.5 h-3.5 text-[var(--vscode-descriptionForeground)] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
+      {/* ---- 中文字体 ---- */}
+      <div>
+        <label className="block text-xs font-medium text-[var(--vscode-foreground)] mb-1">
+          中文字体
+        </label>
+        <p className="text-[11px] text-[var(--vscode-descriptionForeground)] mb-3">
+          编辑器和界面的中文字体
+        </p>
+        <FontDropdown
+          options={CJK_FONTS}
+          value={cjkFontId}
+          onChange={setCjkFontId}
+          searchPlaceholder="搜索中文字体…"
+        />
       </div>
 
       {/* ---- 字体大小 ---- */}
@@ -116,14 +126,12 @@ export default function GeneralSection() {
         <div
           className="mt-3 px-4 py-3 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)]"
           style={{
-            fontFamily:
-              FONT_PRESETS.find((f) => f.id === fontId)?.fontFamily ??
-              undefined,
+            fontFamily: previewFontFamily,
             fontSize: `${fontSize}px`,
             lineHeight: 1.7,
           }}
         >
-          Hello 世界 — 这是字体预览 AaBbCc
+          Hello 世界 — 这是字体预览 AaBbCc 你好
         </div>
       </div>
 

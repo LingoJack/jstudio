@@ -1,7 +1,7 @@
 import { storage, toMeta, DocumentMeta, type ThemeMode } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
 import { resolveDark, applyFont } from './uiSlice';
-import { DEFAULT_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../lib/fonts';
+import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../lib/fonts';
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
@@ -30,7 +30,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
       // Load settings
       let themeMode: ThemeMode = 'dark';
-      let fontId = DEFAULT_FONT_ID;
+      let fontId = DEFAULT_LATIN_FONT_ID;
+      let cjkFontId = DEFAULT_CJK_FONT_ID;
       let fontSize = DEFAULT_FONT_SIZE;
       try {
         const settings = await storage.loadSettings();
@@ -39,6 +40,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.fontId === 'string' && settings.fontId) {
           fontId = settings.fontId;
+        }
+        if (typeof settings.cjkFontId === 'string' && settings.cjkFontId) {
+          cjkFontId = settings.cjkFontId;
         }
         if (typeof settings.fontSize === 'number') {
           fontSize = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, settings.fontSize));
@@ -49,7 +53,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       const isDark = resolveDark(themeMode);
       if (isDark) document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
-      applyFont(fontId, fontSize);
+      applyFont(fontId, cjkFontId, fontSize);
 
       // Load index
       let index: DocumentMeta[] = [];
@@ -111,6 +115,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         themeMode,
         isDarkMode: isDark,
         fontId,
+        cjkFontId,
         fontSize,
         isLoading: false,
       });
