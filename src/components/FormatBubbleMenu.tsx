@@ -18,6 +18,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
+import type { TranslationKey } from '../lib/i18n';
 
 interface FormatBubbleMenuProps {
   editor: Editor;
@@ -25,18 +27,19 @@ interface FormatBubbleMenuProps {
 
 interface FormatItem {
   name: string;
-  label: string;
+  labelKey: TranslationKey;
   Icon: typeof Bold;
 }
 
 const ITEMS: FormatItem[] = [
-  { name: 'bold', label: '加粗', Icon: Bold },
-  { name: 'italic', label: '斜体', Icon: Italic },
-  { name: 'strike', label: '删除线', Icon: Strikethrough },
-  { name: 'code', label: '行内代码', Icon: Code },
+  { name: 'bold', labelKey: 'bubble.bold', Icon: Bold },
+  { name: 'italic', labelKey: 'bubble.italic', Icon: Italic },
+  { name: 'strike', labelKey: 'bubble.strike', Icon: Strikethrough },
+  { name: 'code', labelKey: 'bubble.code', Icon: Code },
 ];
 
 export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
+  const { t } = useI18n();
   const [activeIndex, setActiveIndex] = useState(-1);
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -167,9 +170,10 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       className="bubble-menu"
     >
       <div className="flex items-center gap-0.5">
-        {ITEMS.map(({ name, label, Icon }, index) => {
+        {ITEMS.map(({ name, labelKey, Icon }, index) => {
           const isActive = editor.isActive(name);
           const isFocused = index === activeIndex;
+          const label = t(labelKey);
 
           return (
             <button

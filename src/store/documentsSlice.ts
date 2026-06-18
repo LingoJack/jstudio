@@ -1,4 +1,4 @@
-import { storage, toMeta, DocumentMeta, type ThemeMode } from '../lib/storage';
+import { storage, toMeta, DocumentMeta, type ThemeMode, type Language } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
 import { resolveDark, applyFont } from './uiSlice';
 import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../lib/fonts';
@@ -34,6 +34,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let cjkFontId = DEFAULT_CJK_FONT_ID;
       let fontSize = DEFAULT_FONT_SIZE;
       let sidebarWidth: number | undefined;
+      let language: Language = 'zh';
+      let activityBarBorder = false;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
@@ -50,6 +52,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.sidebarWidth === 'number') {
           sidebarWidth = settings.sidebarWidth;
+        }
+        if (settings.language === 'en' || settings.language === 'zh') {
+          language = settings.language;
+        }
+        if (typeof settings.activityBarBorder === 'boolean') {
+          activityBarBorder = settings.activityBarBorder;
         }
       } catch {
         // ignore
@@ -118,6 +126,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         activeDocId: firstId,
         themeMode,
         isDarkMode: isDark,
+        language,
+        activityBarBorder,
         fontId,
         cjkFontId,
         fontSize,

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
+import { useI18n } from '../lib/i18n';
 import { FolderDot, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface ContextMenuState {
@@ -9,6 +10,7 @@ interface ContextMenuState {
 }
 
 export default function DocumentList() {
+  const { t } = useI18n();
   const documents = useStore((s) => s.documents);
   const activeDocId = useStore((s) => s.activeDocId);
   const openDocument = useStore((s) => s.openDocument);
@@ -116,12 +118,12 @@ export default function DocumentList() {
       <div className="flex items-center justify-between px-2 mb-1.5 shrink-0">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5">
           <FolderDot className="w-4 h-4" />
-          <span>全部文档 {filteredDocs.length}</span>
+          <span>{t('doclist.allDocuments')} {filteredDocs.length}</span>
         </h4>
         <button
           onClick={createDocument}
           className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
-          title="新建文档"
+          title={t('doclist.newDocument')}
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -131,7 +133,7 @@ export default function DocumentList() {
       <div className="flex-1 overflow-y-auto space-y-0.5 pr-0.5">
         {filteredDocs.length === 0 ? (
           <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
-            暂无匹配文档
+            {t('doclist.noMatch')}
           </p>
         ) : (
           filteredDocs.map((doc) => (
@@ -162,12 +164,12 @@ export default function DocumentList() {
                     if (e.key === 'Escape') setRenamingId(null);
                   }}
                   className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-                  placeholder="输入文档名称"
+                  placeholder={t('doclist.renamePlaceholder')}
                 />
               ) : (
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                  <span className="text-sm truncate">{doc.title || '无标题'}</span>
+                  <span className="text-sm truncate">{doc.title || t('doclist.untitled')}</span>
                 </div>
               )}
             </div>
@@ -190,7 +192,7 @@ export default function DocumentList() {
             className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
           >
             <Pencil className="w-4 h-4 opacity-70" />
-            <span>重命名</span>
+            <span>{t('doclist.rename')}</span>
           </button>
           <button
             onClick={() => {
@@ -200,7 +202,7 @@ export default function DocumentList() {
             className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
           >
             <Trash2 className="w-4 h-4 opacity-70" />
-            <span>删除</span>
+            <span>{t('doclist.delete')}</span>
           </button>
         </div>
       )}

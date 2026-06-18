@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from './store/useStore';
+import { useI18n } from './lib/i18n';
 import DocumentList from './components/DocumentList';
 import BlockEditor from './components/BlockEditor';
 import Settings from './components/Settings';
@@ -7,6 +8,7 @@ import TitleBar from './components/TitleBar';
 import { FileText, Settings as SettingsIcon, Plus } from 'lucide-react';
 
 export default function App() {
+  const { t } = useI18n();
   const init = useStore((s) => s.init);
   const isLoading = useStore((s) => s.isLoading);
   // Subscribe to a boolean only — NOT the activeDoc object reference.
@@ -16,6 +18,7 @@ export default function App() {
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
+  const activityBarBorder = useStore((s) => s.activityBarBorder);
 
   const createDocument = useStore((s) => s.createDocument);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
@@ -29,7 +32,7 @@ export default function App() {
     return (
       <div className="h-screen bg-[var(--vscode-editor-background)] flex items-center justify-center">
         <div className="text-[var(--vscode-descriptionForeground)] text-sm">
-          正在加载...
+          {t('general.loading')}
         </div>
       </div>
     );
@@ -57,10 +60,12 @@ export default function App() {
               }}
               className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
                 !isSettingsOpen
-                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                  ? activityBarBorder
+                    ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
+                    : 'text-[var(--vscode-foreground)]'
                   : 'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
-              title="文档"
+              title={t('app.documents')}
             >
               <FileText className="w-5 h-5" />
             </button>
@@ -72,10 +77,12 @@ export default function App() {
               onClick={() => setSettingsOpen(true)}
               className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
                 isSettingsOpen
-                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                  ? activityBarBorder
+                    ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
+                    : 'text-[var(--vscode-foreground)]'
                   : 'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
-              title="设置"
+              title={t('app.settings')}
             >
               <SettingsIcon className="w-5 h-5" />
             </button>
@@ -96,17 +103,19 @@ export default function App() {
               <div className="w-full h-full flex flex-col items-center justify-center text-center gap-4">
                 <FileText className="w-12 h-12 text-[var(--vscode-descriptionForeground)] opacity-40" />
                 <div>
-                  <h3 className="font-semibold text-base text-[var(--vscode-foreground)]">还没有文档</h3>
-                  <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5">
-                    点击左侧文档列表顶部的「+」创建你的第一篇文档
+                  <h3 className="font-semibold text-base text-[var(--vscode-foreground)]">
+                    {t('doclist.noMatch')}
+                  </h3>
+                  <p className="text-sm text-[var(--vscode-descriptionForeground)] mt-1.5">
+                    {t('doclist.newDocument')}
                   </p>
                 </div>
                 <button
                   onClick={createDocument}
-                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded px-4 py-2 text-xs font-medium flex items-center gap-1.5 transition-colors duration-150 mt-1"
+                  className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors duration-150 mt-1"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>新建文档</span>
+                  <Plus className="w-4 h-4" />
+                  <span>{t('doclist.newDocument')}</span>
                 </button>
               </div>
             )}

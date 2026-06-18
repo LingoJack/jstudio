@@ -7,6 +7,11 @@ import type { Document } from '../types';
 export type ThemeMode = 'dark' | 'light' | 'system';
 
 /**
+ * UI display language.
+ */
+export type Language = 'zh' | 'en';
+
+/**
  * Lightweight document metadata — used for the sidebar list.
  * Excludes `blocks` so the sidebar can render instantly without
  * loading every document's full content.
@@ -22,6 +27,10 @@ export interface DocumentMeta {
 
 export interface AppSettings {
   theme?: ThemeMode;
+  /** UI display language — 'zh' (default) or 'en' */
+  language?: Language;
+  /** Whether to show a colored border on the active Activity Bar icon */
+  activityBarBorder?: boolean;
   /** Latin font preset id — see LATIN_FONTS in lib/fonts.ts */
   fontId?: string;
   /** CJK (Chinese) font preset id — see CJK_FONTS in lib/fonts.ts */

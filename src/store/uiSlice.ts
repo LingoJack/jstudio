@@ -1,4 +1,4 @@
-import { storage, type ThemeMode } from '../lib/storage';
+import { storage, type ThemeMode, type Language } from '../lib/storage';
 import type { SliceCreator } from './storeHelpers';
 import {
   DEFAULT_LATIN_FONT_ID,
@@ -49,6 +49,8 @@ export function applyFont(fontId: string, cjkFontId: string, fontSize: number) {
 export const createUiSlice: SliceCreator = (set, get) => ({
   themeMode: 'dark',
   isDarkMode: true,
+  language: 'zh',
+  activityBarBorder: false,
   isSidebarOpen: true,
   isOutlineOpen: false,
   isSettingsOpen: false,
@@ -81,6 +83,16 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
   setSearchQuery: (q) => set({ searchQuery: q }),
+
+  setLanguage: (lang: Language) => {
+    set({ language: lang });
+    storage.saveSettings({ language: lang }).catch(console.error);
+  },
+
+  setActivityBarBorder: (enabled: boolean) => {
+    set({ activityBarBorder: enabled });
+    storage.saveSettings({ activityBarBorder: enabled }).catch(console.error);
+  },
 
   setFontId: (id) => {
     const s = get();

@@ -1,4 +1,5 @@
 import { useStore } from '../store/useStore';
+import { useI18n } from '../lib/i18n';
 import { Search } from 'lucide-react';
 
 /**
@@ -9,6 +10,7 @@ import { Search } from 'lucide-react';
  * surrounding title bar is a Tauri drag region.
  */
 export default function SearchBar() {
+  const { t } = useI18n();
   const searchQuery = useStore((s) => s.searchQuery);
   const setSearchQuery = useStore((s) => s.setSearchQuery);
 
@@ -20,7 +22,7 @@ export default function SearchBar() {
       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--vscode-icon-foreground)] opacity-60 pointer-events-none" />
       <input
         type="text"
-        placeholder="搜索文档..."
+        placeholder={t('search.placeholder')}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         data-tauri-drag-region={false}

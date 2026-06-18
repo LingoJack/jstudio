@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, ThemeMode } from '../lib/storage';
+import type { DocumentMeta, ThemeMode, Language } from '../lib/storage';
 import { storage } from '../lib/storage';
 
 /**
@@ -38,6 +38,8 @@ export interface StoreState {
   // — ui state (ui slice) —
   themeMode: ThemeMode;
   isDarkMode: boolean;
+  language: Language;
+  activityBarBorder: boolean;
   isSidebarOpen: boolean;
   isOutlineOpen: boolean;
   isSettingsOpen: boolean;
@@ -86,6 +88,8 @@ export interface StoreState {
   setCjkFontId: (id: string) => void;
   setFontSize: (size: number) => void;
   setSidebarWidth: (width: number) => void;
+  setLanguage: (lang: Language) => void;
+  setActivityBarBorder: (enabled: boolean) => void;
 }
 
 /**

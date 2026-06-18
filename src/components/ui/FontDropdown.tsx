@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
+import { useI18n } from '../../lib/i18n';
 import type { FontPreset } from '../../lib/fonts';
 
 export interface FontDropdownProps {
@@ -27,9 +28,10 @@ export default function FontDropdown({
   options,
   value,
   onChange,
-  searchPlaceholder = '搜索字体…',
+  searchPlaceholder,
   disabled = false,
 }: FontDropdownProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlighted, setHighlighted] = useState(0);
@@ -159,13 +161,13 @@ export default function FontDropdown({
                   if (item) handleSelect(item.id);
                 }
               }}
-              placeholder={searchPlaceholder}
+              placeholder={searchPlaceholder ?? t('font.searchPlaceholder')}
               className="font-dropdown-search-input"
             />
           </div>
           <div ref={listRef} className="font-dropdown-list">
             {filtered.length === 0 ? (
-              <div className="font-dropdown-empty">无匹配字体</div>
+              <div className="font-dropdown-empty">{t('font.noMatch')}</div>
             ) : (
               filtered.map((opt, index) => (
                 <button

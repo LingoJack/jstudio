@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { ListTree } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
 
 interface HeadingItem {
   id: string;
@@ -25,6 +26,7 @@ interface DocumentOutlineProps {
 }
 
 export default function DocumentOutline({ editor }: DocumentOutlineProps) {
+  const { t } = useI18n();
   const [headings, setHeadings] = useState<HeadingItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -249,7 +251,7 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
       <div className="flex items-center gap-1.5 px-3 py-3 shrink-0">
         <ListTree className="w-4 h-4 text-[var(--vscode-descriptionForeground)]" />
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-          大纲
+          {t('outline.title')}
         </h4>
       </div>
 
@@ -257,7 +259,7 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
       <div className="flex-1 overflow-y-auto px-1.5 pb-3 space-y-0.5">
         {headings.length === 0 ? (
           <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
-            文档中暂无标题
+            {t('outline.empty')}
           </p>
         ) : (
           headings.map((item) => (

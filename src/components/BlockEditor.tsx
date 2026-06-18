@@ -35,6 +35,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import Color from '@tiptap/extension-color';
 
 import { useStore } from '../store/useStore';
+import { useI18n } from '../lib/i18n';
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
@@ -63,6 +64,7 @@ export default function BlockEditor() {
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
   const toggleOutline = useStore((s) => s.toggleOutline);
+  const { t } = useI18n();
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   /** Tracks the document ID currently loaded into the editor to prevent
@@ -115,7 +117,7 @@ export default function BlockEditor() {
         exitOnTripleEnter: false,
       }),
       Placeholder.configure({
-        placeholder: '输入 / 唤起命令菜单…',
+        placeholder: t('editor.placeholder'),
       }),
       Image.configure({ inline: false, allowBase64: true }),
       FileExtension,
@@ -275,7 +277,7 @@ export default function BlockEditor() {
             value={activeDocTitle}
             onChange={(e) => updateDocumentMeta({ title: e.target.value })}
             onKeyDown={handleTitleKeyDown}
-            placeholder="文档标题"
+            placeholder={t('editor.titlePlaceholder')}
             className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1"
           />
         </div>
@@ -301,7 +303,7 @@ export default function BlockEditor() {
       {isOutlineOpen ? (
         <button
           onClick={toggleOutline}
-          title="隐藏大纲"
+          title={t('outline.hide')}
           className="absolute top-2.5 right-2 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
         >
           <ListTree className="w-4 h-4" />
@@ -309,7 +311,7 @@ export default function BlockEditor() {
       ) : (
         <button
           onClick={toggleOutline}
-          title="显示大纲"
+          title={t('outline.show')}
           className="absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
         >
           <ListTree className="w-4 h-4" />
