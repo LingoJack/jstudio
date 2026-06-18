@@ -226,6 +226,8 @@ export default function FileView({
   const figureStyle: React.CSSProperties = {};
   if (displayWidth) {
     figureStyle.width = `${displayWidth}px`;
+  } else {
+    figureStyle.width = '400px';
   }
 
   /* -------------------------------------------------------------- */
@@ -292,23 +294,15 @@ export default function FileView({
                     <span className="file-block-toolbar-divider" />
                     <button
                       type="button"
-                      className={`file-block-toolbar-btn ${
-                        !isPreviewMode ? 'is-active' : ''
-                      }`}
-                      onClick={() => updateAttributes({ displayMode: 'card' })}
-                      title="卡片模式"
+                      className="file-block-toolbar-btn"
+                      onClick={() =>
+                        updateAttributes({
+                          displayMode: isPreviewMode ? 'card' : 'preview',
+                        })
+                      }
+                      title={isPreviewMode ? '切换到卡片模式' : '切换到预览模式'}
                     >
-                      <PanelsTopLeft size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`file-block-toolbar-btn ${
-                        isPreviewMode ? 'is-active' : ''
-                      }`}
-                      onClick={() => updateAttributes({ displayMode: 'preview' })}
-                      title="预览模式"
-                    >
-                      <Eye size={15} />
+                      {isPreviewMode ? <PanelsTopLeft size={15} /> : <Eye size={15} />}
                     </button>
                   </>
                 )}
