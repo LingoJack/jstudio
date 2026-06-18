@@ -128,16 +128,15 @@ export const slashCommands: SlashCommandItem[] = [
   },
   {
     title: 'Table',
-    description: 'Insert a 3×3 editable table',
+    description: 'Insert an editable table',
     icon: '⊞',
     aliases: ['table', 'grid', '矩阵'],
-    command: ({ editor, range }) =>
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-        .run(),
+    command: ({ editor, range }) => {
+      // Show a Notion-style grid picker so the user can choose dimensions.
+      import('../components/TableSizeSelector').then(({ mountTableSizeSelector }) => {
+        mountTableSizeSelector(editor, range);
+      });
+    },
   },
 ];
 
