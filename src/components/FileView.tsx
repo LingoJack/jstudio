@@ -37,7 +37,7 @@ import {
   type PreviewCategory,
 } from '../lib/fileUtils';
 import { bytesToDataUrl, genStoredName } from '../lib/upload';
-import { UploadIcon } from './shared/icons';
+import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
 
 /* ------------------------------------------------------------------ */
@@ -81,8 +81,10 @@ export default function FileView({
   selected,
   updateAttributes,
 }: NodeViewProps) {
-  const { src, fileName, fileSize, fileType, displayMode, width } =
+  const { src, fileName, fileSize, fileType, displayMode, width, align } =
     node.attrs as FileNodeAttributes;
+
+  const effectiveAlign = (align ?? 'center') as 'left' | 'center';
 
   const [loading, setLoading] = useState(false);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
@@ -173,6 +175,7 @@ export default function FileView({
   /* -------------------------------------------------------------- */
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const figureRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
   const [displayWidth, setDisplayWidth] = useState<number | null>(width ?? null);
   const displayWidthRef = useRef<number | null>(displayWidth);
@@ -192,7 +195,7 @@ export default function FileView({
 
       const startX = e.clientX;
       const startWidth =
-        displayWidth ?? containerRef.current?.offsetWidth ?? 400;
+        displayWidth ?? figureRef.current?.offsetWidth ?? 400;
 
       resizingRef.current = true;
 
@@ -220,9 +223,9 @@ export default function FileView({
   /* Inline styles driven by displayWidth                           */
   /* -------------------------------------------------------------- */
 
-  const frameStyle: React.CSSProperties = {};
+  const figureStyle: React.CSSProperties = {};
   if (displayWidth) {
-    frameStyle.width = `${displayWidth}px`;
+    figureStyle.width = `${displayWidth}px`;
   }
 
   /* -------------------------------------------------------------- */
@@ -230,7 +233,7 @@ export default function FileView({
   /* -------------------------------------------------------------- */
 
   return (
-    <NodeViewWrapper className="file-block-wrapper" as="div">
+    <NodeViewWrapper className="file-block-wrapper" data-align={effectiveAlign} as="div">
       <div className="file-block-container" ref={containerRef}>
         {/* Placeholder state */}
         {!src ? (
@@ -255,33 +258,60 @@ export default function FileView({
         ) : (
           /* Loaded state */
           <div
+            ref={figureRef}
             className={`file-block-figure ${selected ? 'is-selected' : ''} ${
               isPreviewMode ? 'is-preview' : 'is-card'
             }`}
+            style={figureStyle}
           >
             {/* Floating toolbar (top-right) — visible when selected */}
-            {selected && canPreview && (
+            {selected && (
               <div className="file-block-toolbar" contentEditable={false}>
                 <button
                   type="button"
                   className={`file-block-toolbar-btn ${
-                    !isPreviewMode ? 'is-active' : ''
+                    effectiveAlign === 'left' ? 'is-active' : ''
                   }`}
-                  onClick={() => updateAttributes({ displayMode: 'card' })}
-                  title="卡片模式"
+                  onClick={() => updateAttributes({ align: 'left' })}
+                  title="左对齐"
                 >
-                  <PanelsTopLeft size={15} />
+                  <AlignLeftIcon />
                 </button>
                 <button
                   type="button"
                   className={`file-block-toolbar-btn ${
-                    isPreviewMode ? 'is-active' : ''
+                    effectiveAlign === 'center' ? 'is-active' : ''
                   }`}
-                  onClick={() => updateAttributes({ displayMode: 'preview' })}
-                  title="预览模式"
+                  onClick={() => updateAttributes({ align: 'center' })}
+                  title="居中"
                 >
-                  <Eye size={15} />
+                  <AlignCenterIcon />
                 </button>
+                {canPreview && (
+                  <>
+                    <span className="file-block-toolbar-divider" />
+                    <button
+                      type="button"
+                      className={`file-block-toolbar-btn ${
+                        !isPreviewMode ? 'is-active' : ''
+                      }`}
+                      onClick={() => updateAttributes({ displayMode: 'card' })}
+                      title="卡片模式"
+                    >
+                      <PanelsTopLeft size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`file-block-toolbar-btn ${
+                        isPreviewMode ? 'is-active' : ''
+                      }`}
+                      onClick={() => updateAttributes({ displayMode: 'preview' })}
+                      title="预览模式"
+                    >
+                      <Eye size={15} />
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
@@ -324,7 +354,6 @@ export default function FileView({
                     className="file-block-preview-frame"
                     sandbox="allow-same-origin"
                     title={fileName}
-                    style={frameStyle}
                   />
                 )}
 
@@ -334,13 +363,12 @@ export default function FileView({
                     src={src}
                     className="file-block-preview-frame"
                     title={fileName}
-                    style={frameStyle}
                   />
                 )}
 
                 {/* Image */}
                 {category === 'image' && (
-                  <div className="file-block-preview-image-wrap" style={frameStyle}>
+                  <div className="file-block-preview-image-wrap">
                     <img
                       src={src}
                       alt={fileName}
@@ -351,10 +379,7 @@ export default function FileView({
 
                 {/* DOCX */}
                 {category === 'docx' && (
-                  <div
-                    className="file-block-preview-docx"
-                    style={displayWidth ? { width: `${displayWidth}px` } : undefined}
-                  >
+                  <div className="file-block-preview-docx">
                     {docxLoading ? (
                       <div className="file-block-preview-loading">
                         <Loader2 size={20} className="animate-spin" />
@@ -372,21 +397,17 @@ export default function FileView({
                 )}
 
                 {/* Text */}
-                {category === 'text' && (
-                  <div style={displayWidth ? { width: `${displayWidth}px` } : undefined}>
-                    <FileTextPreview src={src} />
-                  </div>
-                )}
-
-                {/* Resize handle (bottom-right), visible when selected */}
-                {selected && (
-                  <div
-                    className="file-block-resize-handle"
-                    onPointerDown={onResizeStart}
-                    contentEditable={false}
-                  />
-                )}
+                {category === 'text' && <FileTextPreview src={src} />}
               </div>
+            )}
+
+            {/* Resize handle — at figure level so it works in BOTH card & preview mode */}
+            {selected && (
+              <div
+                className="file-block-resize-handle"
+                onPointerDown={onResizeStart}
+                contentEditable={false}
+              />
             )}
           </div>
         )}

@@ -12,6 +12,7 @@
  *   fileType    — MIME type
  *   displayMode — 'card' | 'preview'
  *   width       — display width in px (null = auto)
+ *   align       — 'left' | 'center' (default 'center')
  */
 
 import { Node } from '@tiptap/core';
@@ -25,6 +26,7 @@ export interface FileNodeAttributes {
   fileType: string;
   displayMode: 'card' | 'preview';
   width: number | null;
+  align?: 'left' | 'center' | null;
 }
 
 declare module '@tiptap/core' {
@@ -103,6 +105,18 @@ export const FileExtension = Node.create({
           return { 'data-width': attrs.width };
         },
       },
+      align: {
+        default: 'center' as const,
+        parseHTML: (el) => {
+          const align = el.getAttribute('data-align');
+          if (align === 'left' || align === 'center') return align;
+          return 'center';
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.align) return {};
+          return { 'data-align': attrs.align };
+        },
+      },
     };
   },
 
@@ -136,6 +150,7 @@ export const FileExtension = Node.create({
                 fileType: '',
                 displayMode: 'card',
                 width: null,
+                align: 'center',
                 ...attrs,
               },
             },

@@ -1319,6 +1319,16 @@ button {
   margin: 12px 0;
 }
 
+.file-block-wrapper[data-align='center'] {
+  display: flex;
+  justify-content: center;
+}
+
+.file-block-wrapper[data-align='left'] {
+  display: flex;
+  justify-content: flex-start;
+}
+
 /* 选中文件块节点时隐藏 ProseMirror 默认的 block 级外框，
    只保留 file-block-figure 自身的边框即可。
    与 image-node-wrapper 同理，用 :has() 匹配。 */
@@ -1335,34 +1345,35 @@ button {
 }
 
 /* ─── Loaded figure ───
-   常态: 1px widget-border 边框（可见）
+   常态: 2px transparent（与 image-node-figure 一致）
    选中: 2px focusBorder 边框（蓝色高亮） */
 
 .file-block-figure {
   position: relative;
   border-radius: 8px;
-  border: 1px solid var(--vscode-widget-border);
+  border: 2px solid transparent;
   transition: border-color 0.15s;
 }
 
 .file-block-figure.is-selected {
-  border: 2px solid var(--vscode-focusBorder);
+  border-color: var(--vscode-focusBorder);
 }
 
-/* ─── Hover toolbar (top-right corner) ─── */
+/* ─── Floating toolbar (top-center), visible only when selected — align with image-toolbar ─── */
 
 .file-block-toolbar {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
   display: flex;
   gap: 2px;
   padding: 3px;
-  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
-  border: 1px solid var(--vscode-widget-border);
+  background: var(--vscode-menu-background, var(--vscode-editor-background, #1e1e1e));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .file-block-toolbar-btn {
@@ -1373,20 +1384,27 @@ button {
   height: 28px;
   border: none;
   background: transparent;
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-foreground);
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background 0.12s;
 }
 
 .file-block-toolbar-btn:hover {
   background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
-  color: var(--vscode-foreground);
 }
 
 .file-block-toolbar-btn.is-active {
   background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
   color: var(--vscode-list-activeSelectionForeground, #fff);
+}
+
+.file-block-toolbar-divider {
+  width: 1px;
+  align-self: center;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
 }
 
 /* ─── Card mode ─── */
@@ -1398,6 +1416,8 @@ button {
   padding: 12px 14px;
   border-radius: 8px;
   user-select: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .file-block-card-icon {
@@ -1534,29 +1554,19 @@ button {
   font-size: 0.85em;
 }
 
-/* ─── Resize handle (bottom-right) — same visual as image-resize-handle ─── */
+/* ─── Resize handle (bottom-right) — circular blue dot, same visual as image-resize-handle ─── */
 
 .file-block-resize-handle {
   position: absolute;
-  bottom: 0;
-  right: 0;
+  bottom: -6px;
+  right: -6px;
   width: 16px;
   height: 16px;
+  background: var(--vscode-focusBorder);
+  border: 2px solid var(--vscode-editor-background, #1e1e1e);
+  border-radius: 50%;
   cursor: nwse-resize;
-  z-index: 10;
-}
-
-.file-block-resize-handle::before {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--vscode-focusBorder);
-  border-bottom: 2px solid var(--vscode-focusBorder);
-  border-bottom-right-radius: 2px;
-  opacity: 0.8;
+  z-index: 11;
 }
 
 /* ============================================
