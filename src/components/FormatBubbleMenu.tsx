@@ -14,7 +14,7 @@
  * Code extensions). This component only renders the BubbleMenu UI.
  */
 
-import { useState, useRef, useCallback, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
@@ -38,7 +38,14 @@ const ITEMS: FormatItem[] = [
 
 export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const [activeIndex, setActiveIndex] = useState(-1);
-  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  // Keep a live ref to activeIndex so the capture-phase keydown listener
+  // (registered once) always sees the latest value.
+  const activeIndexRef = useRef(activeIndex);
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
 
   const toggleMark = useCallback(
     (markName: string) => {
@@ -47,57 +54,76 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     [editor],
   );
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
+  // ------------------------------------------------------------------
+  //  Capture-phase keyboard interception on the editor DOM element.
+  //
+  //  When the BubbleMenu is visible, we intercept Tab/Shift+Tab/Enter/
+  //  Space/Arrows at the *capture* phase — before ProseMirror sees them
+  //  — so we can drive the toolbar's roving focus instead of letting the
+  //  browser tab away or the editor insert a node.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!menuVisible) return;
+
+    const editorDom = editor.view.dom;
+
+    const handleCaptureKeyDown = (e: KeyboardEvent) => {
+      const key = e.key;
+      const isTab = key === 'Tab';
+      const isEnter = key === 'Enter';
+      const isSpace = key === ' ';
+      const isArrowLeft = key === 'ArrowLeft';
+      const isArrowRight = key === 'ArrowRight';
+
+      if (!isTab && !isEnter && !isSpace && !isArrowLeft && !isArrowRight) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
       const itemCount = ITEMS.length;
+      const current = activeIndexRef.current;
 
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.shiftKey) {
-          // Shift+Tab — go backward, wrap around
-          setActiveIndex((prev) => (prev <= 0 ? itemCount - 1 : prev - 1));
-        } else {
-          // Tab — go forward, wrap around
-          setActiveIndex((prev) =>
-            prev >= itemCount - 1 ? 0 : prev === -1 ? 0 : prev + 1,
-          );
+      if (isTab && !e.shiftKey) {
+        // Tab — forward, wrap around; start at first item if nothing focused
+        const next = current >= itemCount - 1 ? 0 : current + 1;
+        setActiveIndex(next);
+      } else if (isTab && e.shiftKey) {
+        // Shift+Tab — backward, wrap around
+        const next = current <= 0 ? itemCount - 1 : current - 1;
+        setActiveIndex(next);
+      } else if (isArrowRight) {
+        const next = current >= itemCount - 1 ? 0 : current + 1;
+        setActiveIndex(next);
+      } else if (isArrowLeft) {
+        const next = current <= 0 ? itemCount - 1 : current - 1;
+        setActiveIndex(next);
+      } else if (isEnter || isSpace) {
+        // Enter / Space — toggle the focused item (if any)
+        if (current >= 0 && current < itemCount) {
+          toggleMark(ITEMS[current].name);
         }
-        return;
       }
+    };
 
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setActiveIndex((prev) =>
-          prev >= itemCount - 1 ? 0 : prev === -1 ? 0 : prev + 1,
-        );
-        return;
-      }
+    editorDom.addEventListener('keydown', handleCaptureKeyDown, true);
 
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setActiveIndex((prev) => (prev <= 0 ? itemCount - 1 : prev - 1));
-        return;
-      }
-
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        e.stopPropagation();
-        if (activeIndex >= 0 && activeIndex < itemCount) {
-          toggleMark(ITEMS[activeIndex].name);
-        }
-        return;
-      }
-    },
-    [activeIndex, toggleMark],
-  );
+    return () => {
+      editorDom.removeEventListener('keydown', handleCaptureKeyDown, true);
+    };
+  }, [menuVisible, editor, toggleMark]);
 
   return (
     <BubbleMenu
       editor={editor}
       shouldShow={({ state }) => {
         const { empty, from, to } = state.selection;
-        if (empty || from === to) return false;
+        const nonEmpty = !empty && from !== to;
+        if (!nonEmpty) {
+          setMenuVisible(false);
+          return false;
+        }
 
         // Walk every node covered by the selection.  If the range includes
         // any non-text block node (image / file / code-block), suppress the
@@ -108,15 +134,16 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
         state.doc.nodesBetween(from, to, (node) => {
           if (blockedTypes.has(node.type.name)) {
             hasNonText = true;
-            return false; // stop traversing this branch
+            return false;
           }
-          return true; // keep descending into children
+          return true;
         });
 
         const shouldShow = !hasNonText;
 
-        // Reset keyboard navigation when the menu is about to be hidden
-        if (!shouldShow && activeIndex !== -1) {
+        // Sync visibility state + reset navigation when hiding
+        setMenuVisible(shouldShow);
+        if (!shouldShow) {
           setActiveIndex(-1);
         }
 
@@ -124,7 +151,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       }}
       className="bubble-menu"
     >
-      <div onKeyDown={handleKeyDown} className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5">
         {ITEMS.map(({ name, label, Icon }, index) => {
           const isActive = editor.isActive(name);
           const isFocused = index === activeIndex;
@@ -132,9 +159,6 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
           return (
             <button
               key={name}
-              ref={(node) => {
-                buttonRefs.current[index] = node;
-              }}
               type="button"
               title={label}
               aria-label={label}
@@ -145,7 +169,6 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
               }}
               onMouseEnter={() => setActiveIndex(index)}
               onMouseLeave={() => setActiveIndex(-1)}
-              tabIndex={isFocused ? 0 : -1}
               className={`bubble-menu-btn ${isActive ? 'is-active' : ''} ${
                 isFocused ? 'is-focused' : ''
               }`}
