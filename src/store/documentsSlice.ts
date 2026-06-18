@@ -33,6 +33,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let fontId = DEFAULT_LATIN_FONT_ID;
       let cjkFontId = DEFAULT_CJK_FONT_ID;
       let fontSize = DEFAULT_FONT_SIZE;
+      let sidebarWidth: number | undefined;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
