@@ -197,11 +197,21 @@ export default function FileView({
       const startWidth =
         displayWidth ?? figureRef.current?.offsetWidth ?? 400;
 
+      /* upper bound: editor surface visible width (minus a small margin) */
+      const editorSurface = figureRef.current?.closest(
+        '[data-editor-surface], .ProseMirror'
+      ) as HTMLElement | null;
+      const maxWidth =
+        (editorSurface?.clientWidth ?? window.innerWidth) - 24;
+
       resizingRef.current = true;
 
       const onMove = (ev: PointerEvent) => {
         const delta = ev.clientX - startX;
-        const newWidth = Math.max(200, startWidth + delta);
+        const newWidth = Math.min(
+          Math.max(200, startWidth + delta),
+          maxWidth
+        );
         setDisplayWidth(newWidth);
       };
 
