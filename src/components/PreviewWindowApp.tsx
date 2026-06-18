@@ -14,7 +14,18 @@ import { X, Loader2 } from 'lucide-react';
 import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../lib/previewWindow';
 import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../lib/fileUtils';
 import { docxToHtml } from '../lib/docxPreview';
-import { storage } from '../lib/storage';
+import { storage, type ThemeMode } from '../lib/storage';
+
+/**
+ * Resolve a theme preference to actual dark/light.
+ * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
+ * (Mirrors uiSlice.resolveDark without pulling in store dependencies.)
+ */
+function resolveDark(mode: ThemeMode): boolean {
+  if (mode === 'dark') return true;
+  if (mode === 'light') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
 
 /**
  * Sync dark/light theme from settings so the preview window matches
@@ -22,15 +33,14 @@ import { storage } from '../lib/storage';
  */
 function useThemeSync() {
   useEffect(() => {
+    // Apply dark class immediately (synchronous fallback) to prevent flash.
+    document.documentElement.classList.add('dark');
+
     storage.loadSettings().then((settings) => {
-      if (settings.theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      const isDark = resolveDark(settings.theme ?? 'system');
+      document.documentElement.classList.toggle('dark', isDark);
     }).catch(() => {
-      // Fallback: default to dark (matching the app default).
-      document.documentElement.classList.add('dark');
+      // Keep dark as fallback.
     });
   }, []);
 }
