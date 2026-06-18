@@ -80,23 +80,48 @@ pub fn ensure_studio_dir() -> Result<String, String> {
 /// Open the studio data directory in the system file manager.
 #[tauri::command]
 pub fn open_studio_dir() -> Result<(), String> {
-    let base = studio_dir();
+    open_path_in_file_manager(&studio_dir())
+}
+
+/// Open a specific document's folder in the system file manager.
+#[tauri::command]
+pub fn open_doc_dir(doc_id: String) -> Result<(), String> {
+    open_path_in_file_manager(&doc_dir(&doc_id))
+}
+
+/// Return the full filesystem path of a document's `document.json`.
+#[tauri::command]
+pub fn get_doc_path(doc_id: String) -> Result<String, String> {
+    let path = doc_path(&doc_id);
+    if !path.exists() {
+        // Fall back to legacy path for display purposes.
+        let legacy = documents_dir().join(format!("{doc_id}.json"));
+        if legacy.exists() {
+            return Ok(legacy.to_string_lossy().into_owned());
+        }
+    }
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Cross-platform "reveal in file manager" helper.
+fn open_path_in_file_manager(path: &PathBuf) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let mut cmd = {
+        // On macOS, `open -R` reveals the path in Finder.
         let mut c = Command::new("open");
-        c.arg(&base);
+        c.arg("-R").arg(path);
         c
     };
     #[cfg(target_os = "windows")]
     let mut cmd = {
         let mut c = Command::new("explorer");
-        c.arg(&base);
+        c.arg(path);
         c
     };
     #[cfg(target_os = "linux")]
     let mut cmd = {
         let mut c = Command::new("xdg-open");
-        c.arg(&base);
+        c.arg(path);
         c
     };
     cmd.spawn().map_err(|e| e.to_string())?;

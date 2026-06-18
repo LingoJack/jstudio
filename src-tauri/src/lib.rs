@@ -22,6 +22,8 @@ pub fn run() {
             commands::storage::write_settings,
             commands::storage::read_file_bytes,
             commands::storage::open_studio_dir,
+            commands::storage::open_doc_dir,
+            commands::storage::get_doc_path,
             commands::storage::set_preview_data,
             commands::storage::get_preview_data,
         ])

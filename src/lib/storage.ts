@@ -116,6 +116,12 @@ export const storage = {
   /** Open the studio data directory in the system file manager. */
   openDataDir: () => invoke<void>('open_studio_dir'),
 
+  /** Open a specific document's folder in the system file manager. */
+  openDocDir: (docId: string) => invoke<void>('open_doc_dir', { docId }),
+
+  /** Return the full filesystem path of a document's `document.json`. */
+  getDocPath: (docId: string) => invoke<string>('get_doc_path', { docId }),
+
   // ---- settings ----
 
   loadSettings: () => invoke<AppSettings>('read_settings'),

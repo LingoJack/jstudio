@@ -37,6 +37,12 @@ export const translations = {
     'doclist.delete': '删除',
     'doclist.renamePlaceholder': '输入文档名称',
 
+    // ── DocumentList context menu ──
+    'doclist.openInFinder': '在访达中显示',
+    'doclist.copyPath': '复制路径',
+    'doclist.copyRelativePath': '复制相对路径',
+    'doclist.copied': '已复制到剪贴板',
+
     // ── DocumentOutline ──
     'outline.title': '大纲',
     'outline.empty': '文档中暂无标题',
@@ -154,6 +160,12 @@ export const translations = {
     'doclist.rename': 'Rename',
     'doclist.delete': 'Delete',
     'doclist.renamePlaceholder': 'Enter document name',
+
+    // ── DocumentList context menu ──
+    'doclist.openInFinder': 'Reveal in Finder',
+    'doclist.copyPath': 'Copy Path',
+    'doclist.copyRelativePath': 'Copy Relative Path',
+    'doclist.copied': 'Copied to clipboard',
 
     // ── DocumentOutline ──
     'outline.title': 'Outline',

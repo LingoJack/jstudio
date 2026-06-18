@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
-import { FolderDot, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
+import { storage } from '../lib/storage';
+import { FolderDot, FileText, Plus, Pencil, Trash2, FolderOpen, Copy, CopyPlus } from 'lucide-react';
 
 interface ContextMenuState {
   x: number;
@@ -73,6 +74,40 @@ export default function DocumentList() {
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, docId });
   };
+
+  const handleOpenInFinder = useCallback(async (docId: string) => {
+    try {
+      await storage.openDocDir(docId);
+    } catch (e) {
+      console.error('Failed to open document folder:', e);
+    }
+    setContextMenu(null);
+  }, []);
+
+  const handleCopyPath = useCallback(async (docId: string) => {
+    try {
+      const path = await storage.getDocPath(docId);
+      await navigator.clipboard.writeText(path);
+    } catch (e) {
+      console.error('Failed to copy path:', e);
+    }
+    setContextMenu(null);
+  }, []);
+
+  const handleCopyRelativePath = useCallback(async (docId: string) => {
+    try {
+      const path = await storage.getDocPath(docId);
+      const home = await storage.init();
+      let rel = path;
+      if (path.startsWith(home)) {
+        rel = path.slice(home.length).replace(/^[/\\]+/, '');
+      }
+      await navigator.clipboard.writeText(rel);
+    } catch (e) {
+      console.error('Failed to copy relative path:', e);
+    }
+    setContextMenu(null);
+  }, []);
 
   // --- Resize sidebar by dragging the right edge ---
   const onResizeStart = useCallback((e: React.MouseEvent) => {
@@ -180,7 +215,7 @@ export default function DocumentList() {
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-[140px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
+          className="fixed z-50 min-w-[160px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -194,6 +229,31 @@ export default function DocumentList() {
             <Pencil className="w-4 h-4 opacity-70" />
             <span>{t('doclist.rename')}</span>
           </button>
+          {/* Divider */}
+          <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
+          <button
+            onClick={() => handleOpenInFinder(contextMenu.docId)}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+          >
+            <FolderOpen className="w-4 h-4 opacity-70" />
+            <span>{t('doclist.openInFinder')}</span>
+          </button>
+          <button
+            onClick={() => handleCopyPath(contextMenu.docId)}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+          >
+            <Copy className="w-4 h-4 opacity-70" />
+            <span>{t('doclist.copyPath')}</span>
+          </button>
+          <button
+            onClick={() => handleCopyRelativePath(contextMenu.docId)}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+          >
+            <CopyPlus className="w-4 h-4 opacity-70" />
+            <span>{t('doclist.copyRelativePath')}</span>
+          </button>
+          {/* Divider */}
+          <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
           <button
             onClick={() => {
               deleteDocument(contextMenu.docId);
