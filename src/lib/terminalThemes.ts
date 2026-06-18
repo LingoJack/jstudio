@@ -117,6 +117,80 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
       panelBg: '#e1e2e7',
     },
   },
+  // ──────────────────────────────────────────────
+  // JStudio Dark  (matches app's VSCode Dark Modern theme)
+  //   editor-bg #181818 · sidebar #1F1F1F · border #2B2B2B
+  //   ANSI 16-color from VSCode Dark+ terminal defaults
+  // ──────────────────────────────────────────────
+  {
+    id: 'jstudio-dark',
+    isDark: true,
+    background: '#181818',
+    foreground: '#CCCCCC',
+    cursor: '#0078D4',
+    cursorAccent: '#181818',
+    selectionBackground: '#264F78',
+    selectionForeground: '#FFFFFF',
+    black: '#000000',
+    red: '#F44747',
+    green: '#6A9955',
+    yellow: '#D7BA7D',
+    blue: '#569CD6',
+    magenta: '#C586C0',
+    cyan: '#4EC9B0',
+    white: '#D4D4D4',
+    brightBlack: '#808080',
+    brightRed: '#F44747',
+    brightGreen: '#6A9955',
+    brightYellow: '#D7BA7D',
+    brightBlue: '#569CD6',
+    brightMagenta: '#C586C0',
+    brightCyan: '#4EC9B0',
+    brightWhite: '#FFFFFF',
+    ui: {
+      barBg: '#1F1F1F',
+      barBorder: '#2B2B2B',
+      barFg: '#CCCCCC',
+      panelBg: '#181818',
+    },
+  },
+  // ──────────────────────────────────────────────
+  // JStudio Light  (matches app's VSCode Light Modern theme)
+  //   editor-bg #F8F8F8 · sidebar #FFFFFF · border #E5E5E5
+  //   ANSI 16-color from VSCode Light+ terminal defaults
+  // ──────────────────────────────────────────────
+  {
+    id: 'jstudio-light',
+    isDark: false,
+    background: '#F8F8F8',
+    foreground: '#3B3B3B',
+    cursor: '#005FB8',
+    cursorAccent: '#F8F8F8',
+    selectionBackground: '#ADD6FF',
+    selectionForeground: '#1E1E1E',
+    black: '#000000',
+    red: '#CD3131',
+    green: '#00BC00',
+    yellow: '#949800',
+    blue: '#0451A5',
+    magenta: '#BC05BC',
+    cyan: '#0598BC',
+    white: '#555555',
+    brightBlack: '#666666',
+    brightRed: '#CD3131',
+    brightGreen: '#14CE14',
+    brightYellow: '#B5BA00',
+    brightBlue: '#0451A5',
+    brightMagenta: '#BC05BC',
+    brightCyan: '#0598BC',
+    brightWhite: '#A5A5A5',
+    ui: {
+      barBg: '#FFFFFF',
+      barBorder: '#E5E5E5',
+      barFg: '#3B3B3B',
+      panelBg: '#F8F8F8',
+    },
+  },
 ];
 
 /** Default terminal theme for new users. */

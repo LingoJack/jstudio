@@ -99,6 +99,8 @@ export const translations = {
     'appearance.terminalThemeDesc': '选择终端配色方案（对齐 kitty 主题）',
     'appearance.terminalTheme_anthropic-dark': 'Anthropic Dark',
     'appearance.terminalTheme_anthropic-light': 'Anthropic Light',
+    'appearance.terminalTheme_jstudio-dark': 'JStudio Dark',
+    'appearance.terminalTheme_jstudio-light': 'JStudio Light',
 
     // ── About section ──
     'about.contactAuthor': '联系作者',
@@ -238,6 +240,8 @@ export const translations = {
     'appearance.terminalThemeDesc': 'Choose a terminal color scheme (matches kitty themes)',
     'appearance.terminalTheme_anthropic-dark': 'Anthropic Dark',
     'appearance.terminalTheme_anthropic-light': 'Anthropic Light',
+    'appearance.terminalTheme_jstudio-dark': 'JStudio Dark',
+    'appearance.terminalTheme_jstudio-light': 'JStudio Light',
 
     // ── About section ──
     'about.contactAuthor': 'Contact Author',
