@@ -47,6 +47,7 @@ import { SlashMenuExtension } from '../lib/tiptapExtensions';
 import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import { BlockNavigation } from '../lib/blockNavigation';
 import { getClipboardImageAsFile } from '../lib/clipboardImage';
+import TableControls from './TableControls';
 import type { Block } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -478,6 +479,9 @@ export default function BlockEditor() {
         <div className="tiptap-editor-container min-h-[50vh]">
           <EditorContent editor={editor} />
         </div>
+
+        {/* Table hover controls + context menu */}
+        {editor && <TableControls editor={editor} />}
       </div>
     </div>
   );

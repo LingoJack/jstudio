@@ -1766,3 +1766,21 @@ button {
   pointer-events: none;
 }
 
+/* Spacing so the hover [+] buttons on edges are not clipped */
+.ProseMirror .tableWrapper {
+  padding-left: 20px;
+  padding-top: 20px;
+}
+
+/* Make table cells inside the editor focusable-looking on hover */
+.ProseMirror .tableWrapper td:focus,
+.ProseMirror .tableWrapper th:focus {
+  outline: none;
+}
+
+/* Ensure caret is visible inside empty table cells */
+.ProseMirror .tableWrapper td > p:empty::before,
+.ProseMirror .tableWrapper th > p:empty::before {
+  content: "\200b"; /* zero-width space */
+}
+
