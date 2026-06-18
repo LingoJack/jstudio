@@ -16,11 +16,17 @@ export default function DocumentList() {
   const createDocument = useStore((s) => s.createDocument);
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
+  const sidebarWidth = useStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useStore((s) => s.setSidebarWidth);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [isResizing, setIsResizing] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const resizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
 
   const filteredDocs = documents.filter((doc) =>
     (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
@@ -66,8 +72,46 @@ export default function DocumentList() {
     setContextMenu({ x: e.clientX, y: e.clientY, docId });
   };
 
+  // --- Resize sidebar by dragging the right edge ---
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = true;
+    startXRef.current = e.clientX;
+    startWidthRef.current = sidebarWidth;
+    setIsResizing(true);
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = e.clientX - startXRef.current;
+      setSidebarWidth(startWidthRef.current + delta);
+    };
+    const onMouseUp = () => {
+      resizingRef.current = false;
+      setIsResizing(false);
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isResizing, setSidebarWidth]);
+
   return (
-    <div className="w-60 shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10 relative">
+    <div
+      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10 relative"
+      style={{ width: sidebarWidth }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-1.5 mb-1 shrink-0">
         <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5">
@@ -160,6 +204,13 @@ export default function DocumentList() {
           </button>
         </div>
       )}
+
+      {/* Resize handle */}
+      <div
+        onMouseDown={onResizeStart}
+        className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-20 hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] transition-colors"
+        style={{ marginRight: '-1px' }}
+      />
     </div>
   );
 }

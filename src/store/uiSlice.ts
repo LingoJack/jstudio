@@ -9,6 +9,11 @@ import {
   resolveFontFamily,
 } from '../lib/fonts';
 
+/** Sidebar width constraints (px). */
+const MIN_SIDEBAR_WIDTH = 180;
+const MAX_SIDEBAR_WIDTH = 480;
+const DEFAULT_SIDEBAR_WIDTH = 240;
+
 /**
  * Resolve a theme preference to the actual dark/light value.
  * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
@@ -51,6 +56,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   fontId: DEFAULT_LATIN_FONT_ID,
   cjkFontId: DEFAULT_CJK_FONT_ID,
   fontSize: DEFAULT_FONT_SIZE,
+  sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -93,5 +99,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     applyFont(s.fontId, s.cjkFontId, clamped);
     set({ fontSize: clamped });
     storage.saveSettings({ fontSize: clamped }).catch(console.error);
+  },
+
+  setSidebarWidth: (width) => {
+    const clamped = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(MIN_SIDEBAR_WIDTH, width),
+    );
+    set({ sidebarWidth: clamped });
+    storage.saveSettings({ sidebarWidth: clamped }).catch(console.error);
   },
 });

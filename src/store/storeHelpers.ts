@@ -45,6 +45,7 @@ export interface StoreState {
   fontId: string;
   cjkFontId: string;
   fontSize: number;
+  sidebarWidth: number;
 
   // — init (documents slice) —
   init: () => Promise<void>;
@@ -81,6 +82,7 @@ export interface StoreState {
   setFontId: (id: string) => void;
   setCjkFontId: (id: string) => void;
   setFontSize: (size: number) => void;
+  setSidebarWidth: (width: number) => void;
 }
 
 /**

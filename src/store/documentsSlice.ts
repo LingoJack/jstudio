@@ -47,6 +47,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         if (typeof settings.fontSize === 'number') {
           fontSize = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, settings.fontSize));
         }
+        if (typeof settings.sidebarWidth === 'number') {
+          sidebarWidth = settings.sidebarWidth;
+        }
       } catch {
         // ignore
       }
@@ -117,6 +120,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         fontId,
         cjkFontId,
         fontSize,
+        ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
         isLoading: false,
       });
     } catch (e) {

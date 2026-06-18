@@ -28,6 +28,8 @@ export interface AppSettings {
   cjkFontId?: string;
   /** Editor base font size in pixels (12–22) */
   fontSize?: number;
+  /** Sidebar width in pixels (180–480) */
+  sidebarWidth?: number;
   [key: string]: unknown;
 }
 

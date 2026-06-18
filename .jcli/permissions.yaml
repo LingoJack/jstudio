@@ -27,4 +27,11 @@ allow:
 - Shell(cd /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
 - Shell(wc -l:*)
 - Shell(find /Users/jacklingo/dev_custom/jcli/apps/jstudio/src:*)
+- Shell(grep -rn:*)
+- Shell(git diff:*)
+- Shell(git show:*)
+- Shell(sed -n:*)
+- Shell(find src-tauri:*)
+- Shell(cat -n:*)
+- Shell(grep -E:*)
 deny: []
