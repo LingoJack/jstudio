@@ -199,7 +199,7 @@ export default function FileView({
 
       /* upper bound: editor surface visible width (minus a small margin) */
       const editorSurface = figureRef.current?.closest(
-        '[data-editor-surface], .ProseMirror'
+        '.ProseMirror'
       ) as HTMLElement | null;
       const maxWidth =
         (editorSurface?.clientWidth ?? window.innerWidth) - 24;

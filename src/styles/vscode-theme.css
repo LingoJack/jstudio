@@ -776,50 +776,6 @@ input::placeholder {
   opacity: 0.6;
 }
 
-/* ============================================
-   Surface editor — Notion style
-   ============================================ */
-
-/* Placeholder: show only for the ACTIVE block (the one containing the caret)
-   when it is empty.  data-active is maintained by updateActiveBlock() in
-   useSurfaceEditor — only one block has it at any time. */
-[data-editor-surface] [data-active] .block-line[data-placeholder]:empty::before {
-  content: attr(data-placeholder);
-  color: var(--vscode-descriptionForeground);
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-/* Block handle visibility — ensure only ONE block shows its handle at a time.
-
-   Without this, both the mouse-hovered block and the caret-active block
-   show their handles simultaneously. These rules give hover priority:
-
-   1. When at least one block is hovered → only hovered blocks get opacity 1
-      (active blocks that aren't hovered are forced to opacity 0).
-   2. When no block is hovered → the active block gets opacity 1. */
-
-/* Case 1: surface has a hovered block — suppress active-block handles */
-[data-editor-surface]:has(.block-wrapper:hover) .block-wrapper[data-active]:not(:hover) > .block-handle-active {
-  opacity: 0 !important;
-}
-
-/* Case 2: surface has no hovered block — show the active block's handle */
-[data-editor-surface]:not(:has(.block-wrapper:hover)) .block-wrapper[data-active] > .block-handle-active {
-  opacity: 1 !important;
-}
-
-.block-line {
-  position: relative;
-  min-height: 1.5rem;
-}
-
-/* Make sure block lines inside the surface inherit natural text flow */
-[data-editor-surface] .block-line {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 button {
   font-family: inherit;
   cursor: pointer;

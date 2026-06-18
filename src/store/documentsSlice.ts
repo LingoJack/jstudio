@@ -207,8 +207,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // If the browser's Selection still references one of those nodes,
       // WebKit throws "NotFoundError: The object can not be found here."
       try {
-        const surface = document.querySelector('[data-editor-surface]') as HTMLElement | null;
-        if (surface && (document.activeElement === surface || surface.contains(document.activeElement))) {
+        const editor = document.querySelector('.ProseMirror') as HTMLElement | null;
+        if (editor && (document.activeElement === editor || editor.contains(document.activeElement))) {
           (document.body as HTMLElement).focus();
         }
         window.getSelection()?.removeAllRanges();
