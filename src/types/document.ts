@@ -9,7 +9,8 @@ export type BlockType =
   | 'heading-3'
   | 'code'
   | 'image'
-  | 'file';
+  | 'file'
+  | 'table';
 
 export interface BlockProperties {
   language?: string; // code block syntax
@@ -28,6 +29,8 @@ export interface BlockProperties {
   fileDisplayMode?: 'card' | 'preview';
   /** File attachment: preview display width (px). Undefined = auto. */
   fileWidth?: number;
+  /** Table block: serialized table structure. */
+  tableData?: TableData;
 }
 
 export interface Block {
@@ -62,4 +65,31 @@ export interface Document {
   updatedAt: string;
   blocks: Block[];
   isFavorite?: boolean; // deprecated, kept for backward compat
+}
+
+// ---------------------------------------------------------------------------
+// Table types
+// ---------------------------------------------------------------------------
+
+/** A single table cell. */
+export interface TableCellData {
+  /** Paragraphs inside the cell (each paragraph is a `RichText[]`). */
+  content: RichText[][];
+  /** Horizontal span (default 1). */
+  colspan?: number;
+  /** Vertical span (default 1). */
+  rowspan?: number;
+}
+
+/** A single table row. */
+export interface TableRowData {
+  /** Whether this row is a header row. */
+  isHeader: boolean;
+  /** Cells in this row. */
+  cells: TableCellData[];
+}
+
+/** Serialized table structure stored in `BlockProperties.tableData`. */
+export interface TableData {
+  rows: TableRowData[];
 }

@@ -1709,3 +1709,60 @@ button {
   text-align: center;
 }
 
+/* ============================================
+   Table Styles (TipTap Table extension)
+   ============================================ */
+
+/* Wrapper around the table — horizontal scroll for wide tables */
+.ProseMirror .tableWrapper {
+  margin: 12px 0;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-widget-border);
+  overflow-x: auto;
+}
+
+.ProseMirror .tableWrapper table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Header row */
+.ProseMirror .tableWrapper th {
+  background: var(--vscode-editor-inactiveSelectionBackground);
+  font-weight: 600;
+  text-align: left;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+/* Body cells */
+.ProseMirror .tableWrapper th,
+.ProseMirror .tableWrapper td {
+  border: 1px solid var(--vscode-widget-border);
+  padding: 6px 12px;
+  min-width: 80px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Empty cells: show a faint dot so the cursor target is visible */
+.ProseMirror .tableWrapper td > p,
+.ProseMirror .tableWrapper th > p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Selected cell highlight (TipTap toggles .selectedCell on cells) */
+.ProseMirror .tableWrapper .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: var(--vscode-editor-selectionBackground);
+  pointer-events: none;
+}
+

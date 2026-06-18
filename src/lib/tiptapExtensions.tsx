@@ -13,6 +13,7 @@
  *   /code              → code block
  *   /image             → image
  *   /file              → file attachment
+ *   /table             → editable table
  */
 
 import { Extension } from '@tiptap/core';
@@ -124,6 +125,19 @@ export const slashCommands: SlashCommandItem[] = [
       // placeholder afterwards to pick a file.
       editor.chain().focus().deleteRange(range).setFile().run();
     },
+  },
+  {
+    title: 'Table',
+    description: 'Insert a 3×3 editable table',
+    icon: '⊞',
+    aliases: ['table', 'grid', '矩阵'],
+    command: ({ editor, range }) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+        .run(),
   },
 ];
 

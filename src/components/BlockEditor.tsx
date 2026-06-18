@@ -29,6 +29,10 @@ import { bytesToDataUrl, fileToDataUrl, genStoredName } from '../lib/upload';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
+import { Table } from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableHeader from '@tiptap/extension-table-header';
+import TableCell from '@tiptap/extension-table-cell';
 
 import Color from '@tiptap/extension-color';
 import { createLowlight, common } from 'lowlight';
@@ -232,6 +236,10 @@ export default function BlockEditor() {
       Underline,
       TextStyle,
       Color,
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
       SelectAllText,
       SlashMenuExtension,
       BlockNavigation.configure({
