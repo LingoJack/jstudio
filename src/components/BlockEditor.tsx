@@ -47,7 +47,9 @@ import { SelectAllText } from '../lib/extensions/selectAllText';
 import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
 import TableControls from './TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
+import DocumentOutline from './DocumentOutline';
 import type { Block } from '../types';
+import { ListTree } from 'lucide-react';
 
 export default function BlockEditor() {
   // Only subscribe to the fields this component actually renders, so that
@@ -59,6 +61,8 @@ export default function BlockEditor() {
   const activeDocTitle = useStore((s) => s.activeDoc?.title ?? '');
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
+  const isOutlineOpen = useStore((s) => s.isOutlineOpen);
+  const toggleOutline = useStore((s) => s.toggleOutline);
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   /** Tracks the document ID currently loaded into the editor to prevent
@@ -258,7 +262,7 @@ export default function BlockEditor() {
   if (!hasActiveDoc) return null;
 
   return (
-    <div className="flex flex-col h-full bg-transparent overflow-hidden">
+    <div className="flex h-full bg-transparent overflow-hidden relative">
       <div
         className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
         onClick={handleBlankAreaClick}
@@ -287,6 +291,22 @@ export default function BlockEditor() {
         {/* Table hover controls + context menu */}
         {editor && <TableControls editor={editor} />}
       </div>
+
+      {/* Outline panel (conditional) */}
+      {editor && isOutlineOpen && <DocumentOutline editor={editor} />}
+
+      {/* Outline toggle icon — fixed top-right of editor area */}
+      <button
+        onClick={toggleOutline}
+        title={isOutlineOpen ? '隐藏大纲' : '显示大纲'}
+        className={`absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+          isOutlineOpen
+            ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
+            : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+        }`}
+      >
+        <ListTree className="w-4 h-4" />
+      </button>
     </div>
   );
 }

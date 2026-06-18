@@ -39,6 +39,7 @@ export interface StoreState {
   themeMode: ThemeMode;
   isDarkMode: boolean;
   isSidebarOpen: boolean;
+  isOutlineOpen: boolean;
   isSettingsOpen: boolean;
   isLoading: boolean;
   searchQuery: string;
@@ -76,6 +77,8 @@ export interface StoreState {
   setThemeMode: (mode: ThemeMode) => void;
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
+  toggleOutline: () => void;
+  setOutlineOpen: (open: boolean) => void;
   toggleSettings: () => void;
   setSettingsOpen: (open: boolean) => void;
   setSearchQuery: (q: string) => void;
