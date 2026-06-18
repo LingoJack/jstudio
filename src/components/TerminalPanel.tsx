@@ -12,51 +12,110 @@ import {
 import '@xterm/xterm/css/xterm.css';
 
 // ────────────────────────────────────────────────
-// Cursor trail effect (kitty-style)
+// Cursor trail effect (kitty-style, WebGL2 GPU-accelerated)
 // ────────────────────────────────────────────────
 
+/** Convert "#rrggbb" → [r, g, b] with each channel in 0..1 */
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.slice(0, 2), 16) / 255,
+    parseInt(h.slice(2, 4), 16) / 255,
+    parseInt(h.slice(4, 6), 16) / 255,
+  ];
+}
+
+const TRAIL_VS = `#version 300 es
+layout(location=0) in vec2 a_quad;       // unit-quad vertex (0..1)
+layout(location=1) in vec2 a_cellPos;    // per-instance cell grid pos (col, row)
+layout(location=2) in float a_opacity;   // per-instance opacity
+
+uniform vec2 u_resolution;   // canvas CSS pixels
+uniform vec2 u_cellSize;     // px per cell (w, h)
+uniform vec2 u_gridOffset;   // grid origin offset (px)
+uniform float u_barH;        // underline bar height (px)
+
+out float v_alpha;
+
+void main() {
+  // Position the underline bar at the bottom of the cell.
+  vec2 px = a_cellPos * u_cellSize + u_gridOffset;
+  px.x += a_quad.x * u_cellSize.x;
+  px.y += (u_cellSize.y - u_barH) + a_quad.y * u_barH;
+
+  // Convert to clip space (origin top-left → NDC bottom-left).
+  vec2 ndc = (px / u_resolution) * 2.0 - 1.0;
+  ndc.y = -ndc.y;
+
+  gl_Position = vec4(ndc, 0.0, 1.0);
+  v_alpha = a_opacity;
+}`;
+
+const TRAIL_FS = `#version 300 es
+precision mediump float;
+in float v_alpha;
+uniform vec3 u_color;
+out vec4 fragColor;
+void main() {
+  float a = v_alpha * 0.45;
+  fragColor = vec4(u_color * a, a);
+}`;
+
 /**
- * CursorTrail — mimics kitty's `cursor_trail` + `cursor_trail_decay`.
+ * CursorTrail — kitty's `cursor_trail` + `cursor_trail_decay`, rendered on
+ * the GPU via WebGL2 instanced drawing.
  *
- * kitty draws a fading trail behind the cursor as it moves.  We replicate
- * this with a transparent <canvas> layered *inside* the xterm screen
- * container (positioned over `.xterm-rows`).
+ * Every frame the active trail cells are packed into an instance buffer
+ * (x, y, opacity) and drawn in a **single** `drawArraysInstanced` call.
+ * Each instance maps a 4-vertex unit-quad TRIANGLE_STRIP onto the correct
+ * screen position + underline-bar shape.  This keeps the main thread free
+ * — even with hundreds of decaying trail cells the cost is one GPU call.
  *
- * ── Why the previous version didn't work ──
- * The old code measured `term.dimensions?.css.cell` which is unreliable
- * in the beta, and placed the canvas at the container origin — but xterm
- * adds its own padding / scrollbar, so the canvas grid never aligned with
- * the actual character cells.
- *
- * ── Fix ──
- * We query `.xterm-rows` via getBoundingClientRect() every frame to get
- * the *real* pixel position of the character grid, then compute cell size
- * as `rowsRect.width / term.cols`.  The canvas is positioned to exactly
- * cover `.xterm-rows`, so canvas pixel (0,0) === top-left of the first
- * character cell.  This guarantees perfect alignment.
- *
- * kitty params:  cursor_trail 3, cursor_trail_decay 0.1 0.4
+ * kitty params:  cursor_trail 3,  cursor_trail_decay 0.1 0.4
  */
 class CursorTrail {
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  private gl: WebGL2RenderingContext;
   private term: Terminal;
   private container: HTMLElement;
-  private color: string;
+  private colorRgb: [number, number, number] = [0, 0.67, 1];
+
   private trail = new Map<string, number>(); // "x,y" → opacity
   private lastX = -1;
   private lastY = -1;
   private rafId: number | null = null;
   private running = false;
+
+  // Grid metrics (re-measured each frame)
   private cellW = 8;
   private cellH = 16;
   private gridLeft = 0;
   private gridTop = 0;
+  private cssW = 0;
+  private cssH = 0;
+
+  // GL resources
+  private program: WebGLProgram;
+  private vao: WebGLVertexArrayObject;
+  private quadBuffer: WebGLBuffer;
+  private instanceBuffer: WebGLBuffer;
+  private u: {
+    resolution: WebGLUniformLocation | null;
+    cellSize: WebGLUniformLocation | null;
+    gridOffset: WebGLUniformLocation | null;
+    barH: WebGLUniformLocation | null;
+    color: WebGLUniformLocation | null;
+  };
+
+  // Pre-allocated instance data array (reused each frame to avoid GC).
+  // Each instance = 3 floats (cellX, cellY, opacity). Max 512 cells.
+  private static readonly MAX_INSTANCES = 512;
+  private instanceData = new Float32Array(CursorTrail.MAX_INSTANCES * 3);
 
   constructor(term: Terminal, container: HTMLElement, color: string) {
     this.term = term;
     this.container = container;
-    this.color = color;
+    this.colorRgb = hexToRgb(color);
 
     this.canvas = document.createElement('canvas');
     Object.assign(this.canvas.style, {
@@ -69,7 +128,87 @@ class CursorTrail {
       zIndex: '5',
     } as CSSStyleDeclaration);
     container.appendChild(this.canvas);
-    this.ctx = this.canvas.getContext('2d')!;
+
+    const gl = this.canvas.getContext('webgl2', {
+      alpha: true,
+      premultipliedAlpha: true,
+      antialias: false,
+      depth: false,
+      stencil: false,
+    });
+    if (!gl) throw new Error('WebGL2 not available');
+    this.gl = gl;
+
+    // ── Compile shaders ──
+    const vs = this.compile(gl.VERTEX_SHADER, TRAIL_VS);
+    const fs = this.compile(gl.FRAGMENT_SHADER, TRAIL_FS);
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(
+        'Trail program link failed: ' + gl.getProgramInfoLog(program),
+      );
+    }
+    this.program = program;
+
+    this.u = {
+      resolution: gl.getUniformLocation(program, 'u_resolution'),
+      cellSize: gl.getUniformLocation(program, 'u_cellSize'),
+      gridOffset: gl.getUniformLocation(program, 'u_gridOffset'),
+      barH: gl.getUniformLocation(program, 'u_barH'),
+      color: gl.getUniformLocation(program, 'u_color'),
+    };
+
+    // ── Static unit-quad (TRIANGLE_STRIP) ──
+    const quadVerts = new Float32Array([
+      0, 0, //
+      1, 0, //
+      0, 1, //
+      1, 1, //
+    ]);
+    this.quadBuffer = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+
+    // ── Dynamic instance buffer ──
+    this.instanceBuffer = gl.createBuffer()!;
+
+    // ── VAO ──
+    this.vao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.vao);
+
+    // Attribute 0: a_quad (static, 2 floats, no divisor)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    // Attribute 1: a_cellPos (instanced, 2 floats, divisor=1)
+    // Attribute 2: a_opacity (instanced, 1 float, divisor=1)
+    // Both live in the same interleaved buffer: [cellX, cellY, opacity]
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
+    const stride = 3 * 4; // 3 floats per instance
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, stride, 0);
+    gl.vertexAttribDivisor(1, 1);
+
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, stride, 2 * 4);
+    gl.vertexAttribDivisor(2, 1);
+
+    gl.bindVertexArray(null);
+  }
+
+  private compile(type: number, src: string): WebGLShader {
+    const gl = this.gl;
+    const shader = gl.createShader(type)!;
+    gl.shaderSource(shader, src);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      throw new Error('Shader compile error: ' + gl.getShaderInfoLog(shader));
+    }
+    return shader;
   }
 
   start() {
@@ -81,34 +220,43 @@ class CursorTrail {
   dispose() {
     this.running = false;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    const gl = this.gl;
+    gl.deleteBuffer(this.quadBuffer);
+    gl.deleteBuffer(this.instanceBuffer);
+    gl.deleteVertexArray(this.vao);
+    gl.deleteProgram(this.program);
     this.canvas.remove();
   }
 
   setColor(color: string) {
-    this.color = color;
+    this.colorRgb = hexToRgb(color);
   }
 
-  /** Recalculate canvas size + cell metrics (call on resize). */
   resize() {
     const rect = this.container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
+    this.cssW = rect.width;
+    this.cssH = rect.height;
     this.canvas.width = Math.max(1, Math.round(rect.width * dpr));
     this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  /** Measure the actual character grid from the rendered DOM. */
   private measureGrid() {
-    const rowsEl = this.container.querySelector('.xterm-rows') as HTMLElement | null;
-    const screenEl = this.container.querySelector('.xterm-screen') as HTMLElement | null;
+    const rowsEl = this.container.querySelector(
+      '.xterm-rows',
+    ) as HTMLElement | null;
+    const screenEl = this.container.querySelector(
+      '.xterm-screen',
+    ) as HTMLElement | null;
     if (!rowsEl || !screenEl) return;
 
     const rowsRect = rowsEl.getBoundingClientRect();
     const screenRect = screenEl.getBoundingClientRect();
 
     this.cellW = rowsRect.width / Math.max(1, this.term.cols);
-    this.cellH = this.term.dimensions?.css.cell.height || rowsRect.height / Math.max(1, this.term.rows);
-    // Offset of the rows grid relative to our canvas container.
+    this.cellH =
+      this.term.dimensions?.css.cell.height ||
+      rowsRect.height / Math.max(1, this.term.rows);
     this.gridLeft = rowsRect.left - screenRect.left;
     this.gridTop = rowsRect.top - screenRect.top;
   }
@@ -122,36 +270,73 @@ class CursorTrail {
     const cx = buf.cursorX;
     const cy = buf.baseY + buf.cursorY;
 
-    // Stamp new position when cursor moves.
     if (cx !== this.lastX || cy !== this.lastY) {
       this.trail.set(`${cx},${cy}`, 1.0);
       this.lastX = cx;
       this.lastY = cy;
     }
 
-    // Clear + redraw all trail cells with decay.
-    const dpr = window.devicePixelRatio || 1;
-    this.ctx.clearRect(0, 0, this.canvas.width / dpr, this.canvas.height / dpr);
-
+    // Pack active instances into instanceData, decaying opacity.
+    const gl = this.gl;
+    const data = this.instanceData;
+    let count = 0;
     const toDelete: string[] = [];
+
     for (const [key, opacity] of this.trail) {
       if (opacity <= 0.02) {
         toDelete.push(key);
         continue;
       }
+      if (count >= CursorTrail.MAX_INSTANCES) break;
+
       const [x, y] = key.split(',').map(Number);
-      const px = this.gridLeft + x * this.cellW;
-      const py = this.gridTop + y * this.cellH;
+      const off = count * 3;
+      data[off] = x;
+      data[off + 1] = y;
+      data[off + 2] = opacity * 0.45; // premultiply max visibility
 
-      // Draw an underline-height bar at the bottom of the cell.
-      this.ctx.globalAlpha = opacity * 0.45;
-      this.ctx.fillStyle = this.color;
-      this.ctx.fillRect(px, py + this.cellH - 2.5, this.cellW, 2.5);
-
-      // Decay — kitty uses 0.1–0.4 range; 0.88/frame approximates this.
       this.trail.set(key, opacity * 0.88);
+      count++;
     }
     for (const key of toDelete) this.trail.delete(key);
+
+    // ── Render ──
+    const dpr = window.devicePixelRatio || 1;
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    if (count > 0) {
+      gl.useProgram(this.program);
+      gl.bindVertexArray(this.vao);
+
+      // Upload instance data (only the used portion).
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        data.subarray(0, count * 3),
+        gl.DYNAMIC_DRAW,
+      );
+
+      // Uniforms
+      gl.uniform2f(this.u.resolution, this.cssW, this.cssH);
+      gl.uniform2f(this.u.cellSize, this.cellW, this.cellH);
+      gl.uniform2f(this.u.gridOffset, this.gridLeft, this.gridTop);
+      gl.uniform1f(this.u.barH, 2.5);
+      gl.uniform3f(
+        this.u.color,
+        this.colorRgb[0],
+        this.colorRgb[1],
+        this.colorRgb[2],
+      );
+
+      // Enable blending for transparency.
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied
+
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+      gl.bindVertexArray(null);
+    }
 
     this.rafId = requestAnimationFrame(this.loop);
   };
@@ -324,13 +509,18 @@ export default function TerminalPanel() {
       // GPU-accelerated renderer
       tryEnableWebgl(entry.term);
 
-      // ★ Kitty-style cursor trail
-      entry.trail = new CursorTrail(entry.term, entry.container, theme.cursor);
-      // Defer start until DOM is settled so measureGrid() can find .xterm-rows
-      requestAnimationFrame(() => {
-        entry.trail?.resize();
-        entry.trail?.start();
-      });
+      // ★ Kitty-style cursor trail (WebGL2 instanced)
+      try {
+        entry.trail = new CursorTrail(entry.term, entry.container, theme.cursor);
+        // Defer start until DOM is settled so measureGrid() can find .xterm-rows
+        requestAnimationFrame(() => {
+          entry.trail?.resize();
+          entry.trail?.start();
+        });
+      } catch {
+        // WebGL2 not available for trail — skip silently, terminal still works
+        entry.trail = null;
+      }
     }
 
     requestAnimationFrame(() => {
