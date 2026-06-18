@@ -1,9 +1,32 @@
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
+
+// ---- In-memory preview data cache ----
+// Used to pass large file data (base64) from the main window to a preview
+// window without hitting Tauri event IPC size limits.
+static PREVIEW_CACHE: std::sync::LazyLock<Mutex<HashMap<String, Value>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Store preview data in memory, keyed by window label.
+#[tauri::command]
+pub fn set_preview_data(label: String, data: Value) -> Result<(), String> {
+    let mut cache = PREVIEW_CACHE.lock().map_err(|e| e.to_string())?;
+    cache.insert(label, data);
+    Ok(())
+}
+
+/// Retrieve and remove preview data for the given label.
+#[tauri::command]
+pub fn get_preview_data(label: String) -> Result<Option<Value>, String> {
+    let mut cache = PREVIEW_CACHE.lock().map_err(|e| e.to_string())?;
+    Ok(cache.remove(&label))
+}
 
 /// Return the root data directory: `~/.jdata/studio/`
 fn studio_dir() -> PathBuf {

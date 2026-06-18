@@ -2,7 +2,8 @@
  * previewWindow.ts — Tauri 新窗口预览工具。
  *
  * 主窗口调用 `openPreviewWindow()` 创建一个独立的 OS 窗口，
- * 然后通过 Tauri event 将文件数据发送过去。
+ * 数据通过 Rust 内存命令（set/get_preview_data）传递，
+ * 避免 Tauri event IPC 对大数据的限制。
  *
  * 新窗口加载同一个前端 bundle，通过 URL 参数 `?window=preview`
  * 来区分渲染逻辑（见 main.tsx → PreviewWindowApp）。
@@ -10,7 +11,7 @@
 
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { emit, listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -27,24 +28,32 @@ export interface PreviewPayload {
 /* Sender side (main window)                                          */
 /* ------------------------------------------------------------------ */
 
-/** Globally increasing counter to generate unique window labels. */
 let previewCounter = 0;
 
 /**
  * Open a file in a new independent OS window for enlarged preview.
- *
- * @param payload  File data to preview
  */
 export async function openPreviewWindow(payload: PreviewPayload): Promise<void> {
   previewCounter += 1;
   const label = `preview-${Date.now()}-${previewCounter}`;
 
-  // Truncate very long file names for the window title.
+  console.log('[PreviewWindow] Opening new window:', label, payload.fileName);
+
   const shortName =
     payload.fileName.length > 40
       ? payload.fileName.slice(0, 37) + '...'
       : payload.fileName;
 
+  // 1. Store payload in Rust memory so the new window can retrieve it.
+  try {
+    await invoke('set_preview_data', { label, data: payload });
+    console.log('[PreviewWindow] Data stored in Rust cache for', label);
+  } catch (e) {
+    console.error('[PreviewWindow] Failed to store preview data:', e);
+    return;
+  }
+
+  // 2. Create the new webview window.
   const webviewWindow = new WebviewWindow(label, {
     url: 'index.html?window=preview',
     title: `预览 - ${shortName}`,
@@ -62,14 +71,12 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
     center: true,
   });
 
-  webviewWindow.once('tauri://created', async () => {
-    // Small delay to ensure the new window's JS listener is ready.
-    await new Promise((r) => setTimeout(r, 200));
-    await emit(`preview-data-${label}`, payload);
+  webviewWindow.once('tauri://created', () => {
+    console.log('[PreviewWindow] Window created successfully:', label);
   });
 
   webviewWindow.once('tauri://error', (e) => {
-    console.error('Failed to create preview window:', e);
+    console.error('[PreviewWindow] Failed to create window:', e);
   });
 }
 
@@ -78,26 +85,29 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
 /* ------------------------------------------------------------------ */
 
 /**
- * In the preview window, listen for the file data payload.
- * Returns an unsubscribe function.
+ * In the preview window, retrieve the file data payload from Rust memory.
+ * The label of this window is used as the key.
  */
-export async function onPreviewData(
-  callback: (payload: PreviewPayload) => void,
-): Promise<() => void> {
-  const currentLabel = getCurrentWindow().label;
+export async function fetchPreviewData(): Promise<PreviewPayload | null> {
+  const label = getCurrentWindow().label;
+  console.log('[PreviewWindow] Fetching preview data for label:', label);
 
-  const unlisten = await listen<PreviewPayload>(
-    `preview-data-${currentLabel}`,
-    (event) => {
-      callback(event.payload);
-    },
-  );
+  // Retry a few times — the data might not be fully committed yet.
+  for (let i = 0; i < 20; i++) {
+    try {
+      const data = await invoke<PreviewPayload | null>('get_preview_data', { label });
+      if (data) {
+        console.log('[PreviewWindow] Data retrieved on attempt', i + 1);
+        return data;
+      }
+    } catch (e) {
+      console.error('[PreviewWindow] Error fetching data:', e);
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
 
-  // Also try emitting a "ready" signal so the main window can resend
-  // if it sent the data before the listener was registered.
-  await emit(`preview-ready-${currentLabel}`, {});
-
-  return unlisten;
+  console.error('[PreviewWindow] Failed to retrieve preview data after retries');
+  return null;
 }
 
 /**

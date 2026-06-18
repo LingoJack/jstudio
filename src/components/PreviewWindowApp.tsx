@@ -4,27 +4,46 @@
  * 在 main.tsx 中通过 URL 参数 `?window=preview` 检测，
  * 如果是预览窗口则渲染此组件而非主 App。
  *
- * 它会通过 Tauri event 接收主窗口发来的文件数据，
+ * 它通过 Rust 内存命令（get_preview_data）获取主窗口存入的文件数据，
  * 然后全屏渲染对应类型的预览内容。
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
 
-import { onPreviewData, closePreviewWindow, type PreviewPayload } from '../lib/previewWindow';
+import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../lib/previewWindow';
 import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../lib/fileUtils';
 import { docxToHtml } from '../lib/docxPreview';
+import { storage } from '../lib/storage';
+
+/**
+ * Sync dark/light theme from settings so the preview window matches
+ * the main window's appearance.
+ */
+function useThemeSync() {
+  useEffect(() => {
+    storage.loadSettings().then((settings) => {
+      if (settings.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }).catch(() => {
+      // Fallback: default to dark (matching the app default).
+      document.documentElement.classList.add('dark');
+    });
+  }, []);
+}
 
 export default function PreviewWindowApp() {
   const [data, setData] = useState<PreviewPayload | null>(null);
 
+  useThemeSync();
+
   useEffect(() => {
-    const unlistenPromise = onPreviewData((payload) => {
-      setData(payload);
+    fetchPreviewData().then((payload) => {
+      if (payload) setData(payload);
     });
-    return () => {
-      unlistenPromise.then((fn) => fn());
-    };
   }, []);
 
   if (!data) {

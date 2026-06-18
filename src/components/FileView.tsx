@@ -44,7 +44,7 @@ import { useNodeResize } from '../hooks/useNodeResize';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
-import PreviewModal from './PreviewModal';
+import { openPreviewWindow } from '../lib/previewWindow';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                          */
@@ -76,7 +76,17 @@ export default function FileView({
   const [loading, setLoading] = useState(false);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
   const [docxLoading, setDocxLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+
+  // Open file content in a new independent OS window for enlarged preview.
+  const handleOpenPreview = useCallback(() => {
+    if (!src) return;
+    openPreviewWindow({
+      src,
+      fileName,
+      fileSize,
+      category: getPreviewCategory(fileType, fileName),
+    });
+  }, [src, fileName, fileSize, fileType]);
 
   const category = useMemo(
     () => getPreviewCategory(fileType, fileName),
@@ -286,8 +296,8 @@ export default function FileView({
                         className={`file-block-toolbar-btn ${
                           activeIndex === 3 ? 'is-focused' : ''
                         }`}
-                        onClick={() => setShowModal(true)}
-                        title="放大预览"
+                        onClick={handleOpenPreview}
+                        title="放大预览（新窗口）"
                       >
                         <Maximize2 size={15} />
                       </button>
@@ -394,17 +404,6 @@ export default function FileView({
           </div>
         )}
       </div>
-
-      {/* Fullscreen preview modal */}
-      {showModal && src && (
-        <PreviewModal
-          src={src}
-          fileName={fileName}
-          fileSize={fileSize}
-          category={category}
-          onClose={() => setShowModal(false)}
-        />
-      )}
     </NodeViewWrapper>
   );
 }
