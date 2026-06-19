@@ -29,7 +29,7 @@ import '@xterm/xterm/css/xterm.css';
  *   - Activating pane split keyboard shortcuts
  *   - Empty state (no sessions)
  */
-export default function TerminalPanel() {
+export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   const groups = useStore((s) => s.groups);
   const activeGroupId = useStore((s) => s.activeGroupId);
   const sessions = useStore((s) => s.sessions);
@@ -83,6 +83,7 @@ export default function TerminalPanel() {
           sessionIds={groupSessionIds}
           activeSessionId={activeGroup.activeSessionId}
           layout={activeGroup.layout}
+          hidden={hidden}
         />
       </div>
     </div>

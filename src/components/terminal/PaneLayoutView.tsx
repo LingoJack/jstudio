@@ -134,12 +134,17 @@ export interface PaneLayoutViewProps {
   sessionIds: string[];
   activeSessionId: string;
   layout: PaneLayoutType;
+  /** True when the terminal panel is visually hidden (e.g. Settings open).
+   *  When this transitions from true → false, all terminals are refitted
+   *  because their container had zero size while hidden. */
+  hidden?: boolean;
 }
 
 export default function PaneLayoutView({
   sessionIds,
   activeSessionId,
   layout,
+  hidden = false,
 }: PaneLayoutViewProps) {
   const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
   const terminalThemeIdLight = useStore((s) => s.terminalThemeIdLight);
@@ -259,6 +264,37 @@ export default function PaneLayoutView({
     return () => cancelAnimationFrame(rafId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutKey]);
+
+  // ════════════════════════════════════════════════════════════════
+  // Effect 1b: Refit on resurface
+  //
+  // When the terminal panel transitions from hidden → visible,
+  // the container went from zero-size to full-size.  We must
+  // refit every xterm instance and notify the PTY of the new
+  // cols/rows, otherwise the terminal renders with stale geometry.
+  // ════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (hidden) return;
+    const rafId = requestAnimationFrame(() => {
+      for (const sid of sessionIds) {
+        const entry = terminalsRef.current.get(sid);
+        if (!entry) continue;
+        try {
+          entry.fit.fit();
+          storage
+            .ptyResize(sid, entry.term.cols, entry.term.rows)
+            .catch(() => {});
+        } catch {
+          // ignore
+        }
+      }
+      // Also re-focus the active terminal so keyboard input resumes.
+      const activeEntry = terminalsRef.current.get(activeSessionId);
+      activeEntry?.term.focus();
+    });
+    return () => cancelAnimationFrame(rafId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden]);
 
   // ════════════════════════════════════════════════════════════════
   // Effect 2: Focus + trail attach

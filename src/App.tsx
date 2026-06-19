@@ -62,16 +62,27 @@ export default function App() {
 
         {/* Main content area (right) */}
         <div className="flex-1 min-w-0 h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden">
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden relative">
+            {/* Terminal panel stays mounted (CSS-hidden when inactive) to
+                preserve xterm instances + PTY listeners + scrollback. */}
+            <div
+              className={`absolute inset-0 ${
+                isTerminalView && !isSettingsOpen ? '' : 'hidden'
+              }`}
+            >
+              <TerminalPanel hidden={isSettingsOpen || !isTerminalView} />
+            </div>
+
+            {/* Settings / Editor / EmptyState overlaid on top */}
             {isSettingsOpen ? (
               <Settings />
-            ) : isTerminalView ? (
-              <TerminalPanel />
-            ) : hasActiveDoc ? (
-              <BlockEditor />
-            ) : (
-              <EmptyState />
-            )}
+            ) : !isTerminalView ? (
+              hasActiveDoc ? (
+                <BlockEditor />
+              ) : (
+                <EmptyState />
+              )
+            ) : null}
           </div>
         </div>
       </div>

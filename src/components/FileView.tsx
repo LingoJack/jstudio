@@ -12,6 +12,8 @@
  *   - PDF         → <iframe> (browser native PDF viewer)
  *   - DOCX        → mammoth.js converts to HTML, rendered in a container
  *   - Image       → <img>
+ *   - Audio       → <audio> with native controls
+ *   - Video       → <video> with native controls
  *   - Text (txt, md, json, csv, code, etc.) → <pre>
  *
  * Selection model:
@@ -365,6 +367,24 @@ export default function FileView({
                       src={safeSrc}
                       alt={fileName}
                       className="file-block-preview-image"
+                    />
+                  </div>
+                )}
+
+                {/* Audio */}
+                {category === 'audio' && (
+                  <div className="file-block-preview-media">
+                    <audio src={safeSrc} controls className="file-block-preview-audio" />
+                  </div>
+                )}
+
+                {/* Video */}
+                {category === 'video' && (
+                  <div className="file-block-preview-media">
+                    <video
+                      src={safeSrc}
+                      controls
+                      className="file-block-preview-video"
                     />
                   </div>
                 )}

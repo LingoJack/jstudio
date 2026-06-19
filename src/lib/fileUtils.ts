@@ -47,6 +47,20 @@ const MIME_MAP: Record<string, string> = {
   gif: 'image/gif',
   webp: 'image/webp',
   bmp: 'image/bmp',
+  // Audio
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  flac: 'audio/flac',
+  aac: 'audio/aac',
+  m4a: 'audio/mp4',
+  // Video
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska',
   // Structured data
   json: 'application/json',
   xml: 'application/xml',
@@ -106,6 +120,10 @@ export const FILE_EXTENSIONS = [
   'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sh',
   'sql', 'toml', 'ini', 'log',
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg',
+  // Audio
+  'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a',
+  // Video
+  'mp4', 'webm', 'mov', 'avi', 'mkv',
 ];
 
 /* ------------------------------------------------------------------ */
@@ -118,6 +136,8 @@ export type PreviewCategory =
   | 'pdf'
   | 'docx'
   | 'image'
+  | 'audio'
+  | 'video'
   | 'text'
   | 'other';
 
@@ -151,6 +171,8 @@ export function getPreviewCategory(
   )
     return 'docx';
   if (fileType.startsWith('image/')) return 'image';
+  if (fileType.startsWith('audio/')) return 'audio';
+  if (fileType.startsWith('video/')) return 'video';
   if (
     fileType.startsWith('text/') ||
     TEXT_EXTENSIONS.has(ext) ||
@@ -172,6 +194,10 @@ export function getCategoryLabel(category: PreviewCategory): string {
       return 'DOCX';
     case 'image':
       return 'IMAGE';
+    case 'audio':
+      return 'AUDIO';
+    case 'video':
+      return 'VIDEO';
     case 'text':
       return 'TEXT';
     default:

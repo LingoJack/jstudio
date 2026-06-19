@@ -135,6 +135,12 @@ function PreviewContent({
     case 'image':
       return <ImageZoom src={src} alt={fileName} />;
 
+    case 'audio':
+      return <MediaPreview src={src} kind="audio" />;
+
+    case 'video':
+      return <MediaPreview src={src} kind="video" />;
+
     case 'text':
       return <TextPreview src={src} />;
 
@@ -270,6 +276,25 @@ function ImageZoom({ src, alt }: { src: string; alt: string }) {
           title="重置 (双击图片)"
         >↺</button>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Audio / Video preview                                               */
+/* ------------------------------------------------------------------ */
+
+function MediaPreview({ src, kind }: { src: string; kind: 'audio' | 'video' }) {
+  return (
+    <div className="preview-window-media">
+      {kind === 'video' ? (
+        <video src={src} controls autoPlay className="preview-window-video" />
+      ) : (
+        <div className="preview-window-audio-wrap">
+          <div className="preview-window-audio-icon">♪</div>
+          <audio src={src} controls autoPlay className="preview-window-audio" />
+        </div>
+      )}
     </div>
   );
 }
