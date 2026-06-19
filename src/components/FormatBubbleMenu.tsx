@@ -5,10 +5,13 @@
  * toggles for Bold, Italic, Strike, and inline Code.
  *
  * Keyboard navigation:
- *   Tab / ArrowRight  → focus next item (wraps around)
- *   Shift+Tab / ArrowLeft → focus previous item (wraps around)
- *   Enter / Space     → toggle the focused item
- *   Escape            → close the menu (defer to editor)
+ *   Tab          → focus next item (wraps around)
+ *   Shift+Tab    → focus previous item (wraps around)
+ *   Enter / Space → toggle the focused item
+ *   Escape       → close the menu (defer to editor)
+ *
+ * ArrowLeft / ArrowRight are intentionally NOT intercepted: they keep their
+ * native behavior of moving the text cursor inside the selection.
  *
  * The marks themselves are provided by StarterKit (Bold, Italic, Strike,
  * Code extensions). This component only renders the BubbleMenu UI.
@@ -61,7 +64,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   //  Capture-phase keyboard interception on the editor DOM element.
   //
   //  When the BubbleMenu is visible, we intercept Tab/Shift+Tab/Enter/
-  //  Space/Arrows at the *capture* phase — before ProseMirror sees them
+  //  Space/Tab at the *capture* phase — before ProseMirror sees them
   //  — so we can drive the toolbar's roving focus instead of letting the
   //  browser tab away or the editor insert a node.
   // ------------------------------------------------------------------
@@ -76,16 +79,12 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       const isEnter = key === 'Enter';
       const isSpace = key === ' ';
       const isEscape = key === 'Escape';
-      const isArrowLeft = key === 'ArrowLeft';
-      const isArrowRight = key === 'ArrowRight';
 
       if (
         !isTab &&
         !isEnter &&
         !isSpace &&
-        !isEscape &&
-        !isArrowLeft &&
-        !isArrowRight
+        !isEscape
       ) {
         return;
       }
@@ -109,12 +108,6 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
         setActiveIndex(next);
       } else if (isTab && e.shiftKey) {
         // Shift+Tab — backward, wrap around
-        const next = current <= 0 ? itemCount - 1 : current - 1;
-        setActiveIndex(next);
-      } else if (isArrowRight) {
-        const next = current >= itemCount - 1 ? 0 : current + 1;
-        setActiveIndex(next);
-      } else if (isArrowLeft) {
         const next = current <= 0 ? itemCount - 1 : current - 1;
         setActiveIndex(next);
       } else if (isEnter || isSpace) {
