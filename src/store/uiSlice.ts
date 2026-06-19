@@ -7,6 +7,7 @@ import {
   MIN_FONT_SIZE,
   MAX_FONT_SIZE,
   resolveFontFamily,
+  DEFAULT_MONOSPACE_FONT_ID,
 } from '../lib/fonts';
 import { DEFAULT_TERMINAL_THEME_ID } from '../lib/terminalThemes';
 
@@ -72,6 +73,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   activeSidebarView: 'documents',
   terminalThemeId: DEFAULT_TERMINAL_THEME_ID,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+  terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -150,5 +152,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     );
     set({ terminalFontSize: clamped });
     storage.saveSettings({ terminalFontSize: clamped }).catch(console.error);
+  },
+
+  setTerminalFontId: (id) => {
+    set({ terminalFontId: id });
+    storage.saveSettings({ terminalFontId: id }).catch(console.error);
   },
 });

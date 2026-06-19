@@ -5,6 +5,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
+import { resolveMonospaceFont } from '../../lib/fonts';
 import type { TerminalTheme } from '../../lib/terminalThemes';
 import CursorTrail from './CursorTrail';
 import type { SessionTerminal } from './types';
@@ -38,10 +39,12 @@ function tryEnableWebgl(term: Terminal): boolean {
  * switch the active session's DOM container.
  */
 export function useTerminalManager(
-  fontFamily: string,
+  fontId: string,
   terminalFontSize: number,
 ) {
   const removeSessionState = useStore((s) => s.removeSessionState);
+
+  const resolvedFontFamily = resolveMonospaceFont(fontId);
 
   const terminalsRef = useRef<Map<string, SessionTerminal>>(new Map());
   const unlistenRef = useRef<Map<string, UnlistenFn[]>>(new Map());
@@ -58,13 +61,21 @@ export function useTerminalManager(
       container.style.height = '100%';
 
       const term = new Terminal({
-        fontFamily: `'${fontFamily}', 'monaco', monospace`,
+        fontFamily: `${resolvedFontFamily}, monospace`,
         fontSize: terminalFontSize,
         cursorStyle: 'underline',
         cursorBlink: true,
         cursorWidth: 2,
         allowProposedApi: true,
         scrollback: 10000,
+        // Use Unicode 11 width tables so emoji and wide CJK characters
+        // get the same column width as kitty (which follows the latest
+        // Unicode standard).  Without this, xterm falls back to
+        // Unicode 6 where many emoji are width 1, breaking box art.
+        unicodeVersion: '11',
+        // Let the browser figure out the true advance width of each
+        // glyph — prevents narrow/wide mismatches on mixed scripts.
+        allowTransparency: true,
         theme: {
           background: theme.background,
           foreground: theme.foreground,
@@ -131,7 +142,7 @@ export function useTerminalManager(
 
       return entry;
     },
-    [fontFamily, terminalFontSize, removeSessionState],
+    [resolvedFontFamily, terminalFontSize, removeSessionState],
   );
 
   /** Fully destroy a terminal instance + clean up listeners. */

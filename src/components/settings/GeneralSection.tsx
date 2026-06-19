@@ -1,33 +1,29 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { FolderOpen, Folder, Loader2, AlertCircle, Minus, Plus, ChevronDown, Check, Globe } from 'lucide-react';
+import { FolderOpen, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
-import type { Language } from '../../lib/storage';
-import {
-  LATIN_FONTS,
-  CJK_FONTS,
-  resolveFontFamily,
-  MIN_FONT_SIZE,
-  MAX_FONT_SIZE,
-} from '../../lib/fonts';
-import FontDropdown from '../ui/FontDropdown';
+import type { Language, ThemeMode } from '../../lib/storage';
 
+/**
+ * GeneralSection — app-wide settings.
+ *
+ * Contains:
+ *   - Language
+ *   - Theme mode (light/dark/system)
+ *   - Activity bar border toggle
+ *   - Data location
+ */
 export default function GeneralSection() {
   const { t } = useI18n();
   const [dataPath, setDataPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
 
-  // Font settings from store
-  const fontId = useStore((s) => s.fontId);
-  const cjkFontId = useStore((s) => s.cjkFontId);
-  const fontSize = useStore((s) => s.fontSize);
-  const terminalFontSize = useStore((s) => s.terminalFontSize);
-  const setFontId = useStore((s) => s.setFontId);
-  const setCjkFontId = useStore((s) => s.setCjkFontId);
-  const setFontSize = useStore((s) => s.setFontSize);
-  const setTerminalFontSize = useStore((s) => s.setTerminalFontSize);
+  const themeMode = useStore((s) => s.themeMode);
+  const setThemeMode = useStore((s) => s.setThemeMode);
+  const activityBarBorder = useStore((s) => s.activityBarBorder);
+  const setActivityBarBorder = useStore((s) => s.setActivityBarBorder);
 
   useEffect(() => {
     storage
@@ -49,8 +45,16 @@ export default function GeneralSection() {
     }
   };
 
-  // Combined preview font-family for the preview box
-  const previewFontFamily = resolveFontFamily(fontId, cjkFontId);
+  const themeOptions: {
+    value: ThemeMode;
+    label: string;
+    desc: string;
+    icon: LucideIcon;
+  }[] = [
+    { value: 'light', label: t('appearance.light'), desc: t('appearance.lightDesc'), icon: Sun },
+    { value: 'dark', label: t('appearance.dark'), desc: t('appearance.darkDesc'), icon: Moon },
+    { value: 'system', label: t('appearance.system'), desc: t('appearance.systemDesc'), icon: Monitor },
+  ];
 
   return (
     <div className="space-y-8">
@@ -65,141 +69,79 @@ export default function GeneralSection() {
         <LanguageDropdown />
       </div>
 
-      {/* Divider */}
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
-      {/* ---- Latin Font ---- */}
+      {/* ---- Theme Mode ---- */}
       <div>
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
-          {t('general.latinFont')}
+          {t('appearance.theme')}
         </label>
-        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
-          {t('general.latinFontDesc')}
-        </p>
-        <FontDropdown
-          options={LATIN_FONTS}
-          value={fontId}
-          onChange={setFontId}
-          searchPlaceholder={t('font.searchPlaceholder')}
-        />
-      </div>
-
-      {/* ---- CJK Font ---- */}
-      <div>
-        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
-          {t('general.cjkFont')}
-        </label>
-        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
-          {t('general.cjkFontDesc')}
-        </p>
-        <FontDropdown
-          options={CJK_FONTS}
-          value={cjkFontId}
-          onChange={setCjkFontId}
-          searchPlaceholder={t('font.searchPlaceholder')}
-        />
-      </div>
-
-      {/* ---- Font Size ---- */}
-      <div>
-        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
-          {t('general.fontSize')}
-        </label>
-        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
-          {t('general.fontSizeDesc', { min: MIN_FONT_SIZE, max: MAX_FONT_SIZE })}
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-5">
+          {t('appearance.themeDesc')}
         </p>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setFontSize(fontSize - 1)}
-            disabled={fontSize <= MIN_FONT_SIZE}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-
-          <input
-            type="range"
-            min={MIN_FONT_SIZE}
-            max={MAX_FONT_SIZE}
-            step={1}
-            value={fontSize}
-            onChange={(e) => setFontSize(Number(e.target.value))}
-            className="flex-1 accent-[var(--vscode-focusBorder)] cursor-pointer"
-          />
-
-          <button
-            onClick={() => setFontSize(fontSize + 1)}
-            disabled={fontSize >= MAX_FONT_SIZE}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-
-          <span className="text-sm text-[var(--vscode-foreground)] tabular-nums w-16 text-center shrink-0 font-medium">
-            {fontSize} px
-          </span>
+        <div className="grid grid-cols-3 gap-4">
+          {themeOptions.map((opt) => {
+            const Icon = opt.icon;
+            const selected = themeMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setThemeMode(opt.value)}
+                className={`flex flex-col items-center gap-3 p-6 rounded-lg border-2 transition-all duration-150 cursor-pointer ${
+                  selected
+                    ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                    : 'border-transparent bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-widget-border)]'
+                }`}
+              >
+                <Icon
+                  className={`w-7 h-7 ${selected ? 'text-[var(--vscode-foreground)]' : 'text-[var(--vscode-descriptionForeground)]'}`}
+                />
+                <span
+                  className={`text-sm ${selected ? 'text-[var(--vscode-foreground)] font-medium' : 'text-[var(--vscode-sideBar-foreground)]'}`}
+                >
+                  {opt.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Preview */}
-        <div
-          className="mt-4 px-5 py-4 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)]"
-          style={{
-            fontFamily: previewFontFamily,
-            fontSize: `${fontSize}px`,
-            lineHeight: 1.7,
-          }}
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mt-4">
+          {themeOptions.find((o) => o.value === themeMode)?.desc}
+        </p>
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- Activity Bar Border ---- */}
+      <div className="flex items-center justify-between">
+        <div className="pr-4">
+          <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1">
+            {t('appearance.activityBarBorder')}
+          </label>
+          <p className="text-sm text-[var(--vscode-descriptionForeground)]">
+            {t('appearance.activityBarBorderDesc')}
+          </p>
+        </div>
+        <button
+          onClick={() => setActivityBarBorder(!activityBarBorder)}
+          className={`relative w-12 h-7 rounded-full transition-colors duration-200 shrink-0 cursor-pointer ${
+            activityBarBorder
+              ? 'bg-[var(--vscode-button-background)]'
+              : 'bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)]'
+          }`}
         >
-          {t('general.fontPreview')}
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t border-[var(--vscode-widget-border)]" />
-
-      {/* ---- Terminal Font Size ---- */}
-      <div>
-        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
-          {t('general.terminalFontSize')}
-        </label>
-        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
-          {t('general.terminalFontSizeDesc', { min: 10, max: 28 })}
-        </p>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setTerminalFontSize(terminalFontSize - 1)}
-            disabled={terminalFontSize <= 10}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-
-          <input
-            type="range"
-            min={10}
-            max={28}
-            step={1}
-            value={terminalFontSize}
-            onChange={(e) => setTerminalFontSize(Number(e.target.value))}
-            className="flex-1 accent-[var(--vscode-focusBorder)] cursor-pointer"
+          <span
+            className={`absolute top-1 left-1 w-5 h-5 rounded-full transition-transform duration-200 ${
+              activityBarBorder
+                ? 'translate-x-5 bg-[var(--vscode-button-foreground)]'
+                : 'bg-[var(--vscode-descriptionForeground)]'
+            }`}
           />
-
-          <button
-            onClick={() => setTerminalFontSize(terminalFontSize + 1)}
-            disabled={terminalFontSize >= 28}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-
-          <span className="text-sm text-[var(--vscode-foreground)] tabular-nums w-16 text-center shrink-0 font-medium">
-            {terminalFontSize} px
-          </span>
-        </div>
+        </button>
       </div>
 
-      {/* Divider */}
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ---- Data Location ---- */}
@@ -244,7 +186,7 @@ export default function GeneralSection() {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// LanguageDropdown — custom dropdown matching FontDropdown / CodeBlockView style
+// LanguageDropdown
 // ──────────────────────────────────────────────────────────────────
 
 const LANGUAGE_OPTIONS: { value: Language; label: string }[] = [
@@ -276,14 +218,12 @@ function LanguageDropdown() {
     [setLanguage, close],
   );
 
-  // Reset highlight when opening
   useEffect(() => {
     if (!open) return;
     const idx = LANGUAGE_OPTIONS.findIndex((o) => o.value === language);
     setHighlighted(idx >= 0 ? idx : 0);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Outside-click / Escape handling
   useEffect(() => {
     if (!open) return;
 
@@ -313,7 +253,6 @@ function LanguageDropdown() {
 
   return (
     <div className="font-dropdown">
-      {/* Trigger badge */}
       <div
         ref={triggerRef}
         className="font-dropdown-trigger"
@@ -332,7 +271,6 @@ function LanguageDropdown() {
         <ChevronDown size={14} className="font-dropdown-chevron" />
       </div>
 
-      {/* Dropdown panel */}
       {open && (
         <div ref={panelRef} className="font-dropdown-panel">
           <div className="font-dropdown-list">

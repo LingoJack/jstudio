@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { Palette, Info, Settings2, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, TerminalSquare, FileText, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
-import AppearanceSection from './settings/AppearanceSection';
-import AboutSection from './settings/AboutSection';
 import GeneralSection from './settings/GeneralSection';
+import EditorSection from './settings/EditorSection';
+import TerminalSection from './settings/TerminalSection';
+import AboutSection from './settings/AboutSection';
 
 // ────────────────────────────────────────────────
 // Settings sections
 // ────────────────────────────────────────────────
-type SectionId = 'general' | 'appearance' | 'about';
+type SectionId = 'general' | 'editor' | 'terminal' | 'about';
 
 interface NavItem {
   id: SectionId;
@@ -19,13 +20,15 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'general', labelKey: 'settings.general', icon: Settings2 },
-  { id: 'appearance', labelKey: 'settings.appearance', icon: Palette },
+  { id: 'editor', labelKey: 'settings.editor', icon: FileText },
+  { id: 'terminal', labelKey: 'settings.terminal', icon: TerminalSquare },
   { id: 'about', labelKey: 'settings.about', icon: Info },
 ];
 
 const SECTIONS: Record<SectionId, () => React.ReactElement> = {
   general: GeneralSection,
-  appearance: AppearanceSection,
+  editor: EditorSection,
+  terminal: TerminalSection,
   about: AboutSection,
 };
 

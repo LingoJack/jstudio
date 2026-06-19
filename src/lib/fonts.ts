@@ -185,3 +185,51 @@ export function resolveFontFamily(
 export const MIN_FONT_SIZE = 12;
 export const MAX_FONT_SIZE = 22;
 export const DEFAULT_FONT_SIZE = 14;
+
+// ---- monospace fonts (for terminal) ----
+
+/**
+ * Monospace fonts suitable for the terminal.
+ * These are truly monospaced with good box-drawing / emoji metrics.
+ */
+export const MONOSPACE_FONTS: FontPreset[] = [
+  {
+    id: 'monaco',
+    label: 'Monaco',
+    fontFamily: "'Monaco'",
+    preview: 'AaBbCc 123',
+  },
+  {
+    id: 'jetbrains-mono',
+    label: 'JetBrains Mono',
+    fontFamily: "'JetBrains Mono'",
+    preview: 'AaBbCc 123',
+  },
+  {
+    id: 'sf-mono',
+    label: 'SF Mono',
+    fontFamily: "'SF Mono'",
+    preview: 'AaBbCc 123',
+  },
+  {
+    id: 'menlo',
+    label: 'Menlo',
+    fontFamily: "'Menlo'",
+    preview: 'AaBbCc 123',
+  },
+  {
+    id: 'fira-code',
+    label: 'Fira Code',
+    fontFamily: "'Fira Code'",
+    preview: 'AaBbCc 123',
+  },
+];
+
+/** Default terminal monospace font id. */
+export const DEFAULT_MONOSPACE_FONT_ID = 'monaco';
+
+/** Resolve a monospace font id to its CSS font-family string. */
+export function resolveMonospaceFont(id: string | undefined): string {
+  const font = MONOSPACE_FONTS.find((f) => f.id === id);
+  return font?.fontFamily ?? MONOSPACE_FONTS[0].fontFamily;
+}

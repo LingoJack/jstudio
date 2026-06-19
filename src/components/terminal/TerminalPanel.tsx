@@ -30,14 +30,14 @@ import '@xterm/xterm/css/xterm.css';
 export default function TerminalPanel() {
   const activeSessionId = useStore((s) => s.activeSessionId);
   const terminalThemeId = useStore((s) => s.terminalThemeId);
-  const fontFamily = useStore((s) => s.fontId);
+  const terminalFontId = useStore((s) => s.terminalFontId);
   const terminalFontSize = useStore((s) => s.terminalFontSize);
 
   const theme = getTerminalTheme(terminalThemeId);
 
   const mountRef = useRef<HTMLDivElement>(null);
   const { terminalsRef, setupTerminal, destroyTerminal, destroyAll } =
-    useTerminalManager(fontFamily, terminalFontSize);
+    useTerminalManager(terminalFontId, terminalFontSize);
 
   // ── Mount / switch active session ─────────────────────────────────
   useEffect(() => {
@@ -133,7 +133,7 @@ export default function TerminalPanel() {
   // ── Font / size change → update all terminals ─────────────────────
   useEffect(() => {
     terminalsRef.current.forEach(({ term, fit, trail }) => {
-      term.options.fontFamily = `'${fontFamily}', 'monaco', monospace`;
+      term.options.fontFamily = `'${terminalFontId}', 'monaco', monospace`;
       term.options.fontSize = terminalFontSize;
 
       requestAnimationFrame(() => {
@@ -151,7 +151,7 @@ export default function TerminalPanel() {
         }
       });
     });
-  }, [fontFamily, terminalFontSize, terminalsRef]);
+  }, [terminalFontId, terminalFontSize, terminalsRef]);
 
   // ── Cleanup dead sessions ─────────────────────────────────────────
   useEffect(() => {

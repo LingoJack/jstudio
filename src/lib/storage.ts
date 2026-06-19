@@ -43,6 +43,8 @@ export interface AppSettings {
   terminalThemeId?: string;
   /** Terminal font size in pixels (independent from editor font size) */
   terminalFontSize?: number;
+  /** Terminal monospace font id — see MONOSPACE_FONTS in lib/fonts.ts */
+  terminalFontId?: string;
   [key: string]: unknown;
 }
 

@@ -49,6 +49,8 @@ export const translations = {
     'terminal.newSession': '新建终端',
     'terminal.close': '关闭',
     'terminal.untitled': '终端',
+    'terminal.fontFamily': '字体',
+    'terminal.fontFamilyDesc': '终端使用的等宽字体',
     // Template
     'terminal.templates': '模板',
     'terminal.newTemplate': '新建模板',
@@ -72,7 +74,8 @@ export const translations = {
     // ── Settings nav ──
     'settings.title': '设置',
     'settings.general': '通用',
-    'settings.appearance': '外观',
+    'settings.editor': '编辑器',
+    'settings.terminal': '终端',
     'settings.about': '关于',
 
     // ── General section ──
@@ -198,6 +201,8 @@ export const translations = {
     'terminal.newSession': 'New Terminal',
     'terminal.close': 'Close',
     'terminal.untitled': 'Terminal',
+    'terminal.fontFamily': 'Font',
+    'terminal.fontFamilyDesc': 'Monospace font used by the terminal',
     // Template
     'terminal.templates': 'Templates',
     'terminal.newTemplate': 'New Template',
@@ -221,7 +226,8 @@ export const translations = {
     // ── Settings nav ──
     'settings.title': 'Settings',
     'settings.general': 'General',
-    'settings.appearance': 'Appearance',
+    'settings.editor': 'Editor',
+    'settings.terminal': 'Terminal',
     'settings.about': 'About',
 
     // ── General section ──
