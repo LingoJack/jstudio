@@ -11,6 +11,53 @@ import { resolveMonospaceFont } from '../../lib/fonts';
 import type { TerminalTheme } from '../../lib/terminalThemes';
 import type { SessionTerminal } from './types';
 
+/**
+ * Extract a working directory path from a shell OSC title string.
+ *
+ * Handles common title formats across different shells / OSes:
+ *   "user@host: ~/projects/app"      → "~/projects/app"
+ *   "user@host: /absolute/path"       → "/absolute/path"
+ *   "~/projects/app"                  → "~/projects/app"
+ *   "/absolute/path"                  → "/absolute/path"
+ *   "user@host"                       → null  (no path)
+ *   "zsh" / "node server.js"          → null  (command, not a path)
+ */
+function extractCwdFromTitle(title: string): string | null {
+  const trimmed = title.trim();
+  if (!trimmed) return null;
+
+  // Try "user@host: <path>" format first.
+  const atMatch = trimmed.match(/^[^@\s]+@[^:\s]+:\s*(.+)$/);
+  if (atMatch) {
+    let path = atMatch[1].trim();
+    // Strip trailing prompt characters like % $ # >
+    path = path.replace(/[%$#>]\s*$/, '').trim();
+    if (path && path !== '~' && looksLikePath(path)) {
+      return path;
+    }
+  }
+
+  // Bare path (no user@host prefix).
+  if (looksLikePath(trimmed) && trimmed !== '~') {
+    return trimmed.replace(/[%$#>]\s*$/, '').trim() || null;
+  }
+
+  return null;
+}
+
+/** Heuristic: does this string look like a filesystem path? */
+function looksLikePath(s: string): boolean {
+  // Absolute path: /Users/...
+  if (s.startsWith('/')) return true;
+  // Tilde path: ~/...
+  if (s.startsWith('~/')) return true;
+  // Relative path with slashes: ./src or ../src or src/foo
+  if (/^\.?\.?\//.test(s)) return true;
+  // Dot-only: "."
+  if (s === '.') return true;
+  return false;
+}
+
 /** Try WebGL2 GPU-accelerated renderer; fall back silently. */
 function tryEnableWebgl(term: Terminal): boolean {
   try {
@@ -122,17 +169,9 @@ export function useTerminalManager(
         state.setAutoTitle(sessionId, title);
 
         // Try to extract the current working directory from the OSC title.
-        // Common formats:
-        //   "user@host: ~/projects/app"   → "~/projects/app"
-        //   "user@host: /absolute/path"   → "/absolute/path"
-        const cwdMatch = title.match(/^[^@\s]+@[^:\s]+:\s*(.+)$/);
-        if (cwdMatch) {
-          let path = cwdMatch[1].trim();
-          // Strip trailing prompt chars
-          path = path.replace(/[%$#>]\s*$/, '').trim();
-          if (path && path !== '~') {
-            state.updateSessionCwd(sessionId, path);
-          }
+        const cwd = extractCwdFromTitle(title);
+        if (cwd) {
+          state.updateSessionCwd(sessionId, cwd);
         }
       });
 
