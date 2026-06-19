@@ -2,6 +2,7 @@ import { useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
@@ -68,11 +69,6 @@ export function useTerminalManager(
         cursorWidth: 2,
         allowProposedApi: true,
         scrollback: 10000,
-        // Use Unicode 11 width tables so emoji and wide CJK characters
-        // get the same column width as kitty (which follows the latest
-        // Unicode standard).  Without this, xterm falls back to
-        // Unicode 6 where many emoji are width 1, breaking box art.
-        unicodeVersion: '11',
         // Let the browser figure out the true advance width of each
         // glyph — prevents narrow/wide mismatches on mixed scripts.
         allowTransparency: true,
@@ -104,6 +100,15 @@ export function useTerminalManager(
 
       const fit = new FitAddon();
       term.loadAddon(fit);
+
+      // Unicode 11 addon — provides the real width calculation engine.
+      // Without loading this addon, the `unicodeVersion: '11'` option above
+      // is just a label with no actual width table behind it.  This addon
+      // makes emoji (💻🎨) and wide CJK characters correctly occupy 2 cells,
+      // matching what the shell expects when laying out box-drawing art.
+      const unicode11 = new Unicode11Addon();
+      term.loadAddon(unicode11);
+      term.unicode.activeVersion = '11';
 
       // Keyboard input → PTY
       term.onData((data) => {

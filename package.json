@@ -42,6 +42,7 @@
     "@types/prismjs": "^1.26.6",
     "@vitejs/plugin-react": "^5.0.4",
     "@xterm/addon-fit": "^0.12.0-beta.287",
+    "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/addon-webgl": "^0.20.0-beta.286",
     "@xterm/xterm": "^6.1.0-beta.287",
     "dotenv": "^17.2.3",
