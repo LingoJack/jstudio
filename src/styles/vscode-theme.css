@@ -782,6 +782,55 @@ button {
 }
 
 /* ============================================
+   JStudio Primary Button
+   — Light mode: Tencent blue (#0052D9)
+   — Dark mode:  WeChat green (#07C160)
+   ============================================ */
+
+.jstudio-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  /* Light (default): Tencent blue */
+  background: #0052D9;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.jstudio-btn-primary:hover {
+  background: #003CAB;
+}
+
+.jstudio-btn-primary:active {
+  background: #002A99;
+}
+
+.jstudio-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dark mode: WeChat green */
+.dark .jstudio-btn-primary {
+  background: #07C160;
+  color: #FFFFFF;
+}
+
+.dark .jstudio-btn-primary:hover {
+  background: #06AD56;
+}
+
+.dark .jstudio-btn-primary:active {
+  background: #069B4D;
+}
+
+/* ============================================
    Panel & Widget Styles
    ============================================ */
 
