@@ -116,9 +116,24 @@ export function useTerminalManager(
         storage.ptyWrite(sessionId, data).catch(console.error);
       });
 
-      // Shell title change (OSC 0/2 sequences) → auto title
+      // Shell title change (OSC 0/2 sequences) → auto title + cwd tracking
       term.onTitleChange((title) => {
-        useStore.getState().setAutoTitle(sessionId, title);
+        const state = useStore.getState();
+        state.setAutoTitle(sessionId, title);
+
+        // Try to extract the current working directory from the OSC title.
+        // Common formats:
+        //   "user@host: ~/projects/app"   → "~/projects/app"
+        //   "user@host: /absolute/path"   → "/absolute/path"
+        const cwdMatch = title.match(/^[^@\s]+@[^:\s]+:\s*(.+)$/);
+        if (cwdMatch) {
+          let path = cwdMatch[1].trim();
+          // Strip trailing prompt chars
+          path = path.replace(/[%$#>]\s*$/, '').trim();
+          if (path && path !== '~') {
+            state.updateSessionCwd(sessionId, path);
+          }
+        }
       });
 
       // Shell output → terminal

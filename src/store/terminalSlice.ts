@@ -282,6 +282,15 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     cwds.forEach((cwd) => get().addRecentDir(cwd));
   },
 
+  /** Update a session's current working directory (from OSC title tracking). */
+  updateSessionCwd: (sessionId, cwd) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, cwd } : sess,
+      ),
+    }));
+  },
+
   /** Rename a session (local + backend). */
   renameSession: (id, title) => {
     const trimmed = title.trim();

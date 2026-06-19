@@ -131,6 +131,7 @@ export interface StoreState {
   closeSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => void;
   setAutoTitle: (sessionId: string, title: string) => void;
+  updateSessionCwd: (sessionId: string, cwd: string) => void;
   setActiveSession: (id: string) => void;
   removeSessionState: (id: string) => void;
   removeGroupState: (groupId: string) => void;
