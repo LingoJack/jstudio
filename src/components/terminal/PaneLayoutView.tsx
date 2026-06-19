@@ -219,15 +219,35 @@ export default function PaneLayoutView({
   }, [layoutKey]);
 
   // ── Poke trail on focus switch ───────────────────────────────────
+  //
+  // Each terminal has its own CursorTrail.  When switching panes,
+  // the newly focused pane's cursor hasn't moved (within its own
+  // buffer), so its trail stays dormant.  We poke it so the trail
+  // animates as if the cursor flew in from the previous pane's
+  // cursor position — creating a smooth cross-pane animation.
   const prevActiveRef = useRef<string | null>(null);
   useEffect(() => {
     const prevId = prevActiveRef.current;
     if (prevId === activeSessionId) return;
     prevActiveRef.current = activeSessionId;
 
-    // Hide cursor + stop trail on the pane we're leaving.
+    // Grab the old pane's cursor position in screen pixels BEFORE
+    // we stop its trail — getCursorScreenPos reads from the DOM
+    // so it's still valid at this point.
+    let fromX: number | undefined;
+    let fromY: number | undefined;
     if (prevId) {
       const oldEntry = terminalsRef.current.get(prevId);
+      const oldPos = oldEntry?.trail?.getCursorScreenPos();
+      if (oldPos) {
+        const newEntry = terminalsRef.current.get(activeSessionId);
+        if (newEntry) {
+          const newRect = newEntry.container.getBoundingClientRect();
+          fromX = oldPos.x - newRect.left;
+          fromY = oldPos.y - newRect.top;
+        }
+      }
+      // Hide cursor + stop trail on the pane we're leaving.
       if (oldEntry) {
         oldEntry.term.options.cursorHidden = true;
         oldEntry.trail?.stop();
@@ -239,7 +259,7 @@ export default function PaneLayoutView({
     if (newEntry) {
       newEntry.term.options.cursorHidden = false;
       newEntry.trail?.start();
-      newEntry.trail?.poke();
+      newEntry.trail?.poke(fromX, fromY);
       newEntry.term.focus();
     }
   }, [activeSessionId]);
