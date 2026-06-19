@@ -238,21 +238,49 @@ class CursorTrail {
     this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
   }
 
-  /** Measure grid from DOM — pixel positions of cells relative to canvas. */
+  /**
+   * Measure grid from DOM.
+   *
+   * We CANNOT use `.xterm-rows` bounding rect for cell height — it
+   * includes internal padding / line-height gaps, making cellH too large
+   * and causing the trail to drift upward.
+   *
+   * Instead, we measure individual row elements: `.xterm-rows > div` are
+   * the rendered text lines.  We use the first two visible rows to get
+   * the true pitch (top-to-top distance = cell height).
+   */
   private measureGrid() {
-    const rowsEl = this.container.querySelector('.xterm-rows') as HTMLElement | null;
-    const screenEl = this.container.querySelector('.xterm-screen') as HTMLElement | null;
-    if (!rowsEl || !screenEl) return;
+    const screenEl = this.container.querySelector(
+      '.xterm-screen',
+    ) as HTMLElement | null;
+    if (!screenEl) return;
 
-    const rowsRect = rowsEl.getBoundingClientRect();
     const screenRect = screenEl.getBoundingClientRect();
-
-    this.cellW = rowsRect.width / Math.max(1, this.term.cols);
-    this.cellH = this.term.dimensions?.css.cell.height || rowsRect.height / Math.max(1, this.term.rows);
-    // The canvas covers the full container. Compute grid origin relative to canvas.
     const canvasRect = this.canvas.getBoundingClientRect();
-    this.gridLeft = rowsRect.left - canvasRect.left;
-    this.gridTop = rowsRect.top - canvasRect.top;
+
+    // Find the rendered row divs.
+    const rowEls = screenEl.querySelectorAll('.xterm-rows > div');
+    if (rowEls.length >= 2) {
+      const r0 = rowEls[0].getBoundingClientRect();
+      const r1 = rowEls[1].getBoundingClientRect();
+      this.cellH = r1.top - r0.top; // top-to-top pitch
+      this.cellW = r0.width / Math.max(1, this.term.cols);
+      this.gridTop = r0.top - canvasRect.top;
+      this.gridLeft = r0.left - canvasRect.left;
+    } else if (rowEls.length === 1) {
+      // Single row — estimate cellH from its height.
+      const r0 = rowEls[0].getBoundingClientRect();
+      this.cellH = r0.height;
+      this.cellW = r0.width / Math.max(1, this.term.cols);
+      this.gridTop = r0.top - canvasRect.top;
+      this.gridLeft = r0.left - canvasRect.left;
+    } else {
+      // Fallback: estimate from screen dimensions.
+      this.cellH = screenRect.height / Math.max(1, this.term.rows);
+      this.cellW = screenRect.width / Math.max(1, this.term.cols);
+      this.gridTop = screenRect.top - canvasRect.top;
+      this.gridLeft = screenRect.left - canvasRect.left;
+    }
   }
 
   /**
