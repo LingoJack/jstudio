@@ -285,7 +285,7 @@ export default function TerminalTabs() {
                     groupId: group.id,
                   });
                 }}
-                className={`group relative flex items-center gap-2 pl-3 pr-2 w-[120px] cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
+                className={`group relative flex items-center gap-1.5 pl-3 pr-2 w-[120px] cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
                   isActive
                     ? 'bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
                     : 'bg-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
@@ -307,34 +307,36 @@ export default function TerminalTabs() {
                     }}
                     onBlur={confirmRename}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs font-medium bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-focusBorder)] rounded px-1 py-0 outline-none flex-1 min-w-0"
+                    className="text-xs font-medium bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-focusBorder)] rounded px-1 py-0 outline-none w-full text-center"
                   />
                 ) : (
-                  <span className="text-xs font-medium flex-1 min-w-0 truncate">
-                    {title}
-                  </span>
-                )}
+                  <>
+                    <span className="text-xs font-medium flex-1 min-w-0 truncate text-center">
+                      {title}
+                    </span>
 
-                {paneCount > 1 && (
-                  <span className="text-[10px] opacity-50 shrink-0">
-                    {paneCount}
-                  </span>
-                )}
+                    {paneCount > 1 && (
+                      <span className="text-[10px] opacity-50 shrink-0">
+                        {paneCount}
+                      </span>
+                    )}
 
-                {!isLastTab && !isRenaming && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      closeSession(group.activeSessionId);
-                    }}
-                    className={`shrink-0 p-0.5 rounded transition-all duration-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
-                      isActive
-                        ? 'opacity-60 hover:opacity-100'
-                        : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
-                    }`}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                    {!isLastTab && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          closeSession(group.activeSessionId);
+                        }}
+                        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
+                          isActive
+                            ? 'opacity-100 hover:bg-[var(--vscode-toolbar-hoverBackground)]'
+                            : 'opacity-0 group-hover:opacity-100'
+                        }`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             );

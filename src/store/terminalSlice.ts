@@ -249,8 +249,6 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       activeGroupId: group.id,
       activeSessionId: info.id,
     }));
-
-    get().addRecentDir(cwd);
   },
 
   /**
@@ -264,6 +262,11 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     );
     if (!group) return;
 
+    // Collect cwd of every session in this group for recent dirs (LRU).
+    const cwds = group.sessionIds
+      .map((sid) => state.sessions.find((s) => s.id === sid)?.cwd)
+      .filter((cwd): cwd is string => !!cwd);
+
     // Kill all PTYs in the group.
     await Promise.all(
       group.sessionIds.map((sid) =>
@@ -274,6 +277,9 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     );
 
     get().removeGroupState(group.id);
+
+    // Record each cwd via LRU (dedup + cap 10).
+    cwds.forEach((cwd) => get().addRecentDir(cwd));
   },
 
   /** Rename a session (local + backend). */
@@ -325,6 +331,11 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
    * empty, removes the group too.
    */
   removeSessionState: (id) => {
+    // Collect cwd before state mutation (for LRU recording).
+    const state = get();
+    const session = state.sessions.find((s) => s.id === id);
+    const closedCwd = session?.cwd ?? null;
+
     set((s) => {
       const sessions = s.sessions.filter((sess) => sess.id !== id);
 
@@ -367,6 +378,11 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
 
       return { sessions, groups, activeGroupId, activeSessionId };
     });
+
+    // Record the closed session's cwd via LRU.
+    if (closedCwd) {
+      get().addRecentDir(closedCwd);
+    }
   },
 
   /**
@@ -448,8 +464,6 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       ),
       activeSessionId: info.id,
     }));
-
-    get().addRecentDir(cwd);
   },
 
   /**
