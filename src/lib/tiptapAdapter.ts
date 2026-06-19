@@ -13,6 +13,7 @@
  *   ─────────────────────────────────────────────────────────
  *   text                         →   paragraph
  *   heading-1/2/3                →   heading (attrs.level = 1/2/3)
+ *   quote                        →   blockquote
  *   code                         →   codeBlock
  *   image                        →   image
  *   file                         →   fileBlock
@@ -175,6 +176,8 @@ function ourTypeToTiptapType(type: BlockType): string {
     case 'heading-2':
     case 'heading-3':
       return 'heading';
+    case 'quote':
+      return 'blockquote';
     case 'code':
       return 'codeBlock';
     case 'image':
@@ -213,6 +216,8 @@ function tiptapTypeToOurType(
       if (level === 2) return 'heading-2';
       return 'heading-3';
     }
+    case 'blockquote':
+      return 'quote';
     case 'codeBlock':
       return 'code';
     case 'image':
@@ -355,6 +360,19 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       }
       break;
     }
+    case 'quote': {
+      // TipTap blockquote is a container whose content is one or more
+      // paragraph nodes. We store our content as RichText[] (single
+      // paragraph) and wrap it in a paragraph inside the blockquote.
+      const inline = richTextToTiptapInline(block.content as RichText[]);
+      json.content = [
+        {
+          type: 'paragraph',
+          ...(inline.length > 0 ? { content: inline } : {}),
+        },
+      ];
+      break;
+    }
     case 'code': {
       const rich = block.content as RichText[];
       const code = rich[0]?.text ?? '';
@@ -451,6 +469,20 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     case 'heading-2':
     case 'heading-3': {
       block.content = tiptapInlineToRichText(node.content ?? []);
+      break;
+    }
+    case 'quote': {
+      // TipTap blockquote contains paragraph nodes. We flatten all
+      // paragraphs into a single RichText[] (our model stores one
+      // paragraph per quote block).
+      const allInline: RichText[] = [];
+      for (const child of node.content ?? []) {
+        if (child.type === 'paragraph') {
+          const seg = tiptapInlineToRichText(child.content ?? []);
+          allInline.push(...seg);
+        }
+      }
+      block.content = allInline;
       break;
     }
     case 'code': {

@@ -40,4 +40,5 @@ allow:
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@tiptap/:*)
 - Shell(npm info:*)
 - Shell(ps aux:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@tiptap/starter-kit/dist/:*)
 deny: []

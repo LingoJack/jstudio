@@ -103,7 +103,7 @@ export default function TerminalTabs() {
 
   return (
     <div className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)]">
-      {/* Scrollable tab strip */}
+      {/* Scrollable tab strip (includes trailing `+` so it follows tabs) */}
       <div
         ref={scrollRef}
         className="flex items-stretch overflow-x-auto flex-1 min-w-0"
@@ -122,7 +122,9 @@ export default function TerminalTabs() {
               key={group.id}
               ref={isActive ? activeTabRef : null}
               onClick={() => setActiveSession(group.activeSessionId)}
-              className={`group relative flex items-center gap-2 pl-3 pr-2 cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
+              className={`group relative flex items-center gap-2 pl-3.5 ${
+                isLastTab ? 'pr-3.5' : 'pr-2'
+              } cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
                 isActive
                   ? 'bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
                   : 'bg-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
@@ -131,7 +133,6 @@ export default function TerminalTabs() {
               {isActive && (
                 <span className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--vscode-focusBorder)]" />
               )}
-              <ChevronRight className="w-3 h-3 opacity-30 shrink-0" />
               <span className="text-xs font-medium max-w-[140px] truncate">
                 {title}
               </span>
@@ -158,16 +159,16 @@ export default function TerminalTabs() {
             </div>
           );
         })}
-      </div>
 
-      {/* `+` spawn button */}
-      <button
-        onClick={() => createSession()}
-        className="shrink-0 w-9 flex items-center justify-center text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer border-l border-[var(--vscode-sideBar-border)]"
-        title="New Terminal"
-      >
-        <Plus className="w-4 h-4" />
-      </button>
+        {/* `+` spawn button — follows the last tab, no separator border */}
+        <button
+          onClick={() => createSession()}
+          className="shrink-0 w-9 flex items-center justify-center text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
+          title="New Terminal"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }

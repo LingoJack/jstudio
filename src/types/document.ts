@@ -7,6 +7,7 @@ export type BlockType =
   | 'heading-1'
   | 'heading-2'
   | 'heading-3'
+  | 'quote'
   | 'code'
   | 'image'
   | 'file'

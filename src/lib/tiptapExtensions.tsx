@@ -12,6 +12,7 @@
  *   /heading3 (or /h3) → heading level 3
  *   /bullet   (or /ul)  → bullet list
  *   /numbered (or /ol)  → numbered list
+ *   /quote   (or /引用) → block quote
  *   /code              → code block
  *   /image             → image
  *   /file              → file attachment
@@ -113,6 +114,14 @@ export const slashCommands: SlashCommandItem[] = [
     aliases: ['numbered', 'ordered', 'ol', 'number', '有序'],
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
+  },
+  {
+    title: 'Quote',
+    description: 'Capture a quote',
+    icon: '❝',
+    aliases: ['quote', 'blockquote', '引用'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleBlockquote().run(),
   },
   {
     title: 'Code Block',

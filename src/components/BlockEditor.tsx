@@ -133,7 +133,7 @@ export default function BlockEditor() {
       TableHeader,
       TableCell,
       TextAlign.configure({
-        types: ['paragraph', 'heading'],
+        types: ['paragraph', 'heading', 'blockquote'],
       }),
       SelectAllText,
       SlashMenuExtension,
