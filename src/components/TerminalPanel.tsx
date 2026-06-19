@@ -513,7 +513,7 @@ export default function TerminalPanel() {
   const removeSessionState = useStore((s) => s.removeSessionState);
   const terminalThemeId = useStore((s) => s.terminalThemeId);
   const fontFamily = useStore((s) => s.fontId);
-  const fontSize = useStore((s) => s.fontSize);
+  const terminalFontSize = useStore((s) => s.terminalFontSize);
 
   const mountRef = useRef<HTMLDivElement>(null);
   const terminalsRef = useRef<Map<string, SessionTerminal>>(new Map());
@@ -534,7 +534,7 @@ export default function TerminalPanel() {
 
       const term = new Terminal({
         fontFamily: `'${fontFamily}', 'monaco', monospace`,
-        fontSize: Math.max(12, Math.min(18, fontSize - 1)),
+        fontSize: terminalFontSize,
         // kitty: cursor_shape underline
         cursorStyle: 'underline',
         cursorBlink: true,
@@ -609,7 +609,7 @@ export default function TerminalPanel() {
 
       return entry;
     },
-    [fontFamily, fontSize, removeSessionState],
+    [fontFamily, terminalFontSize, removeSessionState],
   );
 
   // ── Destroy a terminal ────────────────────────────────────────────
@@ -719,13 +719,32 @@ export default function TerminalPanel() {
     });
   }, [theme]);
 
-  // ── Font change → update all terminals ────────────────────────────
+  // ── Font / size change → update all terminals ─────────────────────
   useEffect(() => {
-    terminalsRef.current.forEach(({ term }) => {
+    terminalsRef.current.forEach(({ term, fit, trail, container }) => {
       term.options.fontFamily = `'${fontFamily}', 'monaco', monospace`;
-      term.options.fontSize = Math.max(12, Math.min(18, fontSize - 1));
+      term.options.fontSize = terminalFontSize;
+
+      // After xterm applies the new font metrics, we must:
+      //  1. re-fit so the grid recalculates cell dimensions
+      //  2. tell the PTY the new cols/rows
+      //  3. resize the trail canvas so it matches the new layout
+      requestAnimationFrame(() => {
+        try {
+          fit.fit();
+          const sid = [...terminalsRef.current.entries()].find(
+            ([, v]) => v.term === term,
+          )?.[0];
+          if (sid) {
+            storage.ptyResize(sid, term.cols, term.rows).catch(console.error);
+          }
+          trail?.resize();
+        } catch {
+          // ignore
+        }
+      });
     });
-  }, [fontFamily, fontSize]);
+  }, [fontFamily, terminalFontSize]);
 
   // ── Cleanup dead sessions ─────────────────────────────────────────
   useEffect(() => {

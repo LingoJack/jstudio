@@ -37,6 +37,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let language: Language = 'zh';
       let activityBarBorder = false;
       let terminalThemeId: string | undefined;
+      let terminalFontSize: number | undefined;
       let terminalTemplatesRaw: unknown;
       try {
         const settings = await storage.loadSettings();
@@ -63,6 +64,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.terminalThemeId === 'string' && settings.terminalThemeId) {
           terminalThemeId = settings.terminalThemeId;
+        }
+        if (typeof settings.terminalFontSize === 'number') {
+          terminalFontSize = settings.terminalFontSize;
         }
         if (settings.terminalTemplates !== undefined) {
           terminalTemplatesRaw = settings.terminalTemplates;
@@ -141,6 +145,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         fontSize,
         ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
         ...(terminalThemeId !== undefined ? { terminalThemeId } : {}),
+        ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
         isLoading: false,
       });
 

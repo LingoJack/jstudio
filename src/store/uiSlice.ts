@@ -15,6 +15,11 @@ const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 480;
 const DEFAULT_SIDEBAR_WIDTH = 240;
 
+/** Terminal font size constraints (px). Independent from editor font. */
+const MIN_TERMINAL_FONT_SIZE = 10;
+const MAX_TERMINAL_FONT_SIZE = 28;
+const DEFAULT_TERMINAL_FONT_SIZE = 14;
+
 /**
  * Resolve a theme preference to the actual dark/light value.
  * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
@@ -66,6 +71,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents',
   terminalThemeId: DEFAULT_TERMINAL_THEME_ID,
+  terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -135,5 +141,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setTerminalThemeId: (id) => {
     set({ terminalThemeId: id });
     storage.saveSettings({ terminalThemeId: id }).catch(console.error);
+  },
+
+  setTerminalFontSize: (size) => {
+    const clamped = Math.min(
+      MAX_TERMINAL_FONT_SIZE,
+      Math.max(MIN_TERMINAL_FONT_SIZE, size),
+    );
+    set({ terminalFontSize: clamped });
+    storage.saveSettings({ terminalFontSize: clamped }).catch(console.error);
   },
 });

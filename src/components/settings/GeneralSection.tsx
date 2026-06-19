@@ -23,9 +23,11 @@ export default function GeneralSection() {
   const fontId = useStore((s) => s.fontId);
   const cjkFontId = useStore((s) => s.cjkFontId);
   const fontSize = useStore((s) => s.fontSize);
+  const terminalFontSize = useStore((s) => s.terminalFontSize);
   const setFontId = useStore((s) => s.setFontId);
   const setCjkFontId = useStore((s) => s.setCjkFontId);
   const setFontSize = useStore((s) => s.setFontSize);
+  const setTerminalFontSize = useStore((s) => s.setTerminalFontSize);
 
   useEffect(() => {
     storage
@@ -149,6 +151,51 @@ export default function GeneralSection() {
           }}
         >
           {t('general.fontPreview')}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- Terminal Font Size ---- */}
+      <div>
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('general.terminalFontSize')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('general.terminalFontSizeDesc', { min: 10, max: 28 })}
+        </p>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setTerminalFontSize(terminalFontSize - 1)}
+            disabled={terminalFontSize <= 10}
+            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+
+          <input
+            type="range"
+            min={10}
+            max={28}
+            step={1}
+            value={terminalFontSize}
+            onChange={(e) => setTerminalFontSize(Number(e.target.value))}
+            className="flex-1 accent-[var(--vscode-focusBorder)] cursor-pointer"
+          />
+
+          <button
+            onClick={() => setTerminalFontSize(terminalFontSize + 1)}
+            disabled={terminalFontSize >= 28}
+            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          <span className="text-sm text-[var(--vscode-foreground)] tabular-nums w-16 text-center shrink-0 font-medium">
+            {terminalFontSize} px
+          </span>
         </div>
       </div>
 

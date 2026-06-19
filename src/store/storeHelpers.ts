@@ -52,6 +52,7 @@ export interface StoreState {
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
   terminalThemeId: string;
+  terminalFontSize: number;
 
   // — terminal state (terminal slice) —
   templates: TerminalTemplate[];
@@ -100,6 +101,7 @@ export interface StoreState {
   setActivityBarBorder: (enabled: boolean) => void;
   setActiveSidebarView: (view: 'documents' | 'terminal') => void;
   setTerminalThemeId: (id: string) => void;
+  setTerminalFontSize: (size: number) => void;
 
   // — terminal ops (terminal slice) —
   initTemplates: (raw: unknown) => void;

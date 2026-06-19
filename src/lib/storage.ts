@@ -41,6 +41,8 @@ export interface AppSettings {
   sidebarWidth?: number;
   /** Terminal color theme id — see lib/terminalThemes.ts */
   terminalThemeId?: string;
+  /** Terminal font size in pixels (independent from editor font size) */
+  terminalFontSize?: number;
   [key: string]: unknown;
 }
 
