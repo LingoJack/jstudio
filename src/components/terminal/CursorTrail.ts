@@ -4,22 +4,21 @@ import { TRAIL_VS, TRAIL_FS } from './shaders';
 /**
  * CursorTrail — faithful port of kitty's cursor_trail.c + trail_fragment.glsl
  *
- * Kitty's trail is NOT a series of fading stamps.  It's a single rectangle
- * whose 4 corners chase the cursor's 4 corners with exponential ease-out.
- * The corners that are "ahead" (in the direction of motion) catch up fast;
- * the corners "behind" lag, stretching the rectangle into a comet-tail shape.
+ * KEY ARCHITECTURE (matching kitty exactly):
  *
- * The per-corner speed is dynamically adjusted via dot-product: corners
- * farther from the cursor center decay slower, creating a more pronounced
- * stretch.
+ * The trail is a single quad whose 4 corners chase the cursor's 4
+ * corners with exponential ease-out.  Corners "ahead" in the motion
+ * direction catch up fast (decay_fast); corners "behind" lag
+ * (decay_slow), stretching the quad into a comet-tail shape.
  *
- * Rendered via WebGL2 — a single full-screen quad fragment shader fills
- * the trail rectangle and cuts out the cursor area.
+ * RENDERING: The quad is drawn as actual triangle geometry (2
+ * triangles, 6 vertices uploaded to a VBO each frame).  The fragment
+ * shader is trivially simple — it just cuts out the cursor rectangle.
+ * The comet shape comes entirely from the asymmetric corner easing,
+ * not from any fragment-level gradient or masking.
  *
- * Config (from kitty.conf):
- *   cursor_trail           = 3   (trail visible after cursor stops)
- *   cursor_trail_decay     = 0.1 0.4  (fast, slow)
- *   cursor_trail_start_threshold = 0  (cells: min jump to start trail)
+ * Config (kitty defaults):
+ *   cursor_trail_decay = 0.1 0.4  (fast, slow in seconds)
  */
 
 /** Convert "#rrggbb" -> [r, g, b] with each channel in 0..1 */
@@ -32,15 +31,22 @@ function hexToRgb(hex: string): [number, number, number] {
   ];
 }
 
-/** Corner index mapping from kitty: corner_index[0]={1,1,0,0} corner_index[1]={0,1,1,0} */
-const CORNER_IDX_X = [1, 1, 0, 0]; // right, right, left, left
-const CORNER_IDX_Y = [0, 1, 1, 0]; // top, bottom, bottom, top
+/**
+ * Corner index mapping from kitty's cursor_trail.c:
+ *   corner_index[0] = {1, 1, 0, 0}  →  X: right, right, left, left
+ *   corner_index[1] = {0, 1, 1, 0}  →  Y: top,   bottom, bottom, top
+ *
+ * So the 4 corners are:
+ *   0 = top-right,  1 = bottom-right,  2 = bottom-left,  3 = top-left
+ */
+const CORNER_IDX_X = [1, 1, 0, 0];
+const CORNER_IDX_Y = [0, 1, 1, 0];
 
-// kitty config constants
-const DECAY_FAST = 0.1; // seconds
-const DECAY_SLOW = 0.4; // seconds
+/** Kitty's default decay values (seconds). */
+const DECAY_FAST = 0.1;
+const DECAY_SLOW = 0.4;
 
-/** Underline cursor occupies the bottom ~15% of the cell. */
+/** Underline cursor occupies the bottom portion of the cell. */
 const CURSOR_THICKNESS_RATIO = 0.15;
 
 export default class CursorTrail {
@@ -79,7 +85,9 @@ export default class CursorTrail {
 
   // GL resources
   private program: WebGLProgram;
-  private emptyVao: WebGLVertexArrayObject;
+  private vao: WebGLVertexArrayObject;
+  private vbo: WebGLBuffer;
+  private aPos: number;
   private u: Record<string, WebGLUniformLocation | null>;
 
   constructor(term: Terminal, container: HTMLElement, color: string) {
@@ -120,15 +128,24 @@ export default class CursorTrail {
     }
     this.program = program;
 
+    this.aPos = gl.getAttribLocation(program, 'a_pos');
     this.u = {
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       cursorRect: gl.getUniformLocation(program, 'u_cursorRect'),
-      trailRect: gl.getUniformLocation(program, 'u_trailRect'),
       color: gl.getUniformLocation(program, 'u_color'),
       opacity: gl.getUniformLocation(program, 'u_opacity'),
     };
 
-    this.emptyVao = gl.createVertexArray()!;
+    // VAO + VBO for 6 vertices (2 triangles), 2 floats each = 12 floats.
+    this.vao = gl.createVertexArray()!;
+    this.vbo = gl.createBuffer()!;
+
+    gl.bindVertexArray(this.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, 12 * 4, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(this.aPos);
+    gl.vertexAttribPointer(this.aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
   }
 
   // ── Lifecycle ──
@@ -140,14 +157,12 @@ export default class CursorTrail {
     this.loop();
   }
 
-  /** Stop the animation loop + hide the trail (pause without disposing). */
   stop() {
     this.running = false;
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
-    // Clear the canvas so nothing lingers on an inactive pane.
     const gl = this.gl;
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -158,7 +173,8 @@ export default class CursorTrail {
     this.running = false;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     const gl = this.gl;
-    gl.deleteVertexArray(this.emptyVao);
+    gl.deleteBuffer(this.vbo);
+    gl.deleteVertexArray(this.vao);
     gl.deleteProgram(this.program);
     this.canvas.remove();
   }
@@ -168,13 +184,8 @@ export default class CursorTrail {
   }
 
   /**
-   * Return the cursor's current position in **viewport (screen) pixel
-   * coordinates** — i.e. relative to the top-left corner of the
-   * browser window, not the pane.
-   *
-   * Used by PaneLayoutView to compute the origin point when poking
-   * another pane's trail, so the animation appears to fly from the
-   * old cursor to the new one.
+   * Return the cursor's current position in viewport (screen) pixel
+   * coordinates.  Used by PaneLayoutView for cross-pane poke.
    */
   getCursorScreenPos(): { x: number; y: number } | null {
     const buf = this.term.buffer.active;
@@ -212,20 +223,7 @@ export default class CursorTrail {
     };
   }
 
-  /**
-   * Poke the trail — force it to animate as if the cursor just
-   * arrived here from a previous position.  Used when switching
-   * pane focus: each terminal has its own trail, so without a poke
-   * the new pane's trail stays dormant (its cursor hasn't moved
-   * within its own buffer).
-   *
-   * @param fromX  Origin X in pane-local CSS pixels (the old pane's
-   *               cursor position mapped into this pane's coordinate
-   *               space).  When omitted the trail flies in from above.
-   * @param fromY  Origin Y, same convention as fromX.
-   */
   poke(fromX?: number, fromY?: number) {
-    // Refresh dimensions in case the pane was just resized/shown.
     this.resize();
     this.measureGrid();
     this._poked = true;
@@ -261,15 +259,6 @@ export default class CursorTrail {
 
   // ── Private: Grid measurement ──
 
-  /**
-   * Measure grid from DOM — pixel positions of cells relative to canvas.
-   *
-   * We measure individual row elements (`.xterm-rows > div`) and use
-   * the top-to-top distance between rows 0 and 1 as the cell pitch.
-   * We CANNOT use `.xterm-rows` bounding rect directly — it includes
-   * internal padding / line-height gaps, making cellH too large and
-   * causing the trail to drift.
-   */
   private measureGrid() {
     const screenEl = this.container.querySelector('.xterm-screen') as HTMLElement | null;
     if (!screenEl) return;
@@ -302,30 +291,23 @@ export default class CursorTrail {
   // ── Private: Trail update logic (ported from cursor_trail.c) ──
 
   /**
-   * Compute the cursor's target rectangle.
-   * For underline shape: a thin bar at the bottom of the cell.
+   * Compute cursor target rectangle.
+   * Ported from update_cursor_trail_target().
    */
   private updateTarget() {
     const buf = this.term.buffer.active;
     const cx = buf.cursorX;
     const cy = buf.baseY + buf.cursorY;
 
-    const underlineH = this.cellH * CURSOR_THICKNESS_RATIO;
+    // For underline: thin bar at the bottom of the cell.
+    this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;         // left
+    this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;   // right
+    this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;    // bottom
+    this.cursorEdgeY[0] = this.cursorEdgeY[1] - this.cellH * CURSOR_THICKNESS_RATIO; // top
 
-    this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;
-    this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;
-    this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;
-    this.cursorEdgeY[0] = this.cursorEdgeY[1] - underlineH;
-
-    // Snap corners on first frame, large jumps (teleport = no trail),
-    // or when poked by a focus switch.
+    // Snap corners on first frame or large jump (teleport = no trail).
     const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
     if (this._poked) {
-      // Pretend the cursor just flew in from a previous position.
-      // When fromX/fromY are provided (e.g. the old pane's cursor
-      // mapped into this pane's coordinate space), the trail
-      // smoothly travels between the two panes.  Otherwise it
-      // flies in from well above (fallback).
       let flyFromX: number;
       let flyFromY: number;
       if (this._pokeFromX !== null && this._pokeFromY !== null) {
@@ -357,14 +339,13 @@ export default class CursorTrail {
   }
 
   /**
-   * Move each of the 4 corners toward the cursor with exponential ease-out.
-   * Per-corner speed depends on dot-product with cursor-center direction.
-   * Ported from update_cursor_trail_corners().
+   * Ease the 4 corners toward the cursor with per-corner speed.
+   * Direct port of update_cursor_trail_corners().
    */
   private updateCorners(dt: number) {
-    const cx0 = (this.cursorEdgeX[0] + this.cursorEdgeX[1]) * 0.5;
-    const cy0 = (this.cursorEdgeY[0] + this.cursorEdgeY[1]) * 0.5;
-    const diag = Math.hypot(
+    const cursorCenterX = (this.cursorEdgeX[0] + this.cursorEdgeX[1]) * 0.5;
+    const cursorCenterY = (this.cursorEdgeY[0] + this.cursorEdgeY[1]) * 0.5;
+    const cursorDiag2 = Math.hypot(
       this.cursorEdgeX[1] - this.cursorEdgeX[0],
       this.cursorEdgeY[1] - this.cursorEdgeY[0],
     ) * 0.5;
@@ -389,9 +370,8 @@ export default class CursorTrail {
       }
 
       const dirLen = Math.hypot(dx[i], dy[i]);
-      if (diag > 1e-6 && dirLen > 1e-6) {
-        dot[i] =
-          (dx[i] * (tx - cx0) + dy[i] * (ty - cy0)) / diag / dirLen;
+      if (cursorDiag2 > 1e-6 && dirLen > 1e-6) {
+        dot[i] = (dx[i] * (tx - cursorCenterX) + dy[i] * (ty - cursorCenterY)) / cursorDiag2 / dirLen;
       } else {
         dot[i] = 0;
       }
@@ -403,22 +383,24 @@ export default class CursorTrail {
     for (let i = 0; i < 4; i++) {
       if ((dx[i] === 0 && dy[i] === 0) || minDot === Infinity) continue;
 
-      // Corners "ahead" (high dot) use fast decay; "behind" use slow.
-      const decay =
-        minDot === maxDot
-          ? DECAY_SLOW
-          : DECAY_SLOW +
-            (DECAY_FAST - DECAY_SLOW) * ((dot[i] - minDot) / (maxDot - minDot));
+      const decay = (minDot === maxDot)
+        ? DECAY_SLOW
+        : DECAY_SLOW + (DECAY_FAST - DECAY_SLOW) * (dot[i] - minDot) / (maxDot - minDot);
 
+      // kitty's exact formula: step = 1.0 - 2^(-10 * dt / decay)
       const step = 1.0 - Math.pow(2, -10.0 * dt / decay);
       this.cornerX[i] += dx[i] * step;
       this.cornerY[i] += dy[i] * step;
     }
   }
 
-  /** Fade opacity in/out based on whether corners are still catching up. */
-  private updateOpacity(dt: number, active: boolean) {
-    if (active) {
+  /**
+   * Fade opacity — direct port of update_cursor_trail_opacity().
+   * In kitty: opacity ramps up when cursor is visible, down when hidden.
+   * We treat "running" as visible.
+   */
+  private updateOpacity(dt: number) {
+    if (this.running) {
       this.opacity += dt / DECAY_SLOW;
       if (this.opacity > 1) this.opacity = 1;
     } else {
@@ -427,18 +409,15 @@ export default class CursorTrail {
     }
   }
 
-  /** Check if any corner is still far from cursor — if so, keep animating. */
+  /** Ported from update_cursor_trail_needs_render(). */
   private updateNeedsRender() {
-    const thresholdX = this.cellW * 0.5;
-    const thresholdY = this.cellH * 0.5;
+    const dxThreshold = this.cellW * 0.5;
+    const dyThreshold = this.cellH * 0.5;
     this.needsRender = false;
     for (let i = 0; i < 4; i++) {
-      const tx = this.cursorEdgeX[CORNER_IDX_X[i]];
-      const ty = this.cursorEdgeY[CORNER_IDX_Y[i]];
-      if (
-        Math.abs(tx - this.cornerX[i]) >= thresholdX ||
-        Math.abs(ty - this.cornerY[i]) >= thresholdY
-      ) {
+      const dx = Math.abs(this.cursorEdgeX[CORNER_IDX_X[i]] - this.cornerX[i]);
+      const dy = Math.abs(this.cursorEdgeY[CORNER_IDX_Y[i]] - this.cornerY[i]);
+      if (dxThreshold <= dx || dyThreshold <= dy) {
         this.needsRender = true;
         break;
       }
@@ -447,6 +426,11 @@ export default class CursorTrail {
 
   // ── Private: Rendering ──
 
+  /**
+   * Draw the trail as 2 triangles from the 4 chasing corners.
+   * This is the key: the comet shape comes from the actual geometry,
+   * not from fragment-level masking.
+   */
   private render() {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -455,29 +439,40 @@ export default class CursorTrail {
 
     if (this.opacity < 0.001) return;
 
-    // Compute trail bounding box from 4 corners.
-    let trailLeft = Infinity, trailRight = -Infinity;
-    let trailTop = Infinity, trailBottom = -Infinity;
-    for (let i = 0; i < 4; i++) {
-      if (this.cornerX[i] < trailLeft) trailLeft = this.cornerX[i];
-      if (this.cornerX[i] > trailRight) trailRight = this.cornerX[i];
-      if (this.cornerY[i] < trailTop) trailTop = this.cornerY[i];
-      if (this.cornerY[i] > trailBottom) trailBottom = this.cornerY[i];
-    }
+    // Build 6 vertices (2 triangles) from 4 corners:
+    //   c0=top-right, c1=bottom-right, c2=bottom-left, c3=top-left
+    //
+    // Triangle 1: c0, c1, c3  (top-right, bottom-right, top-left)
+    // Triangle 2: c1, c2, c3  (bottom-right, bottom-left, top-left)
+    const verts = new Float32Array([
+      // T1
+      this.cornerX[0], this.cornerY[0],  // c0 = top-right
+      this.cornerX[1], this.cornerY[1],  // c1 = bottom-right
+      this.cornerX[3], this.cornerY[3],  // c3 = top-left
+      // T2
+      this.cornerX[1], this.cornerY[1],  // c1 = bottom-right
+      this.cornerX[2], this.cornerY[2],  // c2 = bottom-left
+      this.cornerX[3], this.cornerY[3],  // c3 = top-left
+    ]);
 
     gl.useProgram(this.program);
-    gl.bindVertexArray(this.emptyVao);
+    gl.bindVertexArray(this.vao);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, verts);
 
     gl.uniform2f(this.u.resolution, this.cssW, this.cssH);
-    gl.uniform4f(this.u.cursorRect, this.cursorEdgeX[0], this.cursorEdgeX[1], this.cursorEdgeY[0], this.cursorEdgeY[1]);
-    gl.uniform4f(this.u.trailRect, trailLeft, trailRight, trailTop, trailBottom);
-    gl.uniform3f(this.u.color, this.colorRgb[0], this.colorRgb[1], this.colorRgb[2]);
+    gl.uniform4f(this.u.cursorRect,
+      this.cursorEdgeX[0], this.cursorEdgeX[1],
+      this.cursorEdgeY[0], this.cursorEdgeY[1]);
+    gl.uniform3f(this.u.color,
+      this.colorRgb[0], this.colorRgb[1], this.colorRgb[2]);
     gl.uniform1f(this.u.opacity, this.opacity);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.bindVertexArray(null);
   }
 
@@ -494,9 +489,8 @@ export default class CursorTrail {
     this.updateTarget();
     this.updateCorners(dt);
     this.updateNeedsRender();
-    this.updateOpacity(dt, this.needsRender);
+    this.updateOpacity(dt);
 
-    // Always clear + render so nothing lingers when settled.
     this.render();
 
     this.rafId = requestAnimationFrame(this.loop);

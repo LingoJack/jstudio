@@ -439,6 +439,11 @@ export function getSlashMenuSuggestion(): Omit<SuggestionOptions<SlashCommandIte
     allowedPrefixes: [' '],
     items: ({ query }) => filterSlashCommands(query),
     render: createSlashMenuRenderer<SlashCommandItem>(),
+    // Don't trigger the slash menu inside heading nodes — headings are a
+    // terminal block type and offering block-type conversion there is
+    // counter-intuitive.
+    allow: ({ state, range }) =>
+      state.doc.resolve(range.from).parent.type.name !== 'heading',
     command: ({ editor, range, props }) => {
       props.command({ editor, range });
     },
