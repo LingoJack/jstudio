@@ -316,13 +316,17 @@ export default function PaneLayoutView({
   const plan = computeLayout(layout, n);
   const visibleIds = plan.kind === 'stack' ? [activeSessionId] : sessionIds;
 
-  // Divider + focus colors, theme-aware:
-  //   dark theme  → white 12% divider, green focus
-  //   light theme → black 12% divider, green focus
+  // Divider + focus glow, theme-aware:
+  //   dark theme  → subtle white divider, faint green glow
+  //   light theme → subtle black divider, faint blue glow
   const dividerColor = theme.isDark
     ? 'rgba(255,255,255,0.12)'
     : 'rgba(0,0,0,0.12)';
-  const focusColor = '#00d26a';
+  // Blue in light theme follows the convention used by most editors
+  // (VS Code's own focusBorder is blue #007fd4 in light themes).
+  const glowColor = theme.isDark
+    ? 'rgba(0,210,106,0.25)'   // green
+    : 'rgba(0,122,255,0.22)';   // blue
 
   return (
     <div
@@ -342,7 +346,9 @@ export default function PaneLayoutView({
               ...cellStyle,
               boxSizing: 'border-box',
               background: theme.background,
-              border: `1px solid ${isActive ? focusColor : 'transparent'}`,
+              boxShadow: isActive
+                ? `inset 0 0 12px 1px ${glowColor}`
+                : 'none',
             }}
             onClick={() => setActivePane(sid)}
             className="relative overflow-hidden"
