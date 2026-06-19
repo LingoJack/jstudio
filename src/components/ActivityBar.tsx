@@ -22,8 +22,6 @@ export default function ActivityBar() {
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
-  const sessions = useStore((s) => s.sessions);
-  const createSession = useStore((s) => s.createSession);
 
   const activeClass = activityBarBorder
     ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
@@ -67,13 +65,9 @@ export default function ActivityBar() {
 
         {/* Terminal */}
         <button
-          onClick={async () => {
+          onClick={() => {
             setSettingsOpen(false);
             setActiveSidebarView('terminal');
-            // Auto-create a session if none exists.
-            if (sessions.length === 0) {
-              await createSession();
-            }
           }}
           className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
             isTerminalActive ? activeClass : inactiveClass

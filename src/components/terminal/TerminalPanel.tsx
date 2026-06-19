@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { getTerminalTheme } from '../../lib/terminalThemes';
 import TerminalTabs from './TerminalTabs';
@@ -41,26 +42,25 @@ export default function TerminalPanel() {
   const theme = getTerminalTheme(terminalThemeId);
 
   const activeGroup = groups.find((g) => g.id === activeGroupId);
+  const hasSessions = activeGroup && activeGroup.sessionIds.length > 0;
 
-  // ── Empty state ──────────────────────────────────────────────────
-  if (!activeGroup || activeGroup.sessionIds.length === 0) {
+  // ── Auto-create: if no sessions exist, spawn one automatically ──
+  useEffect(() => {
+    if (!hasSessions) {
+      createSession();
+    }
+  }, [hasSessions, createSession]);
+
+  // While the first session is being created, show a minimal loading shell
+  // so the tab bar is visible immediately.
+  if (!hasSessions) {
     return (
       <div
         className="w-full h-full flex flex-col"
         style={{ background: theme.ui.panelBg }}
       >
         <TerminalTabs />
-        <div className="flex-1 flex items-center justify-center text-[var(--vscode-descriptionForeground)]">
-          <button
-            onClick={() => createSession()}
-            className="flex flex-col items-center gap-3 p-6 rounded-lg hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
-          >
-            <span className="text-sm">No terminal sessions</span>
-            <span className="text-xs opacity-60">
-              Click to start a new session
-            </span>
-          </button>
-        </div>
+        <div className="flex-1" />
       </div>
     );
   }

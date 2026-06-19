@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
-import { Terminal, Plus } from 'lucide-react';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
@@ -22,8 +21,6 @@ export default function App() {
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
-  const activeSessionId = useStore((s) => s.activeSessionId);
-  const createSession = useStore((s) => s.createSession);
 
   useEffect(() => {
     init();
@@ -69,21 +66,7 @@ export default function App() {
             {isSettingsOpen ? (
               <Settings />
             ) : isTerminalView ? (
-              activeSessionId ? (
-                <TerminalPanel />
-              ) : (
-                /* Empty terminal state */
-                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-[var(--vscode-descriptionForeground)]">
-                  <Terminal className="w-12 h-12 opacity-30" />
-                  <button
-                    onClick={() => createSession()}
-                    className="jstudio-btn-primary"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{t('terminal.newSession')}</span>
-                  </button>
-                </div>
-              )
+              <TerminalPanel />
             ) : hasActiveDoc ? (
               <BlockEditor />
             ) : (

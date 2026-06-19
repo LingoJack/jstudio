@@ -219,6 +219,23 @@ export default function PaneLayoutView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutKey]);
 
+  // ── Poke trail on focus switch ───────────────────────────────────
+  //
+  // Each terminal has its own CursorTrail.  When switching panes,
+  // the newly focused pane's cursor hasn't moved (within its own
+  // buffer), so its trail stays dormant.  We poke it so the trail
+  // animates as if the cursor flew in from the previous pane.
+  const prevActiveRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevActiveRef.current === activeSessionId) return;
+    prevActiveRef.current = activeSessionId;
+
+    const entry = terminalsRef.current.get(activeSessionId);
+    if (entry?.trail) {
+      entry.trail.poke();
+    }
+  }, [activeSessionId]);
+
   // ── Cleanup on unmount ───────────────────────────────────────────
   useEffect(() => {
     return () => {
@@ -324,9 +341,8 @@ export default function PaneLayoutView({
             style={{
               ...cellStyle,
               background: theme.background,
-              boxShadow: isActive
-                ? `inset 0 0 0 1px ${focusColor}`
-                : 'none',
+              outline: isActive ? `1px solid ${focusColor}` : 'none',
+              outlineOffset: '-1px',
             }}
             onClick={() => setActivePane(sid)}
             className="relative overflow-hidden"

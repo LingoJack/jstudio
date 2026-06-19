@@ -153,6 +153,28 @@ export default class CursorTrail {
     this.colorRgb = hexToRgb(color);
   }
 
+  /**
+   * Poke the trail — force it to animate as if the cursor just
+   * appeared here from far away.  Used when switching pane focus:
+   * each terminal has its own trail, so without a poke the new
+   * pane's trail stays dormant (its cursor hasn't moved within
+   * its own buffer).  Kitty solves this with a single global trail;
+   * we simulate it by pinging the trail on focus change.
+   *
+   * @param fromX  optional origin X in pane-local pixels (e.g. old
+   *               pane's cursor position mapped to this pane's space).
+   *               If omitted, the trail flies in from the top-left.
+   */
+  poke(fromX?: number, fromY?: number) {
+    this._pokeX = fromX ?? null;
+    this._pokeY = fromY ?? null;
+    this._poked = true;
+  }
+
+  private _poked = false;
+  private _pokeX: number | null = null;
+  private _pokeY: number | null = null;
+
   resize() {
     const rect = this.container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -233,9 +255,22 @@ export default class CursorTrail {
     this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;
     this.cursorEdgeY[0] = this.cursorEdgeY[1] - underlineH;
 
-    // Snap corners on first frame or large jumps (teleport = no trail).
+    // Snap corners on first frame, large jumps (teleport = no trail),
+    // or when poked by a focus switch.
     const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
-    if (this.firstFrame || jumpDist > 8) {
+    if (this._poked) {
+      // Place the trail corners at the poke origin (or a far corner
+      // of the viewport) so the cursor "flies in" from there.
+      const fromX = this._pokeX ?? 0;
+      const fromY = this._pokeY ?? 0;
+      for (let i = 0; i < 4; i++) {
+        this.cornerX[i] = fromX;
+        this.cornerY[i] = fromY;
+      }
+      this.opacity = 1;
+      this._poked = false;
+      this.firstFrame = false;
+    } else if (this.firstFrame || jumpDist > 8) {
       for (let i = 0; i < 4; i++) {
         this.cornerX[i] = this.cursorEdgeX[CORNER_IDX_X[i]];
         this.cornerY[i] = this.cursorEdgeY[CORNER_IDX_Y[i]];
