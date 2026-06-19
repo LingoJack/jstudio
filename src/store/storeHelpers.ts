@@ -1,6 +1,6 @@
 import type { Document, Block, BlockType, RichText } from '../types';
 import type { DocumentMeta, ThemeMode, Language } from '../lib/storage';
-import type { TerminalSession } from './terminalSlice';
+import type { TerminalSession, TerminalTemplate } from './terminalSlice';
 import { storage } from '../lib/storage';
 
 /**
@@ -54,6 +54,7 @@ export interface StoreState {
   terminalThemeId: string;
 
   // — terminal state (terminal slice) —
+  templates: TerminalTemplate[];
   sessions: TerminalSession[];
   activeSessionId: string | null;
 
@@ -101,7 +102,11 @@ export interface StoreState {
   setTerminalThemeId: (id: string) => void;
 
   // — terminal ops (terminal slice) —
-  createSession: () => Promise<void>;
+  initTemplates: (raw: unknown) => void;
+  addTemplate: (name: string, cwd: string) => void;
+  removeTemplate: (id: string) => void;
+  updateTemplate: (id: string, fields: { name?: string; cwd?: string }) => void;
+  createSession: (templateId?: string) => Promise<void>;
   closeSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => void;
   setActiveSession: (id: string) => void;

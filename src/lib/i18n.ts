@@ -47,12 +47,18 @@ export const translations = {
     // ── Terminal ──
     'terminal.sessions': '终端会话',
     'terminal.newSession': '新建终端',
-    'terminal.empty': '没有活跃的终端会话',
-    'terminal.close': '关闭终端',
-    'terminal.rename': '重命名',
+    'terminal.close': '关闭',
     'terminal.untitled': '终端',
-    'terminal.renamePlaceholder': '输入终端名称',
-    'terminal.clickToCreate': '点击 + 创建一个新终端',
+    // Template
+    'terminal.templates': '模板',
+    'terminal.newTemplate': '新建模板',
+    'terminal.noTemplates': '没有模板，点击 + 创建',
+    'terminal.edit': '编辑',
+    'terminal.delete': '删除',
+    'terminal.spawn': '启动会话',
+    'terminal.spawnFromTemplate': '从此模板启动',
+    'terminal.namePlaceholder': '名称',
+    'terminal.clickTemplateHint': '在左侧选择一个模板启动终端',
 
     // ── DocumentOutline ──
     'outline.title': '大纲',
@@ -188,12 +194,18 @@ export const translations = {
     // ── Terminal ──
     'terminal.sessions': 'Terminal Sessions',
     'terminal.newSession': 'New Terminal',
-    'terminal.empty': 'No active terminal sessions',
-    'terminal.close': 'Close Terminal',
-    'terminal.rename': 'Rename',
+    'terminal.close': 'Close',
     'terminal.untitled': 'Terminal',
-    'terminal.renamePlaceholder': 'Enter terminal name',
-    'terminal.clickToCreate': 'Click + to create a new terminal',
+    // Template
+    'terminal.templates': 'Templates',
+    'terminal.newTemplate': 'New Template',
+    'terminal.noTemplates': 'No templates yet, click + to create',
+    'terminal.edit': 'Edit',
+    'terminal.delete': 'Delete',
+    'terminal.spawn': 'Spawn Session',
+    'terminal.spawnFromTemplate': 'Spawn from this template',
+    'terminal.namePlaceholder': 'Name',
+    'terminal.clickTemplateHint': 'Select a template from the sidebar to start',
 
     // ── DocumentOutline ──
     'outline.title': 'Outline',

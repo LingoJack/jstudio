@@ -22,6 +22,8 @@ export default function ActivityBar() {
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
+  const sessions = useStore((s) => s.sessions);
+  const createSession = useStore((s) => s.createSession);
 
   const activeClass = activityBarBorder
     ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
@@ -35,11 +37,10 @@ export default function ActivityBar() {
     isSidebarOpen &&
     activeSidebarView === 'documents';
 
-  // Whether the terminal icon should show as active.
+  // Whether the terminal icon should show as active (terminal view hides
+  // the sidebar, so we only check view + not settings).
   const isTerminalActive =
-    !isSettingsOpen &&
-    isSidebarOpen &&
-    activeSidebarView === 'terminal';
+    !isSettingsOpen && activeSidebarView === 'terminal';
 
   return (
     <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
@@ -66,13 +67,12 @@ export default function ActivityBar() {
 
         {/* Terminal */}
         <button
-          onClick={() => {
+          onClick={async () => {
             setSettingsOpen(false);
-            if (activeSidebarView !== 'terminal') {
-              setActiveSidebarView('terminal');
-              if (!isSidebarOpen) toggleSidebar();
-            } else if (!isSidebarOpen) {
-              toggleSidebar();
+            setActiveSidebarView('terminal');
+            // Auto-create a session if none exists.
+            if (sessions.length === 0) {
+              await createSession();
             }
           }}
           className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${

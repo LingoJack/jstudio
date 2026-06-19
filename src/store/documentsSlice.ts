@@ -37,6 +37,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let language: Language = 'zh';
       let activityBarBorder = false;
       let terminalThemeId: string | undefined;
+      let terminalTemplatesRaw: unknown;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
@@ -62,6 +63,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.terminalThemeId === 'string' && settings.terminalThemeId) {
           terminalThemeId = settings.terminalThemeId;
+        }
+        if (settings.terminalTemplates !== undefined) {
+          terminalTemplatesRaw = settings.terminalTemplates;
         }
       } catch {
         // ignore
@@ -139,6 +143,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalThemeId !== undefined ? { terminalThemeId } : {}),
         isLoading: false,
       });
+
+      // Initialize terminal templates from settings.
+      get().initTemplates(terminalTemplatesRaw);
     } catch (e) {
       console.error('Store init failed:', e);
       set({ isLoading: false });

@@ -9,6 +9,7 @@ import {
   getTerminalTheme,
   type TerminalTheme,
 } from '../lib/terminalThemes';
+import TerminalTabs from './TerminalTabs';
 import '@xterm/xterm/css/xterm.css';
 
 // ────────────────────────────────────────────────
@@ -602,17 +603,7 @@ export default function TerminalPanel() {
       className="w-full h-full flex flex-col"
       style={{ background: theme.ui.panelBg }}
     >
-      <div
-        className="shrink-0 h-9 flex items-center px-3 border-b"
-        style={{ background: theme.ui.barBg, borderColor: theme.ui.barBorder }}
-      >
-        <span
-          className="text-xs font-medium"
-          style={{ color: theme.ui.barFg }}
-        >
-          {activeSessionId ? `◆ ${activeSessionId}` : ''}
-        </span>
-      </div>
+      <TerminalTabs />
       <div ref={mountRef} className="flex-1 min-h-0 overflow-hidden" />
     </div>
   );
