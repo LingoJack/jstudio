@@ -59,6 +59,11 @@ const CORNER_IDX_Y = [0, 1, 1, 0];
 const DECAY_FAST = 0.1;
 const DECAY_SLOW = 0.4;
 
+/** How fast the trail fades IN when the cursor is moving (seconds).
+ *  Much faster than fade-out so the trail snaps into view the instant
+ *  the cursor jumps — e.g. when command output shifts the cursor. */
+const OPACITY_FADE_IN = 0.05;
+
 /** Thickness ratios — define the trail quad shape for non-block cursors. */
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 const BAR_THICKNESS_RATIO = 0.12;
@@ -430,8 +435,6 @@ export default class CursorTrail {
     this.cutoutY[0] = this.cursorEdgeY[0];
     this.cutoutY[1] = this.cursorEdgeY[1];
 
-    const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
-
     if (this._poked) {
       let flyFromX: number;
       let flyFromY: number;
@@ -451,7 +454,11 @@ export default class CursorTrail {
       this._pokeFromX = null;
       this._pokeFromY = null;
       this.firstFrame = false;
-    } else if (this.firstFrame || jumpDist > 8) {
+    } else if (this.firstFrame) {
+      // Only snap corners to the cursor on the very first frame.
+      // After that, ALL movement — including large jumps from command
+      // output — goes through the exponential chasing in updateCorners(),
+      // producing the comet-tail trail effect that kitty is known for.
       for (let i = 0; i < 4; i++) {
         this.cornerX[i] = this.cursorEdgeX[CORNER_IDX_X[i]];
         this.cornerY[i] = this.cursorEdgeY[CORNER_IDX_Y[i]];
@@ -539,8 +546,13 @@ export default class CursorTrail {
     // when the cursor is moving.  This avoids a permanent block
     // sitting on top of the cursor, and eliminates the "gap" that
     // appeared when opacity ramped from 0 after a jump.
+    //
+    // FADE-IN is much faster than fade-out so that the trail is
+    // immediately visible the instant the cursor starts moving —
+    // especially important when command output causes rapid cursor
+    // jumps.  Fade-out remains leisurely so the trail lingers.
     if (this.needsRender) {
-      this.opacity += dt / DECAY_SLOW;
+      this.opacity += dt / OPACITY_FADE_IN;
       if (this.opacity > 1) this.opacity = 1;
     } else {
       this.opacity -= dt / DECAY_SLOW;
