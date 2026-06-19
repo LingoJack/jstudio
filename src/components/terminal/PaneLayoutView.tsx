@@ -228,6 +228,8 @@ export default function PaneLayoutView({
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
+      let didMountNew = false;
+
       for (const sid of sessionIds) {
         const el = paneElsRef.current.get(sid);
         if (!el) continue;
@@ -243,6 +245,7 @@ export default function PaneLayoutView({
           initializedRef.current.add(sid);
           entry.term.open(entry.container);
           tryEnableWebgl(entry.term);
+          didMountNew = true;
         }
       }
 
@@ -258,6 +261,18 @@ export default function PaneLayoutView({
         } catch {
           // ignore
         }
+      }
+
+      // When a new terminal was just opened (e.g. after closing a tab),
+      // immediately focus the active one in the SAME rAF.  This prevents
+      // a focus gap: the old pane's <textarea> was stripped from the DOM
+      // during React's commit phase, dropping focus to <body>.  If we
+      // wait for Effect 2's separate rAF, the browser has already
+      // settled focus on <body> and the xterm textarea may not reliably
+      // steal it back.
+      if (didMountNew || !document.activeElement?.closest('.xterm')) {
+        const activeEntry = terminalsRef.current.get(activeSessionId);
+        activeEntry?.term.focus();
       }
     });
 
@@ -345,17 +360,20 @@ export default function PaneLayoutView({
       trail?.setColor(theme.cursor);
       trail?.resize();
     } else {
-      // Terminal not yet mounted (first render race).  Retry on next
-      // frame — the layout effect's rAF will have created it by then.
+      // Terminal not yet mounted (first render race or tab-close race).
+      // Use a double-rAF so we run AFTER Effect 1's rAF has had a
+      // chance to call term.open() and create the xterm <textarea>.
       requestAnimationFrame(() => {
-        const entry = terminalsRef.current.get(activeSessionId);
-        if (entry) {
-          (entry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = false;
-          entry.term.focus();
-          trail?.attach(entry.term, entry.container, fromX, fromY);
-          trail?.setColor(theme.cursor);
-          trail?.resize();
-        }
+        requestAnimationFrame(() => {
+          const entry = terminalsRef.current.get(activeSessionId);
+          if (entry) {
+            (entry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = false;
+            entry.term.focus();
+            trail?.attach(entry.term, entry.container, fromX, fromY);
+            trail?.setColor(theme.cursor);
+            trail?.resize();
+          }
+        });
       });
     }
   }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
