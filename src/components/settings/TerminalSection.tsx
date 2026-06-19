@@ -1,6 +1,6 @@
 import { Minus, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/i18n';
+import { useI18n, type TranslationKey } from '../../lib/i18n';
 import { MONOSPACE_FONTS } from '../../lib/fonts';
 import { TERMINAL_THEMES } from '../../lib/terminalThemes';
 import type { TerminalCursorStyle } from '../../lib/storage';
@@ -73,7 +73,7 @@ export default function TerminalSection() {
                     className="text-sm font-medium truncate"
                     style={{ color: th.foreground }}
                   >
-                    {t(`appearance.terminalTheme_${th.id}`)}
+                    {t(`appearance.terminalTheme_${th.id}` as TranslationKey)}
                   </div>
                   <div className="flex gap-1 mt-1.5">
                     {[th.red, th.green, th.yellow, th.blue, th.magenta, th.cyan].map(

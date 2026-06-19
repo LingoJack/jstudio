@@ -10,6 +10,14 @@ import { useTerminalManager } from './useTerminalManager';
 import CursorTrail from './CursorTrail';
 import type { PaneLayoutType } from './types';
 
+/**
+ * xterm.js exposes `cursorHidden` at runtime but not in `ITerminalOptions`.
+ * Extend the type locally so we can toggle cursor visibility per pane.
+ */
+type TerminalOptionsWithCursorHidden = import('@xterm/xterm').ITerminalOptions & {
+  cursorHidden?: boolean;
+};
+
 // ────────────────────────────────────────────────
 // Layout geometry
 // ────────────────────────────────────────────────
@@ -274,7 +282,7 @@ export default function PaneLayoutView({
     if (prevId) {
       const oldEntry = terminalsRef.current.get(prevId);
       if (oldEntry) {
-        oldEntry.term.options.cursorHidden = true;
+        (oldEntry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = true;
       }
     }
 
@@ -293,7 +301,7 @@ export default function PaneLayoutView({
     // Attach to new pane.
     const newEntry = terminalsRef.current.get(activeSessionId);
     if (newEntry) {
-      newEntry.term.options.cursorHidden = false;
+      (newEntry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = false;
       newEntry.term.focus();
       trail?.attach(newEntry.term, newEntry.container, fromX, fromY);
       trail?.setColor(theme.cursor);
@@ -304,7 +312,7 @@ export default function PaneLayoutView({
       requestAnimationFrame(() => {
         const entry = terminalsRef.current.get(activeSessionId);
         if (entry) {
-          entry.term.options.cursorHidden = false;
+          (entry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = false;
           entry.term.focus();
           trail?.attach(entry.term, entry.container, fromX, fromY);
           trail?.setColor(theme.cursor);

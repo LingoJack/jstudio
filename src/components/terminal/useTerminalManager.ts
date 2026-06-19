@@ -49,7 +49,7 @@ export function useTerminalManager(
   const resolvedFontFamily = resolveMonospaceFont(fontId);
 
   const terminalsRef = useRef<Map<string, SessionTerminal>>(new Map());
-  const unlistenRef = useRef<Map<string, UnlistenFn[]>>(new Map());
+  const unlistenRef = useRef<Map<string, Promise<UnlistenFn>[]>>(new Map());
 
   /** Create (or return cached) Terminal for a session id. */
   const setupTerminal = useCallback(
