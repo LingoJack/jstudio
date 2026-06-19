@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
 import { getTerminalTheme } from '../../lib/terminalThemes';
 import TerminalTabs from './TerminalTabs';
@@ -47,8 +47,12 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   const hasSessions = activeGroup && activeGroup.sessionIds.length > 0;
 
   // ── Auto-create: if no sessions exist, spawn one automatically ──
+  // Use a ref guard so createSession is only called once, even under
+  // React StrictMode (which double-invokes effects in development).
+  const initRef = useRef(false);
   useEffect(() => {
-    if (!hasSessions) {
+    if (!hasSessions && !initRef.current) {
+      initRef.current = true;
       createSession();
     }
   }, [hasSessions, createSession]);
