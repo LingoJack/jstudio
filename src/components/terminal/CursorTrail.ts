@@ -265,7 +265,11 @@ export default class CursorTrail {
 
     const buf = term.buffer.active;
     const cx = buf.cursorX;
-    const cy = buf.baseY + buf.cursorY;
+    // cursorY is already viewport-relative (0..rows-1).
+    // Do NOT add baseY — that gives the absolute buffer line, which
+    // would place the trail far below the visible area when there is
+    // scrollback.
+    const cy = buf.cursorY;
 
     const screenEl = container.querySelector('.xterm-screen') as HTMLElement | null;
     if (!screenEl) return null;
@@ -402,7 +406,8 @@ export default class CursorTrail {
     if (!this.term) return;
     const buf = this.term.buffer.active;
     const cx = buf.cursorX;
-    const cy = buf.baseY + buf.cursorY;
+    // cursorY is already viewport-relative (0..rows-1).
+    const cy = buf.cursorY;
 
     // Full cell bounds.
     const cellLeft = this.gridLeft + cx * this.cellW;
