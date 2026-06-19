@@ -29,7 +29,7 @@
   --vscode-activityBar-border: #E5E5E5;
   --vscode-activityBar-foreground: #1F1F1F;
   --vscode-tab-activeBackground: #F8F8F8;
-  --vscode-tab-activeBorderTop: #005FB8;
+  --vscode-tab-activeBorderTop: #0052D9;
   --vscode-tab-activeForeground: #3B3B3B;
   --vscode-tab-inactiveBackground: #FFFFFF;
   --vscode-tab-inactiveForeground: #868686;
@@ -39,16 +39,16 @@
   --vscode-input-foreground: #3B3B3B;
   --vscode-dropdown-background: #FFFFFF;
   --vscode-dropdown-border: #CECECE;
-  --vscode-button-background: #005FB8;
+  --vscode-button-background: #0052D9;
   --vscode-button-foreground: #FFFFFF;
-  --vscode-button-hoverBackground: #0258A8;
-  --vscode-focusBorder: #005FB8;
+  --vscode-button-hoverBackground: #003CAB;
+  --vscode-focusBorder: #0052D9;
   --vscode-foreground: #3B3B3B;
   --vscode-descriptionForeground: #3B3B3B;
   --vscode-icon-foreground: #3B3B3B;
   --vscode-errorForeground: #F85149;
-  --vscode-textLink-foreground: #005FB8;
-  --vscode-textLink-activeForeground: #005FB8;
+  --vscode-textLink-foreground: #0052D9;
+  --vscode-textLink-activeForeground: #0052D9;
   --vscode-textBlockQuote-background: #F8F8F8;
   --vscode-textBlockQuote-border: #E5E5E5;
   --vscode-textCodeBlock-background: #F8F8F8;
@@ -56,7 +56,7 @@
   --vscode-textPreformat-background: #0000001F;
   --vscode-menu-background: #FFFFFF;
   --vscode-menu-border: #CECECE;
-  --vscode-menu-selectionBackground: #005FB8;
+  --vscode-menu-selectionBackground: #0052D9;
   --vscode-menu-selectionForeground: #FFFFFF;
   --vscode-list-hoverBackground: #F2F2F2;
   --vscode-list-activeSelectionBackground: #E8E8E8;
@@ -73,10 +73,10 @@
   --vscode-editor-inactiveSelectionBackground: #E5EBF1;
   --vscode-editorGutter-addedBackground: #2EA043;
   --vscode-editorGutter-deletedBackground: #F85149;
-  --vscode-editorGutter-modifiedBackground: #005FB8;
+  --vscode-editorGutter-modifiedBackground: #0052D9;
   --vscode-badge-background: #CCCCCC;
   --vscode-badge-foreground: #3B3B3B;
-  --vscode-progressBar-background: #005FB8;
+  --vscode-progressBar-background: #0052D9;
   --vscode-scrollbarSlider-background: #00000026;
   --vscode-scrollbarSlider-hoverBackground: #00000040;
   --vscode-scrollbarSlider-activeBackground: #00000052;
@@ -145,7 +145,7 @@
   --vscode-activityBar-border: #2B2B2B;
   --vscode-activityBar-foreground: #D7D7D7;
   --vscode-tab-activeBackground: #181818;
-  --vscode-tab-activeBorderTop: #0078D4;
+  --vscode-tab-activeBorderTop: #07C160;
   --vscode-tab-activeForeground: #FFFFFF;
   --vscode-tab-inactiveBackground: #1F1F1F;
   --vscode-tab-inactiveForeground: #9D9D9D;
@@ -155,16 +155,16 @@
   --vscode-input-foreground: #CCCCCC;
   --vscode-dropdown-background: #313131;
   --vscode-dropdown-border: #3C3C3C;
-  --vscode-button-background: #0078D4;
+  --vscode-button-background: #07C160;
   --vscode-button-foreground: #FFFFFF;
-  --vscode-button-hoverBackground: #026EC1;
-  --vscode-focusBorder: #0078D4;
+  --vscode-button-hoverBackground: #06AD56;
+  --vscode-focusBorder: #07C160;
   --vscode-foreground: #CCCCCC;
   --vscode-descriptionForeground: #9D9D9D;
   --vscode-icon-foreground: #CCCCCC;
   --vscode-errorForeground: #F85149;
-  --vscode-textLink-foreground: #4DAADC;
-  --vscode-textLink-activeForeground: #4DAADC;
+  --vscode-textLink-foreground: #3DDC84;
+  --vscode-textLink-activeForeground: #3DDC84;
   --vscode-textBlockQuote-background: #2B2B2B;
   --vscode-textBlockQuote-border: #616161;
   --vscode-textCodeBlock-background: #2B2B2B;
@@ -172,7 +172,7 @@
   --vscode-textPreformat-background: #3C3C3C;
   --vscode-menu-background: #1F1F1F;
   --vscode-menu-border: #454545;
-  --vscode-menu-selectionBackground: #0078D4;
+  --vscode-menu-selectionBackground: #07C160;
   --vscode-menu-selectionForeground: #FFFFFF;
   --vscode-list-hoverBackground: #F1F1F133;
   --vscode-list-activeSelectionBackground: #F1F1F133;
@@ -189,10 +189,10 @@
   --vscode-editor-inactiveSelectionBackground: #3A3D41;
   --vscode-editorGutter-addedBackground: #2EA043;
   --vscode-editorGutter-deletedBackground: #F85149;
-  --vscode-editorGutter-modifiedBackground: #0078D4;
+  --vscode-editorGutter-modifiedBackground: #07C160;
   --vscode-badge-background: #616161;
   --vscode-badge-foreground: #F8F8F8;
-  --vscode-progressBar-background: #0078D4;
+  --vscode-progressBar-background: #07C160;
   --vscode-scrollbarSlider-background: #79797966;
   --vscode-scrollbarSlider-hoverBackground: #79797999;
   --vscode-scrollbarSlider-activeBackground: #797979AA;
@@ -783,8 +783,7 @@ button {
 
 /* ============================================
    JStudio Primary Button
-   — Light mode: Tencent blue (#0052D9)
-   — Dark mode:  WeChat green (#07C160)
+   Uses --vscode-button-* vars (theme-aware)
    ============================================ */
 
 .jstudio-btn-primary {
@@ -796,38 +795,19 @@ button {
   font-size: 13px;
   font-weight: 500;
   border: none;
-  /* Light (default): Tencent blue */
-  background: #0052D9;
-  color: #FFFFFF;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
 .jstudio-btn-primary:hover {
-  background: #003CAB;
-}
-
-.jstudio-btn-primary:active {
-  background: #002A99;
+  background: var(--vscode-button-hoverBackground);
 }
 
 .jstudio-btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* Dark mode: WeChat green */
-.dark .jstudio-btn-primary {
-  background: #07C160;
-  color: #FFFFFF;
-}
-
-.dark .jstudio-btn-primary:hover {
-  background: #06AD56;
-}
-
-.dark .jstudio-btn-primary:active {
-  background: #069B4D;
 }
 
 /* ============================================
