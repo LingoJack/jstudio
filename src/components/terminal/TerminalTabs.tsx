@@ -46,6 +46,24 @@ export default function TerminalTabs() {
         return;
       }
 
+      // Cmd/Ctrl + Shift + ← / → → cycle groups (tab switching)
+      if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        if (groups.length < 2) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const idx = groups.findIndex((g) => g.id === activeGroupId);
+        if (idx === -1) return;
+
+        const next =
+          e.key === 'ArrowRight'
+            ? (idx + 1) % groups.length
+            : (idx - 1 + groups.length) % groups.length;
+
+        setActiveSession(groups[next].activeSessionId);
+        return;
+      }
+
       // Cmd/Ctrl + Opt/Alt + ← / → → cycle groups
       if (!e.altKey) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -79,6 +97,9 @@ export default function TerminalTabs() {
   }, [activeGroupId]);
 
   if (groups.length === 0) return null;
+
+  // Hide the close button on the last remaining tab.
+  const isLastTab = groups.length <= 1;
 
   return (
     <div className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)]">
@@ -119,19 +140,21 @@ export default function TerminalTabs() {
                   {paneCount}
                 </span>
               )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeSession(group.activeSessionId);
-                }}
-                className={`shrink-0 p-0.5 rounded transition-all duration-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
-                  isActive
-                    ? 'opacity-60 hover:opacity-100'
-                    : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
-                }`}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {!isLastTab && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeSession(group.activeSessionId);
+                  }}
+                  className={`shrink-0 p-0.5 rounded transition-all duration-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
+                    isActive
+                      ? 'opacity-60 hover:opacity-100'
+                      : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
+                  }`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           );
         })}

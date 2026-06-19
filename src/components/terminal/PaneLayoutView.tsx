@@ -340,9 +340,9 @@ export default function PaneLayoutView({
             key={sid}
             style={{
               ...cellStyle,
+              boxSizing: 'border-box',
               background: theme.background,
-              outline: isActive ? `1px solid ${focusColor}` : 'none',
-              outlineOffset: '-1px',
+              border: `1px solid ${isActive ? focusColor : 'transparent'}`,
             }}
             onClick={() => setActivePane(sid)}
             className="relative overflow-hidden"

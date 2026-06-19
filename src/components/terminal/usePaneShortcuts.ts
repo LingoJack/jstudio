@@ -24,6 +24,7 @@ export function usePaneShortcuts() {
   const closePane = useStore((s) => s.closePane);
   const closeSession = useStore((s) => s.closeSession);
   const activeSessionId = useStore((s) => s.activeSessionId);
+  const groups = useStore((s) => s.groups);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -54,9 +55,14 @@ export function usePaneShortcuts() {
         return;
       }
 
-      // Cmd/Ctrl + ← / → → prev / next pane
+      // Cmd/Ctrl + ← / → → prev / next pane (without Shift)
       // (Opt/Alt + arrow is handled by TerminalTabs for tab switching)
-      if (!e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      // (Shift + arrow is handled by TerminalTabs for tab switching)
+      if (
+        !e.altKey &&
+        !e.shiftKey &&
+        (e.key === 'ArrowLeft' || e.key === 'ArrowRight')
+      ) {
         e.preventDefault();
         e.stopPropagation();
         if (e.key === 'ArrowLeft') {
@@ -73,10 +79,12 @@ export function usePaneShortcuts() {
         e.preventDefault();
         e.stopPropagation();
         if (e.shiftKey) {
-          // Shift+W → close just the active pane
+          // Shift+W → close just the active pane (split)
           closePane(activeSessionId);
         } else {
-          // W → close entire group (tab)
+          // W → close entire group (tab).
+          // Guard: never close the last remaining tab.
+          if (groups.length <= 1) return;
           closeSession(activeSessionId);
         }
         return;
@@ -94,5 +102,6 @@ export function usePaneShortcuts() {
     closePane,
     closeSession,
     activeSessionId,
+    groups,
   ]);
 }

@@ -166,14 +166,13 @@ export default class CursorTrail {
    *               If omitted, the trail flies in from the top-left.
    */
   poke(fromX?: number, fromY?: number) {
-    this._pokeX = fromX ?? null;
-    this._pokeY = fromY ?? null;
+    // Refresh dimensions in case the pane was just resized/shown.
+    this.resize();
+    this.measureGrid();
     this._poked = true;
   }
 
   private _poked = false;
-  private _pokeX: number | null = null;
-  private _pokeY: number | null = null;
 
   resize() {
     const rect = this.container.getBoundingClientRect();
@@ -259,13 +258,14 @@ export default class CursorTrail {
     // or when poked by a focus switch.
     const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
     if (this._poked) {
-      // Place the trail corners at the poke origin (or a far corner
-      // of the viewport) so the cursor "flies in" from there.
-      const fromX = this._pokeX ?? 0;
-      const fromY = this._pokeY ?? 0;
+      // Pretend the cursor just teleported in from a point well above
+      // the current position. This creates a visible trail animation
+      // that mimics Kitty's global cursor trail crossing panes.
+      const flyFromX = this.cursorEdgeX[0];
+      const flyFromY = this.cursorEdgeY[0] - this.cssH * 0.6;
       for (let i = 0; i < 4; i++) {
-        this.cornerX[i] = fromX;
-        this.cornerY[i] = fromY;
+        this.cornerX[i] = flyFromX;
+        this.cornerY[i] = flyFromY;
       }
       this.opacity = 1;
       this._poked = false;
