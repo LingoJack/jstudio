@@ -1,5 +1,9 @@
 import { storage } from '../lib/storage';
 import type { SliceCreator } from './storeHelpers';
+import type {
+  PaneGroup,
+  PaneLayoutType,
+} from '../components/terminal/types';
 
 // ────────────────────────────────────────────────
 // Types
@@ -34,12 +38,25 @@ export interface TerminalSession {
   createdAt: number;
 }
 
+// Re-export pane types for convenience.
+export type { PaneGroup, PaneLayoutType };
+
 // ────────────────────────────────────────────────
 // Constants
 // ────────────────────────────────────────────────
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
+
+/** Layout cycle order, matching Kitty's next_layout. */
+const LAYOUT_CYCLE: PaneLayoutType[] = [
+  'tall',
+  'fat',
+  'grid',
+  'horizontal',
+  'vertical',
+  'stack',
+];
 
 /**
  * A built-in default template so new users have something to click.
@@ -64,6 +81,20 @@ function saveTemplates(templates: TerminalTemplate[]) {
 }
 
 // ────────────────────────────────────────────────
+// Internal helpers
+// ────────────────────────────────────────────────
+
+/** Create a pane group wrapping a single session. */
+function makeGroup(sessionId: string): PaneGroup {
+  return {
+    id: `group-${Date.now()}`,
+    sessionIds: [sessionId],
+    activeSessionId: sessionId,
+    layout: 'tall',
+  };
+}
+
+// ────────────────────────────────────────────────
 // Slice
 // ────────────────────────────────────────────────
 
@@ -71,6 +102,12 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
   // — state —
   templates: [],
   sessions: [],
+  groups: [],
+  activeGroupId: null,
+  /**
+   * Always mirrors the active group's activeSessionId.
+   * Kept as top-level state for ergonomic subscriptions.
+   */
   activeSessionId: null,
 
   // ── Template actions ────────────────────────────────────────────
@@ -140,12 +177,12 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     saveTemplates(templates);
   },
 
-  // ── Session actions ─────────────────────────────────────────────
+  // ── Session / Group actions ─────────────────────────────────────
 
   /**
-   * Spawn a new PTY session from a template (or ad-hoc).
-   * If `templateId` is provided, uses the template's cwd.
-   * The new session becomes the active session.
+   * Spawn a new PTY session and wrap it in its own pane group.
+   * This is equivalent to "new tab" — each group is one tab.
+   * The new group becomes the active group.
    */
   createSession: async (templateId) => {
     const tmpl = templateId
@@ -168,20 +205,37 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       createdAt: Date.now(),
     };
 
+    const group = makeGroup(info.id);
+
     set((s) => ({
       sessions: [...s.sessions, session],
+      groups: [...s.groups, group],
+      activeGroupId: group.id,
       activeSessionId: info.id,
     }));
   },
 
-  /** Kill a session's PTY and remove it from the list. */
-  closeSession: async (id) => {
-    try {
-      await storage.ptyKill(id);
-    } catch (e) {
-      console.error('Failed to kill PTY session:', e);
-    }
-    get().removeSessionState(id);
+  /**
+   * Kill every session in the group that contains `sessionId`,
+   * then remove the group.  This is "close tab".
+   */
+  closeSession: async (sessionId) => {
+    const state = get();
+    const group = state.groups.find((g) =>
+      g.sessionIds.includes(sessionId),
+    );
+    if (!group) return;
+
+    // Kill all PTYs in the group.
+    await Promise.all(
+      group.sessionIds.map((sid) =>
+        storage.ptyKill(sid).catch((e) =>
+          console.error('Failed to kill PTY session:', e),
+        ),
+      ),
+    );
+
+    get().removeGroupState(group.id);
   },
 
   /** Rename a session (local + backend). */
@@ -194,23 +248,290 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     storage.ptySetTitle(id, title).catch(console.error);
   },
 
-  /** Switch the active session (displayed in the terminal panel). */
-  setActiveSession: (id) => set({ activeSessionId: id }),
+  /**
+   * Focus a session: update the active pane within its group
+   * and switch the active group.
+   */
+  setActiveSession: (id) => {
+    set((s) => {
+      const group = s.groups.find((g) => g.sessionIds.includes(id));
+      if (!group) return {};
+      return {
+        activeGroupId: group.id,
+        activeSessionId: id,
+        groups: s.groups.map((g) =>
+          g.id === group.id ? { ...g, activeSessionId: id } : g,
+        ),
+      };
+    });
+  },
 
   /**
    * Remove session state *without* killing the PTY.
    * Used when the shell exits on its own (pty-exit event).
+   * Cleans up the session from its group; if the group becomes
+   * empty, removes the group too.
    */
   removeSessionState: (id) => {
     set((s) => {
       const sessions = s.sessions.filter((sess) => sess.id !== id);
-      const activeSessionId =
-        s.activeSessionId === id
-          ? sessions.length > 0
-            ? sessions[sessions.length - 1].id
-            : null
-          : s.activeSessionId;
-      return { sessions, activeSessionId };
+
+      // Update groups: remove the session from any group that contains it.
+      let groups = s.groups.map((g) => {
+        if (!g.sessionIds.includes(id)) return g;
+        const sessionIds = g.sessionIds.filter((sid) => sid !== id);
+        const activeSessionId =
+          g.activeSessionId === id
+            ? sessionIds[0] ?? ''
+            : g.activeSessionId;
+        return { ...g, sessionIds, activeSessionId };
+      });
+
+      // Remove empty groups.
+      const hadEmptyGroups = groups.some((g) => g.sessionIds.length === 0);
+      groups = groups.filter((g) => g.sessionIds.length > 0);
+
+      // Determine new active group / session.
+      let { activeGroupId, activeSessionId } = s;
+
+      if (hadEmptyGroups) {
+        const activeGroupRemoved =
+          !groups.some((g) => g.id === activeGroupId);
+        if (activeGroupRemoved) {
+          activeGroupId = groups.length > 0 ? groups[groups.length - 1].id : null;
+          activeSessionId =
+            activeGroupId !== null
+              ? (groups.find((g) => g.id === activeGroupId)?.activeSessionId ?? null)
+              : null;
+        }
+      }
+
+      // If the removed session was the active one but the group still
+      // has members, update activeSessionId.
+      if (activeSessionId === id) {
+        const ag = groups.find((g) => g.id === activeGroupId);
+        activeSessionId = ag?.activeSessionId ?? null;
+      }
+
+      return { sessions, groups, activeGroupId, activeSessionId };
     });
+  },
+
+  /**
+   * Remove an entire group's state without killing PTYs.
+   * Used during closeSession after PTYs are killed.
+   */
+  removeGroupState: (groupId) => {
+    set((s) => {
+      const group = s.groups.find((g) => g.id === groupId);
+      if (!group) return {};
+
+      const removeIds = new Set(group.sessionIds);
+      const sessions = s.sessions.filter((sess) => !removeIds.has(sess.id));
+      const groups = s.groups.filter((g) => g.id !== groupId);
+
+      let { activeGroupId, activeSessionId } = s;
+      if (activeGroupId === groupId) {
+        activeGroupId = groups.length > 0 ? groups[groups.length - 1].id : null;
+        activeSessionId =
+          activeGroupId !== null
+            ? (groups.find((g) => g.id === activeGroupId)?.activeSessionId ?? null)
+            : null;
+      }
+
+      return { sessions, groups, activeGroupId, activeSessionId };
+    });
+  },
+
+  // ── Pane actions (Kitty-style splits) ───────────────────────────
+
+  /**
+   * Split the active group: spawn a new session and add it as a new
+   * pane.  The new pane becomes the active pane.
+   * (Cmd+Enter)
+   */
+  splitPane: async (templateId) => {
+    const state = get();
+    const group = state.groups.find((g) => g.id === state.activeGroupId);
+    if (!group) {
+      // No active group — fall back to creating a new tab.
+      return state.createSession(templateId);
+    }
+
+    const tmpl = templateId
+      ? state.templates.find((t) => t.id === templateId)
+      : null;
+    // Use template cwd if provided; otherwise inherit the active pane's cwd.
+    const activeSession = state.sessions.find(
+      (sess) => sess.id === group.activeSessionId,
+    );
+    const cwd = tmpl?.cwd ?? activeSession?.cwd ?? '~';
+
+    const info = await storage.ptyCreate({
+      cwd,
+      cols: DEFAULT_COLS,
+      rows: DEFAULT_ROWS,
+    });
+
+    const session: TerminalSession = {
+      id: info.id,
+      title: tmpl?.name ?? 'Terminal',
+      templateId: tmpl?.id ?? null,
+      cwd,
+      createdAt: Date.now(),
+    };
+
+    set((s) => ({
+      sessions: [...s.sessions, session],
+      groups: s.groups.map((g) =>
+        g.id === group.id
+          ? {
+              ...g,
+              sessionIds: [...g.sessionIds, info.id],
+              activeSessionId: info.id,
+            }
+          : g,
+      ),
+      activeSessionId: info.id,
+    }));
+  },
+
+  /**
+   * Cycle to the next layout in the active group.
+   * (Cmd+Shift+L)
+   */
+  cyclePaneLayout: () => {
+    set((s) => {
+      const group = s.groups.find((g) => g.id === s.activeGroupId);
+      if (!group) return {};
+      const idx = LAYOUT_CYCLE.indexOf(group.layout);
+      const next = LAYOUT_CYCLE[(idx + 1) % LAYOUT_CYCLE.length];
+      return {
+        groups: s.groups.map((g) =>
+          g.id === group.id ? { ...g, layout: next } : g,
+        ),
+      };
+    });
+  },
+
+  /** Explicitly set the layout of the active group. */
+  setPaneLayout: (layout) => {
+    set((s) => {
+      const group = s.groups.find((g) => g.id === s.activeGroupId);
+      if (!group) return {};
+      return {
+        groups: s.groups.map((g) =>
+          g.id === group.id ? { ...g, layout } : g,
+        ),
+      };
+    });
+  },
+
+  /**
+   * Rotate the active pane's position in the session array.
+   * This effectively moves where it appears in the layout.
+   * (Cmd+Shift+F)
+   */
+  moveActivePane: () => {
+    set((s) => {
+      const group = s.groups.find((g) => g.id === s.activeGroupId);
+      if (!group || group.sessionIds.length < 2) return {};
+
+      const ids = [...group.sessionIds];
+      const activeIdx = ids.indexOf(group.activeSessionId);
+      if (activeIdx === -1) return {};
+
+      // Swap with the next pane (wrap around).
+      const nextIdx = (activeIdx + 1) % ids.length;
+      [ids[activeIdx], ids[nextIdx]] = [ids[nextIdx], ids[activeIdx]];
+
+      return {
+        groups: s.groups.map((g) =>
+          g.id === group.id ? { ...g, sessionIds: ids } : g,
+        ),
+      };
+    });
+  },
+
+  /**
+   * Focus the next pane in the active group (wraps around).
+   * (Cmd+])
+   */
+  focusNextPane: () => {
+    set((s) => {
+      const group = s.groups.find((g) => g.id === s.activeGroupId);
+      if (!group || group.sessionIds.length < 2) return {};
+      const idx = group.sessionIds.indexOf(group.activeSessionId);
+      const nextId = group.sessionIds[(idx + 1) % group.sessionIds.length];
+      return {
+        activeSessionId: nextId,
+        groups: s.groups.map((g) =>
+          g.id === group.id ? { ...g, activeSessionId: nextId } : g,
+        ),
+      };
+    });
+  },
+
+  /**
+   * Focus the previous pane in the active group (wraps around).
+   * (Cmd+[)
+   */
+  focusPrevPane: () => {
+    set((s) => {
+      const group = s.groups.find((g) => g.id === s.activeGroupId);
+      if (!group || group.sessionIds.length < 2) return {};
+      const idx = group.sessionIds.indexOf(group.activeSessionId);
+      const prevId =
+        group.sessionIds[
+          (idx - 1 + group.sessionIds.length) % group.sessionIds.length
+        ];
+      return {
+        activeSessionId: prevId,
+        groups: s.groups.map((g) =>
+          g.id === group.id ? { ...g, activeSessionId: prevId } : g,
+        ),
+      };
+    });
+  },
+
+  /**
+   * Focus a specific pane within the active group.
+   * (Click on a pane)
+   */
+  setActivePane: (sessionId) => {
+    set((s) => {
+      const group = s.groups.find((g) => g.id === s.activeGroupId);
+      if (!group || !group.sessionIds.includes(sessionId)) return {};
+      return {
+        activeSessionId: sessionId,
+        groups: s.groups.map((g) =>
+          g.id === group.id ? { ...g, activeSessionId: sessionId } : g,
+        ),
+      };
+    });
+  },
+
+  /**
+   * Close a single pane (one session within a group).
+   * If it's the last pane in the group, the group is removed too.
+   * (Cmd+W)
+   */
+  closePane: async (sessionId) => {
+    const state = get();
+    const group = state.groups.find((g) =>
+      g.sessionIds.includes(sessionId),
+    );
+    if (!group) return;
+
+    // Kill just this one PTY.
+    try {
+      await storage.ptyKill(sessionId);
+    } catch (e) {
+      console.error('Failed to kill PTY session:', e);
+    }
+
+    // Remove the session from state (removeSessionState handles
+    // group cleanup, including removing empty groups).
+    get().removeSessionState(sessionId);
   },
 });

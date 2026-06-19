@@ -1,6 +1,11 @@
 import type { Document, Block, BlockType, RichText } from '../types';
 import type { DocumentMeta, ThemeMode, Language } from '../lib/storage';
-import type { TerminalSession, TerminalTemplate } from './terminalSlice';
+import type {
+  TerminalSession,
+  TerminalTemplate,
+  PaneGroup,
+  PaneLayoutType,
+} from './terminalSlice';
 import { storage } from '../lib/storage';
 
 /**
@@ -58,6 +63,8 @@ export interface StoreState {
   // — terminal state (terminal slice) —
   templates: TerminalTemplate[];
   sessions: TerminalSession[];
+  groups: PaneGroup[];
+  activeGroupId: string | null;
   activeSessionId: string | null;
 
   // — init (documents slice) —
@@ -115,6 +122,16 @@ export interface StoreState {
   renameSession: (id: string, title: string) => void;
   setActiveSession: (id: string) => void;
   removeSessionState: (id: string) => void;
+  removeGroupState: (groupId: string) => void;
+  // — pane ops (Kitty-style splits) —
+  splitPane: (templateId?: string) => Promise<void>;
+  cyclePaneLayout: () => void;
+  setPaneLayout: (layout: PaneLayoutType) => void;
+  moveActivePane: () => void;
+  focusNextPane: () => void;
+  focusPrevPane: () => void;
+  setActivePane: (sessionId: string) => void;
+  closePane: (sessionId: string) => Promise<void>;
 }
 
 /**

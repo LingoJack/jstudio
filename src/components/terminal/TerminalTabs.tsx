@@ -3,22 +3,28 @@ import { useStore } from '../../store/useStore';
 import { Plus, X, ChevronRight } from 'lucide-react';
 
 /**
- * TerminalTabs — VS Code-style tab bar for active terminal sessions.
+ * TerminalTabs — VS Code-style tab bar for terminal pane groups.
+ *
+ * Each tab represents one PaneGroup (Kitty "window").  The tab title
+ * shows the active session's title within that group.
  *
  * Design:
  *   - Flat, no rounded corners — matches VS Code editor tabs
  *   - Active tab: same bg as terminal content, top accent line
  *   - Inactive tab: muted, hover highlights
  *   - Close button: active tab always shows it, inactive on hover
- *   - `+` button on the right edge
+ *   - `+` button on the right edge → new group (new tab)
  *
  * Keyboard shortcuts:
- *   Cmd/Ctrl + Opt/Alt + ← / →  — cycle tabs
- *   Cmd/Ctrl + W                 — close active tab
+ *   Cmd/Ctrl + Opt/Alt + ← / →  — cycle groups
+ *   Cmd/Ctrl + T                 — new group/tab
+ *
+ * (Cmd+W for closing a single pane is handled by usePaneShortcuts.)
  */
 export default function TerminalTabs() {
+  const groups = useStore((s) => s.groups);
   const sessions = useStore((s) => s.sessions);
-  const activeSessionId = useStore((s) => s.activeSessionId);
+  const activeGroupId = useStore((s) => s.activeGroupId);
   const setActiveSession = useStore((s) => s.setActiveSession);
   const closeSession = useStore((s) => s.closeSession);
   const createSession = useStore((s) => s.createSession);
@@ -32,16 +38,7 @@ export default function TerminalTabs() {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
 
-      // Cmd/Ctrl + W → close active tab
-      if (e.key === 'w' || e.key === 'W') {
-        if (!activeSessionId) return;
-        e.preventDefault();
-        e.stopPropagation();
-        closeSession(activeSessionId);
-        return;
-      }
-
-      // Cmd/Ctrl + T → new tab
+      // Cmd/Ctrl + T → new tab (new group)
       if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
         e.stopPropagation();
@@ -49,28 +46,29 @@ export default function TerminalTabs() {
         return;
       }
 
-      // Cmd/Ctrl + Opt/Alt + ← / → → cycle tabs
+      // Cmd/Ctrl + Opt/Alt + ← / → → cycle groups
       if (!e.altKey) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      if (sessions.length < 2) return;
+      if (groups.length < 2) return;
 
       e.preventDefault();
       e.stopPropagation();
 
-      const idx = sessions.findIndex((s) => s.id === activeSessionId);
+      const idx = groups.findIndex((g) => g.id === activeGroupId);
       if (idx === -1) return;
 
       const next =
         e.key === 'ArrowRight'
-          ? (idx + 1) % sessions.length
-          : (idx - 1 + sessions.length) % sessions.length;
+          ? (idx + 1) % groups.length
+          : (idx - 1 + groups.length) % groups.length;
 
-      setActiveSession(sessions[next].id);
+      // Switch to the target group's active session.
+      setActiveSession(groups[next].activeSessionId);
     };
 
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [sessions, activeSessionId, setActiveSession, closeSession, createSession]);
+  }, [groups, activeGroupId, setActiveSession, createSession]);
 
   // ── Scroll active tab into view ──────────────────────────────────
   useEffect(() => {
@@ -78,9 +76,9 @@ export default function TerminalTabs() {
       block: 'nearest',
       inline: 'nearest',
     });
-  }, [activeSessionId]);
+  }, [activeGroupId]);
 
-  if (sessions.length === 0) return null;
+  if (groups.length === 0) return null;
 
   return (
     <div className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)]">
@@ -90,13 +88,19 @@ export default function TerminalTabs() {
         className="flex items-stretch overflow-x-auto flex-1 min-w-0"
         style={{ scrollbarWidth: 'none' }}
       >
-        {sessions.map((session) => {
-          const isActive = session.id === activeSessionId;
+        {groups.map((group) => {
+          const isActive = group.id === activeGroupId;
+          // Show the active session's title for this group.
+          const title =
+            sessions.find((s) => s.id === group.activeSessionId)?.title ??
+            'Terminal';
+          // Show pane count if > 1.
+          const paneCount = group.sessionIds.length;
           return (
             <div
-              key={session.id}
+              key={group.id}
               ref={isActive ? activeTabRef : null}
-              onClick={() => setActiveSession(session.id)}
+              onClick={() => setActiveSession(group.activeSessionId)}
               className={`group relative flex items-center gap-2 pl-3 pr-2 cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
                 isActive
                   ? 'bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
@@ -108,12 +112,17 @@ export default function TerminalTabs() {
               )}
               <ChevronRight className="w-3 h-3 opacity-30 shrink-0" />
               <span className="text-xs font-medium max-w-[140px] truncate">
-                {session.title}
+                {title}
               </span>
+              {paneCount > 1 && (
+                <span className="text-[10px] opacity-50 shrink-0">
+                  {paneCount}
+                </span>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  closeSession(session.id);
+                  closeSession(group.activeSessionId);
                 }}
                 className={`shrink-0 p-0.5 rounded transition-all duration-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
                   isActive
