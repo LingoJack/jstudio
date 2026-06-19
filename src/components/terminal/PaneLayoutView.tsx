@@ -346,9 +346,6 @@ export default function PaneLayoutView({
               ...cellStyle,
               boxSizing: 'border-box',
               background: theme.background,
-              boxShadow: isActive
-                ? `inset 0 0 12px 1px ${glowColor}`
-                : 'none',
             }}
             onClick={() => setActivePane(sid)}
             className="relative overflow-hidden"
@@ -368,6 +365,14 @@ export default function PaneLayoutView({
               }}
               className="w-full h-full"
             />
+            {/* Focus glow overlay — sits above xterm's canvas (z-10)
+                so the glow is visible on all four edges. */}
+            {isActive && (
+              <div
+                className="absolute inset-0 pointer-events-none z-10"
+                style={{ boxShadow: `inset 0 0 14px 2px ${glowColor}` }}
+              />
+            )}
           </div>
         );
       })}
