@@ -133,6 +133,26 @@ export const translations = {
     // ── About section ──
     'about.contactAuthor': '联系作者',
 
+    // ── jcli section ──
+    'jcli.title': 'JCLI 命令行工具',
+    'jcli.desc': '将 jcli 安装到系统，安装后可在终端中使用 j 命令',
+    'jcli.installed': '已安装',
+    'jcli.notInstalled': '未安装',
+    'jcli.version': '版本',
+    'jcli.path': '路径',
+    'jcli.install': '安装',
+    'jcli.uninstall': '卸载',
+    'jcli.reinstall': '重新安装',
+    'jcli.installing': '安装中…',
+    'jcli.uninstalling': '卸载中…',
+    'jcli.installSuccess': 'jcli 已成功安装',
+    'jcli.installFailed': '安装失败',
+    'jcli.uninstallSuccess': 'jcli 已卸载',
+    'jcli.uninstallFailed': '卸载失败',
+    'jcli.bundled': '内置版本',
+    'jcli.checking': '检查中…',
+    'jcli.notBundled': '当前应用未内置 jcli 二进制文件',
+
     // ── FontDropdown ──
     'font.searchPlaceholder': '搜索字体…',
     'font.noMatch': '无匹配字体',
@@ -301,6 +321,26 @@ export const translations = {
 
     // ── About section ──
     'about.contactAuthor': 'Contact Author',
+
+    // ── jcli section ──
+    'jcli.title': 'JCLI Command Line Tool',
+    'jcli.desc': 'Install jcli to your system so you can use the j command in the terminal',
+    'jcli.installed': 'Installed',
+    'jcli.notInstalled': 'Not installed',
+    'jcli.version': 'Version',
+    'jcli.path': 'Path',
+    'jcli.install': 'Install',
+    'jcli.uninstall': 'Uninstall',
+    'jcli.reinstall': 'Reinstall',
+    'jcli.installing': 'Installing…',
+    'jcli.uninstalling': 'Uninstalling…',
+    'jcli.installSuccess': 'jcli installed successfully',
+    'jcli.installFailed': 'Installation failed',
+    'jcli.uninstallSuccess': 'jcli uninstalled',
+    'jcli.uninstallFailed': 'Uninstall failed',
+    'jcli.bundled': 'Bundled version',
+    'jcli.checking': 'Checking…',
+    'jcli.notBundled': 'This app does not include a bundled jcli binary',
 
     // ── FontDropdown ──
     'font.searchPlaceholder': 'Search fonts…',

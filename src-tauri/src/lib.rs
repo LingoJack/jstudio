@@ -33,6 +33,10 @@ pub fn run() {
             commands::terminal::pty_kill,
             commands::terminal::pty_list,
             commands::terminal::pty_set_title,
+            // ── jcli ──
+            commands::jcli::check_jcli,
+            commands::jcli::install_jcli,
+            commands::jcli::uninstall_jcli,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

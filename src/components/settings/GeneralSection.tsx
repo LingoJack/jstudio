@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/storage';
+import type { JcliStatus } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import type { Language, ThemeMode } from '../../lib/storage';
@@ -181,6 +182,11 @@ export default function GeneralSection() {
           </div>
         )}
       </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- JCLI ---- */}
+      <JcliSection />
     </div>
   );
 }
@@ -287,6 +293,185 @@ function LanguageDropdown() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// JcliSection
+// ──────────────────────────────────────────────────────────────────
+
+function JcliSection() {
+  const { t } = useI18n();
+  const [status, setStatus] = useState<JcliStatus | null>(null);
+  const [busy, setBusy] = useState<'install' | 'uninstall' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Auto-clear success/error messages after 4s
+  useEffect(() => {
+    if (!error && !success) return;
+    const timer = setTimeout(() => {
+      setError(null);
+      setSuccess(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [error, success]);
+
+  const refresh = useCallback(async () => {
+    try {
+      const s = await storage.checkJcli();
+      setStatus(s);
+    } catch (e) {
+      setError(String(e));
+      setStatus(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const handleInstall = async () => {
+    setError(null);
+    setSuccess(null);
+    setBusy('install');
+    try {
+      await storage.installJcli();
+      await refresh();
+      setSuccess(t('jcli.installSuccess'));
+    } catch (e) {
+      setError(`${t('jcli.installFailed')}: ${String(e)}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleUninstall = async () => {
+    setError(null);
+    setSuccess(null);
+    setBusy('uninstall');
+    try {
+      await storage.uninstallJcli();
+      await refresh();
+      setSuccess(t('jcli.uninstallSuccess'));
+    } catch (e) {
+      setError(`${t('jcli.uninstallFailed')}: ${String(e)}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const checking = status === null;
+  const installed = status?.installed ?? false;
+  const canInstall = status?.bundled ?? false;
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+        {t('jcli.title')}
+      </label>
+      <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+        {t('jcli.desc')}
+      </p>
+
+      {/* Status row */}
+      <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
+        <Terminal className="w-5 h-5 text-[var(--vscode-descriptionForeground)] shrink-0" />
+
+        {/* Status badge */}
+        {checking ? (
+          <span className="text-sm text-[var(--vscode-descriptionForeground)]">
+            {t('jcli.checking')}
+          </span>
+        ) : (
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {installed ? (
+              <CheckCircle2 className="w-4 h-4 text-[var(--vscode-testing-iconPassed)] shrink-0" />
+            ) : (
+              <XCircle className="w-4 h-4 text-[var(--vscode-errorForeground)] shrink-0" />
+            )}
+            <span
+              className={`text-sm shrink-0 ${installed ? 'text-[var(--vscode-foreground)]' : 'text-[var(--vscode-descriptionForeground)]'}`}
+            >
+              {installed ? t('jcli.installed') : t('jcli.notInstalled')}
+            </span>
+            {status?.version && (
+              <span className="text-xs text-[var(--vscode-descriptionForeground)] truncate font-mono">
+                {status.version}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Action button */}
+        <div className="shrink-0">
+          {installed ? (
+            <button
+              onClick={handleUninstall}
+              disabled={busy !== null}
+              className="jstudio-btn-secondary"
+            >
+              {busy === 'uninstall' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <XCircle className="w-4 h-4" />
+              )}
+              <span>{t('jcli.uninstall')}</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleInstall}
+              disabled={busy !== null || !canInstall}
+              className="jstudio-btn-primary"
+            >
+              {busy === 'install' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Terminal className="w-4 h-4" />
+              )}
+              <span>{t('jcli.install')}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Path info (if installed) */}
+      {status?.path && (
+        <div className="mt-2 px-4 py-2 rounded-lg bg-[var(--vscode-textBlockQuote-background)] border border-[var(--vscode-widget-border)]">
+          <span className="text-xs text-[var(--vscode-descriptionForeground)] font-mono break-all">
+            {status.path}
+          </span>
+        </div>
+      )}
+
+      {/* Bundled version warning (if not bundled) */}
+      {status && !status.bundled && (
+        <div className="mt-2 flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--vscode-inputValidation-warningBackground)] border border-[var(--vscode-inputValidation-warningBorder)]">
+          <AlertCircle className="w-4 h-4 text-[var(--vscode-editorWarning-foreground)] shrink-0" />
+          <span className="text-xs text-[var(--vscode-foreground)]">
+            {t('jcli.notBundled')}
+          </span>
+        </div>
+      )}
+
+      {/* Success message */}
+      {success && (
+        <div className="mt-2 flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--vscode-inputValidation-infoBackground)] border border-[var(--vscode-inputValidation-infoBorder)]">
+          <CheckCircle2 className="w-4 h-4 text-[var(--vscode-testing-iconPassed)] shrink-0" />
+          <span className="text-xs text-[var(--vscode-foreground)]">{success}</span>
+        </div>
+      )}
+
+      {/* Error message */}
+      {error && (
+        <div className="mt-2 flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--vscode-inputValidation-errorBackground)] border border-[var(--vscode-inputValidation-errorBorder)]">
+          <AlertCircle className="w-4 h-4 text-[var(--vscode-errorForeground)] shrink-0" />
+          <span className="text-xs text-[var(--vscode-errorForeground)] break-all">
+            {error}
+          </span>
         </div>
       )}
     </div>

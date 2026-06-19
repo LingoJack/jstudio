@@ -87,6 +87,22 @@ export interface TerminalSessionInfo {
 }
 
 /**
+ * jcli installation status — mirrors the Rust `JcliStatus` struct.
+ */
+export interface JcliStatus {
+  /** Whether `j` is available on the system PATH. */
+  installed: boolean;
+  /** Version string reported by `j --version`. */
+  version: string | null;
+  /** Absolute path to the resolved binary, if found. */
+  path: string | null;
+  /** Whether the bundled version embedded in JStudio is available. */
+  bundled: boolean;
+  /** Version of the bundled binary, if extractable. */
+  bundledVersion: string | null;
+}
+
+/**
  * Convert a full Document to its lightweight metadata form.
  */
 export function toMeta(doc: Document): DocumentMeta {
@@ -187,4 +203,15 @@ export const storage = {
   /** Rename a session. */
   ptySetTitle: (sessionId: string, title: string) =>
     invoke<void>('pty_set_title', { sessionId, title }),
+
+  // ---- jcli (bundled CLI) ----
+
+  /** Check whether jcli is installed on the system and bundled in the app. */
+  checkJcli: () => invoke<JcliStatus>('check_jcli'),
+
+  /** Install the bundled jcli to `~/.jdata/bin/j` and symlink to PATH. */
+  installJcli: () => invoke<string>('install_jcli'),
+
+  /** Remove the jcli symlink and binary. */
+  uninstallJcli: () => invoke<void>('uninstall_jcli'),
 };
