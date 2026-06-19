@@ -1,20 +1,216 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+
+# JStudio
+
+**离线优先的 Notion 风格本地笔记应用**
+
+基于 Tauri v2 + React 19 的桌面应用，所有数据存储在本地文件系统，无云端依赖。
+
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 特性
 
-View your app in AI Studio: https://ai.studio/apps/3847f889-f945-4f2b-9fd5-38f3b871ae46
+- **块编辑器** — Notion 风格的统一 surface 模式，支持文本、标题、Callout、Toggle、代码块、表格、图片、画布、白板、Web 嵌入、附件等多种块类型
+- **离线优先** — 全部数据以 JSON 文件形式存储在 `~/.jdata/studio/`，无数据库、无服务器、无云端同步
+- **内置终端** — 基于 xterm.js + portable-pty，可在应用内直接执行命令
+- **Markdown 快捷输入** — `# ` 自动转标题、`/` 唤出 Slash 命令菜单
+- **暗色 / 亮色主题** — VSCode 风格 CSS 变量体系
+- **跨平台** — macOS / Windows / Linux（基于 Tauri v2）
 
-## Run Locally
+## 技术栈
 
-**Prerequisites:**  Node.js
+| 层 | 技术 |
+|----|------|
+| 桌面框架 | Tauri v2 (Rust + WebView) |
+| 前端 | React 19 + TypeScript (strict) |
+| 构建 | Vite 6 |
+| 状态管理 | Zustand (slice 模式) |
+| 样式 | Tailwind CSS v4 |
+| 编辑器内核 | TipTap v3 (ProseMirror) |
+| 图标 | lucide-react |
+| 终端 | xterm.js + portable-pty |
 
+## 快速开始
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 环境要求
+
+- **Node.js** >= 20
+- **Rust** (stable toolchain) — [安装指南](https://rustup.rs/)
+- **Tauri v2 系统依赖**：
+  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
+  - **Linux**: `webkit2gtk`, `libgtk-3`, `libappindicator` 等（参考 [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/))
+  - **Windows**: WebView2 runtime (Windows 10+ 默认已安装)
+
+### 安装 & 运行
+
+```bash
+# 1. 安装前端依赖
+npm install
+
+# 2. 开发模式（启动 Tauri 桌面应用 + 热重载）
+npm run tauri:dev
+# 或
+make dev
+
+# 3. 构建生产版本
+npm run tauri:build
+# 或
+make build
+```
+
+> 前端开发服务器运行在 `http://127.0.0.1:1420`。
+
+## 常用 Make 命令
+
+项目内置了一个功能完整的 `Makefile`：
+
+| 命令 | 说明 |
+|------|------|
+| `make dev` | 启动开发模式 |
+| `make build` | 构建应用 |
+| `make install` | 构建并安装到 `/Applications`（macOS） |
+| `make uninstall` | 卸载应用 |
+| `make fmt` | 格式化代码（前端 + Rust） |
+| `make lint` | 代码检查（tsc + clippy） |
+| `make test` | 运行测试 |
+| `make clean` | 清理构建产物 |
+| `make bump-version` | 递增 patch 版本号 |
+| `make set-version V=1.0.0` | 设置指定版本号 |
+| `make help` | 查看所有可用命令 |
+
+## 数据存储
+
+```
+~/.jdata/studio/
+├── index.json              # 文档元数据索引（轻量数组，侧边栏瞬时渲染）
+├── settings.json           # 用户设置
+└── documents/
+    └── {docId}/            # 每篇文档独立文件夹
+        ├── document.json   # 完整文档内容（含 blocks 数组）
+        └── assets/         # 文档私有资源（图片等）
+```
+
+- **索引与内容分离**，侧边栏不加载完整文档
+- **防抖写入**（500ms debounce），避免高频 IO
+- **无数据库** — 纯文件系统 JSON 存储
+
+## 项目结构
+
+```
+jstudio/
+├── src/                        # 前端源码 (React + TypeScript)
+│   ├── App.tsx                 # 根组件（三栏布局）
+│   ├── components/             # UI 组件
+│   │   ├── BlockEditor.tsx     # 编辑器主体
+│   │   ├── blocks/             # 块组件（Text/Heading/Image/Code/Table/...）
+│   │   ├── terminal/           # 内置终端
+│   │   └── ...
+│   ├── store/                  # Zustand store (slice 模式)
+│   ├── lib/                    # 工具库（storage / i18n / migrate）
+│   └── types/                  # TypeScript 类型定义
+└── src-tauri/                  # Rust 后端
+    ├── tauri.conf.json         # Tauri 配置
+    └── src/
+        ├── lib.rs              # 插件注册 + 命令绑定
+        └── commands/storage.rs # 14 个文件系统存储命令
+```
+
+> 完整的开发规范见 [AGENTS.md](./AGENTS.md)。
+
+## 构建 DMG 分发包（macOS）
+
+本节说明如何将 JStudio 打包为 `.dmg` 安装镜像并分发给其他 macOS 用户。
+
+### 基础构建（生成 .app）
+
+```bash
+npm run tauri:build
+```
+
+产物路径：
+```
+src-tauri/target/release/bundle/
+├── macos/JStudio.app          # macOS 应用包
+├── dmg/JStudio_0.1.0_x64.dmg  # DMG 安装镜像（默认会自动生成）
+└── ...
+```
+
+### 签名与公证（给其他人使用的关键步骤）
+
+未签名的 `.dmg` 在 macOS 上会被 Gatekeeper 拦截，用户会看到 **「无法打开，因为来自身份不明的开发者」**。
+要让其他人顺利使用，必须完成 **代码签名 (Code Signing) + 公证 (Notarization)**：
+
+#### 1. 获取 Apple 开发者证书
+
+| 项目 | 说明 | 费用 |
+|------|------|------|
+| Apple Developer Program | 注册 [developer.apple.com](https://developer.apple.com/programs/) | $99/年 |
+| Developer ID Application | 用于签名分发到 App Store 之外的应用 | 包含在会员资格中 |
+
+注册后在「Certificates, Identifiers & Profiles」中创建 **Developer ID Application** 证书，安装到钥匙串。
+
+#### 2. 获取 App-Specific Password（公证用）
+
+1. 登录 [appleid.apple.com](https://appleid.apple.com/) → App-Specific Passwords
+2. 生成一个专用密码，记录你的 **Apple ID** 和这个密码
+
+#### 3. 配置 Tauri 签名信息
+
+在 `~/.zshrc` 或 `~/.bashrc` 中设置环境变量：
+
+```bash
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export APPLE_ID="youremail@example.com"
+export APPLE_PASSWORD="xxxx-xxxx-xxxx-xxxx"      # App-Specific Password
+export APPLE_TEAM_ID="TEAMID"                      # 开发者团队 ID
+```
+
+#### 4. 构建 + 自动签名 + 自动公证
+
+```bash
+npm run tauri:build
+```
+
+Tauri v2 检测到上述环境变量后会自动：
+1. 用 `codesign` 对 `.app` 签名
+2. 用 `codesign` 对 `.dmg` 签名
+3. 提交到 Apple 进行公证 (Notarize)
+4. Staple 公证票据 (Staple)
+
+完成后生成的 `.dmg` 即可直接分发给其他 macOS 用户，双击安装不会被拦截。
+
+#### 5. 验证签名（可选）
+
+```bash
+# 检查签名
+codesign -dv --verbose=4 src-tauri/target/release/bundle/macos/JStudio.app
+
+# 检查公证状态
+xcrun stapler validate src-tauri/target/release/bundle/macos/JStudio.app
+```
+
+### 无签名分发的临时方案
+
+如果没有 Apple 开发者账号，可以构建未签名版本分发给信任的用户：
+用户首次打开时需右键 → **「打开」**，或在 **系统设置 → 隐私与安全性** 中点击 **「仍要打开」**。
+
+```bash
+# 仅构建，不签名不公证
+npm run tauri:build
+```
+
+> 分发 `.dmg` 文件即可，用户拖拽到 Applications 安装。
+
+## 开发规范
+
+- 前端禁止直接调用 `invoke`，所有 Tauri IPC 通过 `src/lib/storage.ts`
+- 状态管理通过 Zustand slice，不在组件内直接修改 store
+- 块组件只做展示，编辑逻辑在 `useSurfaceEditor` 统一处理
+- 使用 Tailwind CSS v4 + VSCode 主题 CSS 变量，不硬编码颜色
+- Rust 命令返回 `Result<T, String>`，新增命令在 `lib.rs` 注册
+
+## 许可证
+
+私有项目，保留所有权利。
