@@ -258,17 +258,31 @@ class CursorTrail {
   /**
    * Update the cursor target rectangle (the thing the trail corners chase).
    * Ported from update_cursor_trail_target().
+   *
+   * For UNDERLINE cursor shape, kitty computes:
+   *   left   = xstart + cursor_x * dx
+   *   right  = left + dx
+   *   bottom = ystart - (cursor_y + 1) * dy
+   *   top    = bottom + dy / cell_height * cursor_underline_thickness
+   *
+   * i.e. the underline is a thin bar at the BOTTOM of the cell.
+   * The trail corners chase this thin bar, so the trail itself looks
+   * like a stretched underline bar — not a full cell block.
    */
   private updateTarget() {
     const buf = this.term.buffer.active;
     const cx = buf.cursorX;
     const cy = buf.baseY + buf.cursorY;
 
-    // Underline cursor: left = cx, right = cx+1, bottom = cy+1, top = cy
-    this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;
-    this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;
-    this.cursorEdgeY[0] = this.gridTop + cy * this.cellH; // top
-    this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH; // bottom
+    // Underline cursor occupies the bottom portion of the cell.
+    const cursorThicknessRatio = 0.15; // fraction of cell height
+    const underlineH = this.cellH * cursorThicknessRatio;
+
+    this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;           // left
+    this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;    // right
+    // bottom of cell, then move up by underline thickness
+    this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;     // bottom
+    this.cursorEdgeY[0] = this.cursorEdgeY[1] - underlineH;         // top
 
     // Detect if cursor jumped — snap corners immediately on first frame
     // or if the cursor moved more than a threshold.
@@ -403,6 +417,9 @@ class CursorTrail {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
+    // If opacity is effectively zero, the clear above is all we need.
+    if (this.opacity < 0.001) return;
+
     // Compute trail rect from corners: [min, max] of the 4 corners.
     let trailLeft = Infinity, trailRight = -Infinity;
     let trailTop = Infinity, trailBottom = -Infinity;
@@ -451,12 +468,14 @@ class CursorTrail {
     this.measureGrid();
     this.updateTarget();
     this.updateCorners(dt);
-    this.updateOpacity(dt, true);
     this.updateNeedsRender();
+    // Opacity: only stay fully visible while corners are still catching up.
+    // Once the trail settles (needsRender=false), fade out so nothing lingers.
+    this.updateOpacity(dt, this.needsRender);
 
-    if (this.opacity > 0.001 && (this.needsRender || this.opacity < 1)) {
-      this.render();
-    }
+    // ALWAYS clear + render.  Even when settled, we must clear the previous
+    // frame's trail from the canvas — otherwise it leaves a permanent ghost.
+    this.render();
 
     this.rafId = requestAnimationFrame(this.loop);
   };
