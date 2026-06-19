@@ -13,6 +13,15 @@
  * ArrowLeft / ArrowRight are intentionally NOT intercepted: they keep their
  * native behavior of moving the text cursor inside the selection.
  *
+ * Positioning: the toolbar follows the **cursor head** (selection.head)
+ * rather than the center of the selection bounding box, so it stays glued
+ * to where the user is actively selecting.
+ *
+ * Edge handling: floating-ui `flip` (flips to the opposite side when
+ * there's no room above/below) and `shift` (slides along the axis to stay
+ * within the viewport) with 8px padding keep the toolbar fully visible at
+ * screen edges.
+ *
  * The marks themselves are provided by StarterKit (Bold, Italic, Strike,
  * Code extensions). This component only renders the BubbleMenu UI.
  */
@@ -23,6 +32,26 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
+
+/**
+ * Minimal VirtualElement-compatible type (mirrors @floating-ui/dom).
+ * We inline it to avoid adding @floating-ui/dom as a direct dependency.
+ */
+interface VirtualRect {
+  width: number;
+  height: number;
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  x: number;
+  y: number;
+  toJSON: () => Record<string, number>;
+}
+interface VirtualElementLike {
+  getBoundingClientRect: () => VirtualRect;
+  getClientRects: () => VirtualRect[];
+}
 
 interface FormatBubbleMenuProps {
   editor: Editor;
@@ -159,6 +188,55 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
         }
 
         return shouldShow;
+      }}
+      getReferencedVirtualElement={(): VirtualElementLike | null => {
+        // ── Follow the cursor head, not the selection bounding box ──
+        // This keeps the toolbar glued to the active edge of the selection.
+        const { selection } = editor.state;
+        const headCoords = editor.view.coordsAtPos(selection.head);
+
+        // Create a zero-width rect at the cursor head so floating-ui
+        // positions the toolbar directly above (or below, via flip) the
+        // character the user is currently at.
+        const rect = {
+          width: 0,
+          height: 0,
+          top: headCoords.top,
+          bottom: headCoords.bottom,
+          left: headCoords.left,
+          right: headCoords.left,
+          x: headCoords.left,
+          y: headCoords.top,
+          toJSON() {
+            return {
+              width: 0,
+              height: 0,
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              right: rect.right,
+              x: rect.x,
+              y: rect.y,
+            };
+          },
+        };
+
+        return {
+          getBoundingClientRect: () => rect,
+          getClientRects: () => [rect],
+        };
+      }}
+      options={{
+        placement: 'top',
+        strategy: 'fixed',
+        offset: 8,
+        flip: {
+          mainAxis: true,
+          crossAxis: false,
+        },
+        shift: {
+          padding: 8,
+        },
       }}
       className="bubble-menu"
     >
