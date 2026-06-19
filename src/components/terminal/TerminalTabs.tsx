@@ -109,6 +109,7 @@ export default function TerminalTabs() {
 
   // History dropdown state
   const [showHistory, setShowHistory] = useState(false);
+  const [historyPos, setHistoryPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const historyBtnRef = useRef<HTMLButtonElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
@@ -234,6 +235,10 @@ export default function TerminalTabs() {
 
   // ── History dropdown ─────────────────────────────────────────────
   const toggleHistory = useCallback(() => {
+    if (historyBtnRef.current) {
+      const rect = historyBtnRef.current.getBoundingClientRect();
+      setHistoryPos({ x: rect.left, y: rect.bottom + 4 });
+    }
     setShowHistory((prev) => !prev);
     setContextMenu(null);
   }, []);
@@ -342,7 +347,7 @@ export default function TerminalTabs() {
             );
           })}
 
-          {/* `+` spawn button — follows the last tab, no separator border */}
+          {/* `+` and Clock — both follow the last tab */}
           <button
             onClick={() => createSession()}
             className="shrink-0 w-9 flex items-center justify-center text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
@@ -350,66 +355,83 @@ export default function TerminalTabs() {
           >
             <Plus className="w-4 h-4" />
           </button>
-        </div>
 
-        {/* Clock — recent directories (outside scroll area so dropdown anchors here) */}
-        <div className="relative shrink-0">
-          <button
-            ref={historyBtnRef}
-            onClick={toggleHistory}
-            className={`w-9 h-full flex items-center justify-center transition-colors cursor-pointer ${
-              showHistory
-                ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-hoverBackground)]'
-                : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-            }`}
-            title={t('terminal.recentDirs')}
-          >
-            <Clock className="w-4 h-4" />
-          </button>
-
-          {/* History dropdown — appears directly below the Clock icon */}
-          {showHistory && (
-            <div
-              ref={historyRef}
-              className="absolute top-full right-0 z-50 min-w-[220px] max-w-[300px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
-              onClick={(e) => e.stopPropagation()}
+          {/* Clock — recent directories, right after `+` */}
+          <div className="relative shrink-0">
+            <button
+              ref={historyBtnRef}
+              onClick={toggleHistory}
+              className={`w-9 h-full flex items-center justify-center transition-colors cursor-pointer ${
+                showHistory
+                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-hoverBackground)]'
+                  : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+              }`}
+              title={t('terminal.recentDirs')}
             >
-              {recentDirs.length === 0 ? (
-                <div className="px-3 py-2 text-[var(--vscode-descriptionForeground)] text-xs">
-                  {t('terminal.noRecentDirs')}
-                </div>
-              ) : (
-                recentDirs.map((dir) => (
-                  <button
-                    key={dir}
-                    onClick={() => handlePickRecentDir(dir)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5 opacity-60 shrink-0" />
-                    <span className="truncate text-xs">{dir}</span>
-                  </button>
-                ))
-              )}
-
-              {recentDirs.length > 0 && (
-                <>
-                  <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
-                  <button
-                    onClick={() => {
-                      clearRecentDirs();
-                      setShowHistory(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 opacity-70" />
-                    <span className="text-xs">{t('terminal.clearRecent')}</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+              <Clock className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* History dropdown — rendered at root level with fixed position to
+          escape overflow-x-auto clipping from the scroll container */}
+      {showHistory && (
+        <div
+          ref={historyRef}
+          className="fixed z-[100] min-w-[240px] max-w-[340px] py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
+          style={{ left: historyPos.x, top: historyPos.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {recentDirs.length === 0 ? (
+            <div className="px-3 py-3 text-center text-[var(--vscode-descriptionForeground)] text-xs">
+              {t('terminal.noRecentDirs')}
+            </div>
+          ) : (
+            <>
+              <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+                {t('terminal.recentDirs')}
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {recentDirs.map((dir) => {
+                  const basename = getCwdBasename(dir);
+                  const parentPath = dir.replace(/\/[^/]*$/, '');
+                  return (
+                    <button
+                      key={dir}
+                      onClick={() => handlePickRecentDir(dir)}
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer hover:bg-[var(--vscode-menu-hoverBackground)] group"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5 opacity-50 group-hover:opacity-80 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-[var(--vscode-menu-foreground)] truncate">
+                          {basename}
+                        </div>
+                        {parentPath && parentPath !== dir && (
+                          <div className="text-[10px] text-[var(--vscode-descriptionForeground)] truncate font-mono leading-tight">
+                            {parentPath}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
+              <button
+                onClick={() => {
+                  clearRecentDirs();
+                  setShowHistory(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+              >
+                <Trash2 className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                <span className="text-xs">{t('terminal.clearRecent')}</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Right-click context menu (portal-like, rendered at root level) */}
       {contextMenu && (

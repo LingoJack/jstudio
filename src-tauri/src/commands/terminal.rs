@@ -92,7 +92,21 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
     // Set working directory.
     let mut cmd = cmd;
     if let Some(cwd) = &params.cwd {
-        cmd.cwd(cwd);
+        // Expand leading `~` to the user's home directory.
+        // Rust's `std::path` does not understand shell tilde expansion.
+        let expanded = if cwd == "~" {
+            dirs::home_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|| cwd.clone())
+        } else if let Some(rest) = cwd.strip_prefix("~/") {
+            match dirs::home_dir() {
+                Some(home) => format!("{}/{}", home.to_string_lossy(), rest),
+                None => cwd.clone(),
+            }
+        } else {
+            cwd.clone()
+        };
+        cmd.cwd(&expanded);
     }
 
     // Ensure the shell runs in a UTF-8 capable environment so that
