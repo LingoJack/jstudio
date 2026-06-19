@@ -1,4 +1,5 @@
 import type { Terminal } from '@xterm/xterm';
+import type { TerminalCursorStyle } from '../../lib/storage';
 import { TRAIL_VS, TRAIL_FS } from './shaders';
 
 /**
@@ -22,6 +23,12 @@ import { TRAIL_VS, TRAIL_FS } from './shaders';
  * means the trail can cross pane boundaries without being clipped by
  * overflow-hidden.  When the active pane switches, we call attach()
  * to point at the new terminal — exactly like kitty's single trail.
+ *
+ * CURSOR SHAPE: The trail quad's shape follows the cursor style so
+ * the two stay visually consistent:
+ *   - 'underline' → thin horizontal strip at the bottom of the cell
+ *   - 'block'     → full cell
+ *   - 'bar'       → thin vertical strip on the left of the cell
  *
  * Config (kitty defaults):
  *   cursor_trail_decay = 0.1 0.4  (fast, slow in seconds)
@@ -52,8 +59,9 @@ const CORNER_IDX_Y = [0, 1, 1, 0];
 const DECAY_FAST = 0.1;
 const DECAY_SLOW = 0.4;
 
-/** Underline cursor occupies the bottom portion of the cell. */
-const CURSOR_THICKNESS_RATIO = 0.15;
+/** Thickness ratios — define the trail quad shape for non-block cursors. */
+const UNDERLINE_THICKNESS_RATIO = 0.15;
+const BAR_THICKNESS_RATIO = 0.12;
 
 export default class CursorTrail {
   private canvas: HTMLCanvasElement;
@@ -66,18 +74,23 @@ export default class CursorTrail {
 
   private colorRgb: [number, number, number] = [0, 0.67, 1];
 
+  /** Current cursor style — drives the trail quad shape. */
+  private cursorStyle: TerminalCursorStyle = 'underline';
+
   // ── Trail state: 4 chasing corners (overlay-canvas pixel coords) ──
   private cornerX = [0, 0, 0, 0];
   private cornerY = [0, 0, 0, 0];
 
-  // ── Cursor target edges for chasing corners: full cell height ──
-  // The trail shape uses the full cell so it looks like a fat comet,
-  // not a thin line.  The fragment shader separately cuts out only
-  // the underline portion.
+  // ── Cursor target edges for chasing corners ──
+  // These define the trail quad shape, which matches the cursor style:
+  //   underline → bottom strip, block → full cell, bar → left strip.
   private cursorEdgeX = [0, 0];
   private cursorEdgeY = [0, 0];
 
-  // ── Cursor cutout rect (the underline portion only) ──
+  // ── Cursor cutout rect (where the visible cursor sits) ──
+  // Same shape as the trail quad, positioned at the trail's current
+  // location so the cursor is never fully obscured while the trail
+  // fades out.
   private cutoutX = [0, 0];
   private cutoutY = [0, 0];
 
@@ -113,14 +126,20 @@ export default class CursorTrail {
   private _pokeFromY: number | null = null;
 
   /**
-   * @param canvas  An overlay canvas that covers the entire pane area
-   *                (all panes).  This class does NOT own the canvas —
-   *                the caller creates and positions it.
-   * @param color   Initial trail color.
+   * @param canvas       An overlay canvas that covers the entire pane area
+   *                     (all panes).  This class does NOT own the canvas —
+   *                     the caller creates and positions it.
+   * @param color        Initial trail color.
+   * @param cursorStyle  Initial cursor style — drives the trail quad shape.
    */
-  constructor(canvas: HTMLCanvasElement, color: string) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    color: string,
+    cursorStyle: TerminalCursorStyle = 'underline',
+  ) {
     this.canvas = canvas;
     this.colorRgb = hexToRgb(color);
+    this.cursorStyle = cursorStyle;
 
     const gl = canvas.getContext('webgl2', {
       alpha: true,
@@ -222,6 +241,14 @@ export default class CursorTrail {
     this.colorRgb = hexToRgb(color);
   }
 
+  /**
+   * Update the cursor style.  The trail quad shape will follow on the
+   * next frame — no need to recreate the trail.
+   */
+  setCursorStyle(style: TerminalCursorStyle) {
+    this.cursorStyle = style;
+  }
+
   /** Check whether the trail is currently tracking this terminal. */
   isAttachedTo(term: Terminal): boolean {
     return this.term === term;
@@ -267,7 +294,7 @@ export default class CursorTrail {
 
     return {
       x: originX + cx * cellW,
-      y: originY + (cy + 1) * cellH - cellH * CURSOR_THICKNESS_RATIO * 0.5,
+      y: originY + (cy + 1) * cellH - cellH * this.cursorThicknessY() * 0.5,
     };
   }
 
@@ -334,6 +361,41 @@ export default class CursorTrail {
     }
   }
 
+  // ── Private: Cursor-shape geometry helpers ──
+
+  /**
+   * Vertical thickness ratio (fraction of cell height) for the
+   * current cursor style.  `block` uses the full cell; `underline`
+   * uses the bottom strip; `bar` uses the full cell height (the
+   * thinness is horizontal).
+   */
+  private cursorThicknessY(): number {
+    switch (this.cursorStyle) {
+      case 'underline':
+        return UNDERLINE_THICKNESS_RATIO;
+      case 'block':
+      case 'bar':
+      default:
+        return 1.0;
+    }
+  }
+
+  /**
+   * Horizontal thickness ratio (fraction of cell width) for the
+   * current cursor style.  `bar` uses the left strip; `block` and
+   * `underline` use the full cell width.
+   */
+  private cursorThicknessX(): number {
+    switch (this.cursorStyle) {
+      case 'bar':
+        return BAR_THICKNESS_RATIO;
+      case 'block':
+      case 'underline':
+      default:
+        return 1.0;
+    }
+  }
+
   // ── Private: Trail update logic (ported from cursor_trail.c) ──
 
   private updateTarget() {
@@ -342,17 +404,26 @@ export default class CursorTrail {
     const cx = buf.cursorX;
     const cy = buf.baseY + buf.cursorY;
 
-    this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;
-    this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;
-    // FULL cell height for the trail shape (fat comet, not thin line).
-    this.cursorEdgeY[0] = this.gridTop + cy * this.cellH;
-    this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;
+    // Full cell bounds.
+    const cellLeft = this.gridLeft + cx * this.cellW;
+    const cellRight = this.gridLeft + (cx + 1) * this.cellW;
+    const cellTop = this.gridTop + cy * this.cellH;
+    const cellBottom = this.gridTop + (cy + 1) * this.cellH;
 
-    // Cutout rect: only the underline portion at the bottom of the cell.
+    // Trail quad edges follow the cursor shape.
+    const thickX = this.cursorThicknessX();
+    const thickY = this.cursorThicknessY();
+    this.cursorEdgeX[0] = cellLeft;
+    this.cursorEdgeX[1] = cellLeft + this.cellW * thickX;
+    this.cursorEdgeY[0] = cellBottom - this.cellH * thickY;
+    this.cursorEdgeY[1] = cellBottom;
+
+    // Cutout rect: same shape as the cursor, sitting at the cell
+    // position so the visible cursor is never obscured by the trail.
     this.cutoutX[0] = this.cursorEdgeX[0];
     this.cutoutX[1] = this.cursorEdgeX[1];
+    this.cutoutY[0] = this.cursorEdgeY[0];
     this.cutoutY[1] = this.cursorEdgeY[1];
-    this.cutoutY[0] = this.cursorEdgeY[1] - this.cellH * CURSOR_THICKNESS_RATIO;
 
     const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
 
@@ -497,12 +568,20 @@ export default class CursorTrail {
     // cutout jumped to the new cursor position while the trail was
     // still catching up, there'd be a visible hole between them.
     //
-    // We cut out only the underline strip at the bottom of the
-    // trail quad (where the visible cursor sits).
-    const cutLeft   = Math.min(this.cornerX[2], this.cornerX[3]);       // left-bot, left-top
-    const cutRight  = Math.max(this.cornerX[0], this.cornerX[1]);       // right-bot, right-top
-    const cutBottom = Math.max(this.cornerY[1], this.cornerY[2]);       // right-bot, left-bot
-    const cutTop    = cutBottom - this.cellH * CURSOR_THICKNESS_RATIO;
+    // The cutout matches the cursor shape so the visible cursor
+    // shows through the trail as it fades out.
+    const thickX = this.cursorThicknessX();
+    const thickY = this.cursorThicknessY();
+    const cutLeft   = Math.min(this.cornerX[2], this.cornerX[3]);
+    const cutRight  = Math.min(
+      Math.max(this.cornerX[0], this.cornerX[1]),
+      cutLeft + this.cellW * thickX,
+    );
+    const cutBottom = Math.max(this.cornerY[1], this.cornerY[2]);
+    const cutTop    = Math.max(
+      Math.min(this.cornerY[0], this.cornerY[3]),
+      cutBottom - this.cellH * thickY,
+    );
 
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);

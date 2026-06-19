@@ -136,12 +136,13 @@ export default function PaneLayoutView({
   const terminalThemeId = useStore((s) => s.terminalThemeId);
   const terminalFontId = useStore((s) => s.terminalFontId);
   const terminalFontSize = useStore((s) => s.terminalFontSize);
+  const terminalCursorStyle = useStore((s) => s.terminalCursorStyle);
   const setActivePane = useStore((s) => s.setActivePane);
 
   const theme = getTerminalTheme(terminalThemeId);
 
   const { terminalsRef, setupTerminal, destroyTerminal, destroyAll, tryEnableWebgl } =
-    useTerminalManager(terminalFontId, terminalFontSize);
+    useTerminalManager(terminalFontId, terminalFontSize, terminalCursorStyle);
 
   /** Map: sessionId → pane DOM element. */
   const paneElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -172,7 +173,7 @@ export default function PaneLayoutView({
     }
 
     try {
-      trailRef.current = new CursorTrail(canvas, theme.cursor);
+      trailRef.current = new CursorTrail(canvas, theme.cursor, terminalCursorStyle);
       trailRef.current.resize();
       trailRef.current.start();
     } catch {
@@ -386,6 +387,16 @@ export default function PaneLayoutView({
       });
     });
   }, [terminalFontId, terminalFontSize, terminalsRef]);
+
+  // ── Live cursor style update ─────────────────────────────────────
+  // Push the new cursor style into every live xterm instance and the
+  // shared trail so the two stay visually consistent in real time.
+  useEffect(() => {
+    terminalsRef.current.forEach(({ term }) => {
+      term.options.cursorStyle = terminalCursorStyle;
+    });
+    trailRef.current?.setCursorStyle(terminalCursorStyle);
+  }, [terminalCursorStyle, terminalsRef]);
 
   // ── Render ───────────────────────────────────────────────────────
   const n = sessionIds.length;

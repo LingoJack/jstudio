@@ -51,6 +51,11 @@ export const translations = {
     'terminal.untitled': '终端',
     'terminal.fontFamily': '字体',
     'terminal.fontFamilyDesc': '终端使用的等宽字体',
+    'terminal.cursorStyle': '光标样式',
+    'terminal.cursorStyleDesc': '终端光标的形状，拖尾效果会自动跟随光标形状',
+    'terminal.cursorStyle_block': '块状',
+    'terminal.cursorStyle_underline': '下划线',
+    'terminal.cursorStyle_bar': '竖线',
     // Template
     'terminal.templates': '模板',
     'terminal.newTemplate': '新建模板',
@@ -203,6 +208,11 @@ export const translations = {
     'terminal.untitled': 'Terminal',
     'terminal.fontFamily': 'Font',
     'terminal.fontFamilyDesc': 'Monospace font used by the terminal',
+    'terminal.cursorStyle': 'Cursor Style',
+    'terminal.cursorStyleDesc': 'Shape of the terminal cursor — the trail follows this shape',
+    'terminal.cursorStyle_block': 'Block',
+    'terminal.cursorStyle_underline': 'Underline',
+    'terminal.cursorStyle_bar': 'Bar',
     // Template
     'terminal.templates': 'Templates',
     'terminal.newTemplate': 'New Template',

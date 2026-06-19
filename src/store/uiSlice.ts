@@ -1,4 +1,4 @@
-import { storage, type ThemeMode, type Language } from '../lib/storage';
+import { storage, type ThemeMode, type Language, type TerminalCursorStyle } from '../lib/storage';
 import type { SliceCreator } from './storeHelpers';
 import {
   DEFAULT_LATIN_FONT_ID,
@@ -20,6 +20,9 @@ const DEFAULT_SIDEBAR_WIDTH = 240;
 const MIN_TERMINAL_FONT_SIZE = 10;
 const MAX_TERMINAL_FONT_SIZE = 28;
 const DEFAULT_TERMINAL_FONT_SIZE = 14;
+
+/** Default terminal cursor shape — also drives the cursor trail shape. */
+const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = 'underline';
 
 /**
  * Resolve a theme preference to the actual dark/light value.
@@ -74,6 +77,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   terminalThemeId: DEFAULT_TERMINAL_THEME_ID,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
+  terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -157,5 +161,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setTerminalFontId: (id) => {
     set({ terminalFontId: id });
     storage.saveSettings({ terminalFontId: id }).catch(console.error);
+  },
+
+  setTerminalCursorStyle: (style) => {
+    set({ terminalCursorStyle: style });
+    storage.saveSettings({ terminalCursorStyle: style }).catch(console.error);
   },
 });

@@ -1,4 +1,4 @@
-import { storage, toMeta, DocumentMeta, type ThemeMode, type Language } from '../lib/storage';
+import { storage, toMeta, DocumentMeta, type ThemeMode, type Language, type TerminalCursorStyle } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
 import { resolveDark, applyFont } from './uiSlice';
 import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../lib/fonts';
@@ -39,6 +39,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalThemeId: string | undefined;
       let terminalFontSize: number | undefined;
       let terminalFontId: string | undefined;
+      let terminalCursorStyle: TerminalCursorStyle | undefined;
       let terminalTemplatesRaw: unknown;
       try {
         const settings = await storage.loadSettings();
@@ -71,6 +72,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.terminalFontId === 'string' && settings.terminalFontId) {
           terminalFontId = settings.terminalFontId;
+        }
+        if (
+          settings.terminalCursorStyle === 'block' ||
+          settings.terminalCursorStyle === 'underline' ||
+          settings.terminalCursorStyle === 'bar'
+        ) {
+          terminalCursorStyle = settings.terminalCursorStyle;
         }
         if (settings.terminalTemplates !== undefined) {
           terminalTemplatesRaw = settings.terminalTemplates;
@@ -151,6 +159,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalThemeId !== undefined ? { terminalThemeId } : {}),
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
+        ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
         isLoading: false,
       });
 

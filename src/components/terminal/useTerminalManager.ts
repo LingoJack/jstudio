@@ -6,6 +6,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
+import type { TerminalCursorStyle } from '../../lib/storage';
 import { resolveMonospaceFont } from '../../lib/fonts';
 import type { TerminalTheme } from '../../lib/terminalThemes';
 import type { SessionTerminal } from './types';
@@ -41,6 +42,7 @@ function tryEnableWebgl(term: Terminal): boolean {
 export function useTerminalManager(
   fontId: string,
   terminalFontSize: number,
+  cursorStyle: TerminalCursorStyle,
 ) {
   const removeSessionState = useStore((s) => s.removeSessionState);
 
@@ -63,7 +65,7 @@ export function useTerminalManager(
       const term = new Terminal({
         fontFamily: `${resolvedFontFamily}, monospace`,
         fontSize: terminalFontSize,
-        cursorStyle: 'underline',
+        cursorStyle,
         cursorBlink: true,
         cursorWidth: 2,
         allowProposedApi: true,
@@ -145,7 +147,7 @@ export function useTerminalManager(
 
       return entry;
     },
-    [resolvedFontFamily, terminalFontSize, removeSessionState],
+    [resolvedFontFamily, terminalFontSize, cursorStyle, removeSessionState],
   );
 
   /** Fully destroy a terminal instance + clean up listeners. */

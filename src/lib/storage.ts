@@ -25,6 +25,13 @@ export interface DocumentMeta {
   isFavorite?: boolean;
 }
 
+/**
+ * Terminal cursor shape — mirrors xterm's `cursorStyle` option.
+ * The cursor trail follows the same shape so the two stay visually
+ * consistent.
+ */
+export type TerminalCursorStyle = 'block' | 'underline' | 'bar';
+
 export interface AppSettings {
   theme?: ThemeMode;
   /** UI display language — 'zh' (default) or 'en' */
@@ -45,6 +52,8 @@ export interface AppSettings {
   terminalFontSize?: number;
   /** Terminal monospace font id — see MONOSPACE_FONTS in lib/fonts.ts */
   terminalFontId?: string;
+  /** Terminal cursor shape — also drives the cursor trail shape */
+  terminalCursorStyle?: TerminalCursorStyle;
   [key: string]: unknown;
 }
 

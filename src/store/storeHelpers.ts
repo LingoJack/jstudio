@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, ThemeMode, Language } from '../lib/storage';
+import type { DocumentMeta, ThemeMode, Language, TerminalCursorStyle } from '../lib/storage';
 import type {
   TerminalSession,
   TerminalTemplate,
@@ -59,6 +59,7 @@ export interface StoreState {
   terminalThemeId: string;
   terminalFontSize: number;
   terminalFontId: string;
+  terminalCursorStyle: TerminalCursorStyle;
 
   // — terminal state (terminal slice) —
   templates: TerminalTemplate[];
@@ -111,6 +112,7 @@ export interface StoreState {
   setTerminalThemeId: (id: string) => void;
   setTerminalFontSize: (size: number) => void;
   setTerminalFontId: (id: string) => void;
+  setTerminalCursorStyle: (style: TerminalCursorStyle) => void;
 
   // — terminal ops (terminal slice) —
   initTemplates: (raw: unknown) => void;
