@@ -11,7 +11,7 @@ import CursorTrail from './CursorTrail';
 import type { PaneLayoutType } from './types';
 
 // ────────────────────────────────────────────────
-// Layout geometry (Kitty-style, dynamic sizing)
+// Layout geometry
 // ────────────────────────────────────────────────
 
 interface LayoutPlan {
@@ -149,19 +149,14 @@ export default function PaneLayoutView({
   const initializedRef = useRef<Set<string>>(new Set());
 
   // ── Shared overlay canvas for cursor trail ──
-  //
-  // A single canvas covering ALL panes, positioned above everything.
-  // This matches kitty's architecture: one global trail that can
-  // cross pane boundaries without being clipped by overflow-hidden.
   const overlayRef = useRef<HTMLDivElement>(null);
   const trailRef = useRef<CursorTrail | null>(null);
 
-  /** Create the shared trail once the overlay div exists. */
+  /** Create the shared trail once. */
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
 
-    // Find or create the canvas element inside overlay.
     let canvas = overlay.querySelector('canvas') as HTMLCanvasElement | null;
     if (!canvas) {
       canvas = document.createElement('canvas');
@@ -191,7 +186,7 @@ export default function PaneLayoutView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Resize the overlay canvas when the container size changes. */
+  /** Resize overlay canvas when container size changes. */
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
@@ -202,9 +197,18 @@ export default function PaneLayoutView({
     return () => ro.disconnect();
   }, []);
 
-  // ── Core: attach terminal containers to pane DOM nodes ──────────
+  // ════════════════════════════════════════════════════════════════
+  // Effect 1: Terminal mount / layout
+  //
+  // This effect ONLY cares about:
+  //   - Which sessions exist (sessionIds)
+  //   - How they're arranged (layout)
+  //
+  // It does NOT depend on activeSessionId.  Switching pane focus
+  // should NOT re-trigger terminal mounting or refitting.
+  // ════════════════════════════════════════════════════════════════
   const sessionKey = sessionIds.join(',');
-  const layoutKey = `${layout}:${sessionKey}:${activeSessionId}`;
+  const layoutKey = `${layout}:${sessionKey}`;
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
@@ -226,14 +230,10 @@ export default function PaneLayoutView({
         }
       }
 
-      // Refit all + set cursor visibility.
+      // Refit all terminals to their new container sizes.
       for (const sid of sessionIds) {
         const entry = terminalsRef.current.get(sid);
         if (!entry) continue;
-
-        // Cursor only on the active pane.
-        entry.term.options.cursorHidden = sid !== activeSessionId;
-
         try {
           entry.fit.fit();
           storage
@@ -243,39 +243,31 @@ export default function PaneLayoutView({
           // ignore
         }
       }
-
-      // Focus active pane.
-      const activeEntry = terminalsRef.current.get(activeSessionId);
-      activeEntry?.term.focus();
-
-      // Attach trail to the active pane's terminal.
-      if (activeEntry && trailRef.current) {
-        trailRef.current.attach(
-          activeEntry.term,
-          activeEntry.container,
-        );
-        trailRef.current.setColor(theme.cursor);
-        trailRef.current.resize();
-      }
     });
 
     return () => cancelAnimationFrame(rafId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutKey]);
 
-  // ── Switch trail target on focus change ─────────────────────────
+  // ════════════════════════════════════════════════════════════════
+  // Effect 2: Focus + trail attach
   //
-  // Single trail instance — when the active pane changes we re-attach
-  // the trail to the new terminal, passing the old cursor position
-  // so the comet flies smoothly across pane boundaries.
+  // This effect ONLY cares about activeSessionId.  When focus
+  // changes it:
+  //   1. Hides cursor on old pane, shows on new pane
+  //   2. Reads old cursor position → passes to trail.attach()
+  //   3. Trail flies smoothly from old position to new position
+  //
+  // It does NOT touch layout or terminal mounting.
+  // ════════════════════════════════════════════════════════════════
   const prevActiveRef = useRef<string | null>(null);
+
   useEffect(() => {
     const prevId = prevActiveRef.current;
     if (prevId === activeSessionId) return;
     prevActiveRef.current = activeSessionId;
 
     const trail = trailRef.current;
-    if (!trail) return;
 
     // Hide cursor on the old pane.
     if (prevId) {
@@ -285,10 +277,10 @@ export default function PaneLayoutView({
       }
     }
 
-    // Get old cursor screen position for cross-pane animation.
+    // Read old cursor screen position BEFORE attaching the new term.
     let fromX: number | undefined;
     let fromY: number | undefined;
-    if (prevId) {
+    if (trail && prevId) {
       const oldPos = trail.getCursorScreenPos();
       if (oldPos && overlayRef.current) {
         const overlayRect = overlayRef.current.getBoundingClientRect();
@@ -302,9 +294,24 @@ export default function PaneLayoutView({
     if (newEntry) {
       newEntry.term.options.cursorHidden = false;
       newEntry.term.focus();
-      trail.attach(newEntry.term, newEntry.container, fromX, fromY);
+      trail?.attach(newEntry.term, newEntry.container, fromX, fromY);
+      trail?.setColor(theme.cursor);
+      trail?.resize();
+    } else {
+      // Terminal not yet mounted (first render race).  Retry on next
+      // frame — the layout effect's rAF will have created it by then.
+      requestAnimationFrame(() => {
+        const entry = terminalsRef.current.get(activeSessionId);
+        if (entry) {
+          entry.term.options.cursorHidden = false;
+          entry.term.focus();
+          trail?.attach(entry.term, entry.container, fromX, fromY);
+          trail?.setColor(theme.cursor);
+          trail?.resize();
+        }
+      });
     }
-  }, [activeSessionId]);
+  }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cleanup on unmount ───────────────────────────────────────────
   useEffect(() => {
@@ -385,7 +392,6 @@ export default function PaneLayoutView({
   const plan = computeLayout(layout, n);
   const visibleIds = plan.kind === 'stack' ? [activeSessionId] : sessionIds;
 
-  // Divider color (theme-aware thin line between panes).
   const dividerColor = theme.isDark
     ? 'rgba(255,255,255,0.10)'
     : 'rgba(0,0,0,0.10)';
@@ -402,7 +408,6 @@ export default function PaneLayoutView({
             plan.kind === 'stack'
               ? { width: '100%', height: '100%' }
               : plan.cells[i] ?? { width: '100%', height: '100%' };
-          const isActive = sid === activeSessionId;
           return (
             <div
               key={sid}
@@ -410,23 +415,10 @@ export default function PaneLayoutView({
                 ...cellStyle,
                 boxSizing: 'border-box',
                 background: theme.background,
-                // Focus glow on active pane.
-                ...(isActive
-                  ? {
-                      boxShadow: theme.isDark
-                        ? 'inset 0 0 14px 2px rgba(80, 220, 100, 0.12)'
-                        : 'inset 0 0 14px 2px rgba(0, 150, 255, 0.08)',
-                    }
-                  : {}),
               }}
               onClick={() => setActivePane(sid)}
               className="relative overflow-hidden"
             >
-              {/*
-                This inner div is the xterm mount point.
-                w-full h-full is critical — without it the container
-                collapses to 0 height and xterm renders nothing.
-              */}
               <div
                 ref={(el) => {
                   if (el) {
@@ -443,10 +435,8 @@ export default function PaneLayoutView({
       </div>
 
       {/* Shared overlay canvas for cursor trail.
-          Covers all panes, sits above xterm canvases but below
-          pointer events.  z-index: 5 (same as xterm's helper layer).
-          This is the key to kitty-like trail: NOT clipped by
-          overflow-hidden on individual panes. */}
+          Covers all panes, above xterm canvases, below pointer events.
+          NOT clipped by overflow-hidden on individual panes. */}
       <div
         ref={overlayRef}
         className="absolute inset-0"

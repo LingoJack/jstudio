@@ -70,9 +70,16 @@ export default class CursorTrail {
   private cornerX = [0, 0, 0, 0];
   private cornerY = [0, 0, 0, 0];
 
-  // ── Cursor target edges: [left, right] x [top, bottom] ──
+  // ── Cursor target edges for chasing corners: full cell height ──
+  // The trail shape uses the full cell so it looks like a fat comet,
+  // not a thin line.  The fragment shader separately cuts out only
+  // the underline portion.
   private cursorEdgeX = [0, 0];
   private cursorEdgeY = [0, 0];
+
+  // ── Cursor cutout rect (the underline portion only) ──
+  private cutoutX = [0, 0];
+  private cutoutY = [0, 0];
 
   // ── Timing ──
   private lastTime = 0;
@@ -80,6 +87,7 @@ export default class CursorTrail {
   private lastCursorX = -1;
   private lastCursorY = -1;
   private firstFrame = true;
+  private needsRender = false;
 
   // ── Grid metrics (re-measured each frame) ──
   private cellW = 8;
@@ -214,6 +222,11 @@ export default class CursorTrail {
     this.colorRgb = hexToRgb(color);
   }
 
+  /** Check whether the trail is currently tracking this terminal. */
+  isAttachedTo(term: Terminal): boolean {
+    return this.term === term;
+  }
+
   /**
    * Get the tracked terminal's cursor position in viewport (screen)
    * pixel coordinates.  Used for cross-pane attach().
@@ -331,8 +344,15 @@ export default class CursorTrail {
 
     this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;
     this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;
+    // FULL cell height for the trail shape (fat comet, not thin line).
+    this.cursorEdgeY[0] = this.gridTop + cy * this.cellH;
     this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;
-    this.cursorEdgeY[0] = this.cursorEdgeY[1] - this.cellH * CURSOR_THICKNESS_RATIO;
+
+    // Cutout rect: only the underline portion at the bottom of the cell.
+    this.cutoutX[0] = this.cursorEdgeX[0];
+    this.cutoutX[1] = this.cursorEdgeX[1];
+    this.cutoutY[1] = this.cursorEdgeY[1];
+    this.cutoutY[0] = this.cursorEdgeY[1] - this.cellH * CURSOR_THICKNESS_RATIO;
 
     const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
 
@@ -418,8 +438,32 @@ export default class CursorTrail {
     }
   }
 
+  /**
+   * Check if corners are still far enough from their targets to
+   * warrant rendering.  Ported from kitty's
+   * update_cursor_trail_needs_render().
+   */
+  private updateNeedsRender() {
+    const thresholdX = this.cellW * 0.5;
+    const thresholdY = this.cellH * 0.5;
+    this.needsRender = false;
+    for (let i = 0; i < 4; i++) {
+      const dx = Math.abs(this.cursorEdgeX[CORNER_IDX_X[i]] - this.cornerX[i]);
+      const dy = Math.abs(this.cursorEdgeY[CORNER_IDX_Y[i]] - this.cornerY[i]);
+      if (thresholdX <= dx || thresholdY <= dy) {
+        this.needsRender = true;
+        return;
+      }
+    }
+  }
+
   private updateOpacity(dt: number) {
-    if (this.running) {
+    // Kitty behaviour: the trail fades out when the cursor is
+    // stationary (corners have settled), and fades back in to full
+    // when the cursor is moving.  This avoids a permanent block
+    // sitting on top of the cursor, and eliminates the "gap" that
+    // appeared when opacity ramped from 0 after a jump.
+    if (this.needsRender) {
       this.opacity += dt / DECAY_SLOW;
       if (this.opacity > 1) this.opacity = 1;
     } else {
@@ -438,6 +482,7 @@ export default class CursorTrail {
 
     if (this.opacity < 0.001) return;
 
+    // Build 6 vertices (2 triangles) from 4 corners.
     const verts = new Float32Array([
       this.cornerX[0], this.cornerY[0],
       this.cornerX[1], this.cornerY[1],
@@ -447,6 +492,18 @@ export default class CursorTrail {
       this.cornerX[3], this.cornerY[3],
     ]);
 
+    // The cutout (cursor hole) follows the TRAIL geometry, not the
+    // cursor target.  This prevents a gap during animation: if the
+    // cutout jumped to the new cursor position while the trail was
+    // still catching up, there'd be a visible hole between them.
+    //
+    // We cut out only the underline strip at the bottom of the
+    // trail quad (where the visible cursor sits).
+    const cutLeft   = Math.min(this.cornerX[2], this.cornerX[3]);       // left-bot, left-top
+    const cutRight  = Math.max(this.cornerX[0], this.cornerX[1]);       // right-bot, right-top
+    const cutBottom = Math.max(this.cornerY[1], this.cornerY[2]);       // right-bot, left-bot
+    const cutTop    = cutBottom - this.cellH * CURSOR_THICKNESS_RATIO;
+
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
 
@@ -454,9 +511,7 @@ export default class CursorTrail {
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, verts);
 
     gl.uniform2f(this.u.resolution, this.cssW, this.cssH);
-    gl.uniform4f(this.u.cursorRect,
-      this.cursorEdgeX[0], this.cursorEdgeX[1],
-      this.cursorEdgeY[0], this.cursorEdgeY[1]);
+    gl.uniform4f(this.u.cursorRect, cutLeft, cutRight, cutTop, cutBottom);
     gl.uniform3f(this.u.color,
       this.colorRgb[0], this.colorRgb[1], this.colorRgb[2]);
     gl.uniform1f(this.u.opacity, this.opacity);
@@ -480,6 +535,7 @@ export default class CursorTrail {
     this.measureGrid();
     this.updateTarget();
     this.updateCorners(dt);
+    this.updateNeedsRender();
     this.updateOpacity(dt);
 
     this.render();
