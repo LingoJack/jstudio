@@ -59,11 +59,6 @@ const CORNER_IDX_Y = [0, 1, 1, 0];
 const DECAY_FAST = 0.1;
 const DECAY_SLOW = 0.4;
 
-/** How fast the trail fades IN when the cursor is moving (seconds).
- *  Much faster than fade-out so the trail snaps into view the instant
- *  the cursor jumps — e.g. when command output shifts the cursor. */
-const OPACITY_FADE_IN = 0.05;
-
 /** Thickness ratios — define the trail quad shape for non-block cursors. */
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 const BAR_THICKNESS_RATIO = 0.12;
@@ -106,6 +101,9 @@ export default class CursorTrail {
   private lastCursorY = -1;
   private firstFrame = true;
   private needsRender = false;
+  /** Whether the terminal cursor is visible (DECTCEM mode).
+   *  We treat it as always true since we don't track the mode. */
+  private cursorVisible = true;
 
   // ── Grid metrics (re-measured each frame) ──
   private cellW = 8;
@@ -541,18 +539,22 @@ export default class CursorTrail {
   }
 
   private updateOpacity(dt: number) {
-    // Kitty behaviour: the trail fades out when the cursor is
-    // stationary (corners have settled), and fades back in to full
-    // when the cursor is moving.  This avoids a permanent block
-    // sitting on top of the cursor, and eliminates the "gap" that
-    // appeared when opacity ramped from 0 after a jump.
+    // Faithful port of kitty's update_cursor_trail_opacity().
     //
-    // FADE-IN is much faster than fade-out so that the trail is
-    // immediately visible the instant the cursor starts moving —
-    // especially important when command output causes rapid cursor
-    // jumps.  Fade-out remains leisurely so the trail lingers.
-    if (this.needsRender) {
-      this.opacity += dt / OPACITY_FADE_IN;
+    // Kitty's logic is beautifully simple:
+    //   - When the cursor is VISIBLE (normal editing), opacity always
+    //     ramps UP towards 1.0 at rate 1/DECAY_SLOW.
+    //   - When the cursor is HIDDEN (DECTCEM off), opacity ramps DOWN.
+    //
+    // The key insight: opacity does NOT depend on whether corners are
+    // still moving.  It ONLY depends on cursor visibility.  This means
+    // the trail stays fully visible during the entire animation —
+    // including the critical phase when corners are chasing after a
+    // large jump from command output.
+    //
+    // We treat cursor as always visible (we don't track DECTCEM).
+    if (this.cursorVisible) {
+      this.opacity += dt / DECAY_SLOW;
       if (this.opacity > 1) this.opacity = 1;
     } else {
       this.opacity -= dt / DECAY_SLOW;
@@ -580,26 +582,19 @@ export default class CursorTrail {
       this.cornerX[3], this.cornerY[3],
     ]);
 
-    // The cutout (cursor hole) follows the TRAIL geometry, not the
-    // cursor target.  This prevents a gap during animation: if the
-    // cutout jumped to the new cursor position while the trail was
-    // still catching up, there'd be a visible hole between them.
+    // CRITICAL: The cutout (cursor hole) must use the ACTUAL cursor
+    // position (cursorEdgeX/Y), NOT the trail corner positions.
     //
-    // The cutout matches the cursor shape so the visible cursor
-    // shows through the trail as it fades out.
-    const thickX = this.cursorThicknessX();
-    const thickY = this.cursorThicknessY();
-    const cutLeft   = Math.min(this.cornerX[2], this.cornerX[3]);
-    const cutRight  = Math.min(
-      Math.max(this.cornerX[0], this.cornerX[1]),
-      cutLeft + this.cellW * thickX,
-    );
-    const cutBottom = Math.max(this.cornerY[1], this.cornerY[2]);
-    const cutTop    = Math.max(
-      Math.min(this.cornerY[0], this.cornerY[3]),
-      cutBottom - this.cellH * thickY,
-    );
-
+    // This matches kitty's trail_fragment.glsl exactly, which uses
+    // cursor_edge_x/y (the real cursor bounds) for the cutout.
+    //
+    // Why this matters: when the cursor jumps (e.g. command output),
+    // the trail quad stretches between old and new positions.  If the
+    // cutout were computed from the trail corners (our previous bug),
+    // it would sit INSIDE the trail quad and erase almost the entire
+    // trail, leaving only a sliver visible.  By placing the cutout at
+    // the cursor's real position (which is OUTSIDE the trail quad
+    // during animation), the entire trail remains visible.
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
 
@@ -607,7 +602,13 @@ export default class CursorTrail {
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, verts);
 
     gl.uniform2f(this.u.resolution, this.cssW, this.cssH);
-    gl.uniform4f(this.u.cursorRect, cutLeft, cutRight, cutTop, cutBottom);
+    gl.uniform4f(
+      this.u.cursorRect,
+      this.cursorEdgeX[0],
+      this.cursorEdgeX[1],
+      this.cursorEdgeY[0],
+      this.cursorEdgeY[1],
+    );
     gl.uniform3f(this.u.color,
       this.colorRgb[0], this.colorRgb[1], this.colorRgb[2]);
     gl.uniform1f(this.u.opacity, this.opacity);
