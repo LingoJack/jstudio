@@ -41,6 +41,14 @@ export default function TerminalTabs() {
         return;
       }
 
+      // Cmd/Ctrl + T → new tab
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        e.stopPropagation();
+        createSession();
+        return;
+      }
+
       // Cmd/Ctrl + Opt/Alt + ← / → → cycle tabs
       if (!e.altKey) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -62,7 +70,7 @@ export default function TerminalTabs() {
 
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [sessions, activeSessionId, setActiveSession, closeSession]);
+  }, [sessions, activeSessionId, setActiveSession, closeSession, createSession]);
 
   // ── Scroll active tab into view ──────────────────────────────────
   useEffect(() => {
