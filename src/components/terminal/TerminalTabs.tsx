@@ -285,9 +285,7 @@ export default function TerminalTabs() {
                     groupId: group.id,
                   });
                 }}
-                className={`group relative flex items-center gap-2 pl-3.5 ${
-                  isLastTab ? 'pr-3.5' : 'pr-2'
-                } cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
+                className={`group relative flex items-center gap-2 pl-3 pr-2 w-[120px] cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
                   isActive
                     ? 'bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
                     : 'bg-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
@@ -309,10 +307,10 @@ export default function TerminalTabs() {
                     }}
                     onBlur={confirmRename}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs font-medium bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-focusBorder)] rounded px-1 py-0 outline-none max-w-[140px]"
+                    className="text-xs font-medium bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-focusBorder)] rounded px-1 py-0 outline-none flex-1 min-w-0"
                   />
                 ) : (
-                  <span className="text-xs font-medium max-w-[140px] truncate">
+                  <span className="text-xs font-medium flex-1 min-w-0 truncate">
                     {title}
                   </span>
                 )}
@@ -350,59 +348,65 @@ export default function TerminalTabs() {
           >
             <Plus className="w-4 h-4" />
           </button>
+        </div>
 
-          {/* Clock — recent directories */}
+        {/* Clock — recent directories (outside scroll area so dropdown anchors here) */}
+        <div className="relative shrink-0">
           <button
             ref={historyBtnRef}
             onClick={toggleHistory}
-            className="shrink-0 w-9 flex items-center justify-center text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
+            className={`w-9 h-full flex items-center justify-center transition-colors cursor-pointer ${
+              showHistory
+                ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-hoverBackground)]'
+                : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+            }`}
             title={t('terminal.recentDirs')}
           >
             <Clock className="w-4 h-4" />
           </button>
+
+          {/* History dropdown — appears directly below the Clock icon */}
+          {showHistory && (
+            <div
+              ref={historyRef}
+              className="absolute top-full right-0 z-50 min-w-[220px] max-w-[300px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {recentDirs.length === 0 ? (
+                <div className="px-3 py-2 text-[var(--vscode-descriptionForeground)] text-xs">
+                  {t('terminal.noRecentDirs')}
+                </div>
+              ) : (
+                recentDirs.map((dir) => (
+                  <button
+                    key={dir}
+                    onClick={() => handlePickRecentDir(dir)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                    <span className="truncate text-xs">{dir}</span>
+                  </button>
+                ))
+              )}
+
+              {recentDirs.length > 0 && (
+                <>
+                  <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
+                  <button
+                    onClick={() => {
+                      clearRecentDirs();
+                      setShowHistory(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 opacity-70" />
+                    <span className="text-xs">{t('terminal.clearRecent')}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
-
-        {/* History dropdown */}
-        {showHistory && (
-          <div
-            ref={historyRef}
-            className="absolute top-full right-0 z-50 min-w-[220px] max-w-[300px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {recentDirs.length === 0 ? (
-              <div className="px-3 py-2 text-[var(--vscode-descriptionForeground)] text-xs">
-                {t('terminal.noRecentDirs')}
-              </div>
-            ) : (
-              recentDirs.map((dir) => (
-                <button
-                  key={dir}
-                  onClick={() => handlePickRecentDir(dir)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 opacity-60 shrink-0" />
-                  <span className="truncate text-xs">{dir}</span>
-                </button>
-              ))
-            )}
-
-            {recentDirs.length > 0 && (
-              <>
-                <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
-                <button
-                  onClick={() => {
-                    clearRecentDirs();
-                    setShowHistory(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-                >
-                  <Trash2 className="w-3.5 h-3.5 opacity-70" />
-                  <span className="text-xs">{t('terminal.clearRecent')}</span>
-                </button>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Right-click context menu (portal-like, rendered at root level) */}
