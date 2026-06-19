@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
-import { TerminalSquare } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
@@ -74,7 +74,7 @@ export default function App() {
               ) : (
                 /* Empty terminal state */
                 <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-[var(--vscode-descriptionForeground)]">
-                  <TerminalSquare className="w-12 h-12 opacity-30" />
+                  <Terminal className="w-12 h-12 opacity-30" />
                   <button
                     onClick={() => createSession()}
                     className="text-sm px-4 py-2 rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] transition-colors cursor-pointer"

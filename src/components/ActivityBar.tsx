@@ -1,6 +1,6 @@
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
-import { FileText, Settings as SettingsIcon, TerminalSquare } from 'lucide-react';
+import { FileText, Settings as SettingsIcon, Terminal } from 'lucide-react';
 
 /**
  * Activity Bar — the leftmost narrow strip (48px).
@@ -80,7 +80,7 @@ export default function ActivityBar() {
           }`}
           title={t('app.terminal')}
         >
-          <TerminalSquare className="w-5 h-5" />
+          <Terminal className="w-5 h-5" />
         </button>
       </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { FolderOpen, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
@@ -174,7 +174,7 @@ export default function GeneralSection() {
               {opening ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <FolderOpen className="w-4 h-4" />
+                <ExternalLink className="w-4 h-4" />
               )}
               <span>{t('general.open')}</span>
             </button>
