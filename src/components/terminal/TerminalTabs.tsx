@@ -1,22 +1,20 @@
 import { useEffect, useRef } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore } from '../../store/useStore';
 import { Plus, X, ChevronRight } from 'lucide-react';
 
 /**
- * TerminalTabs — VS Code-style tab bar.
+ * TerminalTabs — VS Code-style tab bar for active terminal sessions.
  *
  * Design:
  *   - Flat, no rounded corners — matches VS Code editor tabs
- *   - Active tab: same bg as terminal content, bottom border = accent color
- *   - Inactive tab: muted bg, hover highlights
- *   - Close button: only on hover (active tab always shows it)
+ *   - Active tab: same bg as terminal content, top accent line
+ *   - Inactive tab: muted, hover highlights
+ *   - Close button: active tab always shows it, inactive on hover
  *   - `+` button on the right edge
- *   - Overflow: horizontal scroll, no scrollbar
  *
- * Keyboard: Cmd/Ctrl + Option/Alt + ← / → to cycle tabs.
- *
- * Colors use the app's CSS variables so the tab bar visually belongs to
- * the editor chrome, NOT the terminal's internal palette.
+ * Keyboard shortcuts:
+ *   Cmd/Ctrl + Opt/Alt + ← / →  — cycle tabs
+ *   Cmd/Ctrl + W                 — close active tab
  */
 export default function TerminalTabs() {
   const sessions = useStore((s) => s.sessions);
@@ -28,11 +26,23 @@ export default function TerminalTabs() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLDivElement>(null);
 
-  // ── Keyboard shortcut: Cmd/Ctrl + Option/Alt + ← / → ─────────────
+  // ── Keyboard shortcuts ───────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (!mod || !e.altKey) return;
+      if (!mod) return;
+
+      // Cmd/Ctrl + W → close active tab
+      if (e.key === 'w' || e.key === 'W') {
+        if (!activeSessionId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        closeSession(activeSessionId);
+        return;
+      }
+
+      // Cmd/Ctrl + Opt/Alt + ← / → → cycle tabs
+      if (!e.altKey) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       if (sessions.length < 2) return;
 
@@ -52,7 +62,7 @@ export default function TerminalTabs() {
 
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [sessions, activeSessionId, setActiveSession]);
+  }, [sessions, activeSessionId, setActiveSession, closeSession]);
 
   // ── Scroll active tab into view ──────────────────────────────────
   useEffect(() => {
@@ -65,9 +75,7 @@ export default function TerminalTabs() {
   if (sessions.length === 0) return null;
 
   return (
-    <div
-      className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)]"
-    >
+    <div className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)]">
       {/* Scrollable tab strip */}
       <div
         ref={scrollRef}
@@ -76,7 +84,6 @@ export default function TerminalTabs() {
       >
         {sessions.map((session) => {
           const isActive = session.id === activeSessionId;
-
           return (
             <div
               key={session.id}
@@ -88,19 +95,13 @@ export default function TerminalTabs() {
                   : 'bg-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
               }`}
             >
-              {/* Active indicator: bottom accent line */}
               {isActive && (
                 <span className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--vscode-focusBorder)]" />
               )}
-
-              {/* Breadcrumb-style chevron for sessions spawned from same template */}
               <ChevronRight className="w-3 h-3 opacity-30 shrink-0" />
-
               <span className="text-xs font-medium max-w-[140px] truncate">
                 {session.title}
               </span>
-
-              {/* Close button — always visible on active, hover on inactive */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -119,7 +120,7 @@ export default function TerminalTabs() {
         })}
       </div>
 
-      {/* `+` spawn button on the right edge */}
+      {/* `+` spawn button */}
       <button
         onClick={() => createSession()}
         className="shrink-0 w-9 flex items-center justify-center text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer border-l border-[var(--vscode-sideBar-border)]"

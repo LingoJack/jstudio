@@ -5,7 +5,7 @@ import { TerminalSquare } from 'lucide-react';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
-import TerminalPanel from './components/TerminalPanel';
+import TerminalPanel from './components/terminal/TerminalPanel';
 import BlockEditor from './components/BlockEditor';
 import Settings from './components/Settings';
 import EmptyState from './components/EmptyState';
