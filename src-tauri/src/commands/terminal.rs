@@ -70,15 +70,23 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
         .map_err(|e| e.to_string())?;
 
     // Determine shell.
+    //
+    // Launch as a login shell (`-l`) so that `~/.zprofile` (or
+    // `~/.bash_profile`) and `/etc/zprofile` are sourced.  This is
+    // essential when the app is launched from Finder/Launchpad, where
+    // `launchd` gives the process a minimal environment without the
+    // user's PATH additions (Homebrew, cargo, nvm, etc.).  Without
+    // `-l`, the shell is interactive (PTY) but NOT a login shell, so
+    // `~/.zprofile` is skipped — matching the behaviour of Terminal.app
+    // requires the login flag.
     #[cfg(target_os = "windows")]
     let cmd = CommandBuilder::new("cmd.exe");
     #[cfg(not(target_os = "windows"))]
     let cmd = {
-        if let Ok(shell) = std::env::var("SHELL") {
-            CommandBuilder::new(&shell)
-        } else {
-            CommandBuilder::new("/bin/sh")
-        }
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+        let mut builder = CommandBuilder::new(&shell);
+        builder.arg("-l");
+        builder
     };
 
     // Set working directory.
