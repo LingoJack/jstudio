@@ -12,6 +12,7 @@
      via document.documentElement.style.setProperty(). */
   --jstudio-font-family: 'Monaco', 'PingFang SC', sans-serif;
   --jstudio-font-size: 14px;
+  --jstudio-line-height: 1.7;
 
   /* Light Modern Theme (default) */
   --vscode-editor-background: #F8F8F8;
@@ -857,11 +858,12 @@ button {
    ============================================ */
 
 /* 编辑器主体：字体大小由设置驱动（var(--jstudio-font-size)），
-   字体通过 body 继承 var(--jstudio-font-family) */
+   字体通过 body 继承 var(--jstudio-font-family)，
+   行高/行间距由设置驱动（var(--jstudio-line-height)） */
 .ProseMirror {
   font-family: var(--jstudio-font-family);
   font-size: var(--jstudio-font-size);
-  line-height: 1.7;
+  line-height: var(--jstudio-line-height);
 }
 
 /* 标题层级：H1 明显小于文档标题，H2/H3 逐级递减 */

@@ -186,6 +186,19 @@ export const MIN_FONT_SIZE = 12;
 export const MAX_FONT_SIZE = 22;
 export const DEFAULT_FONT_SIZE = 16;
 
+// ---- editor line height ----
+
+/**
+ * Editor line height (line spacing) — controls the CSS `line-height`
+ * of `.ProseMirror` and therefore the spacing between text lines
+ * within a paragraph as well as between paragraphs.
+ *
+ * 1.5 = compact, 1.7 = default, 2.0 = relaxed.
+ */
+export const MIN_LINE_HEIGHT = 1.4;
+export const MAX_LINE_HEIGHT = 2.2;
+export const DEFAULT_LINE_HEIGHT = 1.7;
+
 // ---- monospace fonts (for terminal) ----
 
 /**

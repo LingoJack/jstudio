@@ -6,6 +6,9 @@ import {
   DEFAULT_FONT_SIZE,
   MIN_FONT_SIZE,
   MAX_FONT_SIZE,
+  MIN_LINE_HEIGHT,
+  MAX_LINE_HEIGHT,
+  DEFAULT_LINE_HEIGHT,
   resolveFontFamily,
   DEFAULT_MONOSPACE_FONT_ID,
 } from '../lib/fonts';
@@ -55,6 +58,16 @@ export function applyFont(fontId: string, cjkFontId: string, fontSize: number) {
   root.style.setProperty('--jstudio-font-size', `${clamped}px`);
 }
 
+/**
+ * Push the editor line-height setting into the DOM as a CSS custom
+ * property.  vscode-theme.css reads --jstudio-line-height on
+ * `.ProseMirror`.
+ */
+export function applyLineHeight(lineHeight: number) {
+  const clamped = Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, lineHeight));
+  document.documentElement.style.setProperty('--jstudio-line-height', `${clamped}`);
+}
+
 /** Which sidebar panel is currently active. */
 export type SidebarView = 'documents' | 'terminal';
 
@@ -72,6 +85,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   fontId: DEFAULT_LATIN_FONT_ID,
   cjkFontId: DEFAULT_CJK_FONT_ID,
   fontSize: DEFAULT_FONT_SIZE,
+  editorLineHeight: DEFAULT_LINE_HEIGHT,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents',
   terminalThemeIdDark: DEFAULT_TERMINAL_THEME_ID_DARK,
@@ -134,6 +148,13 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     applyFont(s.fontId, s.cjkFontId, clamped);
     set({ fontSize: clamped });
     storage.saveSettings({ fontSize: clamped }).catch(console.error);
+  },
+
+  setEditorLineHeight: (lh) => {
+    const clamped = Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, lh));
+    applyLineHeight(clamped);
+    set({ editorLineHeight: clamped });
+    storage.saveSettings({ editorLineHeight: clamped }).catch(console.error);
   },
 
   setSidebarWidth: (width) => {

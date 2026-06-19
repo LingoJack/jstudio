@@ -1,7 +1,7 @@
 import { storage, toMeta, DocumentMeta, type ThemeMode, type Language, type TerminalCursorStyle } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
-import { resolveDark, applyFont } from './uiSlice';
-import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../lib/fonts';
+import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
+import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/fonts';
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
@@ -33,6 +33,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let fontId = DEFAULT_LATIN_FONT_ID;
       let cjkFontId = DEFAULT_CJK_FONT_ID;
       let fontSize = DEFAULT_FONT_SIZE;
+      let editorLineHeight = DEFAULT_LINE_HEIGHT;
       let sidebarWidth: number | undefined;
       let language: Language = 'zh';
       let activityBarBorder = false;
@@ -56,6 +57,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.fontSize === 'number') {
           fontSize = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, settings.fontSize));
+        }
+        if (typeof settings.editorLineHeight === 'number') {
+          editorLineHeight = Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, settings.editorLineHeight));
         }
         if (typeof settings.sidebarWidth === 'number') {
           sidebarWidth = settings.sidebarWidth;
@@ -99,6 +103,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       if (isDark) document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
       applyFont(fontId, cjkFontId, fontSize);
+      applyLineHeight(editorLineHeight);
 
       // Load index
       let index: DocumentMeta[] = [];
@@ -164,6 +169,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         fontId,
         cjkFontId,
         fontSize,
+        editorLineHeight,
         ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
         ...(terminalThemeIdDark !== undefined
           ? { terminalThemeIdDark }

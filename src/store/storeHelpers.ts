@@ -54,6 +54,7 @@ export interface StoreState {
   fontId: string;
   cjkFontId: string;
   fontSize: number;
+  editorLineHeight: number;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
   terminalThemeIdDark: string;
@@ -106,6 +107,7 @@ export interface StoreState {
   setFontId: (id: string) => void;
   setCjkFontId: (id: string) => void;
   setFontSize: (size: number) => void;
+  setEditorLineHeight: (lh: number) => void;
   setSidebarWidth: (width: number) => void;
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;

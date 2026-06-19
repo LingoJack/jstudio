@@ -44,6 +44,8 @@ export interface AppSettings {
   cjkFontId?: string;
   /** Editor base font size in pixels (12–22) */
   fontSize?: number;
+  /** Editor line height / line spacing (1.4–2.2, default 1.7) */
+  editorLineHeight?: number;
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
   /**

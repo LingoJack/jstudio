@@ -7,6 +7,8 @@ import {
   resolveFontFamily,
   MIN_FONT_SIZE,
   MAX_FONT_SIZE,
+  MIN_LINE_HEIGHT,
+  MAX_LINE_HEIGHT,
 } from '../../lib/fonts';
 import FontDropdown from '../ui/FontDropdown';
 
@@ -16,6 +18,7 @@ import FontDropdown from '../ui/FontDropdown';
  *   - Latin font family
  *   - CJK font family
  *   - Font size
+ *   - Line height (line spacing)
  *   (App-wide theme / border settings live in GeneralSection.)
  */
 export default function EditorSection() {
@@ -24,9 +27,11 @@ export default function EditorSection() {
   const fontId = useStore((s) => s.fontId);
   const cjkFontId = useStore((s) => s.cjkFontId);
   const fontSize = useStore((s) => s.fontSize);
+  const editorLineHeight = useStore((s) => s.editorLineHeight);
   const setFontId = useStore((s) => s.setFontId);
   const setCjkFontId = useStore((s) => s.setCjkFontId);
   const setFontSize = useStore((s) => s.setFontSize);
+  const setEditorLineHeight = useStore((s) => s.setEditorLineHeight);
 
   const previewFontFamily = resolveFontFamily(fontId, cjkFontId);
 
@@ -113,10 +118,54 @@ export default function EditorSection() {
           style={{
             fontFamily: previewFontFamily,
             fontSize: `${fontSize}px`,
-            lineHeight: 1.7,
+            lineHeight: editorLineHeight,
           }}
         >
           {t('general.fontPreview')}
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ── Line Height ── */}
+      <div>
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('general.lineHeight')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('general.lineHeightDesc')}
+        </p>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setEditorLineHeight(editorLineHeight - 0.1)}
+            disabled={editorLineHeight <= MIN_LINE_HEIGHT}
+            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+
+          <input
+            type="range"
+            min={MIN_LINE_HEIGHT}
+            max={MAX_LINE_HEIGHT}
+            step={0.1}
+            value={editorLineHeight}
+            onChange={(e) => setEditorLineHeight(Number(e.target.value))}
+            className="flex-1 accent-[var(--vscode-focusBorder)] cursor-pointer"
+          />
+
+          <button
+            onClick={() => setEditorLineHeight(editorLineHeight + 0.1)}
+            disabled={editorLineHeight >= MAX_LINE_HEIGHT}
+            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          <span className="text-sm text-[var(--vscode-foreground)] tabular-nums w-16 text-center shrink-0 font-medium">
+            {editorLineHeight.toFixed(1)}
+          </span>
         </div>
       </div>
     </div>
