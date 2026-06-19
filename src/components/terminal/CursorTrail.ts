@@ -17,6 +17,12 @@ import { TRAIL_VS, TRAIL_FS } from './shaders';
  * The comet shape comes entirely from the asymmetric corner easing,
  * not from any fragment-level gradient or masking.
  *
+ * SHARED CANVAS: Unlike the previous per-pane design, this class uses
+ * a single overlay canvas that covers the entire pane area.  This
+ * means the trail can cross pane boundaries without being clipped by
+ * overflow-hidden.  When the active pane switches, we call attach()
+ * to point at the new terminal — exactly like kitty's single trail.
+ *
  * Config (kitty defaults):
  *   cursor_trail_decay = 0.1 0.4  (fast, slow in seconds)
  */
@@ -52,11 +58,15 @@ const CURSOR_THICKNESS_RATIO = 0.15;
 export default class CursorTrail {
   private canvas: HTMLCanvasElement;
   private gl: WebGL2RenderingContext;
-  private term: Terminal;
-  private container: HTMLElement;
+
+  /** The terminal currently being tracked. */
+  private term: Terminal | null = null;
+  /** The DOM container of the tracked terminal (for measuring grid). */
+  private termContainer: HTMLElement | null = null;
+
   private colorRgb: [number, number, number] = [0, 0.67, 1];
 
-  // ── Trail state: 4 chasing corners (pixel coords) ──
+  // ── Trail state: 4 chasing corners (overlay-canvas pixel coords) ──
   private cornerX = [0, 0, 0, 0];
   private cornerY = [0, 0, 0, 0];
 
@@ -67,7 +77,6 @@ export default class CursorTrail {
   // ── Timing ──
   private lastTime = 0;
   private opacity = 0;
-  private needsRender = false;
   private lastCursorX = -1;
   private lastCursorY = -1;
   private firstFrame = true;
@@ -90,24 +99,22 @@ export default class CursorTrail {
   private aPos: number;
   private u: Record<string, WebGLUniformLocation | null>;
 
-  constructor(term: Terminal, container: HTMLElement, color: string) {
-    this.term = term;
-    this.container = container;
+  // Poke state
+  private _poked = false;
+  private _pokeFromX: number | null = null;
+  private _pokeFromY: number | null = null;
+
+  /**
+   * @param canvas  An overlay canvas that covers the entire pane area
+   *                (all panes).  This class does NOT own the canvas —
+   *                the caller creates and positions it.
+   * @param color   Initial trail color.
+   */
+  constructor(canvas: HTMLCanvasElement, color: string) {
+    this.canvas = canvas;
     this.colorRgb = hexToRgb(color);
 
-    this.canvas = document.createElement('canvas');
-    Object.assign(this.canvas.style, {
-      position: 'absolute',
-      top: '0',
-      left: '0',
-      width: '100%',
-      height: '100%',
-      pointerEvents: 'none',
-      zIndex: '5',
-    } as CSSStyleDeclaration);
-    container.appendChild(this.canvas);
-
-    const gl = this.canvas.getContext('webgl2', {
+    const gl = canvas.getContext('webgl2', {
       alpha: true,
       premultipliedAlpha: true,
       antialias: true,
@@ -136,7 +143,7 @@ export default class CursorTrail {
       opacity: gl.getUniformLocation(program, 'u_opacity'),
     };
 
-    // VAO + VBO for 6 vertices (2 triangles), 2 floats each = 12 floats.
+    // VAO + VBO for 6 vertices (2 triangles), 2 floats each.
     this.vao = gl.createVertexArray()!;
     this.vbo = gl.createBuffer()!;
 
@@ -149,6 +156,31 @@ export default class CursorTrail {
   }
 
   // ── Lifecycle ──
+
+  /**
+   * Point the trail at a new terminal.  Called when the active pane
+   * changes.  The trail will immediately start tracking this terminal's
+   * cursor.
+   *
+   * @param fromScreenX / fromScreenY  Optional origin in overlay-canvas
+   *        local pixels (the old pane's cursor mapped to overlay space).
+   *        Produces a smooth cross-pane fly animation.
+   */
+  attach(
+    term: Terminal,
+    container: HTMLElement,
+    fromScreenX?: number,
+    fromScreenY?: number,
+  ) {
+    this.term = term;
+    this.termContainer = container;
+
+    // Force a poke so the trail animates from the old position.
+    this.measureGrid();
+    this._poked = true;
+    this._pokeFromX = fromScreenX ?? null;
+    this._pokeFromY = fromScreenY ?? null;
+  }
 
   start() {
     if (this.running) return;
@@ -176,7 +208,6 @@ export default class CursorTrail {
     gl.deleteBuffer(this.vbo);
     gl.deleteVertexArray(this.vao);
     gl.deleteProgram(this.program);
-    this.canvas.remove();
   }
 
   setColor(color: string) {
@@ -184,15 +215,19 @@ export default class CursorTrail {
   }
 
   /**
-   * Return the cursor's current position in viewport (screen) pixel
-   * coordinates.  Used by PaneLayoutView for cross-pane poke.
+   * Get the tracked terminal's cursor position in viewport (screen)
+   * pixel coordinates.  Used for cross-pane attach().
    */
   getCursorScreenPos(): { x: number; y: number } | null {
-    const buf = this.term.buffer.active;
+    if (!this.term || !this.termContainer) return null;
+    const term = this.term;
+    const container = this.termContainer;
+
+    const buf = term.buffer.active;
     const cx = buf.cursorX;
     const cy = buf.baseY + buf.cursorY;
 
-    const screenEl = this.container.querySelector('.xterm-screen') as HTMLElement | null;
+    const screenEl = container.querySelector('.xterm-screen') as HTMLElement | null;
     if (!screenEl) return null;
 
     const rowEls = screenEl.querySelectorAll('.xterm-rows > div');
@@ -206,13 +241,13 @@ export default class CursorTrail {
       cellH = rowEls.length >= 2
         ? rowEls[1].getBoundingClientRect().top - r0.top
         : r0.height;
-      cellW = r0.width / Math.max(1, this.term.cols);
+      cellW = r0.width / Math.max(1, term.cols);
       originX = r0.left;
       originY = r0.top;
     } else {
       const sr = screenEl.getBoundingClientRect();
-      cellH = sr.height / Math.max(1, this.term.rows);
-      cellW = sr.width / Math.max(1, this.term.cols);
+      cellH = sr.height / Math.max(1, term.rows);
+      cellW = sr.width / Math.max(1, term.cols);
       originX = sr.left;
       originY = sr.top;
     }
@@ -223,20 +258,8 @@ export default class CursorTrail {
     };
   }
 
-  poke(fromX?: number, fromY?: number) {
-    this.resize();
-    this.measureGrid();
-    this._poked = true;
-    this._pokeFromX = fromX ?? null;
-    this._pokeFromY = fromY ?? null;
-  }
-
-  private _poked = false;
-  private _pokeFromX: number | null = null;
-  private _pokeFromY: number | null = null;
-
   resize() {
-    const rect = this.container.getBoundingClientRect();
+    const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     this.cssW = rect.width;
     this.cssH = rect.height;
@@ -259,11 +282,20 @@ export default class CursorTrail {
 
   // ── Private: Grid measurement ──
 
+  /**
+   * Measure grid metrics relative to the overlay canvas, NOT the
+   * terminal container.  This is critical: because the overlay
+   * canvas is larger than any single pane, all coordinates need to
+   * be in overlay-canvas space.
+   */
   private measureGrid() {
-    const screenEl = this.container.querySelector('.xterm-screen') as HTMLElement | null;
+    if (!this.term || !this.termContainer) return;
+    const term = this.term;
+    const container = this.termContainer;
+
+    const screenEl = container.querySelector('.xterm-screen') as HTMLElement | null;
     if (!screenEl) return;
 
-    const screenRect = screenEl.getBoundingClientRect();
     const canvasRect = this.canvas.getBoundingClientRect();
 
     const rowEls = screenEl.querySelectorAll('.xterm-rows > div');
@@ -271,18 +303,19 @@ export default class CursorTrail {
       const r0 = rowEls[0].getBoundingClientRect();
       const r1 = rowEls[1].getBoundingClientRect();
       this.cellH = r1.top - r0.top;
-      this.cellW = r0.width / Math.max(1, this.term.cols);
+      this.cellW = r0.width / Math.max(1, term.cols);
       this.gridTop = r0.top - canvasRect.top;
       this.gridLeft = r0.left - canvasRect.left;
     } else if (rowEls.length === 1) {
       const r0 = rowEls[0].getBoundingClientRect();
       this.cellH = r0.height;
-      this.cellW = r0.width / Math.max(1, this.term.cols);
+      this.cellW = r0.width / Math.max(1, term.cols);
       this.gridTop = r0.top - canvasRect.top;
       this.gridLeft = r0.left - canvasRect.left;
     } else {
-      this.cellH = screenRect.height / Math.max(1, this.term.rows);
-      this.cellW = screenRect.width / Math.max(1, this.term.cols);
+      const screenRect = screenEl.getBoundingClientRect();
+      this.cellH = screenRect.height / Math.max(1, term.rows);
+      this.cellW = screenRect.width / Math.max(1, term.cols);
       this.gridTop = screenRect.top - canvasRect.top;
       this.gridLeft = screenRect.left - canvasRect.left;
     }
@@ -290,23 +323,19 @@ export default class CursorTrail {
 
   // ── Private: Trail update logic (ported from cursor_trail.c) ──
 
-  /**
-   * Compute cursor target rectangle.
-   * Ported from update_cursor_trail_target().
-   */
   private updateTarget() {
+    if (!this.term) return;
     const buf = this.term.buffer.active;
     const cx = buf.cursorX;
     const cy = buf.baseY + buf.cursorY;
 
-    // For underline: thin bar at the bottom of the cell.
-    this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;         // left
-    this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;   // right
-    this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;    // bottom
-    this.cursorEdgeY[0] = this.cursorEdgeY[1] - this.cellH * CURSOR_THICKNESS_RATIO; // top
+    this.cursorEdgeX[0] = this.gridLeft + cx * this.cellW;
+    this.cursorEdgeX[1] = this.gridLeft + (cx + 1) * this.cellW;
+    this.cursorEdgeY[1] = this.gridTop + (cy + 1) * this.cellH;
+    this.cursorEdgeY[0] = this.cursorEdgeY[1] - this.cellH * CURSOR_THICKNESS_RATIO;
 
-    // Snap corners on first frame or large jump (teleport = no trail).
     const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
+
     if (this._poked) {
       let flyFromX: number;
       let flyFromY: number;
@@ -338,10 +367,6 @@ export default class CursorTrail {
     this.lastCursorY = cy;
   }
 
-  /**
-   * Ease the 4 corners toward the cursor with per-corner speed.
-   * Direct port of update_cursor_trail_corners().
-   */
   private updateCorners(dt: number) {
     const cursorCenterX = (this.cursorEdgeX[0] + this.cursorEdgeX[1]) * 0.5;
     const cursorCenterY = (this.cursorEdgeY[0] + this.cursorEdgeY[1]) * 0.5;
@@ -387,18 +412,12 @@ export default class CursorTrail {
         ? DECAY_SLOW
         : DECAY_SLOW + (DECAY_FAST - DECAY_SLOW) * (dot[i] - minDot) / (maxDot - minDot);
 
-      // kitty's exact formula: step = 1.0 - 2^(-10 * dt / decay)
       const step = 1.0 - Math.pow(2, -10.0 * dt / decay);
       this.cornerX[i] += dx[i] * step;
       this.cornerY[i] += dy[i] * step;
     }
   }
 
-  /**
-   * Fade opacity — direct port of update_cursor_trail_opacity().
-   * In kitty: opacity ramps up when cursor is visible, down when hidden.
-   * We treat "running" as visible.
-   */
   private updateOpacity(dt: number) {
     if (this.running) {
       this.opacity += dt / DECAY_SLOW;
@@ -409,28 +428,8 @@ export default class CursorTrail {
     }
   }
 
-  /** Ported from update_cursor_trail_needs_render(). */
-  private updateNeedsRender() {
-    const dxThreshold = this.cellW * 0.5;
-    const dyThreshold = this.cellH * 0.5;
-    this.needsRender = false;
-    for (let i = 0; i < 4; i++) {
-      const dx = Math.abs(this.cursorEdgeX[CORNER_IDX_X[i]] - this.cornerX[i]);
-      const dy = Math.abs(this.cursorEdgeY[CORNER_IDX_Y[i]] - this.cornerY[i]);
-      if (dxThreshold <= dx || dyThreshold <= dy) {
-        this.needsRender = true;
-        break;
-      }
-    }
-  }
-
   // ── Private: Rendering ──
 
-  /**
-   * Draw the trail as 2 triangles from the 4 chasing corners.
-   * This is the key: the comet shape comes from the actual geometry,
-   * not from fragment-level masking.
-   */
   private render() {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -439,20 +438,13 @@ export default class CursorTrail {
 
     if (this.opacity < 0.001) return;
 
-    // Build 6 vertices (2 triangles) from 4 corners:
-    //   c0=top-right, c1=bottom-right, c2=bottom-left, c3=top-left
-    //
-    // Triangle 1: c0, c1, c3  (top-right, bottom-right, top-left)
-    // Triangle 2: c1, c2, c3  (bottom-right, bottom-left, top-left)
     const verts = new Float32Array([
-      // T1
-      this.cornerX[0], this.cornerY[0],  // c0 = top-right
-      this.cornerX[1], this.cornerY[1],  // c1 = bottom-right
-      this.cornerX[3], this.cornerY[3],  // c3 = top-left
-      // T2
-      this.cornerX[1], this.cornerY[1],  // c1 = bottom-right
-      this.cornerX[2], this.cornerY[2],  // c2 = bottom-left
-      this.cornerX[3], this.cornerY[3],  // c3 = top-left
+      this.cornerX[0], this.cornerY[0],
+      this.cornerX[1], this.cornerY[1],
+      this.cornerX[3], this.cornerY[3],
+      this.cornerX[1], this.cornerY[1],
+      this.cornerX[2], this.cornerY[2],
+      this.cornerX[3], this.cornerY[3],
     ]);
 
     gl.useProgram(this.program);
@@ -488,7 +480,6 @@ export default class CursorTrail {
     this.measureGrid();
     this.updateTarget();
     this.updateCorners(dt);
-    this.updateNeedsRender();
     this.updateOpacity(dt);
 
     this.render();

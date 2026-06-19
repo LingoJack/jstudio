@@ -148,6 +148,60 @@ export default function PaneLayoutView({
   /** Track which sessions have been fully initialized. */
   const initializedRef = useRef<Set<string>>(new Set());
 
+  // ── Shared overlay canvas for cursor trail ──
+  //
+  // A single canvas covering ALL panes, positioned above everything.
+  // This matches kitty's architecture: one global trail that can
+  // cross pane boundaries without being clipped by overflow-hidden.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const trailRef = useRef<CursorTrail | null>(null);
+
+  /** Create the shared trail once the overlay div exists. */
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+
+    // Find or create the canvas element inside overlay.
+    let canvas = overlay.querySelector('canvas') as HTMLCanvasElement | null;
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      Object.assign(canvas.style, {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+      } as CSSStyleDeclaration);
+      overlay.appendChild(canvas);
+    }
+
+    try {
+      trailRef.current = new CursorTrail(canvas, theme.cursor);
+      trailRef.current.resize();
+      trailRef.current.start();
+    } catch {
+      trailRef.current = null;
+    }
+
+    return () => {
+      trailRef.current?.dispose();
+      trailRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Resize the overlay canvas when the container size changes. */
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const ro = new ResizeObserver(() => {
+      trailRef.current?.resize();
+    });
+    ro.observe(overlay);
+    return () => ro.disconnect();
+  }, []);
+
   // ── Core: attach terminal containers to pane DOM nodes ──────────
   const sessionKey = sessionIds.join(',');
   const layoutKey = `${layout}:${sessionKey}:${activeSessionId}`;
@@ -169,19 +223,6 @@ export default function PaneLayoutView({
           initializedRef.current.add(sid);
           entry.term.open(entry.container);
           tryEnableWebgl(entry.term);
-          try {
-            entry.trail = new CursorTrail(
-              entry.term,
-              entry.container,
-              theme.cursor,
-            );
-            requestAnimationFrame(() => {
-              entry.trail?.resize();
-              entry.trail?.start();
-            });
-          } catch {
-            entry.trail = null;
-          }
         }
       }
 
@@ -192,18 +233,12 @@ export default function PaneLayoutView({
 
         // Cursor only on the active pane.
         entry.term.options.cursorHidden = sid !== activeSessionId;
-        if (sid === activeSessionId) {
-          entry.trail?.start();
-        } else {
-          entry.trail?.stop();
-        }
 
         try {
           entry.fit.fit();
           storage
             .ptyResize(sid, entry.term.cols, entry.term.rows)
             .catch(() => {});
-          entry.trail?.resize();
         } catch {
           // ignore
         }
@@ -212,55 +247,62 @@ export default function PaneLayoutView({
       // Focus active pane.
       const activeEntry = terminalsRef.current.get(activeSessionId);
       activeEntry?.term.focus();
+
+      // Attach trail to the active pane's terminal.
+      if (activeEntry && trailRef.current) {
+        trailRef.current.attach(
+          activeEntry.term,
+          activeEntry.container,
+        );
+        trailRef.current.setColor(theme.cursor);
+        trailRef.current.resize();
+      }
     });
 
     return () => cancelAnimationFrame(rafId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutKey]);
 
-  // ── Poke trail on focus switch ───────────────────────────────────
+  // ── Switch trail target on focus change ─────────────────────────
   //
-  // Each terminal has its own CursorTrail.  When switching panes,
-  // the newly focused pane's cursor hasn't moved (within its own
-  // buffer), so its trail stays dormant.  We poke it so the trail
-  // animates as if the cursor flew in from the previous pane's
-  // cursor position — creating a smooth cross-pane animation.
+  // Single trail instance — when the active pane changes we re-attach
+  // the trail to the new terminal, passing the old cursor position
+  // so the comet flies smoothly across pane boundaries.
   const prevActiveRef = useRef<string | null>(null);
   useEffect(() => {
     const prevId = prevActiveRef.current;
     if (prevId === activeSessionId) return;
     prevActiveRef.current = activeSessionId;
 
-    // Grab the old pane's cursor position in screen pixels BEFORE
-    // we stop its trail — getCursorScreenPos reads from the DOM
-    // so it's still valid at this point.
-    let fromX: number | undefined;
-    let fromY: number | undefined;
+    const trail = trailRef.current;
+    if (!trail) return;
+
+    // Hide cursor on the old pane.
     if (prevId) {
       const oldEntry = terminalsRef.current.get(prevId);
-      const oldPos = oldEntry?.trail?.getCursorScreenPos();
-      if (oldPos) {
-        const newEntry = terminalsRef.current.get(activeSessionId);
-        if (newEntry) {
-          const newRect = newEntry.container.getBoundingClientRect();
-          fromX = oldPos.x - newRect.left;
-          fromY = oldPos.y - newRect.top;
-        }
-      }
-      // Hide cursor + stop trail on the pane we're leaving.
       if (oldEntry) {
         oldEntry.term.options.cursorHidden = true;
-        oldEntry.trail?.stop();
       }
     }
 
-    // Show cursor + start/poke trail on the pane we're entering.
+    // Get old cursor screen position for cross-pane animation.
+    let fromX: number | undefined;
+    let fromY: number | undefined;
+    if (prevId) {
+      const oldPos = trail.getCursorScreenPos();
+      if (oldPos && overlayRef.current) {
+        const overlayRect = overlayRef.current.getBoundingClientRect();
+        fromX = oldPos.x - overlayRect.left;
+        fromY = oldPos.y - overlayRect.top;
+      }
+    }
+
+    // Attach to new pane.
     const newEntry = terminalsRef.current.get(activeSessionId);
     if (newEntry) {
       newEntry.term.options.cursorHidden = false;
-      newEntry.trail?.start();
-      newEntry.trail?.poke(fromX, fromY);
       newEntry.term.focus();
+      trail.attach(newEntry.term, newEntry.container, fromX, fromY);
     }
   }, [activeSessionId]);
 
@@ -288,7 +330,7 @@ export default function PaneLayoutView({
 
   // ── Live theme update ────────────────────────────────────────────
   useEffect(() => {
-    terminalsRef.current.forEach(({ term, trail }) => {
+    terminalsRef.current.forEach(({ term }) => {
       term.options.theme = {
         background: theme.background,
         foreground: theme.foreground,
@@ -313,13 +355,13 @@ export default function PaneLayoutView({
         brightCyan: theme.brightCyan,
         brightWhite: theme.brightWhite,
       };
-      trail?.setColor(theme.cursor);
     });
+    trailRef.current?.setColor(theme.cursor);
   }, [theme, terminalsRef]);
 
   // ── Live font update ─────────────────────────────────────────────
   useEffect(() => {
-    terminalsRef.current.forEach(({ term, fit, trail }) => {
+    terminalsRef.current.forEach(({ term, fit }) => {
       term.options.fontFamily = `'${terminalFontId}', 'monaco', monospace`;
       term.options.fontSize = terminalFontSize;
       requestAnimationFrame(() => {
@@ -331,7 +373,6 @@ export default function PaneLayoutView({
           if (sid) {
             storage.ptyResize(sid, term.cols, term.rows).catch(() => {});
           }
-          trail?.resize();
         } catch {
           // ignore
         }
@@ -350,45 +391,67 @@ export default function PaneLayoutView({
     : 'rgba(0,0,0,0.10)';
 
   return (
-    <div
-      className={plan.containerCls}
-      style={{ ...plan.containerStyle, background: dividerColor }}
-    >
-      {visibleIds.map((sid, i) => {
-        const cellStyle =
-          plan.kind === 'stack'
-            ? { width: '100%', height: '100%' }
-            : plan.cells[i] ?? { width: '100%', height: '100%' };
-        const isActive = sid === activeSessionId;
-        return (
-          <div
-            key={sid}
-            style={{
-              ...cellStyle,
-              boxSizing: 'border-box',
-              background: theme.background,
-            }}
-            onClick={() => setActivePane(sid)}
-            className="relative overflow-hidden"
-          >
-            {/*
-              This inner div is the xterm mount point.
-              w-full h-full is critical — without it the container
-              collapses to 0 height and xterm renders nothing.
-            */}
+    <div className="relative w-full h-full">
+      {/* Pane grid */}
+      <div
+        className={plan.containerCls}
+        style={{ ...plan.containerStyle, background: dividerColor }}
+      >
+        {visibleIds.map((sid, i) => {
+          const cellStyle =
+            plan.kind === 'stack'
+              ? { width: '100%', height: '100%' }
+              : plan.cells[i] ?? { width: '100%', height: '100%' };
+          const isActive = sid === activeSessionId;
+          return (
             <div
-              ref={(el) => {
-                if (el) {
-                  paneElsRef.current.set(sid, el);
-                } else {
-                  paneElsRef.current.delete(sid);
-                }
+              key={sid}
+              style={{
+                ...cellStyle,
+                boxSizing: 'border-box',
+                background: theme.background,
+                // Focus glow on active pane.
+                ...(isActive
+                  ? {
+                      boxShadow: theme.isDark
+                        ? 'inset 0 0 14px 2px rgba(80, 220, 100, 0.12)'
+                        : 'inset 0 0 14px 2px rgba(0, 150, 255, 0.08)',
+                    }
+                  : {}),
               }}
-              className="w-full h-full"
-            />
-          </div>
-        );
-      })}
+              onClick={() => setActivePane(sid)}
+              className="relative overflow-hidden"
+            >
+              {/*
+                This inner div is the xterm mount point.
+                w-full h-full is critical — without it the container
+                collapses to 0 height and xterm renders nothing.
+              */}
+              <div
+                ref={(el) => {
+                  if (el) {
+                    paneElsRef.current.set(sid, el);
+                  } else {
+                    paneElsRef.current.delete(sid);
+                  }
+                }}
+                className="w-full h-full"
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Shared overlay canvas for cursor trail.
+          Covers all panes, sits above xterm canvases but below
+          pointer events.  z-index: 5 (same as xterm's helper layer).
+          This is the key to kitty-like trail: NOT clipped by
+          overflow-hidden on individual panes. */}
+      <div
+        ref={overlayRef}
+        className="absolute inset-0"
+        style={{ pointerEvents: 'none', zIndex: 5 }}
+      />
     </div>
   );
 }

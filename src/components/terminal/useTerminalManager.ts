@@ -8,7 +8,6 @@ import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
 import { resolveMonospaceFont } from '../../lib/fonts';
 import type { TerminalTheme } from '../../lib/terminalThemes';
-import CursorTrail from './CursorTrail';
 import type { SessionTerminal } from './types';
 
 /** Try WebGL2 GPU-accelerated renderer; fall back silently. */
@@ -128,15 +127,14 @@ export function useTerminalManager(
 
       unlistenRef.current.set(sessionId, [unlistenData, unlistenExit]);
 
-      const entry: SessionTerminal = { term, fit, container, trail: null };
+      const entry: SessionTerminal = { term, fit, container };
       terminalsRef.current.set(sessionId, entry);
 
-      // Resize → PTY + trail canvas
+      // Resize → PTY
       const resizeObserver = new ResizeObserver(() => {
         try {
           fit.fit();
           storage.ptyResize(sessionId, term.cols, term.rows).catch(console.error);
-          entry.trail?.resize();
         } catch {
           // ignore
         }
@@ -157,7 +155,6 @@ export function useTerminalManager(
       const obs = (entry.container as unknown as { _resizeObserver?: ResizeObserver })
         ._resizeObserver;
       obs?.disconnect();
-      entry.trail?.dispose();
       entry.term.dispose();
       terminalsRef.current.delete(sessionId);
     }
