@@ -67,6 +67,12 @@ export const translations = {
     'terminal.namePlaceholder': '名称',
     'terminal.clickTemplateHint': '在左侧选择一个模板启动终端',
 
+    // ── Terminal tab context menu / history ──
+    'terminal.rename': '重命名',
+    'terminal.recentDirs': '最近打开的目录',
+    'terminal.clearRecent': '清除历史',
+    'terminal.noRecentDirs': '暂无历史记录',
+
     // ── DocumentOutline ──
     'outline.title': '大纲',
     'outline.empty': '文档中暂无标题',
@@ -229,6 +235,12 @@ export const translations = {
     'terminal.spawnFromTemplate': 'Spawn from this template',
     'terminal.namePlaceholder': 'Name',
     'terminal.clickTemplateHint': 'Select a template from the sidebar to start',
+
+    // ── Terminal tab context menu / history ──
+    'terminal.rename': 'Rename',
+    'terminal.recentDirs': 'Recent Directories',
+    'terminal.clearRecent': 'Clear History',
+    'terminal.noRecentDirs': 'No recent directories',
 
     // ── DocumentOutline ──
     'outline.title': 'Outline',

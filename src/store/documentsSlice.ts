@@ -44,6 +44,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalFontId: string | undefined;
       let terminalCursorStyle: TerminalCursorStyle | undefined;
       let terminalTemplatesRaw: unknown;
+      let terminalRecentDirsRaw: unknown;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
@@ -95,6 +96,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (settings.terminalTemplates !== undefined) {
           terminalTemplatesRaw = settings.terminalTemplates;
+        }
+        if (settings.terminalRecentDirs !== undefined) {
+          terminalRecentDirsRaw = settings.terminalRecentDirs;
         }
       } catch {
         // ignore
@@ -185,6 +189,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
       // Initialize terminal templates from settings.
       get().initTemplates(terminalTemplatesRaw);
+      get().initRecentDirs(terminalRecentDirsRaw);
     } catch (e) {
       console.error('Store init failed:', e);
       set({ isLoading: false });

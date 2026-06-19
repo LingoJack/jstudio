@@ -30,7 +30,12 @@ export interface TerminalTemplate {
  */
 export interface TerminalSession {
   id: string;
+  /** Backend title (kept for pty_set_title compatibility). */
   title: string;
+  /** User-set custom name (null = not renamed). Highest display priority. */
+  customTitle: string | null;
+  /** OSC 0/2 auto-detected title from the shell. Medium priority. */
+  autoTitle: string | null;
   /** Source template id (null if spawned ad-hoc). */
   templateId: string | null;
   /** Actual working directory the shell started in. */
@@ -109,6 +114,8 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
    * Kept as top-level state for ergonomic subscriptions.
    */
   activeSessionId: null,
+  /** Recently used working directories (max 10, persisted). */
+  recentDirs: [],
 
   // ── Template actions ────────────────────────────────────────────
 
@@ -139,6 +146,32 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       saveTemplates(templates);
     }
     set({ templates });
+  },
+
+  /** Load recent dirs from settings.json (called during init). */
+  initRecentDirs: (raw) => {
+    let dirs: string[] = [];
+    if (Array.isArray(raw)) {
+      dirs = raw.filter((d): d is string => typeof d === 'string' && d.length > 0).slice(0, 10);
+    }
+    set({ recentDirs: dirs });
+  },
+
+  /** Add a working directory to recent list (dedup, prepend, cap at 10). */
+  addRecentDir: (cwd) => {
+    if (!cwd) return;
+    set((s) => {
+      const filtered = s.recentDirs.filter((d) => d !== cwd);
+      const recentDirs = [cwd, ...filtered].slice(0, 10);
+      storage.saveSettings({ terminalRecentDirs: recentDirs }).catch(console.error);
+      return { recentDirs };
+    });
+  },
+
+  /** Clear all recent directories. */
+  clearRecentDirs: () => {
+    set({ recentDirs: [] });
+    storage.saveSettings({ terminalRecentDirs: [] }).catch(console.error);
   },
 
   /** Create a new template and persist it. */
@@ -184,12 +217,13 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
    * This is equivalent to "new tab" — each group is one tab.
    * The new group becomes the active group.
    */
-  createSession: async (templateId) => {
+  createSession: async (templateId, opts) => {
     const tmpl = templateId
       ? get().templates.find((t) => t.id === templateId)
       : null;
 
-    const cwd = tmpl?.cwd ?? '~';
+    // Explicit cwd overrides template cwd.
+    const cwd = opts?.cwd ?? tmpl?.cwd ?? '~';
 
     const info = await storage.ptyCreate({
       cwd,
@@ -200,6 +234,8 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     const session: TerminalSession = {
       id: info.id,
       title: tmpl?.name ?? 'Terminal',
+      customTitle: null,
+      autoTitle: null,
       templateId: tmpl?.id ?? null,
       cwd,
       createdAt: Date.now(),
@@ -213,6 +249,8 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       activeGroupId: group.id,
       activeSessionId: info.id,
     }));
+
+    get().addRecentDir(cwd);
   },
 
   /**
@@ -240,12 +278,26 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
 
   /** Rename a session (local + backend). */
   renameSession: (id, title) => {
+    const trimmed = title.trim();
     set((s) => ({
       sessions: s.sessions.map((sess) =>
-        sess.id === id ? { ...sess, title } : sess,
+        sess.id === id
+          ? { ...sess, customTitle: trimmed || null, title: trimmed || sess.title }
+          : sess,
       ),
     }));
-    storage.ptySetTitle(id, title).catch(console.error);
+    storage.ptySetTitle(id, trimmed || 'Terminal').catch(console.error);
+  },
+
+  /** Set the auto-detected title from OSC sequences (won't override customTitle). */
+  setAutoTitle: (sessionId, title) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId && !sess.customTitle
+          ? { ...sess, autoTitle: title }
+          : sess,
+      ),
+    }));
   },
 
   /**
@@ -376,6 +428,8 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     const session: TerminalSession = {
       id: info.id,
       title: tmpl?.name ?? 'Terminal',
+      customTitle: null,
+      autoTitle: null,
       templateId: tmpl?.id ?? null,
       cwd,
       createdAt: Date.now(),
@@ -394,6 +448,8 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       ),
       activeSessionId: info.id,
     }));
+
+    get().addRecentDir(cwd);
   },
 
   /**

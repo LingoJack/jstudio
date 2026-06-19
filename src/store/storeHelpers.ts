@@ -69,6 +69,7 @@ export interface StoreState {
   groups: PaneGroup[];
   activeGroupId: string | null;
   activeSessionId: string | null;
+  recentDirs: string[];
 
   // — init (documents slice) —
   init: () => Promise<void>;
@@ -120,12 +121,16 @@ export interface StoreState {
 
   // — terminal ops (terminal slice) —
   initTemplates: (raw: unknown) => void;
+  initRecentDirs: (raw: unknown) => void;
+  addRecentDir: (cwd: string) => void;
+  clearRecentDirs: () => void;
   addTemplate: (name: string, cwd: string) => void;
   removeTemplate: (id: string) => void;
   updateTemplate: (id: string, fields: { name?: string; cwd?: string }) => void;
-  createSession: (templateId?: string) => Promise<void>;
+  createSession: (templateId?: string, opts?: { cwd?: string }) => Promise<void>;
   closeSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => void;
+  setAutoTitle: (sessionId: string, title: string) => void;
   setActiveSession: (id: string) => void;
   removeSessionState: (id: string) => void;
   removeGroupState: (groupId: string) => void;

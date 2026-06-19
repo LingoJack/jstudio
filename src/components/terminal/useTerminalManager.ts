@@ -116,6 +116,11 @@ export function useTerminalManager(
         storage.ptyWrite(sessionId, data).catch(console.error);
       });
 
+      // Shell title change (OSC 0/2 sequences) → auto title
+      term.onTitleChange((title) => {
+        useStore.getState().setAutoTitle(sessionId, title);
+      });
+
       // Shell output → terminal
       const unlistenData = listen<{ data: string }>(
         `pty-data-${sessionId}`,
