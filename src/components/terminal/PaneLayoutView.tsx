@@ -8,6 +8,7 @@ import { storage } from '../../lib/storage';
 import { getTerminalTheme } from '../../lib/terminalThemes';
 import { useTerminalManager } from './useTerminalManager';
 import CursorTrail from './CursorTrail';
+import PaneGlow from './PaneGlow';
 import type { PaneLayoutType } from './types';
 
 // ────────────────────────────────────────────────
@@ -224,16 +225,33 @@ export default function PaneLayoutView({
   // Each terminal has its own CursorTrail.  When switching panes,
   // the newly focused pane's cursor hasn't moved (within its own
   // buffer), so its trail stays dormant.  We poke it so the trail
-  // animates as if the cursor flew in from the previous pane.
+  // animates as if the cursor flew in from the previous pane's
+  // cursor position — creating a smooth cross-pane animation.
   const prevActiveRef = useRef<string | null>(null);
   useEffect(() => {
-    if (prevActiveRef.current === activeSessionId) return;
+    const prevId = prevActiveRef.current;
+    if (prevId === activeSessionId) return;
     prevActiveRef.current = activeSessionId;
 
-    const entry = terminalsRef.current.get(activeSessionId);
-    if (entry?.trail) {
-      entry.trail.poke();
+    const newEntry = terminalsRef.current.get(activeSessionId);
+    if (!newEntry?.trail) return;
+
+    // Try to get the old pane's cursor position in screen pixels,
+    // then convert to the new pane's local coordinate space.
+    let fromX: number | undefined;
+    let fromY: number | undefined;
+
+    if (prevId) {
+      const oldEntry = terminalsRef.current.get(prevId);
+      const oldPos = oldEntry?.trail?.getCursorScreenPos();
+      if (oldPos) {
+        const newCanvasRect = newEntry.container.getBoundingClientRect();
+        fromX = oldPos.x - newCanvasRect.left;
+        fromY = oldPos.y - newCanvasRect.top;
+      }
     }
+
+    newEntry.trail.poke(fromX, fromY);
   }, [activeSessionId]);
 
   // ── Cleanup on unmount ───────────────────────────────────────────
@@ -324,9 +342,9 @@ export default function PaneLayoutView({
     : 'rgba(0,0,0,0.12)';
   // Blue in light theme follows the convention used by most editors
   // (VS Code's own focusBorder is blue #007fd4 in light themes).
-  const glowColor = theme.isDark
-    ? 'rgba(0,210,106,0.25)'   // green
-    : 'rgba(0,122,255,0.22)';   // blue
+  const glowRgb: [number, number, number] = theme.isDark
+    ? [0, 210, 106]   // green
+    : [0, 122, 255];   // blue
 
   return (
     <div
@@ -365,14 +383,9 @@ export default function PaneLayoutView({
               }}
               className="w-full h-full"
             />
-            {/* Focus glow overlay — sits above xterm's canvas (z-10)
-                so the glow is visible on all four edges. */}
-            {isActive && (
-              <div
-                className="absolute inset-0 pointer-events-none z-10"
-                style={{ boxShadow: `inset 0 0 14px 2px ${glowColor}` }}
-              />
-            )}
+            {/* Animated focus glow — organic, flame-like shimmer
+                along all four edges. */}
+            {isActive && <PaneGlow rgb={glowRgb} />}
           </div>
         );
       })}

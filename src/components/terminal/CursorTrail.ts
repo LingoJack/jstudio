@@ -154,25 +154,74 @@ export default class CursorTrail {
   }
 
   /**
-   * Poke the trail — force it to animate as if the cursor just
-   * appeared here from far away.  Used when switching pane focus:
-   * each terminal has its own trail, so without a poke the new
-   * pane's trail stays dormant (its cursor hasn't moved within
-   * its own buffer).  Kitty solves this with a single global trail;
-   * we simulate it by pinging the trail on focus change.
+   * Return the cursor's current position in **viewport (screen) pixel
+   * coordinates** — i.e. relative to the top-left corner of the
+   * browser window, not the pane.
    *
-   * @param fromX  optional origin X in pane-local pixels (e.g. old
-   *               pane's cursor position mapped to this pane's space).
-   *               If omitted, the trail flies in from the top-left.
+   * Used by PaneLayoutView to compute the origin point when poking
+   * another pane's trail, so the animation appears to fly from the
+   * old cursor to the new one.
+   */
+  getCursorScreenPos(): { x: number; y: number } | null {
+    const buf = this.term.buffer.active;
+    const cx = buf.cursorX;
+    const cy = buf.baseY + buf.cursorY;
+
+    const screenEl = this.container.querySelector('.xterm-screen') as HTMLElement | null;
+    if (!screenEl) return null;
+
+    const rowEls = screenEl.querySelectorAll('.xterm-rows > div');
+    let cellH = this.cellH;
+    let cellW = this.cellW;
+    let originX = 0;
+    let originY = 0;
+
+    if (rowEls.length >= 1) {
+      const r0 = rowEls[0].getBoundingClientRect();
+      cellH = rowEls.length >= 2
+        ? rowEls[1].getBoundingClientRect().top - r0.top
+        : r0.height;
+      cellW = r0.width / Math.max(1, this.term.cols);
+      originX = r0.left;
+      originY = r0.top;
+    } else {
+      const sr = screenEl.getBoundingClientRect();
+      cellH = sr.height / Math.max(1, this.term.rows);
+      cellW = sr.width / Math.max(1, this.term.cols);
+      originX = sr.left;
+      originY = sr.top;
+    }
+
+    return {
+      x: originX + cx * cellW,
+      y: originY + (cy + 1) * cellH - cellH * CURSOR_THICKNESS_RATIO * 0.5,
+    };
+  }
+
+  /**
+   * Poke the trail — force it to animate as if the cursor just
+   * arrived here from a previous position.  Used when switching
+   * pane focus: each terminal has its own trail, so without a poke
+   * the new pane's trail stays dormant (its cursor hasn't moved
+   * within its own buffer).
+   *
+   * @param fromX  Origin X in pane-local CSS pixels (the old pane's
+   *               cursor position mapped into this pane's coordinate
+   *               space).  When omitted the trail flies in from above.
+   * @param fromY  Origin Y, same convention as fromX.
    */
   poke(fromX?: number, fromY?: number) {
     // Refresh dimensions in case the pane was just resized/shown.
     this.resize();
     this.measureGrid();
     this._poked = true;
+    this._pokeFromX = fromX ?? null;
+    this._pokeFromY = fromY ?? null;
   }
 
   private _poked = false;
+  private _pokeFromX: number | null = null;
+  private _pokeFromY: number | null = null;
 
   resize() {
     const rect = this.container.getBoundingClientRect();
@@ -258,17 +307,28 @@ export default class CursorTrail {
     // or when poked by a focus switch.
     const jumpDist = Math.abs(cx - this.lastCursorX) + Math.abs(cy - this.lastCursorY);
     if (this._poked) {
-      // Pretend the cursor just teleported in from a point well above
-      // the current position. This creates a visible trail animation
-      // that mimics Kitty's global cursor trail crossing panes.
-      const flyFromX = this.cursorEdgeX[0];
-      const flyFromY = this.cursorEdgeY[0] - this.cssH * 0.6;
+      // Pretend the cursor just flew in from a previous position.
+      // When fromX/fromY are provided (e.g. the old pane's cursor
+      // mapped into this pane's coordinate space), the trail
+      // smoothly travels between the two panes.  Otherwise it
+      // flies in from well above (fallback).
+      let flyFromX: number;
+      let flyFromY: number;
+      if (this._pokeFromX !== null && this._pokeFromY !== null) {
+        flyFromX = this._pokeFromX;
+        flyFromY = this._pokeFromY;
+      } else {
+        flyFromX = this.cursorEdgeX[0];
+        flyFromY = this.cursorEdgeY[0] - this.cssH * 0.6;
+      }
       for (let i = 0; i < 4; i++) {
         this.cornerX[i] = flyFromX;
         this.cornerY[i] = flyFromY;
       }
       this.opacity = 1;
       this._poked = false;
+      this._pokeFromX = null;
+      this._pokeFromY = null;
       this.firstFrame = false;
     } else if (this.firstFrame || jumpDist > 8) {
       for (let i = 0; i < 4; i++) {
