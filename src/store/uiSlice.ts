@@ -9,7 +9,7 @@ import {
   resolveFontFamily,
   DEFAULT_MONOSPACE_FONT_ID,
 } from '../lib/fonts';
-import { DEFAULT_TERMINAL_THEME_ID } from '../lib/terminalThemes';
+import { DEFAULT_TERMINAL_THEME_ID_DARK, DEFAULT_TERMINAL_THEME_ID_LIGHT } from '../lib/terminalThemes';
 
 /** Sidebar width constraints (px). */
 const MIN_SIDEBAR_WIDTH = 180;
@@ -74,7 +74,8 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   fontSize: DEFAULT_FONT_SIZE,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents',
-  terminalThemeId: DEFAULT_TERMINAL_THEME_ID,
+  terminalThemeIdDark: DEFAULT_TERMINAL_THEME_ID_DARK,
+  terminalThemeIdLight: DEFAULT_TERMINAL_THEME_ID_LIGHT,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
   terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
@@ -144,9 +145,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     storage.saveSettings({ sidebarWidth: clamped }).catch(console.error);
   },
 
-  setTerminalThemeId: (id) => {
-    set({ terminalThemeId: id });
-    storage.saveSettings({ terminalThemeId: id }).catch(console.error);
+  setTerminalThemeIdDark: (id) => {
+    set({ terminalThemeIdDark: id });
+    storage.saveSettings({ terminalThemeIdDark: id }).catch(console.error);
+  },
+
+  setTerminalThemeIdLight: (id) => {
+    set({ terminalThemeIdLight: id });
+    storage.saveSettings({ terminalThemeIdLight: id }).catch(console.error);
   },
 
   setTerminalFontSize: (size) => {

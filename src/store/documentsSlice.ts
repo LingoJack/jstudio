@@ -36,7 +36,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let sidebarWidth: number | undefined;
       let language: Language = 'zh';
       let activityBarBorder = false;
-      let terminalThemeId: string | undefined;
+      let terminalThemeIdDark: string | undefined;
+      let terminalThemeIdLight: string | undefined;
+      let terminalThemeIdLegacy: string | undefined;
       let terminalFontSize: number | undefined;
       let terminalFontId: string | undefined;
       let terminalCursorStyle: TerminalCursorStyle | undefined;
@@ -64,8 +66,15 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         if (typeof settings.activityBarBorder === 'boolean') {
           activityBarBorder = settings.activityBarBorder;
         }
+        if (typeof settings.terminalThemeIdDark === 'string' && settings.terminalThemeIdDark) {
+          terminalThemeIdDark = settings.terminalThemeIdDark;
+        }
+        if (typeof settings.terminalThemeIdLight === 'string' && settings.terminalThemeIdLight) {
+          terminalThemeIdLight = settings.terminalThemeIdLight;
+        }
+        // One-time migration: old single-theme setting becomes the dark theme.
         if (typeof settings.terminalThemeId === 'string' && settings.terminalThemeId) {
-          terminalThemeId = settings.terminalThemeId;
+          terminalThemeIdLegacy = settings.terminalThemeId;
         }
         if (typeof settings.terminalFontSize === 'number') {
           terminalFontSize = settings.terminalFontSize;
@@ -156,7 +165,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         cjkFontId,
         fontSize,
         ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
-        ...(terminalThemeId !== undefined ? { terminalThemeId } : {}),
+        ...(terminalThemeIdDark !== undefined
+          ? { terminalThemeIdDark }
+          : terminalThemeIdLegacy !== undefined
+            ? { terminalThemeIdDark: terminalThemeIdLegacy }
+            : {}),
+        ...(terminalThemeIdLight !== undefined ? { terminalThemeIdLight } : {}),
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),

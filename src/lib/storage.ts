@@ -46,7 +46,17 @@ export interface AppSettings {
   fontSize?: number;
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
-  /** Terminal color theme id — see lib/terminalThemes.ts */
+  /**
+   * Terminal color theme for dark mode — see lib/terminalThemes.ts.
+   * Used when the app is in dark mode (or system mode while OS is dark).
+   */
+  terminalThemeIdDark?: string;
+  /**
+   * Terminal color theme for light mode — see lib/terminalThemes.ts.
+   * Used when the app is in light mode (or system mode while OS is light).
+   */
+  terminalThemeIdLight?: string;
+  /** @deprecated Migrated to terminalThemeIdDark. Kept for one-time migration. */
   terminalThemeId?: string;
   /** Terminal font size in pixels (independent from editor font size) */
   terminalFontSize?: number;

@@ -34,12 +34,14 @@ export default function TerminalPanel() {
   const activeGroupId = useStore((s) => s.activeGroupId);
   const sessions = useStore((s) => s.sessions);
   const createSession = useStore((s) => s.createSession);
-  const terminalThemeId = useStore((s) => s.terminalThemeId);
+  const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
+  const terminalThemeIdLight = useStore((s) => s.terminalThemeIdLight);
+  const isDarkMode = useStore((s) => s.isDarkMode);
 
   // Activate Kitty-style pane keyboard shortcuts.
   usePaneShortcuts();
 
-  const theme = getTerminalTheme(terminalThemeId);
+  const theme = getTerminalTheme(isDarkMode ? terminalThemeIdDark : terminalThemeIdLight);
 
   const activeGroup = groups.find((g) => g.id === activeGroupId);
   const hasSessions = activeGroup && activeGroup.sessionIds.length > 0;

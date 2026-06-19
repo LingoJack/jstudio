@@ -141,13 +141,15 @@ export default function PaneLayoutView({
   activeSessionId,
   layout,
 }: PaneLayoutViewProps) {
-  const terminalThemeId = useStore((s) => s.terminalThemeId);
+  const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
+  const terminalThemeIdLight = useStore((s) => s.terminalThemeIdLight);
+  const isDarkMode = useStore((s) => s.isDarkMode);
   const terminalFontId = useStore((s) => s.terminalFontId);
   const terminalFontSize = useStore((s) => s.terminalFontSize);
   const terminalCursorStyle = useStore((s) => s.terminalCursorStyle);
   const setActivePane = useStore((s) => s.setActivePane);
 
-  const theme = getTerminalTheme(terminalThemeId);
+  const theme = getTerminalTheme(isDarkMode ? terminalThemeIdDark : terminalThemeIdLight);
 
   const { terminalsRef, setupTerminal, destroyTerminal, destroyAll, tryEnableWebgl } =
     useTerminalManager(terminalFontId, terminalFontSize, terminalCursorStyle);

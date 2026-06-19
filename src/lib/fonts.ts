@@ -184,7 +184,7 @@ export function resolveFontFamily(
 /** Minimum, maximum, and default editor font size in pixels. */
 export const MIN_FONT_SIZE = 12;
 export const MAX_FONT_SIZE = 22;
-export const DEFAULT_FONT_SIZE = 14;
+export const DEFAULT_FONT_SIZE = 16;
 
 // ---- monospace fonts (for terminal) ----
 

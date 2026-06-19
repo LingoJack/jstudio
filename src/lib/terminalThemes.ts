@@ -193,14 +193,20 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
   },
 ];
 
-/** Default terminal theme for new users. */
-export const DEFAULT_TERMINAL_THEME_ID = 'anthropic-dark';
+/** Default terminal theme for dark mode. */
+export const DEFAULT_TERMINAL_THEME_ID_DARK = 'jstudio-dark';
 
-/** Find a theme by id, falling back to the default. */
+/** Default terminal theme for light mode. */
+export const DEFAULT_TERMINAL_THEME_ID_LIGHT = 'jstudio-light';
+
+/** @deprecated Use DEFAULT_TERMINAL_THEME_ID_DARK instead. */
+export const DEFAULT_TERMINAL_THEME_ID = DEFAULT_TERMINAL_THEME_ID_DARK;
+
+/** Find a theme by id, falling back to the dark default. */
 export function getTerminalTheme(id: string | undefined): TerminalTheme {
   return (
     TERMINAL_THEMES.find((t) => t.id === id) ??
-    TERMINAL_THEMES.find((t) => t.id === DEFAULT_TERMINAL_THEME_ID)!
+    TERMINAL_THEMES.find((t) => t.id === DEFAULT_TERMINAL_THEME_ID_DARK)!
   );
 }
 

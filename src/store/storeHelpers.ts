@@ -56,7 +56,8 @@ export interface StoreState {
   fontSize: number;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
-  terminalThemeId: string;
+  terminalThemeIdDark: string;
+  terminalThemeIdLight: string;
   terminalFontSize: number;
   terminalFontId: string;
   terminalCursorStyle: TerminalCursorStyle;
@@ -109,7 +110,8 @@ export interface StoreState {
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;
   setActiveSidebarView: (view: 'documents' | 'terminal') => void;
-  setTerminalThemeId: (id: string) => void;
+  setTerminalThemeIdDark: (id: string) => void;
+  setTerminalThemeIdLight: (id: string) => void;
   setTerminalFontSize: (size: number) => void;
   setTerminalFontId: (id: string) => void;
   setTerminalCursorStyle: (style: TerminalCursorStyle) => void;
