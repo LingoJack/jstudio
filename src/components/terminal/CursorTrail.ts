@@ -140,6 +140,20 @@ export default class CursorTrail {
     this.loop();
   }
 
+  /** Stop the animation loop + hide the trail (pause without disposing). */
+  stop() {
+    this.running = false;
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    // Clear the canvas so nothing lingers on an inactive pane.
+    const gl = this.gl;
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    this.opacity = 0;
+  }
+
   dispose() {
     this.running = false;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);

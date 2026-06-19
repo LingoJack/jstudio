@@ -8,7 +8,6 @@ import { storage } from '../../lib/storage';
 import { getTerminalTheme } from '../../lib/terminalThemes';
 import { useTerminalManager } from './useTerminalManager';
 import CursorTrail from './CursorTrail';
-import PaneGlow from './PaneGlow';
 import type { PaneLayoutType } from './types';
 
 // ────────────────────────────────────────────────
@@ -19,7 +18,6 @@ interface LayoutPlan {
   kind: string;
   containerCls: string;
   containerStyle: CSSProperties;
-  /** Per-pane wrapper style, indexed by position. */
   cells: CSSProperties[];
 }
 
@@ -145,23 +143,16 @@ export default function PaneLayoutView({
   const { terminalsRef, setupTerminal, destroyTerminal, destroyAll, tryEnableWebgl } =
     useTerminalManager(terminalFontId, terminalFontSize);
 
-  /** Map: sessionId → pane DOM element (the ref div inside each pane). */
+  /** Map: sessionId → pane DOM element. */
   const paneElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   /** Track which sessions have been fully initialized. */
   const initializedRef = useRef<Set<string>>(new Set());
 
   // ── Core: attach terminal containers to pane DOM nodes ──────────
-  //
-  // This effect runs on every render that changes the visible session
-  // list, layout, or active session.  It ensures every visible pane
-  // has its xterm container appended, initializes first-timers, and
-  // refits everything.
   const sessionKey = sessionIds.join(',');
   const layoutKey = `${layout}:${sessionKey}:${activeSessionId}`;
 
   useEffect(() => {
-    // Use double-rAF to ensure the DOM (flex/grid) has settled before
-    // we try to measure / open terminals.
     const rafId = requestAnimationFrame(() => {
       for (const sid of sessionIds) {
         const el = paneElsRef.current.get(sid);
@@ -169,13 +160,11 @@ export default function PaneLayoutView({
 
         const entry = setupTerminal(sid, theme);
 
-        // Append container if it's not already in this element.
         if (entry.container.parentElement !== el) {
           while (el.firstChild) el.removeChild(el.firstChild);
           el.appendChild(entry.container);
         }
 
-        // First-time initialization: open + WebGL + trail.
         if (!initializedRef.current.has(sid)) {
           initializedRef.current.add(sid);
           entry.term.open(entry.container);
@@ -196,10 +185,19 @@ export default function PaneLayoutView({
         }
       }
 
-      // Refit all terminals after DOM has settled.
+      // Refit all + set cursor visibility.
       for (const sid of sessionIds) {
         const entry = terminalsRef.current.get(sid);
         if (!entry) continue;
+
+        // Cursor only on the active pane.
+        entry.term.options.cursorHidden = sid !== activeSessionId;
+        if (sid === activeSessionId) {
+          entry.trail?.start();
+        } else {
+          entry.trail?.stop();
+        }
+
         try {
           entry.fit.fit();
           storage
@@ -221,37 +219,29 @@ export default function PaneLayoutView({
   }, [layoutKey]);
 
   // ── Poke trail on focus switch ───────────────────────────────────
-  //
-  // Each terminal has its own CursorTrail.  When switching panes,
-  // the newly focused pane's cursor hasn't moved (within its own
-  // buffer), so its trail stays dormant.  We poke it so the trail
-  // animates as if the cursor flew in from the previous pane's
-  // cursor position — creating a smooth cross-pane animation.
   const prevActiveRef = useRef<string | null>(null);
   useEffect(() => {
     const prevId = prevActiveRef.current;
     if (prevId === activeSessionId) return;
     prevActiveRef.current = activeSessionId;
 
-    const newEntry = terminalsRef.current.get(activeSessionId);
-    if (!newEntry?.trail) return;
-
-    // Try to get the old pane's cursor position in screen pixels,
-    // then convert to the new pane's local coordinate space.
-    let fromX: number | undefined;
-    let fromY: number | undefined;
-
+    // Hide cursor + stop trail on the pane we're leaving.
     if (prevId) {
       const oldEntry = terminalsRef.current.get(prevId);
-      const oldPos = oldEntry?.trail?.getCursorScreenPos();
-      if (oldPos) {
-        const newCanvasRect = newEntry.container.getBoundingClientRect();
-        fromX = oldPos.x - newCanvasRect.left;
-        fromY = oldPos.y - newCanvasRect.top;
+      if (oldEntry) {
+        oldEntry.term.options.cursorHidden = true;
+        oldEntry.trail?.stop();
       }
     }
 
-    newEntry.trail.poke(fromX, fromY);
+    // Show cursor + start/poke trail on the pane we're entering.
+    const newEntry = terminalsRef.current.get(activeSessionId);
+    if (newEntry) {
+      newEntry.term.options.cursorHidden = false;
+      newEntry.trail?.start();
+      newEntry.trail?.poke();
+      newEntry.term.focus();
+    }
   }, [activeSessionId]);
 
   // ── Cleanup on unmount ───────────────────────────────────────────
@@ -334,17 +324,10 @@ export default function PaneLayoutView({
   const plan = computeLayout(layout, n);
   const visibleIds = plan.kind === 'stack' ? [activeSessionId] : sessionIds;
 
-  // Divider + focus glow, theme-aware:
-  //   dark theme  → subtle white divider, faint green glow
-  //   light theme → subtle black divider, faint blue glow
+  // Divider color (theme-aware thin line between panes).
   const dividerColor = theme.isDark
-    ? 'rgba(255,255,255,0.12)'
-    : 'rgba(0,0,0,0.12)';
-  // Blue in light theme follows the convention used by most editors
-  // (VS Code's own focusBorder is blue #007fd4 in light themes).
-  const glowRgb: [number, number, number] = theme.isDark
-    ? [0, 210, 106]   // green
-    : [0, 122, 255];   // blue
+    ? 'rgba(255,255,255,0.10)'
+    : 'rgba(0,0,0,0.10)';
 
   return (
     <div
@@ -383,9 +366,6 @@ export default function PaneLayoutView({
               }}
               className="w-full h-full"
             />
-            {/* Animated focus glow — organic, flame-like shimmer
-                along all four edges. */}
-            {isActive && <PaneGlow rgb={glowRgb} />}
           </div>
         );
       })}
