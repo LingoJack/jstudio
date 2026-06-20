@@ -1,14 +1,14 @@
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
-import { FileText, Settings as SettingsIcon, Terminal } from 'lucide-react';
+import { PenLine, Settings as SettingsIcon, Terminal } from 'lucide-react';
 import type { ActivityItemId } from '../lib/storage';
 
 /** Static metadata for each possible Activity Bar entry. */
 const ACTIVITY_META: Record<
   ActivityItemId,
-  { icon: typeof FileText; labelKey: 'app.documents' | 'app.terminal' | 'app.settings' }
+  { icon: typeof PenLine; labelKey: 'app.documents' | 'app.terminal' | 'app.settings' }
 > = {
-  documents: { icon: FileText, labelKey: 'app.documents' },
+  documents: { icon: PenLine, labelKey: 'app.documents' },
   terminal: { icon: Terminal, labelKey: 'app.terminal' },
   settings: { icon: SettingsIcon, labelKey: 'app.settings' },
 };

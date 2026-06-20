@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Info, Settings2, Terminal, FileText, BookOpen, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, Terminal, PenLine, BookOpen, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import GeneralSection from './settings/GeneralSection';
@@ -21,7 +21,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'general', labelKey: 'settings.general', icon: Settings2 },
-  { id: 'editor', labelKey: 'settings.editor', icon: FileText },
+  { id: 'editor', labelKey: 'settings.editor', icon: PenLine },
   { id: 'terminal', labelKey: 'settings.terminal', icon: Terminal },
   { id: 'help', labelKey: 'settings.help', icon: BookOpen },
   { id: 'about', labelKey: 'settings.about', icon: Info },
