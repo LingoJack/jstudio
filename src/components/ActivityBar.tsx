@@ -1,17 +1,31 @@
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { FileText, Settings as SettingsIcon, Terminal } from 'lucide-react';
+import type { ActivityItemId } from '../lib/storage';
+
+/** Static metadata for each possible Activity Bar entry. */
+const ACTIVITY_META: Record<
+  ActivityItemId,
+  { icon: typeof FileText; labelKey: 'app.documents' | 'app.terminal' | 'app.settings' }
+> = {
+  documents: { icon: FileText, labelKey: 'app.documents' },
+  terminal: { icon: Terminal, labelKey: 'app.terminal' },
+  settings: { icon: SettingsIcon, labelKey: 'app.settings' },
+};
 
 /**
  * Activity Bar — the leftmost narrow strip (48px).
  *
- * Contains three entries:
- *   - Top:    Documents (toggles sidebar / exits Settings)
- *   - Mid:    Terminal  (switches sidebar to terminal session list)
- *   - Bottom: Settings  (opens the Settings page)
+ * Renders entries dynamically based on the `activityBarItems` config from
+ * the UI store. Each entry can be toggled visible/hidden and reordered.
+ *
+ * Layout:
+ *   - Top section: all non-settings entries (documents, terminal, …) in
+ *     their configured order.
+ *   - Bottom section: settings is pinned at the bottom (VSCode-style).
  *
  * The active item is highlighted with a border or full color depending on
- * the `activityBarBorder` preference from the UI store.
+ * the `activityBarBorder` preference.
  */
 export default function ActivityBar() {
   const { t } = useI18n();
@@ -19,6 +33,7 @@ export default function ActivityBar() {
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
   const activityBarBorder = useStore((s) => s.activityBarBorder);
+  const activityBarItems = useStore((s) => s.activityBarItems);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
@@ -40,56 +55,72 @@ export default function ActivityBar() {
   const isTerminalActive =
     !isSettingsOpen && activeSidebarView === 'terminal';
 
+  /** Determine whether a given entry should render as active. */
+  function isActive(id: ActivityItemId): boolean {
+    if (id === 'documents') return isDocsActive;
+    if (id === 'terminal') return isTerminalActive;
+    if (id === 'settings') return isSettingsOpen;
+    return false;
+  }
+
+  /** Click handler for a given entry. */
+  function handleClick(id: ActivityItemId) {
+    if (id === 'documents') {
+      setSettingsOpen(false);
+      if (activeSidebarView !== 'documents') {
+        setActiveSidebarView('documents');
+        if (!isSidebarOpen) toggleSidebar();
+      } else if (!isSidebarOpen) {
+        toggleSidebar();
+      }
+    } else if (id === 'terminal') {
+      setSettingsOpen(false);
+      setActiveSidebarView('terminal');
+    } else if (id === 'settings') {
+      setSettingsOpen(true);
+    }
+  }
+
+  // Split config: top items vs. bottom (settings is always pinned to bottom).
+  const topItems = activityBarItems.filter(
+    (item) => item.visible && item.id !== 'settings',
+  );
+  const settingsItem = activityBarItems.find(
+    (item) => item.id === 'settings' && item.visible,
+  );
+
+  /** Render a single activity bar entry. */
+  function renderEntry(id: ActivityItemId) {
+    const meta = ACTIVITY_META[id];
+    if (!meta) return null;
+    const Icon = meta.icon;
+    return (
+      <button
+        key={id}
+        onClick={() => handleClick(id)}
+        className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
+          isActive(id) ? activeClass : inactiveClass
+        }`}
+        title={t(meta.labelKey)}
+      >
+        <Icon className="w-5 h-5" />
+      </button>
+    );
+  }
+
   return (
     <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
-      {/* Top: Documents + Terminal entries */}
+      {/* Top: configurable entries (documents, terminal, …) */}
       <div className="flex flex-col items-center gap-1">
-        {/* Documents */}
-        <button
-          onClick={() => {
-            setSettingsOpen(false);
-            if (activeSidebarView !== 'documents') {
-              setActiveSidebarView('documents');
-              if (!isSidebarOpen) toggleSidebar();
-            } else if (!isSidebarOpen) {
-              toggleSidebar();
-            }
-          }}
-          className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
-            isDocsActive ? activeClass : inactiveClass
-          }`}
-          title={t('app.documents')}
-        >
-          <FileText className="w-5 h-5" />
-        </button>
-
-        {/* Terminal */}
-        <button
-          onClick={() => {
-            setSettingsOpen(false);
-            setActiveSidebarView('terminal');
-          }}
-          className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
-            isTerminalActive ? activeClass : inactiveClass
-          }`}
-          title={t('app.terminal')}
-        >
-          <Terminal className="w-5 h-5" />
-        </button>
+        {topItems.map((item) => renderEntry(item.id))}
       </div>
 
-      {/* Bottom: Settings entry */}
-      <div className="flex flex-col items-center gap-1">
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
-            isSettingsOpen ? activeClass : inactiveClass
-          }`}
-          title={t('app.settings')}
-        >
-          <SettingsIcon className="w-5 h-5" />
-        </button>
-      </div>
+      {/* Bottom: settings (pinned) */}
+      {settingsItem && (
+        <div className="flex flex-col items-center gap-1">
+          {renderEntry('settings')}
+        </div>
+      )}
     </div>
   );
 }

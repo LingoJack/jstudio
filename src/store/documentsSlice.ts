@@ -1,4 +1,4 @@
-import { storage, toMeta, DocumentMeta, type ThemeMode, type Language, type TerminalCursorStyle } from '../lib/storage';
+import { storage, toMeta, DocumentMeta, type ThemeMode, type Language, type TerminalCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
 import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
 import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/fonts';
@@ -38,6 +38,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let sidebarWidth: number | undefined;
       let language: Language = 'zh';
       let activityBarBorder = false;
+      let activityBarItems: ActivityBarItemConfig[] = DEFAULT_ACTIVITY_BAR_ITEMS;
       let terminalThemeIdDark: string | undefined;
       let terminalThemeIdLight: string | undefined;
       let terminalThemeIdLegacy: string | undefined;
@@ -71,6 +72,19 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.activityBarBorder === 'boolean') {
           activityBarBorder = settings.activityBarBorder;
+        }
+        if (Array.isArray(settings.activityBarItems)) {
+          // Merge with defaults so new items appear automatically
+          const knownIds = new Set(DEFAULT_ACTIVITY_BAR_ITEMS.map((d) => d.id));
+          const valid = settings.activityBarItems.filter(
+            (item) => item && knownIds.has(item.id) && typeof item.visible === 'boolean',
+          );
+          // Append any default items missing from saved config
+          const savedIds = new Set(valid.map((v) => v.id));
+          for (const def of DEFAULT_ACTIVITY_BAR_ITEMS) {
+            if (!savedIds.has(def.id)) valid.push({ ...def });
+          }
+          activityBarItems = valid;
         }
         if (typeof settings.terminalThemeIdDark === 'string' && settings.terminalThemeIdDark) {
           terminalThemeIdDark = settings.terminalThemeIdDark;
@@ -171,6 +185,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         isDarkMode: isDark,
         language,
         activityBarBorder,
+        activityBarItems,
         fontId,
         cjkFontId,
         fontSize,

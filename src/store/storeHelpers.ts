@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, ThemeMode, Language, TerminalCursorStyle } from '../lib/storage';
+import type { DocumentMeta, ThemeMode, Language, TerminalCursorStyle, ActivityBarItemConfig } from '../lib/storage';
 import type {
   TerminalSession,
   TerminalTemplate,
@@ -47,6 +47,7 @@ export interface StoreState {
   isDarkMode: boolean;
   language: Language;
   activityBarBorder: boolean;
+  activityBarItems: ActivityBarItemConfig[];
   isSidebarOpen: boolean;
   isOutlineOpen: boolean;
   isSettingsOpen: boolean;
@@ -117,6 +118,7 @@ export interface StoreState {
   setSidebarWidth: (width: number) => void;
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;
+  setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
   setActiveSidebarView: (view: 'documents' | 'terminal') => void;
   setTerminalThemeIdDark: (id: string) => void;
   setTerminalThemeIdLight: (id: string) => void;

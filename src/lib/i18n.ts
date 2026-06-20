@@ -26,6 +26,12 @@ export const translations = {
     'app.settings': '设置',
     'app.terminal': '终端',
 
+    // ── Common ──
+    'common.moveUp': '上移',
+    'common.moveDown': '下移',
+    'common.show': '显示',
+    'common.hide': '隐藏',
+
     // ── SearchBar ──
     'search.placeholder': '搜索文档...',
 
@@ -120,6 +126,11 @@ export const translations = {
     'appearance.systemDesc': '自动匹配操作系统外观',
     'appearance.activityBarBorder': '图标边框',
     'appearance.activityBarBorderDesc': '为左侧导航栏的选中图标显示彩色边框',
+    'appearance.activityBarItems': '活动栏图标',
+    'appearance.activityBarItemsDesc': '勾选以显示图标，拖拽手柄可调整顺序（设置始终位于底部）',
+    'appearance.activityBarItem_documents': '文档',
+    'appearance.activityBarItem_terminal': '终端',
+    'appearance.activityBarItem_settings': '设置',
     'appearance.terminalTheme': '终端主题',
     'appearance.terminalThemeDesc': '选择终端配色方案（对齐 kitty 主题）',
     'appearance.terminalThemeDark': '深色终端主题',
@@ -216,6 +227,12 @@ export const translations = {
     'app.settings': 'Settings',
     'app.terminal': 'Terminal',
 
+    // ── Common ──
+    'common.moveUp': 'Move Up',
+    'common.moveDown': 'Move Down',
+    'common.show': 'Show',
+    'common.hide': 'Hide',
+
     // ── SearchBar ──
     'search.placeholder': 'Search documents...',
 
@@ -310,6 +327,11 @@ export const translations = {
     'appearance.systemDesc': 'Automatically match the OS appearance',
     'appearance.activityBarBorder': 'Icon Border',
     'appearance.activityBarBorderDesc': 'Show a colored border on the selected sidebar icon',
+    'appearance.activityBarItems': 'Activity Bar Icons',
+    'appearance.activityBarItemsDesc': 'Check to show an icon; drag the handle to reorder (Settings always stays at the bottom)',
+    'appearance.activityBarItem_documents': 'Documents',
+    'appearance.activityBarItem_terminal': 'Terminal',
+    'appearance.activityBarItem_settings': 'Settings',
     'appearance.terminalTheme': 'Terminal Theme',
     'appearance.terminalThemeDesc': 'Choose a terminal color scheme (matches kitty themes)',
     'appearance.terminalThemeDark': 'Dark Terminal Theme',

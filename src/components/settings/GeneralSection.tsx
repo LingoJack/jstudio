@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, FileText, Settings as SettingsIcon, GripVertical, ChevronUp, ChevronDown as ChevronDownIcon, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/storage';
-import type { JcliStatus } from '../../lib/storage';
+import type { JcliStatus, ActivityItemId } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { toast } from '../../lib/toast';
@@ -141,6 +141,11 @@ export default function GeneralSection() {
           />
         </button>
       </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- Activity Bar Items (visibility & order) ---- */}
+      <ActivityBarItemsSection />
 
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
@@ -416,6 +421,127 @@ function JcliSection() {
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// ActivityBarItemsSection — configure visibility & order of the
+// left Activity Bar icons.
+// ──────────────────────────────────────────────────────────────────
+
+/** Icon + label metadata for each activity bar item id. */
+const ACTIVITY_ITEM_META: Record<
+  ActivityItemId,
+  { icon: LucideIcon; labelKey: string }
+> = {
+  documents: { icon: FileText, labelKey: 'appearance.activityBarItem_documents' },
+  terminal: { icon: Terminal, labelKey: 'appearance.activityBarItem_terminal' },
+  settings: { icon: SettingsIcon, labelKey: 'appearance.activityBarItem_settings' },
+};
+
+function ActivityBarItemsSection() {
+  const { t } = useI18n();
+  const activityBarItems = useStore((s) => s.activityBarItems);
+  const setActivityBarItems = useStore((s) => s.setActivityBarItems);
+
+  /** Toggle the visibility of a single entry. */
+  const handleToggle = (id: ActivityItemId) => {
+    const next = activityBarItems.map((item) =>
+      item.id === id ? { ...item, visible: !item.visible } : item,
+    );
+    setActivityBarItems(next);
+  };
+
+  /** Swap two entries by index to reorder (settings is locked at bottom). */
+  const handleMove = (index: number, direction: -1 | 1) => {
+    const next = [...activityBarItems];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= next.length) return;
+    // Never move or swap the settings entry
+    if (next[index].id === 'settings' || next[targetIndex].id === 'settings') return;
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setActivityBarItems(next);
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+        {t('appearance.activityBarItems')}
+      </label>
+      <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+        {t('appearance.activityBarItemsDesc')}
+      </p>
+
+      <div className="space-y-1.5 max-w-sm">
+        {activityBarItems.map((item, index) => {
+          const meta = ACTIVITY_ITEM_META[item.id];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          const isLast = index === activityBarItems.length - 1;
+          const isFixed = item.id === 'settings';
+          return (
+            <div
+              key={item.id}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                item.visible
+                  ? 'bg-[var(--vscode-list-hoverBackground)] border-[var(--vscode-widget-border)]'
+                  : 'bg-transparent border-[var(--vscode-widget-border)] opacity-50'
+              }`}
+            >
+              {/* Drag / order handle */}
+              <GripVertical className={`w-4 h-4 shrink-0 ${isFixed ? 'text-transparent' : 'text-[var(--vscode-descriptionForeground)]'}`} />
+
+              {/* Icon preview */}
+              <Icon className="w-4 h-4 text-[var(--vscode-foreground)] shrink-0" />
+
+              {/* Label */}
+              <span className="text-sm text-[var(--vscode-foreground)] flex-1">
+                {t(meta.labelKey as 'appearance.activityBarItem_documents')}
+              </span>
+
+              {/* Up / Down reorder buttons */}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={() => handleMove(index, -1)}
+                  disabled={isFixed || index === 0}
+                  title={t('common.moveUp')}
+                  className="p-1 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleMove(index, 1)}
+                  disabled={isFixed || isLast}
+                  title={t('common.moveDown')}
+                  className="p-1 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                >
+                  <ChevronDownIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Visibility toggle */}
+              <button
+                onClick={() => handleToggle(item.id)}
+                className={`relative w-9 h-5 rounded-full transition-colors duration-200 shrink-0 cursor-pointer ${
+                  item.visible
+                    ? 'bg-[var(--vscode-button-background)]'
+                    : 'bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)]'
+                }`}
+                title={item.visible ? t('common.hide') : t('common.show')}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-200 ${
+                    item.visible
+                      ? 'translate-x-4 bg-[var(--vscode-button-foreground)]'
+                      : 'bg-[var(--vscode-descriptionForeground)]'
+                  }`}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

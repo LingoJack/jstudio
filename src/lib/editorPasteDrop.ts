@@ -63,13 +63,12 @@ export function createPasteHandler(
       // Internal copy (from our own editor) → preserve structure.
       if (htmlText.includes('data-pm-slice')) return false;
 
-      // External copy WITH substantive HTML → let ProseMirror handle it.
-      if (htmlText.trim().length > 0) return false;
-
-      // External copy with ONLY text/plain:
-      //   - Looks like Markdown → parse via editor.markdown.parse() and
-      //     insert structured blocks.
-      //   - Otherwise → let ProseMirror insert as clean text.
+      // External text paste: if it looks like Markdown, ALWAYS parse it
+      // as Markdown regardless of whether HTML is also present.  Many
+      // sources (GitHub, VS Code, Typora) put rendered HTML alongside
+      // the Markdown plain text, but the HTML is often lossy (missing
+      // marks, stripped formatting).  The Markdown text is the source
+      // of truth.
       if (editor?.markdown && plainText && looksLikeMarkdown(plainText)) {
         event.preventDefault();
         const json = editor.markdown.parse(plainText);
@@ -77,6 +76,7 @@ export function createPasteHandler(
         return true;
       }
 
+      // Non-Markdown external paste with HTML → let ProseMirror handle.
       return false;
     }
 
