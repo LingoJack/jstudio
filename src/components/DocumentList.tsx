@@ -15,11 +15,11 @@ import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
 // Constants
 // ──────────────────────────────────────────────────────────────────
 
-/** MIME type used to identify a dragged document during HTML5 DnD. */
-const DRAG_MIME = 'application/x-jstudio-doc';
-
 /** Sentinel id for the root-level drop zone (no folder). */
 const ROOT_DROP_ID = '__root__';
+
+/** Minimum pointer movement (px) before a click becomes a drag. */
+const DRAG_THRESHOLD = 5;
 
 interface ContextMenuState {
   x: number;
@@ -69,12 +69,26 @@ export default function DocumentList() {
   const [folderRenameValue, setFolderRenameValue] = useState('');
   const folderRenameRef = useRef<HTMLInputElement>(null);
 
-  // ── Drag-and-drop state ───────────────────────────────────
-  /** The doc id being dragged (ref — no re-render needed on start/end). */
-  const draggedDocId = useRef<string | null>(null);
-  /** The current drop target id (`ROOT_DROP_ID` or a folder id). Drives highlight. */
+  // ── Pointer-drag state ────────────────────────────────────
+  /**
+   * Drag state lives entirely in a ref so pointermove never triggers
+   * a React re-render on its own.  We promote to visual state only
+   * when something the user can *see* changes (dragging on/off,
+   * highlight target switch).
+   */
+  const drag = useRef({
+    docId: '',
+    startX: 0,
+    startY: 0,
+    active: false,   // true once the threshold is exceeded
+    pointerId: -1,
+  });
+
+  /** Visual: which doc row is currently being dragged (dim it). */
+  const [draggingDocId, setDraggingDocId] = useState<string | null>(null);
+  /** Visual: which drop target is currently highlighted. */
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
-  /** Brief flash when a move succeeds — drives a pulse animation. */
+  /** Brief flash when a move succeeds. */
   const [flashFolderId, setFlashFolderId] = useState<string | null>(null);
 
   // ── Derived: folder expand state ──────────────────────────
@@ -277,87 +291,143 @@ export default function DocumentList() {
     }
   }, [importDocumentFromMarkdown]);
 
-  // ── Drag-and-drop handlers ────────────────────────────────
-
-  /** Fired on the **document** row when a drag starts. */
-  const handleDragStart = (e: React.DragEvent, docId: string) => {
-    draggedDocId.current = docId;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData(DRAG_MIME, docId);
-    // Transparent image so the browser ghost doesn't look janky
-    const ghost = document.createElement('div');
-    ghost.style.opacity = '0';
-    document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, 0, 0);
-    setTimeout(() => ghost.remove(), 0);
-  };
-
-  const handleDragEnd = () => {
-    draggedDocId.current = null;
-    setDragOverTarget(null);
-  };
+  // ── Pointer-based drag-and-drop ───────────────────────────
+  //
+  // The drag is split into three phases:
+  //
+  // 1. pointerdown on a doc row  →  record start position + docId.
+  //    We do NOT enter "dragging" yet — a simple click should still
+  //    open the document.
+  //
+  // 2. pointermove (global)      →  once movement exceeds DRAG_THRESHOLD,
+  //    enter dragging mode.  From then on every move uses
+  //    elementFromPoint() to find the `[data-drop-target]` under the
+  //    cursor and highlights it.
+  //
+  // 3. pointerup (global)        →  if dragging, look up the drop target
+  //    one final time and commit the move.  If not dragging (i.e. it
+  //    was a click), do nothing — the row's onClick will fire next.
 
   /**
-   * Shared drag-over logic for folder rows and the root drop zone.
-   * `targetId` is either `ROOT_DROP_ID` or a folder id.
+   * After a successful drag the browser fires a synthetic `click` on the
+   * source row.  This ref lets us swallow that single click.
    */
-  const handleDragOver = (e: React.DragEvent, targetId: string) => {
-    if (!draggedDocId.current) return;
-    e.preventDefault(); // allow drop
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverTarget !== targetId) setDragOverTarget(targetId);
+  const suppressClick = useRef(false);
+
+  const onDocPointerDown = (e: React.PointerEvent, docId: string) => {
+    // Only left button
+    if (e.button !== 0) return;
+    // Don't interfere with text selection inside rename input
+    if (renamingId === docId) return;
+
+    drag.current = {
+      docId,
+      startX: e.clientX,
+      startY: e.clientY,
+      active: false,
+      pointerId: e.pointerId,
+    };
   };
 
-  const handleDragLeave = (e: React.DragEvent, targetId: string) => {
-    // Only clear if we're truly leaving this element (not entering a child)
-    const related = e.relatedTarget as Node | null;
-    const current = e.currentTarget as Node;
-    if (related && current.contains(related)) return;
-    if (dragOverTarget === targetId) setDragOverTarget(null);
-  };
+  // Global pointermove / pointerup — attached whenever a potential
+  // drag is in progress (pointerdown happened but pointerup hasn't yet).
+  useEffect(() => {
+    const d = drag.current;
+    if (d.pointerId === -1) return;
 
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const docId = e.dataTransfer.getData(DRAG_MIME) || draggedDocId.current;
-    if (!docId) return;
+    /** Find the drop-target id under a screen point, or null. */
+    const findDropTarget = (x: number, y: number): string | null => {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      const target = (el as HTMLElement).closest('[data-drop-target]') as HTMLElement | null;
+      return target?.dataset.dropTarget ?? null;
+    };
 
-    const folderId = targetId === ROOT_DROP_ID ? null : targetId;
+    const onMove = (e: PointerEvent) => {
+      const d = drag.current;
+      if (d.pointerId === -1) return;
 
-    // Check current folder to avoid no-op
-    const doc = docList.find((d) => d.id === docId);
-    const currentFolder = doc?.folderId ?? null;
-    if (currentFolder === folderId) {
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+
+      // Activate drag once threshold is crossed
+      if (!d.active) {
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        d.active = true;
+        setDraggingDocId(d.docId);
+      }
+
+      e.preventDefault();
+
+      // Highlight the folder under the cursor
+      const target = findDropTarget(e.clientX, e.clientY);
+      setDragOverTarget(target);
+    };
+
+    const onUp = (e: PointerEvent) => {
+      const d = drag.current;
+
+      if (d.active) {
+        // Commit the drop
+        const target = findDropTarget(e.clientX, e.clientY);
+        if (target) {
+          const folderId = target === ROOT_DROP_ID ? null : target;
+          const doc = docList.find((x) => x.id === d.docId);
+          const currentFolder = doc?.folderId ?? null;
+          if (currentFolder !== folderId) {
+            moveDocumentToFolder(d.docId, folderId);
+            if (folderId) {
+              setFlashFolderId(folderId);
+              setTimeout(() => setFlashFolderId(null), 600);
+            }
+          }
+        }
+        // Suppress the click that follows pointerup so we don't
+        // accidentally open the document.
+        suppressClick.current = true;
+      }
+
+      // Reset
+      drag.current = { docId: '', startX: 0, startY: 0, active: false, pointerId: -1 };
+      setDraggingDocId(null);
       setDragOverTarget(null);
-      return;
-    }
+    };
 
-    moveDocumentToFolder(docId, folderId);
+    const onCancel = () => {
+      drag.current = { docId: '', startX: 0, startY: 0, active: false, pointerId: -1 };
+      setDraggingDocId(null);
+      setDragOverTarget(null);
+    };
 
-    // Flash the target to confirm success
-    if (folderId) {
-      setFlashFolderId(folderId);
-      setTimeout(() => setFlashFolderId(null), 600);
-    }
-
-    draggedDocId.current = null;
-    setDragOverTarget(null);
-  };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+    };
+  }, [docList, moveDocumentToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render helpers ────────────────────────────────────────
 
-  /** Render a single document row (draggable). */
+  /** Render a single document row. */
   const renderDoc = (doc: (typeof docList)[number], depth: number) => {
     const isActive = doc.id === activeDocId;
     const isRenaming = renamingId === doc.id;
-    const isDragging = draggedDocId.current === doc.id;
+    const isDragging = draggingDocId === doc.id;
+
     return (
       <div
         key={doc.id}
-        draggable={!isRenaming}
-        onDragStart={(e) => handleDragStart(e, doc.id)}
-        onDragEnd={handleDragEnd}
-        onClick={() => openDocument(doc.id)}
+        onPointerDown={(e) => onDocPointerDown(e, doc.id)}
+        onClick={(e) => {
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
+          openDocument(doc.id);
+        }}
         onContextMenu={(e) => handleContextMenu(e, doc.id)}
         onDoubleClick={(e) => {
           e.stopPropagation();
@@ -413,15 +483,13 @@ export default function DocumentList() {
       <div key={f.id}>
         {/* Folder row — also a drop target */}
         <div
+          data-drop-target={f.id}
           onClick={() => handleToggleFolder(f.id)}
           onContextMenu={(e) => handleFolderContextMenu(e, f.id)}
           onDoubleClick={(e) => {
             e.stopPropagation();
             startFolderRename(f.id, f.name);
           }}
-          onDragOver={(e) => handleDragOver(e, f.id)}
-          onDragLeave={(e) => handleDragLeave(e, f.id)}
-          onDrop={(e) => handleDrop(e, f.id)}
           style={{ paddingLeft: `${4 + depth * 16}px` }}
           className={`group flex h-9 items-center gap-1.5 pr-2 rounded-md cursor-pointer transition-all duration-200 text-[var(--vscode-sideBar-foreground)] ${
             isFlashing
@@ -560,16 +628,14 @@ export default function DocumentList() {
         </div>
       </div>
 
-      {/* Documents + folders list */}
+      {/* Documents + folders list (root drop zone) */}
       <div
+        data-drop-target={ROOT_DROP_ID}
         className={`flex-1 overflow-y-auto space-y-0.5 pr-0.5 transition-colors duration-200 ${
           isRootDropTarget
             ? 'rounded-lg bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-[var(--vscode-focusBorder)]'
             : ''
         }`}
-        onDragOver={(e) => handleDragOver(e, ROOT_DROP_ID)}
-        onDragLeave={(e) => handleDragLeave(e, ROOT_DROP_ID)}
-        onDrop={(e) => handleDrop(e, ROOT_DROP_ID)}
       >
         {isSearching ? (
           renderSearchResults()
