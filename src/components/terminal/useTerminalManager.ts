@@ -117,6 +117,14 @@ export function useTerminalManager(
         cursorWidth: 2,
         allowProposedApi: true,
         scrollback: 10000,
+        // Enable Kitty keyboard protocol support so that terminal apps
+        // (e.g. jcli agent TUI) can correctly distinguish Shift-modified
+        // keys like Shift+/ ("?"), Shift+Enter, etc. Without this, xterm.js
+        // silently ignores PushKeyboardEnhancementFlags sequences sent by
+        // the app, causing modifier-key input to fail.
+        vtExtensions: {
+          kittyKeyboard: true,
+        },
         // Let the browser figure out the true advance width of each
         // glyph — prevents narrow/wide mismatches on mixed scripts.
         allowTransparency: true,

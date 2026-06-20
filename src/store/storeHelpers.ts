@@ -60,6 +60,7 @@ export interface StoreState {
   editorLineHeight: number;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
+  settingsActiveSection: 'general' | 'editor' | 'terminal' | 'help' | 'about';
   terminalThemeIdDark: string;
   terminalThemeIdLight: string;
   terminalFontSize: number;
@@ -123,6 +124,7 @@ export interface StoreState {
   setActivityBarBorder: (enabled: boolean) => void;
   setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
   setActiveSidebarView: (view: 'documents' | 'terminal') => void;
+  setSettingsActiveSection: (section: 'general' | 'editor' | 'terminal' | 'help' | 'about') => void;
   setTerminalThemeIdDark: (id: string) => void;
   setTerminalThemeIdLight: (id: string) => void;
   setTerminalFontSize: (size: number) => void;

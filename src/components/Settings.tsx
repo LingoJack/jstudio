@@ -1,7 +1,8 @@
-import { useState } from 'react';
 import { Info, Settings2, Terminal, PenLine, BookOpen, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
+import { useStore } from '../store/useStore';
+import type { SettingsSectionId } from '../store/uiSlice';
 import GeneralSection from './settings/GeneralSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
@@ -11,7 +12,7 @@ import HelpSection from './settings/HelpSection';
 // ────────────────────────────────────────────────
 // Settings sections
 // ────────────────────────────────────────────────
-type SectionId = 'general' | 'editor' | 'terminal' | 'about' | 'help';
+type SectionId = SettingsSectionId;
 
 interface NavItem {
   id: SectionId;
@@ -37,7 +38,8 @@ const SECTIONS: Record<SectionId, () => React.ReactElement> = {
 
 export default function Settings() {
   const { t } = useI18n();
-  const [activeSection, setActiveSection] = useState<SectionId>('general');
+  const activeSection = useStore((s) => s.settingsActiveSection);
+  const setActiveSection = useStore((s) => s.setSettingsActiveSection);
   const ActiveSection = SECTIONS[activeSection];
 
   return (

@@ -71,6 +71,9 @@ export function applyLineHeight(lineHeight: number) {
 /** Which sidebar panel is currently active. */
 export type SidebarView = 'documents' | 'terminal';
 
+/** Which settings section is currently displayed. Driven by store so palette can navigate. */
+export type SettingsSectionId = 'general' | 'editor' | 'terminal' | 'help' | 'about';
+
 /** UI slice — panel visibility, theme, font, and loading state. */
 export const createUiSlice: SliceCreator = (set, get) => ({
   themeMode: 'dark',
@@ -90,6 +93,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   editorLineHeight: DEFAULT_LINE_HEIGHT,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents',
+  settingsActiveSection: 'general',
   terminalThemeIdDark: DEFAULT_TERMINAL_THEME_ID_DARK,
   terminalThemeIdLight: DEFAULT_TERMINAL_THEME_ID_LIGHT,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
@@ -121,6 +125,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   setSearchQuery: (q) => set({ searchQuery: q }),
   setActiveSidebarView: (view) => set({ activeSidebarView: view }),
+  setSettingsActiveSection: (section) => set({ settingsActiveSection: section }),
 
   setLanguage: (lang: Language) => {
     set({ language: lang });
