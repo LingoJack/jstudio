@@ -32,7 +32,7 @@ export default function DocumentList() {
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filteredDocs = documents.filter((doc) =>
     (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
