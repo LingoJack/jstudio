@@ -35,8 +35,14 @@ export const translations = {
     // ── SearchBar ──
     'search.placeholder': '搜索文档...',
 
+    // ── TitleBar ──
+    'titlebar.collapseSidebar': '收起侧边栏',
+    'titlebar.expandSidebar': '展开侧边栏',
+    'titlebar.moreActions': '更多操作',
+
     // ── DocumentList ──
     'doclist.allDocuments': '全部文档',
+    'doclist.moreActions': '更多操作',
     'doclist.noMatch': '暂无匹配文档',
     'doclist.untitled': '无标题',
     'doclist.newDocument': '新建文档',
@@ -262,8 +268,14 @@ export const translations = {
     // ── SearchBar ──
     'search.placeholder': 'Search documents...',
 
+    // ── TitleBar ──
+    'titlebar.collapseSidebar': 'Collapse Sidebar',
+    'titlebar.expandSidebar': 'Expand Sidebar',
+    'titlebar.moreActions': 'More Actions',
+
     // ── DocumentList ──
     'doclist.allDocuments': 'All Documents',
+    'doclist.moreActions': 'More Actions',
     'doclist.noMatch': 'No matching documents',
     'doclist.untitled': 'Untitled',
     'doclist.newDocument': 'New Document',

@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { storage } from '../lib/storage';
 import { useSidebarResize } from '../hooks/useSidebarResize';
-import { FolderDot, FileText, Plus, FileDown } from 'lucide-react';
+import { FolderDot, FileText, Plus, MoreHorizontal, FileDown } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 
 interface ContextMenuState {
@@ -30,6 +30,8 @@ export default function DocumentList() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const filteredDocs = documents.filter((doc) =>
     (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
@@ -46,6 +48,18 @@ export default function DocumentList() {
       window.removeEventListener('blur', close);
     };
   }, [contextMenu]);
+
+  // close "more" menu on outside click
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [moreMenuOpen]);
 
   // focus rename input when entering rename mode
   useEffect(() => {
@@ -138,13 +152,32 @@ export default function DocumentList() {
           <span>{t('doclist.allDocuments')} {filteredDocs.length}</span>
         </h4>
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={handleImportMarkdown}
-            className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
-            title={t('doclist.importMarkdown')}
-          >
-            <FileDown className="w-4 h-4" />
-          </button>
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              onClick={() => setMoreMenuOpen((v) => !v)}
+              className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
+              title={t('doclist.moreActions')}
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {moreMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-1 min-w-[180px] py-1 rounded-md border border-[var(--vscode-editorWidget-border)] bg-[var(--vscode-quickInput-background)] shadow-lg z-30"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    handleImportMarkdown();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-100 cursor-pointer"
+                >
+                  <FileDown className="w-4 h-4 opacity-70" />
+                  <span>{t('doclist.importMarkdown')}</span>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={createDocument}
             className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"

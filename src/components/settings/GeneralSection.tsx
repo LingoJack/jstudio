@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, FileText, Settings as SettingsIcon, GripVertical, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/storage';
 import type { JcliStatus, ActivityItemId } from '../../lib/storage';
+import { ACTIVITY_ITEM_META } from '../../lib/activityMeta';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { toast } from '../../lib/toast';
@@ -430,16 +431,6 @@ function JcliSection() {
 // left Activity Bar icons.
 // ──────────────────────────────────────────────────────────────────
 
-/** Icon + label metadata for each activity bar item id. */
-const ACTIVITY_ITEM_META: Record<
-  ActivityItemId,
-  { icon: LucideIcon; labelKey: string }
-> = {
-  documents: { icon: FileText, labelKey: 'appearance.activityBarItem_documents' },
-  terminal: { icon: Terminal, labelKey: 'appearance.activityBarItem_terminal' },
-  settings: { icon: SettingsIcon, labelKey: 'appearance.activityBarItem_settings' },
-};
-
 function ActivityBarItemsSection() {
   const { t } = useI18n();
   const activityBarItems = useStore((s) => s.activityBarItems);
@@ -661,7 +652,7 @@ function ActivityBarItemsSection() {
 
               {/* Label */}
               <span className="text-sm text-[var(--vscode-foreground)] flex-1">
-                {t(meta.labelKey as 'appearance.activityBarItem_documents')}
+                {t(meta.labelKey as 'app.documents')}
               </span>
 
               {/* Visibility toggle — stop pointer propagation so it

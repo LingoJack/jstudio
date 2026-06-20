@@ -8,12 +8,10 @@ import {
   Sun,
   Monitor,
   SunMoon,
-  FileText,
-  TerminalSquare,
-  Settings,
 } from 'lucide-react';
 import type { StoreState } from '../store/storeHelpers';
 import { storage } from '../lib/storage';
+import { ACTIVITY_ITEM_META } from './activityMeta';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -61,7 +59,7 @@ export function buildCommands(): PaletteCommand[] {
     // ── Navigation ──
     {
       id: 'nav.documents',
-      icon: FileText,
+      icon: ACTIVITY_ITEM_META.documents.icon,
       titleZh: '转到文档',
       titleEn: 'Go to Documents',
       categoryZh: '导航',
@@ -76,7 +74,7 @@ export function buildCommands(): PaletteCommand[] {
     },
     {
       id: 'nav.terminal',
-      icon: TerminalSquare,
+      icon: ACTIVITY_ITEM_META.terminal.icon,
       titleZh: '转到终端',
       titleEn: 'Go to Terminal',
       categoryZh: '导航',
@@ -91,7 +89,7 @@ export function buildCommands(): PaletteCommand[] {
     },
     {
       id: 'nav.settings',
-      icon: Settings,
+      icon: ACTIVITY_ITEM_META.settings.icon,
       titleZh: '打开设置',
       titleEn: 'Open Settings',
       categoryZh: '导航',

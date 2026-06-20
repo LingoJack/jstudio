@@ -1,17 +1,7 @@
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
-import { PenLine, Settings as SettingsIcon, Terminal } from 'lucide-react';
+import { ACTIVITY_ITEM_META } from '../lib/activityMeta';
 import type { ActivityItemId } from '../lib/storage';
-
-/** Static metadata for each possible Activity Bar entry. */
-const ACTIVITY_META: Record<
-  ActivityItemId,
-  { icon: typeof PenLine; labelKey: 'app.documents' | 'app.terminal' | 'app.settings' }
-> = {
-  documents: { icon: PenLine, labelKey: 'app.documents' },
-  terminal: { icon: Terminal, labelKey: 'app.terminal' },
-  settings: { icon: SettingsIcon, labelKey: 'app.settings' },
-};
 
 /**
  * Activity Bar — the leftmost narrow strip (48px).
@@ -91,7 +81,7 @@ export default function ActivityBar() {
 
   /** Render a single activity bar entry. */
   function renderEntry(id: ActivityItemId) {
-    const meta = ACTIVITY_META[id];
+    const meta = ACTIVITY_ITEM_META[id];
     if (!meta) return null;
     const Icon = meta.icon;
     return (
