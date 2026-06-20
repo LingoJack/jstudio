@@ -343,10 +343,6 @@ export default function CommandPalette() {
 
         {/* ── Search input ── */}
         <div className="flex items-center gap-2 px-3 h-11 border-b border-[var(--vscode-input-border)]">
-          {/* Mode indicator */}
-          <span className="text-[var(--vscode-descriptionForeground)] text-sm font-mono shrink-0 w-4 text-center">
-            {isCommandMode ? '>' : ''}
-          </span>
           {!isCommandMode && (
             <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
           )}
