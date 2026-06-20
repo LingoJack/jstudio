@@ -10,8 +10,6 @@ import type { Editor } from '@tiptap/react';
 import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './editorUpload';
 import { getClipboardImageAsFile } from './clipboardImage';
-import { markdownToBlocks, isLikelyMarkdown } from './markdown';
-import { ourBlocksToTiptapJSON } from './tiptapAdapter';
 
 /**
  * Create the `handlePaste` callback for ProseMirror editorProps.
@@ -48,59 +46,23 @@ export function createPasteHandler(
     //    Finder file copies) may NOT appear as image/* in clipboardData.
     //    We probe the native clipboard via Tauri's clipboard-manager plugin.
     //
-    //    To avoid interfering with normal text pastes, we split into two
-    //    sub-cases based on whether there is "spill" text we must suppress:
+    //    IMPORTANT: Text paste (plain text, markdown, html) is NOT handled
+    //    here. The PasteMarkdown plugin handles markdown detection/parsing,
+    //    and ProseMirror's default handles everything else. This function
+    //    only intercepts clipboard items with a `file` kind.
     const hasFileItem = Array.from(items).some((i) => i.kind === 'file');
-    const plainText = event.clipboardData?.getData('text/plain') ?? '';
-    const htmlText = event.clipboardData?.getData('text/html') ?? '';
 
-    // ────────────────────────────────────────────────────────────────
-    // Text paste (has text/plain, no file item)
-    //
-    // Strategy (Notion-style):
-    //   1. Internal copy (from our own editor) → let ProseMirror handle,
-    //      preserving block structure.  We detect this via the ProseMirror
-    //      signature `data-pm-slice` in text/html.
-    //   2. External copy (web, Word, other apps) → ALWAYS discard
-    //      text/html to prevent foreign styles from bleeding in.  Work
-    //      exclusively from text/plain:
-    //        • Looks like Markdown → parse to structured blocks.
-    //        • Otherwise           → insert as clean, unstyled text.
-    // ────────────────────────────────────────────────────────────────
-    if (!hasFileItem && plainText) {
-      const isInternal = !!htmlText && htmlText.includes('data-pm-slice');
-
-      if (isInternal) {
-        // Same-editor paste: preserve structure.
-        return false;
-      }
-
-      // External paste: strip all HTML, work from plain text only.
-      event.preventDefault();
-
-      if (isLikelyMarkdown(plainText)) {
-        const blocks = markdownToBlocks(plainText);
-        const tiptapJSON = ourBlocksToTiptapJSON(blocks);
-        editorRef.current
-          ?.chain()
-          .focus()
-          .insertContent(tiptapJSON)
-          .run();
-      } else {
-        // Clean text: insert as paragraphs, no foreign styles.
-        editorRef.current
-          ?.chain()
-          .focus()
-          .insertContent(plainText)
-          .run();
-      }
-      return true;
+    if (!hasFileItem) {
+      // Pure text paste — let PasteMarkdown plugin + ProseMirror handle it.
+      return false;
     }
 
-    // Here: either a file-kind item is present (Finder copy / drag), or
-    // clipboardData is completely empty (pure screenshot to clipboard).
-    // In both cases we probe the native clipboard. preventDefault now in
-    // case there is spill text; if no image is found we restore the text.
+    const plainText = event.clipboardData?.getData('text/plain') ?? '';
+
+    // File-kind item present (Finder copy / drag) or clipboardData is
+    // completely empty (pure screenshot to clipboard).
+    // Probe the native clipboard. preventDefault now in case there is spill
+    // text; if no image is found we restore the text.
     event.preventDefault();
     getClipboardImageAsFile().then((file) => {
       const editor = editorRef.current;

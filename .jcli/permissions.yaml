@@ -44,4 +44,6 @@ allow:
 - Shell(cd /Users/lingojack/dev_custom/jcli/apps/jstudio/src-tauri:*)
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/src/components/:*)
 - Shell(cat /Users/lingojack/dev_custom/jcli/apps/jstudio/package.json:*)
+- Shell(npm list:*)
+- Shell(node -e:*)
 deny: []

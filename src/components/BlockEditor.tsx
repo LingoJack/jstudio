@@ -31,6 +31,7 @@ import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
 import TextAlign from '@tiptap/extension-text-align';
+import { Markdown } from '@tiptap/markdown';
 
 import Color from '@tiptap/extension-color';
 
@@ -45,6 +46,7 @@ import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import { BlockNavigation } from '../lib/blockNavigation';
 import { lowlight } from '../lib/extensions/lowlight';
 import { SelectAllText } from '../lib/extensions/selectAllText';
+import { PasteMarkdown } from '../lib/pasteMarkdown';
 import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
 import TableControls from './TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
@@ -140,6 +142,10 @@ export default function BlockEditor() {
       BlockNavigation.configure({
         onExitToTitle: () => focusTitleEnd(),
       }),
+      Markdown.configure({
+        markedOptions: { gfm: true, breaks: true },
+      }),
+      PasteMarkdown,
     ],
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     onUpdate: handleChange,

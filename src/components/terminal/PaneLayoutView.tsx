@@ -23,13 +23,48 @@ type TerminalOptionsWithCursorHidden = import('@xterm/xterm').ITerminalOptions &
 // ────────────────────────────────────────────────
 
 interface LayoutPlan {
+  /** Layout identifier — also used by render to detect 'stack'. */
   kind: string;
   containerCls: string;
   containerStyle: CSSProperties;
+  /** Per-pane inline styles (grid-column / grid-row placement, etc.). */
   cells: CSSProperties[];
 }
 
+/**
+ * Compute a Kitty-style pane layout using CSS Grid.
+ *
+ * Every multi-pane layout (tall / fat / grid / horizontal / vertical)
+ * is expressed as a single CSS Grid with explicit `grid-column` /
+ * `grid-row` placement for each cell.  This avoids empty cells and
+ * produces proper master+stack nesting (the hallmark of Kitty's
+ * window layouts).
+ *
+ * Visual reference (n = number of panes):
+ *
+ *   tall (master left + right stack)
+ *     n=2  ┌─────┬───┐    n=3  ┌─────┬───┐
+ *          │  0  │ 1 │         │     │ 1 │
+ *          └─────┴───┘         │  0  ├───┤
+ *                              │     │ 2 │
+ *                              └─────┴───┘
+ *
+ *   fat (master top + bottom row)
+ *     n=2  ┌───────┐      n=3  ┌───────────┐
+ *          │   0   │           │     0     │
+ *          ├───────┤           ├─────┬─────┤
+ *          │   1   │           │  1  │  2  │
+ *          └───────┘           └─────┴─────┘
+ *
+ *   grid (best-fit, no empty cells)
+ *     n=3  ┌───┬───┐    n=5  ┌───┬───┬───┐
+ *          │ 0 │ 1 │         │ 0 │ 1 │ 2 │
+ *          ├───┴───┤         ├───┼───┴───┤
+ *          │   2   │         │ 3 │   4   │
+ *          └───────┘         └───┴───────┘
+ */
 function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
+  // ── Single pane ──
   if (n <= 1) {
     return {
       kind: 'single',
@@ -39,58 +74,112 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
     };
   }
 
-  switch (layout) {
-    case 'stack':
-      return {
-        kind: 'stack',
-        containerCls: 'w-full h-full',
-        containerStyle: {},
-        cells: [{ width: '100%', height: '100%' }],
-      };
+  // ── Stack: only active pane visible ──
+  if (layout === 'stack') {
+    return {
+      kind: 'stack',
+      containerCls: 'w-full h-full',
+      containerStyle: {},
+      cells: [{ width: '100%', height: '100%' }],
+    };
+  }
 
+  // ── All multi-pane layouts use CSS Grid ──
+
+  switch (layout) {
     case 'horizontal':
       return {
         kind: 'horizontal',
-        containerCls: 'w-full h-full flex flex-row',
-        containerStyle: { gap: '1px' },
-        cells: Array.from({ length: n }, () => ({
-          flex: '1 1 0',
-          minWidth: 0,
-          height: '100%',
-        })),
+        containerCls: 'w-full h-full grid',
+        containerStyle: {
+          gap: '1px',
+          gridTemplateColumns: `repeat(${n}, 1fr)`,
+          gridTemplateRows: '1fr',
+        },
+        cells: Array.from({ length: n }, () => ({ minWidth: 0, minHeight: 0 })),
       };
 
     case 'vertical':
       return {
         kind: 'vertical',
-        containerCls: 'w-full h-full flex flex-col',
-        containerStyle: { gap: '1px' },
-        cells: Array.from({ length: n }, () => ({
-          flex: '1 1 0',
-          minHeight: 0,
-          width: '100%',
-        })),
+        containerCls: 'w-full h-full grid',
+        containerStyle: {
+          gap: '1px',
+          gridTemplateColumns: '1fr',
+          gridTemplateRows: `repeat(${n}, 1fr)`,
+        },
+        cells: Array.from({ length: n }, () => ({ minWidth: 0, minHeight: 0 })),
       };
 
-    case 'fat': {
+    // ── Tall: master left (full height) + vertical stack on right ──
+    case 'tall': {
+      const stackRows = n - 1; // panes in the right column
       const cells: CSSProperties[] = [
-        { flex: '1.2 1 0', minHeight: 0, width: '100%' },
-        ...Array.from({ length: n - 1 }, () => ({
-          flex: '1 1 0',
-          minWidth: 0,
-        })),
+        { gridColumn: '1', gridRow: `1 / span ${stackRows}` },
       ];
+      for (let i = 0; i < stackRows; i++) {
+        cells.push({ gridColumn: '2', gridRow: `${i + 1}` });
+      }
       return {
-        kind: 'fat',
-        containerCls: 'w-full h-full flex flex-col',
-        containerStyle: { gap: '1px' },
+        kind: 'tall',
+        containerCls: 'w-full h-full grid',
+        containerStyle: {
+          gap: '1px',
+          gridTemplateColumns: '1.5fr 1fr',
+          gridTemplateRows: `repeat(${stackRows}, 1fr)`,
+        },
         cells,
       };
     }
 
-    case 'grid': {
+    // ── Fat: master top (full width) + horizontal row on bottom ──
+    case 'fat': {
+      const stackCols = n - 1; // panes in the bottom row
+      const cells: CSSProperties[] = [
+        { gridRow: '1', gridColumn: `1 / span ${stackCols}` },
+      ];
+      for (let i = 0; i < stackCols; i++) {
+        cells.push({ gridRow: '2', gridColumn: `${i + 1}` });
+      }
+      return {
+        kind: 'fat',
+        containerCls: 'w-full h-full grid',
+        containerStyle: {
+          gap: '1px',
+          gridTemplateColumns: `repeat(${stackCols}, 1fr)`,
+          gridTemplateRows: '1.5fr 1fr',
+        },
+        cells,
+      };
+    }
+
+    // ── Grid: best-fit square grid, last partial row stretches ──
+    case 'grid':
+    default: {
       const cols = Math.ceil(Math.sqrt(n));
       const rows = Math.ceil(n / cols);
+      const remainder = n % cols; // panes in last partial row (0 = perfect)
+
+      const cells: CSSProperties[] = [];
+      for (let i = 0; i < n; i++) {
+        const row = Math.floor(i / cols);
+        const posInRow = i % cols;
+        const isLastRow = row === rows - 1;
+        const lastRowCount = remainder === 0 ? cols : remainder;
+        const isLastInPartialRow =
+          isLastRow && remainder > 0 && posInRow === lastRowCount - 1;
+
+        if (isLastInPartialRow) {
+          // Stretch the final item in a partial row to fill all remaining columns
+          cells.push({
+            gridRow: `${row + 1}`,
+            gridColumn: `${posInRow + 1} / ${cols + 1}`,
+          });
+        } else {
+          cells.push({ gridRow: `${row + 1}`, gridColumn: `${posInRow + 1}` });
+        }
+      }
+
       return {
         kind: 'grid',
         containerCls: 'w-full h-full grid',
@@ -99,27 +188,6 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
         },
-        cells: Array.from({ length: n }, () => ({
-          minWidth: 0,
-          minHeight: 0,
-        })),
-      };
-    }
-
-    case 'tall':
-    default: {
-      const cells: CSSProperties[] = [
-        { flex: '1.2 1 0', minWidth: 0, height: '100%' },
-        ...Array.from({ length: n - 1 }, () => ({
-          flex: '1 1 0',
-          minHeight: 0,
-          width: '100%',
-        })),
-      ];
-      return {
-        kind: 'tall',
-        containerCls: 'w-full h-full flex flex-row',
-        containerStyle: { gap: '1px' },
         cells,
       };
     }

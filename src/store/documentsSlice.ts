@@ -5,7 +5,7 @@ import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
-import { markdownToBlocks } from '../lib/markdown';
+import { markdownToBlocks } from '../lib/markdownImport';
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
