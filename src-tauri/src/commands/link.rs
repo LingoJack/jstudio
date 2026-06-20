@@ -115,7 +115,17 @@ fn decrypt_cookie_value(encrypted: &[u8], key: &[u8; 16]) -> Result<String, Stri
         .decrypt_padded_vec_mut::<Pkcs7>(ciphertext)
         .map_err(|e| format!("AES decrypt failed: {e}"))?;
 
-    String::from_utf8(plaintext).map_err(|e| format!("decrypted cookie not UTF-8: {e}"))
+    // Chrome 127+ (macOS) adds an app-bound encryption layer. The AES
+    // decrypted output is `[32-byte app-bound hash][actual cookie value]`.
+    // We skip the 32-byte prefix to recover the real cookie value.
+    let cookie_value = if plaintext.len() > 32 {
+        &plaintext[32..]
+    } else {
+        // Older Chrome versions without app-bound encryption.
+        &plaintext[..]
+    };
+
+    String::from_utf8(cookie_value.to_vec()).map_err(|e| format!("decrypted cookie not UTF-8: {e}"))
 }
 
 fn extract_domain(url: &str) -> Result<String, String> {
@@ -173,15 +183,21 @@ fn read_chrome_cookies_raw(url: &str) -> Result<Vec<(String, String)>, String> {
         let mut stmt = conn
             .prepare(
                 "SELECT name, encrypted_value, host_key FROM cookies
-                 WHERE host_key LIKE ?1 OR host_key LIKE ?2",
+                 WHERE host_key = ?1 OR host_key = ?2 OR host_key = ?3 OR host_key = ?4",
             )
             .map_err(|e| format!("cookies query failed: {e}"))?;
 
-        let pattern1 = format!("%{domain}%");
-        let pattern2 = format!("%{host}%");
+        // Match exact Chrome host_key entries:
+        //   1. `.github.com`   — parent domain cookies (covered by domain)
+        //   2. `github.com`    — exact host cookies
+        //   3. `.www.github.com` — sub-domain of the requested host
+        let pattern1 = format!(".{domain}");
+        let pattern2 = domain.clone();
+        let pattern3 = format!(".{host}");
+        let pattern4 = host.clone();
 
         let raw_rows: Vec<(String, Vec<u8>)> = stmt
-            .query_map([&pattern1, &pattern2], |row| {
+            .query_map([&pattern1, &pattern2, &pattern3, &pattern4], |row| {
                 let name: String = row.get(0)?;
                 let encrypted: Vec<u8> = row.get(1)?;
                 Ok((name, encrypted))
