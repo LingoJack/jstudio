@@ -577,6 +577,47 @@ fn rewrite_html_urls(html: &str) -> String {
 // HTML parsing helpers
 // ---------------------------------------------------------------------------
 
+/// Snap a byte index to the nearest preceding UTF-8 char boundary (<= idx).
+fn floor_char_boundary(s: &str, idx: usize) -> usize {
+    if idx >= s.len() {
+        s.len()
+    } else if idx == 0 {
+        0
+    } else {
+        let mut i = idx;
+        while !s.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
+    }
+}
+
+/// Snap a byte index to the nearest following UTF-8 char boundary (>= idx).
+fn ceil_char_boundary(s: &str, idx: usize) -> usize {
+    if idx >= s.len() {
+        s.len()
+    } else if idx == 0 {
+        0
+    } else {
+        let mut i = idx;
+        while !s.is_char_boundary(i) {
+            i += 1;
+        }
+        i
+    }
+}
+
+/// Safe substring slice — snaps both indices to valid char boundaries.
+fn safe_slice(s: &str, start: usize, end: usize) -> &str {
+    let start = floor_char_boundary(s, start.min(s.len()));
+    let end = ceil_char_boundary(s, end.min(s.len()));
+    if start < end {
+        &s[start..end]
+    } else {
+        &s[start..start]
+    }
+}
+
 fn extract_html_title(html: &str) -> Option<String> {
     let lower = html.to_lowercase();
     let start = lower.find("<title")?;
@@ -597,10 +638,10 @@ fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
     let mut pos = 0;
     while let Some(idx) = lower[pos..].find(&search) {
         let abs = pos + idx;
-        let win_start = abs.saturating_sub(200);
-        let win_end = (abs + search.len() + 300).min(html.len());
-        let window = &html[win_start..win_end];
-        let window_lower = &lower[win_start..win_end];
+        let win_start = floor_char_boundary(&lower, abs.saturating_sub(200));
+        let win_end = ceil_char_boundary(&lower, (abs + search.len() + 300).min(html.len()));
+        let window = safe_slice(html, win_start, win_end);
+        let window_lower = safe_slice(&lower, win_start, win_end);
 
         if let Some(c_idx) = window_lower.find("content=\"") {
             let c_start = c_idx + 9;
@@ -623,9 +664,9 @@ fn extract_favicon_url(html: &str, base_url: &str) -> String {
     for rel in ["shortcut icon", "icon", "apple-touch-icon"] {
         let search = format!("rel=\"{rel}\"");
         if let Some(idx) = lower.find(&search) {
-            let win_end = (idx + 300).min(html.len());
-            let window = &html[idx..win_end];
-            let window_lower = &lower[idx..win_end];
+            let win_end = ceil_char_boundary(html, (idx + 300).min(html.len()));
+            let window = safe_slice(html, idx, win_end);
+            let window_lower = safe_slice(&lower, idx, win_end);
 
             if let Some(h_idx) = window_lower.find("href=\"") {
                 let h_start = h_idx + 6;
