@@ -1,4 +1,4 @@
-import { storage, type ThemeMode, type Language, type TerminalCursorStyle } from '../lib/storage';
+import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
 import type { SliceCreator } from './storeHelpers';
 import {
   DEFAULT_LATIN_FONT_ID,

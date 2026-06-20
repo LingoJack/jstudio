@@ -190,6 +190,8 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'bulletList';
     case 'ordered-list':
       return 'orderedList';
+    case 'divider':
+      return 'horizontalRule';
     default:
       return 'paragraph';
   }
@@ -230,6 +232,8 @@ function tiptapTypeToOurType(
       return 'bullet-list';
     case 'orderedList':
       return 'ordered-list';
+    case 'horizontalRule':
+      return 'divider';
     default:
       return 'text';
   }
@@ -429,6 +433,10 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       }));
       break;
     }
+    case 'divider': {
+      // horizontalRule is an atom node — no content needed.
+      break;
+    }
     default:
       // Fallback: treat as plain paragraph.
       break;
@@ -551,6 +559,10 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         }
       }
       block.content = items as unknown as RichText[] | string;
+      break;
+    }
+    case 'divider': {
+      block.content = [];
       break;
     }
     default:

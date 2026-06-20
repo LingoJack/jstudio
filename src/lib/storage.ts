@@ -32,12 +32,39 @@ export interface DocumentMeta {
  */
 export type TerminalCursorStyle = 'block' | 'underline' | 'bar';
 
+/**
+ * Identifiers for items that can appear in the left Activity Bar.
+ * The array order in `ActivityBarItemConfig[]` determines display order.
+ */
+export type ActivityItemId = 'documents' | 'terminal' | 'settings';
+
+/**
+ * Configuration for a single Activity Bar entry — visibility + position
+ * (position is implied by the array index in `activityBarItems`).
+ */
+export interface ActivityBarItemConfig {
+  id: ActivityItemId;
+  visible: boolean;
+}
+
+/** Default order & visibility for the Activity Bar. */
+export const DEFAULT_ACTIVITY_BAR_ITEMS: ActivityBarItemConfig[] = [
+  { id: 'documents', visible: true },
+  { id: 'terminal', visible: true },
+  { id: 'settings', visible: true },
+];
+
 export interface AppSettings {
   theme?: ThemeMode;
   /** UI display language — 'zh' (default) or 'en' */
   language?: Language;
   /** Whether to show a colored border on the active Activity Bar icon */
   activityBarBorder?: boolean;
+  /**
+   * Activity Bar item visibility and ordering.
+   * Each entry controls one icon; array order determines display order.
+   */
+  activityBarItems?: ActivityBarItemConfig[];
   /** Latin font preset id — see LATIN_FONTS in lib/fonts.ts */
   fontId?: string;
   /** CJK (Chinese) font preset id — see CJK_FONTS in lib/fonts.ts */

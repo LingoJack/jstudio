@@ -13,7 +13,8 @@ export type BlockType =
   | 'file'
   | 'table'
   | 'bullet-list'
-  | 'ordered-list';
+  | 'ordered-list'
+  | 'divider';
 
 export interface BlockProperties {
   language?: string; // code block syntax

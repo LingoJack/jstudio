@@ -10,6 +10,7 @@ import type { Editor } from '@tiptap/react';
 import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './editorUpload';
 import { getClipboardImageAsFile } from './clipboardImage';
+import { looksLikeMarkdown } from './pasteMarkdown';
 
 /**
  * Create the `handlePaste` callback for ProseMirror editorProps.
@@ -53,7 +54,29 @@ export function createPasteHandler(
     const hasFileItem = Array.from(items).some((i) => i.kind === 'file');
 
     if (!hasFileItem) {
-      // Pure text paste — let PasteMarkdown plugin + ProseMirror handle it.
+      // Pure text paste — handle Markdown or let ProseMirror handle the rest.
+      const editor = editorRef.current;
+      const clipboardData = event.clipboardData;
+      const htmlText = clipboardData?.getData('text/html') ?? '';
+      const plainText = clipboardData?.getData('text/plain') ?? '';
+
+      // Internal copy (from our own editor) → preserve structure.
+      if (htmlText.includes('data-pm-slice')) return false;
+
+      // External copy WITH substantive HTML → let ProseMirror handle it.
+      if (htmlText.trim().length > 0) return false;
+
+      // External copy with ONLY text/plain:
+      //   - Looks like Markdown → parse via editor.markdown.parse() and
+      //     insert structured blocks.
+      //   - Otherwise → let ProseMirror insert as clean text.
+      if (editor?.markdown && plainText && looksLikeMarkdown(plainText)) {
+        event.preventDefault();
+        const json = editor.markdown.parse(plainText);
+        editor.commands.insertContent(json);
+        return true;
+      }
+
       return false;
     }
 

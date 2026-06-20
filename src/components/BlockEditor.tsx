@@ -46,7 +46,6 @@ import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import { BlockNavigation } from '../lib/blockNavigation';
 import { lowlight } from '../lib/extensions/lowlight';
 import { SelectAllText } from '../lib/extensions/selectAllText';
-import { PasteMarkdown } from '../lib/pasteMarkdown';
 import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
 import TableControls from './TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
@@ -145,7 +144,6 @@ export default function BlockEditor() {
       Markdown.configure({
         markedOptions: { gfm: true, breaks: true },
       }),
-      PasteMarkdown,
     ],
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     onUpdate: handleChange,
