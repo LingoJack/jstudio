@@ -62,7 +62,7 @@ export function MenuItem({
 /** A thin separator line between menu groups. */
 export function MenuDivider() {
   return (
-    <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
+    <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)] opacity-60" />
   );
 }
 

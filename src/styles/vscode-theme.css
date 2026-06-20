@@ -57,6 +57,8 @@
   --vscode-textPreformat-background: #0000001F;
   --vscode-menu-background: #FFFFFF;
   --vscode-menu-border: #CECECE;
+  --vscode-menu-hoverBackground: #F2F2F2;
+  --vscode-menu-separatorBackground: #E5E5E5;
   --vscode-menu-selectionBackground: #0052D9;
   --vscode-menu-selectionForeground: #FFFFFF;
   --vscode-list-hoverBackground: #F2F2F2;
@@ -173,6 +175,8 @@
   --vscode-textPreformat-background: #3C3C3C;
   --vscode-menu-background: #1F1F1F;
   --vscode-menu-border: #454545;
+  --vscode-menu-hoverBackground: #2A2D2E;
+  --vscode-menu-separatorBackground: #3A3A3A;
   --vscode-menu-selectionBackground: #07C160;
   --vscode-menu-selectionForeground: #FFFFFF;
   --vscode-list-hoverBackground: #F1F1F133;
