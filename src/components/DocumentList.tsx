@@ -11,13 +11,22 @@ import {
 import DocumentContextMenu from './DocumentContextMenu';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
 
+// ──────────────────────────────────────────────────────────────────
+// Constants
+// ──────────────────────────────────────────────────────────────────
+
+/** MIME type used to identify a dragged document during HTML5 DnD. */
+const DRAG_MIME = 'application/x-jstudio-doc';
+
+/** Sentinel id for the root-level drop zone (no folder). */
+const ROOT_DROP_ID = '__root__';
+
 interface ContextMenuState {
   x: number;
   y: number;
   docId: string;
 }
 
-/** Context-menu state for folder right-click. */
 interface FolderMenuState {
   x: number;
   y: number;
@@ -47,6 +56,7 @@ export default function DocumentList() {
 
   const { onResizeStart } = useSidebarResize();
 
+  // ── UI state ──────────────────────────────────────────────
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -54,16 +64,20 @@ export default function DocumentList() {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Folder UI state
   const [folderMenu, setFolderMenu] = useState<FolderMenuState | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [folderRenameValue, setFolderRenameValue] = useState('');
   const folderRenameRef = useRef<HTMLInputElement>(null);
-  const [moveMenuDocId, setMoveMenuDocId] = useState<string | null>(null);
-  const [moveMenuPos, setMoveMenuPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Folder expand/collapse state is derived directly from the persisted
-  // `collapsed` field on FolderMeta — single source of truth, survives reload.
+  // ── Drag-and-drop state ───────────────────────────────────
+  /** The doc id being dragged (ref — no re-render needed on start/end). */
+  const draggedDocId = useRef<string | null>(null);
+  /** The current drop target id (`ROOT_DROP_ID` or a folder id). Drives highlight. */
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+  /** Brief flash when a move succeeds — drives a pulse animation. */
+  const [flashFolderId, setFlashFolderId] = useState<string | null>(null);
+
+  // ── Derived: folder expand state ──────────────────────────
   const isFolderExpanded = useCallback(
     (folderId: string) => {
       const f = folders.find((x) => x.id === folderId);
@@ -72,7 +86,7 @@ export default function DocumentList() {
     [folders],
   );
 
-  // ── Derived: tree + search results ────────────────────────
+  // ── Derived: tree + search ────────────────────────────────
   const isSearching = searchQuery.trim().length > 0;
   const filteredDocs = useMemo(
     () =>
@@ -89,7 +103,7 @@ export default function DocumentList() {
   );
   const rootDocCount = tree.documents.length;
 
-  // ── Effects: close menus on outside action ────────────────
+  // ── Effects: auto-close menus ─────────────────────────────
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -113,24 +127,6 @@ export default function DocumentList() {
   }, [folderMenu]);
 
   useEffect(() => {
-    if (!moveMenuDocId) return;
-    const close = () => {
-      setMoveMenuDocId(null);
-      setMoveMenuPos(null);
-    };
-    // Delay to allow the click that opened the menu to pass first.
-    const timer = setTimeout(() => {
-      window.addEventListener('click', close);
-      window.addEventListener('blur', close);
-    }, 0);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('click', close);
-      window.removeEventListener('blur', close);
-    };
-  }, [moveMenuDocId]);
-
-  useEffect(() => {
     if (renamingId && renameInputRef.current) {
       renameInputRef.current.focus();
       renameInputRef.current.select();
@@ -144,7 +140,7 @@ export default function DocumentList() {
     }
   }, [renamingFolderId]);
 
-  // ── Document rename ───────────────────────────────────────
+  // ── Handlers: more menu / rename ──────────────────────────
   const openMoreMenu = useCallback(() => {
     if (moreMenuCloseTimer.current) {
       clearTimeout(moreMenuCloseTimer.current);
@@ -177,7 +173,7 @@ export default function DocumentList() {
     setContextMenu({ x: e.clientX, y: e.clientY, docId });
   };
 
-  // ── Folder actions ────────────────────────────────────────
+  // ── Handlers: folder actions ──────────────────────────────
   const handleToggleFolder = useCallback(
     (folderId: string) => {
       toggleFolderCollapsed(folderId);
@@ -229,7 +225,7 @@ export default function DocumentList() {
     [folders, deleteFolder, t],
   );
 
-  // ── Path actions (Finder, copy) ───────────────────────────
+  // ── Handlers: path / import ───────────────────────────────
   const handleOpenInFinder = useCallback(async (docId: string) => {
     try {
       await storage.openDocDir(docId);
@@ -281,37 +277,101 @@ export default function DocumentList() {
     }
   }, [importDocumentFromMarkdown]);
 
-  const handleMoveToFolder = useCallback(
-    (docId: string, folderId: string | null) => {
-      moveDocumentToFolder(docId, folderId);
-      setMoveMenuDocId(null);
-      setMoveMenuPos(null);
-      setContextMenu(null);
-    },
-    [moveDocumentToFolder],
-  );
+  // ── Drag-and-drop handlers ────────────────────────────────
+
+  /** Fired on the **document** row when a drag starts. */
+  const handleDragStart = (e: React.DragEvent, docId: string) => {
+    draggedDocId.current = docId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData(DRAG_MIME, docId);
+    // Transparent image so the browser ghost doesn't look janky
+    const ghost = document.createElement('div');
+    ghost.style.opacity = '0';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 0, 0);
+    setTimeout(() => ghost.remove(), 0);
+  };
+
+  const handleDragEnd = () => {
+    draggedDocId.current = null;
+    setDragOverTarget(null);
+  };
+
+  /**
+   * Shared drag-over logic for folder rows and the root drop zone.
+   * `targetId` is either `ROOT_DROP_ID` or a folder id.
+   */
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    if (!draggedDocId.current) return;
+    e.preventDefault(); // allow drop
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverTarget !== targetId) setDragOverTarget(targetId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, targetId: string) => {
+    // Only clear if we're truly leaving this element (not entering a child)
+    const related = e.relatedTarget as Node | null;
+    const current = e.currentTarget as Node;
+    if (related && current.contains(related)) return;
+    if (dragOverTarget === targetId) setDragOverTarget(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const docId = e.dataTransfer.getData(DRAG_MIME) || draggedDocId.current;
+    if (!docId) return;
+
+    const folderId = targetId === ROOT_DROP_ID ? null : targetId;
+
+    // Check current folder to avoid no-op
+    const doc = docList.find((d) => d.id === docId);
+    const currentFolder = doc?.folderId ?? null;
+    if (currentFolder === folderId) {
+      setDragOverTarget(null);
+      return;
+    }
+
+    moveDocumentToFolder(docId, folderId);
+
+    // Flash the target to confirm success
+    if (folderId) {
+      setFlashFolderId(folderId);
+      setTimeout(() => setFlashFolderId(null), 600);
+    }
+
+    draggedDocId.current = null;
+    setDragOverTarget(null);
+  };
 
   // ── Render helpers ────────────────────────────────────────
 
-  /** Render a single document row. */
+  /** Render a single document row (draggable). */
   const renderDoc = (doc: (typeof docList)[number], depth: number) => {
     const isActive = doc.id === activeDocId;
     const isRenaming = renamingId === doc.id;
+    const isDragging = draggedDocId.current === doc.id;
     return (
       <div
         key={doc.id}
+        draggable={!isRenaming}
+        onDragStart={(e) => handleDragStart(e, doc.id)}
+        onDragEnd={handleDragEnd}
         onClick={() => openDocument(doc.id)}
         onContextMenu={(e) => handleContextMenu(e, doc.id)}
         onDoubleClick={(e) => {
           e.stopPropagation();
           startRename(doc.id, doc.title || '');
         }}
-        style={{ paddingLeft: `${8 + depth * 16}px` }}
-        className={`group flex h-9 items-center justify-between pr-2 rounded-md cursor-pointer transition-colors duration-150 ${
+        style={{
+          paddingLeft: `${8 + depth * 16}px`,
+          opacity: isDragging ? 0.4 : undefined,
+        }}
+        className={`group flex h-9 items-center justify-between pr-2 rounded-md cursor-pointer transition-all duration-150 ${
           isActive
             ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
             : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
-        }`}
+        } ${isDragging ? 'cursor-grabbing' : ''}`}
       >
         {isRenaming ? (
           <input
@@ -346,10 +406,12 @@ export default function DocumentList() {
     const f = node.folder;
     const open = isFolderExpanded(f.id);
     const isRenaming = renamingFolderId === f.id;
+    const isDropTarget = dragOverTarget === f.id;
+    const isFlashing = flashFolderId === f.id;
 
     return (
       <div key={f.id}>
-        {/* Folder row */}
+        {/* Folder row — also a drop target */}
         <div
           onClick={() => handleToggleFolder(f.id)}
           onContextMenu={(e) => handleFolderContextMenu(e, f.id)}
@@ -357,16 +419,29 @@ export default function DocumentList() {
             e.stopPropagation();
             startFolderRename(f.id, f.name);
           }}
+          onDragOver={(e) => handleDragOver(e, f.id)}
+          onDragLeave={(e) => handleDragLeave(e, f.id)}
+          onDrop={(e) => handleDrop(e, f.id)}
           style={{ paddingLeft: `${4 + depth * 16}px` }}
-          className="group flex h-9 items-center gap-1.5 pr-2 rounded-md cursor-pointer transition-colors duration-150 hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]"
+          className={`group flex h-9 items-center gap-1.5 pr-2 rounded-md cursor-pointer transition-all duration-200 text-[var(--vscode-sideBar-foreground)] ${
+            isFlashing
+              ? 'bg-[var(--vscode-focusBorder)]'
+              : isDropTarget
+                ? 'bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-[var(--vscode-focusBorder)]'
+                : 'hover:bg-[var(--vscode-list-hoverBackground)]'
+          }`}
         >
           <ChevronRight
             className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
               open ? 'rotate-90' : ''
             }`}
           />
-          {open ? (
-            <FolderOpen className="w-4 h-4 opacity-60 shrink-0" />
+          {isDropTarget || open ? (
+            <FolderOpen
+              className={`w-4 h-4 shrink-0 transition-colors duration-200 ${
+                isDropTarget ? 'text-[var(--vscode-focusBorder)]' : 'opacity-60'
+              }`}
+            />
           ) : (
             <Folder className="w-4 h-4 opacity-60 shrink-0" />
           )}
@@ -386,7 +461,13 @@ export default function DocumentList() {
               placeholder={t('doclist.folderNamePlaceholder')}
             />
           ) : (
-            <span className="text-sm truncate flex-1">{f.name}</span>
+            <span
+              className={`text-sm truncate flex-1 transition-colors duration-200 ${
+                isDropTarget ? 'text-[var(--vscode-foreground)] font-medium' : ''
+              }`}
+            >
+              {f.name}
+            </span>
           )}
         </div>
 
@@ -415,6 +496,7 @@ export default function DocumentList() {
 
   // ── Main render ───────────────────────────────────────────
   const totalCount = docList.length;
+  const isRootDropTarget = dragOverTarget === ROOT_DROP_ID;
 
   return (
     <div
@@ -479,14 +561,21 @@ export default function DocumentList() {
       </div>
 
       {/* Documents + folders list */}
-      <div className="flex-1 overflow-y-auto space-y-0.5 pr-0.5">
+      <div
+        className={`flex-1 overflow-y-auto space-y-0.5 pr-0.5 transition-colors duration-200 ${
+          isRootDropTarget
+            ? 'rounded-lg bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-[var(--vscode-focusBorder)]'
+            : ''
+        }`}
+        onDragOver={(e) => handleDragOver(e, ROOT_DROP_ID)}
+        onDragLeave={(e) => handleDragLeave(e, ROOT_DROP_ID)}
+        onDrop={(e) => handleDrop(e, ROOT_DROP_ID)}
+      >
         {isSearching ? (
           renderSearchResults()
         ) : (
           <>
-            {/* Root-level folders */}
             {tree.subFolders.map((node) => renderNode(node, 0))}
-            {/* Root-level documents */}
             {rootDocCount === 0 && folders.length === 0 ? (
               <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
                 {t('doclist.noMatch')}
@@ -547,39 +636,7 @@ export default function DocumentList() {
           onOpenInFinder={() => handleOpenInFinder(contextMenu.docId)}
           onCopyPath={() => handleCopyPath(contextMenu.docId)}
           onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
-          onMoveTo={() => {
-            // Capture position, close the context menu, then show move submenu.
-            setMoveMenuPos({ x: contextMenu.x, y: contextMenu.y });
-            setMoveMenuDocId(contextMenu.docId);
-            setContextMenu(null);
-          }}
         />
-      )}
-
-      {/* Move-to-folder submenu */}
-      {moveMenuDocId && moveMenuPos && (
-        <MenuList
-          x={moveMenuPos.x}
-          y={moveMenuPos.y}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MenuItem
-            icon={<Folder />}
-            onClick={() => handleMoveToFolder(moveMenuDocId, null)}
-          >
-            {t('doclist.rootLevel')}
-          </MenuItem>
-          <MenuDivider />
-          {folders.map((f) => (
-            <MenuItem
-              key={f.id}
-              icon={<Folder />}
-              onClick={() => handleMoveToFolder(moveMenuDocId, f.id)}
-            >
-              {f.name}
-            </MenuItem>
-          ))}
-        </MenuList>
       )}
 
       {/* Resize handle */}

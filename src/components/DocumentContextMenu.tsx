@@ -1,5 +1,5 @@
 import { useI18n } from '../lib/i18n';
-import { Pencil, Trash2, FolderOpen, Copy, CopyPlus, FolderInput } from 'lucide-react';
+import { Pencil, Trash2, FolderOpen, Copy, CopyPlus } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
 
 export interface DocumentContextMenuProps {
@@ -16,8 +16,6 @@ export interface DocumentContextMenuProps {
   onCopyPath: () => void;
   /** Callback when the user picks "Copy Relative Path" */
   onCopyRelativePath: () => void;
-  /** Callback when the user picks "Move to Folder" */
-  onMoveTo: () => void;
 }
 
 /**
@@ -35,7 +33,6 @@ export default function DocumentContextMenu({
   onOpenInFinder,
   onCopyPath,
   onCopyRelativePath,
-  onMoveTo,
 }: DocumentContextMenuProps) {
   const { t } = useI18n();
 
@@ -43,9 +40,6 @@ export default function DocumentContextMenu({
     <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
       <MenuItem icon={<Pencil />} onClick={onRename}>
         {t('doclist.rename')}
-      </MenuItem>
-      <MenuItem icon={<FolderInput />} onClick={onMoveTo}>
-        {t('doclist.moveTo')}
       </MenuItem>
 
       <MenuDivider />
