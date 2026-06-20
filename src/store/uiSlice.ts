@@ -77,6 +77,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   isDarkMode: true,
   language: 'zh',
   activityBarBorder: false,
+  activityBarItems: DEFAULT_ACTIVITY_BAR_ITEMS,
   isSidebarOpen: true,
   isOutlineOpen: false,
   isSettingsOpen: false,
@@ -126,6 +127,11 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setActivityBarBorder: (enabled: boolean) => {
     set({ activityBarBorder: enabled });
     storage.saveSettings({ activityBarBorder: enabled }).catch(console.error);
+  },
+
+  setActivityBarItems: (items: ActivityBarItemConfig[]) => {
+    set({ activityBarItems: items });
+    storage.saveSettings({ activityBarItems: items }).catch(console.error);
   },
 
   setFontId: (id) => {
