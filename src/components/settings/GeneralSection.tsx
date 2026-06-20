@@ -448,12 +448,28 @@ function ActivityBarItemsSection() {
   const containerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  /** Persistent drag state — sync reads during pointermove. */
-  const drag = useRef({ id: '', startY: 0, rowH: 0, active: false });
+  /**
+   * Synchronous drag state — ref so pointermove always reads latest values.
+   * During drag the data array is NEVER mutated; we only apply CSS
+   * transforms for visual feedback and commit the reorder on pointerup.
+   */
+  const drag = useRef({
+    id: '',
+    startY: 0,
+    dragIdx: -1, // index among movable (non-settings) items
+    rowH: 0,
+    movableIds: [] as string[],
+  });
 
-  /** Visual drag state — triggers re-render. */
+  /** Static midpoints captured once at drag start — the source of truth. */
+  const staticMids = useRef<Map<string, number>>(new Map());
+  /** Virtual target index (among movables), updated every pointermove. */
+  const virtualIdx = useRef(-1);
+
+  /** Visual state — triggers re-render. */
   const [dragId, setDragId] = useState<string | null>(null);
-  const [deltaY, setDeltaY] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [shifts, setShifts] = useState<Record<string, number>>({});
 
   /** Always-fresh items snapshot for window listeners. */
   const itemsRef = useRef(activityBarItems);
@@ -466,21 +482,41 @@ function ActivityBarItemsSection() {
     setActivityBarItems(next);
   };
 
-  /** Begin dragging from the grip handle. */
-  const onHandleDown = (e: React.PointerEvent, id: string) => {
+  /** Begin dragging — the entire row is the drag handle (except the toggle). */
+  const onRowPointerDown = (e: React.PointerEvent, id: string) => {
     if (e.button !== 0) return;
-    e.preventDefault();
-    const row = rowRefs.current.get(id);
-    if (!row || !containerRef.current) return;
+    const items = itemsRef.current;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const gap = parseFloat(getComputedStyle(containerRef.current).rowGap) || 6;
-    drag.current = {
-      id,
-      startY: e.clientY,
-      rowH: row.getBoundingClientRect().height + gap,
-      active: true,
-    };
+    const gap = parseFloat(getComputedStyle(container).rowGap) || 6;
+
+    // Build movable items list (exclude settings — it's locked at bottom)
+    const movableIds = items.filter((i) => i.id !== 'settings').map((i) => i.id);
+    const dragIdx = movableIds.indexOf(id);
+    if (dragIdx === -1) return;
+
+    const row = rowRefs.current.get(id);
+    if (!row) return;
+    const rowH = row.getBoundingClientRect().height + gap;
+
+    // Capture static midpoints for ALL movable items — this snapshot
+    // never changes during drag, so all calculations are stable.
+    const mids = new Map<string, number>();
+    for (const mid of movableIds) {
+      const el = rowRefs.current.get(mid);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        mids.set(mid, r.top + r.height / 2);
+      }
+    }
+
+    drag.current = { id, startY: e.clientY, dragIdx, rowH, movableIds };
+    staticMids.current = mids;
+    virtualIdx.current = dragIdx;
     setDragId(id);
+    setDragOffset(0);
+    setShifts({});
   };
 
   /** Global pointer listeners — attached only while dragging. */
@@ -489,51 +525,64 @@ function ActivityBarItemsSection() {
 
     const onMove = (e: PointerEvent) => {
       const d = drag.current;
-      if (!d.active) return;
+      if (d.id !== dragId) return;
       e.preventDefault();
 
-      const items = itemsRef.current;
-      const curIdx = items.findIndex((i) => i.id === d.id);
-      if (curIdx === -1) return;
+      const offset = e.clientY - d.startY;
+      const dragCenter = (staticMids.current.get(d.id) ?? 0) + offset;
 
-      // Find target slot by comparing pointer Y against each non-dragged row midpoint
-      let targetIdx = -1;
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].id === d.id) continue;
-        const el = rowRefs.current.get(items[i].id);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (e.clientY < r.top + r.height / 2) { targetIdx = i; break; }
+      // Virtual index = how many other movable items have their
+      // static midpoint above the dragged item's current center.
+      let count = 0;
+      for (const otherId of d.movableIds) {
+        if (otherId === d.id) continue;
+        const midY = staticMids.current.get(otherId);
+        if (midY !== undefined && midY < dragCenter) count++;
       }
-      // Pointer below all rows → last movable slot (just before settings)
-      if (targetIdx === -1) {
-        const sIdx = items.findIndex((i) => i.id === 'settings');
-        targetIdx = sIdx !== -1 ? sIdx - 1 : items.length - 1;
-      }
-      // Clamp: settings is always last
-      const sIdx = items.findIndex((i) => i.id === 'settings');
-      if (sIdx !== -1 && targetIdx >= sIdx) targetIdx = sIdx - 1;
-      if (targetIdx < 0) targetIdx = 0;
-      if (targetIdx === curIdx) {
-        setDeltaY(e.clientY - d.startY);
-        return;
+      const vIdx = Math.max(0, Math.min(d.movableIds.length - 1, count));
+      virtualIdx.current = vIdx;
+
+      // Compute CSS shifts for each non-dragged movable item.
+      // Items between the old position and the virtual position
+      // get pushed by exactly one row height.
+      const newShifts: Record<string, number> = {};
+      for (let j = 0; j < d.movableIds.length; j++) {
+        const itemId = d.movableIds[j];
+        if (itemId === d.id) continue;
+        if (vIdx > d.dragIdx && j > d.dragIdx && j <= vIdx) {
+          newShifts[itemId] = -d.rowH; // shift up to make room
+        } else if (vIdx < d.dragIdx && j < d.dragIdx && j >= vIdx) {
+          newShifts[itemId] = d.rowH; // shift down to make room
+        } else {
+          newShifts[itemId] = 0;
+        }
       }
 
-      // Reorder
-      const next = [...items];
-      const [moved] = next.splice(curIdx, 1);
-      next.splice(targetIdx, 0, moved);
-      setActivityBarItems(next);
-
-      // Compensate baseline so the element stays glued to the pointer
-      d.startY += (targetIdx - curIdx) * d.rowH;
-      setDeltaY(e.clientY - d.startY);
+      setDragOffset(offset);
+      setShifts(newShifts);
     };
 
     const onUp = () => {
-      drag.current.active = false;
+      const d = drag.current;
+      const items = itemsRef.current;
+      const vIdx = virtualIdx.current;
+
+      // Commit: reorder data array once, only if position changed.
+      if (vIdx !== d.dragIdx && vIdx >= 0) {
+        const movables = d.movableIds
+          .map((mid) => items.find((i) => i.id === mid))
+          .filter(Boolean) as typeof items;
+        const settingsItem = items.find((i) => i.id === 'settings');
+        const newMovables = [...movables];
+        const [moved] = newMovables.splice(d.dragIdx, 1);
+        newMovables.splice(vIdx, 0, moved);
+        const next = settingsItem ? [...newMovables, settingsItem] : newMovables;
+        setActivityBarItems(next);
+      }
+
       setDragId(null);
-      setDeltaY(0);
+      setDragOffset(0);
+      setShifts({});
     };
 
     window.addEventListener('pointermove', onMove, { passive: false });
@@ -562,6 +611,28 @@ function ActivityBarItemsSection() {
           const Icon = meta.icon;
           const isFixed = item.id === 'settings';
           const isDragging = dragId === item.id;
+          const shift = shifts[item.id] ?? 0;
+          const isDragActive = dragId !== null;
+
+          // Inline styles:
+          // - Dragged item: follows pointer with no transition.
+          // - Other items during drag: shift with smooth transition.
+          // - Idle (no drag): no inline style.
+          let style: React.CSSProperties | undefined;
+          if (isDragging) {
+            style = {
+              transform: `translateY(${dragOffset}px)`,
+              zIndex: 20,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+              opacity: 0.92,
+              transition: 'none',
+            };
+          } else if (isDragActive) {
+            style = {
+              transform: shift ? `translateY(${shift}px)` : undefined,
+              transition: 'transform 200ms cubic-bezier(0.2, 0, 0, 1)',
+            };
+          }
 
           return (
             <div
@@ -570,13 +641,9 @@ function ActivityBarItemsSection() {
                 if (el) rowRefs.current.set(item.id, el);
                 else rowRefs.current.delete(item.id);
               }}
-              style={isDragging ? {
-                transform: `translateY(${deltaY}px)`,
-                zIndex: 20,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-                opacity: 0.92,
-              } : undefined}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+              onPointerDown={isFixed ? undefined : (e) => onRowPointerDown(e, item.id)}
+              style={style}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border select-none ${
                 isDragging
                   ? 'border-[var(--vscode-focusBorder)] cursor-grabbing'
                   : isFixed
@@ -584,11 +651,8 @@ function ActivityBarItemsSection() {
                     : 'border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)] cursor-grab'
               } ${!item.visible && !isDragging ? 'opacity-50' : ''}`}
             >
-              {/* Drag handle */}
-              <span
-                onPointerDown={isFixed ? undefined : (e) => onHandleDown(e, item.id)}
-                className={`shrink-0 touch-none select-none ${isFixed ? 'opacity-0 pointer-events-none' : 'text-[var(--vscode-descriptionForeground)]'}`}
-              >
+              {/* Drag handle (visual hint — entire row is draggable) */}
+              <span className={`shrink-0 ${isFixed ? 'opacity-0' : 'text-[var(--vscode-descriptionForeground)]'}`}>
                 <GripVertical className="w-4 h-4" />
               </span>
 
@@ -596,12 +660,14 @@ function ActivityBarItemsSection() {
               <Icon className="w-4 h-4 text-[var(--vscode-foreground)] shrink-0" />
 
               {/* Label */}
-              <span className="text-sm text-[var(--vscode-foreground)] flex-1 select-none">
+              <span className="text-sm text-[var(--vscode-foreground)] flex-1">
                 {t(meta.labelKey as 'appearance.activityBarItem_documents')}
               </span>
 
-              {/* Visibility toggle */}
+              {/* Visibility toggle — stop pointer propagation so it
+                  doesn't initiate a drag */}
               <button
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => handleToggle(item.id)}
                 className={`relative w-9 h-5 rounded-full transition-colors duration-200 shrink-0 cursor-pointer ${
                   item.visible
