@@ -81,6 +81,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   isSidebarOpen: true,
   isOutlineOpen: false,
   isSettingsOpen: false,
+  isCommandPaletteOpen: false,
   isLoading: true,
   searchQuery: '',
   fontId: DEFAULT_LATIN_FONT_ID,
@@ -116,6 +117,8 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setOutlineOpen: (open) => set({ isOutlineOpen: open }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
+  toggleCommandPalette: () => set((s) => ({ isCommandPaletteOpen: !s.isCommandPaletteOpen })),
+  setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   setSearchQuery: (q) => set({ searchQuery: q }),
   setActiveSidebarView: (view) => set({ activeSidebarView: view }),
 

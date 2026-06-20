@@ -51,6 +51,7 @@ export interface StoreState {
   isSidebarOpen: boolean;
   isOutlineOpen: boolean;
   isSettingsOpen: boolean;
+  isCommandPaletteOpen: boolean;
   isLoading: boolean;
   searchQuery: string;
   fontId: string;
@@ -110,6 +111,8 @@ export interface StoreState {
   setOutlineOpen: (open: boolean) => void;
   toggleSettings: () => void;
   setSettingsOpen: (open: boolean) => void;
+  toggleCommandPalette: () => void;
+  setCommandPaletteOpen: (open: boolean) => void;
   setSearchQuery: (q: string) => void;
   setFontId: (id: string) => void;
   setCjkFontId: (id: string) => void;

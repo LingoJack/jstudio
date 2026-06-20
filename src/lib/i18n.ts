@@ -95,6 +95,7 @@ export const translations = {
     'settings.editor': '编辑器',
     'settings.terminal': '终端',
     'settings.about': '关于',
+    'settings.help': '帮助',
 
     // ── General section ──
     'general.latinFont': '英文字体',
@@ -144,6 +145,26 @@ export const translations = {
 
     // ── About section ──
     'about.contactAuthor': '联系作者',
+    'about.helpGuide': '帮助指南',
+    'about.helpGuideDesc': '快速了解 JStudio 的核心功能与操作方式',
+    'about.help.editor': '编辑器与块',
+    'about.help.slashMenu': '斜杠命令菜单',
+    'about.help.slashMenuDesc': '在空行输入 / 即可唤起命令面板，快速插入各种内容块：',
+    'about.help.blockTypes': '支持的块类型',
+    'about.help.editorShortcuts': '编辑器快捷键',
+    'about.help.markdownShortcuts': 'Markdown 快捷输入',
+    'about.help.markdownShortcutsDesc': '在行首输入 Markdown 标记，自动转换为对应格式：',
+    'about.help.formatToolbar': '选中文字后，会自动浮现格式工具栏，可快速加粗、斜体、删除线、行内代码。',
+    'about.help.outline': '点击编辑器右上角的大纲图标，可展开文档大纲，快速跳转到各标题。',
+    'about.help.terminal': '终端',
+    'about.help.terminalTabs': '标签页管理',
+    'about.help.terminalSplit': '分屏与面板',
+    'about.help.terminalLayout': '面板布局',
+    'about.help.terminalLayoutDesc': '使用快捷键在以下 5 种布局间循环切换：',
+    'about.help.cursorTrail': '光标拖尾动画',
+    'about.help.cursorTrailDesc': '终端光标移动时，会出现彗星尾巴般的拖尾动画效果（移植自 Kitty 终端）。拖尾形状会自动跟随光标样式（块状 / 下划线 / 竖线）变化。可在「设置 → 终端」中切换光标样式。',
+    'about.help.terminalTemplates': '终端模板',
+    'about.help.terminalTemplatesDesc': '在「设置 → 终端 → 模板」中可创建终端模板，预设名称和工作目录，方便一键启动特定项目的终端。',
 
     // ── jcli section ──
     'jcli.title': 'JCLI 命令行工具',
@@ -177,6 +198,11 @@ export const translations = {
 
     // ── BlockEditor placeholder ──
     'editor.placeholder': '输入 / 唤起命令菜单…',
+
+    // ── Command Palette ──
+    'palette.placeholder': '搜索文档或输入 > 执行命令…',
+    'palette.shortcutHint': '⌘P',
+    'palette.noResults': '无匹配结果',
 
     // ── CodeBlockView ──
     'code.copy': '复制代码',
@@ -296,6 +322,7 @@ export const translations = {
     'settings.editor': 'Editor',
     'settings.terminal': 'Terminal',
     'settings.about': 'About',
+    'settings.help': 'Help',
 
     // ── General section ──
     'general.latinFont': 'Latin Font',
@@ -345,6 +372,26 @@ export const translations = {
 
     // ── About section ──
     'about.contactAuthor': 'Contact Author',
+    'about.helpGuide': 'Help Guide',
+    'about.helpGuideDesc': 'Quickly learn the core features and operations of JStudio',
+    'about.help.editor': 'Editor & Blocks',
+    'about.help.slashMenu': 'Slash Command Menu',
+    'about.help.slashMenuDesc': 'Type / on an empty line to bring up the command palette and quickly insert various blocks:',
+    'about.help.blockTypes': 'Supported block types',
+    'about.help.editorShortcuts': 'Editor Shortcuts',
+    'about.help.markdownShortcuts': 'Markdown Shortcuts',
+    'about.help.markdownShortcutsDesc': 'Type Markdown markers at the start of a line to auto-convert:',
+    'about.help.formatToolbar': 'Select text to show a floating format toolbar for bold, italic, strikethrough, and inline code.',
+    'about.help.outline': 'Click the outline icon in the top-right corner of the editor to open the document outline and jump to headings.',
+    'about.help.terminal': 'Terminal',
+    'about.help.terminalTabs': 'Tab Management',
+    'about.help.terminalSplit': 'Split Panes',
+    'about.help.terminalLayout': 'Pane Layouts',
+    'about.help.terminalLayoutDesc': 'Cycle through 5 layouts with a shortcut:',
+    'about.help.cursorTrail': 'Cursor Trail Animation',
+    'about.help.cursorTrailDesc': 'When the terminal cursor moves, a comet-tail trail animation appears (ported from Kitty terminal). The trail shape adapts to the cursor style (block / underline / bar). Cursor style can be changed in Settings > Terminal.',
+    'about.help.terminalTemplates': 'Terminal Templates',
+    'about.help.terminalTemplatesDesc': 'Create terminal templates in Settings > Terminal > Templates with preset names and working directories for quick project launches.',
 
     // ── jcli section ──
     'jcli.title': 'JCLI Command Line Tool',
@@ -378,6 +425,11 @@ export const translations = {
 
     // ── BlockEditor placeholder ──
     'editor.placeholder': 'Type / for commands…',
+
+    // ── Command Palette ──
+    'palette.placeholder': 'Search documents or type > to run commands…',
+    'palette.shortcutHint': '⌘P',
+    'palette.noResults': 'No matching results',
 
     // ── CodeBlockView ──
     'code.copy': 'Copy code',

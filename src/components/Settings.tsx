@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { Info, Settings2, Terminal, FileText, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, Terminal, FileText, BookOpen, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import GeneralSection from './settings/GeneralSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
 import AboutSection from './settings/AboutSection';
+import HelpSection from './settings/HelpSection';
 
 // ────────────────────────────────────────────────
 // Settings sections
 // ────────────────────────────────────────────────
-type SectionId = 'general' | 'editor' | 'terminal' | 'about';
+type SectionId = 'general' | 'editor' | 'terminal' | 'about' | 'help';
 
 interface NavItem {
   id: SectionId;
@@ -22,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'general', labelKey: 'settings.general', icon: Settings2 },
   { id: 'editor', labelKey: 'settings.editor', icon: FileText },
   { id: 'terminal', labelKey: 'settings.terminal', icon: Terminal },
+  { id: 'help', labelKey: 'settings.help', icon: BookOpen },
   { id: 'about', labelKey: 'settings.about', icon: Info },
 ];
 
@@ -29,6 +31,7 @@ const SECTIONS: Record<SectionId, () => React.ReactElement> = {
   general: GeneralSection,
   editor: EditorSection,
   terminal: TerminalSection,
+  help: HelpSection,
   about: AboutSection,
 };
 

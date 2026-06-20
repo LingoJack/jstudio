@@ -8,6 +8,7 @@ import TerminalPanel from './components/terminal/TerminalPanel';
 import BlockEditor from './components/BlockEditor';
 import Settings from './components/Settings';
 import EmptyState from './components/EmptyState';
+import CommandPalette from './components/CommandPalette';
 import { ToastContainer } from './components/ui/Toast';
 
 export default function App() {
@@ -26,6 +27,20 @@ export default function App() {
   useEffect(() => {
     init();
   }, [init]);
+
+  // ── Global shortcut: Cmd/Ctrl+P → open command palette ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        const { setCommandPaletteOpen } = useStore.getState();
+        setCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   if (isLoading) {
     return (
@@ -92,6 +107,11 @@ export default function App() {
           Global Toast Notifications (top-right, above everything)
          ============================== */}
       <ToastContainer />
+
+      {/* ==============================
+          Command Palette (global overlay, above everything)
+         ============================== */}
+      <CommandPalette />
     </div>
   );
 }
