@@ -381,9 +381,8 @@ function JcliSection() {
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
         <Terminal className="w-5 h-5 text-[var(--vscode-descriptionForeground)] shrink-0" />
 
-        {/* Status badge */}
         {checking ? (
-          <span className="text-sm text-[var(--vscode-descriptionForeground)]">
+          <span className="text-sm text-[var(--vscode-descriptionForeground)] flex-1">
             {t('jcli.checking')}
           </span>
         ) : (
@@ -399,43 +398,50 @@ function JcliSection() {
               {installed ? t('jcli.installed') : t('jcli.notInstalled')}
             </span>
             {status?.version && (
-              <span className="text-xs text-[var(--vscode-descriptionForeground)] truncate font-mono">
-                {status.version}
-              </span>
+              <>
+                <span className="text-xs text-[var(--vscode-descriptionForeground)] shrink-0">
+                  ·
+                </span>
+                <span className="text-xs text-[var(--vscode-descriptionForeground)] truncate font-mono">
+                  {status.version}
+                </span>
+              </>
             )}
           </div>
         )}
 
         {/* Action button */}
-        <div className="shrink-0">
-          {installed ? (
-            <button
-              onClick={handleUninstall}
-              disabled={busy !== null}
-              className="jstudio-btn-secondary"
-            >
-              {busy === 'uninstall' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <XCircle className="w-4 h-4" />
-              )}
-              <span>{t('jcli.uninstall')}</span>
-            </button>
-          ) : (
-            <button
-              onClick={handleInstall}
-              disabled={busy !== null || !canInstall}
-              className="jstudio-btn-primary"
-            >
-              {busy === 'install' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Terminal className="w-4 h-4" />
-              )}
-              <span>{t('jcli.install')}</span>
-            </button>
-          )}
-        </div>
+        {!checking && (
+          <div className="shrink-0">
+            {installed ? (
+              <button
+                onClick={handleUninstall}
+                disabled={busy !== null}
+                className="jstudio-btn-secondary"
+              >
+                {busy === 'uninstall' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                <span>{t('jcli.uninstall')}</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleInstall}
+                disabled={busy !== null || !canInstall}
+                className="jstudio-btn-primary"
+              >
+                {busy === 'install' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Terminal className="w-4 h-4" />
+                )}
+                <span>{t('jcli.install')}</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Path info (if installed) */}
