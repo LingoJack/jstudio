@@ -322,7 +322,8 @@ export default function HelpSection() {
           <SectionHeading>{t('about.help.terminalTemplates')}</SectionHeading>
           <TipCallout>{t('about.help.terminalTemplatesDesc')}</TipCallout>
         </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      </div>
     </div>
   );
 }

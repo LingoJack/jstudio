@@ -184,7 +184,9 @@ export default function Settings() {
                   onClick={() => handleMainClick(item)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors duration-150 cursor-pointer ${
                     active
-                      ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+                      ? hasSubs
+                        ? 'text-[var(--vscode-foreground)] font-medium'
+                        : 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
                       : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
                   }`}
                 >
