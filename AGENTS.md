@@ -51,10 +51,15 @@ jstudio/
 │   │   └── vscode-theme.css    # VSCode 风格主题变量 + 全局样式
 │   │
 │   └── components/
+│       ├── TitleBar.tsx         # 窗口标题栏（搜索 + 侧边栏切换）
 │       ├── BlockEditor.tsx     # 编辑器主体（单一 contentEditable surface）
 │       ├── DocumentList.tsx    # 侧边栏文档列表（含「新建文档」入口）
 │       ├── LocalFolder.tsx     # 本地资源面板
-│       ├── ui/IconButton.tsx   # 通用图标按钮
+│       ├── ui/                 # ── 公共 UI 组件（浮层、按钮等），新增浮层 UI 必须先查此处
+│       │   ├── IconButton.tsx   # 通用图标按钮
+│       │   ├── MenuList.tsx     # 菜单容器 + MenuItem + MenuDivider（所有菜单/下拉统一用此）
+│       │   ├── FontDropdown.tsx
+│       │   └── Toast.tsx
 │       └── blocks/
 │           ├── BlockRouter.tsx     # 块类型路由
 │           ├── BlockLine.tsx       # surface 内的文本行
@@ -82,23 +87,27 @@ jstudio/
 ## UI 布局（三栏）
 
 ```
-┌──────┬─────────────────┬──────────────────────────────┐
-│      │                 │  Slim action bar (品牌+删除)  │
-│ Act. │  Document List  ├──────────────────────────────┤
-│ Bar  │  (搜索/列表/    │                              │
-│      │   新建入口 [+])  │      BlockEditor             │
-│ 48px │  240px          │      (flex-1)                │
-└──────┴─────────────────┴──────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ TitleBar (搜索框 + 侧边栏切换按钮)                         │
+├──────┬─────────────────┬──────────────────────────────────────┤
+│      │                 │  Slim action bar (品牌+删除)        │
+│ Act. │  Document List  ├──────────────────────────────────────┤
+│ Bar  │  (搜索/列表/    │                                      │
+│      │   新建入口 [+])  │      BlockEditor                     │
+│ 48px │  240px          │      (flex-1)                        │
+└──────┴─────────────────┴──────────────────────────────────────┘
 ```
 
 | 区域 | 组件 | 职责 |
 |------|------|------|
+| TitleBar | `TitleBar.tsx` | 窗口标题栏（全局搜索 + 侧边栏展开/收起切换） |
 | Activity Bar | `App.tsx` 内联 | 文档 / 设置 入口切换（48px 固定宽） |
 | Sidebar | `DocumentList.tsx` | 文档搜索 + 列表 + **新建文档**（头部 `+` 按钮） |
 | Action Bar | `App.tsx` 内联 | 品牌标识 + 删除当前文档（不含新建） |
 | Main | `BlockEditor.tsx` / `Settings.tsx` | 文档编辑 / 设置页（按 `isSettingsOpen` 切换） |
 
 > **新建文档**入口位于 `DocumentList` 头部，不在顶部 action bar。
+> **侧边栏收起/展开**入口位于 `TitleBar` 右侧按钮（VSCode 风格 `PanelLeft` 图标），也可通过命令面板操作。
 
 ## 数据存储
 
@@ -196,6 +205,7 @@ jstudio/
 5. **非受控 DOM**：surface 内的 DOM 内容由浏览器管理，React 不在元素聚焦时重写 `innerHTML`。
 6. **图标**：使用 `lucide-react`，图标大小统一用 `w-4 h-4` 或 `w-3.5 h-3.5`。
 7. **路径别名**：`@/*` 映射到 `src/*`（tsconfig 配置），但项目中主要使用相对路径导入。
+8. **复用 UI 公共组件，不要重复造样式**：新增任何浮层 UI（菜单、下拉、上下文菜单等）之前，**先检查 `components/ui/` 下是否已有对应组件**。如果已有，直接引用；如果没有，先提取为公共组件再使用。详见下方「UI 组件复用规范」。
 
 ### Rust 后端
 
@@ -215,6 +225,28 @@ jstudio/
 | React 组件 | PascalCase | `BlockEditor` |
 | CSS 变量 | `--vscode-*` | `--vscode-editor-background` |
 | 文件名 | PascalCase(组件) / camelCase(工具) | `BlockEditor.tsx` / `storage.ts` |
+
+### UI 组件复用规范
+
+> **核心原则**：先查 `components/ui/`，再写新代码。
+
+新增任何浮层 UI（菜单、下拉、上下文菜单等）之前，**必须先检查 `components/ui/` 下是否已有对应组件**：
+
+- **已有** → 直接引用，不要重复写 inline 样式。
+- **没有** → 先提取为公共组件放到 `components/ui/`，然后在业务代码中引用。
+
+`components/ui/` 现有组件：
+
+| 组件 | 用途 |
+|------|------|
+| `IconButton` | 通用图标按钮（hover 态、active 态统一） |
+| `MenuList` + `MenuItem` + `MenuDivider` | 所有菜单、下拉、上下文菜单的容器和子项（样式统一） |
+| `FontDropdown` | 字体下拉 |
+| `Toast` | 轻提示 |
+
+**为什么这条规范很重要**：
+
+历史上 `DocumentContextMenu` 和 `TerminalTabContextMenu` 是复制粘贴的，样式重复但散落在各自的文件里。当新增第三个菜单时，如果没有意识到应该用公共组件，就会手写一套 CSS 变量组合（用了不同的 `--vscode-*` 变量名），导致同一类 UI 视觉风格不一致。公共组件的意义在于**让一致性由结构保证，而非靠人记**。
 
 ## 构建与运行
 

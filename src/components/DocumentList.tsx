@@ -5,6 +5,7 @@ import { storage } from '../lib/storage';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { FolderDot, FileText, Plus, MoreHorizontal, FileDown } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
+import { MenuList, MenuItem } from './ui/MenuList';
 
 interface ContextMenuState {
   x: number;
@@ -161,21 +162,20 @@ export default function DocumentList() {
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {moreMenuOpen && (
-              <div
-                className="absolute right-0 top-full mt-1 min-w-[180px] py-1 rounded-md border border-[var(--vscode-editorWidget-border)] bg-[var(--vscode-quickInput-background)] shadow-lg z-30"
+              <MenuList
+                className="absolute left-0 top-full mt-1"
                 onClick={(e) => e.stopPropagation()}
               >
-                <button
+                <MenuItem
+                  icon={<FileDown />}
                   onClick={() => {
                     setMoreMenuOpen(false);
                     handleImportMarkdown();
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-100 cursor-pointer"
                 >
-                  <FileDown className="w-4 h-4 opacity-70" />
-                  <span>{t('doclist.importMarkdown')}</span>
-                </button>
-              </div>
+                  {t('doclist.importMarkdown')}
+                </MenuItem>
+              </MenuList>
             )}
           </div>
           <button

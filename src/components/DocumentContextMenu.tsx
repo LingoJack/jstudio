@@ -1,5 +1,6 @@
 import { useI18n } from '../lib/i18n';
 import { Pencil, Trash2, FolderOpen, Copy, CopyPlus } from 'lucide-react';
+import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
 
 export interface DocumentContextMenuProps {
   /** Screen coordinates where the menu should appear */
@@ -35,45 +36,29 @@ export default function DocumentContextMenu({
 }: DocumentContextMenuProps) {
   const { t } = useI18n();
 
-  const itemClass =
-    'w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]';
-  const dividerClass = 'my-1 border-t border-[var(--vscode-menu-separatorBackground)]';
-
   return (
-    <div
-      className="fixed z-50 min-w-[160px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
-      style={{ left: x, top: y }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button onClick={onRename} className={itemClass}>
-        <Pencil className="w-4 h-4 opacity-70" />
-        <span>{t('doclist.rename')}</span>
-      </button>
+    <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
+      <MenuItem icon={<Pencil />} onClick={onRename}>
+        {t('doclist.rename')}
+      </MenuItem>
 
-      <div className={dividerClass} />
+      <MenuDivider />
 
-      <button onClick={onOpenInFinder} className={itemClass}>
-        <FolderOpen className="w-4 h-4 opacity-70" />
-        <span>{t('doclist.openInFinder')}</span>
-      </button>
-      <button onClick={onCopyPath} className={itemClass}>
-        <Copy className="w-4 h-4 opacity-70" />
-        <span>{t('doclist.copyPath')}</span>
-      </button>
-      <button onClick={onCopyRelativePath} className={itemClass}>
-        <CopyPlus className="w-4 h-4 opacity-70" />
-        <span>{t('doclist.copyRelativePath')}</span>
-      </button>
+      <MenuItem icon={<FolderOpen />} onClick={onOpenInFinder}>
+        {t('doclist.openInFinder')}
+      </MenuItem>
+      <MenuItem icon={<Copy />} onClick={onCopyPath}>
+        {t('doclist.copyPath')}
+      </MenuItem>
+      <MenuItem icon={<CopyPlus />} onClick={onCopyRelativePath}>
+        {t('doclist.copyRelativePath')}
+      </MenuItem>
 
-      <div className={dividerClass} />
+      <MenuDivider />
 
-      <button
-        onClick={onDelete}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-      >
-        <Trash2 className="w-4 h-4 opacity-70" />
-        <span>{t('doclist.delete')}</span>
-      </button>
-    </div>
+      <MenuItem variant="danger" icon={<Trash2 />} onClick={onDelete}>
+        {t('doclist.delete')}
+      </MenuItem>
+    </MenuList>
   );
 }

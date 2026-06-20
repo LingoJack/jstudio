@@ -1,5 +1,6 @@
 import { useI18n } from '../../lib/i18n';
 import { Pencil, X } from 'lucide-react';
+import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 
 export interface TerminalTabContextMenuProps {
   /** Screen coordinates where the menu should appear */
@@ -25,31 +26,17 @@ export default function TerminalTabContextMenu({
 }: TerminalTabContextMenuProps) {
   const { t } = useI18n();
 
-  const itemClass =
-    'w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]';
-  const dividerClass =
-    'my-1 border-t border-[var(--vscode-menu-separatorBackground)]';
-
   return (
-    <div
-      className="fixed z-50 min-w-[140px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm"
-      style={{ left: x, top: y }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button onClick={onRename} className={itemClass}>
-        <Pencil className="w-4 h-4 opacity-70" />
-        <span>{t('terminal.rename')}</span>
-      </button>
+    <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()} className="min-w-[140px]">
+      <MenuItem icon={<Pencil />} onClick={onRename}>
+        {t('terminal.rename')}
+      </MenuItem>
 
-      <div className={dividerClass} />
+      <MenuDivider />
 
-      <button
-        onClick={onClose}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-      >
-        <X className="w-4 h-4 opacity-70" />
-        <span>{t('terminal.close')}</span>
-      </button>
-    </div>
+      <MenuItem variant="danger" icon={<X />} onClick={onClose}>
+        {t('terminal.close')}
+      </MenuItem>
+    </MenuList>
   );
 }
