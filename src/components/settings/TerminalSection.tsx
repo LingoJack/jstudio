@@ -192,7 +192,7 @@ export default function TerminalSection() {
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ── Cursor Style ── */}
-      <div>
+      <div id="settings-terminal-cursorStyle">
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('terminal.cursorStyle')}
         </label>

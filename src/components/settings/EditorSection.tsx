@@ -72,7 +72,7 @@ export default function EditorSection() {
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ── Font Size ── */}
-      <div>
+      <div id="settings-editor-fontSize">
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('general.fontSize')}
         </label>

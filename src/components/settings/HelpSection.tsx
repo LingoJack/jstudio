@@ -212,11 +212,12 @@ export default function HelpSection() {
       </p>
 
       {/* ── Editor & Blocks ── */}
-      <CollapsibleSection
-        icon={PenLine}
-        title={t('about.help.editor')}
-        defaultOpen
-      >
+      <div id="settings-help-editor">
+        <CollapsibleSection
+          icon={PenLine}
+          title={t('about.help.editor')}
+          defaultOpen
+        >
         {/* Slash menu */}
         <div>
           <SectionHeading>{t('about.help.slashMenu')}</SectionHeading>
@@ -267,9 +268,11 @@ export default function HelpSection() {
           <TipCallout>{t('about.help.outline')}</TipCallout>
         </div>
       </CollapsibleSection>
+      </div>
 
       {/* ── Terminal ── */}
-      <CollapsibleSection
+      <div id="settings-help-terminal">
+        <CollapsibleSection
         icon={TerminalIcon}
         title={t('about.help.terminal')}
       >

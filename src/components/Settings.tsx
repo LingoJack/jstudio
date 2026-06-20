@@ -1,4 +1,5 @@
-import { Info, Settings2, Terminal, PenLine, BookOpen, type LucideIcon } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Info, Settings2, Terminal, PenLine, BookOpen, ChevronRight, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
@@ -14,17 +15,65 @@ import HelpSection from './settings/HelpSection';
 // ────────────────────────────────────────────────
 type SectionId = SettingsSectionId;
 
+interface NavSubItem {
+  /** DOM anchor id, e.g. 'settings-general-language' */
+  anchorId: string;
+  labelKey: TranslationKey;
+}
+
 interface NavItem {
   id: SectionId;
   labelKey: TranslationKey;
   icon: LucideIcon;
+  subItems?: NavSubItem[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'general', labelKey: 'settings.general', icon: Settings2 },
-  { id: 'editor', labelKey: 'settings.editor', icon: PenLine },
-  { id: 'terminal', labelKey: 'settings.terminal', icon: Terminal },
-  { id: 'help', labelKey: 'settings.help', icon: BookOpen },
+  {
+    id: 'general',
+    labelKey: 'settings.general',
+    icon: Settings2,
+    subItems: [
+      { anchorId: 'settings-general-language', labelKey: 'general.language' },
+      { anchorId: 'settings-general-theme', labelKey: 'appearance.theme' },
+      { anchorId: 'settings-general-activityBarBorder', labelKey: 'appearance.activityBarBorder' },
+      { anchorId: 'settings-general-activityBarItems', labelKey: 'appearance.activityBarItems' },
+      { anchorId: 'settings-general-dataLocation', labelKey: 'general.dataLocation' },
+      { anchorId: 'settings-general-jcli', labelKey: 'jcli.title' },
+    ],
+  },
+  {
+    id: 'editor',
+    labelKey: 'settings.editor',
+    icon: PenLine,
+    subItems: [
+      { anchorId: 'settings-editor-latinFont', labelKey: 'general.latinFont' },
+      { anchorId: 'settings-editor-cjkFont', labelKey: 'general.cjkFont' },
+      { anchorId: 'settings-editor-fontSize', labelKey: 'general.fontSize' },
+      { anchorId: 'settings-editor-lineHeight', labelKey: 'general.lineHeight' },
+    ],
+  },
+  {
+    id: 'terminal',
+    labelKey: 'settings.terminal',
+    icon: Terminal,
+    subItems: [
+      { anchorId: 'settings-terminal-themeDark', labelKey: 'appearance.terminalThemeDark' },
+      { anchorId: 'settings-terminal-themeLight', labelKey: 'appearance.terminalThemeLight' },
+      { anchorId: 'settings-terminal-fontFamily', labelKey: 'terminal.fontFamily' },
+      { anchorId: 'settings-terminal-cursorStyle', labelKey: 'terminal.cursorStyle' },
+      { anchorId: 'settings-terminal-fontSize', labelKey: 'general.terminalFontSize' },
+    ],
+  },
+  {
+    id: 'help',
+    labelKey: 'settings.help',
+    icon: BookOpen,
+    subItems: [
+      { anchorId: 'settings-help-editor', labelKey: 'about.help.editor' },
+      { anchorId: 'settings-help-terminal', labelKey: 'about.help.terminal' },
+    ],
+  },
   { id: 'about', labelKey: 'settings.about', icon: Info },
 ];
 
@@ -42,6 +91,73 @@ export default function Settings() {
   const setActiveSection = useStore((s) => s.setSettingsActiveSection);
   const ActiveSection = SECTIONS[activeSection];
 
+  // Track which sections are expanded in the nav. The active section is
+  // expanded by default; clicking its header toggles the expansion.
+  const [expanded, setExpanded] = useState<Set<SectionId>>(
+    () => new Set([activeSection]),
+  );
+  const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
+
+  const isExpanded = (id: SectionId) => expanded.has(id);
+
+  /** Scroll a setting block into view within the content scroll area. */
+  const scrollToAnchor = useCallback((anchorId: string) => {
+    // Use double-rAF so the target section component has rendered its DOM.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(anchorId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  }, []);
+
+  /** Click on a main nav item header. */
+  const handleMainClick = (item: NavItem) => {
+    const wasActive = activeSection === item.id;
+
+    if (item.subItems) {
+      if (wasActive) {
+        // Already on this section → just toggle expansion.
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          if (next.has(item.id)) next.delete(item.id);
+          else next.add(item.id);
+          return next;
+        });
+      } else {
+        // Switching to a new section → activate + expand.
+        setActiveSection(item.id);
+        setActiveAnchor(null);
+        setExpanded((prev) => new Set(prev).add(item.id));
+        // Reset scroll to top for a fresh view.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const el = document.getElementById('settings-content-top');
+            el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      }
+    } else {
+      // No sub-items — behave like a plain section switch.
+      if (!wasActive) {
+        setActiveSection(item.id);
+        setActiveAnchor(null);
+      }
+    }
+  };
+
+  /** Click on a sub-item: jump to section + scroll to the setting block. */
+  const handleSubClick = (sectionId: SectionId, anchorId: string) => {
+    if (activeSection !== sectionId) {
+      setActiveSection(sectionId);
+      setExpanded((prev) => new Set(prev).add(sectionId));
+    }
+    setActiveAnchor(anchorId);
+    scrollToAnchor(anchorId);
+  };
+
   return (
     <div className="w-full h-full flex bg-[var(--vscode-editor-background)]">
       {/* ── Left navigation ── */}
@@ -54,23 +170,57 @@ export default function Settings() {
         </div>
 
         {/* Nav items */}
-        <div className="flex-1 space-y-1 px-3">
+        <div className="flex-1 overflow-y-auto px-3 space-y-0.5">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = activeSection === item.id;
+            const open = isExpanded(item.id);
+            const hasSubs = !!item.subItems;
+
             return (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors duration-150 cursor-pointer ${
-                  active
-                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-                    : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-                }`}
-              >
-                <Icon className="w-5 h-5 opacity-70" />
-                <span>{t(item.labelKey)}</span>
-              </button>
+              <div key={item.id}>
+                {/* Main header */}
+                <button
+                  onClick={() => handleMainClick(item)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors duration-150 cursor-pointer ${
+                    active
+                      ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+                      : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 opacity-70 shrink-0" />
+                  <span className="flex-1 text-left">{t(item.labelKey)}</span>
+                  {hasSubs && (
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
+                        open ? 'rotate-90' : ''
+                      }`}
+                    />
+                  )}
+                </button>
+
+                {/* Sub-items */}
+                {hasSubs && open && (
+                  <div className="mt-0.5 mb-1 ml-[18px] border-l border-[var(--vscode-widget-border)] space-y-0.5">
+                    {item.subItems!.map((sub) => {
+                      const subActive = active && activeAnchor === sub.anchorId;
+                      return (
+                        <button
+                          key={sub.anchorId}
+                          onClick={() => handleSubClick(item.id, sub.anchorId)}
+                          className={`w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2 ${
+                            subActive
+                              ? 'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium'
+                              : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                          }`}
+                        >
+                          <span>{t(sub.labelKey)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -80,6 +230,8 @@ export default function Settings() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Content — scrollable, centered for readability */}
         <div className="flex-1 overflow-y-auto">
+          {/* Scroll sentinel — lets us jump to top when switching sections */}
+          <div id="settings-content-top" className="h-0 w-full" aria-hidden />
           <div className="max-w-2xl mx-auto px-10 py-8">
             <ActiveSection />
           </div>

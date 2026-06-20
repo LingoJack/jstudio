@@ -60,7 +60,7 @@ export default function GeneralSection() {
   return (
     <div className="space-y-8">
       {/* ---- Language ---- */}
-      <div>
+      <div id="settings-general-language">
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('general.language')}
         </label>
@@ -73,7 +73,7 @@ export default function GeneralSection() {
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ---- Theme Mode ---- */}
-      <div>
+      <div id="settings-general-theme">
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('appearance.theme')}
         </label>
@@ -116,7 +116,7 @@ export default function GeneralSection() {
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ---- Activity Bar Border ---- */}
-      <div className="flex items-center justify-between">
+      <div id="settings-general-activityBarBorder" className="flex items-center justify-between">
         <div className="pr-4">
           <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1">
             {t('appearance.activityBarBorder')}
@@ -146,12 +146,14 @@ export default function GeneralSection() {
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ---- Activity Bar Items (visibility & order) ---- */}
-      <ActivityBarItemsSection />
+      <div id="settings-general-activityBarItems">
+        <ActivityBarItemsSection />
+      </div>
 
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ---- Data Location ---- */}
-      <div>
+      <div id="settings-general-dataLocation">
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('general.dataLocation')}
         </label>
@@ -182,7 +184,9 @@ export default function GeneralSection() {
       <div className="border-t border-[var(--vscode-widget-border)]" />
 
       {/* ---- JCLI ---- */}
-      <JcliSection />
+      <div id="settings-general-jcli">
+        <JcliSection />
+      </div>
     </div>
   );
 }
