@@ -17,6 +17,8 @@
  *   /image             → image
  *   /file              → file attachment
  *   /table             → editable table
+ *   /divider           → horizontal rule
+ *   /collapse          → collapsible block
  */
 
 import { Extension } from '@tiptap/core';
@@ -172,6 +174,14 @@ export const slashCommands: SlashCommandItem[] = [
     aliases: ['divider', 'separator', 'horizontal', 'hr', '分割线', '分隔线'],
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
+  },
+  {
+    title: 'Collapsible',
+    description: '可折叠/展开的内容区域',
+    icon: '▼',
+    aliases: ['collapsible', 'collapse', 'toggle', 'fold', '折叠', '收起', '展开'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setCollapsible().run(),
   },
 ];
 

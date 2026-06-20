@@ -1,12 +1,11 @@
-import { useState } from 'react';
 import {
-  ChevronDown,
   BookOpen,
   Terminal as TerminalIcon,
   PenLine,
   type LucideIcon,
 } from 'lucide-react';
 import { useI18n } from '../../lib/i18n';
+import { Collapsible } from '../ui/Collapsible';
 
 // ──────────────────────────────────────────────────────────────────
 // Platform detection
@@ -91,10 +90,15 @@ const BLOCK_TYPES: { name: string; desc: string }[] = [
   { name: '图片', desc: '粘贴或拖入图片' },
   { name: '附件', desc: '任意文件附件' },
   { name: '分割线', desc: '水平分割线' },
+  { name: '折叠块', desc: '可折叠/展开的内容区域' },
 ];
 
 // ──────────────────────────────────────────────────────────────────
-// Collapsible section
+// Collapsible section — built on the shared Collapsible component.
+//
+// Reuses the public `Collapsible` from `components/ui/Collapsible` so that
+// the settings page and the editor's collapsible block share the exact
+// same visual language (border, header background, chevron animation).
 // ──────────────────────────────────────────────────────────────────
 
 function CollapsibleSection({
@@ -108,24 +112,20 @@ function CollapsibleSection({
   children: React.ReactNode;
   defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-
   return (
-    <div className="rounded-lg border border-[var(--vscode-widget-border)] overflow-hidden">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left bg-[var(--vscode-list-hoverBackground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors duration-150 cursor-pointer"
-      >
-        <Icon className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
-        <span className="text-sm font-medium text-[var(--vscode-foreground)] flex-1">
-          {title}
-        </span>
-        <ChevronDown
-          className={`w-4 h-4 text-[var(--vscode-descriptionForeground)] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && <div className="px-4 py-4 space-y-4">{children}</div>}
-    </div>
+    <Collapsible
+      defaultOpen={defaultOpen}
+      header={
+        <>
+          <Icon className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
+          <span className="text-sm font-medium text-[var(--vscode-foreground)]">
+            {title}
+          </span>
+        </>
+      }
+    >
+      <div className="space-y-4">{children}</div>
+    </Collapsible>
   );
 }
 

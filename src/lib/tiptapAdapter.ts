@@ -20,6 +20,8 @@
  *   table                        →   table
  *   bullet-list                  →   bulletList
  *   ordered-list                 →   orderedList
+ *   divider                      →   horizontalRule
+ *   collapsible                  →   collapsible
  *
  *   OUR RICHTEXT ANNOTATIONS     →   TIPTAP MARKS
  *   ─────────────────────────────────────────────────────────
@@ -192,6 +194,8 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'orderedList';
     case 'divider':
       return 'horizontalRule';
+    case 'collapsible':
+      return 'collapsible';
     default:
       return 'paragraph';
   }
@@ -234,6 +238,8 @@ function tiptapTypeToOurType(
       return 'ordered-list';
     case 'horizontalRule':
       return 'divider';
+    case 'collapsible':
+      return 'collapsible';
     default:
       return 'text';
   }
@@ -437,6 +443,19 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       // horizontalRule is an atom node — no content needed.
       break;
     }
+    case 'collapsible': {
+      json.attrs = {
+        open: block.properties?.collapsibleOpen ?? true,
+        summary: block.properties?.collapsibleSummary ?? '',
+      };
+      const children = block.properties?.collapsibleChildren as JSONContent[] | undefined;
+      if (children && children.length > 0) {
+        json.content = children;
+      } else {
+        json.content = [{ type: 'paragraph' }];
+      }
+      break;
+    }
     default:
       // Fallback: treat as plain paragraph.
       break;
@@ -563,6 +582,16 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     }
     case 'divider': {
       block.content = [];
+      break;
+    }
+    case 'collapsible': {
+      block.content = [];
+      block.properties = {
+        collapsibleOpen: typeof attrs.open === 'boolean' ? attrs.open : true,
+        collapsibleSummary: typeof attrs.summary === 'string' ? attrs.summary : '',
+        // Store the full child node JSON so it round-trips losslessly.
+        collapsibleChildren: node.content ?? [],
+      };
       break;
     }
     default:

@@ -14,7 +14,8 @@ export type BlockType =
   | 'table'
   | 'bullet-list'
   | 'ordered-list'
-  | 'divider';
+  | 'divider'
+  | 'collapsible';
 
 export interface BlockProperties {
   language?: string; // code block syntax
@@ -35,6 +36,12 @@ export interface BlockProperties {
   fileWidth?: number;
   /** Table block: serialized table structure. */
   tableData?: TableData;
+  /** Collapsible block: whether the body is expanded. */
+  collapsibleOpen?: boolean;
+  /** Collapsible block: the always-visible summary/title text. */
+  collapsibleSummary?: string;
+  /** Collapsible block: serialized TipTap JSONContent[] of child nodes. */
+  collapsibleChildren?: unknown[];
 }
 
 export interface Block {

@@ -24,6 +24,7 @@ import Code from '@tiptap/extension-code';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '../lib/imageExtension';
 import { FileExtension } from '../lib/fileExtension';
+import { CollapsibleExtension } from '../lib/collapsibleExtension';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -131,6 +132,7 @@ export default function BlockEditor() {
       }),
       Image.configure({ inline: false, allowBase64: true }),
       FileExtension,
+      CollapsibleExtension,
       Link.configure({
         openOnClick: false,
         autolink: true,

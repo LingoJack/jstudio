@@ -97,7 +97,7 @@ export function MenuList({
   const isFixed = x !== undefined && y !== undefined;
   return (
     <div
-      className={`z-50 min-w-[160px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${className}`}
+      className={`z-50 min-w-[160px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${isFixed ? 'fixed' : ''} ${className}`}
       style={isFixed ? { left: x, top: y } : undefined}
       onClick={onClick}
     >
