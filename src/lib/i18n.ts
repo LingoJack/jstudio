@@ -206,9 +206,13 @@ export const translations = {
     'editor.placeholder': '输入 / 唤起命令菜单…',
 
     // ── Command Palette ──
-    'palette.placeholder': '搜索文档或输入 > 执行命令…',
+    'palette.placeholder': '输入命令名称…',
+    'palette.docPlaceholder': '搜索文档…',
+    'palette.tabCommands': '命令',
+    'palette.tabDocuments': '文档',
     'palette.shortcutHint': '⌘P',
     'palette.noResults': '无匹配结果',
+    'palette.footer': '↑↓ 导航 · Enter 执行 · Esc 关闭',
 
     // ── CodeBlockView ──
     'code.copy': '复制代码',
@@ -439,9 +443,13 @@ export const translations = {
     'editor.placeholder': 'Type / for commands…',
 
     // ── Command Palette ──
-    'palette.placeholder': 'Search documents or type > to run commands…',
+    'palette.placeholder': 'Type a command name…',
+    'palette.docPlaceholder': 'Search documents…',
+    'palette.tabCommands': 'Commands',
+    'palette.tabDocuments': 'Documents',
     'palette.shortcutHint': '⌘P',
     'palette.noResults': 'No matching results',
+    'palette.footer': '↑↓ Navigate · Enter Select · Esc Close',
 
     // ── CodeBlockView ──
     'code.copy': 'Copy code',

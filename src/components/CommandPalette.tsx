@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Search, ChevronRight, FileText } from 'lucide-react';
+import { Search, FileText, CornerDownLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useI18n, type Language } from '../lib/i18n';
 import {
@@ -18,6 +18,8 @@ import type { DocumentMeta } from '../lib/storage';
 // ──────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────
+
+type PaletteMode = 'command' | 'document';
 
 type PaletteItem =
   | { kind: 'command'; scored: ScoredCommand }
@@ -84,32 +86,31 @@ export default function CommandPalette() {
   const setCommandPaletteOpen = useStore((s) => s.setCommandPaletteOpen);
   const { t, language } = useI18n();
 
-  // ── query state (local, not persisted) ──
+  // ── local state ──
+  const [mode, setMode] = useState<PaletteMode>('command');
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // ── Reset when opened/closed ──
+  // ── Reset when opened ──
   useEffect(() => {
     if (isOpen) {
+      setMode('command');
       setQuery('');
       setSelectedIndex(0);
-      // focus input on next tick
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen]);
 
-  // ── Mode detection ──
-  const isCommandMode = query.startsWith('>');
-  const effectiveQuery = isCommandMode ? query.slice(1).trim() : query.trim();
+  const effectiveQuery = query.trim();
 
   // ── Build items ──
   const commands = useMemo(() => buildCommands(), []);
   const documents = useStore((s) => s.documents);
 
   const items = useMemo<PaletteItem[]>(() => {
-    if (isCommandMode) {
+    if (mode === 'command') {
       return filterCommands(commands, effectiveQuery, language as Language).map(
         (scored) => ({ kind: 'command', scored }),
       );
@@ -119,12 +120,12 @@ export default function CommandPalette() {
       doc,
       titleMatch,
     }));
-  }, [isCommandMode, effectiveQuery, commands, documents, language]);
+  }, [mode, effectiveQuery, commands, documents, language]);
 
   // ── Reset selection when items change ──
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query]);
+  }, [query, mode]);
 
   // ── Scroll selected item into view ──
   useEffect(() => {
@@ -153,6 +154,14 @@ export default function CommandPalette() {
     [setCommandPaletteOpen],
   );
 
+  // ── Switch mode (clears query, keeps focus) ──
+  const switchMode = useCallback((next: PaletteMode) => {
+    setMode(next);
+    setQuery('');
+    setSelectedIndex(0);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
   // ── Keyboard handling ──
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -160,9 +169,14 @@ export default function CommandPalette() {
       setCommandPaletteOpen(false);
       return;
     }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      switchMode(mode === 'command' ? 'document' : 'command');
+      return;
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex((i) => Math.min(i + 1, items.length - 1));
+      setSelectedIndex((i) => Math.min(i + 1, Math.max(items.length - 1, 0)));
       return;
     }
     if (e.key === 'ArrowUp') {
@@ -181,6 +195,9 @@ export default function CommandPalette() {
 
   if (!isOpen) return null;
 
+  const placeholder =
+    mode === 'command' ? t('palette.placeholder') : t('palette.docPlaceholder');
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex justify-center items-start pt-[12vh]"
@@ -191,38 +208,52 @@ export default function CommandPalette() {
 
       {/* Panel */}
       <div
-        className="relative w-[min(640px,90vw)] rounded-lg overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-quickInput-background)] shadow-2xl"
+        className="relative w-[min(640px,90vw)] rounded-lg overflow-hidden border border-[var(--vscode-input-border)] bg-[var(--vscode-quickInput-background)] shadow-2xl flex flex-col"
         style={{
           animation: 'paletteIn 150ms ease-out',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Input row */}
+        {/* ── Tabs ── */}
+        <div className="flex items-center gap-0.5 px-1.5 pt-1.5 border-b border-[var(--vscode-input-border)]">
+          <ModeTab
+            label={t('palette.tabCommands')}
+            active={mode === 'command'}
+            onClick={() => switchMode('command')}
+          />
+          <ModeTab
+            label={t('palette.tabDocuments')}
+            active={mode === 'document'}
+            onClick={() => switchMode('document')}
+          />
+          <div className="flex-1" />
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--vscode-input-border)] text-[var(--vscode-descriptionForeground)] mb-1.5 mr-1">
+            {t('palette.shortcutHint')}
+          </kbd>
+        </div>
+
+        {/* ── Search input ── */}
         <div className="flex items-center gap-2 px-3 h-11 border-b border-[var(--vscode-input-border)]">
-          {isCommandMode ? (
-            <ChevronRight className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
-          ) : (
-            <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
-          )}
+          <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t('palette.placeholder')}
+            placeholder={placeholder}
             className="flex-1 bg-transparent outline-none text-sm text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
             autoComplete="off"
             spellCheck={false}
           />
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--vscode-input-border)] text-[var(--vscode-descriptionForeground)] shrink-0">
-            {t('palette.shortcutHint')}
-          </kbd>
         </div>
 
-        {/* Results */}
-        <div ref={listRef} className="max-h-[min(400px,50vh)] overflow-y-auto py-1">
+        {/* ── Results ── */}
+        <div
+          ref={listRef}
+          className="max-h-[min(360px,50vh)] overflow-y-auto p-1.5"
+        >
           {items.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-[var(--vscode-descriptionForeground)]">
+            <div className="px-3 py-8 text-center text-sm text-[var(--vscode-descriptionForeground)]">
               {t('palette.noResults')}
             </div>
           ) : (
@@ -246,6 +277,31 @@ export default function CommandPalette() {
             })
           )}
         </div>
+
+        {/* ── Footer hint ── */}
+        <div className="flex items-center gap-4 px-3 py-1.5 border-t border-[var(--vscode-input-border)] text-[11px] text-[var(--vscode-descriptionForeground)] bg-[var(--vscode-input-background)]">
+          <span className="flex items-center gap-1">
+            <ArrowUp className="w-3 h-3" />
+            <ArrowDown className="w-3 h-3" />
+            <span className="opacity-80">
+              {language === 'zh' ? '导航' : 'Navigate'}
+            </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <CornerDownLeft className="w-3 h-3" />
+            <span className="opacity-80">
+              {language === 'zh' ? '执行' : 'Select'}
+            </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 rounded border border-[var(--vscode-input-border)]">Tab</kbd>
+            <span className="opacity-80">
+              {language === 'zh' ? '切换模式' : 'Switch'}
+            </span>
+          </span>
+          <span className="flex-1" />
+          <kbd className="px-1 rounded border border-[var(--vscode-input-border)]">Esc</kbd>
+        </div>
       </div>
 
       <style>{`
@@ -255,6 +311,33 @@ export default function CommandPalette() {
         }
       `}</style>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Mode tab
+// ──────────────────────────────────────────────────────────────────
+
+function ModeTab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors duration-100 mb-[-1px] border-b-2 ${
+        active
+          ? 'text-[var(--vscode-foreground)] border-[var(--vscode-focusBorder)]'
+          : 'text-[var(--vscode-descriptionForeground)] border-transparent hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -288,18 +371,19 @@ function PaletteRow({
         data-palette-index={index}
         onClick={onClick}
         onMouseEnter={onMouseEnter}
-        className={`flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-sm transition-colors duration-75 ${
+        className={`flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-sm rounded-md transition-colors duration-75 ${
           isSelected
             ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-            : 'text-[var(--vscode-foreground)]'
+            : 'text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
         }`}
       >
         <Icon className="w-4 h-4 shrink-0 opacity-80" />
         <span
-          className={`shrink-0 ${isSelected ? 'opacity-70' : 'text-[var(--vscode-descriptionForeground)]'}`}
+          className={`shrink-0 text-xs ${isSelected ? 'opacity-70' : 'text-[var(--vscode-descriptionForeground)]'}`}
         >
-          {category}:
+          {category}
         </span>
+        <span className="text-[var(--vscode-descriptionForeground)] shrink-0 opacity-50">·</span>
         <span className="flex-1 truncate">
           <HighlightedText text={title} match={titleMatch} />
         </span>
@@ -325,10 +409,10 @@ function PaletteRow({
       data-palette-index={index}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
-      className={`flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-sm transition-colors duration-75 ${
+      className={`flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-sm rounded-md transition-colors duration-75 ${
         isSelected
           ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-          : 'text-[var(--vscode-foreground)]'
+          : 'text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
       }`}
     >
       <FileText className="w-4 h-4 shrink-0 opacity-60" />
