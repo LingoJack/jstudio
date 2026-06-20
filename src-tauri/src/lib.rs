@@ -41,8 +41,10 @@ pub fn run() {
             commands::jcli::uninstall_jcli,
             // ── link preview ──
             commands::link::fetch_link_metadata,
-            commands::link::fetch_link_page,
         ])
+        .register_uri_scheme_protocol("webpreview", |_app, request| {
+            commands::link::handle_webpreview_request(&request)
+        })
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");
 }

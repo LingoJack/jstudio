@@ -162,15 +162,18 @@ export interface LinkMetadata {
 }
 
 /**
- * Link preview page response — mirrors the Rust `LinkPageResponse` struct.
- * Returned by `fetch_link_page`.
+ * Build a `webpreview://` proxy URL from a real HTTPS URL.
+ *
+ * The Tauri custom protocol handler intercepts these and acts as a
+ * transparent HTTP reverse proxy with Chrome cookies injected.
+ *
+ * `https://github.com/repo` → `webpreview://github.com/repo`
  */
-export interface LinkPageResponse {
-  /** Full HTML response body. */
-  html: string;
-  /** Final URL after redirects — used as `<base href>`. */
-  baseUrl: string;
-  contentType: string;
+export function buildProxyUrl(url: string): string {
+  if (!url) return '';
+  // Already a proxy URL
+  if (url.startsWith('webpreview://')) return url;
+  return url.replace(/^https?:\/\//, 'webpreview://');
 }
 
 /**
@@ -300,8 +303,4 @@ export const storage = {
   /** Fetch link metadata (title, description, favicon, OG image) with Chrome cookies. */
   fetchLinkMetadata: (url: string) =>
     invoke<LinkMetadata>('fetch_link_metadata', { url }),
-
-  /** Fetch full page HTML for inline preview with Chrome cookies. */
-  fetchLinkPage: (url: string) =>
-    invoke<LinkPageResponse>('fetch_link_page', { url }),
 };

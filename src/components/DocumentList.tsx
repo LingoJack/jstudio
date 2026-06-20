@@ -314,6 +314,12 @@ export default function DocumentList() {
    */
   const suppressClick = useRef(false);
 
+  /**
+   * `true` between pointerdown and pointerup/cancel.
+   * This *state* triggers the effect that attaches global listeners.
+   */
+  const [dragArmed, setDragArmed] = useState(false);
+
   const onDocPointerDown = (e: React.PointerEvent, docId: string) => {
     // Only left button
     if (e.button !== 0) return;
@@ -327,13 +333,13 @@ export default function DocumentList() {
       active: false,
       pointerId: e.pointerId,
     };
+    setDragArmed(true);
   };
 
   // Global pointermove / pointerup — attached whenever a potential
   // drag is in progress (pointerdown happened but pointerup hasn't yet).
   useEffect(() => {
-    const d = drag.current;
-    if (d.pointerId === -1) return;
+    if (!dragArmed) return;
 
     /** Find the drop-target id under a screen point, or null. */
     const findDropTarget = (x: number, y: number): string | null => {
@@ -391,12 +397,14 @@ export default function DocumentList() {
       drag.current = { docId: '', startX: 0, startY: 0, active: false, pointerId: -1 };
       setDraggingDocId(null);
       setDragOverTarget(null);
+      setDragArmed(false);
     };
 
     const onCancel = () => {
       drag.current = { docId: '', startX: 0, startY: 0, active: false, pointerId: -1 };
       setDraggingDocId(null);
       setDragOverTarget(null);
+      setDragArmed(false);
     };
 
     window.addEventListener('pointermove', onMove, { passive: false });
@@ -407,7 +415,7 @@ export default function DocumentList() {
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
     };
-  }, [docList, moveDocumentToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dragArmed, docList, moveDocumentToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render helpers ────────────────────────────────────────
 

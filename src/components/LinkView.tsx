@@ -5,9 +5,11 @@
  *   1. Placeholder (no URL): dashed-border input prompting the user to paste a URL.
  *   2. Card mode: compact bookmark card with favicon, title, description, and
  *      optional OG thumbnail.
- *   3. Preview mode: inline web page preview rendered in a sandboxed iframe.
- *      Page HTML is fetched via the Rust backend (fetch_link_page) which injects
- *      Chrome cookies to preserve the user's login state.
+ *   3. Preview mode: inline web page preview in an iframe.  The iframe loads a
+ *      `webpreview://` proxy URL — a Tauri custom protocol that acts as a
+ *      transparent HTTP reverse proxy, injecting Chrome cookies to preserve the
+ *      user's login state.  All sub-resources (CSS, JS, images, AJAX) also route
+ *      through the proxy.
  *
  * Selection model:
  *   - When NOT selected, a transparent overlay sits above the iframe preview so
@@ -15,7 +17,7 @@
  *   - When selected, the overlay disappears and a floating toolbar appears.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   type NodeViewProps,
   NodeViewWrapper,
@@ -31,7 +33,7 @@ import {
   Globe,
 } from 'lucide-react';
 
-import { storage, type LinkMetadata } from '../lib/storage';
+import { storage, type LinkMetadata, buildProxyUrl } from '../lib/storage';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
@@ -99,16 +101,10 @@ export default function LinkView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Preview page HTML (fetched on demand when in preview mode)
-  const [pageHtml, setPageHtml] = useState<string | null>(null);
-  const [pageBaseUrl, setPageBaseUrl] = useState('');
-  const [pageLoading, setPageLoading] = useState(false);
-  const [pageError, setPageError] = useState<string | null>(null);
-  // Bump this to force a re-fetch of the preview page.
+  // Preview state — the iframe loads a webpreview:// proxy URL directly.
+  // No need to fetch/store HTML; the Tauri custom protocol handler acts as a
+  // transparent reverse proxy with Chrome cookies injected.
   const [refreshKey, setRefreshKey] = useState(0);
-
-  // Track the current URL so we can reset pageHtml when it changes.
-  const trackedUrlRef = useRef('');
 
   /* -------------------------------------------------------------- */
   /* URL submission (placeholder → card)                            */
@@ -160,54 +156,20 @@ export default function LinkView({
   );
 
   /* -------------------------------------------------------------- */
-  /* Preview page fetch (on entering preview mode or URL change)    */
+  /* Preview proxy URL                                               */
   /* -------------------------------------------------------------- */
 
-  useEffect(() => {
-    if (!isPreviewMode || !url) {
-      setPageHtml(null);
-      return;
+  // Build the proxy URL that the iframe will load directly.
+  // `refreshKey` is appended as a query param to force iframe reload.
+  const proxyUrl = useMemo(() => {
+    if (!url) return '';
+    const base = buildProxyUrl(url);
+    if (refreshKey > 0) {
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}_r=${refreshKey}`;
     }
-
-    // Reset cached page when URL changes.
-    if (trackedUrlRef.current !== url) {
-      trackedUrlRef.current = url;
-      setPageHtml(null);
-    }
-
-    if (pageHtml !== null) return; // Already loaded
-
-    setPageLoading(true);
-    setPageError(null);
-
-    storage
-      .fetchLinkPage(url)
-      .then((resp) => {
-        // Inject <base> so relative resources resolve against the original URL.
-        const baseTag = `<base href="${resp.baseUrl}">`;
-        let html = resp.html;
-        // Insert <base> right after <head> or at the beginning of the document.
-        if (/<head[^>]*>/i.test(html)) {
-          html = html.replace(/<head[^>]*>/i, (match) => `${match}${baseTag}`);
-        } else if (/<html[^>]*>/i.test(html)) {
-          html = html.replace(
-            /<html[^>]*>/i,
-            (match) => `${match}<head>${baseTag}</head>`,
-          );
-        } else {
-          html = `${baseTag}${html}`;
-        }
-        setPageHtml(html);
-        setPageBaseUrl(resp.baseUrl);
-      })
-      .catch(() => {
-        setPageError('Failed to load page preview');
-      })
-      .finally(() => {
-        setPageLoading(false);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPreviewMode, url, pageHtml, refreshKey]);
+    return base;
+  }, [url, refreshKey]);
 
   /* -------------------------------------------------------------- */
   /* Resize handle                                                   */
@@ -245,10 +207,10 @@ export default function LinkView({
   /* -------------------------------------------------------------- */
 
   const handleRefresh = useCallback(() => {
-    // Re-fetch both metadata and page HTML.
     if (url) {
+      // Bump refreshKey to force iframe reload via proxy.
       setRefreshKey((k) => k + 1);
-      setPageHtml(null);
+      // Also re-fetch metadata.
       setLoading(true);
       storage
         .fetchLinkMetadata(url)
@@ -459,40 +421,18 @@ export default function LinkView({
               </div>
             )}
 
-            {/* Preview mode */}
+            {/* Preview mode — iframe loads the webpreview:// proxy URL directly */}
             {isPreviewMode && (
               <div className="link-block-preview" contentEditable={false}>
                 {/* Transparent overlay when NOT selected */}
                 {!selected && <div className="link-block-preview-overlay" />}
 
-                {pageLoading && (
-                  <div className="link-block-preview-loading">
-                    <Loader2 size={20} className="animate-spin" />
-                    <span>Loading preview…</span>
-                  </div>
-                )}
-
-                {pageError && !pageLoading && (
-                  <div className="link-block-preview-error">
-                    <span>{pageError}</span>
-                    <button
-                      type="button"
-                      className="link-block-preview-error-btn"
-                      onClick={handleOpenExternal}
-                    >
-                      Open in browser
-                    </button>
-                  </div>
-                )}
-
-                {!pageLoading && !pageError && pageHtml !== null && (
-                  <iframe
-                    srcDoc={pageHtml}
-                    className="link-block-preview-frame"
-                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                    title={displayName}
-                  />
-                )}
+                <iframe
+                  src={proxyUrl}
+                  className="link-block-preview-frame"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-popups-to-escape-sandbox"
+                  title={displayName}
+                />
 
                 {/* Preview header bar (always visible in preview mode) */}
                 <div className="link-block-preview-header" contentEditable={false}>
