@@ -291,7 +291,7 @@ function PaletteRow({
         className={`flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-sm transition-colors duration-75 ${
           isSelected
             ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-            : 'text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+            : 'text-[var(--vscode-foreground)]'
         }`}
       >
         <Icon className="w-4 h-4 shrink-0 opacity-80" />
@@ -328,7 +328,7 @@ function PaletteRow({
       className={`flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-sm transition-colors duration-75 ${
         isSelected
           ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-          : 'text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+          : 'text-[var(--vscode-foreground)]'
       }`}
     >
       <FileText className="w-4 h-4 shrink-0 opacity-60" />
