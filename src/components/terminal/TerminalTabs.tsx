@@ -112,6 +112,7 @@ export default function TerminalTabs() {
   const [historyPos, setHistoryPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const historyBtnRef = useRef<HTMLButtonElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
+  const historyCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────
   useEffect(() => {
@@ -184,20 +185,12 @@ export default function TerminalTabs() {
     }
   }, [renamingGroupId]);
 
-  // ── Close menu/dropdown on outside click ─────────────────────────
+  // ── Close context menu on outside click ─────────────────────────
   useEffect(() => {
-    if (!contextMenu && !showHistory) return;
+    if (!contextMenu) return;
 
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-
-      if (contextMenu) {
-        setContextMenu(null);
-      }
-      if (showHistory && historyRef.current && !historyRef.current.contains(target) &&
-          historyBtnRef.current && !historyBtnRef.current.contains(target)) {
-        setShowHistory(false);
-      }
+    const handler = () => {
+      setContextMenu(null);
     };
 
     // Use nextTick to avoid the right-click event itself
@@ -205,7 +198,7 @@ export default function TerminalTabs() {
       window.addEventListener('click', handler);
     });
     return () => window.removeEventListener('click', handler);
-  }, [contextMenu, showHistory]);
+  }, [contextMenu]);
 
   // ── Rename handlers ──────────────────────────────────────────────
   const startRename = useCallback(
@@ -233,14 +226,23 @@ export default function TerminalTabs() {
     setRenamingGroupId(null);
   }, []);
 
-  // ── History dropdown ─────────────────────────────────────────────
-  const toggleHistory = useCallback(() => {
+  // ── History dropdown (hover-triggered) ───────────────────────────
+  const openHistory = useCallback(() => {
+    if (historyCloseTimer.current) {
+      clearTimeout(historyCloseTimer.current);
+      historyCloseTimer.current = null;
+    }
     if (historyBtnRef.current) {
       const rect = historyBtnRef.current.getBoundingClientRect();
       setHistoryPos({ x: rect.left, y: rect.bottom + 4 });
     }
-    setShowHistory((prev) => !prev);
+    setShowHistory(true);
     setContextMenu(null);
+  }, []);
+
+  const scheduleCloseHistory = useCallback(() => {
+    if (historyCloseTimer.current) clearTimeout(historyCloseTimer.current);
+    historyCloseTimer.current = setTimeout(() => setShowHistory(false), 200);
   }, []);
 
   const handlePickRecentDir = useCallback(
@@ -357,10 +359,13 @@ export default function TerminalTabs() {
           </button>
 
           {/* Clock — recent directories, right after `+` */}
-          <div className="relative shrink-0">
+          <div
+            className="relative shrink-0"
+            onMouseEnter={openHistory}
+            onMouseLeave={scheduleCloseHistory}
+          >
             <button
               ref={historyBtnRef}
-              onClick={toggleHistory}
               className={`w-9 h-full flex items-center justify-center transition-colors cursor-pointer ${
                 showHistory
                   ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-hoverBackground)]'
@@ -382,6 +387,13 @@ export default function TerminalTabs() {
           className="fixed z-[100] min-w-[240px] max-w-[340px] py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
           style={{ left: historyPos.x, top: historyPos.y }}
           onClick={(e) => e.stopPropagation()}
+          onMouseEnter={() => {
+            if (historyCloseTimer.current) {
+              clearTimeout(historyCloseTimer.current);
+              historyCloseTimer.current = null;
+            }
+          }}
+          onMouseLeave={scheduleCloseHistory}
         >
           {recentDirs.length === 0 ? (
             <div className="px-3 py-3 text-center text-[var(--vscode-descriptionForeground)] text-xs">

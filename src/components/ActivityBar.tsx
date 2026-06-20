@@ -58,9 +58,13 @@ export default function ActivityBar() {
     if (id === 'documents') {
       setSettingsOpen(false);
       if (activeSidebarView !== 'documents') {
+        // Switching back from another view (e.g. terminal): just restore
+        // the documents view WITHOUT forcing the sidebar open. This preserves
+        // the user's previous collapse/expand choice (memory behavior).
         setActiveSidebarView('documents');
-        if (!isSidebarOpen) toggleSidebar();
       } else if (!isSidebarOpen) {
+        // Already in documents view but sidebar is collapsed — clicking
+        // the documents icon re-expands it (VSCode-style toggle).
         toggleSidebar();
       }
     } else if (id === 'terminal') {

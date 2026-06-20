@@ -50,17 +50,19 @@ export default function DocumentList() {
     };
   }, [contextMenu]);
 
-  // close "more" menu on outside click
-  useEffect(() => {
-    if (!moreMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setMoreMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [moreMenuOpen]);
+  // open/close "more" menu via hover with a small delay to allow mouse travel
+  const openMoreMenu = useCallback(() => {
+    if (moreMenuCloseTimer.current) {
+      clearTimeout(moreMenuCloseTimer.current);
+      moreMenuCloseTimer.current = null;
+    }
+    setMoreMenuOpen(true);
+  }, []);
+
+  const scheduleCloseMoreMenu = useCallback(() => {
+    if (moreMenuCloseTimer.current) clearTimeout(moreMenuCloseTimer.current);
+    moreMenuCloseTimer.current = setTimeout(() => setMoreMenuOpen(false), 150);
+  }, []);
 
   // focus rename input when entering rename mode
   useEffect(() => {
@@ -153,7 +155,11 @@ export default function DocumentList() {
           <span>{t('doclist.allDocuments')} {filteredDocs.length}</span>
         </h4>
         <div className="flex items-center gap-0.5">
-          <div className="relative" ref={moreMenuRef}>
+          <div
+            className="relative"
+            onMouseEnter={openMoreMenu}
+            onMouseLeave={scheduleCloseMoreMenu}
+          >
             <button
               onClick={() => setMoreMenuOpen((v) => !v)}
               className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
