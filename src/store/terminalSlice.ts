@@ -60,7 +60,6 @@ const LAYOUT_CYCLE: PaneLayoutType[] = [
   'grid',
   'horizontal',
   'vertical',
-  'stack',
 ];
 
 /**

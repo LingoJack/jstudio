@@ -23,7 +23,7 @@ type TerminalOptionsWithCursorHidden = import('@xterm/xterm').ITerminalOptions &
 // ────────────────────────────────────────────────
 
 interface LayoutPlan {
-  /** Layout identifier — also used by render to detect 'stack'. */
+  /** Layout identifier. */
   kind: string;
   containerCls: string;
   containerStyle: CSSProperties;
@@ -68,16 +68,6 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
   if (n <= 1) {
     return {
       kind: 'single',
-      containerCls: 'w-full h-full',
-      containerStyle: {},
-      cells: [{ width: '100%', height: '100%' }],
-    };
-  }
-
-  // ── Stack: only active pane visible ──
-  if (layout === 'stack') {
-    return {
-      kind: 'stack',
       containerCls: 'w-full h-full',
       containerStyle: {},
       cells: [{ width: '100%', height: '100%' }],
@@ -533,7 +523,6 @@ export default function PaneLayoutView({
   // ── Render ───────────────────────────────────────────────────────
   const n = sessionIds.length;
   const plan = computeLayout(layout, n);
-  const visibleIds = plan.kind === 'stack' ? [activeSessionId] : sessionIds;
 
   const dividerColor = theme.isDark
     ? 'rgba(255,255,255,0.10)'
@@ -546,11 +535,8 @@ export default function PaneLayoutView({
         className={plan.containerCls}
         style={{ ...plan.containerStyle, background: dividerColor }}
       >
-        {visibleIds.map((sid, i) => {
-          const cellStyle =
-            plan.kind === 'stack'
-              ? { width: '100%', height: '100%' }
-              : plan.cells[i] ?? { width: '100%', height: '100%' };
+        {sessionIds.map((sid, i) => {
+          const cellStyle = plan.cells[i] ?? { width: '100%', height: '100%' };
           return (
             <div
               key={sid}

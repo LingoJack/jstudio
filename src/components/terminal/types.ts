@@ -22,20 +22,18 @@ export interface SessionTerminal {
  *
  * | Layout      | Description                                          |
  * |-------------|------------------------------------------------------|
- * | tall        | Left master (flex-2), right column of rest (flex-1)  |
- * | fat         | Top master (flex-2), bottom row of rest (flex-1)     |
- * | grid        | Best-fit square grid                                 |
+ * | tall        | Left master (1.5fr), right column stack (1fr)        |
+ * | fat         | Top master (1.5fr), bottom row (1fr)                 |
+ * | grid        | Best-fit square grid, no empty cells                 |
  * | horizontal  | All panes in a single row                            |
  * | vertical    | All panes in a single column                         |
- * | stack       | Only the active pane is visible                      |
  */
 export type PaneLayoutType =
   | 'tall'
   | 'fat'
   | 'grid'
   | 'horizontal'
-  | 'vertical'
-  | 'stack';
+  | 'vertical';
 
 /**
  * A pane group — one tab that may contain multiple terminal sessions
