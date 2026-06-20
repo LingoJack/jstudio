@@ -78,13 +78,6 @@ export default function Settings() {
 
       {/* ── Right content ── */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Header */}
-        <div className="px-10 py-5 border-b border-[var(--vscode-sideBar-border)] shrink-0">
-          <h3 className="text-lg font-semibold text-[var(--vscode-foreground)]">
-            {t(NAV_ITEMS.find((n) => n.id === activeSection)!.labelKey)}
-          </h3>
-        </div>
-
         {/* Content — scrollable, centered for readability */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-10 py-8">

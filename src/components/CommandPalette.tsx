@@ -343,7 +343,9 @@ export default function CommandPalette() {
 
         {/* ── Search input ── */}
         <div className="flex items-center gap-2 px-3 h-11 border-b border-[var(--vscode-input-border)]">
-          {!isCommandMode && (
+          {isCommandMode ? (
+            <TerminalSquare className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
+          ) : (
             <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
           )}
           <input
