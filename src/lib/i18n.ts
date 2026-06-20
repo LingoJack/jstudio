@@ -57,6 +57,17 @@ export const translations = {
     'doclist.copyRelativePath': '复制相对路径',
     'doclist.copied': '已复制到剪贴板',
 
+    // ── DocumentList folders ──
+    'doclist.newFolder': '新建文件夹',
+    'doclist.newSubfolder': '新建子文件夹',
+    'doclist.renameFolder': '重命名文件夹',
+    'doclist.deleteFolder': '删除文件夹',
+    'doclist.moveTo': '移动到',
+    'doclist.untitledFolder': '新建文件夹',
+    'doclist.rootLevel': '根目录',
+    'doclist.folderNamePlaceholder': '文件夹名称',
+    'doclist.deleteFolderConfirm': '确定删除文件夹「{name}」吗？文件夹内的文档将移至根目录。',
+
     // ── Terminal ──
     'terminal.sessions': '终端会话',
     'terminal.newSession': '新建终端',
@@ -295,6 +306,17 @@ export const translations = {
     'doclist.copyPath': 'Copy Path',
     'doclist.copyRelativePath': 'Copy Relative Path',
     'doclist.copied': 'Copied to clipboard',
+
+    // ── DocumentList folders ──
+    'doclist.newFolder': 'New Folder',
+    'doclist.newSubfolder': 'New Subfolder',
+    'doclist.renameFolder': 'Rename Folder',
+    'doclist.deleteFolder': 'Delete Folder',
+    'doclist.moveTo': 'Move to',
+    'doclist.untitledFolder': 'Untitled Folder',
+    'doclist.rootLevel': 'Root',
+    'doclist.folderNamePlaceholder': 'Folder name',
+    'doclist.deleteFolderConfirm': 'Delete folder "{name}"? Documents inside will be moved to root.',
 
     // ── Terminal ──
     'terminal.sessions': 'Terminal Sessions',

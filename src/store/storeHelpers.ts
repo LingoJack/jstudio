@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, ThemeMode, Language, TerminalCursorStyle, ActivityBarItemConfig } from '../lib/storage';
+import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, ActivityBarItemConfig } from '../lib/storage';
 import type {
   TerminalSession,
   TerminalTemplate,
@@ -16,6 +16,7 @@ import { storage } from '../lib/storage';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let indexTimer: ReturnType<typeof setTimeout> | null = null;
+let foldersTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function scheduleDocumentSave(doc: Document) {
   if (saveTimer) clearTimeout(saveTimer);
@@ -31,6 +32,13 @@ export function scheduleIndexSave(metas: DocumentMeta[]) {
   }, 500);
 }
 
+export function scheduleFoldersSave(folders: FolderMeta[]) {
+  if (foldersTimer) clearTimeout(foldersTimer);
+  foldersTimer = setTimeout(() => {
+    storage.saveFolders(folders).catch(console.error);
+  }, 300);
+}
+
 /**
  * The full store state — composed from individual slice interfaces.
  * Each slice creator adds its own piece to this interface.
@@ -41,6 +49,9 @@ export interface StoreState {
   activeDoc: Document | null;
   activeDocId: string;
   documents: Document[];
+
+  // — data (folders slice) —
+  folders: FolderMeta[];
 
   // — ui state (ui slice) —
   themeMode: ThemeMode;
@@ -88,6 +99,14 @@ export interface StoreState {
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
   importDocumentFromMarkdown: (filename: string, md: string) => Promise<void>;
+
+  // — folder ops (folders slice) —
+  initFolders: (raw: FolderMeta[]) => void;
+  createFolder: (name: string, parentId: string | null) => string;
+  renameFolder: (id: string, name: string) => void;
+  deleteFolder: (id: string) => void;
+  toggleFolderCollapsed: (id: string) => void;
+  moveDocumentToFolder: (docId: string, folderId: string | null) => void;
 
   // — block ops (editor slice) —
   updateBlock: (blockId: string, fields: Partial<Block>) => void;

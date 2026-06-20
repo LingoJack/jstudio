@@ -20,6 +20,8 @@ pub fn run() {
             commands::storage::clean_global_assets,
             commands::storage::read_settings,
             commands::storage::write_settings,
+            commands::storage::read_folders,
+            commands::storage::write_folders,
             commands::storage::read_file_bytes,
             commands::storage::open_studio_dir,
             commands::storage::open_doc_dir,
@@ -37,6 +39,9 @@ pub fn run() {
             commands::jcli::check_jcli,
             commands::jcli::install_jcli,
             commands::jcli::uninstall_jcli,
+            // ── link preview ──
+            commands::link::fetch_link_metadata,
+            commands::link::fetch_link_page,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

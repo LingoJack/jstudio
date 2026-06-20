@@ -4,6 +4,7 @@ import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import type { SettingsSectionId } from '../store/uiSlice';
+import { useCollapsibleTree } from './ui/useCollapsibleTree';
 import GeneralSection from './settings/GeneralSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
@@ -91,14 +92,11 @@ export default function Settings() {
   const setActiveSection = useStore((s) => s.setSettingsActiveSection);
   const ActiveSection = SECTIONS[activeSection];
 
-  // Track which sections are expanded in the nav. The active section is
-  // expanded by default; clicking its header toggles the expansion.
-  const [expanded, setExpanded] = useState<Set<SectionId>>(
-    () => new Set([activeSection]),
+  // Collapsible nav state — shared hook also used by DocumentList folders.
+  const { toggle, expand, isExpanded } = useCollapsibleTree(
+    new Set([activeSection]),
   );
   const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
-
-  const isExpanded = (id: SectionId) => expanded.has(id);
 
   /** Scroll a setting block into view within the content scroll area. */
   const scrollToAnchor = useCallback((anchorId: string) => {
@@ -120,17 +118,12 @@ export default function Settings() {
     if (item.subItems) {
       if (wasActive) {
         // Already on this section → just toggle expansion.
-        setExpanded((prev) => {
-          const next = new Set(prev);
-          if (next.has(item.id)) next.delete(item.id);
-          else next.add(item.id);
-          return next;
-        });
+        toggle(item.id);
       } else {
         // Switching to a new section → activate + expand.
         setActiveSection(item.id);
         setActiveAnchor(null);
-        setExpanded((prev) => new Set(prev).add(item.id));
+        expand(item.id);
         // Reset scroll to top for a fresh view.
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
@@ -152,7 +145,7 @@ export default function Settings() {
   const handleSubClick = (sectionId: SectionId, anchorId: string) => {
     if (activeSection !== sectionId) {
       setActiveSection(sectionId);
-      setExpanded((prev) => new Set(prev).add(sectionId));
+      expand(sectionId);
     }
     setActiveAnchor(anchorId);
     scrollToAnchor(anchorId);

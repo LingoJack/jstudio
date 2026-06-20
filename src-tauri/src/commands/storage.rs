@@ -62,6 +62,11 @@ fn settings_path() -> PathBuf {
     studio_dir().join("settings.json")
 }
 
+/// `~/.jdata/studio/folders.json`
+fn folders_path() -> PathBuf {
+    studio_dir().join("folders.json")
+}
+
 /// Create the studio directory structure. Returns the root path.
 #[tauri::command]
 pub fn ensure_studio_dir() -> Result<String, String> {
@@ -209,6 +214,25 @@ pub fn read_settings() -> Result<Value, String> {
 pub fn write_settings(settings: Value) -> Result<(), String> {
     let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(settings_path(), json).map_err(|e| e.to_string())
+}
+
+/// Read the folder index (`folders.json`).
+/// Returns an empty array if the file does not exist yet.
+#[tauri::command]
+pub fn read_folders() -> Result<Value, String> {
+    let path = folders_path();
+    if !path.exists() {
+        return Ok(serde_json::Value::Array(vec![]));
+    }
+    let data = fs::read_to_string(&path).map_err(|e| format!("failed to read folders: {e}"))?;
+    serde_json::from_str(&data).map_err(|e| format!("failed to parse folders: {e}"))
+}
+
+/// Write the full folder index (`folders.json`).
+#[tauri::command]
+pub fn write_folders(entries: Value) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(&entries).map_err(|e| e.to_string())?;
+    fs::write(folders_path(), json).map_err(|e| e.to_string())
 }
 
 /// Save a binary asset into a document's own assets folder.

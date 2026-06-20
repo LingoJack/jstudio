@@ -5,6 +5,7 @@ import { createEditorSlice } from './editorSlice';
 import { createUiSlice } from './uiSlice';
 import { createTerminalSlice } from './terminalSlice';
 import { createToastSlice } from './toastSlice';
+import { createFoldersSlice } from './foldersSlice';
 
 /**
  * Composed store — merges five slices into a single Zustand store.
@@ -21,6 +22,7 @@ export const useStore = create<StoreState>((set, get) => ({
   ...(createUiSlice(set, get) as StoreState),
   ...(createTerminalSlice(set, get) as StoreState),
   ...(createToastSlice(set, get) as StoreState),
+  ...(createFoldersSlice(set, get) as StoreState),
 }));
 
 /**

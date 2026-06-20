@@ -1708,6 +1708,137 @@ button {
 }
 
 /* ============================================
+   Link Block (/link)
+   ============================================ */
+
+.link-block-wrapper { display: flex; margin: 0.5em 0; }
+.link-block-wrapper[data-align='center'] { justify-content: center; }
+.link-block-wrapper[data-align='left'] { justify-content: flex-start; }
+.ProseMirror-selectednode:has(> .link-block-wrapper) { outline: none !important; }
+
+.link-block-container { position: relative; display: inline-block; max-width: 100%; }
+
+.link-block-figure {
+  position: relative;
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border-radius: 8px;
+  overflow: visible;
+  background: var(--vscode-editor-background, #1e1e1e);
+  transition: border-color 0.15s ease;
+}
+.link-block-figure.is-selected { border-color: var(--vscode-focusBorder, #007fd4); }
+
+.link-block-toolbar {
+  position: absolute; top: -36px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 2px; padding: 3px 5px;
+  background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
+  border: 1px solid var(--vscode-widget-border, #454545);
+  border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 10;
+}
+.link-block-toolbar-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border: none; background: transparent;
+  color: var(--vscode-editorForeground, #cccccc); border-radius: 4px;
+  cursor: pointer; transition: background 0.1s ease;
+}
+.link-block-toolbar-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.1)); }
+.link-block-toolbar-btn.is-active {
+  background: var(--vscode-list-activeSelectionBackground, #04395e);
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+.link-block-toolbar-btn.is-focused { outline: 1px solid var(--vscode-focusBorder, #007fd4); }
+.link-block-toolbar-divider { width: 1px; height: 18px; margin: 0 3px; background: var(--vscode-widget-border, #454545); }
+
+.link-block-placeholder {
+  display: flex; align-items: center; gap: 8px;
+  width: 480px; max-width: 100%; padding: 14px 16px;
+  border: 2px dashed var(--vscode-input-border, #3c3c3c);
+  border-radius: 8px; background: var(--vscode-input-background, rgba(255,255,255,0.03));
+  cursor: text;
+}
+.link-block-placeholder.has-error { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
+.link-block-placeholder-icon { color: var(--vscode-descriptionForeground, #9d9d9d); flex-shrink: 0; }
+.link-block-input {
+  flex: 1; border: none; background: transparent;
+  color: var(--vscode-input-foreground, #cccccc); font-size: 13px; outline: none;
+}
+.link-block-input::placeholder { color: var(--vscode-input-placeholderForeground, #6b6b6b); }
+.link-block-error { color: var(--vscode-errorForeground, #f48771); font-size: 12px; }
+
+.link-block-card {
+  display: flex; align-items: stretch; justify-content: space-between;
+  gap: 12px; padding: 12px 16px; cursor: pointer;
+  text-decoration: none; color: inherit; transition: background 0.15s ease;
+}
+.link-block-card:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
+.link-block-card-left { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
+.link-block-card-favicon { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+.link-block-card-favicon-fallback { color: var(--vscode-descriptionForeground, #9d9d9d); flex-shrink: 0; margin-top: 2px; }
+.link-block-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.link-block-card-title {
+  font-size: 13px; font-weight: 500; color: var(--vscode-foreground, #cccccc);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.link-block-card-desc {
+  font-size: 12px; color: var(--vscode-descriptionForeground, #9d9d9d);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4;
+}
+.link-block-card-url {
+  font-size: 11px; color: var(--vscode-textLink-foreground, #3794ff);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.link-block-card-right { flex-shrink: 0; }
+.link-block-card-thumbnail {
+  width: 64px; height: 64px; object-fit: cover; border-radius: 4px;
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+}
+
+.link-block-preview {
+  position: relative; display: flex; flex-direction: column;
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+.link-block-preview-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 32px;
+  z-index: 5; cursor: pointer;
+}
+.link-block-preview-frame { width: 100%; height: 400px; border: none; background: #fff; }
+.link-block-preview-header {
+  display: flex; align-items: center; padding: 5px 12px;
+  border-top: 1px solid var(--vscode-widget-border, #3c3c3c);
+  background: var(--vscode-editor-inactiveSelectionBackground, rgba(255,255,255,0.02));
+}
+.link-block-preview-header-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--vscode-textLink-foreground, #3794ff);
+  text-decoration: none; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.link-block-preview-header-link:hover { text-decoration: underline; }
+.link-block-preview-header-favicon { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+.link-block-preview-loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; height: 400px; color: var(--vscode-descriptionForeground, #9d9d9d); font-size: 13px;
+}
+.link-block-preview-error {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; height: 400px; color: var(--vscode-descriptionForeground, #9d9d9d); font-size: 13px;
+}
+.link-block-preview-error-btn {
+  padding: 6px 14px; border: 1px solid var(--vscode-button-border, #5f5f5f);
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+.link-block-preview-error-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+
+.link-block-resize-handle {
+  position: absolute; bottom: -6px; right: -6px;
+  width: 16px; height: 16px; background: var(--vscode-focusBorder, #007fd4);
+  border: 2px solid var(--vscode-editor-background, #1e1e1e);
+  border-radius: 50%; cursor: nwse-resize; z-index: 11;
+}
+
+/* ============================================
    Font Dropdown (Settings page)
    Reusable searchable font selector — mirrors the
    VSCode Quick Pick style used by code-lang-dropdown.

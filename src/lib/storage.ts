@@ -23,6 +23,24 @@ export interface DocumentMeta {
   createdAt: string;
   updatedAt: string;
   isFavorite?: boolean;
+  /** Folder this document belongs to; `null`/`undefined` = root level */
+  folderId?: string | null;
+}
+
+/**
+ * Folder metadata for the document sidebar tree.
+ * Folders can nest arbitrarily deep via `parentId`.
+ */
+export interface FolderMeta {
+  /** `"folder-{timestamp}"` */
+  id: string;
+  name: string;
+  /** Parent folder id; `null` = top-level */
+  parentId: string | null;
+  /** Sort order among siblings (ascending) */
+  sortOrder: number;
+  /** Whether the folder is collapsed in the sidebar UI */
+  collapsed: boolean;
 }
 
 /**
@@ -130,6 +148,32 @@ export interface JcliStatus {
 }
 
 /**
+ * Link preview metadata — mirrors the Rust `LinkMetadata` struct.
+ * Returned by `fetch_link_metadata`.
+ */
+export interface LinkMetadata {
+  title: string;
+  description: string;
+  faviconUrl: string;
+  ogImage: string;
+  siteName: string;
+  /** Final URL after HTTP redirects. */
+  url: string;
+}
+
+/**
+ * Link preview page response — mirrors the Rust `LinkPageResponse` struct.
+ * Returned by `fetch_link_page`.
+ */
+export interface LinkPageResponse {
+  /** Full HTML response body. */
+  html: string;
+  /** Final URL after redirects — used as `<base href>`. */
+  baseUrl: string;
+  contentType: string;
+}
+
+/**
  * Convert a full Document to its lightweight metadata form.
  */
 export function toMeta(doc: Document): DocumentMeta {
@@ -140,6 +184,7 @@ export function toMeta(doc: Document): DocumentMeta {
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     isFavorite: doc.isFavorite,
+    folderId: doc.folderId ?? null,
   };
 }
 
@@ -206,6 +251,14 @@ export const storage = {
   saveSettings: (settings: AppSettings) =>
     invoke<void>('write_settings', { settings }),
 
+  // ---- folders ----
+
+  /** Read the full folder index. Returns `[]` when no folders exist yet. */
+  loadFolders: () => invoke<FolderMeta[]>('read_folders'),
+  /** Overwrite the entire folder index. */
+  saveFolders: (folders: FolderMeta[]) =>
+    invoke<void>('write_folders', { entries: folders }),
+
   // ---- terminal (PTY) ----
 
   /** Spawn a new PTY shell session. Returns session id + default title. */
@@ -241,4 +294,14 @@ export const storage = {
 
   /** Remove the jcli symlink and binary. */
   uninstallJcli: () => invoke<void>('uninstall_jcli'),
+
+  // ---- link preview ----
+
+  /** Fetch link metadata (title, description, favicon, OG image) with Chrome cookies. */
+  fetchLinkMetadata: (url: string) =>
+    invoke<LinkMetadata>('fetch_link_metadata', { url }),
+
+  /** Fetch full page HTML for inline preview with Chrome cookies. */
+  fetchLinkPage: (url: string) =>
+    invoke<LinkPageResponse>('fetch_link_page', { url }),
 };

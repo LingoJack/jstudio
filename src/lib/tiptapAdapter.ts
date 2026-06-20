@@ -196,6 +196,8 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'horizontalRule';
     case 'collapsible':
       return 'collapsible';
+    case 'link':
+      return 'linkBlock';
     default:
       return 'paragraph';
   }
@@ -240,6 +242,8 @@ function tiptapTypeToOurType(
       return 'divider';
     case 'collapsible':
       return 'collapsible';
+    case 'linkBlock':
+      return 'link';
     default:
       return 'text';
   }
@@ -415,6 +419,21 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       };
       break;
     }
+    case 'link': {
+      const url = typeof block.content === 'string' ? block.content : '';
+      json.attrs = {
+        url,
+        title: block.properties?.linkTitle ?? '',
+        description: block.properties?.linkDescription ?? '',
+        favicon: block.properties?.linkFavicon ?? '',
+        ogImage: block.properties?.linkOgImage ?? '',
+        siteName: block.properties?.linkSiteName ?? '',
+        displayMode: block.properties?.linkDisplayMode ?? 'card',
+        width: block.properties?.linkWidth ?? null,
+        align: block.properties?.linkAlign ?? 'center',
+      };
+      break;
+    }
     case 'table': {
       const tableData = block.properties?.tableData;
       if (tableData) {
@@ -550,6 +569,27 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         fileDisplayMode:
           attrs.displayMode === 'preview' ? 'preview' : 'card',
         fileWidth: typeof attrs.width === 'number' ? attrs.width : undefined,
+      };
+      break;
+    }
+    case 'link': {
+      const url = typeof attrs.url === 'string' ? attrs.url : '';
+      block.content = url;
+      block.properties = {
+        linkTitle: typeof attrs.title === 'string' ? attrs.title : '',
+        linkDescription:
+          typeof attrs.description === 'string' ? attrs.description : '',
+        linkFavicon: typeof attrs.favicon === 'string' ? attrs.favicon : '',
+        linkOgImage: typeof attrs.ogImage === 'string' ? attrs.ogImage : '',
+        linkSiteName: typeof attrs.siteName === 'string' ? attrs.siteName : '',
+        linkDisplayMode:
+          attrs.displayMode === 'preview' ? 'preview' : 'card',
+        linkWidth:
+          typeof attrs.width === 'number' ? attrs.width : undefined,
+        linkAlign:
+          attrs.align === 'left' || attrs.align === 'center'
+            ? attrs.align
+            : 'center',
       };
       break;
     }

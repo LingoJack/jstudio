@@ -1,11 +1,15 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { storage } from '../lib/storage';
 import { useSidebarResize } from '../hooks/useSidebarResize';
-import { FolderDot, FileText, Plus, MoreHorizontal, FileDown } from 'lucide-react';
+import { buildFolderTree, type FolderTreeNode } from '../lib/folderTree';
+import {
+  FolderDot, FileText, Plus, MoreHorizontal, FileDown,
+  FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput,
+} from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
-import { MenuList, MenuItem } from './ui/MenuList';
+import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
 
 interface ContextMenuState {
   x: number;
@@ -13,9 +17,17 @@ interface ContextMenuState {
   docId: string;
 }
 
+/** Context-menu state for folder right-click. */
+interface FolderMenuState {
+  x: number;
+  y: number;
+  folderId: string;
+}
+
 export default function DocumentList() {
   const { t } = useI18n();
   const documents = useStore((s) => s.documents);
+  const docList = useStore((s) => s.docList);
   const activeDocId = useStore((s) => s.activeDocId);
   const openDocument = useStore((s) => s.openDocument);
   const deleteDocument = useStore((s) => s.deleteDocument);
@@ -24,6 +36,14 @@ export default function DocumentList() {
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
+
+  // Folder store
+  const folders = useStore((s) => s.folders);
+  const createFolder = useStore((s) => s.createFolder);
+  const renameFolder = useStore((s) => s.renameFolder);
+  const deleteFolder = useStore((s) => s.deleteFolder);
+  const toggleFolderCollapsed = useStore((s) => s.toggleFolderCollapsed);
+  const moveDocumentToFolder = useStore((s) => s.moveDocumentToFolder);
 
   const { onResizeStart } = useSidebarResize();
 
@@ -34,11 +54,42 @@ export default function DocumentList() {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filteredDocs = documents.filter((doc) =>
-    (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
+  // Folder UI state
+  const [folderMenu, setFolderMenu] = useState<FolderMenuState | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [folderRenameValue, setFolderRenameValue] = useState('');
+  const folderRenameRef = useRef<HTMLInputElement>(null);
+  const [moveMenuDocId, setMoveMenuDocId] = useState<string | null>(null);
+  const [moveMenuPos, setMoveMenuPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Folder expand/collapse state is derived directly from the persisted
+  // `collapsed` field on FolderMeta — single source of truth, survives reload.
+  const isFolderExpanded = useCallback(
+    (folderId: string) => {
+      const f = folders.find((x) => x.id === folderId);
+      return f ? !f.collapsed : true;
+    },
+    [folders],
   );
 
-  // close context menu on any click
+  // ── Derived: tree + search results ────────────────────────
+  const isSearching = searchQuery.trim().length > 0;
+  const filteredDocs = useMemo(
+    () =>
+      isSearching
+        ? docList.filter((d) =>
+            (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
+          )
+        : docList,
+    [docList, searchQuery, isSearching],
+  );
+  const tree = useMemo(
+    () => buildFolderTree(folders, filteredDocs),
+    [folders, filteredDocs],
+  );
+  const rootDocCount = tree.documents.length;
+
+  // ── Effects: close menus on outside action ────────────────
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -50,7 +101,50 @@ export default function DocumentList() {
     };
   }, [contextMenu]);
 
-  // open/close "more" menu via hover with a small delay to allow mouse travel
+  useEffect(() => {
+    if (!folderMenu) return;
+    const close = () => setFolderMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('blur', close);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('blur', close);
+    };
+  }, [folderMenu]);
+
+  useEffect(() => {
+    if (!moveMenuDocId) return;
+    const close = () => {
+      setMoveMenuDocId(null);
+      setMoveMenuPos(null);
+    };
+    // Delay to allow the click that opened the menu to pass first.
+    const timer = setTimeout(() => {
+      window.addEventListener('click', close);
+      window.addEventListener('blur', close);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('click', close);
+      window.removeEventListener('blur', close);
+    };
+  }, [moveMenuDocId]);
+
+  useEffect(() => {
+    if (renamingId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingId]);
+
+  useEffect(() => {
+    if (renamingFolderId && folderRenameRef.current) {
+      folderRenameRef.current.focus();
+      folderRenameRef.current.select();
+    }
+  }, [renamingFolderId]);
+
+  // ── Document rename ───────────────────────────────────────
   const openMoreMenu = useCallback(() => {
     if (moreMenuCloseTimer.current) {
       clearTimeout(moreMenuCloseTimer.current);
@@ -64,14 +158,6 @@ export default function DocumentList() {
     moreMenuCloseTimer.current = setTimeout(() => setMoreMenuOpen(false), 150);
   }, []);
 
-  // focus rename input when entering rename mode
-  useEffect(() => {
-    if (renamingId && renameInputRef.current) {
-      renameInputRef.current.focus();
-      renameInputRef.current.select();
-    }
-  }, [renamingId]);
-
   const startRename = useCallback((docId: string, currentTitle: string) => {
     setRenamingId(docId);
     setRenameValue(currentTitle);
@@ -80,8 +166,7 @@ export default function DocumentList() {
 
   const commitRename = useCallback(() => {
     if (renamingId) {
-      const trimmed = renameValue.trim();
-      renameDocument(renamingId, trimmed);
+      renameDocument(renamingId, renameValue.trim());
       setRenamingId(null);
     }
   }, [renamingId, renameValue, renameDocument]);
@@ -92,6 +177,59 @@ export default function DocumentList() {
     setContextMenu({ x: e.clientX, y: e.clientY, docId });
   };
 
+  // ── Folder actions ────────────────────────────────────────
+  const handleToggleFolder = useCallback(
+    (folderId: string) => {
+      toggleFolderCollapsed(folderId);
+    },
+    [toggleFolderCollapsed],
+  );
+
+  const handleCreateFolder = useCallback(() => {
+    createFolder(t('doclist.untitledFolder'), null);
+  }, [createFolder, t]);
+
+  const handleCreateSubfolder = useCallback(
+    (parentId: string) => {
+      createFolder(t('doclist.untitledFolder'), parentId);
+      setFolderMenu(null);
+    },
+    [createFolder, t],
+  );
+
+  const handleFolderContextMenu = (e: React.MouseEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFolderMenu({ x: e.clientX, y: e.clientY, folderId });
+  };
+
+  const startFolderRename = useCallback((folderId: string, name: string) => {
+    setRenamingFolderId(folderId);
+    setFolderRenameValue(name);
+    setFolderMenu(null);
+  }, []);
+
+  const commitFolderRename = useCallback(() => {
+    if (renamingFolderId) {
+      renameFolder(renamingFolderId, folderRenameValue.trim());
+      setRenamingFolderId(null);
+    }
+  }, [renamingFolderId, folderRenameValue, renameFolder]);
+
+  const handleDeleteFolder = useCallback(
+    (folderId: string) => {
+      const folder = folders.find((f) => f.id === folderId);
+      if (!folder) return;
+      const msg = t('doclist.deleteFolderConfirm').replace('{name}', folder.name);
+      if (window.confirm(msg)) {
+        deleteFolder(folderId);
+      }
+      setFolderMenu(null);
+    },
+    [folders, deleteFolder, t],
+  );
+
+  // ── Path actions (Finder, copy) ───────────────────────────
   const handleOpenInFinder = useCallback(async (docId: string) => {
     try {
       await storage.openDocDir(docId);
@@ -143,6 +281,141 @@ export default function DocumentList() {
     }
   }, [importDocumentFromMarkdown]);
 
+  const handleMoveToFolder = useCallback(
+    (docId: string, folderId: string | null) => {
+      moveDocumentToFolder(docId, folderId);
+      setMoveMenuDocId(null);
+      setMoveMenuPos(null);
+      setContextMenu(null);
+    },
+    [moveDocumentToFolder],
+  );
+
+  // ── Render helpers ────────────────────────────────────────
+
+  /** Render a single document row. */
+  const renderDoc = (doc: (typeof docList)[number], depth: number) => {
+    const isActive = doc.id === activeDocId;
+    const isRenaming = renamingId === doc.id;
+    return (
+      <div
+        key={doc.id}
+        onClick={() => openDocument(doc.id)}
+        onContextMenu={(e) => handleContextMenu(e, doc.id)}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          startRename(doc.id, doc.title || '');
+        }}
+        style={{ paddingLeft: `${8 + depth * 16}px` }}
+        className={`group flex h-9 items-center justify-between pr-2 rounded-md cursor-pointer transition-colors duration-150 ${
+          isActive
+            ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+            : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
+        }`}
+      >
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') setRenamingId(null);
+            }}
+            className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+            placeholder={t('doclist.renamePlaceholder')}
+          />
+        ) : (
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <FileText className="w-4 h-4 opacity-50 shrink-0" />
+            <span className="text-sm truncate">
+              {doc.title || t('doclist.untitled')}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /** Recursively render a folder node and its children. */
+  const renderNode = (node: FolderTreeNode, depth: number): React.ReactNode => {
+    if (!node.folder) return null;
+    const f = node.folder;
+    const open = isFolderExpanded(f.id);
+    const isRenaming = renamingFolderId === f.id;
+
+    return (
+      <div key={f.id}>
+        {/* Folder row */}
+        <div
+          onClick={() => handleToggleFolder(f.id)}
+          onContextMenu={(e) => handleFolderContextMenu(e, f.id)}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            startFolderRename(f.id, f.name);
+          }}
+          style={{ paddingLeft: `${4 + depth * 16}px` }}
+          className="group flex h-9 items-center gap-1.5 pr-2 rounded-md cursor-pointer transition-colors duration-150 hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]"
+        >
+          <ChevronRight
+            className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
+              open ? 'rotate-90' : ''
+            }`}
+          />
+          {open ? (
+            <FolderOpen className="w-4 h-4 opacity-60 shrink-0" />
+          ) : (
+            <Folder className="w-4 h-4 opacity-60 shrink-0" />
+          )}
+          {isRenaming ? (
+            <input
+              ref={folderRenameRef}
+              type="text"
+              value={folderRenameValue}
+              onChange={(e) => setFolderRenameValue(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={commitFolderRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitFolderRename();
+                if (e.key === 'Escape') setRenamingFolderId(null);
+              }}
+              className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+              placeholder={t('doclist.folderNamePlaceholder')}
+            />
+          ) : (
+            <span className="text-sm truncate flex-1">{f.name}</span>
+          )}
+        </div>
+
+        {/* Children */}
+        {open && (
+          <div>
+            {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
+            {node.documents.map((doc) => renderDoc(doc, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Search mode: flat list ────────────────────────────────
+  const renderSearchResults = () => {
+    if (filteredDocs.length === 0) {
+      return (
+        <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
+          {t('doclist.noMatch')}
+        </p>
+      );
+    }
+    return filteredDocs.map((doc) => renderDoc(doc, 0));
+  };
+
+  // ── Main render ───────────────────────────────────────────
+  const totalCount = docList.length;
+
   return (
     <div
       className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10 relative"
@@ -152,7 +425,9 @@ export default function DocumentList() {
       <div className="flex items-center justify-between px-2 mb-1.5 shrink-0">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5">
           <FolderDot className="w-4 h-4" />
-          <span>{t('doclist.allDocuments')} {filteredDocs.length}</span>
+          <span>
+            {t('doclist.allDocuments')} {totalCount}
+          </span>
         </h4>
         <div className="flex items-center gap-0.5">
           <div
@@ -172,6 +447,15 @@ export default function DocumentList() {
                 className="absolute left-0 top-full mt-1"
                 onClick={(e) => e.stopPropagation()}
               >
+                <MenuItem
+                  icon={<FolderPlus />}
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    handleCreateFolder();
+                  }}
+                >
+                  {t('doclist.newFolder')}
+                </MenuItem>
                 <MenuItem
                   icon={<FileDown />}
                   onClick={() => {
@@ -194,55 +478,60 @@ export default function DocumentList() {
         </div>
       </div>
 
-      {/* Documents list */}
+      {/* Documents + folders list */}
       <div className="flex-1 overflow-y-auto space-y-0.5 pr-0.5">
-        {filteredDocs.length === 0 ? (
-          <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
-            {t('doclist.noMatch')}
-          </p>
+        {isSearching ? (
+          renderSearchResults()
         ) : (
-          filteredDocs.map((doc) => (
-            <div
-              key={doc.id}
-              onClick={() => openDocument(doc.id)}
-              onContextMenu={(e) => handleContextMenu(e, doc.id)}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                startRename(doc.id, doc.title || '');
-              }}
-              className={`group flex h-9 items-center justify-between px-2 rounded-md cursor-pointer transition-colors duration-150 ${
-                doc.id === activeDocId
-                  ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-                  : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
-              }`}
-            >
-              {renamingId === doc.id ? (
-                <input
-                  ref={renameInputRef}
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  onBlur={commitRename}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitRename();
-                    if (e.key === 'Escape') setRenamingId(null);
-                  }}
-                  className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-                  placeholder={t('doclist.renamePlaceholder')}
-                />
-              ) : (
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                  <span className="text-sm truncate">{doc.title || t('doclist.untitled')}</span>
-                </div>
-              )}
-            </div>
-          ))
+          <>
+            {/* Root-level folders */}
+            {tree.subFolders.map((node) => renderNode(node, 0))}
+            {/* Root-level documents */}
+            {rootDocCount === 0 && folders.length === 0 ? (
+              <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
+                {t('doclist.noMatch')}
+              </p>
+            ) : (
+              tree.documents.map((doc) => renderDoc(doc, 0))
+            )}
+          </>
         )}
       </div>
- 
-      {/* Context menu */}
+
+      {/* Folder context menu */}
+      {folderMenu && (
+        <MenuList
+          x={folderMenu.x}
+          y={folderMenu.y}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MenuItem
+            icon={<FolderPlus />}
+            onClick={() => handleCreateSubfolder(folderMenu.folderId)}
+          >
+            {t('doclist.newSubfolder')}
+          </MenuItem>
+          <MenuItem
+            icon={<FolderInput />}
+            onClick={() => {
+              const f = folders.find((x) => x.id === folderMenu.folderId);
+              if (f) startFolderRename(f.id, f.name);
+            }}
+          >
+            {t('doclist.renameFolder')}
+          </MenuItem>
+          <MenuDivider />
+          <MenuItem
+            variant="danger"
+            icon={<Trash2 />}
+            onClick={() => handleDeleteFolder(folderMenu.folderId)}
+          >
+            {t('doclist.deleteFolder')}
+          </MenuItem>
+        </MenuList>
+      )}
+
+      {/* Document context menu */}
       {contextMenu && (
         <DocumentContextMenu
           x={contextMenu.x}
@@ -258,9 +547,41 @@ export default function DocumentList() {
           onOpenInFinder={() => handleOpenInFinder(contextMenu.docId)}
           onCopyPath={() => handleCopyPath(contextMenu.docId)}
           onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
+          onMoveTo={() => {
+            // Capture position, close the context menu, then show move submenu.
+            setMoveMenuPos({ x: contextMenu.x, y: contextMenu.y });
+            setMoveMenuDocId(contextMenu.docId);
+            setContextMenu(null);
+          }}
         />
       )}
- 
+
+      {/* Move-to-folder submenu */}
+      {moveMenuDocId && moveMenuPos && (
+        <MenuList
+          x={moveMenuPos.x}
+          y={moveMenuPos.y}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MenuItem
+            icon={<Folder />}
+            onClick={() => handleMoveToFolder(moveMenuDocId, null)}
+          >
+            {t('doclist.rootLevel')}
+          </MenuItem>
+          <MenuDivider />
+          {folders.map((f) => (
+            <MenuItem
+              key={f.id}
+              icon={<Folder />}
+              onClick={() => handleMoveToFolder(moveMenuDocId, f.id)}
+            >
+              {f.name}
+            </MenuItem>
+          ))}
+        </MenuList>
+      )}
+
       {/* Resize handle */}
       <div
         onMouseDown={onResizeStart}

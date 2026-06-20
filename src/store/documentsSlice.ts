@@ -203,6 +203,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         isLoading: false,
       });
 
+      // Load folder index
+      try {
+        const folders = await storage.loadFolders();
+        get().initFolders(folders);
+      } catch {
+        // folders.json doesn't exist yet — fine
+      }
+
       // Initialize terminal templates from settings.
       get().initTemplates(terminalTemplatesRaw);
       get().initRecentDirs(terminalRecentDirsRaw);

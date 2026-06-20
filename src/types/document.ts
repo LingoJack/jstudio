@@ -15,7 +15,8 @@ export type BlockType =
   | 'bullet-list'
   | 'ordered-list'
   | 'divider'
-  | 'collapsible';
+  | 'collapsible'
+  | 'link';
 
 export interface BlockProperties {
   language?: string; // code block syntax
@@ -42,6 +43,24 @@ export interface BlockProperties {
   collapsibleSummary?: string;
   /** Collapsible block: serialized TipTap JSONContent[] of child nodes. */
   collapsibleChildren?: unknown[];
+  /** Link block: target URL. */
+  linkUrl?: string;
+  /** Link block: page title. */
+  linkTitle?: string;
+  /** Link block: meta description. */
+  linkDescription?: string;
+  /** Link block: favicon URL. */
+  linkFavicon?: string;
+  /** Link block: OpenGraph image URL. */
+  linkOgImage?: string;
+  /** Link block: site name (from OG metadata). */
+  linkSiteName?: string;
+  /** Link block: display mode — card or inline preview. */
+  linkDisplayMode?: 'card' | 'preview';
+  /** Link block: preview display width (px). Undefined = auto. */
+  linkWidth?: number;
+  /** Link block: alignment. */
+  linkAlign?: 'left' | 'center';
 }
 
 export interface Block {
@@ -76,6 +95,7 @@ export interface Document {
   updatedAt: string;
   blocks: Block[];
   isFavorite?: boolean; // deprecated, kept for backward compat
+  folderId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
