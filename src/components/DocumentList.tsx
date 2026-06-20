@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { storage } from '../lib/storage';
 import { useSidebarResize } from '../hooks/useSidebarResize';
-import { FolderDot, FileText, Plus } from 'lucide-react';
+import { FolderDot, FileText, Plus, FileDown } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 
 interface ContextMenuState {
@@ -19,6 +19,7 @@ export default function DocumentList() {
   const openDocument = useStore((s) => s.openDocument);
   const deleteDocument = useStore((s) => s.deleteDocument);
   const createDocument = useStore((s) => s.createDocument);
+  const importDocumentFromMarkdown = useStore((s) => s.importDocumentFromMarkdown);
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
@@ -108,6 +109,23 @@ export default function DocumentList() {
     setContextMenu(null);
   }, []);
 
+  const handleImportMarkdown = useCallback(async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown'] }],
+      });
+      if (!filePath || typeof filePath !== 'string') return;
+      const bytes = await storage.readFileBytes(filePath);
+      const md = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      const filename = filePath.split(/[/\\]/).pop() ?? 'Untitled.md';
+      await importDocumentFromMarkdown(filename, md);
+    } catch (e) {
+      console.error('Failed to import Markdown:', e);
+    }
+  }, [importDocumentFromMarkdown]);
+
   return (
     <div
       className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10 relative"
@@ -119,13 +137,22 @@ export default function DocumentList() {
           <FolderDot className="w-4 h-4" />
           <span>{t('doclist.allDocuments')} {filteredDocs.length}</span>
         </h4>
-        <button
-          onClick={createDocument}
-          className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
-          title={t('doclist.newDocument')}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={handleImportMarkdown}
+            className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
+            title={t('doclist.importMarkdown')}
+          >
+            <FileDown className="w-4 h-4" />
+          </button>
+          <button
+            onClick={createDocument}
+            className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
+            title={t('doclist.newDocument')}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Documents list */}

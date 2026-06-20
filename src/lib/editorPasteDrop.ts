@@ -10,6 +10,8 @@ import type { Editor } from '@tiptap/react';
 import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './editorUpload';
 import { getClipboardImageAsFile } from './clipboardImage';
+import { markdownToBlocks, isLikelyMarkdown } from './markdown';
+import { ourBlocksToTiptapJSON } from './tiptapAdapter';
 
 /**
  * Create the `handlePaste` callback for ProseMirror editorProps.
@@ -52,9 +54,48 @@ export function createPasteHandler(
     const plainText = event.clipboardData?.getData('text/plain') ?? '';
     const htmlText = event.clipboardData?.getData('text/html') ?? '';
 
-    // Plain text paste (has text, no file item) → let it pass through,
-    // zero interference with normal typing.
-    if (!hasFileItem && (plainText || htmlText)) return false;
+    // ────────────────────────────────────────────────────────────────
+    // Text paste (has text/plain, no file item)
+    //
+    // Strategy (Notion-style):
+    //   1. Internal copy (from our own editor) → let ProseMirror handle,
+    //      preserving block structure.  We detect this via the ProseMirror
+    //      signature `data-pm-slice` in text/html.
+    //   2. External copy (web, Word, other apps) → ALWAYS discard
+    //      text/html to prevent foreign styles from bleeding in.  Work
+    //      exclusively from text/plain:
+    //        • Looks like Markdown → parse to structured blocks.
+    //        • Otherwise           → insert as clean, unstyled text.
+    // ────────────────────────────────────────────────────────────────
+    if (!hasFileItem && plainText) {
+      const isInternal = !!htmlText && htmlText.includes('data-pm-slice');
+
+      if (isInternal) {
+        // Same-editor paste: preserve structure.
+        return false;
+      }
+
+      // External paste: strip all HTML, work from plain text only.
+      event.preventDefault();
+
+      if (isLikelyMarkdown(plainText)) {
+        const blocks = markdownToBlocks(plainText);
+        const tiptapJSON = ourBlocksToTiptapJSON(blocks);
+        editorRef.current
+          ?.chain()
+          .focus()
+          .insertContent(tiptapJSON)
+          .run();
+      } else {
+        // Clean text: insert as paragraphs, no foreign styles.
+        editorRef.current
+          ?.chain()
+          .focus()
+          .insertContent(plainText)
+          .run();
+      }
+      return true;
+    }
 
     // Here: either a file-kind item is present (Finder copy / drag), or
     // clipboardData is completely empty (pure screenshot to clipboard).
@@ -69,9 +110,8 @@ export function createPasteHandler(
         uploadImage(file).then((src) => {
           editor.chain().focus().setImage({ src, alt: '' }).run();
         });
-      } else if (htmlText) {
-        editor.chain().focus().insertContent(htmlText).run();
       } else if (plainText) {
+        // No image found — restore as clean plain text (never foreign HTML).
         editor.chain().focus().insertContent(plainText).run();
       }
     });

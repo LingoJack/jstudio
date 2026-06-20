@@ -5,6 +5,7 @@ import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
+import { markdownToBlocks } from '../lib/markdown';
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
@@ -329,5 +330,39 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     if (updatedDoc) scheduleDocumentSave(updatedDoc);
     scheduleIndexSave(newDocList);
+  },
+
+  importDocumentFromMarkdown: async (filename, md) => {
+    const blocks = markdownToBlocks(md);
+
+    // Derive document title: prefer first Markdown H1, fall back to filename.
+    const h1Match = md.match(/^#\s+(.+)$/m);
+    const baseName = filename.replace(/\.(md|markdown|mdown)$/i, '');
+    const title = h1Match ? h1Match[1].trim() : baseName;
+
+    const now = new Date().toISOString();
+    const newDoc: Document = {
+      id: `doc-${Date.now()}`,
+      title,
+      emoji: '',
+      createdAt: now,
+      updatedAt: now,
+      blocks,
+    };
+
+    await storage.saveDocument(newDoc);
+
+    const meta = toMeta(newDoc);
+    const newDocList = [meta, ...get().docList];
+    const newDocuments = [newDoc, ...get().documents];
+
+    await storage.saveIndex(newDocList);
+
+    set({
+      docList: newDocList,
+      documents: newDocuments,
+      activeDoc: newDoc,
+      activeDocId: newDoc.id,
+    });
   },
 });

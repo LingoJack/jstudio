@@ -8,6 +8,7 @@ import TerminalPanel from './components/terminal/TerminalPanel';
 import BlockEditor from './components/BlockEditor';
 import Settings from './components/Settings';
 import EmptyState from './components/EmptyState';
+import { ToastContainer } from './components/ui/Toast';
 
 export default function App() {
   const { t } = useI18n();
@@ -86,6 +87,11 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ==============================
+          Global Toast Notifications (top-right, above everything)
+         ============================== */}
+      <ToastContainer />
     </div>
   );
 }

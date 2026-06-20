@@ -813,6 +813,25 @@ button {
 }
 
 /* ============================================
+   Toast Animations
+   ============================================ */
+
+@keyframes jstudio-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.jstudio-toast-enter {
+  animation: jstudio-toast-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ============================================
    Panel & Widget Styles
    ============================================ */
 

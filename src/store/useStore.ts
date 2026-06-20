@@ -4,20 +4,23 @@ import { createDocumentsSlice } from './documentsSlice';
 import { createEditorSlice } from './editorSlice';
 import { createUiSlice } from './uiSlice';
 import { createTerminalSlice } from './terminalSlice';
+import { createToastSlice } from './toastSlice';
 
 /**
- * Composed store — merges four slices into a single Zustand store.
+ * Composed store — merges five slices into a single Zustand store.
  *
  * - documentsSlice:  document CRUD, init, favorites
  * - editorSlice:     block operations, asset insertion
  * - uiSlice:         panel visibility, theme, loading state
  * - terminalSlice:   PTY session lifecycle
+ * - toastSlice:      transient notification queue
  */
 export const useStore = create<StoreState>((set, get) => ({
   ...(createDocumentsSlice(set, get) as StoreState),
   ...(createEditorSlice(set, get) as StoreState),
   ...(createUiSlice(set, get) as StoreState),
   ...(createTerminalSlice(set, get) as StoreState),
+  ...(createToastSlice(set, get) as StoreState),
 }));
 
 /**

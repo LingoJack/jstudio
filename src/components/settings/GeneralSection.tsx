@@ -4,6 +4,7 @@ import { storage } from '../../lib/storage';
 import type { JcliStatus } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
+import { toast } from '../../lib/toast';
 import type { Language, ThemeMode } from '../../lib/storage';
 
 /**
@@ -18,7 +19,6 @@ import type { Language, ThemeMode } from '../../lib/storage';
 export default function GeneralSection() {
   const { t } = useI18n();
   const [dataPath, setDataPath] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
 
   const themeMode = useStore((s) => s.themeMode);
@@ -30,17 +30,16 @@ export default function GeneralSection() {
     storage
       .init()
       .then(setDataPath)
-      .catch((e) => setError(String(e)));
+      .catch((e) => toast.error(String(e)));
   }, []);
 
   const handleOpen = async () => {
     if (!dataPath) return;
     setOpening(true);
-    setError(null);
     try {
       await storage.openDataDir();
     } catch (e) {
-      setError(String(e));
+      toast.error(String(e));
     } finally {
       setOpening(false);
     }
@@ -154,33 +153,24 @@ export default function GeneralSection() {
           {t('general.dataLocationDesc')}
         </p>
 
-        {error ? (
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-[var(--vscode-inputValidation-errorBackground)] border border-[var(--vscode-inputValidation-errorBorder)]">
-            <AlertCircle className="w-5 h-5 text-[var(--vscode-errorForeground)] shrink-0" />
-            <span className="text-sm text-[var(--vscode-errorForeground)]">
-              {error}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
-            <Folder className="w-5 h-5 text-[var(--vscode-descriptionForeground)] shrink-0" />
-            <span className="text-sm text-[var(--vscode-foreground)] truncate flex-1 font-mono">
-              {dataPath ?? t('general.loading')}
-            </span>
-            <button
-              onClick={handleOpen}
-              disabled={!dataPath || opening}
-              className="jstudio-btn-primary shrink-0"
-            >
-              {opening ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ExternalLink className="w-4 h-4" />
-              )}
-              <span>{t('general.open')}</span>
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
+          <Folder className="w-5 h-5 text-[var(--vscode-descriptionForeground)] shrink-0" />
+          <span className="text-sm text-[var(--vscode-foreground)] truncate flex-1 font-mono">
+            {dataPath ?? t('general.loading')}
+          </span>
+          <button
+            onClick={handleOpen}
+            disabled={!dataPath || opening}
+            className="jstudio-btn-primary shrink-0"
+          >
+            {opening ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ExternalLink className="w-4 h-4" />
+            )}
+            <span>{t('general.open')}</span>
+          </button>
+        </div>
       </div>
 
       <div className="border-t border-[var(--vscode-widget-border)]" />
@@ -306,26 +296,13 @@ function LanguageDropdown() {
 function JcliSection() {
   const { t } = useI18n();
   const [status, setStatus] = useState<JcliStatus | null>(null);
-  const [busy, setBusy] = useState<'install' | 'uninstall' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // Auto-clear success/error messages after 4s
-  useEffect(() => {
-    if (!error && !success) return;
-    const timer = setTimeout(() => {
-      setError(null);
-      setSuccess(null);
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [error, success]);
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const s = await storage.checkJcli();
       setStatus(s);
-    } catch (e) {
-      setError(String(e));
+    } catch {
       setStatus(null);
     }
   }, []);
@@ -335,32 +312,28 @@ function JcliSection() {
   }, [refresh]);
 
   const handleInstall = async () => {
-    setError(null);
-    setSuccess(null);
-    setBusy('install');
+    setBusy(true);
     try {
       await storage.installJcli();
       await refresh();
-      setSuccess(t('jcli.installSuccess'));
+      toast.success(t('jcli.installSuccess'));
     } catch (e) {
-      setError(`${t('jcli.installFailed')}: ${String(e)}`);
+      toast.error(`${t('jcli.installFailed')}: ${String(e)}`);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
   const handleUninstall = async () => {
-    setError(null);
-    setSuccess(null);
-    setBusy('uninstall');
+    setBusy(true);
     try {
       await storage.uninstallJcli();
       await refresh();
-      setSuccess(t('jcli.uninstallSuccess'));
+      toast.success(t('jcli.uninstallSuccess'));
     } catch (e) {
-      setError(`${t('jcli.uninstallFailed')}: ${String(e)}`);
+      toast.error(`${t('jcli.uninstallFailed')}: ${String(e)}`);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -419,7 +392,7 @@ function JcliSection() {
         {!checking && (
           <button
             onClick={installed ? handleUninstall : handleInstall}
-            disabled={busy !== null || (!installed && !canInstall)}
+            disabled={busy || (!installed && !canInstall)}
             className="jstudio-btn-primary shrink-0"
           >
             {busy ? (
@@ -440,24 +413,6 @@ function JcliSection() {
           <AlertCircle className="w-4 h-4 text-[var(--vscode-editorWarning-foreground)] shrink-0" />
           <span className="text-xs text-[var(--vscode-foreground)]">
             {t('jcli.notBundled')}
-          </span>
-        </div>
-      )}
-
-      {/* Success message */}
-      {success && (
-        <div className="mt-2 flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--vscode-inputValidation-infoBackground)] border border-[var(--vscode-inputValidation-infoBorder)]">
-          <CheckCircle2 className="w-4 h-4 text-[var(--vscode-testing-iconPassed)] shrink-0" />
-          <span className="text-xs text-[var(--vscode-foreground)]">{success}</span>
-        </div>
-      )}
-
-      {/* Error message */}
-      {error && (
-        <div className="mt-2 flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--vscode-inputValidation-errorBackground)] border border-[var(--vscode-inputValidation-errorBorder)]">
-          <AlertCircle className="w-4 h-4 text-[var(--vscode-errorForeground)] shrink-0" />
-          <span className="text-xs text-[var(--vscode-errorForeground)] break-all">
-            {error}
           </span>
         </div>
       )}

@@ -6,6 +6,7 @@ import type {
   PaneGroup,
   PaneLayoutType,
 } from './terminalSlice';
+import type { ToastItem, ToastType } from './toastSlice';
 import { storage } from '../lib/storage';
 
 /**
@@ -71,6 +72,9 @@ export interface StoreState {
   activeSessionId: string | null;
   recentDirs: string[];
 
+  // — toast state (toast slice) —
+  toasts: ToastItem[];
+
   // — init (documents slice) —
   init: () => Promise<void>;
 
@@ -80,6 +84,7 @@ export interface StoreState {
   renameDocument: (id: string, title: string) => void;
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
+  importDocumentFromMarkdown: (filename: string, md: string) => Promise<void>;
 
   // — block ops (editor slice) —
   updateBlock: (blockId: string, fields: Partial<Block>) => void;
@@ -144,6 +149,11 @@ export interface StoreState {
   focusPrevPane: () => void;
   setActivePane: (sessionId: string) => void;
   closePane: (sessionId: string) => Promise<void>;
+
+  // — toast ops (toast slice) —
+  addToast: (type: ToastType, message: string, duration?: number) => void;
+  removeToast: (id: string) => void;
+  clearToasts: () => void;
 }
 
 /**
