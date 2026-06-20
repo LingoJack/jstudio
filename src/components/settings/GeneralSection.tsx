@@ -445,9 +445,11 @@ function ActivityBarItemsSection() {
   const activityBarItems = useStore((s) => s.activityBarItems);
   const setActivityBarItems = useStore((s) => s.setActivityBarItems);
 
-  /** Index of the row currently being dragged (-1 = none). */
-  const [dragIndex, setDragIndex] = useState(-1);
-  /** Index of the row the pointer is hovering over (-1 = none). */
+  /**
+   * Use refs for drag state so event handlers always see the latest value
+   * (avoiding stale-closure issues with React state during drag events).
+   */
+  const dragIndexRef = useRef(-1);
   const [overIndex, setOverIndex] = useState(-1);
 
   /** Toggle the visibility of a single entry. */
@@ -486,8 +488,8 @@ function ActivityBarItemsSection() {
           if (!meta) return null;
           const Icon = meta.icon;
           const isFixed = item.id === 'settings';
-          const isDragging = dragIndex === index;
-          const isDragOver = overIndex === index && dragIndex !== -1 && dragIndex !== index;
+          const isDragging = dragIndexRef.current === index;
+          const isDragOver = overIndex === index && dragIndexRef.current !== -1 && dragIndexRef.current !== index;
 
           return (
             <div
@@ -495,27 +497,27 @@ function ActivityBarItemsSection() {
               draggable={!isFixed}
               onDragStart={(e) => {
                 if (isFixed) return;
-                setDragIndex(index);
+                dragIndexRef.current = index;
                 e.dataTransfer.effectAllowed = 'move';
                 // Required for Firefox to initiate drag
                 e.dataTransfer.setData('text/plain', item.id);
               }}
               onDragEnd={() => {
-                setDragIndex(-1);
+                dragIndexRef.current = -1;
                 setOverIndex(-1);
               }}
               onDragOver={(e) => {
-                if (isFixed || dragIndex === -1) return;
+                if (isFixed || dragIndexRef.current === -1) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 setOverIndex(index);
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                if (dragIndex !== -1 && !isFixed) {
-                  handleDrop(dragIndex, index);
+                if (dragIndexRef.current !== -1 && !isFixed) {
+                  handleDrop(dragIndexRef.current, index);
                 }
-                setDragIndex(-1);
+                dragIndexRef.current = -1;
                 setOverIndex(-1);
               }}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
