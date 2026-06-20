@@ -445,14 +445,20 @@ function ActivityBarItemsSection() {
   const activityBarItems = useStore((s) => s.activityBarItems);
   const setActivityBarItems = useStore((s) => s.setActivityBarItems);
 
-  /**
-   * Use refs for drag state so event handlers always see the latest value
-   * (avoiding stale-closure issues with React state during drag events).
-   */
-  const dragIndexRef = useRef(-1);
-  const [overIndex, setOverIndex] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  /** Toggle the visibility of a single entry. */
+  /** Persistent drag state — sync reads during pointermove. */
+  const drag = useRef({ id: '', startY: 0, rowH: 0, active: false });
+
+  /** Visual drag state — triggers re-render. */
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [deltaY, setDeltaY] = useState(0);
+
+  /** Always-fresh items snapshot for window listeners. */
+  const itemsRef = useRef(activityBarItems);
+  itemsRef.current = activityBarItems;
+
   const handleToggle = (id: ActivityItemId) => {
     const next = activityBarItems.map((item) =>
       item.id === id ? { ...item, visible: !item.visible } : item,
@@ -460,18 +466,85 @@ function ActivityBarItemsSection() {
     setActivityBarItems(next);
   };
 
-  /**
-   * Reorder by moving the dragged item to the drop position.
-   * Settings is locked at the bottom — it can't be dragged and no
-   * item can be dropped below it.
-   */
-  const handleDrop = (from: number, to: number) => {
-    if (from === to) return;
-    const next = [...activityBarItems];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    setActivityBarItems(next);
+  /** Begin dragging from the grip handle. */
+  const onHandleDown = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const row = rowRefs.current.get(id);
+    if (!row || !containerRef.current) return;
+
+    const gap = parseFloat(getComputedStyle(containerRef.current).rowGap) || 6;
+    drag.current = {
+      id,
+      startY: e.clientY,
+      rowH: row.getBoundingClientRect().height + gap,
+      active: true,
+    };
+    setDragId(id);
   };
+
+  /** Global pointer listeners — attached only while dragging. */
+  useEffect(() => {
+    if (!dragId) return;
+
+    const onMove = (e: PointerEvent) => {
+      const d = drag.current;
+      if (!d.active) return;
+      e.preventDefault();
+
+      const items = itemsRef.current;
+      const curIdx = items.findIndex((i) => i.id === d.id);
+      if (curIdx === -1) return;
+
+      // Find target slot by comparing pointer Y against each non-dragged row midpoint
+      let targetIdx = -1;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].id === d.id) continue;
+        const el = rowRefs.current.get(items[i].id);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { targetIdx = i; break; }
+      }
+      // Pointer below all rows → last movable slot (just before settings)
+      if (targetIdx === -1) {
+        const sIdx = items.findIndex((i) => i.id === 'settings');
+        targetIdx = sIdx !== -1 ? sIdx - 1 : items.length - 1;
+      }
+      // Clamp: settings is always last
+      const sIdx = items.findIndex((i) => i.id === 'settings');
+      if (sIdx !== -1 && targetIdx >= sIdx) targetIdx = sIdx - 1;
+      if (targetIdx < 0) targetIdx = 0;
+      if (targetIdx === curIdx) {
+        setDeltaY(e.clientY - d.startY);
+        return;
+      }
+
+      // Reorder
+      const next = [...items];
+      const [moved] = next.splice(curIdx, 1);
+      next.splice(targetIdx, 0, moved);
+      setActivityBarItems(next);
+
+      // Compensate baseline so the element stays glued to the pointer
+      d.startY += (targetIdx - curIdx) * d.rowH;
+      setDeltaY(e.clientY - d.startY);
+    };
+
+    const onUp = () => {
+      drag.current.active = false;
+      setDragId(null);
+      setDeltaY(0);
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [dragId, setActivityBarItems]);
 
   return (
     <div>
@@ -482,56 +555,40 @@ function ActivityBarItemsSection() {
         {t('appearance.activityBarItemsDesc')}
       </p>
 
-      <div className="space-y-1.5 max-w-sm">
-        {activityBarItems.map((item, index) => {
+      <div ref={containerRef} className="space-y-1.5 max-w-sm">
+        {activityBarItems.map((item) => {
           const meta = ACTIVITY_ITEM_META[item.id];
           if (!meta) return null;
           const Icon = meta.icon;
           const isFixed = item.id === 'settings';
-          const isDragging = dragIndexRef.current === index;
-          const isDragOver = overIndex === index && dragIndexRef.current !== -1 && dragIndexRef.current !== index;
+          const isDragging = dragId === item.id;
 
           return (
             <div
               key={item.id}
-              draggable={!isFixed}
-              onDragStart={(e) => {
-                if (isFixed) return;
-                dragIndexRef.current = index;
-                e.dataTransfer.effectAllowed = 'move';
-                // Required for Firefox to initiate drag
-                e.dataTransfer.setData('text/plain', item.id);
+              ref={(el) => {
+                if (el) rowRefs.current.set(item.id, el);
+                else rowRefs.current.delete(item.id);
               }}
-              onDragEnd={() => {
-                dragIndexRef.current = -1;
-                setOverIndex(-1);
-              }}
-              onDragOver={(e) => {
-                if (isFixed || dragIndexRef.current === -1) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                setOverIndex(index);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragIndexRef.current !== -1 && !isFixed) {
-                  handleDrop(dragIndexRef.current, index);
-                }
-                dragIndexRef.current = -1;
-                setOverIndex(-1);
-              }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+              style={isDragging ? {
+                transform: `translateY(${deltaY}px)`,
+                zIndex: 20,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                opacity: 0.92,
+              } : undefined}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
                 isDragging
-                  ? 'opacity-40 border-[var(--vscode-focusBorder)]'
-                  : isDragOver
-                    ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-hoverBackground)]'
-                    : 'border-[var(--vscode-widget-border)]'
-              } ${!item.visible ? 'opacity-50' : ''} ${
-                isFixed ? '' : 'bg-[var(--vscode-list-hoverBackground)]'
-              } ${isFixed ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+                  ? 'border-[var(--vscode-focusBorder)] cursor-grabbing'
+                  : isFixed
+                    ? 'border-[var(--vscode-widget-border)] cursor-default'
+                    : 'border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)] cursor-grab'
+              } ${!item.visible && !isDragging ? 'opacity-50' : ''}`}
             >
               {/* Drag handle */}
-              <span className={`shrink-0 ${isFixed ? 'opacity-0' : 'text-[var(--vscode-descriptionForeground)]'}`}>
+              <span
+                onPointerDown={isFixed ? undefined : (e) => onHandleDown(e, item.id)}
+                className={`shrink-0 touch-none select-none ${isFixed ? 'opacity-0 pointer-events-none' : 'text-[var(--vscode-descriptionForeground)]'}`}
+              >
                 <GripVertical className="w-4 h-4" />
               </span>
 
@@ -539,7 +596,7 @@ function ActivityBarItemsSection() {
               <Icon className="w-4 h-4 text-[var(--vscode-foreground)] shrink-0" />
 
               {/* Label */}
-              <span className="text-sm text-[var(--vscode-foreground)] flex-1">
+              <span className="text-sm text-[var(--vscode-foreground)] flex-1 select-none">
                 {t(meta.labelKey as 'appearance.activityBarItem_documents')}
               </span>
 
