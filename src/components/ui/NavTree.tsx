@@ -6,26 +6,26 @@ import type React from 'react';
 // Shared visual pattern for collapsible tree navigation, used by:
 //   • Settings sidebar (section → sub-items)
 //   • DocumentList sidebar (folder → documents / sub-folders)
+//   • DocumentOutline panel (heading hierarchy)
 //
-// The pattern:
-//   <NavBranch>            ← draws a thin gray guide line on the left
-//     <NavLeaf active>     ← -ml-px border-l-2 overlaps the gray line
+// The pattern (mirrors VS Code's indentation guides):
+//
+//   <NavBranch>            ← 1px gray guide line (widget-border)
+//     <NavLeaf active>     ← 2px green line overlaps the gray line
 //       row content
 //     </NavLeaf>
-//     <NavLeaf>            ← border-transparent, gray line shows through
+//     <NavLeaf>            ← transparent border, gray line shows through
 //       row content
 //     </NavLeaf>
 //   </NavBranch>
 //
-// This produces a continuous gray line with a green segment that
-// "lights up" on the active/highlighted row — exactly like VS Code's
-// sidebar tree indentation guide.
+// Because every leaf's `-ml-px border-l-2` sits on the exact same
+// x-coordinate as the branch's `border-l`, the green segment is
+// perfectly straight and continuous.
 // ──────────────────────────────────────────────────────────────────
 
-interface NavBranchProps {
+interface NavBranchProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
 }
 
 /**
@@ -34,10 +34,13 @@ interface NavBranchProps {
  *
  * Place `NavLeaf` children inside. Each leaf's `-ml-px border-l-2`
  * sits exactly on top of this line.
+ *
+ * Accepts all standard `<div>` props (onClick, data-*, style, …).
  */
-export function NavBranch({ children, className = '', style }: NavBranchProps) {
+export function NavBranch({ children, className = '', style, ...rest }: NavBranchProps) {
   return (
     <div
+      {...rest}
       style={style}
       className={`border-l border-[var(--vscode-widget-border)] space-y-0.5 ${className}`}
     >
