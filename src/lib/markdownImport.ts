@@ -13,6 +13,7 @@
 
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
+import Code from '@tiptap/extension-code';
 import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
@@ -37,7 +38,9 @@ function getHeadlessEditor(): Editor {
     extensions: [
       StarterKit.configure({
         codeBlock: false,
+        code: false, // replaced by custom Code (see comment in BlockEditor.tsx)
       }),
+      Code.extend({ excludes: '' }),
       Underline,
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({

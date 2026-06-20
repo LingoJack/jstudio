@@ -20,6 +20,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Code from '@tiptap/extension-code';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '../lib/imageExtension';
 import { FileExtension } from '../lib/fileExtension';
@@ -111,7 +112,15 @@ export default function BlockEditor() {
     extensions: [
       StarterKit.configure({
         codeBlock: false, // replaced by CodeBlockLowlight
+        code: false,      // replaced by custom Code below (allows coexistence
+                          // with bold/italic for Markdown import compatibility)
       }),
+      // Custom Code mark: the default Code extension sets `excludes: '_'`
+      // which makes inline code mutually exclusive with every other mark.
+      // That causes `RangeError: Invalid collection of marks for node text:
+      // bold,code` when Markdown like **`code`** is parsed. We allow code to
+      // coexist with other marks.
+      Code.extend({ excludes: '' }),
       CodeBlockWithChrome.configure({
         lowlight,
         defaultLanguage: 'plaintext',

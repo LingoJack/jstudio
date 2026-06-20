@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, FileText, Settings as SettingsIcon, GripVertical, ChevronUp, ChevronDown as ChevronDownIcon, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, FileText, Settings as SettingsIcon, GripVertical, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/storage';
 import type { JcliStatus, ActivityItemId } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
@@ -445,6 +445,11 @@ function ActivityBarItemsSection() {
   const activityBarItems = useStore((s) => s.activityBarItems);
   const setActivityBarItems = useStore((s) => s.setActivityBarItems);
 
+  /** Index of the row currently being dragged (-1 = none). */
+  const [dragIndex, setDragIndex] = useState(-1);
+  /** Index of the row the pointer is hovering over (-1 = none). */
+  const [overIndex, setOverIndex] = useState(-1);
+
   /** Toggle the visibility of a single entry. */
   const handleToggle = (id: ActivityItemId) => {
     const next = activityBarItems.map((item) =>
@@ -453,14 +458,16 @@ function ActivityBarItemsSection() {
     setActivityBarItems(next);
   };
 
-  /** Swap two entries by index to reorder (settings is locked at bottom). */
-  const handleMove = (index: number, direction: -1 | 1) => {
+  /**
+   * Reorder by moving the dragged item to the drop position.
+   * Settings is locked at the bottom — it can't be dragged and no
+   * item can be dropped below it.
+   */
+  const handleDrop = (from: number, to: number) => {
+    if (from === to) return;
     const next = [...activityBarItems];
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= next.length) return;
-    // Never move or swap the settings entry
-    if (next[index].id === 'settings' || next[targetIndex].id === 'settings') return;
-    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
     setActivityBarItems(next);
   };
 
@@ -478,19 +485,53 @@ function ActivityBarItemsSection() {
           const meta = ACTIVITY_ITEM_META[item.id];
           if (!meta) return null;
           const Icon = meta.icon;
-          const isLast = index === activityBarItems.length - 1;
           const isFixed = item.id === 'settings';
+          const isDragging = dragIndex === index;
+          const isDragOver = overIndex === index && dragIndex !== -1 && dragIndex !== index;
+
           return (
             <div
               key={item.id}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                item.visible
-                  ? 'bg-[var(--vscode-list-hoverBackground)] border-[var(--vscode-widget-border)]'
-                  : 'bg-transparent border-[var(--vscode-widget-border)] opacity-50'
-              }`}
+              draggable={!isFixed}
+              onDragStart={(e) => {
+                if (isFixed) return;
+                setDragIndex(index);
+                e.dataTransfer.effectAllowed = 'move';
+                // Required for Firefox to initiate drag
+                e.dataTransfer.setData('text/plain', item.id);
+              }}
+              onDragEnd={() => {
+                setDragIndex(-1);
+                setOverIndex(-1);
+              }}
+              onDragOver={(e) => {
+                if (isFixed || dragIndex === -1) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setOverIndex(index);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragIndex !== -1 && !isFixed) {
+                  handleDrop(dragIndex, index);
+                }
+                setDragIndex(-1);
+                setOverIndex(-1);
+              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                isDragging
+                  ? 'opacity-40 border-[var(--vscode-focusBorder)]'
+                  : isDragOver
+                    ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-hoverBackground)]'
+                    : 'border-[var(--vscode-widget-border)]'
+              } ${!item.visible ? 'opacity-50' : ''} ${
+                isFixed ? '' : 'bg-[var(--vscode-list-hoverBackground)]'
+              } ${isFixed ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
             >
-              {/* Drag / order handle */}
-              <GripVertical className={`w-4 h-4 shrink-0 ${isFixed ? 'text-transparent' : 'text-[var(--vscode-descriptionForeground)]'}`} />
+              {/* Drag handle */}
+              <span className={`shrink-0 ${isFixed ? 'opacity-0' : 'text-[var(--vscode-descriptionForeground)]'}`}>
+                <GripVertical className="w-4 h-4" />
+              </span>
 
               {/* Icon preview */}
               <Icon className="w-4 h-4 text-[var(--vscode-foreground)] shrink-0" />
@@ -499,26 +540,6 @@ function ActivityBarItemsSection() {
               <span className="text-sm text-[var(--vscode-foreground)] flex-1">
                 {t(meta.labelKey as 'appearance.activityBarItem_documents')}
               </span>
-
-              {/* Up / Down reorder buttons */}
-              <div className="flex items-center gap-0.5 shrink-0">
-                <button
-                  onClick={() => handleMove(index, -1)}
-                  disabled={isFixed || index === 0}
-                  title={t('common.moveUp')}
-                  className="p-1 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                >
-                  <ChevronUp className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleMove(index, 1)}
-                  disabled={isFixed || isLast}
-                  title={t('common.moveDown')}
-                  className="p-1 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                >
-                  <ChevronDownIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
 
               {/* Visibility toggle */}
               <button
