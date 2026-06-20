@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/storage';
 import type { JcliStatus } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
@@ -377,7 +377,7 @@ function JcliSection() {
         {t('jcli.desc')}
       </p>
 
-      {/* Status row */}
+      {/* Status row — path shown inline, same pattern as Data Location */}
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
         <Terminal className="w-5 h-5 text-[var(--vscode-descriptionForeground)] shrink-0" />
 
@@ -386,7 +386,7 @@ function JcliSection() {
             {t('jcli.checking')}
           </span>
         ) : (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
             {installed ? (
               <CheckCircle2 className="w-4 h-4 text-[var(--vscode-testing-iconPassed)] shrink-0" />
             ) : (
@@ -397,61 +397,42 @@ function JcliSection() {
             >
               {installed ? t('jcli.installed') : t('jcli.notInstalled')}
             </span>
-            {status?.version && (
+            {installed && status?.version && (
+              <span className="text-xs text-[var(--vscode-descriptionForeground)] shrink-0 font-mono">
+                {status.version}
+              </span>
+            )}
+            {installed && status?.path && (
               <>
                 <span className="text-xs text-[var(--vscode-descriptionForeground)] shrink-0">
                   ·
                 </span>
                 <span className="text-xs text-[var(--vscode-descriptionForeground)] truncate font-mono">
-                  {status.version}
+                  {status.path}
                 </span>
               </>
             )}
           </div>
         )}
 
-        {/* Action button */}
+        {/* Action button — same jstudio-btn-primary as Data Location */}
         {!checking && (
-          <div className="shrink-0">
-            {installed ? (
-              <button
-                onClick={handleUninstall}
-                disabled={busy !== null}
-                className="jstudio-btn-secondary"
-              >
-                {busy === 'uninstall' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )}
-                <span>{t('jcli.uninstall')}</span>
-              </button>
+          <button
+            onClick={installed ? handleUninstall : handleInstall}
+            disabled={busy !== null || (!installed && !canInstall)}
+            className="jstudio-btn-primary shrink-0"
+          >
+            {busy ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : installed ? (
+              <Trash2 className="w-4 h-4" />
             ) : (
-              <button
-                onClick={handleInstall}
-                disabled={busy !== null || !canInstall}
-                className="jstudio-btn-primary"
-              >
-                {busy === 'install' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Terminal className="w-4 h-4" />
-                )}
-                <span>{t('jcli.install')}</span>
-              </button>
+              <Download className="w-4 h-4" />
             )}
-          </div>
+            <span>{installed ? t('jcli.uninstall') : t('jcli.install')}</span>
+          </button>
         )}
       </div>
-
-      {/* Path info (if installed) */}
-      {status?.path && (
-        <div className="mt-2 px-4 py-2 rounded-lg bg-[var(--vscode-textBlockQuote-background)] border border-[var(--vscode-widget-border)]">
-          <span className="text-xs text-[var(--vscode-descriptionForeground)] font-mono break-all">
-            {status.path}
-          </span>
-        </div>
-      )}
 
       {/* Bundled version warning (if not bundled) */}
       {status && !status.bundled && (
