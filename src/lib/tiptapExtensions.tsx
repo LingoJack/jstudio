@@ -163,7 +163,7 @@ export const slashCommands: SlashCommandItem[] = [
     command: ({ editor, range }) => {
       // Insert an empty linkBlock node (placeholder). The user pastes a URL
       // in the placeholder input to fetch metadata.
-      editor.chain().focus().deleteRange(range).setLink().run();
+      editor.chain().focus().deleteRange(range).insertLinkBlock().run();
     },
   },
   {

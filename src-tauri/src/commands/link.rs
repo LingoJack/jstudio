@@ -261,19 +261,34 @@ fn build_cookie_header(cookies: &[(String, String)]) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Shared HTTP client
+// Shared HTTP clients — async for Tauri commands, blocking for protocol handler
 // ---------------------------------------------------------------------------
 
-static HTTP_CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
+/// Async client for `#[tauri::command] async fn` (runs on Tokio runtime).
+static ASYNC_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
-fn http_client() -> &'static reqwest::blocking::Client {
-    HTTP_CLIENT.get_or_init(|| {
+fn async_http_client() -> &'static reqwest::Client {
+    ASYNC_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(5))
+            .timeout(Duration::from_secs(15))
+            .danger_accept_invalid_certs(true)
+            .build()
+            .expect("failed to build async HTTP client")
+    })
+}
+
+/// Blocking client for the URI scheme protocol handler (synchronous context).
+static BLOCKING_CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
+
+fn blocking_http_client() -> &'static reqwest::blocking::Client {
+    BLOCKING_CLIENT.get_or_init(|| {
         reqwest::blocking::Client::builder()
             .redirect(reqwest::redirect::Policy::limited(5))
             .timeout(Duration::from_secs(15))
             .danger_accept_invalid_certs(true)
             .build()
-            .expect("failed to build HTTP client")
+            .expect("failed to build blocking HTTP client")
     })
 }
 
@@ -281,7 +296,7 @@ const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleW
      (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // ---------------------------------------------------------------------------
-// Tauri command: fetch_link_metadata
+// Tauri command: fetch_link_metadata (async — uses reqwest async API)
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
@@ -289,7 +304,7 @@ pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     let cookies = read_chrome_cookies_cached(&url);
     let cookie_header = build_cookie_header(&cookies);
 
-    let client = http_client();
+    let client = async_http_client();
     let mut req = client
         .get(&url)
         .header("User-Agent", BROWSER_UA)
@@ -301,10 +316,12 @@ pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
 
     let resp = req
         .send()
+        .await
         .map_err(|e| format!("HTTP request failed: {e}"))?;
     let final_url = resp.url().to_string();
     let html = resp
         .text()
+        .await
         .map_err(|e| format!("failed to read body: {e}"))?;
 
     let title = extract_html_title(&html).unwrap_or_default();
@@ -348,7 +365,7 @@ pub fn handle_webpreview_request(request: &Request<Vec<u8>>) -> Response<Cow<'st
     let cookies = read_chrome_cookies_cached(&target_url);
     let cookie_header = build_cookie_header(&cookies);
 
-    let client = http_client();
+    let client = blocking_http_client();
     let method = request.method();
     let mut req = match method.as_str() {
         "POST" => client.post(&target_url),

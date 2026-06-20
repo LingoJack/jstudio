@@ -37,7 +37,7 @@ declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     linkBlock: {
       /** Insert a link block. */
-      setLink: (attrs?: Partial<LinkNodeAttributes>) => ReturnType;
+      insertLinkBlock: (attrs?: Partial<LinkNodeAttributes>) => ReturnType;
     };
   }
 }
@@ -154,7 +154,7 @@ export const LinkExtension = Node.create({
 
   addCommands() {
     return {
-      setLink:
+      insertLinkBlock:
         (attrs) =>
         ({ commands }) => {
           return commands.insertContent([
