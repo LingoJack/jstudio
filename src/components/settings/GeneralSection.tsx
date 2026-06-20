@@ -474,7 +474,7 @@ function ActivityBarItemsSection() {
   };
 
   /** Begin dragging — the entire row is the drag handle (except the toggle). */
-  const onRowPointerDown = (e: React.PointerEvent, id: string) => {
+  const onRowPointerDown = (e: React.PointerEvent, id: ActivityItemId) => {
     if (e.button !== 0) return;
     const items = itemsRef.current;
     const container = containerRef.current;

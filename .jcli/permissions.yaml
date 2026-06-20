@@ -47,4 +47,5 @@ allow:
 - Shell(npm list:*)
 - Shell(node -e:*)
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/src/components/shared/:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/:*)
 deny: []

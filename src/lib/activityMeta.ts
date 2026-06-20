@@ -1,5 +1,6 @@
 import { PenLine, Terminal, Settings, type LucideIcon } from 'lucide-react';
 import type { ActivityItemId } from './storage';
+import type { TranslationKey } from './i18n';
 
 /**
  * Activity Bar item metadata — single source of truth.
@@ -18,7 +19,7 @@ import type { ActivityItemId } from './storage';
  */
 export const ACTIVITY_ITEM_META: Record<
   ActivityItemId,
-  { icon: LucideIcon; labelKey: string }
+  { icon: LucideIcon; labelKey: TranslationKey }
 > = {
   /** 文档 — 笔形图标，点击进入笔记编辑器 */
   documents: { icon: PenLine, labelKey: 'app.documents' },
