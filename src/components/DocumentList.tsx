@@ -499,12 +499,12 @@ export default function DocumentList() {
             startFolderRename(f.id, f.name);
           }}
           style={{ paddingLeft: `${4 + depth * 16}px` }}
-          className={`group flex h-9 items-center gap-1.5 pr-2 rounded-md cursor-pointer transition-all duration-200 text-[var(--vscode-sideBar-foreground)] ${
+          className={`group flex h-9 items-center gap-1.5 pr-2 rounded-md cursor-pointer transition-all duration-200 text-[var(--vscode-sideBar-foreground)] border-l-2 ${
             isFlashing
-              ? 'bg-[var(--vscode-focusBorder)]'
+              ? 'bg-[var(--vscode-list-hoverBackground)] border-[var(--vscode-focusBorder)]'
               : isDropTarget
-                ? 'bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-[var(--vscode-focusBorder)]'
-                : 'hover:bg-[var(--vscode-list-hoverBackground)]'
+                ? 'bg-[var(--vscode-list-hoverBackground)] border-[var(--vscode-focusBorder)]'
+                : 'border-transparent hover:bg-[var(--vscode-list-hoverBackground)]'
           }`}
         >
           <ChevronRight
@@ -513,11 +513,7 @@ export default function DocumentList() {
             }`}
           />
           {isDropTarget || open ? (
-            <FolderOpen
-              className={`w-4 h-4 shrink-0 transition-colors duration-200 ${
-                isDropTarget ? 'text-[var(--vscode-focusBorder)]' : 'opacity-60'
-              }`}
-            />
+            <FolderOpen className="w-4 h-4 opacity-60 shrink-0 transition-colors duration-200" />
           ) : (
             <Folder className="w-4 h-4 opacity-60 shrink-0" />
           )}
@@ -537,11 +533,7 @@ export default function DocumentList() {
               placeholder={t('doclist.folderNamePlaceholder')}
             />
           ) : (
-            <span
-              className={`text-sm truncate flex-1 transition-colors duration-200 ${
-                isDropTarget ? 'text-[var(--vscode-foreground)] font-medium' : ''
-              }`}
-            >
+            <span className="text-sm truncate flex-1 transition-colors duration-200">
               {f.name}
             </span>
           )}
@@ -640,9 +632,7 @@ export default function DocumentList() {
       <div
         data-drop-target={ROOT_DROP_ID}
         className={`flex-1 overflow-y-auto space-y-0.5 pr-0.5 transition-colors duration-200 ${
-          isRootDropTarget
-            ? 'rounded-lg bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-[var(--vscode-focusBorder)]'
-            : ''
+          isRootDropTarget ? 'bg-[var(--vscode-list-hoverBackground)]' : ''
         }`}
       >
         {isSearching ? (
