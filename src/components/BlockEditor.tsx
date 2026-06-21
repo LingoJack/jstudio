@@ -292,18 +292,21 @@ export default function BlockEditor() {
 
   // ------------------------------------------------------------------
   // Sync cursor style → trail geometry + native caret visibility
+  //
+  // Same approach as the terminal: the trail only renders the comet-tail
+  // animation (cutout mode).  The actual cursor shape for 'bar' is the
+  // browser's native caret; for 'block'/'underline' the native caret is
+  // hidden and a solid cursor is drawn by the trail's fill geometry.
   // ------------------------------------------------------------------
   useEffect(() => {
     trailRef.current?.setCursorStyle(editorCursorStyle);
-    // For block / underline the WebGL overlay renders the cursor shape,
-    // so hide the native thin-bar caret.
     const editorDom = editorRef.current?.view?.dom as HTMLElement | undefined;
     if (editorDom) {
-      if (editorCursorStyle === 'bar') {
-        editorDom.style.caretColor = '';
-      } else {
-        editorDom.style.caretColor = 'transparent';
-      }
+      // 'bar' uses the native caret (thin vertical line).
+      // 'block'/'underline' hide the native caret; the trail renders a
+      // solid cursor at the caret position (no blink, like xterm).
+      editorDom.style.caretColor =
+        editorCursorStyle === 'bar' ? '' : 'transparent';
     }
   }, [editorCursorStyle]);
 

@@ -20,6 +20,18 @@
  * RENDERING: WebGL2, single shader program, one VAO + one VBO (12 floats),
  * updated each frame via bufferSubData.  Runs on requestAnimationFrame.
  *
+ * CURSOR STYLE:
+ *   The trail quad's shape follows the cursor style, identical to the
+ *   terminal CursorTrail:
+ *     - 'bar'       → thin vertical strip  (12% of char width, full height)
+ *     - 'block'     → full character cell
+ *     - 'underline' → thin horizontal strip (full width, 15% of height)
+ *
+ *   For 'bar' the native caret (thin vertical line) shows through the
+ *   cutout hole.  For 'block'/'underline' the native caret is hidden
+ *   (caret-color:transparent) and a solid cursor is rendered as a second
+ *   draw pass — exactly like xterm renders its own cursor.
+ *
  * VISIBILITY RULES:
  *   - Trail is visible only when the editor has focus AND the selection is
  *     collapsed (a blinking caret, not a text selection range).
@@ -34,20 +46,20 @@ import type { EditorCursorStyle } from '../lib/storage';
 const DECAY_FAST = 0.1;
 const DECAY_SLOW = 0.4;
 
+// ── Cursor blink (milliseconds) ──────────────────────────────────────
+// Matches VS Code's default cursor blink: 530ms on, 530ms off.
+const BLINK_PERIOD_MS = 1060;
+const BLINK_ON_RATIO = 0.5;
+
 // ── Corner index mapping (from kitty's cursor_trail.c) ───────────────
 //   corner 0 = top-right, 1 = bottom-right, 2 = bottom-left, 3 = top-left
 const CORNER_IDX_X = [1, 1, 0, 0]; // right, right, left, left
 const CORNER_IDX_Y = [0, 1, 1, 0]; // top, bottom, bottom, top
 
-// ── Caret geometry ───────────────────────────────────────────────────
-// The contentEditable caret is a thin vertical bar by default (~2px).
-// We render the trail quad with a shape matching the selected cursor
-// style, using the same thickness ratios as the terminal CursorTrail
-// so the two look visually consistent.
-
-/** Vertical thickness ratio (fraction of line height). */
+// ── Caret geometry (same ratios as terminal CursorTrail) ─────────────
+/** Vertical thickness ratio (fraction of cell height). */
 const UNDERLINE_THICKNESS_RATIO = 0.15;
-/** Horizontal thickness ratio (fraction of character width). */
+/** Horizontal thickness ratio (fraction of cell width). */
 const BAR_THICKNESS_RATIO = 0.12;
 /** Character width ≈ font-size × 0.6 for proportional fonts. */
 const CHAR_WIDTH_RATIO = 0.6;
@@ -78,8 +90,12 @@ export class EditorCursorTrail {
   /** Current cursor shape — controls the trail geometry. */
   private cursorStyle: EditorCursorStyle = 'bar';
 
-  /** Accumulated time (seconds) for cursor blink animation. */
-  private blinkTime = 0;
+  /** When the cursor first became visible (ms epoch) — used for blink phase. */
+  private cursorVisibleStartTime = 0;
+  /** Whether the caret position has changed since last frame. */
+  private prevCaretKey = '';
+  /** Cached line-spacing value (avoid getComputedStyle every frame). */
+  private cachedLineSpacing = 1.7;
 
   // ── Trail state: 4 chasing corners (overlay-canvas pixel coords) ──
   private cornerX = [0, 0, 0, 0];
@@ -156,7 +172,7 @@ export class EditorCursorTrail {
       color: gl.getUniformLocation(program, 'u_color'),
       opacity: gl.getUniformLocation(program, 'u_opacity'),
       fillCursor: gl.getUniformLocation(program, 'u_fillCursor'),
-      blinkPhase: gl.getUniformLocation(program, 'u_blinkPhase'),
+      blink: gl.getUniformLocation(program, 'u_blink'),
     };
 
     // VAO + VBO for 6 vertices (2 triangles), 2 floats each.
@@ -216,6 +232,10 @@ export class EditorCursorTrail {
     this.cssH = rect.height;
     this.canvas.width = Math.max(1, Math.round(rect.width * dpr));
     this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
+
+    // Refresh cached line-spacing (cheap, only called on resize).
+    const lsStr = getComputedStyle(document.documentElement).getPropertyValue('--jstudio-line-height') || '1.7';
+    this.cachedLineSpacing = parseFloat(lsStr) || 1.7;
   }
 
   // ── Private: GL helpers ──
@@ -296,22 +316,27 @@ export class EditorCursorTrail {
    * Convert a screen-space DOMRect to overlay-canvas-local coordinates,
    * adjusting the shape to match the selected cursor style.
    *
-   * Uses the same thickness ratios as the terminal CursorTrail:
-   *   - 'bar'       → thin vertical strip  (12% of char width, full height)
-   *   - 'block'     → full character cell  (full width, full height)
-   *   - 'underline' → thin horizontal strip (full width, 15% of height at bottom)
+   * Cell metrics are derived from the editor's computed font-size (cached
+   * and refreshed only when the caret moves to a new position), NOT from
+   * the DOMRect height (which is line-height = font-size × line-spacing
+   * and would be far too large for 'block').
+   *
+   *   - 'bar'       → thin vertical strip  (12% of char width, full line height)
+   *   - 'block'     → full character cell  (full char width, font-size height)
+   *   - 'underline' → thin horizontal strip (full char width, 15% of font-size)
    */
   private toCanvasLocal(rect: DOMRect): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
     const left = rect.left - canvasRect.left;
     const top = rect.top - canvasRect.top;
-    const height = Math.max(rect.height, 1);
+    const lineHeight = Math.max(rect.height, 1);
 
-    // Read font-size from the CSS variable on <html> to estimate
-    // character width.  We can't use `height` (which is line-height =
-    // font-size × line-spacing) because it would be far too large.
-    const fsStr = getComputedStyle(document.documentElement).getPropertyValue('--jstudio-font-size') || '14px';
-    const fontSize = parseFloat(fsStr) || 14;
+    // Use the caret rect height (= line-height) to derive font-size.
+    // line-height = font-size × line-spacing.  We read line-spacing from
+    // the CSS variable (cached, not every frame).
+    const lineSpacing = this.cachedLineSpacing;
+    const fontSize = lineHeight / lineSpacing;
+
     const charWidth = Math.max(fontSize * CHAR_WIDTH_RATIO, CARET_BAR_WIDTH_PX);
 
     let trailLeft: number;
@@ -321,27 +346,33 @@ export class EditorCursorTrail {
 
     switch (this.cursorStyle) {
       case 'block':
-        // Full character cell — same as terminal 'block'.
+        // Full character cell: char width × font-size height.
+        // The block sits at the bottom of the line (baseline-aligned),
+        // matching how terminal cells look.
         trailLeft = left;
         trailRight = left + charWidth;
-        trailTop = top;
-        trailBottom = top + height;
+        const blockH = fontSize;
+        // Center the block vertically within the line.
+        trailTop = top + (lineHeight - blockH) / 2;
+        trailBottom = trailTop + blockH;
         break;
       case 'underline':
-        // Thin horizontal strip at the bottom — 15% of line height.
+        // Thin horizontal strip at the bottom: full char width,
+        // 15% of font-size height.
+        const underH = Math.max(fontSize * UNDERLINE_THICKNESS_RATIO, 2);
         trailLeft = left;
         trailRight = left + charWidth;
-        trailTop = top + height - height * UNDERLINE_THICKNESS_RATIO;
-        trailBottom = top + height;
+        trailTop = top + lineHeight - underH;
+        trailBottom = top + lineHeight;
         break;
       case 'bar':
       default:
-        // Thin vertical strip — 12% of char width, full height.
-        const barWidth = Math.max(charWidth * BAR_THICKNESS_RATIO, CARET_BAR_WIDTH_PX);
+        // Thin vertical strip: 12% of char width, full line height.
+        const barW = Math.max(charWidth * BAR_THICKNESS_RATIO, CARET_BAR_WIDTH_PX);
         trailLeft = left;
-        trailRight = left + barWidth;
+        trailRight = left + barW;
         trailTop = top;
-        trailBottom = top + height;
+        trailBottom = top + lineHeight;
         break;
     }
 
@@ -355,11 +386,19 @@ export class EditorCursorTrail {
 
   private updateTarget(caretRect: { left: number; right: number; top: number; bottom: number } | null) {
     if (caretRect) {
+      // Detect if the caret position changed — reset blink timer so the
+      // cursor immediately appears solid when you type or move.
+      const key = `${caretRect.left}|${caretRect.top}`;
+      const wasHidden = !this.cursorVisible;
       this.cursorVisible = true;
       this.cursorEdgeX[0] = caretRect.left;
       this.cursorEdgeX[1] = caretRect.right;
       this.cursorEdgeY[0] = caretRect.top;
       this.cursorEdgeY[1] = caretRect.bottom;
+      if (key !== this.prevCaretKey || wasHidden) {
+        this.cursorVisibleStartTime = performance.now();
+        this.prevCaretKey = key;
+      }
     } else {
       this.cursorVisible = false;
     }
@@ -488,31 +527,30 @@ export class EditorCursorTrail {
     );
     gl.uniform1f(this.u.opacity, this.opacity);
 
-    // Fill mode: when the cursor is a block or underline we render a solid
-    // blinking block inside the cursor rect (the native caret is hidden via
-    // caret-color:transparent).  For 'bar' we use cutout mode so the native
-    // thin caret shows through.
+    // Fill mode: 'block'/'underline' render the entire quad solid (the fill
+    // IS the cursor, always visible).  'bar' uses cutout so the native
+    // thin caret shows through the hole.
     const useFill = this.cursorStyle === 'block' || this.cursorStyle === 'underline';
     gl.uniform1f(this.u.fillCursor, useFill ? 1.0 : 0.0);
 
-    // Blink phase: a sine-based pulse with ~1s period.
-    //   sin oscillates -1..1; we map to 0..1.
-    //   When moving (trail is stretching), we keep the cursor fully visible
-    //   (no blink) — detected when the comet tail corners differ from the
-    //   cursor edges by more than a few pixels.
-    let blinkPhase = 1.0;
+    // Blink: only in fill mode, only when stationary (trail corners ≈ target).
+    // When moving, the cursor stays fully visible (no blink) — like xterm.
+    let blink = 1.0;
     if (useFill) {
-      const isMoving =
-        Math.abs(this.cornerX[0] - this.cursorEdgeX[1]) > 3 ||
-        Math.abs(this.cornerX[2] - this.cursorEdgeX[0]) > 3;
-      if (!isMoving) {
-        // ~1s blink cycle (full on → full off → full on).
-        const phase = (this.blinkTime % 1.06) / 1.06; // 0..1
-        // Square-ish curve: visible ~53% of the time, hidden ~47%.
-        blinkPhase = phase < 0.53 ? 1.0 : 0.0;
+      const maxDelta = Math.max(
+        Math.abs(this.cornerX[0] - this.cursorEdgeX[1]),
+        Math.abs(this.cornerX[2] - this.cursorEdgeX[0]),
+        Math.abs(this.cornerY[0] - this.cursorEdgeY[0]),
+        Math.abs(this.cornerY[2] - this.cursorEdgeY[1]),
+      );
+      if (maxDelta < 2) {
+        // Stationary — blink.
+        const elapsed = performance.now() - this.cursorVisibleStartTime;
+        const phase = (elapsed % BLINK_PERIOD_MS) / BLINK_PERIOD_MS;
+        blink = phase < BLINK_ON_RATIO ? 1.0 : 0.0;
       }
     }
-    gl.uniform1f(this.u.blinkPhase, blinkPhase);
+    gl.uniform1f(this.u.blink, blink);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -529,7 +567,6 @@ export class EditorCursorTrail {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
-    this.blinkTime += dt;
 
     const caretRect = this.measureCaretRect();
     this.updateTarget(caretRect);
