@@ -42,8 +42,13 @@ pub fn run() {
             // ── link preview ──
             commands::link::fetch_link_metadata,
         ])
-        .register_uri_scheme_protocol("webpreview", |_app, request| {
-            commands::link::handle_webpreview_request(&request)
+        .register_asynchronous_uri_scheme_protocol("webpreview", |_app, request, responder| {
+            // Move the blocking HTTP work off the main thread to prevent
+            // the macOS rainbow cursor during page loads.
+            std::thread::spawn(move || {
+                let response = commands::link::handle_webpreview_request(&request);
+                responder.respond(response);
+            });
         })
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

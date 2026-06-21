@@ -5,8 +5,8 @@ import { storage } from '../lib/storage';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { buildFolderTree, type FolderTreeNode } from '../lib/folderTree';
 import {
-  FolderDot, Plus, MoreHorizontal, FileDown,
-  FolderPlus, ChevronRight, Trash2, FolderInput,
+  FileText, Plus, MoreHorizontal, FileDown,
+  FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
@@ -443,9 +443,12 @@ export default function DocumentList() {
       );
     }
     return (
-      <span className="text-sm truncate flex-1">
-        {doc.title || t('doclist.untitled')}
-      </span>
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <FileText className="w-5 h-5 opacity-70 shrink-0" />
+        <span className="flex-1 truncate">
+          {doc.title || t('doclist.untitled')}
+        </span>
+      </div>
     );
   };
 
@@ -475,10 +478,10 @@ export default function DocumentList() {
           startRename(doc.id, doc.title || '');
         }}
         style={{ opacity: isDragging ? 0.4 : undefined }}
-        className={`group flex h-9 items-center gap-2 pl-3 pr-2 rounded-r-md cursor-pointer transition-colors duration-150 ${
+        className={`group flex items-center gap-2 pl-4 pr-3 py-1.5 text-[13px] rounded-r-md cursor-pointer transition-colors duration-150 ${
           isActive
             ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-            : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
+            : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-descriptionForeground)]'
         } ${isDragging ? 'cursor-grabbing' : ''}`}
       >
         {renderDocInner(doc)}
@@ -536,14 +539,19 @@ export default function DocumentList() {
             e.stopPropagation();
             startFolderRename(f.id, f.name);
           }}
-          className="group flex h-9 items-center gap-1.5 pl-1 pr-2 rounded-r-md cursor-pointer text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+          className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-r-md cursor-pointer text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
         >
+          {open ? (
+            <FolderOpen className="w-5 h-5 opacity-70 shrink-0" />
+          ) : (
+            <Folder className="w-5 h-5 opacity-70 shrink-0" />
+          )}
+          {renderFolderInner(f)}
           <ChevronRight
             className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
               open ? 'rotate-90' : ''
             }`}
           />
-          {renderFolderInner(f)}
         </NavLeaf>
 
         {/* Children wrapped in NavBranch for continuous guide line */}
@@ -586,7 +594,7 @@ export default function DocumentList() {
             startRename(doc.id, doc.title || '');
           }}
           style={{ opacity: isDragging ? 0.4 : undefined }}
-          className={`group flex h-9 items-center gap-2 pl-3 pr-2 rounded-md cursor-pointer transition-colors duration-150 ${
+          className={`group flex items-center gap-3 pl-3 pr-2 py-2.5 text-sm rounded-md cursor-pointer transition-colors duration-150 ${
             isActive
               ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
               : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
@@ -604,18 +612,15 @@ export default function DocumentList() {
 
   return (
     <div
-      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col p-2 select-none z-10 relative"
+      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col py-5 select-none z-10 relative"
       style={{ width: sidebarWidth }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-2 mb-1.5 shrink-0">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex items-center gap-1.5">
-          <FolderDot className="w-4 h-4" />
-          <span>
-            {t('doclist.allDocuments')} {totalCount}
-          </span>
-        </h4>
-        <div className="flex items-center gap-0.5">
+      {/* Header — aligned with Settings.tsx */}
+      <div className="flex items-center justify-between px-5 mb-5 shrink-0">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+          {t('doclist.allDocuments')}
+        </h2>
+        <div className="flex items-center gap-0.5 -mr-1.5">
           <div
             className="relative"
             onMouseEnter={openMoreMenu}
@@ -667,7 +672,7 @@ export default function DocumentList() {
       {/* Documents + folders list (root drop zone) */}
       <div
         data-drop-target={ROOT_DROP_ID}
-        className="flex-1 overflow-y-auto space-y-0.5 pr-0.5"
+        className="flex-1 overflow-y-auto px-3 space-y-0.5"
       >
         {isSearching ? (
           renderSearchResults()
@@ -699,7 +704,7 @@ export default function DocumentList() {
                       startRename(doc.id, doc.title || '');
                     }}
                     style={{ opacity: isDragging ? 0.4 : undefined }}
-                    className={`group flex h-9 items-center gap-2 pl-3 pr-2 rounded-md cursor-pointer transition-colors duration-150 ${
+                    className={`group flex items-center gap-3 pl-3 pr-2 py-2.5 text-sm rounded-md cursor-pointer transition-colors duration-150 ${
                       isActive
                         ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
                         : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
