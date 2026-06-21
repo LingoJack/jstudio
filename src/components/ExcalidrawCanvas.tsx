@@ -27,7 +27,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Excalidraw, type ExcalidrawImperativeAPI } from '@excalidraw/excalidraw';
 import type {
+  AppState,
+  BinaryFiles,
   ExcalidrawInitialDataState,
+  OrderedExcalidrawElement,
 } from '@excalidraw/excalidraw/types';
 
 /* ------------------------------------------------------------------ */
@@ -157,6 +160,7 @@ export function ExcalidrawCanvas({
   //   1. Detect external changes (from props) vs. internal changes (from onChange)
   //   2. Avoid feedback loops when our own onChange triggers a prop update
   const lastAppliedSnapshot = useRef(initialSnapshot);
+  const lastEmittedSnapshot = useRef(initialSnapshot);
 
   // Always keep the latest callback.
   useEffect(() => {
@@ -212,14 +216,18 @@ export function ExcalidrawCanvas({
   // Excalidraw calls onChange on every edit — debounce the serialization.
   // When serializing, strip the instance prefix so the persisted snapshot
   // uses clean, portable ids.
-  const handleChange = useCallback(() => {
+  const handleChange = useCallback((
+    elements: readonly OrderedExcalidrawElement[],
+    _appState: AppState,
+    _files: BinaryFiles,
+  ) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      const api = apiRef.current;
-      if (!api) return;
       try {
-        const elements = stripPrefixes(api.getSceneElements(), instPrefix);
-        const snapshot = JSON.stringify({ elements });
+        const cleanElements = stripPrefixes([...elements], instPrefix);
+        const snapshot = JSON.stringify({ elements: cleanElements });
+        if (snapshot === lastEmittedSnapshot.current) return;
+        lastEmittedSnapshot.current = snapshot;
         lastAppliedSnapshot.current = snapshot;
         onChangeRef.current(snapshot);
       } catch {
@@ -239,6 +247,8 @@ export function ExcalidrawCanvas({
           try {
             const elements = stripPrefixes(api.getSceneElements(), instPrefix);
             const snapshot = JSON.stringify({ elements });
+            if (snapshot === lastEmittedSnapshot.current) return;
+            lastEmittedSnapshot.current = snapshot;
             onChangeRef.current(snapshot);
           } catch {
             /* ignore */

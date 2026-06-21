@@ -179,6 +179,11 @@ export default function DiagramBlockView({
       handleWindowUpdate,
       isDark,
       blockId,
+      () => {
+        setWindowOpen(false);
+        unlistenRef.current?.();
+        unlistenRef.current = null;
+      },
     )
       .then((unlisten) => {
         unlistenRef.current = unlisten;

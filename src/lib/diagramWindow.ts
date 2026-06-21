@@ -45,6 +45,7 @@ export async function openDiagramWindow(
   onUpdate: (snapshotJson: string) => void,
   darkMode: boolean,
   blockId?: string,
+  onClosed?: () => void,
 ): Promise<() => void> {
   diagramCounter += 1;
   const label = `diagram-${Date.now()}-${diagramCounter}`;
@@ -116,6 +117,13 @@ export async function openDiagramWindow(
 
   webviewWindow.once('tauri://error', (e) => {
     console.error('[DiagramWindow] Error:', e);
+    onClosed?.();
+  });
+
+  webviewWindow.once('tauri://destroyed', () => {
+    console.log('[DiagramWindow] Window destroyed:', label);
+    stopped = true;
+    onClosed?.();
   });
 
   // Return unsubscribe function.
