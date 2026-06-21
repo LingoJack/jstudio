@@ -433,7 +433,6 @@ export default function DocumentList() {
       <NavRow
         key={doc.id}
         level="secondary"
-        lined
         active={isActive}
         icon={<FileText className="w-4 h-4 opacity-50 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
@@ -555,6 +554,7 @@ export default function DocumentList() {
       <NavRow
         key={doc.id}
         level="primary"
+        plainActive
         active={doc.id === activeDocId}
         icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
@@ -658,6 +658,7 @@ export default function DocumentList() {
                 <NavRow
                   key={doc.id}
                   level="primary"
+                  plainActive
                   active={doc.id === activeDocId}
                   icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
                   onPointerDown={(e) => onDocPointerDown(e, doc.id)}
