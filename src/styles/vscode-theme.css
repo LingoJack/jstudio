@@ -2389,55 +2389,71 @@ button {
   background: var(--vscode-editor-background, #ffffff);
 }
 
-/* ─── Persistent header bar (always visible) ─── */
+/* ─── Transparent overlay (when NOT selected) ─── */
 
-.diagram-block-header {
+.diagram-block-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: pointer;
+}
+
+/* ─── Floating toolbar (top-right, visible when selected) ─── */
+
+.diagram-block-toolbar {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
   display: flex;
-  align-items: center;
   gap: 2px;
-  padding: 4px 6px;
-  background: var(--vscode-editorWidget-background, #252526);
-  border-bottom: 1px solid var(--vscode-widget-border, #454545);
-  flex-shrink: 0;
+  padding: 3px;
+  background: var(--vscode-menu-background, var(--vscode-editor-background, #1e1e1e));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-.diagram-block-header-spacer {
-  flex: 1;
-}
-
-.diagram-block-header-btn {
+.diagram-block-toolbar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  min-height: 26px;
-  padding: 0 8px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
   color: var(--vscode-foreground);
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
   transition: background 0.12s;
 }
 
-.diagram-block-header-btn:hover {
+.diagram-block-toolbar-btn:hover {
   background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
 }
 
-.diagram-block-header-btn.is-active {
+.diagram-block-toolbar-btn.is-active {
   background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
   color: var(--vscode-list-activeSelectionForeground, #fff);
 }
 
-.diagram-block-maximize-btn:disabled {
+.diagram-block-toolbar-btn.is-focused {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+.diagram-block-toolbar-btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.diagram-block-maximize-label {
-  font-size: 12px;
-  white-space: nowrap;
+.diagram-block-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--vscode-widget-border, #454545);
 }
 
 /* ─── Resize handle (same as image/file/link) ─── */

@@ -443,6 +443,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       json.attrs = {
         snapshot: block.properties?.diagramSnapshot ?? '',
         width: block.properties?.diagramWidth ?? null,
+        height: block.properties?.diagramHeight ?? null,
         align: block.properties?.diagramAlign ?? 'center',
       };
       break;
@@ -613,6 +614,8 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
           typeof attrs.snapshot === 'string' ? attrs.snapshot : '',
         diagramWidth:
           typeof attrs.width === 'number' ? attrs.width : undefined,
+        diagramHeight:
+          typeof attrs.height === 'number' ? attrs.height : undefined,
         diagramAlign:
           attrs.align === 'left' || attrs.align === 'center'
             ? attrs.align

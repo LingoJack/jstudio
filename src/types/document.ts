@@ -66,6 +66,8 @@ export interface BlockProperties {
   diagramSnapshot?: string;
   /** Diagram block: display width (px). Undefined = auto. */
   diagramWidth?: number;
+  /** Diagram block: display height (px). Undefined = default 320. */
+  diagramHeight?: number;
   /** Diagram block: alignment. */
   diagramAlign?: 'left' | 'center';
 }
