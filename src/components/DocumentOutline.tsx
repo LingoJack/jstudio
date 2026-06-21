@@ -288,11 +288,11 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
 /**
  * Recursively render outline headings as a collapsible tree.
  *
- * Every heading that has children is expandable (chevron arrow on the
- * right, click to toggle). Children are rendered inside a NavBranch
- * (gray guide line) with secondary NavRow styling (lined, 13px text).
+ * Top-level headings (depth 0) use primary styling (rounded-md, 14px,
+ * like Settings section headers). Nested headings (depth 1+) use
+ * secondary styling (-ml-px border-l-2, 13px, like Settings sub-items).
  *
- * This mirrors the Settings pattern at every level — not just the top.
+ * Every heading that has children is expandable.
  */
 function renderOutlineTree(
   headings: HeadingItem[],
@@ -301,8 +301,10 @@ function renderOutlineTree(
   onClick: (item: HeadingItem) => void,
   collapsed: Set<string>,
   onToggle: (item: HeadingItem) => void,
+  depth: number = 0,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
+  const isTopLevel = depth === 0;
   let i = 0;
 
   while (i < headings.length) {
@@ -328,9 +330,10 @@ function renderOutlineTree(
       result.push(
         <NavRow
           key={item.id}
-          level="primary"
+          level={isTopLevel ? 'primary' : 'secondary'}
+          lined={!isTopLevel}
           active={item.id === activeId}
-          plainActive
+          plainActive={isTopLevel}
           expandable={hasChildren}
           expanded={!isCollapsed}
           onClick={() => {
@@ -348,18 +351,16 @@ function renderOutlineTree(
         const childMin = Math.min(...children.map((c) => c.level));
         result.push(
           <NavBranch key={`branch-${item.id}`} className="mt-0.5 mb-1 ml-[18px]">
-            {renderOutlineTree(children, childMin, activeId, onClick, collapsed, onToggle)}
+            {renderOutlineTree(children, childMin, activeId, onClick, collapsed, onToggle, depth + 1)}
           </NavBranch>,
         );
       }
 
-      // Skip past this heading and all its children (they're handled above)
+      // Skip past this heading and all its children
       i += 1 + children.length;
     } else if (item.level > headingLevel) {
-      // Shouldn't happen — deeper levels are consumed by parent above
       i++;
     } else {
-      // Shallower level — shouldn't reach here
       i++;
     }
   }

@@ -11,7 +11,6 @@
  *   → decrypt Chrome Cookies SQLite DB (skip 32-byte app-bound prefix)
  *   → inject as `document.cookie` in the WebviewWindow.
  */
-
 use aes::Aes128;
 use cbc::Decryptor;
 use cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
@@ -46,8 +45,10 @@ fn get_chrome_keychain_password() -> Result<String, String> {
     let output = Command::new("security")
         .args([
             "find-generic-password",
-            "-ga", "Chrome",
-            "-s", "Chrome Safe Storage",
+            "-ga",
+            "Chrome",
+            "-s",
+            "Chrome Safe Storage",
         ])
         .output()
         .map_err(|e| format!("failed to run `security`: {e}"))?;
@@ -110,8 +111,7 @@ fn decrypt_cookie_value(encrypted: &[u8], key: &[u8; 16]) -> Result<String, Stri
         &plaintext[..]
     };
 
-    String::from_utf8(cookie_value.to_vec())
-        .map_err(|e| format!("decrypted cookie not UTF-8: {e}"))
+    String::from_utf8(cookie_value.to_vec()).map_err(|e| format!("decrypted cookie not UTF-8: {e}"))
 }
 
 fn extract_domain(url: &str) -> Result<String, String> {
@@ -132,11 +132,9 @@ fn parent_domain(host: &str) -> String {
 }
 
 fn open_chrome_cookies_db() -> Result<Connection, String> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| "could not determine home directory".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| "could not determine home directory".to_string())?;
 
-    let cookies_path = home
-        .join("Library/Application Support/Google/Chrome/Default/Cookies");
+    let cookies_path = home.join("Library/Application Support/Google/Chrome/Default/Cookies");
 
     if !cookies_path.exists() {
         return Err("Chrome cookies database not found".into());
@@ -144,8 +142,7 @@ fn open_chrome_cookies_db() -> Result<Connection, String> {
 
     let tmp =
         std::env::temp_dir().join(format!("jstudio_chrome_cookies_{}.db", std::process::id()));
-    std::fs::copy(&cookies_path, &tmp)
-        .map_err(|e| format!("failed to copy cookies db: {e}"))?;
+    std::fs::copy(&cookies_path, &tmp).map_err(|e| format!("failed to copy cookies db: {e}"))?;
 
     Connection::open(&tmp).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
@@ -300,11 +297,9 @@ pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     let description = extract_meta_content(&html, "name", "description")
         .or_else(|| extract_meta_content(&html, "property", "og:description"))
         .unwrap_or_default();
-    let og_image =
-        extract_meta_content(&html, "property", "og:image").unwrap_or_default();
+    let og_image = extract_meta_content(&html, "property", "og:image").unwrap_or_default();
     let favicon_url = extract_favicon_url(&html, &final_url);
-    let site_name =
-        extract_meta_content(&html, "property", "og:site_name").unwrap_or_default();
+    let site_name = extract_meta_content(&html, "property", "og:site_name").unwrap_or_default();
 
     Ok(LinkMetadata {
         title,
@@ -357,29 +352,27 @@ pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(),
         lines.join("\n")
     };
 
-    let label = format!("link-preview-{}", std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis());
+    let label = format!(
+        "link-preview-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
 
     let title = url::Url::parse(&url)
         .ok()
         .and_then(|u| u.host_str().map(|s| s.to_string()))
         .unwrap_or_else(|| "Link Preview".to_string());
 
-    let url_parsed = url::Url::parse(&url)
-        .map_err(|e| format!("invalid URL: {e}"))?;
+    let url_parsed = url::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
 
-    let mut builder = WebviewWindowBuilder::new(
-        &app,
-        &label,
-        WebviewUrl::External(url_parsed),
-    )
-    .title(&title)
-    .inner_size(1100.0, 800.0)
-    .min_inner_size(400.0, 300.0)
-    .resizable(true)
-    .user_agent(BROWSER_UA);
+    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(url_parsed))
+        .title(&title)
+        .inner_size(1100.0, 800.0)
+        .min_inner_size(400.0, 300.0)
+        .resizable(true)
+        .user_agent(BROWSER_UA);
 
     if !cookie_script.is_empty() {
         builder = builder.initialization_script(&cookie_script);
@@ -412,9 +405,8 @@ fn extract_html_title(html: &str) -> Option<String> {
 fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
     let attr_escaped = regex::escape(key);
     // attr="key" ... content="value"
-    let pattern = format!(
-        r#"(?is)<meta[^>]*{attr}=["']{attr_escaped}["'][^>]*content=["']([^"']*)["']"#
-    );
+    let pattern =
+        format!(r#"(?is)<meta[^>]*{attr}=["']{attr_escaped}["'][^>]*content=["']([^"']*)["']"#);
     if let Some(c) = regex::Regex::new(&pattern).ok()?.captures(html) {
         if let Some(m) = c.get(1) {
             let v = m.as_str();
@@ -424,9 +416,8 @@ fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
         }
     }
     // content="value" ... attr="key"
-    let pattern2 = format!(
-        r#"(?is)<meta[^>]*content=["']([^"']*)["'][^>]*{attr}=["']{attr_escaped}["']"#
-    );
+    let pattern2 =
+        format!(r#"(?is)<meta[^>]*content=["']([^"']*)["'][^>]*{attr}=["']{attr_escaped}["']"#);
     if let Some(c) = regex::Regex::new(&pattern2).ok()?.captures(html) {
         if let Some(m) = c.get(1) {
             let v = m.as_str();
@@ -440,9 +431,7 @@ fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
 
 fn extract_favicon_url(html: &str, base_url: &str) -> String {
     for rel in ["shortcut icon", "icon", "apple-touch-icon"] {
-        let pattern = format!(
-            r#"(?is)<link[^>]*rel=["']{rel}["'][^>]*href=["']([^"']*)["']"#
-        );
+        let pattern = format!(r#"(?is)<link[^>]*rel=["']{rel}["'][^>]*href=["']([^"']*)["']"#);
         if let Some(c) = regex::Regex::new(&pattern)
             .ok()
             .and_then(|re| re.captures(html))
@@ -454,9 +443,7 @@ fn extract_favicon_url(html: &str, base_url: &str) -> String {
                 }
             }
         }
-        let pattern2 = format!(
-            r#"(?is)<link[^>]*href=["']([^"']*)["'][^>]*rel=["']{rel}["']"#
-        );
+        let pattern2 = format!(r#"(?is)<link[^>]*href=["']([^"']*)["'][^>]*rel=["']{rel}["']"#);
         if let Some(c) = regex::Regex::new(&pattern2)
             .ok()
             .and_then(|re| re.captures(html))
