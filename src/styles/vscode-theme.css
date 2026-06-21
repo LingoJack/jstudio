@@ -2374,7 +2374,6 @@ button {
   position: relative;
   border-radius: 8px;
   border: 2px solid var(--vscode-widget-border);
-  overflow: hidden;
   transition: border-color 0.15s;
 }
 
@@ -2386,6 +2385,7 @@ button {
   width: 100%;
   min-width: 300px;
   overflow: hidden;
+  border-radius: 6px;
   background: var(--vscode-editor-background, #ffffff);
 }
 
