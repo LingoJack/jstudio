@@ -46,6 +46,7 @@ export default function DiagramBlockView({
 }: NodeViewProps) {
   const { snapshot, width, widthPct, height, align } =
     node.attrs as DiagramNodeAttributes;
+  const blockId = (node.attrs as DiagramNodeAttributes).id ?? undefined;
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
 
@@ -154,16 +155,19 @@ export default function DiagramBlockView({
   // being recreated on every content change, which would cause React to
   // tear down and re-run the poll loop.
   const snapshotRef = useRef(snapshot);
+  const blockIdRef = useRef(blockId);
   useEffect(() => {
     snapshotRef.current = snapshot;
-  }, [snapshot]);
+    blockIdRef.current = blockId;
+  }, [snapshot, blockId]);
 
   // Stable callback for updates from the diagram window.
   const handleWindowUpdate = useCallback(
     (updatedSnapshot: string) => {
+      if (blockIdRef.current && blockId && blockIdRef.current !== blockId) return;
       updateAttributes({ snapshot: updatedSnapshot });
     },
-    [updateAttributes],
+    [blockId, updateAttributes],
   );
 
   const handleMaximize = useCallback(() => {
@@ -174,6 +178,7 @@ export default function DiagramBlockView({
       snapshotRef.current ?? '',
       handleWindowUpdate,
       isDark,
+      blockId,
     )
       .then((unlisten) => {
         unlistenRef.current = unlisten;
@@ -182,7 +187,7 @@ export default function DiagramBlockView({
         console.error('[DiagramBlockView] Failed to open diagram window:', e);
         setWindowOpen(false);
       });
-  }, [windowOpen, isDark, handleWindowUpdate]);
+  }, [windowOpen, isDark, handleWindowUpdate, blockId]);
 
   // Cleanup listener on unmount.
   useEffect(() => {

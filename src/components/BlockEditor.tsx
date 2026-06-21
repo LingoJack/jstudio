@@ -48,6 +48,7 @@ import {
 import { SlashMenuExtension } from '../lib/tiptapExtensions';
 import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import { BlockNavigation } from '../lib/blockNavigation';
+import { BlockIdExtension } from '../lib/blockIdExtension';
 import { lowlight } from '../lib/extensions/lowlight';
 import { SelectAllText } from '../lib/extensions/selectAllText';
 import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
@@ -156,6 +157,7 @@ export default function BlockEditor() {
       TextAlign.configure({
         types: ['paragraph', 'heading', 'blockquote'],
       }),
+      BlockIdExtension,
       SelectAllText,
       SlashMenuExtension,
       BlockNavigation.configure({

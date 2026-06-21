@@ -359,6 +359,9 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
 
   const json: JSONContent = {
     type: nodeType,
+    attrs: {
+      id: block.id,
+    },
   };
 
   switch (block.type) {
@@ -372,7 +375,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     case 'heading-1':
     case 'heading-2':
     case 'heading-3': {
-      json.attrs = { level: headingLevel(block.type) };
+      json.attrs = { ...json.attrs, level: headingLevel(block.type) };
       const inline = richTextToTiptapInline(block.content as RichText[]);
       if (inline.length > 0) {
         json.content = inline;
@@ -397,6 +400,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       const code = rich[0]?.text ?? '';
       json.content = [{ type: 'text', text: code }];
       json.attrs = {
+        ...json.attrs,
         language: block.properties?.language ?? 'plaintext',
       };
       break;
@@ -404,6 +408,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     case 'image': {
       const src = typeof block.content === 'string' ? block.content : '';
       json.attrs = {
+        ...json.attrs,
         src,
         alt: block.properties?.caption ?? '',
         width: block.properties?.width ?? null,
@@ -415,6 +420,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     case 'file': {
       const src = typeof block.content === 'string' ? block.content : '';
       json.attrs = {
+        ...json.attrs,
         src,
         fileName: block.properties?.fileName ?? '',
         fileSize: block.properties?.fileSize ?? 0,
@@ -427,6 +433,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     case 'link': {
       const url = typeof block.content === 'string' ? block.content : '';
       json.attrs = {
+        ...json.attrs,
         url,
         title: block.properties?.linkTitle ?? '',
         description: block.properties?.linkDescription ?? '',
@@ -441,6 +448,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     }
     case 'diagram': {
       json.attrs = {
+        ...json.attrs,
         snapshot: block.properties?.diagramSnapshot ?? '',
         width: block.properties?.diagramWidth ?? null,
         height: block.properties?.diagramHeight ?? null,
@@ -478,6 +486,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     }
     case 'collapsible': {
       json.attrs = {
+        ...json.attrs,
         open: block.properties?.collapsibleOpen ?? true,
         summary: block.properties?.collapsibleSummary ?? '',
       };

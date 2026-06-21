@@ -18,10 +18,12 @@ import { invoke } from '@tauri-apps/api/core';
 /* ------------------------------------------------------------------ */
 
 export interface DiagramPayload {
+  /** Source block id. Used to guard updates when a document has many diagrams. */
+  blockId?: string;
   /** Serialized excalidraw scene JSON (empty string for a new board). */
   snapshot: string;
   /** Dark mode flag. */
-  darkMode: boolean;
+  darkMode?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -42,12 +44,13 @@ export async function openDiagramWindow(
   snapshot: string,
   onUpdate: (snapshotJson: string) => void,
   darkMode: boolean,
+  blockId?: string,
 ): Promise<() => void> {
   diagramCounter += 1;
   const label = `diagram-${Date.now()}-${diagramCounter}`;
   console.log('[DiagramWindow] Opening new window:', label);
 
-  const payload: DiagramPayload = { snapshot, darkMode };
+  const payload: DiagramPayload = { snapshot, darkMode, blockId };
 
   // 1. Store payload in Rust memory so the new window can retrieve it.
   try {
@@ -70,7 +73,11 @@ export async function openDiagramWindow(
           'get_diagram_update',
           { label },
         );
-        if (data?.snapshot && data.snapshot !== lastApplied) {
+        if (
+          typeof data?.snapshot === 'string' &&
+          data.snapshot !== lastApplied &&
+          (!blockId || !data.blockId || data.blockId === blockId)
+        ) {
           console.log('[DiagramWindow] Received update from window, length:', data.snapshot.length);
           lastApplied = data.snapshot;
           onUpdate(data.snapshot);
@@ -193,9 +200,10 @@ export async function sendDiagramUpdate(snapshot: string): Promise<void> {
   const label = resolveLabel();
   console.log('[DiagramWindow] Sending update for label:', label, 'snapshot length:', snapshot.length);
   try {
+    const payload = await fetchDiagramData();
     await invoke('set_diagram_update', {
       label,
-      data: { snapshot } satisfies DiagramPayload,
+      data: { snapshot, blockId: payload?.blockId } satisfies DiagramPayload,
     });
     console.log('[DiagramWindow] Update stored in Rust cache OK');
   } catch (e) {

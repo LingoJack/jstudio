@@ -17,6 +17,7 @@ import { ReactNodeViewRenderer } from '@tiptap/react';
 import DiagramBlockView from '../components/DiagramBlockView';
 
 export interface DiagramNodeAttributes {
+  id?: string | null;
   snapshot: string;
   /** Legacy pixel width (kept for backward-compat migration). */
   width: number | null;
