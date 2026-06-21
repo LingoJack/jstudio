@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
+import { eventToBinding, resolveBinding } from '../../lib/shortcuts';
 import { Plus, X, Clock, FolderOpen, Trash2 } from 'lucide-react';
 import type { TerminalSession } from '../../store/terminalSlice';
 import TerminalTabContextMenu from './TerminalTabContextMenu';
@@ -76,10 +77,10 @@ function formatAutoTitle(raw: string): string {
  *   - `+` button → new tab
  *   - Clock button → dropdown of recent working directories (max 10)
  *
- * Keyboard shortcuts:
+ * Keyboard shortcuts (resolved from lib/shortcuts.ts — user-customizable):
  *   Cmd/Ctrl + T                 — new tab
  *   Cmd/Ctrl + Shift + ← / →     — cycle tabs
- *   Cmd/Ctrl + Opt/Alt + ← / →   — cycle tabs
+ *   Cmd/Ctrl + Opt/Alt + ← / →   — cycle tabs (secondary)
  */
 export default function TerminalTabs() {
   const { t } = useI18n();
@@ -117,19 +118,24 @@ export default function TerminalTabs() {
   // ── Keyboard shortcuts ───────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
+      const binding = eventToBinding(e);
+      if (!binding) return;
 
-      // Cmd/Ctrl + T → new tab (new group)
-      if (e.key === 't' || e.key === 'T') {
+      const ov = useStore.getState().keyboardShortcuts;
+
+      // newTab
+      if (binding === resolveBinding('terminal.newTab', ov)) {
         e.preventDefault();
         e.stopPropagation();
         createSession();
         return;
       }
 
-      // Cmd/Ctrl + Shift + ← / → → cycle groups (tab switching)
-      if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      // cycleTabLeft / cycleTabRight
+      if (
+        binding === resolveBinding('terminal.cycleTabLeft', ov) ||
+        (e.altKey && e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey))
+      ) {
         if (groups.length < 2) return;
         e.preventDefault();
         e.stopPropagation();
@@ -137,32 +143,25 @@ export default function TerminalTabs() {
         const idx = groups.findIndex((g) => g.id === activeGroupId);
         if (idx === -1) return;
 
-        const next =
-          e.key === 'ArrowRight'
-            ? (idx + 1) % groups.length
-            : (idx - 1 + groups.length) % groups.length;
-
+        const next = (idx - 1 + groups.length) % groups.length;
         setActiveSession(groups[next].activeSessionId);
         return;
       }
+      if (
+        binding === resolveBinding('terminal.cycleTabRight', ov) ||
+        (e.altKey && e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey))
+      ) {
+        if (groups.length < 2) return;
+        e.preventDefault();
+        e.stopPropagation();
 
-      // Cmd/Ctrl + Opt/Alt + ← / → → cycle groups
-      if (!e.altKey) return;
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      if (groups.length < 2) return;
+        const idx = groups.findIndex((g) => g.id === activeGroupId);
+        if (idx === -1) return;
 
-      e.preventDefault();
-      e.stopPropagation();
-
-      const idx = groups.findIndex((g) => g.id === activeGroupId);
-      if (idx === -1) return;
-
-      const next =
-        e.key === 'ArrowRight'
-          ? (idx + 1) % groups.length
-          : (idx - 1 + groups.length) % groups.length;
-
-      setActiveSession(groups[next].activeSessionId);
+        const next = (idx + 1) % groups.length;
+        setActiveSession(groups[next].activeSessionId);
+        return;
+      }
     };
 
     window.addEventListener('keydown', handler, true);

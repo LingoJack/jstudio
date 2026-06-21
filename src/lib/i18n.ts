@@ -113,6 +113,7 @@ export const translations = {
     'settings.terminal': '终端',
     'settings.about': '关于',
     'settings.help': '帮助',
+    'settings.shortcuts': '快捷键',
 
     // ── General section ──
     'general.latinFont': '英文字体',
@@ -268,6 +269,61 @@ export const translations = {
     // ── ErrorBoundary ──
     'error.title': '应用遇到了一个错误。',
     'error.retry': '重试',
+
+    // ── Keyboard Shortcuts ──
+    'shortcut.description': '自定义应用内的键盘快捷键。点击按键组合即可重新绑定。',
+    'shortcut.pressKeys': '按下快捷键…',
+    'shortcut.resetToDefault': '重置为默认值',
+    'shortcut.resetAll': '重置全部为默认值',
+    'shortcut.reference': '参考快捷键（只读）',
+    'shortcut.conflictWith': '与「{name}」冲突',
+    'shortcut.conflictWarning': '此快捷键已绑定到「{name}」，保存后存在冲突。',
+
+    // Shortcut categories
+    'shortcut.category.general': '通用',
+    'shortcut.category.terminalTabs': '终端 · 标签页',
+    'shortcut.category.terminalPanes': '终端 · 分屏',
+    'shortcut.category.editorBlocks': '编辑器 · 块操作',
+
+    // General shortcuts
+    'shortcut.app.commandPalette': '打开命令面板',
+    'shortcut.app.commandPalette.desc': '全局打开命令搜索面板',
+
+    // Terminal shortcuts
+    'shortcut.terminal.newTab': '新建标签页',
+    'shortcut.terminal.closeTab': '关闭标签页',
+    'shortcut.terminal.cycleTabLeft': '切换到左标签页',
+    'shortcut.terminal.cycleTabRight': '切换到右标签页',
+    'shortcut.terminal.splitPane': '分屏',
+    'shortcut.terminal.closePane': '仅关闭当前面板',
+    'shortcut.terminal.focusPrevPane': '焦点切到上一面板',
+    'shortcut.terminal.focusNextPane': '焦点切到下一面板',
+    'shortcut.terminal.cycleLayout': '循环面板布局',
+    'shortcut.terminal.movePane': '移动面板位置',
+
+    // Editor shortcuts
+    'shortcut.editor.insertBlockBelow': '下方插入空行',
+    'shortcut.editor.insertBlockAbove': '上方插入空行',
+
+    // Reference shortcuts (read-only)
+    'shortcut.ref.editorFormatting': '编辑器格式化',
+    'shortcut.ref.markdown': 'Markdown 输入',
+    'shortcut.ref.bold': '粗体',
+    'shortcut.ref.italic': '斜体',
+    'shortcut.ref.underline': '下划线',
+    'shortcut.ref.strikethrough': '删除线',
+    'shortcut.ref.inlineCode': '行内代码',
+    'shortcut.ref.undo': '撤销',
+    'shortcut.ref.redo': '重做',
+    'shortcut.ref.selectAll': '全选',
+    'shortcut.ref.heading1': '一级标题',
+    'shortcut.ref.heading2': '二级标题',
+    'shortcut.ref.heading3': '三级标题',
+    'shortcut.ref.quote': '引用',
+    'shortcut.ref.bulletList': '无序列表',
+    'shortcut.ref.orderedList': '有序列表',
+    'shortcut.ref.codeBlock': '代码块',
+    'shortcut.ref.divider': '分隔线',
   },
 
   en: {
@@ -363,6 +419,7 @@ export const translations = {
     'settings.terminal': 'Terminal',
     'settings.about': 'About',
     'settings.help': 'Help',
+    'settings.shortcuts': 'Shortcuts',
 
     // ── General section ──
     'general.latinFont': 'Latin Font',
@@ -518,6 +575,61 @@ export const translations = {
     // ── ErrorBoundary ──
     'error.title': 'The app encountered an error.',
     'error.retry': 'Retry',
+
+    // ── Keyboard Shortcuts ──
+    'shortcut.description': 'Customize keyboard shortcuts for the app. Click a key binding to rebind it.',
+    'shortcut.pressKeys': 'Press keys…',
+    'shortcut.resetToDefault': 'Reset to default',
+    'shortcut.resetAll': 'Reset all to defaults',
+    'shortcut.reference': 'Reference shortcuts (read-only)',
+    'shortcut.conflictWith': 'Conflicts with "{name}"',
+    'shortcut.conflictWarning': 'This shortcut is already bound to "{name}". Saving will create a conflict.',
+
+    // Shortcut categories
+    'shortcut.category.general': 'General',
+    'shortcut.category.terminalTabs': 'Terminal · Tabs',
+    'shortcut.category.terminalPanes': 'Terminal · Panes',
+    'shortcut.category.editorBlocks': 'Editor · Blocks',
+
+    // General shortcuts
+    'shortcut.app.commandPalette': 'Open command palette',
+    'shortcut.app.commandPalette.desc': 'Open the command search palette globally',
+
+    // Terminal shortcuts
+    'shortcut.terminal.newTab': 'New tab',
+    'shortcut.terminal.closeTab': 'Close tab',
+    'shortcut.terminal.cycleTabLeft': 'Switch to left tab',
+    'shortcut.terminal.cycleTabRight': 'Switch to right tab',
+    'shortcut.terminal.splitPane': 'Split pane',
+    'shortcut.terminal.closePane': 'Close active pane only',
+    'shortcut.terminal.focusPrevPane': 'Focus previous pane',
+    'shortcut.terminal.focusNextPane': 'Focus next pane',
+    'shortcut.terminal.cycleLayout': 'Cycle pane layout',
+    'shortcut.terminal.movePane': 'Move pane position',
+
+    // Editor shortcuts
+    'shortcut.editor.insertBlockBelow': 'Insert block below',
+    'shortcut.editor.insertBlockAbove': 'Insert block above',
+
+    // Reference shortcuts (read-only)
+    'shortcut.ref.editorFormatting': 'Editor formatting',
+    'shortcut.ref.markdown': 'Markdown input',
+    'shortcut.ref.bold': 'Bold',
+    'shortcut.ref.italic': 'Italic',
+    'shortcut.ref.underline': 'Underline',
+    'shortcut.ref.strikethrough': 'Strikethrough',
+    'shortcut.ref.inlineCode': 'Inline code',
+    'shortcut.ref.undo': 'Undo',
+    'shortcut.ref.redo': 'Redo',
+    'shortcut.ref.selectAll': 'Select all',
+    'shortcut.ref.heading1': 'Heading 1',
+    'shortcut.ref.heading2': 'Heading 2',
+    'shortcut.ref.heading3': 'Heading 3',
+    'shortcut.ref.quote': 'Quote',
+    'shortcut.ref.bulletList': 'Bullet list',
+    'shortcut.ref.orderedList': 'Ordered list',
+    'shortcut.ref.codeBlock': 'Code block',
+    'shortcut.ref.divider': 'Divider',
   },
 } as const;
 

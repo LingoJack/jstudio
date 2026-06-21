@@ -323,7 +323,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     );
 
     const updatedDoc = newDocuments.find((d) => d.id === activeDocId) ?? null;
-    const newDocList = newDocuments.map(toMeta);
+
+    // Only patch the active doc's meta — do NOT rebuild from documents,
+    // because Document objects don't carry folderId (only DocumentMeta does).
+    const newDocList = docList.map((meta) =>
+      meta.id === activeDocId ? { ...meta, ...fields, updatedAt: now } : meta,
+    );
 
     set({
       documents: newDocuments,
@@ -343,7 +348,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       doc.id === id ? { ...doc, title, updatedAt: now } : doc,
     );
     const updatedDoc = newDocuments.find((d) => d.id === id) ?? null;
-    const newDocList = newDocuments.map(toMeta);
+
+    // Only patch the renamed item's meta — do NOT rebuild from documents,
+    // because Document objects don't carry folderId (only DocumentMeta does).
+    const newDocList = docList.map((meta) =>
+      meta.id === id ? { ...meta, title, updatedAt: now } : meta,
+    );
 
     set({
       documents: newDocuments,

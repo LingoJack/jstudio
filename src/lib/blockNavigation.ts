@@ -25,6 +25,8 @@ import { Extension } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 
 import { slashMenuPluginKey } from './tiptapExtensions';
+import { resolveBinding, toTiptapBinding } from './shortcuts';
+import { useStore } from '../store/useStore';
 
 export interface BlockNavigationOptions {
   /** Called when the cursor should leave the editor upward to the title. */
@@ -180,13 +182,19 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       return true;
     };
 
-    return {
+    // Resolve user-customizable bindings from the shortcut registry.
+    const ov = useStore.getState().keyboardShortcuts;
+    const modEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockBelow', ov));
+    const modShiftEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockAbove', ov));
+
+    const keymap: Record<string, ReturnType<typeof onModEnter>> = {
       ArrowUp: onArrowUp,
       ArrowLeft: onArrowLeft,
       ArrowDown: onArrowDown,
-      'Mod-Enter': onModEnter,
-      'Mod-Shift-Enter': onModShiftEnter,
       Backspace: onBackspace,
     };
+    keymap[modEnterBinding] = onModEnter;
+    keymap[modShiftEnterBinding] = onModShiftEnter;
+    return keymap;
   },
 });

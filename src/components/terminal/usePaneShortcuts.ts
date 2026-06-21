@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { useStore } from '../../store/useStore';
+import { eventToBinding, resolveBinding } from '../../lib/shortcuts';
 
 /**
  * usePaneShortcuts — global keyboard shortcuts for Kitty-style pane
  * management.  Active whenever the terminal panel is mounted.
  *
- * Shortcuts:
+ * Shortcuts (all resolved from lib/shortcuts.ts — user-customizable):
  *   Cmd/Ctrl + Enter      → splitPane (new pane in current group)
  *   Cmd/Ctrl + Shift + L  → cyclePaneLayout
  *   Cmd/Ctrl + Shift + F  → moveActivePane (swap position)
@@ -13,7 +14,7 @@ import { useStore } from '../../store/useStore';
  *   Cmd/Ctrl + W          → closeSession (close entire group/tab)
  *   Cmd/Ctrl + Shift + W  → closePane (close just the active pane)
  *
- * Tab-level shortcuts (Cmd+T, Cmd+Opt+← / →) live in TerminalTabs.
+ * Tab-level shortcuts (Cmd+T, Cmd+Shift+← / →) live in TerminalTabs.
  */
 export function usePaneShortcuts() {
   const splitPane = useStore((s) => s.splitPane);
@@ -28,65 +29,64 @@ export function usePaneShortcuts() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
+      const binding = eventToBinding(e);
+      if (!binding) return;
 
-      // Cmd/Ctrl + Enter → split pane
-      if (e.key === 'Enter') {
+      const ov = useStore.getState().keyboardShortcuts;
+
+      // splitPane
+      if (binding === resolveBinding('terminal.splitPane', ov)) {
         e.preventDefault();
         e.stopPropagation();
         splitPane();
         return;
       }
 
-      // Cmd/Ctrl + Shift + L → cycle layout
-      if (e.shiftKey && (e.key === 'l' || e.key === 'L')) {
+      // cycleLayout
+      if (binding === resolveBinding('terminal.cycleLayout', ov)) {
         e.preventDefault();
         e.stopPropagation();
         cyclePaneLayout();
         return;
       }
 
-      // Cmd/Ctrl + Shift + F → move active pane
-      if (e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+      // movePane
+      if (binding === resolveBinding('terminal.movePane', ov)) {
         e.preventDefault();
         e.stopPropagation();
         moveActivePane();
         return;
       }
 
-      // Cmd/Ctrl + ← / → → prev / next pane (without Shift)
-      // (Opt/Alt + arrow is handled by TerminalTabs for tab switching)
-      // (Shift + arrow is handled by TerminalTabs for tab switching)
-      if (
-        !e.altKey &&
-        !e.shiftKey &&
-        (e.key === 'ArrowLeft' || e.key === 'ArrowRight')
-      ) {
+      // focusPrevPane / focusNextPane
+      if (binding === resolveBinding('terminal.focusPrevPane', ov)) {
         e.preventDefault();
         e.stopPropagation();
-        if (e.key === 'ArrowLeft') {
-          focusPrevPane();
-        } else {
-          focusNextPane();
-        }
+        focusPrevPane();
+        return;
+      }
+      if (binding === resolveBinding('terminal.focusNextPane', ov)) {
+        e.preventDefault();
+        e.stopPropagation();
+        focusNextPane();
         return;
       }
 
-      // Cmd/Ctrl + W (with or without Shift)
-      if (e.key === 'w' || e.key === 'W') {
+      // closeTab (Cmd/Ctrl+W) / closePane (Cmd/Ctrl+Shift+W)
+      if (binding === resolveBinding('terminal.closeTab', ov)) {
+        if (!activeSessionId) return;
+        // Guard: never close the last remaining tab.
+        if (groups.length <= 1) return;
+        e.preventDefault();
+        e.stopPropagation();
+        closeSession(activeSessionId);
+        return;
+      }
+      if (binding === resolveBinding('terminal.closePane', ov)) {
         if (!activeSessionId) return;
         e.preventDefault();
         e.stopPropagation();
-        if (e.shiftKey) {
-          // Shift+W → close just the active pane (split)
-          closePane(activeSessionId);
-        } else {
-          // W → close entire group (tab).
-          // Guard: never close the last remaining tab.
-          if (groups.length <= 1) return;
-          closeSession(activeSessionId);
-        }
+        closePane(activeSessionId);
         return;
       }
     };

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
+import { eventToBinding, resolveBinding } from './lib/shortcuts';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
@@ -31,8 +32,10 @@ export default function App() {
   // ── Global shortcut: Cmd/Ctrl+P → open command palette ──
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && (e.key === 'p' || e.key === 'P')) {
+      const binding = eventToBinding(e);
+      if (!binding) return;
+      const target = resolveBinding('app.commandPalette', useStore.getState().keyboardShortcuts);
+      if (binding === target) {
         e.preventDefault();
         const { setCommandPaletteOpen } = useStore.getState();
         setCommandPaletteOpen(true);

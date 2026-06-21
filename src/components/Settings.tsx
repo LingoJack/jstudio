@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Info, Settings2, Terminal, PenLine, BookOpen, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, ChevronRight, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
@@ -9,6 +9,7 @@ import { NavBranch } from './ui/NavTree';
 import GeneralSection from './settings/GeneralSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
+import ShortcutsSection from './settings/ShortcutsSection';
 import AboutSection from './settings/AboutSection';
 import HelpSection from './settings/HelpSection';
 
@@ -68,6 +69,18 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    id: 'shortcuts',
+    labelKey: 'settings.shortcuts',
+    icon: Keyboard,
+    subItems: [
+      { anchorId: 'settings-shortcuts-general', labelKey: 'shortcut.category.general' },
+      { anchorId: 'settings-shortcuts-terminal-tabs', labelKey: 'shortcut.category.terminalTabs' },
+      { anchorId: 'settings-shortcuts-terminal-panes', labelKey: 'shortcut.category.terminalPanes' },
+      { anchorId: 'settings-shortcuts-editor-blocks', labelKey: 'shortcut.category.editorBlocks' },
+      { anchorId: 'settings-shortcuts-reference', labelKey: 'shortcut.reference' },
+    ],
+  },
+  {
     id: 'help',
     labelKey: 'settings.help',
     icon: BookOpen,
@@ -83,6 +96,7 @@ const SECTIONS: Record<SectionId, () => React.ReactElement> = {
   general: GeneralSection,
   editor: EditorSection,
   terminal: TerminalSection,
+  shortcuts: ShortcutsSection,
   help: HelpSection,
   about: AboutSection,
 };
