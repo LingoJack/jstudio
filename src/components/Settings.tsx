@@ -18,17 +18,20 @@ import HelpSection from './settings/HelpSection';
 // ────────────────────────────────────────────────
 type SectionId = SettingsSectionId;
 
-interface NavSubItem {
-  /** DOM anchor id, e.g. 'settings-general-language' */
-  anchorId: string;
+/** A navigatable sub-item (leaf with anchor) or a collapsible group (branch with children). */
+interface NavSubNode {
+  /** DOM anchor id for leaf nodes */
+  anchorId?: string;
   labelKey: TranslationKey;
+  /** Nested children — if present, this node is a collapsible group, not a leaf. */
+  children?: NavSubNode[];
 }
 
 interface NavItem {
   id: SectionId;
   labelKey: TranslationKey;
   icon: LucideIcon;
-  subItems?: NavSubItem[];
+  subItems?: NavSubNode[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -74,8 +77,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: Keyboard,
     subItems: [
       { anchorId: 'settings-shortcuts-general', labelKey: 'shortcut.category.general' },
-      { anchorId: 'settings-shortcuts-terminal-tabs', labelKey: 'shortcut.category.terminalTabs' },
-      { anchorId: 'settings-shortcuts-terminal-panes', labelKey: 'shortcut.category.terminalPanes' },
+      {
+        labelKey: 'shortcut.category.terminal',
+        children: [
+          { anchorId: 'settings-shortcuts-terminal-tabs', labelKey: 'shortcut.category.terminalTabs' },
+          { anchorId: 'settings-shortcuts-terminal-panes', labelKey: 'shortcut.category.terminalPanes' },
+        ],
+      },
       { anchorId: 'settings-shortcuts-editor-blocks', labelKey: 'shortcut.category.editorBlocks' },
       { anchorId: 'settings-shortcuts-reference', labelKey: 'shortcut.reference' },
     ],
@@ -101,6 +109,92 @@ const SECTIONS: Record<SectionId, () => React.ReactElement> = {
   about: AboutSection,
 };
 
+// ──────────────────────────────────────────────────────────────────
+// SubNode — recursive sub-item renderer.
+// Leaf nodes (with anchorId) are clickable navigation targets.
+// Branch nodes (with children) are collapsible groups that render
+// their children inside a nested NavBranch.
+// ──────────────────────────────────────────────────────────────────
+
+function SubNode({
+  node,
+  sectionId,
+  active,
+  activeAnchor,
+  onLeafClick,
+  isExpanded,
+  toggle,
+  expand,
+}: {
+  node: NavSubNode;
+  sectionId: SectionId;
+  active: boolean;
+  activeAnchor: string | undefined;
+  onLeafClick: (sectionId: SectionId, anchorId: string) => void;
+  isExpanded: (id: string) => boolean;
+  toggle: (id: string) => void;
+  expand: (id: string) => void;
+}) {
+  const { t } = useI18n();
+
+  // ── Branch node (collapsible group) ──
+  if (node.children && node.children.length > 0) {
+    const groupId = `${sectionId}-${node.labelKey}`;
+    const open = isExpanded(groupId);
+    // Auto-expand when a descendant is the active anchor
+    const descendantActive = node.children.some(
+      (child) => active && activeAnchor === child.anchorId,
+    );
+    if (descendantActive && !open) expand(groupId);
+
+    return (
+      <div>
+        <button
+          onClick={() => toggle(groupId)}
+          className="w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2 border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        >
+          <ChevronRight
+            className={`w-3 h-3 opacity-50 transition-transform duration-200 shrink-0 ${open ? 'rotate-90' : ''}`}
+          />
+          <span>{t(node.labelKey)}</span>
+        </button>
+        {open && (
+          <NavBranch className="ml-4">
+            {node.children.map((child) => (
+              <SubNode
+                key={child.labelKey}
+                node={child}
+                sectionId={sectionId}
+                active={active}
+                activeAnchor={activeAnchor}
+                onLeafClick={onLeafClick}
+                isExpanded={isExpanded}
+                toggle={toggle}
+                expand={expand}
+              />
+            ))}
+          </NavBranch>
+        )}
+      </div>
+    );
+  }
+
+  // ── Leaf node (clickable anchor) ──
+  const subActive = active && activeAnchor === node.anchorId;
+  return (
+    <button
+      onClick={() => node.anchorId && onLeafClick(sectionId, node.anchorId)}
+      className={`w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2 ${
+        subActive
+          ? 'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium'
+          : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+      }`}
+    >
+      <span>{t(node.labelKey)}</span>
+    </button>
+  );
+}
+
 export default function Settings() {
   const { t } = useI18n();
   const activeSection = useStore((s) => s.settingsActiveSection);
@@ -109,7 +203,11 @@ export default function Settings() {
 
   // Collapsible nav state — shared hook also used by DocumentList folders.
   const { toggle, expand, isExpanded } = useCollapsibleTree(
-    new Set([activeSection]),
+    new Set([
+      activeSection,
+      // Default-expand the nested Terminal group under Shortcuts.
+      'shortcuts-shortcut.category.terminal',
+    ]),
   );
   const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
 
@@ -209,25 +307,22 @@ export default function Settings() {
                   )}
                 </button>
 
-                {/* Sub-items */}
+                {/* Sub-items (recursive — supports nested groups) */}
                 {hasSubs && open && (
                   <NavBranch className="mt-0.5 mb-1 ml-[18px]">
-                    {item.subItems!.map((sub) => {
-                      const subActive = active && activeAnchor === sub.anchorId;
-                      return (
-                        <button
-                          key={sub.anchorId}
-                          onClick={() => handleSubClick(item.id, sub.anchorId)}
-                          className={`w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2 ${
-                            subActive
-                              ? 'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium'
-                              : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-                          }`}
-                        >
-                          <span>{t(sub.labelKey)}</span>
-                        </button>
-                      );
-                    })}
+                    {item.subItems!.map((sub) => (
+                      <SubNode
+                        key={sub.labelKey}
+                        node={sub}
+                        sectionId={item.id}
+                        active={active}
+                        activeAnchor={activeAnchor}
+                        onLeafClick={handleSubClick}
+                        isExpanded={isExpanded}
+                        toggle={toggle}
+                        expand={expand}
+                      />
+                    ))}
                   </NavBranch>
                 )}
               </div>

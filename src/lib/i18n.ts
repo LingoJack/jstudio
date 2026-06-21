@@ -281,9 +281,10 @@ export const translations = {
 
     // Shortcut categories
     'shortcut.category.general': '通用',
-    'shortcut.category.terminalTabs': '终端 · 标签页',
-    'shortcut.category.terminalPanes': '终端 · 分屏',
-    'shortcut.category.editorBlocks': '编辑器 · 块操作',
+    'shortcut.category.terminal': '终端',
+    'shortcut.category.terminalTabs': '标签页',
+    'shortcut.category.terminalPanes': '分屏',
+    'shortcut.category.editorBlocks': '块操作',
 
     // General shortcuts
     'shortcut.app.commandPalette': '打开命令面板',
@@ -587,9 +588,10 @@ export const translations = {
 
     // Shortcut categories
     'shortcut.category.general': 'General',
-    'shortcut.category.terminalTabs': 'Terminal · Tabs',
-    'shortcut.category.terminalPanes': 'Terminal · Panes',
-    'shortcut.category.editorBlocks': 'Editor · Blocks',
+    'shortcut.category.terminal': 'Terminal',
+    'shortcut.category.terminalTabs': 'Tabs',
+    'shortcut.category.terminalPanes': 'Panes',
+    'shortcut.category.editorBlocks': 'Blocks',
 
     // General shortcuts
     'shortcut.app.commandPalette': 'Open command palette',

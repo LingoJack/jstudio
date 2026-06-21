@@ -29,6 +29,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
+import { NodeSelection } from '@tiptap/pm/state';
 import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
@@ -165,10 +166,19 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
           return false;
         }
 
+        // Don't show the text-formatting toolbar when a whole block node is
+        // selected (e.g. clicking on an image / file / linkBlock atom node).
+        // A NodeSelection means the user picked the entire node, not text.
+        if (state.selection instanceof NodeSelection) {
+          setMenuVisible(false);
+          return false;
+        }
+
         // Walk every node covered by the selection.  If the range includes
-        // any non-text block node (image / file / code-block), suppress the
-        // menu.  Text inside paragraphs, headings, and table cells is fine.
-        const blockedTypes = new Set(['image', 'fileBlock', 'codeBlock']);
+        // any non-text block node (image / file / link-block / code-block),
+        // suppress the menu.  Text inside paragraphs, headings, and table
+        // cells is fine.
+        const blockedTypes = new Set(['image', 'fileBlock', 'codeBlock', 'linkBlock']);
         let hasNonText = false;
 
         state.doc.nodesBetween(from, to, (node) => {

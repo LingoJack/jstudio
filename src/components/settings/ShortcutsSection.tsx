@@ -91,7 +91,7 @@ function ShortcutRow({
 
   return (
     <div
-      className={`flex items-center justify-between gap-3 px-3 py-2 rounded-md transition-colors ${
+      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-md transition-colors ${
         isConflicted
           ? 'bg-[var(--vscode-inputValidation-errorBackground)] border border-[var(--vscode-errorForeground)]'
           : 'hover:bg-[var(--vscode-list-hoverBackground)]'
@@ -272,7 +272,7 @@ export default function ShortcutsSection() {
             <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-2">
               {t(CATEGORY_LABEL_KEYS[cat] as TranslationKey)}
             </label>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {defs.map((def) => (
                 <ShortcutRow
                   key={def.id}
