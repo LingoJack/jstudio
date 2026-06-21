@@ -4,6 +4,7 @@ import {
   useMemo,
   useCallback,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
@@ -252,9 +253,11 @@ function resizeAdjacentTracks(
 // ────────────────────────────────────────────────
 
 export interface PaneLayoutViewProps {
+  groupId: string;
   sessionIds: string[];
   activeSessionId: string;
   layout: PaneLayoutType;
+  resizeState?: PaneResizeState;
   /** True when the terminal panel is visually hidden (e.g. Settings open).
    *  When this transitions from true → false, all terminals are refitted
    *  because their container had zero size while hidden. */
@@ -262,9 +265,11 @@ export interface PaneLayoutViewProps {
 }
 
 export default function PaneLayoutView({
+  groupId,
   sessionIds,
   activeSessionId,
   layout,
+  resizeState,
   hidden = false,
 }: PaneLayoutViewProps) {
   const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
@@ -274,6 +279,7 @@ export default function PaneLayoutView({
   const terminalFontSize = useStore((s) => s.terminalFontSize);
   const terminalCursorStyle = useStore((s) => s.terminalCursorStyle);
   const setActivePane = useStore((s) => s.setActivePane);
+  const setPaneResizeState = useStore((s) => s.setPaneResizeState);
 
   const theme = getTerminalTheme(isDarkMode ? terminalThemeIdDark : terminalThemeIdLight);
 
@@ -282,6 +288,15 @@ export default function PaneLayoutView({
 
   /** Map: sessionId → pane DOM element. */
   const paneElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const gridRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    axis: ResizeAxis;
+    index: number;
+    startClient: number;
+    containerPx: number;
+    columns: number[];
+    rows: number[];
+  } | null>(null);
   /** Track which sessions have been fully initialized. */
   const initializedRef = useRef<Set<string>>(new Set());
 
@@ -344,8 +359,33 @@ export default function PaneLayoutView({
   // It does NOT depend on activeSessionId.  Switching pane focus
   // should NOT re-trigger terminal mounting or refitting.
   // ════════════════════════════════════════════════════════════════
+  const n = sessionIds.length;
   const sessionKey = sessionIds.join(',');
-  const layoutKey = `${layout}:${sessionKey}`;
+  const basePlan = useMemo(() => computeLayout(layout, n), [layout, n]);
+  const effectiveResizeState = canUseResizeState(
+    resizeState,
+    layout,
+    sessionKey,
+    basePlan.columns,
+    basePlan.rows,
+  )
+    ? resizeState
+    : undefined;
+  const columns = effectiveResizeState?.columns ?? basePlan.columns;
+  const rows = effectiveResizeState?.rows ?? basePlan.rows;
+  const plan = useMemo<LayoutPlan>(
+    () => ({
+      ...basePlan,
+      containerStyle: {
+        ...basePlan.containerStyle,
+        gridTemplateColumns: tracksToTemplate(columns),
+        gridTemplateRows: tracksToTemplate(rows),
+      },
+    }),
+    [basePlan, columns, rows],
+  );
+  const resizeKey = `${columns.join(',')}:${rows.join(',')}`;
+  const layoutKey = `${layout}:${sessionKey}:${resizeKey}`;
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
@@ -583,18 +623,108 @@ export default function PaneLayoutView({
     trailRef.current?.setCursorStyle(terminalCursorStyle);
   }, [terminalCursorStyle, terminalsRef]);
 
-  // ── Render ───────────────────────────────────────────────────────
-  const n = sessionIds.length;
-  const plan = computeLayout(layout, n);
+  const commitResizeState = useCallback(
+    (nextColumns: number[], nextRows: number[]) => {
+      setPaneResizeState(groupId, {
+        layout,
+        sessionKey,
+        columns: nextColumns,
+        rows: nextRows,
+      });
+    },
+    [groupId, layout, sessionKey, setPaneResizeState],
+  );
 
+  const startTrackResize = useCallback(
+    (axis: ResizeAxis, index: number, event: ReactPointerEvent<HTMLDivElement>) => {
+      const grid = gridRef.current;
+      if (!grid) return;
+
+      const rect = grid.getBoundingClientRect();
+      const containerPx = axis === 'column' ? rect.width : rect.height;
+      if (containerPx <= 0) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture(event.pointerId);
+
+      dragRef.current = {
+        axis,
+        index,
+        startClient: axis === 'column' ? event.clientX : event.clientY,
+        containerPx,
+        columns,
+        rows,
+      };
+
+      document.body.style.cursor = axis === 'column' ? 'col-resize' : 'row-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [columns, rows],
+  );
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+
+      const client = drag.axis === 'column' ? event.clientX : event.clientY;
+      const deltaPx = client - drag.startClient;
+      const nextColumns =
+        drag.axis === 'column'
+          ? resizeAdjacentTracks(drag.columns, drag.index, deltaPx, drag.containerPx)
+          : drag.columns;
+      const nextRows =
+        drag.axis === 'row'
+          ? resizeAdjacentTracks(drag.rows, drag.index, deltaPx, drag.containerPx)
+          : drag.rows;
+
+      commitResizeState(nextColumns, nextRows);
+    };
+
+    const handlePointerUp = () => {
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      if (dragRef.current) {
+        dragRef.current = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+  }, [commitResizeState]);
+
+  // ── Render ───────────────────────────────────────────────────────
   const dividerColor = theme.isDark
     ? 'rgba(255,255,255,0.10)'
     : 'rgba(0,0,0,0.10)';
+  const handleColor = theme.isDark
+    ? 'rgba(255,255,255,0.16)'
+    : 'rgba(0,0,0,0.18)';
+  const columnBoundaries = trackBoundaries(columns);
+  const rowBoundaries = trackBoundaries(rows);
+  const stackColumnStart = layout === 'tall' && columnBoundaries.length > 0
+    ? `${columnBoundaries[0]}%`
+    : undefined;
+  const stackRowStart = layout === 'fat' && rowBoundaries.length > 0
+    ? `${rowBoundaries[0]}%`
+    : undefined;
 
   return (
     <div className="relative w-full h-full">
       {/* Pane grid */}
       <div
+        ref={gridRef}
         className={plan.containerCls}
         style={{ ...plan.containerStyle, background: dividerColor }}
       >
@@ -625,6 +755,53 @@ export default function PaneLayoutView({
           );
         })}
       </div>
+
+      {n > 1 && (
+        <div className="absolute inset-0" style={{ pointerEvents: 'none', zIndex: 6 }}>
+          {columnBoundaries.map((left, index) => (
+            <div
+              key={`col-${index}`}
+              onPointerDown={(event) => startTrackResize('column', index, event)}
+              className="group absolute bottom-0"
+              style={{
+                left: `${left}%`,
+                top: stackRowStart ?? 0,
+                width: 9,
+                transform: 'translateX(-4px)',
+                cursor: 'col-resize',
+                pointerEvents: 'auto',
+                touchAction: 'none',
+              }}
+            >
+              <div
+                className="w-px h-full mx-auto opacity-0 transition-opacity group-hover:opacity-100"
+                style={{ background: handleColor }}
+              />
+            </div>
+          ))}
+          {rowBoundaries.map((top, index) => (
+            <div
+              key={`row-${index}`}
+              onPointerDown={(event) => startTrackResize('row', index, event)}
+              className="group absolute right-0"
+              style={{
+                top: `${top}%`,
+                left: stackColumnStart ?? 0,
+                height: 9,
+                transform: 'translateY(-4px)',
+                cursor: 'row-resize',
+                pointerEvents: 'auto',
+                touchAction: 'none',
+              }}
+            >
+              <div
+                className="h-px w-full my-1 opacity-0 transition-opacity group-hover:opacity-100"
+                style={{ background: handleColor }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Shared overlay canvas for cursor trail.
           Covers all panes, above xterm canvases, below pointer events.

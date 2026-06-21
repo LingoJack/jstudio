@@ -84,9 +84,11 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
       <TerminalTabs />
       <div className="flex-1 min-h-0 overflow-hidden">
         <PaneLayoutView
+          groupId={activeGroup.id}
           sessionIds={groupSessionIds}
           activeSessionId={activeGroup.activeSessionId}
           layout={activeGroup.layout}
+          resizeState={activeGroup.resizeState}
           hidden={hidden}
         />
       </div>
