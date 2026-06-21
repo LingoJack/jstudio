@@ -1,36 +1,38 @@
 /**
- * TldrawExtension — custom block node for tldraw diagrams.
+ * DiagramExtension — custom block node for excalidraw diagrams.
  *
- * Stores a serialized tldraw snapshot (JSON string) as a node attribute so the
+ * Stores a serialized excalidraw scene (JSON string) as a node attribute so the
  * drawing data is self-contained and travels with the document. The visual
- * rendering and full-screen modal editing are handled by TldrawView.
+ * rendering and window editing are handled by DiagramBlockView.
  *
  * Supported attributes:
- *   snapshot — serialized tldraw snapshot JSON (empty string = not started)
+ *   snapshot — serialized excalidraw scene JSON (empty string = blank canvas)
  *   width    — display width in px (null = auto, defaults to ~520px)
+ *   height   — canvas height in px (null = auto, defaults to ~320px)
  *   align    — 'left' | 'center' (default 'center')
  */
 
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import TldrawView from '../components/TldrawView';
+import DiagramBlockView from '../components/DiagramBlockView';
 
 export interface DiagramNodeAttributes {
   snapshot: string;
   width: number | null;
+  height: number | null;
   align: 'left' | 'center';
 }
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     diagramBlock: {
-      /** Insert a diagram (tldraw) block. */
+      /** Insert a diagram (excalidraw) block. */
       setDiagram: (attrs?: Partial<DiagramNodeAttributes>) => ReturnType;
     };
   }
 }
 
-export const TldrawExtension = Node.create({
+export const DiagramExtension = Node.create({
   name: 'diagramBlock',
 
   group: 'block',
@@ -58,6 +60,17 @@ export const TldrawExtension = Node.create({
         renderHTML: (attrs) => {
           if (!attrs.width) return {};
           return { 'data-width': attrs.width };
+        },
+      },
+      height: {
+        default: null,
+        parseHTML: (el) => {
+          const h = el.getAttribute('data-height');
+          return h ? Number(h) : null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.height) return {};
+          return { 'data-height': attrs.height };
         },
       },
       align: {
@@ -101,6 +114,7 @@ export const TldrawExtension = Node.create({
               attrs: {
                 snapshot: '',
                 width: null,
+                height: null,
                 align: 'center',
                 ...attrs,
               },
@@ -114,8 +128,8 @@ export const TldrawExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(TldrawView);
+    return ReactNodeViewRenderer(DiagramBlockView);
   },
 });
 
-export default TldrawExtension;
+export default DiagramExtension;

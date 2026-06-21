@@ -85,7 +85,7 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
       updateAttributes,
       minWidth: 80,
       fallbackWidth: 300,
-      onCommit: (finalWidth) => {
+      onCommit: (finalWidth, _finalHeight) => {
         const img = imgElRef.current;
         const ratio =
           img && img.naturalHeight && img.naturalWidth

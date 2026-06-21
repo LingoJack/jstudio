@@ -58,7 +58,7 @@ export default function FileView({
   updateAttributes,
   editor,
 }: NodeViewProps) {
-  const { src, fileName, fileSize, fileType, displayMode, width, align } =
+  const { src, fileName, fileSize, fileType, displayMode, width, height, align } =
     node.attrs as FileNodeAttributes;
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
@@ -182,12 +182,16 @@ export default function FileView({
   // Separate ref for reading DOM in maxWidth (before hook call).
   const figureRefInternal = useRef<HTMLDivElement>(null);
 
-  const { ref: figureRef, displayWidth, onResizeStart } =
+  const { ref: figureRef, displayWidth, displayHeight, onResizeStart } =
     useNodeResize<HTMLDivElement>({
       width,
+      // Only track height in preview mode — card mode height is content-driven.
+      height: isPreviewMode ? height : undefined,
       updateAttributes,
       minWidth: 200,
+      minHeight: 150,
       fallbackWidth: 400,
+      fallbackHeight: 300,
       maxWidth: () => {
         const el = figureRefInternal.current;
         const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
@@ -202,7 +206,7 @@ export default function FileView({
   }, []);
 
   /* -------------------------------------------------------------- */
-  /* Inline styles driven by displayWidth                           */
+  /* Inline styles driven by displayWidth / displayHeight           */
   /* -------------------------------------------------------------- */
 
   const figureStyle: React.CSSProperties = {};
@@ -210,6 +214,12 @@ export default function FileView({
     figureStyle.width = `${displayWidth}px`;
   } else {
     figureStyle.width = '400px';
+  }
+
+  // In preview mode, apply the tracked height to the preview content area.
+  const previewStyle: React.CSSProperties = {};
+  if (isPreviewMode && displayHeight) {
+    previewStyle.height = `${displayHeight}px`;
   }
 
   /* -------------------------------------------------------------- */
@@ -334,7 +344,7 @@ export default function FileView({
 
             {/* Preview mode */}
             {isPreviewMode && (
-              <div className="file-block-preview" contentEditable={false}>
+              <div className="file-block-preview" contentEditable={false} style={previewStyle}>
                 {/* Transparent overlay when NOT selected — lets the user
                     click to select the node even over an <iframe>. */}
                 {!selected && (

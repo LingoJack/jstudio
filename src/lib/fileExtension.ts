@@ -12,6 +12,7 @@
  *   fileType    — MIME type
  *   displayMode — 'card' | 'preview'
  *   width       — display width in px (null = auto)
+ *   height      — preview area height in px (null = auto)
  *   align       — 'left' | 'center' (default 'center')
  */
 
@@ -26,6 +27,7 @@ export interface FileNodeAttributes {
   fileType: string;
   displayMode: 'card' | 'preview';
   width: number | null;
+  height: number | null;
   align?: 'left' | 'center' | null;
 }
 
@@ -105,6 +107,17 @@ export const FileExtension = Node.create({
           return { 'data-width': attrs.width };
         },
       },
+      height: {
+        default: null,
+        parseHTML: (el) => {
+          const h = el.getAttribute('data-height');
+          return h ? Number(h) : null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.height) return {};
+          return { 'data-height': attrs.height };
+        },
+      },
       align: {
         default: 'center' as const,
         parseHTML: (el) => {
@@ -150,6 +163,7 @@ export const FileExtension = Node.create({
                 fileType: '',
                 displayMode: 'card',
                 width: null,
+                height: null,
                 align: 'center',
                 ...attrs,
               },

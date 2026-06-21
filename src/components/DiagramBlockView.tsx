@@ -1,9 +1,8 @@
 /**
- * TldrawView — React NodeView for the diagram (tldraw) block.
+ * DiagramBlockView — React NodeView for the diagram (excalidraw) block.
  *
- * Always shows an embedded mini tldraw canvas. A persistent header bar on top
- * provides the "open in new window" button at all times (no need to select the
- * block first, which is difficult since tldraw captures pointer events).
+ * Always shows an embedded mini Excalidraw canvas. A persistent header bar on
+ * top provides the "open in new window" button at all times.
  *
  * Data flow:
  *   - Embedded canvas edits → updateAttributes({ snapshot })
@@ -18,7 +17,7 @@ import {
 import { Maximize2, AlignLeft, AlignCenter } from 'lucide-react';
 
 import { useNodeResize } from '../hooks/useNodeResize';
-import { TldrawCanvas } from './TldrawCanvas';
+import { ExcalidrawCanvas } from './ExcalidrawCanvas';
 import { openDiagramWindow } from '../lib/diagramWindow';
 import type { DiagramNodeAttributes } from '../lib/tldrawExtension';
 
@@ -26,25 +25,31 @@ import type { DiagramNodeAttributes } from '../lib/tldrawExtension';
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
-export default function TldrawView({
+export default function DiagramBlockView({
   node,
   selected,
   updateAttributes,
 }: NodeViewProps) {
-  const { snapshot, width, align } = node.attrs as DiagramNodeAttributes;
+  const { snapshot, width, height, align } = node.attrs as DiagramNodeAttributes;
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
+  const isDark = typeof document !== 'undefined'
+    ? document.documentElement.classList.contains('dark')
+    : false;
 
   /* -------------------------------------------------------------- */
   /* Resize handle                                                   */
   /* -------------------------------------------------------------- */
 
   const figureRef = useRef<HTMLDivElement>(null);
-  const { displayWidth, onResizeStart } = useNodeResize<HTMLDivElement>({
+  const { displayWidth, displayHeight, onResizeStart } = useNodeResize<HTMLDivElement>({
     width: width ?? undefined,
+    height: height ?? undefined,
     updateAttributes,
     minWidth: 300,
+    minHeight: 150,
     fallbackWidth: 520,
+    fallbackHeight: 320,
     maxWidth: () => {
       const el = figureRef.current;
       const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
@@ -56,6 +61,8 @@ export default function TldrawView({
   if (displayWidth) {
     figureStyle.width = `${displayWidth}px`;
   }
+
+  const canvasHeight = displayHeight ?? 320;
 
   /* -------------------------------------------------------------- */
   /* Embedded canvas change handler                                  */
@@ -79,8 +86,6 @@ export default function TldrawView({
     if (windowOpen) return;
     setWindowOpen(true);
 
-    const isDark = document.documentElement.classList.contains('dark');
-
     openDiagramWindow(
       snapshot ?? '',
       (updatedSnapshot: string) => {
@@ -92,10 +97,10 @@ export default function TldrawView({
         unlistenRef.current = unlisten;
       })
       .catch((e) => {
-        console.error('[TldrawView] Failed to open diagram window:', e);
+        console.error('[DiagramBlockView] Failed to open diagram window:', e);
         setWindowOpen(false);
       });
-  }, [snapshot, updateAttributes, windowOpen]);
+  }, [snapshot, updateAttributes, windowOpen, isDark]);
 
   // Cleanup listener on unmount.
   useEffect(() => {
@@ -157,15 +162,16 @@ export default function TldrawView({
             </button>
           </div>
 
-          {/* ─── Embedded tldraw canvas ─── */}
+          {/* ─── Embedded Excalidraw canvas ─── */}
           <div
             className="diagram-block-canvas"
             contentEditable={false}
-            style={{ height: 300 }}
+            style={{ height: canvasHeight }}
           >
-            <TldrawCanvas
+            <ExcalidrawCanvas
               initialSnapshot={snapshot ?? ''}
               onChange={handleEmbeddedChange}
+              darkMode={isDark}
             />
           </div>
 
