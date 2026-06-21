@@ -78,10 +78,23 @@ export function ExcalidrawCanvas({
     }, 400);
   }, []);
 
-  // Cleanup on unmount.
+  // Cleanup on unmount — flush any pending debounce so the last edit
+  // is not silently dropped.
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        const api = apiRef.current;
+        if (api) {
+          try {
+            const elements = api.getSceneElements();
+            const snapshot = JSON.stringify({ elements });
+            onChangeRef.current(snapshot);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     };
   }, []);
 

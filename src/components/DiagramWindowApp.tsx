@@ -11,7 +11,6 @@ import { ExcalidrawCanvas } from './ExcalidrawCanvas';
 import {
   fetchDiagramData,
   sendDiagramUpdate,
-  closeDiagramWindow,
   type DiagramPayload,
 } from '../lib/diagramWindow';
 
@@ -41,12 +40,17 @@ export default function DiagramWindowApp() {
   }, []);
 
   // Send a final update before the window closes.
+  // NOTE: `beforeunload` in a WebView cannot reliably await an async Tauri
+  // IPC call — the window may be destroyed before `emitTo` completes.
+  // Instead, we rely on real-time `sendDiagramUpdate` calls on every edit
+  // (see handleChange below), so the main window always has the latest
+  // snapshot.  This listener is a best-effort safety net only.
   useEffect(() => {
-    const handleClose = async () => {
+    const handleClose = () => {
       if (latestSnapshot.current) {
-        await sendDiagramUpdate(latestSnapshot.current);
+        // Fire-and-forget; cannot await in beforeunload.
+        sendDiagramUpdate(latestSnapshot.current);
       }
-      closeDiagramWindow();
     };
 
     window.addEventListener('beforeunload', handleClose);
@@ -55,7 +59,8 @@ export default function DiagramWindowApp() {
 
   const handleChange = useCallback((json: string) => {
     latestSnapshot.current = json;
-    // Send each debounced update back to the main window.
+    // Send each update back to the main window in real time.
+    // This ensures data is never lost even if the window is closed abruptly.
     sendDiagramUpdate(json);
   }, []);
 

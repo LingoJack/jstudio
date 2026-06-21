@@ -12,7 +12,7 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, emit, type UnlistenFn } from '@tauri-apps/api/event';
+import { emitTo, listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -174,12 +174,16 @@ export function fetchDiagramData(): Promise<DiagramPayload | null> {
 /**
  * Send an updated snapshot back to the main window.
  * Called from within the diagram window.
+ *
+ * IMPORTANT: In Tauri v2, `emit()` only goes to the Rust backend — it does
+ * NOT reach other frontend windows.  We must use `emitTo()` targeting the
+ * `main` window explicitly for cross-window communication.
  */
 export async function sendDiagramUpdate(snapshot: string): Promise<void> {
   const label = resolveLabel();
   const eventName = updateEventName(label);
   try {
-    await emit(eventName, { snapshot } satisfies DiagramPayload);
+    await emitTo('main', eventName, { snapshot } satisfies DiagramPayload);
   } catch (e) {
     console.error('[DiagramWindow] Failed to send update:', e);
   }
