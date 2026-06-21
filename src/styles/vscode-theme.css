@@ -1684,7 +1684,7 @@ button {
   color: var(--vscode-editor-foreground);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 600px;
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -1694,6 +1694,7 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  flex: 1;
   padding: 40px;
   color: var(--vscode-descriptionForeground);
   font-size: 0.85em;
