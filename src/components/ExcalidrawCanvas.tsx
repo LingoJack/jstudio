@@ -31,6 +31,7 @@ import type {
   BinaryFiles,
   ExcalidrawInitialDataState,
   OrderedExcalidrawElement,
+  Zoom,
 } from '@excalidraw/excalidraw/types';
 
 /* ------------------------------------------------------------------ */
@@ -48,6 +49,8 @@ function makeInstancePrefix(): string {
 
 /** The separator between the instance prefix and the original element id. */
 const SEP = '$';
+
+let activeExcalidrawInstance: string | null = null;
 
 // Excalidraw element shapes that carry id references.
 type BindingLike = { elementId: string } | null;
@@ -150,10 +153,21 @@ export function ExcalidrawCanvas({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const restoringViewportRef = useRef(false);
+  const viewportRef = useRef<{
+    scrollX: number;
+    scrollY: number;
+    zoom: Zoom;
+  } | null>(null);
 
   // Unique per-instance prefix — isolates this Excalidraw instance's element
   // ids in the global sceneMapById. See file header for full explanation.
   const instPrefix = useMemo(() => makeInstancePrefix(), []);
+
+  const markActive = useCallback(() => {
+    activeExcalidrawInstance = instPrefix;
+  }, [instPrefix]);
 
   // Track the latest snapshot we have applied to the canvas.
   // This is used to:
@@ -166,6 +180,20 @@ export function ExcalidrawCanvas({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const handleGestureStart = () => {
+      activeExcalidrawInstance = instPrefix;
+    };
+
+    root.addEventListener('gesturestart', handleGestureStart, { capture: true });
+    return () => {
+      root.removeEventListener('gesturestart', handleGestureStart, { capture: true });
+    };
+  }, [instPrefix]);
 
   // Parse initial snapshot once — only used on first mount.
   // Element ids are prefixed with the instance prefix before they enter
@@ -236,6 +264,37 @@ export function ExcalidrawCanvas({
     }, 400);
   }, [instPrefix]);
 
+  const handleScrollChange = useCallback(
+    (scrollX: number, scrollY: number, zoom: Zoom) => {
+      if (restoringViewportRef.current) {
+        restoringViewportRef.current = false;
+        return;
+      }
+
+      const isInactiveGestureTarget =
+        activeExcalidrawInstance !== null &&
+        activeExcalidrawInstance !== instPrefix;
+
+      if (isInactiveGestureTarget && viewportRef.current) {
+        const api = apiRef.current;
+        if (!api) return;
+
+        restoringViewportRef.current = true;
+        api.updateScene({
+          appState: {
+            scrollX: viewportRef.current.scrollX,
+            scrollY: viewportRef.current.scrollY,
+            zoom: viewportRef.current.zoom,
+          },
+        });
+        return;
+      }
+
+      viewportRef.current = { scrollX, scrollY, zoom };
+    },
+    [instPrefix],
+  );
+
   // Cleanup on unmount — flush any pending debounce so the last edit
   // is not silently dropped.
   useEffect(() => {
@@ -260,16 +319,31 @@ export function ExcalidrawCanvas({
 
   return (
     <div
+      ref={rootRef}
       className={`excalidraw-canvas-root ${className}`}
+      data-excalidraw-instance={instPrefix}
+      onPointerDownCapture={markActive}
+      onPointerEnter={markActive}
+      onWheelCapture={markActive}
       style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0 }}
     >
       <Excalidraw
         excalidrawAPI={(api) => {
           apiRef.current = api;
+          const appState = api.getAppState();
+          viewportRef.current = {
+            scrollX: appState.scrollX,
+            scrollY: appState.scrollY,
+            zoom: appState.zoom,
+          };
         }}
         initialData={initialData}
         onChange={handleChange}
+        onScrollChange={handleScrollChange}
         theme={darkMode ? 'dark' : 'light'}
+        name={instPrefix}
+        detectScroll={false}
+        handleKeyboardGlobally={false}
         UIOptions={{
           canvasActions: {
             loadScene: false,

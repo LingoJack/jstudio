@@ -1,4 +1,4 @@
-import { storage, toMeta, DocumentMeta, type ThemeMode, type Language, type TerminalCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
+import { storage, toMeta, DocumentMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
 import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
 import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/fonts';
@@ -45,6 +45,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalFontSize: number | undefined;
       let terminalFontId: string | undefined;
       let terminalCursorStyle: TerminalCursorStyle | undefined;
+      let editorCursorStyle: EditorCursorStyle | undefined;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
@@ -109,6 +110,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
           settings.terminalCursorStyle === 'bar'
         ) {
           terminalCursorStyle = settings.terminalCursorStyle;
+        }
+        if (
+          settings.editorCursorStyle === 'bar' ||
+          settings.editorCursorStyle === 'block' ||
+          settings.editorCursorStyle === 'underline'
+        ) {
+          editorCursorStyle = settings.editorCursorStyle;
         }
         if (settings.terminalTemplates !== undefined) {
           terminalTemplatesRaw = settings.terminalTemplates;
@@ -205,6 +213,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
+        ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         isLoading: false,
       });

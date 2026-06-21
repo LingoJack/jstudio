@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, ActivityBarItemConfig } from '../lib/storage';
+import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig } from '../lib/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts';
 import type {
   TerminalSession,
@@ -71,6 +71,7 @@ export interface StoreState {
   cjkFontId: string;
   fontSize: number;
   editorLineHeight: number;
+  editorCursorStyle: EditorCursorStyle;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
   settingsActiveSection: 'general' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about';
@@ -141,6 +142,7 @@ export interface StoreState {
   setCjkFontId: (id: string) => void;
   setFontSize: (size: number) => void;
   setEditorLineHeight: (lh: number) => void;
+  setEditorCursorStyle: (style: EditorCursorStyle) => void;
   setSidebarWidth: (width: number) => void;
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;

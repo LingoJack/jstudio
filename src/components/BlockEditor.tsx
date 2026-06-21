@@ -71,6 +71,7 @@ export default function BlockEditor() {
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
   const toggleOutline = useStore((s) => s.toggleOutline);
+  const editorCursorStyle = useStore((s) => s.editorCursorStyle);
   const { t } = useI18n();
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -288,6 +289,13 @@ export default function BlockEditor() {
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
   }, [editor]);
+
+  // ------------------------------------------------------------------
+  // Sync cursor style → trail geometry
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    trailRef.current?.setCursorStyle(editorCursorStyle);
+  }, [editorCursorStyle]);
 
   // ------------------------------------------------------------------
   // Title keydown — Enter / Arrow navigation

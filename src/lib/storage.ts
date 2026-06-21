@@ -51,6 +51,15 @@ export interface FolderMeta {
 export type TerminalCursorStyle = 'block' | 'underline' | 'bar';
 
 /**
+ * Editor (contentEditable / ProseMirror) cursor shape.
+ * Controls the CSS `caret-shape`-like appearance and the trail geometry.
+ * - 'bar'       — thin vertical line (default, classic text-editor caret)
+ * - 'block'     — filled rectangle covering the full character cell
+ * - 'underline' — horizontal bar at the bottom of the character cell
+ */
+export type EditorCursorStyle = 'bar' | 'block' | 'underline';
+
+/**
  * Identifiers for items that can appear in the left Activity Bar.
  * The array order in `ActivityBarItemConfig[]` determines display order.
  */
@@ -91,6 +100,8 @@ export interface AppSettings {
   fontSize?: number;
   /** Editor line height / line spacing (1.4–2.2, default 1.7) */
   editorLineHeight?: number;
+  /** Editor cursor shape — also drives the editor cursor trail shape */
+  editorCursorStyle?: EditorCursorStyle;
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
   /**

@@ -1,4 +1,4 @@
-import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
+import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts';
 import type { SliceCreator } from './storeHelpers';
 import {
@@ -27,6 +27,9 @@ const DEFAULT_TERMINAL_FONT_SIZE = 14;
 
 /** Default terminal cursor shape — also drives the cursor trail shape. */
 const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = 'underline';
+
+/** Default editor cursor shape — also drives the editor cursor trail shape. */
+const DEFAULT_EDITOR_CURSOR_STYLE: EditorCursorStyle = 'bar';
 
 /**
  * Resolve a theme preference to the actual dark/light value.
@@ -92,6 +95,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   cjkFontId: DEFAULT_CJK_FONT_ID,
   fontSize: DEFAULT_FONT_SIZE,
   editorLineHeight: DEFAULT_LINE_HEIGHT,
+  editorCursorStyle: DEFAULT_EDITOR_CURSOR_STYLE,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents',
   settingsActiveSection: 'general',
@@ -171,6 +175,11 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     applyLineHeight(clamped);
     set({ editorLineHeight: clamped });
     storage.saveSettings({ editorLineHeight: clamped }).catch(console.error);
+  },
+
+  setEditorCursorStyle: (style) => {
+    set({ editorCursorStyle: style });
+    storage.saveSettings({ editorCursorStyle: style }).catch(console.error);
   },
 
   setSidebarWidth: (width) => {

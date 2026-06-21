@@ -28,6 +28,7 @@
  */
 
 import { TRAIL_VS, TRAIL_FS } from './terminal/shaders';
+import type { EditorCursorStyle } from '../lib/storage';
 
 // ── Kitty-default decay constants (seconds) ──────────────────────────
 const DECAY_FAST = 0.1;
@@ -39,9 +40,9 @@ const CORNER_IDX_X = [1, 1, 0, 0]; // right, right, left, left
 const CORNER_IDX_Y = [0, 1, 1, 0]; // top, bottom, bottom, top
 
 // ── Caret geometry ───────────────────────────────────────────────────
-// The contentEditable caret is a thin vertical bar.  We render the trail
-// quad with the same shape.
-const CARET_WIDTH_PX = 2;
+// The contentEditable caret is a thin vertical bar by default.
+// We render the trail quad with a shape matching the selected cursor style.
+const CARET_BAR_WIDTH_PX = 2;
 
 /** Convert "#rrggbb" -> [r, g, b] with each channel in 0..1 */
 function hexToRgb(hex: string): [number, number, number] {
@@ -63,6 +64,9 @@ export class EditorCursorTrail {
   private scrollContainer: HTMLElement | null = null;
 
   private colorRgb: [number, number, number] = [0, 0.5, 0.83];
+
+  /** Current cursor shape — controls the trail geometry. */
+  private cursorStyle: EditorCursorStyle = 'bar';
 
   // ── Trail state: 4 chasing corners (overlay-canvas pixel coords) ──
   private cornerX = [0, 0, 0, 0];
@@ -186,6 +190,10 @@ export class EditorCursorTrail {
     this.colorRgb = hexToRgb(color);
   }
 
+  setCursorStyle(style: EditorCursorStyle) {
+    this.cursorStyle = style;
+  }
+
   resize() {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -270,19 +278,52 @@ export class EditorCursorTrail {
   }
 
   /**
-   * Convert a screen-space DOMRect to overlay-canvas-local coordinates.
+   * Convert a screen-space DOMRect to overlay-canvas-local coordinates,
+   * adjusting the shape to match the selected cursor style.
    */
   private toCanvasLocal(rect: DOMRect): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
     const left = rect.left - canvasRect.left;
     const top = rect.top - canvasRect.top;
-    const right = left + Math.max(rect.width, CARET_WIDTH_PX);
-    const bottom = top + Math.max(rect.height, 1);
+    const height = Math.max(rect.height, 1);
+
+    let trailLeft: number;
+    let trailRight: number;
+    let trailTop: number;
+    let trailBottom: number;
+
+    switch (this.cursorStyle) {
+      case 'block':
+        // Full character-cell rectangle.  The browser caret is a thin bar,
+        // so we widen the target to approximate one character width (~0.6em).
+        // We use the measured height as a proxy for em size.
+        const charWidth = Math.max(height * 0.6, CARET_BAR_WIDTH_PX);
+        trailLeft = left;
+        trailRight = left + charWidth;
+        trailTop = top;
+        trailBottom = top + height;
+        break;
+      case 'underline':
+        // Horizontal bar at the bottom of the line — ~15% of line height.
+        const underH = Math.max(height * 0.15, 2);
+        trailLeft = left;
+        trailRight = left + Math.max(rect.width, CARET_BAR_WIDTH_PX);
+        trailTop = top + height - underH;
+        trailBottom = top + height;
+        break;
+      case 'bar':
+      default:
+        trailLeft = left;
+        trailRight = left + Math.max(rect.width, CARET_BAR_WIDTH_PX);
+        trailTop = top;
+        trailBottom = top + height;
+        break;
+    }
 
     // Reject if the caret is outside the canvas bounds entirely.
-    if (right < 0 || left > this.cssW || bottom < 0 || top > this.cssH) return null;
+    if (trailRight < 0 || trailLeft > this.cssW || trailBottom < 0 || trailTop > this.cssH) return null;
 
-    return { left, right, top, bottom };
+    return { left: trailLeft, right: trailRight, top: trailTop, bottom: trailBottom };
   }
 
   // ── Private: Trail update logic (ported from kitty's cursor_trail.c) ──
