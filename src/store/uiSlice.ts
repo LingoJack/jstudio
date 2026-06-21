@@ -1,4 +1,5 @@
 import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
+import type { ShortcutOverrides } from '../lib/shortcuts';
 import type { SliceCreator } from './storeHelpers';
 import {
   DEFAULT_LATIN_FONT_ID,
@@ -72,7 +73,7 @@ export function applyLineHeight(lineHeight: number) {
 export type SidebarView = 'documents' | 'terminal';
 
 /** Which settings section is currently displayed. Driven by store so palette can navigate. */
-export type SettingsSectionId = 'general' | 'editor' | 'terminal' | 'help' | 'about';
+export type SettingsSectionId = 'general' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about';
 
 /** UI slice — panel visibility, theme, font, and loading state. */
 export const createUiSlice: SliceCreator = (set, get) => ({
@@ -99,6 +100,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
   terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
+  keyboardShortcuts: {} as ShortcutOverrides,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -207,5 +209,23 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setTerminalCursorStyle: (style) => {
     set({ terminalCursorStyle: style });
     storage.saveSettings({ terminalCursorStyle: style }).catch(console.error);
+  },
+
+  setKeyboardShortcut: (id: string, binding: string) => {
+    const next = { ...get().keyboardShortcuts, [id]: binding };
+    set({ keyboardShortcuts: next });
+    storage.saveSettings({ keyboardShortcuts: next }).catch(console.error);
+  },
+
+  resetKeyboardShortcut: (id: string) => {
+    const next = { ...get().keyboardShortcuts };
+    delete next[id];
+    set({ keyboardShortcuts: next });
+    storage.saveSettings({ keyboardShortcuts: next }).catch(console.error);
+  },
+
+  resetAllKeyboardShortcuts: () => {
+    set({ keyboardShortcuts: {} });
+    storage.saveSettings({ keyboardShortcuts: {} }).catch(console.error);
   },
 });

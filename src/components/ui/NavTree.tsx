@@ -85,24 +85,24 @@ export function NavRow({
   const secondaryBase =
     'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2';
 
-  // Primary active/inactive — copied from Settings main header
+  // Primary active/inactive
   let primaryState: string;
   if (active) {
     primaryState = plainActive
       ? 'text-[var(--vscode-foreground)] font-medium'
       : 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
   } else {
-    primaryState = 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+    primaryState = 'text-[var(--vscode-sideBar-foreground)]';
   }
 
-  // Secondary active/inactive — copied from Settings sub-item
+  // Secondary active/inactive
   let secondaryState: string;
   if (showLine) {
     secondaryState =
       'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium';
   } else {
     secondaryState =
-      'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+      'border-transparent text-[var(--vscode-descriptionForeground)]';
   }
 
   const cls = isPrimary

@@ -1,5 +1,6 @@
 import type { Document, Block, BlockType, RichText } from '../types';
 import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, ActivityBarItemConfig } from '../lib/storage';
+import type { ShortcutOverrides } from '../lib/shortcuts';
 import type {
   TerminalSession,
   TerminalTemplate,
