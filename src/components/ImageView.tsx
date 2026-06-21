@@ -18,7 +18,9 @@ import { bytesToDataUrl, genStoredName } from '../lib/upload';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
-import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
+import { UploadIcon } from './shared/icons';
+import { BlockToolbar, AlignButtonGroup } from './ui/BlockToolbar';
+import { ResizeHandle } from './ui/ResizeHandle';
 
 interface ImageNodeAttrs {
   src: string;
@@ -169,32 +171,13 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
           /* Loaded state */
           <div className={`image-node-figure ${selected ? 'is-selected' : ''}`}>
             {/* Floating toolbar when selected */}
-            {selected && (
-              <div className="image-toolbar" contentEditable={false}>
-                <button
-                  type="button"
-                  ref={registerButton(0)}
-                  className={`image-toolbar-btn ${effectiveAlign === 'left' ? 'is-active' : ''} ${
-                    activeIndex === 0 ? 'is-focused' : ''
-                  }`}
-                  onClick={() => updateAttributes({ align: 'left' })}
-                  title="左对齐"
-                >
-                  <AlignLeftIcon />
-                </button>
-                <button
-                  type="button"
-                  ref={registerButton(1)}
-                  className={`image-toolbar-btn ${effectiveAlign === 'center' ? 'is-active' : ''} ${
-                    activeIndex === 1 ? 'is-focused' : ''
-                  }`}
-                  onClick={() => updateAttributes({ align: 'center' })}
-                  title="居中"
-                >
-                  <AlignCenterIcon />
-                </button>
-              </div>
-            )}
+            <BlockToolbar selected={selected}>
+              <AlignButtonGroup
+                nav={{ activeIndex, registerButton }}
+                align={effectiveAlign}
+                onAlignChange={(a) => updateAttributes({ align: a })}
+              />
+            </BlockToolbar>
 
             <img
               ref={setImgRef}
@@ -206,13 +189,7 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
             />
 
             {/* Resize handle (bottom-right corner), visible when selected */}
-            {selected && (
-              <div
-                className="image-resize-handle"
-                onPointerDown={onResizeStart}
-                contentEditable={false}
-              />
-            )}
+            {selected && <ResizeHandle onPointerDown={onResizeStart} />}
           </div>
         )}
       </div>

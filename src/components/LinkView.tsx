@@ -30,7 +30,13 @@ import { storage, type LinkMetadata } from '../lib/storage';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
-import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
+import {
+  BlockToolbar,
+  AlignButtonGroup,
+  BlockToolbarButton,
+  BlockToolbarDivider,
+} from './ui/BlockToolbar';
+import { ResizeHandle } from './ui/ResizeHandle';
 import type { LinkNodeAttributes } from '../lib/linkExtension';
 
 /* ------------------------------------------------------------------ */
@@ -279,66 +285,38 @@ export default function LinkView({
             style={figureStyle}
           >
             {/* Floating toolbar */}
-            {selected && (
-              <div className="link-block-toolbar" contentEditable={false}>
-                <button
-                  type="button"
-                  ref={registerButton(0)}
-                  className={`link-block-toolbar-btn ${
-                    effectiveAlign === 'left' ? 'is-active' : ''
-                  } ${activeIndex === 0 ? 'is-focused' : ''}`}
-                  onClick={() => updateAttributes({ align: 'left' })}
-                  title="Left align"
-                >
-                  <AlignLeftIcon />
-                </button>
-                <button
-                  type="button"
-                  ref={registerButton(1)}
-                  className={`link-block-toolbar-btn ${
-                    effectiveAlign === 'center' ? 'is-active' : ''
-                  } ${activeIndex === 1 ? 'is-focused' : ''}`}
-                  onClick={() => updateAttributes({ align: 'center' })}
-                  title="Center align"
-                >
-                  <AlignCenterIcon />
-                </button>
-                <span className="link-block-toolbar-divider" />
-                <button
-                  type="button"
-                  ref={registerButton(2)}
-                  className={`link-block-toolbar-btn ${
-                    activeIndex === 2 ? 'is-focused' : ''
-                  }`}
-                  onClick={handleOpenPreview}
-                  title="Open preview window"
-                >
-                  <Eye size={15} />
-                </button>
-                <button
-                  type="button"
-                  ref={registerButton(3)}
-                  className={`link-block-toolbar-btn ${
-                    activeIndex === 3 ? 'is-focused' : ''
-                  }`}
-                  onClick={handleRefresh}
-                  title="Refresh"
-                >
-                  <RefreshCw size={15} />
-                </button>
-                <button
-                  type="button"
-                  ref={registerButton(4)}
-                  className={`link-block-toolbar-btn ${
-                    activeIndex === 4 ? 'is-focused' : ''
-                  }`}
-                  onClick={handleOpenExternal}
-                  title="Open in browser"
-                >
-                  <ExternalLink size={15} />
-                </button>
-              </div>
-            )}
+            <BlockToolbar selected={selected}>
+              <AlignButtonGroup
+                nav={{ activeIndex, registerButton }}
+                align={effectiveAlign}
+                onAlignChange={(a) => updateAttributes({ align: a })}
+              />
+              <BlockToolbarDivider />
+              <BlockToolbarButton
+                nav={{ activeIndex, registerButton }}
+                index={2}
+                title="Open preview window"
+                onClick={handleOpenPreview}
+              >
+                <Eye size={15} />
+              </BlockToolbarButton>
+              <BlockToolbarButton
+                nav={{ activeIndex, registerButton }}
+                index={3}
+                title="Refresh"
+                onClick={handleRefresh}
+              >
+                <RefreshCw size={15} />
+              </BlockToolbarButton>
+              <BlockToolbarButton
+                nav={{ activeIndex, registerButton }}
+                index={4}
+                title="Open in browser"
+                onClick={handleOpenExternal}
+              >
+                <ExternalLink size={15} />
+              </BlockToolbarButton>
+            </BlockToolbar>
 
             {/* Card — Cmd/Ctrl+Click opens preview, plain click selects the block */}
             <div
@@ -407,13 +385,7 @@ export default function LinkView({
             </div>
 
             {/* Resize handle */}
-            {selected && (
-              <div
-                className="link-block-resize-handle"
-                onPointerDown={onResizeStart}
-                contentEditable={false}
-              />
-            )}
+            {selected && <ResizeHandle onPointerDown={onResizeStart} />}
           </div>
         )}
       </div>

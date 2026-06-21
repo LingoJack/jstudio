@@ -1061,12 +1061,18 @@ button {
   user-select: none;
 }
 
-/* Floating toolbar (align toggle), visible only when selected */
-.image-toolbar {
+/* ============================================
+   Unified block floating toolbar & resize handle
+   Shared by Image / File / Diagram / Link blocks.
+   ============================================ */
+
+/* Floating toolbar (top-center), visible only when the block is selected */
+.block-toolbar {
   position: absolute;
   top: -40px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 10;
   display: flex;
   gap: 2px;
   padding: 3px;
@@ -1074,10 +1080,9 @@ button {
   border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  z-index: 10;
 }
 
-.image-toolbar-btn {
+.block-toolbar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1091,23 +1096,36 @@ button {
   transition: background 0.12s;
 }
 
-.image-toolbar-btn:hover {
+.block-toolbar-btn:hover {
   background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
 }
 
-.image-toolbar-btn.is-active {
+.block-toolbar-btn.is-active {
   background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
   color: var(--vscode-list-activeSelectionForeground, #fff);
 }
 
-.image-toolbar-btn.is-focused {
+.block-toolbar-btn.is-focused {
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: -1px;
   background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
 }
 
-/* Resize handle (bottom-right corner), visible only when selected */
-.image-resize-handle {
+.block-toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.block-toolbar-divider {
+  width: 1px;
+  align-self: center;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+}
+
+/* Resize handle (bottom-right corner), visible only when the block is selected */
+.block-resize-handle {
   position: absolute;
   bottom: -6px;
   right: -6px;
@@ -1471,60 +1489,6 @@ button {
   border-color: var(--vscode-focusBorder);
 }
 
-/* ─── Floating toolbar (top-center), visible only when selected — align with image-toolbar ─── */
-
-.file-block-toolbar {
-  position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--vscode-menu-background, var(--vscode-editor-background, #1e1e1e));
-  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
-.file-block-toolbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--vscode-foreground);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-
-.file-block-toolbar-btn:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
-}
-
-.file-block-toolbar-btn.is-active {
-  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
-  color: var(--vscode-list-activeSelectionForeground, #fff);
-}
-
-.file-block-toolbar-btn.is-focused {
-  outline: 2px solid var(--vscode-focusBorder, #007fd4);
-  outline-offset: -1px;
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
-}
-
-.file-block-toolbar-divider {
-  width: 1px;
-  align-self: center;
-  height: 20px;
-  margin: 0 2px;
-  background: var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
-}
-
 /* ─── Card mode ─── */
 
 .file-block-card {
@@ -1700,20 +1664,6 @@ button {
   font-size: 0.85em;
 }
 
-/* ─── Resize handle (bottom-right) — circular blue dot, same visual as image-resize-handle ─── */
-
-.file-block-resize-handle {
-  position: absolute;
-  bottom: -6px;
-  right: -6px;
-  width: 16px;
-  height: 16px;
-  background: var(--vscode-focusBorder);
-  border: 2px solid var(--vscode-editor-background, #1e1e1e);
-  border-radius: 50%;
-  cursor: nwse-resize;
-  z-index: 11;
-}
 
 /* ============================================
    Link Block (/link)
@@ -1735,27 +1685,6 @@ button {
   transition: border-color 0.15s ease;
 }
 .link-block-figure.is-selected { border-color: var(--vscode-focusBorder, #007fd4); }
-
-.link-block-toolbar {
-  position: absolute; top: -36px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 2px; padding: 3px 5px;
-  background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
-  border: 1px solid var(--vscode-widget-border, #454545);
-  border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 10;
-}
-.link-block-toolbar-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border: none; background: transparent;
-  color: var(--vscode-editorForeground, #cccccc); border-radius: 4px;
-  cursor: pointer; transition: background 0.1s ease;
-}
-.link-block-toolbar-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.1)); }
-.link-block-toolbar-btn.is-active {
-  background: var(--vscode-list-activeSelectionBackground, #04395e);
-  color: var(--vscode-list-activeSelectionForeground, #ffffff);
-}
-.link-block-toolbar-btn.is-focused { outline: 1px solid var(--vscode-focusBorder, #007fd4); }
-.link-block-toolbar-divider { width: 1px; height: 18px; margin: 0 3px; background: var(--vscode-widget-border, #454545); }
 
 .link-block-placeholder {
   display: flex; align-items: center; gap: 8px;
@@ -1801,12 +1730,6 @@ button {
   border: 1px solid var(--vscode-widget-border, #3c3c3c);
 }
 
-.link-block-resize-handle {
-  position: absolute; bottom: -6px; right: -6px;
-  width: 16px; height: 16px; background: var(--vscode-focusBorder, #007fd4);
-  border: 2px solid var(--vscode-editor-background, #1e1e1e);
-  border-radius: 50%; cursor: nwse-resize; z-index: 11;
-}
 
 /* ============================================
    Font Dropdown (Settings page)
@@ -2396,79 +2319,6 @@ button {
   inset: 0;
   z-index: 5;
   cursor: pointer;
-}
-
-/* ─── Floating toolbar (top-right, visible when selected) ─── */
-
-.diagram-block-toolbar {
-  position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--vscode-menu-background, var(--vscode-editor-background, #1e1e1e));
-  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
-.diagram-block-toolbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--vscode-foreground);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-
-.diagram-block-toolbar-btn:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
-}
-
-.diagram-block-toolbar-btn.is-active {
-  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
-  color: var(--vscode-list-activeSelectionForeground, #fff);
-}
-
-.diagram-block-toolbar-btn.is-focused {
-  outline: 2px solid var(--vscode-focusBorder, #007fd4);
-  outline-offset: -1px;
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
-}
-
-.diagram-block-toolbar-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.diagram-block-toolbar-divider {
-  width: 1px;
-  height: 18px;
-  margin: 0 3px;
-  background: var(--vscode-widget-border, #454545);
-}
-
-/* ─── Resize handle (same as image/file/link) ─── */
-
-.diagram-block-resize-handle {
-  position: absolute;
-  bottom: -6px;
-  right: -6px;
-  width: 16px;
-  height: 16px;
-  background: var(--vscode-focusBorder);
-  border: 2px solid var(--vscode-editor-background, #1e1e1e);
-  border-radius: 50%;
-  cursor: nwse-resize;
-  z-index: 11;
 }
 
 /* ============================================

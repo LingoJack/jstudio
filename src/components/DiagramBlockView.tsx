@@ -23,7 +23,13 @@ import { Maximize2 } from 'lucide-react';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
-import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
+import {
+  BlockToolbar,
+  AlignButtonGroup,
+  BlockToolbarButton,
+  BlockToolbarDivider,
+} from './ui/BlockToolbar';
+import { ResizeHandle } from './ui/ResizeHandle';
 import { ExcalidrawCanvas } from './ExcalidrawCanvas';
 import { openDiagramWindow } from '../lib/diagramWindow';
 import type { DiagramNodeAttributes } from '../lib/diagramExtension';
@@ -202,45 +208,23 @@ export default function DiagramBlockView({
           style={figureStyle}
         >
           {/* Floating toolbar (top-right) — visible when selected */}
-          {selected && (
-            <div className="diagram-block-toolbar" contentEditable={false}>
-              <button
-                type="button"
-                ref={registerButton(0)}
-                className={`diagram-block-toolbar-btn ${
-                  effectiveAlign === 'left' ? 'is-active' : ''
-                } ${activeIndex === 0 ? 'is-focused' : ''}`}
-                onClick={() => updateAttributes({ align: 'left' })}
-                title="左对齐"
-              >
-                <AlignLeftIcon />
-              </button>
-              <button
-                type="button"
-                ref={registerButton(1)}
-                className={`diagram-block-toolbar-btn ${
-                  effectiveAlign === 'center' ? 'is-active' : ''
-                } ${activeIndex === 1 ? 'is-focused' : ''}`}
-                onClick={() => updateAttributes({ align: 'center' })}
-                title="居中"
-              >
-                <AlignCenterIcon />
-              </button>
-              <span className="diagram-block-toolbar-divider" />
-              <button
-                type="button"
-                ref={registerButton(2)}
-                className={`diagram-block-toolbar-btn ${
-                  activeIndex === 2 ? 'is-focused' : ''
-                }`}
-                onClick={handleMaximize}
-                title="放大编辑（新窗口）"
-                disabled={windowOpen}
-              >
-                <Maximize2 size={15} />
-              </button>
-            </div>
-          )}
+          <BlockToolbar selected={selected}>
+            <AlignButtonGroup
+              nav={{ activeIndex, registerButton }}
+              align={effectiveAlign}
+              onAlignChange={(a) => updateAttributes({ align: a })}
+            />
+            <BlockToolbarDivider />
+            <BlockToolbarButton
+              nav={{ activeIndex, registerButton }}
+              index={2}
+              title="放大编辑（新窗口）"
+              onClick={handleMaximize}
+              disabled={windowOpen}
+            >
+              <Maximize2 size={15} />
+            </BlockToolbarButton>
+          </BlockToolbar>
 
           {/* Excalidraw canvas */}
           <div
@@ -262,13 +246,7 @@ export default function DiagramBlockView({
           )}
 
           {/* Resize handle — bottom-right, visible when selected */}
-          {selected && (
-            <div
-              className="diagram-block-resize-handle"
-              onPointerDown={onResizeStart}
-              contentEditable={false}
-            />
-          )}
+          {selected && <ResizeHandle onPointerDown={onResizeStart} />}
         </div>
       </div>
     </NodeViewWrapper>

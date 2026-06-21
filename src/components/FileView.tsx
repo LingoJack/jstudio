@@ -45,7 +45,14 @@ import { bytesToDataUrl, genStoredName } from '../lib/upload';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
-import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
+import { UploadIcon } from './shared/icons';
+import {
+  BlockToolbar,
+  AlignButtonGroup,
+  BlockToolbarButton,
+  BlockToolbarDivider,
+} from './ui/BlockToolbar';
+import { ResizeHandle } from './ui/ResizeHandle';
 import type { FileNodeAttributes } from '../lib/fileExtension';
 import { openPreviewWindow } from '../lib/previewWindow';
 import PdfPreview from './PdfPreview';
@@ -288,65 +295,40 @@ export default function FileView({
             style={figureStyle}
           >
             {/* Floating toolbar (top-right) — visible when selected */}
-            {selected && (
-              <div className="file-block-toolbar" contentEditable={false}>
-                <button
-                  type="button"
-                  ref={registerButton(0)}
-                  className={`file-block-toolbar-btn ${
-                    effectiveAlign === 'left' ? 'is-active' : ''
-                  } ${activeIndex === 0 ? 'is-focused' : ''}`}
-                  onClick={() => updateAttributes({ align: 'left' })}
-                  title="左对齐"
-                >
-                  <AlignLeftIcon />
-                </button>
-                <button
-                  type="button"
-                  ref={registerButton(1)}
-                  className={`file-block-toolbar-btn ${
-                    effectiveAlign === 'center' ? 'is-active' : ''
-                  } ${activeIndex === 1 ? 'is-focused' : ''}`}
-                  onClick={() => updateAttributes({ align: 'center' })}
-                  title="居中"
-                >
-                  <AlignCenterIcon />
-                </button>
-                {canPreview && (
-                  <>
-                    <span className="file-block-toolbar-divider" />
-                    <button
-                      type="button"
-                      ref={registerButton(2)}
-                      className={`file-block-toolbar-btn ${
-                        activeIndex === 2 ? 'is-focused' : ''
-                      }`}
-                      onClick={() =>
-                        updateAttributes({
-                          displayMode: isPreviewMode ? 'card' : 'preview',
-                        })
-                      }
-                      title={isPreviewMode ? '切换到卡片模式' : '切换到预览模式'}
+            <BlockToolbar selected={selected}>
+              <AlignButtonGroup
+                nav={{ activeIndex, registerButton }}
+                align={effectiveAlign}
+                onAlignChange={(a) => updateAttributes({ align: a })}
+              />
+              {canPreview && (
+                <>
+                  <BlockToolbarDivider />
+                  <BlockToolbarButton
+                    nav={{ activeIndex, registerButton }}
+                    index={2}
+                    title={isPreviewMode ? '切换到卡片模式' : '切换到预览模式'}
+                    onClick={() =>
+                      updateAttributes({
+                        displayMode: isPreviewMode ? 'card' : 'preview',
+                      })
+                    }
+                  >
+                    {isPreviewMode ? <PanelsTopLeft size={15} /> : <Eye size={15} />}
+                  </BlockToolbarButton>
+                  {isPreviewMode && (
+                    <BlockToolbarButton
+                      nav={{ activeIndex, registerButton }}
+                      index={3}
+                      title="放大预览（新窗口）"
+                      onClick={handleOpenPreview}
                     >
-                      {isPreviewMode ? <PanelsTopLeft size={15} /> : <Eye size={15} />}
-                    </button>
-                    {isPreviewMode && (
-                      <button
-                        type="button"
-                        ref={registerButton(3)}
-                        className={`file-block-toolbar-btn ${
-                          activeIndex === 3 ? 'is-focused' : ''
-                        }`}
-                        onClick={handleOpenPreview}
-                        title="放大预览（新窗口）"
-                      >
-                        <Maximize2 size={15} />
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+                      <Maximize2 size={15} />
+                    </BlockToolbarButton>
+                  )}
+                </>
+              )}
+            </BlockToolbar>
 
             {/* Card mode */}
             {!isPreviewMode && (
@@ -449,13 +431,7 @@ export default function FileView({
             )}
 
             {/* Resize handle — at figure level so it works in BOTH card & preview mode */}
-            {selected && (
-              <div
-                className="file-block-resize-handle"
-                onPointerDown={onResizeStart}
-                contentEditable={false}
-              />
-            )}
+            {selected && <ResizeHandle onPointerDown={onResizeStart} />}
           </div>
         )}
       </div>
