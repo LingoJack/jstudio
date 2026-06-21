@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
+import { NavBranch, NavLeaf } from './ui/NavTree';
+import type { FolderMeta } from '../lib/storage';
 
 // ──────────────────────────────────────────────────────────────────
 // Constants
@@ -419,15 +421,49 @@ export default function DocumentList() {
 
   // ── Render helpers ────────────────────────────────────────
 
-  /** Render a single document row. */
-  const renderDoc = (doc: (typeof docList)[number], depth: number) => {
-    const isActive = doc.id === activeDocId;
+  /** Inner content of a document row (shared by tree + search modes). */
+  const renderDocInner = (doc: (typeof docList)[number]) => {
     const isRenaming = renamingId === doc.id;
+    if (isRenaming) {
+      return (
+        <input
+          ref={renameInputRef}
+          type="text"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitRename();
+            if (e.key === 'Escape') setRenamingId(null);
+          }}
+          className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+          placeholder={t('doclist.renamePlaceholder')}
+        />
+      );
+    }
+    return (
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <FileText className="w-4 h-4 opacity-50 shrink-0" />
+        <span className="text-sm truncate">
+          {doc.title || t('doclist.untitled')}
+        </span>
+      </div>
+    );
+  };
+
+  /**
+   * Render a single document row inside the folder tree.
+   * The `NavLeaf` active line replaces the old per-row border-l-2.
+   */
+  const renderDoc = (doc: (typeof docList)[number]) => {
+    const isActive = doc.id === activeDocId;
     const isDragging = draggingDocId === doc.id;
 
     return (
-      <div
+      <NavLeaf
         key={doc.id}
+        active={isActive}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => {
           if (suppressClick.current) {
@@ -441,56 +477,61 @@ export default function DocumentList() {
           e.stopPropagation();
           startRename(doc.id, doc.title || '');
         }}
-        style={{
-          paddingLeft: `${8 + depth * 16}px`,
-          opacity: isDragging ? 0.4 : undefined,
-        }}
-        className={`group flex h-9 items-center justify-between pr-2 rounded-md cursor-pointer transition-all duration-150 ${
+        style={{ opacity: isDragging ? 0.4 : undefined }}
+        className={`group flex h-9 items-center gap-2 pl-3 pr-2 rounded-r-md cursor-pointer transition-colors duration-150 ${
           isActive
             ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
             : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
         } ${isDragging ? 'cursor-grabbing' : ''}`}
       >
-        {isRenaming ? (
-          <input
-            ref={renameInputRef}
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitRename();
-              if (e.key === 'Escape') setRenamingId(null);
-            }}
-            className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-            placeholder={t('doclist.renamePlaceholder')}
-          />
-        ) : (
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <FileText className="w-4 h-4 opacity-50 shrink-0" />
-            <span className="text-sm truncate">
-              {doc.title || t('doclist.untitled')}
-            </span>
-          </div>
-        )}
-      </div>
+        {renderDocInner(doc)}
+      </NavLeaf>
     );
   };
 
-  /** Recursively render a folder node and its children. */
+  /** Inner content of a folder row (shared). */
+  const renderFolderInner = (f: FolderMeta) => {
+    const isRenaming = renamingFolderId === f.id;
+    if (isRenaming) {
+      return (
+        <input
+          ref={folderRenameRef}
+          type="text"
+          value={folderRenameValue}
+          onChange={(e) => setFolderRenameValue(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={commitFolderRename}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitFolderRename();
+            if (e.key === 'Escape') setRenamingFolderId(null);
+          }}
+          className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+          placeholder={t('doclist.folderNamePlaceholder')}
+        />
+      );
+    }
+    return <span className="text-sm truncate flex-1">{f.name}</span>;
+  };
+
+  /**
+   * Recursively render a folder node and its children.
+   *
+   * The folder row itself is a NavLeaf (can show drop highlight line).
+   * Its children are wrapped in a NavBranch (gray guide line) so the
+   * green active lines of all descendants are perfectly continuous.
+   */
   const renderNode = (node: FolderTreeNode, depth: number): React.ReactNode => {
     if (!node.folder) return null;
     const f = node.folder;
     const open = isFolderExpanded(f.id);
-    const isRenaming = renamingFolderId === f.id;
     const isDropTarget = dragOverTarget === f.id;
     const isFlashing = flashFolderId === f.id;
 
     return (
       <div key={f.id}>
         {/* Folder row — also a drop target */}
-        <div
+        <NavLeaf
+          highlighted={isDropTarget || isFlashing}
           data-drop-target={f.id}
           onClick={() => handleToggleFolder(f.id)}
           onContextMenu={(e) => handleFolderContextMenu(e, f.id)}
@@ -498,14 +539,7 @@ export default function DocumentList() {
             e.stopPropagation();
             startFolderRename(f.id, f.name);
           }}
-          style={{ paddingLeft: `${4 + depth * 16}px` }}
-          className={`group flex h-9 items-center gap-1.5 pr-2 rounded-md cursor-pointer transition-colors duration-150 text-[var(--vscode-sideBar-foreground)] border-l-2 ${
-            isFlashing
-              ? 'border-[var(--vscode-focusBorder)]'
-              : isDropTarget
-                ? 'border-[var(--vscode-focusBorder)]'
-                : 'border-transparent hover:bg-[var(--vscode-list-hoverBackground)]'
-          }`}
+          className="group flex h-9 items-center gap-1.5 pl-1 pr-2 rounded-r-md cursor-pointer text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
         >
           <ChevronRight
             className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
@@ -517,40 +551,21 @@ export default function DocumentList() {
           ) : (
             <Folder className="w-4 h-4 opacity-60 shrink-0" />
           )}
-          {isRenaming ? (
-            <input
-              ref={folderRenameRef}
-              type="text"
-              value={folderRenameValue}
-              onChange={(e) => setFolderRenameValue(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={commitFolderRename}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitFolderRename();
-                if (e.key === 'Escape') setRenamingFolderId(null);
-              }}
-              className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-              placeholder={t('doclist.folderNamePlaceholder')}
-            />
-          ) : (
-            <span className="text-sm truncate flex-1 transition-colors duration-200">
-              {f.name}
-            </span>
-          )}
-        </div>
+          {renderFolderInner(f)}
+        </NavLeaf>
 
-        {/* Children */}
+        {/* Children wrapped in NavBranch for continuous guide line */}
         {open && (
-          <div>
+          <NavBranch className="ml-[14px]">
             {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
-            {node.documents.map((doc) => renderDoc(doc, depth + 1))}
-          </div>
+            {node.documents.map((doc) => renderDoc(doc))}
+          </NavBranch>
         )}
       </div>
     );
   };
 
-  // ── Search mode: flat list ────────────────────────────────
+  // ── Search mode: flat list (no indentation guides) ────────
   const renderSearchResults = () => {
     if (filteredDocs.length === 0) {
       return (
@@ -559,7 +574,36 @@ export default function DocumentList() {
         </p>
       );
     }
-    return filteredDocs.map((doc) => renderDoc(doc, 0));
+    return filteredDocs.map((doc) => {
+      const isActive = doc.id === activeDocId;
+      const isDragging = draggingDocId === doc.id;
+      return (
+        <div
+          key={doc.id}
+          onPointerDown={(e) => onDocPointerDown(e, doc.id)}
+          onClick={(e) => {
+            if (suppressClick.current) {
+              suppressClick.current = false;
+              return;
+            }
+            openDocument(doc.id);
+          }}
+          onContextMenu={(e) => handleContextMenu(e, doc.id)}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            startRename(doc.id, doc.title || '');
+          }}
+          style={{ opacity: isDragging ? 0.4 : undefined }}
+          className={`group flex h-9 items-center gap-2 pl-3 pr-2 rounded-md cursor-pointer transition-colors duration-150 ${
+            isActive
+              ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+              : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
+          } ${isDragging ? 'cursor-grabbing' : ''}`}
+        >
+          {renderDocInner(doc)}
+        </div>
+      );
+    });
   };
 
   // ── Main render ───────────────────────────────────────────
@@ -643,7 +687,36 @@ export default function DocumentList() {
                 {t('doclist.noMatch')}
               </p>
             ) : (
-              tree.documents.map((doc) => renderDoc(doc, 0))
+              tree.documents.map((doc) => {
+                const isActive = doc.id === activeDocId;
+                const isDragging = draggingDocId === doc.id;
+                return (
+                  <div
+                    key={doc.id}
+                    onPointerDown={(e) => onDocPointerDown(e, doc.id)}
+                    onClick={(e) => {
+                      if (suppressClick.current) {
+                        suppressClick.current = false;
+                        return;
+                      }
+                      openDocument(doc.id);
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, doc.id)}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      startRename(doc.id, doc.title || '');
+                    }}
+                    style={{ opacity: isDragging ? 0.4 : undefined }}
+                    className={`group flex h-9 items-center gap-2 pl-3 pr-2 rounded-md cursor-pointer transition-colors duration-150 ${
+                      isActive
+                        ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+                        : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
+                    } ${isDragging ? 'cursor-grabbing' : ''}`}
+                  >
+                    {renderDocInner(doc)}
+                  </div>
+                );
+              })
             )}
           </>
         )}

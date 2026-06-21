@@ -5,6 +5,7 @@ import type { TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import type { SettingsSectionId } from '../store/uiSlice';
 import { useCollapsibleTree } from './ui/useCollapsibleTree';
+import { NavBranch, NavLeaf } from './ui/NavTree';
 import GeneralSection from './settings/GeneralSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
@@ -196,24 +197,23 @@ export default function Settings() {
 
                 {/* Sub-items */}
                 {hasSubs && open && (
-                  <div className="mt-0.5 mb-1 ml-[18px] border-l border-[var(--vscode-widget-border)] space-y-0.5">
+                  <NavBranch className="mt-0.5 mb-1 ml-[18px]">
                     {item.subItems!.map((sub) => {
                       const subActive = active && activeAnchor === sub.anchorId;
                       return (
-                        <button
+                        <NavLeaf
                           key={sub.anchorId}
+                          active={subActive}
                           onClick={() => handleSubClick(item.id, sub.anchorId)}
-                          className={`w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2 ${
-                            subActive
-                              ? 'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium'
-                              : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-                          }`}
+                          className="w-full flex items-center gap-2 pl-4 pr-3 py-1.5 text-[13px] cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
                         >
-                          <span>{t(sub.labelKey)}</span>
-                        </button>
+                          <span className={subActive ? 'font-medium text-[var(--vscode-foreground)]' : ''}>
+                            {t(sub.labelKey)}
+                          </span>
+                        </NavLeaf>
                       );
                     })}
-                  </div>
+                  </NavBranch>
                 )}
               </div>
             );

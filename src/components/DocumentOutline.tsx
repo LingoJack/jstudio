@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { ListTree } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
+import { NavBranch, NavLeaf } from './ui/NavTree';
 
 interface HeadingItem {
   id: string;
@@ -262,25 +263,77 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
             {t('outline.empty')}
           </p>
         ) : (
-          headings.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => handleHeadingClick(item)}
-              className={`cursor-pointer rounded-md py-1.5 pr-2 text-sm leading-snug transition-colors duration-150 truncate ${
-                activeId === item.id
-                  ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-                  : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-              }`}
-              style={{
-                paddingLeft: `${8 + (item.level - 1) * 14}px`,
-              }}
-              title={item.text}
-            >
-              {item.text}
-            </div>
-          ))
+          renderOutlineTree(headings, 1, activeId, handleHeadingClick)
         )}
       </div>
     </div>
   );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Tree rendering — mirrors the Settings/DocumentList NavTree pattern
+// ──────────────────────────────────────────────────────────────────
+
+/**
+ * Recursively render an outline heading list as a NavBranch tree.
+ *
+ * Headings at the *current* level are rendered as NavLeaf rows.
+ * Whenever a heading at a deeper level appears, all consecutive
+ * deeper-level headings are collected and rendered as a nested
+ * NavBranch (indented, gray guide line).
+ */
+function renderOutlineTree(
+  headings: HeadingItem[],
+  level: number,
+  activeId: string | null,
+  onClick: (item: HeadingItem) => void,
+): React.ReactNode[] {
+  const result: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < headings.length) {
+    const item = headings[i];
+
+    if (item.level === level) {
+      result.push(
+        <NavLeaf
+          key={item.id}
+          active={item.id === activeId}
+          onClick={() => onClick(item)}
+          className={`cursor-pointer rounded-r-md py-1.5 pr-2 pl-3 text-sm leading-snug transition-colors duration-150 truncate ${
+            item.id === activeId
+              ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+              : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+          }`}
+          title={item.text}
+        >
+          {item.text}
+        </NavLeaf>,
+      );
+      i++;
+    } else if (item.level > level) {
+      // Deeper level → collect all consecutive deeper headings
+      const deeperMin = item.level;
+      const children: HeadingItem[] = [];
+      while (
+        i < headings.length &&
+        headings[i].level >= deeperMin &&
+        headings[i].level > level
+      ) {
+        children.push(headings[i]);
+        i++;
+      }
+      const childLevel = Math.min(...children.map((c) => c.level));
+      result.push(
+        <NavBranch key={`branch-${level}-${i}`} className="ml-3">
+          {renderOutlineTree(children, childLevel, activeId, onClick)}
+        </NavBranch>,
+      );
+    } else {
+      // Shallower level — shouldn't happen here, skip
+      i++;
+    }
+  }
+
+  return result;
 }
