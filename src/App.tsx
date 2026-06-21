@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
 import { eventToBinding, resolveBinding } from './lib/shortcuts';
+import { buildCommands } from './lib/commandRegistry';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
@@ -29,21 +30,51 @@ export default function App() {
     init();
   }, [init]);
 
-  // ── Global shortcut: Cmd/Ctrl+P → open command palette ──
+  // ── Global shortcuts (command palette + all shortcutId-mapped commands) ──
+  // Build a shortcutId → perform map once (commands are static).
+  const shortcutCommandMap = useMemo(() => {
+    const map = new Map<string, (store: ReturnType<typeof useStore.getState>) => void>();
+    for (const cmd of buildCommands()) {
+      if (cmd.shortcutId) {
+        map.set(cmd.shortcutId, cmd.perform);
+      }
+    }
+    return map;
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const binding = eventToBinding(e);
       if (!binding) return;
-      const target = resolveBinding('app.commandPalette', useStore.getState().keyboardShortcuts);
-      if (binding === target) {
+
+      const overrides = useStore.getState().keyboardShortcuts;
+
+      // Check all registered shortcut commands
+      for (const [shortcutId, perform] of shortcutCommandMap) {
+        const target = resolveBinding(shortcutId, overrides);
+        if (binding !== target) continue;
+
+        // Editor conflict protection: when the focus is inside a contenteditable
+        // element, let the editor handle known formatting shortcuts (bold,
+        // italic, underline, strikethrough, inline code) to avoid hijacking.
+        const active = document.activeElement;
+        const inEditor =
+          active instanceof HTMLElement &&
+          (active.isContentEditable ||
+            active.closest('[contenteditable="true"], [data-editor-surface]'));
+        const EDITOR_RESERVED = new Set([
+          'mod+b', 'mod+i', 'mod+u', 'mod+e', 'mod+shift+s',
+        ]);
+        if (inEditor && EDITOR_RESERVED.has(binding)) return;
+
         e.preventDefault();
-        const { setCommandPaletteOpen } = useStore.getState();
-        setCommandPaletteOpen(true);
+        perform(useStore.getState());
+        return;
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [shortcutCommandMap]);
 
   if (isLoading) {
     return (

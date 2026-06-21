@@ -26,7 +26,8 @@ export interface PaletteCommand {
   /** Category name for "Category: Title" display */
   categoryZh: string;
   categoryEn: string;
-  shortcut?: string;
+  /** References a shortcut ID in the SHORTCUTS registry for dynamic display & rebinding */
+  shortcutId?: string;
   keywordsZh?: string[];
   keywordsEn?: string[];
   perform: (store: StoreState) => void | Promise<void>;
@@ -94,6 +95,7 @@ export function buildCommands(): PaletteCommand[] {
       titleEn: 'Open Settings',
       categoryZh: '导航',
       categoryEn: 'Navigation',
+      shortcutId: 'app.openSettings',
       keywordsZh: ['设置', '配置', '首选项'],
       keywordsEn: ['settings', 'preferences', 'config'],
       perform: (store) => store.setSettingsOpen(true),
@@ -107,7 +109,7 @@ export function buildCommands(): PaletteCommand[] {
       titleEn: 'New Document',
       categoryZh: '文档',
       categoryEn: 'Document',
-      shortcut: '⌘N',
+      shortcutId: 'app.newDocument',
       keywordsZh: ['创建', '新建'],
       keywordsEn: ['create', 'add'],
       perform: (store) => store.createDocument(),
@@ -132,7 +134,7 @@ export function buildCommands(): PaletteCommand[] {
       titleEn: 'Toggle Sidebar',
       categoryZh: '视图',
       categoryEn: 'View',
-      shortcut: '⌘B',
+      shortcutId: 'app.toggleSidebar',
       keywordsZh: ['侧边栏', '显示隐藏'],
       keywordsEn: ['sidebar', 'panel'],
       perform: (store) => store.toggleSidebar(),
@@ -144,6 +146,7 @@ export function buildCommands(): PaletteCommand[] {
       titleEn: 'Toggle Outline',
       categoryZh: '视图',
       categoryEn: 'View',
+      shortcutId: 'app.toggleOutline',
       keywordsZh: ['大纲', '目录', '标题'],
       keywordsEn: ['outline', 'toc', 'headings'],
       perform: (store) => store.toggleOutline(),

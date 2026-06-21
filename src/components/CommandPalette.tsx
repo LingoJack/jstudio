@@ -387,6 +387,7 @@ export default function CommandPalette() {
                 isSelected={index === selectedIndex}
                 language={lang}
                 t={t}
+                overrides={overrides}
                 onClick={() => executeItem(item)}
                 onMouseEnter={() => setSelectedIndex(index)}
               />
@@ -461,6 +462,7 @@ function PaletteRow({
   isSelected,
   language,
   t,
+  overrides,
   onClick,
   onMouseEnter,
 }: {
@@ -469,6 +471,7 @@ function PaletteRow({
   isSelected: boolean;
   language: Language;
   t: (key: TranslationKey) => string;
+  overrides: Record<string, string>;
   onClick: () => void;
   onMouseEnter: () => void;
 }) {
@@ -493,12 +496,19 @@ function PaletteRow({
         <span className="flex-1 truncate">
           <HighlightedText text={title} match={titleMatch} />
         </span>
-        {command.shortcut && (
-          <kbd className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
-            isSelected ? 'bg-white/15 text-current' : `border border-[var(--vscode-input-border)] ${descClass}`
-          }`}>
-            {command.shortcut}
-          </kbd>
+        {command.shortcutId && (
+          (() => {
+            const binding = resolveBinding(command.shortcutId, overrides);
+            if (!binding) return null;
+            const display = bindingToDisplay(binding);
+            return (
+              <kbd className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                isSelected ? 'bg-white/15 text-current' : `border border-[var(--vscode-input-border)] ${descClass}`
+              }`}>
+                {display}
+              </kbd>
+            );
+          })()
         )}
       </div>
     );

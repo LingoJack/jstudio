@@ -64,6 +64,42 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'shortcut.app.commandPalette',
     descKey: 'shortcut.app.commandPalette.desc',
   },
+  {
+    id: 'app.newDocument',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+n',
+    customizable: true,
+    labelKey: 'shortcut.app.newDocument',
+    descKey: 'shortcut.app.newDocument.desc',
+  },
+  {
+    id: 'app.toggleSidebar',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+b',
+    customizable: true,
+    labelKey: 'shortcut.app.toggleSidebar',
+    descKey: 'shortcut.app.toggleSidebar.desc',
+  },
+  {
+    id: 'app.toggleOutline',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+shift+o',
+    customizable: true,
+    labelKey: 'shortcut.app.toggleOutline',
+    descKey: 'shortcut.app.toggleOutline.desc',
+  },
+  {
+    id: 'app.openSettings',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+,',
+    customizable: true,
+    labelKey: 'shortcut.app.openSettings',
+    descKey: 'shortcut.app.openSettings.desc',
+  },
 
   // ── Terminal · Tabs ──
   {

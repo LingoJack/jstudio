@@ -289,6 +289,14 @@ export const translations = {
     // General shortcuts
     'shortcut.app.commandPalette': '打开命令面板',
     'shortcut.app.commandPalette.desc': '全局打开命令搜索面板',
+    'shortcut.app.newDocument': '新建文档',
+    'shortcut.app.newDocument.desc': '创建一篇新文档',
+    'shortcut.app.toggleSidebar': '切换侧边栏',
+    'shortcut.app.toggleSidebar.desc': '展开或收起侧边栏',
+    'shortcut.app.toggleOutline': '切换大纲',
+    'shortcut.app.toggleOutline.desc': '展开或收起文档大纲',
+    'shortcut.app.openSettings': '打开设置',
+    'shortcut.app.openSettings.desc': '打开应用设置页面',
 
     // Terminal shortcuts
     'shortcut.terminal.newTab': '新建标签页',
@@ -596,6 +604,14 @@ export const translations = {
     // General shortcuts
     'shortcut.app.commandPalette': 'Open command palette',
     'shortcut.app.commandPalette.desc': 'Open the command search palette globally',
+    'shortcut.app.newDocument': 'New document',
+    'shortcut.app.newDocument.desc': 'Create a new document',
+    'shortcut.app.toggleSidebar': 'Toggle sidebar',
+    'shortcut.app.toggleSidebar.desc': 'Show or hide the sidebar',
+    'shortcut.app.toggleOutline': 'Toggle outline',
+    'shortcut.app.toggleOutline.desc': 'Show or hide the document outline',
+    'shortcut.app.openSettings': 'Open settings',
+    'shortcut.app.openSettings.desc': 'Open the application settings page',
 
     // Terminal shortcuts
     'shortcut.terminal.newTab': 'New tab',
