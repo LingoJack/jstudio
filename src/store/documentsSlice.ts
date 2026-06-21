@@ -47,6 +47,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalCursorStyle: TerminalCursorStyle | undefined;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
+      let keyboardShortcuts: Record<string, string> | undefined;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
@@ -114,6 +115,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (settings.terminalRecentDirs !== undefined) {
           terminalRecentDirsRaw = settings.terminalRecentDirs;
+        }
+        // Load user-customized keyboard shortcuts
+        if (settings.keyboardShortcuts && typeof settings.keyboardShortcuts === 'object') {
+          keyboardShortcuts = settings.keyboardShortcuts as Record<string, string>;
         }
       } catch {
         // ignore
@@ -200,6 +205,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
+        ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         isLoading: false,
       });
 

@@ -457,6 +457,7 @@ export default function DocumentList() {
             ref={renameInputRef}
             type="text"
             value={renameValue}
+            size={Math.max(renameValue.length, 1)}
             onChange={(e) => setRenameValue(e.target.value)}
             onClick={(e) => e.stopPropagation()}
             onBlur={commitRename}
@@ -464,7 +465,7 @@ export default function DocumentList() {
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') setRenamingId(null);
             }}
-            className="flex-1 min-w-0 h-6 text-[13px] bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+            className="max-w-full h-6 text-[13px] bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
             placeholder={t('doclist.renamePlaceholder')}
           />
         ) : (
@@ -514,6 +515,7 @@ export default function DocumentList() {
               ref={folderRenameRef}
               type="text"
               value={folderRenameValue}
+              size={Math.max(folderRenameValue.length, 1)}
               onChange={(e) => setFolderRenameValue(e.target.value)}
               onClick={(e) => e.stopPropagation()}
               onBlur={commitFolderRename}
@@ -521,7 +523,7 @@ export default function DocumentList() {
                 if (e.key === 'Enter') commitFolderRename();
                 if (e.key === 'Escape') setRenamingFolderId(null);
               }}
-              className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+              className="max-w-full h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
               placeholder={t('doclist.folderNamePlaceholder')}
             />
           ) : (
