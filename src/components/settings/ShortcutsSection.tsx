@@ -16,6 +16,7 @@ import {
   type ShortcutDef,
   type ShortcutCategory,
   type ShortcutOverrides,
+  type ReferenceShortcut,
 } from '../../lib/shortcuts';
 
 // ─────────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ function ShortcutRow({
 
 function ReferenceBlock({ category, items }: {
   category: string;
-  items: { labelKey: string; binding: string }[];
+  items: ReferenceShortcut[];
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
@@ -152,16 +153,19 @@ function ReferenceBlock({ category, items }: {
       </button>
       {expanded && (
         <div className="mt-2 ml-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-          {items.map((item) => (
-            <div key={item.labelKey} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-[var(--vscode-descriptionForeground)] truncate">
-                {t(item.labelKey as TranslationKey)}
-              </span>
-              <span className="text-xs font-mono text-[var(--vscode-foreground)] shrink-0 px-2 py-0.5 rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)]">
-                {item.binding}
-              </span>
-            </div>
-          ))}
+          {items.map((item) => {
+            const text = item.binding ? bindingToDisplay(item.binding) : (item.display ?? '');
+            return (
+              <div key={item.labelKey} className="flex items-center justify-between gap-3">
+                <span className="text-sm text-[var(--vscode-descriptionForeground)] truncate">
+                  {t(item.labelKey as TranslationKey)}
+                </span>
+                <span className="text-xs font-mono text-[var(--vscode-foreground)] shrink-0 px-2 py-0.5 rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)]">
+                  {text}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

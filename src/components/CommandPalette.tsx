@@ -28,6 +28,7 @@ import {
   filterCommands,
   type ScoredCommand,
 } from '../lib/commandRegistry';
+import { resolveBinding, bindingToDisplay } from '../lib/shortcuts';
 import type { DocumentMeta } from '../lib/storage';
 import type { TerminalSession } from '../store/terminalSlice';
 import type { SettingsSectionId } from '../store/uiSlice';
@@ -93,6 +94,7 @@ function getSessionTitle(s: TerminalSession): string {
 export default function CommandPalette() {
   const isOpen = useStore((s) => s.isCommandPaletteOpen);
   const setCommandPaletteOpen = useStore((s) => s.setCommandPaletteOpen);
+  const overrides = useStore((s) => s.keyboardShortcuts);
   const { t, language } = useI18n();
   const lang = language as Language;
 
@@ -339,7 +341,7 @@ export default function CommandPalette() {
           />
           <div className="flex-1" />
           <kbd className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--vscode-input-border)] text-[var(--vscode-descriptionForeground)] mb-1.5 mr-1">
-            {t('palette.shortcutHint')}
+            {bindingToDisplay(resolveBinding('app.commandPalette', overrides))}
           </kbd>
         </div>
 

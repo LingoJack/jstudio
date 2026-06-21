@@ -1,6 +1,7 @@
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { Search } from 'lucide-react';
+import { resolveBinding, bindingToDisplay } from '../lib/shortcuts';
 
 /**
  * Command palette trigger button.
@@ -12,6 +13,8 @@ import { Search } from 'lucide-react';
 export default function SearchBar() {
   const { t } = useI18n();
   const setCommandPaletteOpen = useStore((s) => s.setCommandPaletteOpen);
+  const overrides = useStore((s) => s.keyboardShortcuts);
+  const shortcutHint = bindingToDisplay(resolveBinding('app.commandPalette', overrides));
 
   return (
     <div
@@ -31,7 +34,7 @@ export default function SearchBar() {
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded border border-[var(--vscode-input-border)] text-[var(--vscode-descriptionForeground)] opacity-60 pointer-events-none"
         data-tauri-drag-region={false}
       >
-        {t('palette.shortcutHint')}
+        {shortcutHint}
       </kbd>
     </div>
   );

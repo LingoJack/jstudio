@@ -175,35 +175,37 @@ export const SHORTCUTS: ShortcutDef[] = [
 export interface ReferenceShortcut {
   /** i18n key for the label */
   labelKey: string;
-  /** Display string, e.g. "⌘B" */
-  binding: string;
+  /** Display string (for markdown triggers like "# ") */
+  display?: string;
+  /** Normalized binding (for keyboard shortcuts like "mod+b"), rendered via bindingToDisplay */
+  binding?: ShortcutBinding;
 }
 
 export const REFERENCE_SHORTCUTS: { category: string; items: ReferenceShortcut[] }[] = [
   {
     category: 'shortcut.ref.editorFormatting',
     items: [
-      { labelKey: 'shortcut.ref.bold', binding: 'Mod + B' },
-      { labelKey: 'shortcut.ref.italic', binding: 'Mod + I' },
-      { labelKey: 'shortcut.ref.underline', binding: 'Mod + U' },
-      { labelKey: 'shortcut.ref.strikethrough', binding: 'Mod + Shift + S' },
-      { labelKey: 'shortcut.ref.inlineCode', binding: 'Mod + E' },
-      { labelKey: 'shortcut.ref.undo', binding: 'Mod + Z' },
-      { labelKey: 'shortcut.ref.redo', binding: 'Mod + Shift + Z' },
-      { labelKey: 'shortcut.ref.selectAll', binding: 'Mod + A' },
+      { labelKey: 'shortcut.ref.bold', binding: 'mod+b' },
+      { labelKey: 'shortcut.ref.italic', binding: 'mod+i' },
+      { labelKey: 'shortcut.ref.underline', binding: 'mod+u' },
+      { labelKey: 'shortcut.ref.strikethrough', binding: 'mod+shift+s' },
+      { labelKey: 'shortcut.ref.inlineCode', binding: 'mod+e' },
+      { labelKey: 'shortcut.ref.undo', binding: 'mod+z' },
+      { labelKey: 'shortcut.ref.redo', binding: 'mod+shift+z' },
+      { labelKey: 'shortcut.ref.selectAll', binding: 'mod+a' },
     ],
   },
   {
     category: 'shortcut.ref.markdown',
     items: [
-      { labelKey: 'shortcut.ref.heading1', binding: '# ' },
-      { labelKey: 'shortcut.ref.heading2', binding: '## ' },
-      { labelKey: 'shortcut.ref.heading3', binding: '### ' },
-      { labelKey: 'shortcut.ref.quote', binding: '> ' },
-      { labelKey: 'shortcut.ref.bulletList', binding: '- ' },
-      { labelKey: 'shortcut.ref.orderedList', binding: '1. ' },
-      { labelKey: 'shortcut.ref.codeBlock', binding: '``` ' },
-      { labelKey: 'shortcut.ref.divider', binding: '---' },
+      { labelKey: 'shortcut.ref.heading1', display: '# ' },
+      { labelKey: 'shortcut.ref.heading2', display: '## ' },
+      { labelKey: 'shortcut.ref.heading3', display: '### ' },
+      { labelKey: 'shortcut.ref.quote', display: '> ' },
+      { labelKey: 'shortcut.ref.bulletList', display: '- ' },
+      { labelKey: 'shortcut.ref.orderedList', display: '1. ' },
+      { labelKey: 'shortcut.ref.codeBlock', display: '``` ' },
+      { labelKey: 'shortcut.ref.divider', display: '---' },
     ],
   },
 ];
@@ -316,7 +318,7 @@ const DISPLAY_MAP: Record<string, string> = {
 
 /**
  * Converts a normalized binding string to a display string.
- * e.g. "mod+p" → "⌘P", "mod+shift+arrowleft" → "⌘⇧←"
+ * e.g. "mod+p" → "⌘ P", "mod+shift+arrowleft" → "⌘ ⇧ ←"
  */
 export function bindingToDisplay(binding: ShortcutBinding): string {
   const parts = binding.split('+');
