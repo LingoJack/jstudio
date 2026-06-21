@@ -40,8 +40,18 @@ const CORNER_IDX_X = [1, 1, 0, 0]; // right, right, left, left
 const CORNER_IDX_Y = [0, 1, 1, 0]; // top, bottom, bottom, top
 
 // ── Caret geometry ───────────────────────────────────────────────────
-// The contentEditable caret is a thin vertical bar by default.
-// We render the trail quad with a shape matching the selected cursor style.
+// The contentEditable caret is a thin vertical bar by default (~2px).
+// We render the trail quad with a shape matching the selected cursor
+// style, using the same thickness ratios as the terminal CursorTrail
+// so the two look visually consistent.
+
+/** Vertical thickness ratio (fraction of line height). */
+const UNDERLINE_THICKNESS_RATIO = 0.15;
+/** Horizontal thickness ratio (fraction of character width). */
+const BAR_THICKNESS_RATIO = 0.12;
+/** Approximate character width / font-size ratio for proportional text. */
+const CHAR_WIDTH_RATIO = 0.6;
+/** Native caret bar width fallback. */
 const CARET_BAR_WIDTH_PX = 2;
 
 /** Convert "#rrggbb" -> [r, g, b] with each channel in 0..1 */
@@ -285,12 +295,22 @@ export class EditorCursorTrail {
   /**
    * Convert a screen-space DOMRect to overlay-canvas-local coordinates,
    * adjusting the shape to match the selected cursor style.
+   *
+   * Uses the same thickness ratios as the terminal CursorTrail:
+   *   - 'bar'       → thin vertical strip  (12% of char width, full height)
+   *   - 'block'     → full character cell  (full width, full height)
+   *   - 'underline' → thin horizontal strip (full width, 15% of height at bottom)
    */
   private toCanvasLocal(rect: DOMRect): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
     const left = rect.left - canvasRect.left;
     const top = rect.top - canvasRect.top;
     const height = Math.max(rect.height, 1);
+
+    // Approximate character width from line height.  The browser caret
+    // is only ~2px wide, so for 'block' and 'underline' we need to
+    // estimate the actual character cell width.
+    const charWidth = Math.max(height * CHAR_WIDTH_RATIO, CARET_BAR_WIDTH_PX);
 
     let trailLeft: number;
     let trailRight: number;
@@ -299,27 +319,25 @@ export class EditorCursorTrail {
 
     switch (this.cursorStyle) {
       case 'block':
-        // Full character-cell rectangle.  The browser caret is a thin bar,
-        // so we widen the target to approximate one character width (~0.6em).
-        // We use the measured height as a proxy for em size.
-        const charWidth = Math.max(height * 0.6, CARET_BAR_WIDTH_PX);
+        // Full character cell — same as terminal 'block'.
         trailLeft = left;
         trailRight = left + charWidth;
         trailTop = top;
         trailBottom = top + height;
         break;
       case 'underline':
-        // Horizontal bar at the bottom of the line — ~15% of line height.
-        const underH = Math.max(height * 0.15, 2);
+        // Thin horizontal strip at the bottom — 15% of line height.
         trailLeft = left;
-        trailRight = left + Math.max(rect.width, CARET_BAR_WIDTH_PX);
-        trailTop = top + height - underH;
+        trailRight = left + charWidth;
+        trailTop = top + height - height * UNDERLINE_THICKNESS_RATIO;
         trailBottom = top + height;
         break;
       case 'bar':
       default:
+        // Thin vertical strip — 12% of char width, full height.
+        const barWidth = Math.max(charWidth * BAR_THICKNESS_RATIO, CARET_BAR_WIDTH_PX);
         trailLeft = left;
-        trailRight = left + Math.max(rect.width, CARET_BAR_WIDTH_PX);
+        trailRight = left + barWidth;
         trailTop = top;
         trailBottom = top + height;
         break;

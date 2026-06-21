@@ -888,6 +888,7 @@ button {
   font-family: var(--jstudio-font-family);
   font-size: var(--jstudio-font-size);
   line-height: var(--jstudio-line-height);
+  caret-color: var(--vscode-editorCursor-foreground, var(--vscode-focusBorder, #007fd4));
 }
 
 /* 标题层级：H1 明显小于文档标题，H2/H3 逐级递减 */
