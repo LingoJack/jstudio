@@ -149,8 +149,9 @@ saveAgentConfig: (config: AgentConfigFile) =>
 - API Key 默认显示为 `••••••••`（mask），点击 "显示" 按钮切换明文
 - 删除 provider 需二次确认（内联 confirm，不用 window.confirm）
 - 激活 provider 通过列表项左侧 radio 选中
-- 空状态：agent_config.json 不存在或 providers 为空时，显示引导文案 + "添加 Provider" 按钮
+- 空状态：agent_config.json 不存在或 providers 为空时，显示引导文案 + "添加 Provider" 按钮（JStudio 会自动创建配置文件，无需依赖外部工具初始化）
 - 保存时有 loading 状态（spinner）
+- **新增 provider 时**：如果配置文件不存在，Rust 的 `write_agent_config` 会自动创建目录和文件，前端无需特殊处理
 
 **样式规范**（遵循 AGENTS.md）：
 - 使用 `var(--vscode-*)` CSS 变量，不硬编码颜色
@@ -234,7 +235,8 @@ export type SettingsSectionId = 'general' | 'editor' | 'terminal' | 'shortcuts' 
 'agent.hideKey': '隐藏' / 'Hide'
 'agent.saveSuccess': '配置已保存' / 'Configuration saved'
 'agent.saveFailed': '保存失败' / 'Save failed'
-'agent.configNotFound': '未找到 agent 配置，请先运行一次 jcli agent 初始化' / '...'
+'agent.configNotFound': '尚未创建 agent 配置文件' / 'Agent config file not yet created'
+'agent.autoCreate': '点击「添加提供方」即可自动创建配置' / 'Click "Add Provider" to create the config automatically'
 ```
 
 ---
