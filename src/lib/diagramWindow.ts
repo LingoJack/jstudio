@@ -5,11 +5,11 @@
  * 数据通过 Rust 内存命令（set/get_preview_data）传递初始快照，
  * 编辑期间通过 Tauri event 实时回传更新的快照到主窗口。
  *
- * 新窗口加载同一个前端 bundle，通过 URL 参数 `?window=diagram`
- * 来区分渲染逻辑（见 main.tsx → DiagramWindowApp）。
+ * 新窗口加载同一个前端 bundle，通过 URL 参数 `?window=diagram&label=xxx`
+ * 来区分渲染逻辑并传递窗口标签（见 main.tsx → DiagramWindowApp）。
  */
 
-import { WebviewWindow, getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, emit, type UnlistenFn } from '@tauri-apps/api/event';
@@ -60,6 +60,7 @@ export async function openDiagramWindow(
   // 1. Store payload in Rust memory so the new window can retrieve it.
   try {
     await invoke('set_preview_data', { label, data: payload });
+    console.log('[DiagramWindow] Data stored in Rust cache for', label);
   } catch (e) {
     console.error('[DiagramWindow] Failed to store data:', e);
     return () => {};
@@ -75,9 +76,10 @@ export async function openDiagramWindow(
     unlisten = fn;
   });
 
-  // 3. Create the new webview window.
+  // 3. Create the new webview window — pass label via URL so the child
+  //    window can retrieve its own data without relying on getCurrentWindow().
   const webviewWindow = new WebviewWindow(label, {
-    url: 'index.html?window=diagram',
+    url: `index.html?window=diagram&label=${encodeURIComponent(label)}`,
     title: '画板编辑',
     width: 1200,
     height: 800,
@@ -111,14 +113,27 @@ export async function openDiagramWindow(
 /* Receiver side (diagram window — runs inside the new OS window)     */
 /* ------------------------------------------------------------------ */
 
+/** Resolve this window's label — prefer URL param, fallback to Tauri API. */
+function resolveLabel(): string {
+  // Primary: URL query param (most reliable across Tauri v2 versions).
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('label');
+  if (fromUrl) return fromUrl;
+
+  // Fallback: Tauri window label.
+  try {
+    return getCurrentWindow().label;
+  } catch {
+    return '';
+  }
+}
+
 /**
  * In the diagram window, retrieve the initial payload from Rust memory.
  * Retries a few times in case the data isn't committed yet.
  */
 export async function fetchDiagramData(): Promise<DiagramPayload | null> {
-  // Use getCurrentWebviewWindow to match the label used in `new WebviewWindow(label, ...)`.
-  // `getCurrentWindow().label` may differ from the webview label in Tauri v2.
-  const label = getCurrentWebviewWindow().label;
+  const label = resolveLabel();
   console.log('[DiagramWindow] Fetching data for label:', label);
 
   for (let i = 0; i < 20; i++) {
@@ -145,7 +160,7 @@ export async function fetchDiagramData(): Promise<DiagramPayload | null> {
  * Called from within the diagram window.
  */
 export async function sendDiagramUpdate(snapshot: string): Promise<void> {
-  const label = getCurrentWebviewWindow().label;
+  const label = resolveLabel();
   const eventName = updateEventName(label);
   try {
     await emit(eventName, { snapshot } satisfies DiagramPayload);
