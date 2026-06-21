@@ -47,6 +47,7 @@ import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
 import { openPreviewWindow } from '../lib/previewWindow';
+import PdfPreview from './PdfPreview';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                          */
@@ -361,13 +362,9 @@ export default function FileView({
                   />
                 )}
 
-                {/* PDF */}
+                {/* PDF — custom pdf.js viewer with zoom / pan controls */}
                 {category === 'pdf' && (
-                  <iframe
-                    src={safeSrc}
-                    className="file-block-preview-frame"
-                    title={fileName}
-                  />
+                  <PdfPreview src={safeSrc} />
                 )}
 
                 {/* Image */}

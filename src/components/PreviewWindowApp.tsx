@@ -15,6 +15,7 @@ import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../li
 import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../lib/fileUtils';
 import { docxToHtml } from '../lib/docxPreview';
 import { storage, type ThemeMode } from '../lib/storage';
+import PdfPreview from './PdfPreview';
 
 /**
  * Resolve a theme preference to actual dark/light.
@@ -119,7 +120,6 @@ function PreviewContent({
 }) {
   switch (category) {
     case 'html':
-    case 'pdf':
       return (
         <iframe
           src={src}
@@ -128,6 +128,9 @@ function PreviewContent({
           title={fileName}
         />
       );
+
+    case 'pdf':
+      return <PdfPreview src={src} fillContainer />;
 
     case 'docx':
       return <DocxPreview src={src} />;

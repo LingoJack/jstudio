@@ -39,6 +39,8 @@ export function ExcalidrawCanvas({
   }, [onChange]);
 
   // Parse initial snapshot once — only used on first mount.
+  // Only restore `elements` — never `appState` because it contains runtime
+  // objects (e.g. `collaborators` is a Map) that break on JSON round-trip.
   const initialData = useMemo<
     ExcalidrawInitialDataState | Promise<ExcalidrawInitialDataState | null> | null
   >(() => {
@@ -48,8 +50,6 @@ export function ExcalidrawCanvas({
       return {
         elements: parsed?.elements ?? [],
         appState: {
-          ...parsed?.appState,
-          // Force our theme.
           theme: darkMode ? 'dark' : 'light',
         },
         scrollToContent: true,
@@ -61,6 +61,8 @@ export function ExcalidrawCanvas({
   }, []);
 
   // Excalidraw calls onChange on every edit — debounce the serialization.
+  // Only serialize `elements` (pure data). Serializing `appState` would
+  // corrupt runtime fields like `collaborators` (Map) on restore.
   const handleChange = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -68,10 +70,7 @@ export function ExcalidrawCanvas({
       if (!api) return;
       try {
         const elements = api.getSceneElements();
-        const appState = api.getAppState();
-        // Strip volatile properties to keep the snapshot compact.
-        const { scrollTop, scrollX, scrollY, ...restAppState } = appState;
-        const snapshot = JSON.stringify({ elements, appState: restAppState });
+        const snapshot = JSON.stringify({ elements });
         onChangeRef.current(snapshot);
       } catch {
         /* ignore */

@@ -2459,10 +2459,11 @@ button {
    excalidraw canvas & diagram window styles
    ============================================ */
 
-/* excalidraw canvas root: ensure it fills its container */
+/* excalidraw canvas root: fill its container in normal flow */
 .excalidraw-canvas-root {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 /* Diagram window (new OS window) loading & error states */
@@ -2501,4 +2502,163 @@ button {
   font-size: 14px;
 }
 
+/* ============================================
+   PDF Preview (react-pdf)
+   ============================================ */
+
+.pdf-preview-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08));
+}
+
+/* When fillContainer is true (preview window mode), grow to fill parent */
+.pdf-preview-fill {
+  flex: 1;
+  height: 100%;
+}
+
+/* ── Toolbar ─────────────────────────────── */
+
+.pdf-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--vscode-activityBar-background, #181818);
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.06));
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.pdf-preview-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pdf-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-editor-foreground, #cccccc);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.pdf-preview-btn:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+  color: var(--vscode-editor-foreground, #ffffff);
+}
+
+.pdf-preview-btn:active:not(:disabled) {
+  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.4));
+}
+
+.pdf-preview-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pdf-preview-page-info,
+.pdf-preview-scale {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #969696);
+  min-width: 36px;
+  text-align: center;
+  user-select: none;
+}
+
+/* ── Pages scroll area ───────────────────── */
+
+.pdf-preview-pages {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-preview-page-wrap {
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pdf-preview-page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 200px;
+  color: var(--vscode-descriptionForeground, #969696);
+}
+
+/* ── Loading / Error states ──────────────── */
+
+.pdf-preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--vscode-descriptionForeground, #969696);
+  font-size: 13px;
+}
+
+.pdf-preview-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--vscode-errorForeground, #f48771);
+  font-size: 14px;
+}
+
+.pdf-preview-error-detail {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #969696);
+  max-width: 300px;
+  text-align: center;
+  word-break: break-word;
+}
+
+/* ── Override react-pdf internals ─────────── */
+
+/* Remove default react-pdf page background (we control it via wrapper) */
+.react-pdf__Page {
+  margin: 0;
+}
+
+.react-pdf__Page__canvas {
+  display: block;
+  margin: 0;
+}
+
+/* Text layer: make text selectable but invisible */
+.react-pdf__Page__textContent {
+  user-select: text;
+}
+
+/* Annotation layer links */
+.react-pdf__Page__annotations {
+  pointer-events: auto;
+}
 
