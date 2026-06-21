@@ -250,6 +250,44 @@ pub fn write_settings(settings: Value) -> Result<(), String> {
     fs::write(settings_path(), json).map_err(|e| e.to_string())
 }
 
+// ────────────────────────────────────────────────
+// Agent config (~/.jdata/agent/data/agent_config.json)
+// ────────────────────────────────────────────────
+
+/// `~/.jdata/agent/data/agent_config.json`  (jcli agent 主配置)
+fn agent_config_path() -> PathBuf {
+    let home = dirs::home_dir().expect("cannot determine home directory");
+    home.join(".jdata")
+        .join("agent")
+        .join("data")
+        .join("agent_config.json")
+}
+
+/// Read the jcli agent configuration file.
+/// Returns `{}` if the file does not exist yet — JStudio can create it
+/// on first save, so no external initialisation step is required.
+#[tauri::command]
+pub fn read_agent_config() -> Result<Value, String> {
+    let path = agent_config_path();
+    if !path.exists() {
+        return Ok(serde_json::json!({}));
+    }
+    let data = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&data).map_err(|e| e.to_string())
+}
+
+/// Write the full jcli agent configuration file.
+/// Creates the parent directory tree if it does not exist.
+#[tauri::command]
+pub fn write_agent_config(config: Value) -> Result<(), String> {
+    let path = agent_config_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    fs::write(&path, json).map_err(|e| e.to_string())
+}
+
 /// Read the folder index (`folders.json`).
 /// Returns an empty array if the file does not exist yet.
 #[tauri::command]

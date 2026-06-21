@@ -109,6 +109,7 @@ export const translations = {
     // ── Settings nav ──
     'settings.title': '设置',
     'settings.general': '通用',
+    'settings.agent': 'AI Agent',
     'settings.editor': '编辑器',
     'settings.terminal': '终端',
     'settings.about': '关于',
@@ -208,6 +209,48 @@ export const translations = {
     'jcli.bundled': '内置版本',
     'jcli.checking': '检查中…',
     'jcli.notBundled': '当前应用未内置 jcli 二进制文件',
+
+    // ── Agent Model section ──
+    'agent.providers': '模型提供方',
+    'agent.providersDesc': '管理 AI Agent 使用的模型提供方（OpenAI 兼容）。配置保存在 ~/.jdata/agent/data/agent_config.json',
+    'agent.activeModel': '当前模型',
+    'agent.noProviders': '尚未配置任何模型提供方',
+    'agent.noProvidersDesc': '添加一个 OpenAI 兼容的 API 端点即可开始使用，配置文件将自动创建',
+    'agent.addProvider': '添加提供方',
+    'agent.editProvider': '编辑提供方',
+    'agent.deleteConfirm': '确定删除「{name}」？',
+    'agent.setActive': '设为当前模型',
+    'agent.active': '当前使用',
+    'agent.configError': '读取 agent 配置失败',
+    'agent.loading': '加载配置中…',
+    'agent.retry': '重试',
+
+    // Agent form fields
+    'agent.field.name': '名称',
+    'agent.field.namePlaceholder': '我的模型',
+    'agent.field.apiBase': 'API Base URL',
+    'agent.field.apiBasePlaceholder': 'https://api.openai.com/v1',
+    'agent.field.apiKey': 'API Key',
+    'agent.field.apiKeyPlaceholder': 'sk-...',
+    'agent.field.model': '模型名称',
+    'agent.field.modelPlaceholder': 'gpt-4o',
+    'agent.field.supportsVision': '支持视觉',
+    'agent.field.supportsVisionDesc': '模型支持图片等多模态输入',
+    'agent.field.toolCallMode': '工具调用模式',
+    'agent.field.toolCallModeDesc': '原生模式使用 OpenAI function calling 协议；禁用则关闭工具调用',
+    'agent.field.toolCallModeNative': '原生 (Native)',
+    'agent.field.toolCallModeDisabled': '禁用 (Disabled)',
+
+    // Agent actions
+    'agent.save': '保存',
+    'agent.cancel': '取消',
+    'agent.delete': '删除',
+    'agent.edit': '编辑',
+    'agent.showKey': '显示',
+    'agent.hideKey': '隐藏',
+    'agent.saveSuccess': '配置已保存',
+    'agent.saveFailed': '保存失败：{error}',
+    'agent.fillRequired': '请填写名称、API Base 和模型名称',
 
     // ── FontDropdown ──
     'font.searchPlaceholder': '搜索字体…',
@@ -446,6 +489,7 @@ export const translations = {
     // ── Settings nav ──
     'settings.title': 'Settings',
     'settings.general': 'General',
+    'settings.agent': 'AI Agent',
     'settings.editor': 'Editor',
     'settings.terminal': 'Terminal',
     'settings.about': 'About',
@@ -545,6 +589,48 @@ export const translations = {
     'jcli.bundled': 'Bundled version',
     'jcli.checking': 'Checking…',
     'jcli.notBundled': 'This app does not include a bundled jcli binary',
+
+    // ── Agent Model section ──
+    'agent.providers': 'Model Providers',
+    'agent.providersDesc': 'Manage AI Agent model providers (OpenAI-compatible). Config saved to ~/.jdata/agent/data/agent_config.json',
+    'agent.activeModel': 'Active Model',
+    'agent.noProviders': 'No model providers configured',
+    'agent.noProvidersDesc': 'Add an OpenAI-compatible API endpoint to get started — the config file will be created automatically',
+    'agent.addProvider': 'Add Provider',
+    'agent.editProvider': 'Edit Provider',
+    'agent.deleteConfirm': 'Delete "{name}"?',
+    'agent.setActive': 'Set as active',
+    'agent.active': 'Active',
+    'agent.configError': 'Failed to read agent config',
+    'agent.loading': 'Loading config…',
+    'agent.retry': 'Retry',
+
+    // Agent form fields
+    'agent.field.name': 'Name',
+    'agent.field.namePlaceholder': 'My Provider',
+    'agent.field.apiBase': 'API Base URL',
+    'agent.field.apiBasePlaceholder': 'https://api.openai.com/v1',
+    'agent.field.apiKey': 'API Key',
+    'agent.field.apiKeyPlaceholder': 'sk-...',
+    'agent.field.model': 'Model Name',
+    'agent.field.modelPlaceholder': 'gpt-4o',
+    'agent.field.supportsVision': 'Supports Vision',
+    'agent.field.supportsVisionDesc': 'The model supports image and multimodal input',
+    'agent.field.toolCallMode': 'Tool Call Mode',
+    'agent.field.toolCallModeDesc': 'Native uses the OpenAI function calling protocol; Disabled turns off tool calls',
+    'agent.field.toolCallModeNative': 'Native',
+    'agent.field.toolCallModeDisabled': 'Disabled',
+
+    // Agent actions
+    'agent.save': 'Save',
+    'agent.cancel': 'Cancel',
+    'agent.delete': 'Delete',
+    'agent.edit': 'Edit',
+    'agent.showKey': 'Show',
+    'agent.hideKey': 'Hide',
+    'agent.saveSuccess': 'Configuration saved',
+    'agent.saveFailed': 'Save failed: {error}',
+    'agent.fillRequired': 'Please fill in name, API Base and model name',
 
     // ── FontDropdown ──
     'font.searchPlaceholder': 'Search fonts…',

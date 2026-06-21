@@ -136,6 +136,50 @@ export interface AssetInfo {
   createdAt: number;
 }
 
+// ────────────────────────────────────────────────
+// Agent config (jcli agent model providers)
+// ────────────────────────────────────────────────
+
+/**
+ * Tool-call protocol mode — mirrors the Rust `ToolCallMode` enum
+ * (`snake_case` serialisation).
+ * - `native`   → OpenAI-style function calling (default)
+ * - `disabled` → tool calls turned off entirely
+ */
+export type ToolCallMode = 'native' | 'disabled';
+
+/**
+ * A single model provider entry — mirrors the Rust `ModelProvider` struct.
+ * Any OpenAI-compatible endpoint can be added here.
+ */
+export interface ModelProvider {
+  /** Display name (user-defined, e.g. "deepseek", "openrouter") */
+  name: string;
+  /** OpenAI-compatible API base URL (e.g. "https://api.openai.com/v1") */
+  api_base: string;
+  /** API key (stored in plaintext, same as jcli agent) */
+  api_key: string;
+  /** Model identifier sent to the API (e.g. "gpt-4o") */
+  model: string;
+  /** Whether the model supports vision / multimodal input */
+  supports_vision: boolean;
+  /** Tool-call protocol mode */
+  tool_call_mode: ToolCallMode;
+}
+
+/**
+ * The on-disk agent config file (`~/.jdata/agent/data/agent_config.json`).
+ *
+ * JStudio only manages `providers` + `active_index`; all other fields
+ * (system_prompt, compact, theme, …) are carried through untouched via
+ * the index signature so they are never lost on write-back.
+ */
+export interface AgentConfigFile {
+  providers: ModelProvider[];
+  active_index: number;
+  [key: string]: unknown;
+}
+
 /**
  * Lightweight terminal session info returned by the Rust PTY backend.
  */
@@ -251,6 +295,21 @@ export const storage = {
   loadSettings: () => invoke<AppSettings>('read_settings'),
   saveSettings: (settings: AppSettings) =>
     invoke<void>('write_settings', { settings }),
+
+  // ---- agent config (jcli agent model providers) ----
+
+  /**
+   * Read the jcli agent config (`~/.jdata/agent/data/agent_config.json`).
+   * Returns `{}` when the file does not exist yet.
+   */
+  loadAgentConfig: () => invoke<AgentConfigFile>('read_agent_config'),
+
+  /**
+   * Write the full jcli agent config (overwrite).
+   * The parent directory is created automatically if missing.
+   */
+  saveAgentConfig: (config: AgentConfigFile) =>
+    invoke<void>('write_agent_config', { config }),
 
   // ---- folders ----
 

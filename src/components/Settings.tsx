@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
@@ -7,6 +7,7 @@ import type { SettingsSectionId } from '../store/uiSlice';
 import { useCollapsibleTree } from './ui/useCollapsibleTree';
 import { NavBranch, NavRow } from './ui/NavTree';
 import GeneralSection from './settings/GeneralSection';
+import AgentModelSection from './settings/AgentModelSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
 import ShortcutsSection from './settings/ShortcutsSection';
@@ -46,6 +47,14 @@ const NAV_ITEMS: NavItem[] = [
       { anchorId: 'settings-general-activityBarItems', labelKey: 'appearance.activityBarItems' },
       { anchorId: 'settings-general-dataLocation', labelKey: 'general.dataLocation' },
       { anchorId: 'settings-general-jcli', labelKey: 'jcli.title' },
+    ],
+  },
+  {
+    id: 'agent',
+    labelKey: 'settings.agent',
+    icon: Bot,
+    subItems: [
+      { anchorId: 'settings-agent-providers', labelKey: 'agent.providers' },
     ],
   },
   {
@@ -102,6 +111,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const SECTIONS: Record<SectionId, () => React.ReactElement> = {
   general: GeneralSection,
+  agent: AgentModelSection,
   editor: EditorSection,
   terminal: TerminalSection,
   shortcuts: ShortcutsSection,
