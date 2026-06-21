@@ -1,5 +1,29 @@
 # 为 BlockEditor 添加 GPU 光标拖尾动画
 
+## 改动规模与风险评估
+
+### 改动大小：小
+
+| 文件 | 操作 | 改动量 |
+|------|------|--------|
+| `src/components/EditorCursorTrail.ts` | **新增** | ~250 行，完全独立的新文件 |
+| `src/components/BlockEditor.tsx` | **修改** | +30 行（overlay div + 2 个 useEffect），不修改任何现有逻辑 |
+
+### 对现有功能的影响：无
+
+**不修改任何现有功能代码**：
+- 不触碰 TipTap editor 初始化逻辑（`useEditor` 配置完全不变）
+- 不修改 store（Zustand 不变）
+- 不修改终端的 `CursorTrail`（完全独立的新类）
+- 不修改任何 CSS 文件
+- 不修改数据流（blocks → tiptap → store 的路径不变）
+
+**拖尾是纯视觉叠加层**：
+- 一个 `pointer-events: none` 的 `<canvas>` 覆盖在编辑器上方
+- 只读取光标位置（通过 Selection API），不拦截任何事件
+- 如果 WebGL2 不可用，静默回退（拖尾不显示，编辑器正常工作）
+- 如果拖尾出现 bug，删除 overlay div 即可完全恢复
+
 ## 目标
 
 让 TipTap 编辑器区域拥有类似终端的 kitty-style GPU 光标拖尾动画 —— 当光标在编辑器内移动时（键盘导航、点击不同位置），一个带渐变淡出的光标残影会以指数缓动方式追逐到新位置，产生彗星尾巴效果。

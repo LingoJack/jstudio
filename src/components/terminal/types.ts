@@ -36,6 +36,18 @@ export type PaneLayoutType =
   | 'vertical';
 
 /**
+ * Runtime-only pane sizing for one group/tab.
+ * Kept in Zustand so switching tabs preserves drag-adjusted proportions,
+ * but it is not persisted to disk.
+ */
+export interface PaneResizeState {
+  layout: PaneLayoutType;
+  sessionKey: string;
+  columns?: number[];
+  rows?: number[];
+}
+
+/**
  * A pane group — one tab that may contain multiple terminal sessions
  * arranged according to `layout`.  This is the Kitty-style "window"
  * concept: each tab is a group of panes.
@@ -49,4 +61,6 @@ export interface PaneGroup {
   activeSessionId: string;
   /** How panes are arranged visually. */
   layout: PaneLayoutType;
+  /** Drag-adjusted grid track proportions while this tab remains alive. */
+  resizeState?: PaneResizeState;
 }

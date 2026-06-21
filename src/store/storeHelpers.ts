@@ -6,6 +6,7 @@ import type {
   TerminalTemplate,
   PaneGroup,
   PaneLayoutType,
+  PaneResizeState,
 } from './terminalSlice';
 import type { ToastItem, ToastType } from './toastSlice';
 import { storage } from '../lib/storage';
@@ -175,6 +176,7 @@ export interface StoreState {
   splitPane: (templateId?: string) => Promise<void>;
   cyclePaneLayout: () => void;
   setPaneLayout: (layout: PaneLayoutType) => void;
+  setPaneResizeState: (groupId: string, resizeState: PaneResizeState) => void;
   moveActivePane: () => void;
   focusNextPane: () => void;
   focusPrevPane: () => void;

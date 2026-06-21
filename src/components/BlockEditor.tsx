@@ -54,6 +54,7 @@ import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
 import TableControls from './TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
 import DocumentOutline from './DocumentOutline';
+import { EditorCursorTrail } from './EditorCursorTrail';
 import type { Block } from '../types';
 import { ListTree } from 'lucide-react';
 
@@ -81,6 +82,10 @@ export default function BlockEditor() {
   const isReplacingRef = useRef(false);
   /** Stable ref to the editor for use in callbacks without re-creating editor. */
   const editorRef = useRef<Editor | null>(null);
+  /** Overlay div for the GPU cursor trail canvas. */
+  const trailOverlayRef = useRef<HTMLDivElement | null>(null);
+  /** The EditorCursorTrail instance. */
+  const trailRef = useRef<EditorCursorTrail | null>(null);
 
   // ------------------------------------------------------------------
   // Debounced content sync: editor → store
@@ -216,6 +221,73 @@ export default function BlockEditor() {
   }, []);
 
   // ------------------------------------------------------------------
+  // GPU cursor trail — kitty-style comet-tail animation
+  //
+  // A WebGL2 overlay canvas sits above the editor (pointer-events: none).
+  // It reads the browser caret position via the Selection API each frame
+  // and renders a smooth trailing quad that chases the caret with
+  // exponential ease-out.  Pure visual — no interaction interception.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!editor) return;
+
+    const overlay = trailOverlayRef.current;
+    if (!overlay) return;
+
+    // Wait for the ProseMirror DOM to be mounted
+    const editorEl = overlay.parentElement?.querySelector('.ProseMirror') as HTMLElement | null;
+    const scrollContainer = overlay.parentElement;
+    if (!editorEl || !scrollContainer) return;
+
+    // Resolve trail color from CSS variables, with fallbacks
+    const cssColor =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue('--vscode-editorCursor-foreground')
+        .trim() ||
+      getComputedStyle(document.documentElement)
+        .getPropertyValue('--vscode-focusBorder')
+        .trim() ||
+      '#007fd4';
+
+    const canvas = document.createElement('canvas');
+    Object.assign(canvas.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none',
+    });
+    overlay.appendChild(canvas);
+
+    let trail: EditorCursorTrail;
+    try {
+      trail = new EditorCursorTrail(canvas, cssColor, editorEl, scrollContainer);
+    } catch {
+      // WebGL2 not available — silently skip the trail.
+      overlay.removeChild(canvas);
+      return;
+    }
+
+    trail.resize();
+    trail.start();
+    trailRef.current = trail;
+
+    // Resize observer to keep canvas in sync with container size
+    const resizeObserver = new ResizeObserver(() => {
+      trail.resize();
+    });
+    resizeObserver.observe(scrollContainer);
+
+    return () => {
+      resizeObserver.disconnect();
+      trail.dispose();
+      trailRef.current = null;
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    };
+  }, [editor]);
+
+  // ------------------------------------------------------------------
   // Title keydown — Enter / Arrow navigation
   //
   // The document title is a plain <input> sitting above the TipTap editor.
@@ -302,8 +374,15 @@ export default function BlockEditor() {
         </div>
 
         {/* TipTap Editor */}
-        <div className="tiptap-editor-container min-h-[50vh]">
+        <div className="tiptap-editor-container min-h-[50vh] relative">
           <EditorContent editor={editor} />
+
+          {/* GPU cursor trail overlay */}
+          <div
+            ref={trailOverlayRef}
+            className="absolute inset-0"
+            style={{ pointerEvents: 'none', zIndex: 5 }}
+          />
         </div>
 
         {/* Selection-triggered formatting toolbar (Bold/Italic/Strike/Code) */}
