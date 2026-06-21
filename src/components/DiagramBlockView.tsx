@@ -9,7 +9,7 @@
  *
  * Data flow:
  *   - Embedded canvas edits → updateAttributes({ snapshot })
- *   - New window edits → Tauri event → updateAttributes({ snapshot })
+ *   - New window edits → Rust relay (set/get_diagram_update) → poll → updateAttributes({ snapshot })
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -117,15 +117,30 @@ export default function DiagramBlockView({
   const unlistenRef = useRef<(() => void) | null>(null);
   const [windowOpen, setWindowOpen] = useState(false);
 
+  // Keep a ref to the latest snapshot so handleMaximize doesn't need
+  // `snapshot` in its dependency array — this prevents the callback from
+  // being recreated on every content change, which would cause React to
+  // tear down and re-run the poll loop.
+  const snapshotRef = useRef(snapshot);
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+
+  // Stable callback for updates from the diagram window.
+  const handleWindowUpdate = useCallback(
+    (updatedSnapshot: string) => {
+      updateAttributes({ snapshot: updatedSnapshot });
+    },
+    [updateAttributes],
+  );
+
   const handleMaximize = useCallback(() => {
     if (windowOpen) return;
     setWindowOpen(true);
 
     openDiagramWindow(
-      snapshot ?? '',
-      (updatedSnapshot: string) => {
-        updateAttributes({ snapshot: updatedSnapshot });
-      },
+      snapshotRef.current ?? '',
+      handleWindowUpdate,
       isDark,
     )
       .then((unlisten) => {
@@ -135,7 +150,7 @@ export default function DiagramBlockView({
         console.error('[DiagramBlockView] Failed to open diagram window:', e);
         setWindowOpen(false);
       });
-  }, [snapshot, updateAttributes, windowOpen, isDark]);
+  }, [windowOpen, isDark, handleWindowUpdate]);
 
   // Cleanup listener on unmount.
   useEffect(() => {

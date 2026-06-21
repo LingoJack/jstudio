@@ -3,7 +3,7 @@
  *
  * 主窗口调用 `openDiagramWindow()` 创建一个独立的 OS 窗口，
  * 数据通过 Rust 内存命令（set/get_preview_data）传递初始快照，
- * 编辑期间通过 Tauri event 实时回传更新的快照到主窗口。
+ * 编辑期间通过 Rust 内存命令（set/get_diagram_update）轮询回传更新的快照到主窗口。
  *
  * 新窗口加载同一个前端 bundle，通过 URL 参数 `?window=diagram&label=xxx`
  * 来区分渲染逻辑并传递窗口标签（见 main.tsx → DiagramWindowApp）。
@@ -12,7 +12,6 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import { emitTo, listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -31,11 +30,6 @@ export interface DiagramPayload {
 
 let diagramCounter = 0;
 
-/** Event channel name for snapshot updates flowing back from the diagram window. */
-function updateEventName(label: string): string {
-  return `diagram-update-${label}`;
-}
-
 /**
  * Open an excalidraw diagram editor in a new independent OS window.
  *
@@ -51,8 +45,6 @@ export async function openDiagramWindow(
 ): Promise<() => void> {
   diagramCounter += 1;
   const label = `diagram-${Date.now()}-${diagramCounter}`;
-  const eventName = updateEventName(label);
-
   console.log('[DiagramWindow] Opening new window:', label);
 
   const payload: DiagramPayload = { snapshot, darkMode };
@@ -66,15 +58,31 @@ export async function openDiagramWindow(
     return () => {};
   }
 
-  // 2. Listen for snapshot updates from the diagram window.
-  let unlisten: UnlistenFn | undefined;
-  listen<DiagramPayload>(eventName, (event) => {
-    if (event.payload?.snapshot !== undefined) {
-      onUpdate(event.payload.snapshot);
+  // 2. Poll for snapshot updates from the diagram window (Rust relay).
+  //    This avoids cross-window event permission issues entirely.
+  let stopped = false;
+  let lastApplied = snapshot;
+  const poll = async () => {
+    console.log('[DiagramWindow] Poll loop started for', label);
+    while (!stopped) {
+      try {
+        const data = await invoke<DiagramPayload | null>(
+          'get_diagram_update',
+          { label },
+        );
+        if (data?.snapshot && data.snapshot !== lastApplied) {
+          console.log('[DiagramWindow] Received update from window, length:', data.snapshot.length);
+          lastApplied = data.snapshot;
+          onUpdate(data.snapshot);
+        }
+      } catch (e) {
+        console.error('[DiagramWindow] Poll error:', e);
+      }
+      await new Promise((r) => setTimeout(r, 500));
     }
-  }).then((fn) => {
-    unlisten = fn;
-  });
+    console.log('[DiagramWindow] Poll loop stopped for', label);
+  };
+  poll();
 
   // 3. Create the new webview window — pass label via URL so the child
   //    window can retrieve its own data without relying on getCurrentWindow().
@@ -105,7 +113,9 @@ export async function openDiagramWindow(
 
   // Return unsubscribe function.
   return () => {
-    unlisten?.();
+    stopped = true;
+    // Clean up Rust cache for this label.
+    invoke('clear_diagram_update', { label }).catch(() => {});
   };
 }
 
@@ -175,15 +185,19 @@ export function fetchDiagramData(): Promise<DiagramPayload | null> {
  * Send an updated snapshot back to the main window.
  * Called from within the diagram window.
  *
- * IMPORTANT: In Tauri v2, `emit()` only goes to the Rust backend — it does
- * NOT reach other frontend windows.  We must use `emitTo()` targeting the
- * `main` window explicitly for cross-window communication.
+ * Uses a Rust in-memory command (`set_diagram_update`) rather than Tauri
+ * events, because cross-window `emitTo` may be blocked by capabilities
+ * permissions.  The main window polls `get_diagram_update` periodically.
  */
 export async function sendDiagramUpdate(snapshot: string): Promise<void> {
   const label = resolveLabel();
-  const eventName = updateEventName(label);
+  console.log('[DiagramWindow] Sending update for label:', label, 'snapshot length:', snapshot.length);
   try {
-    await emitTo('main', eventName, { snapshot } satisfies DiagramPayload);
+    await invoke('set_diagram_update', {
+      label,
+      data: { snapshot } satisfies DiagramPayload,
+    });
+    console.log('[DiagramWindow] Update stored in Rust cache OK');
   } catch (e) {
     console.error('[DiagramWindow] Failed to send update:', e);
   }

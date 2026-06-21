@@ -13,6 +13,15 @@ use std::time::UNIX_EPOCH;
 static PREVIEW_CACHE: std::sync::LazyLock<Mutex<HashMap<String, Value>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
+// ---- In-memory diagram update cache ----
+// Used by the diagram window to send updated snapshots back to the main
+// window.  The diagram window writes via `set_diagram_update`; the main
+// window polls via `get_diagram_update` (non-destructive) and removes the
+// entry via `clear_diagram_update` once consumed.  This avoids cross-window
+// event permission issues entirely.
+static DIAGRAM_UPDATES: std::sync::LazyLock<Mutex<HashMap<String, Value>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// Store preview data in memory, keyed by window label.
 #[tauri::command]
 pub fn set_preview_data(label: String, data: Value) -> Result<(), String> {
@@ -26,6 +35,31 @@ pub fn set_preview_data(label: String, data: Value) -> Result<(), String> {
 pub fn get_preview_data(label: String) -> Result<Option<Value>, String> {
     let mut cache = PREVIEW_CACHE.lock().map_err(|e| e.to_string())?;
     Ok(cache.remove(&label))
+}
+
+/// Store an updated diagram snapshot from the diagram window.
+#[tauri::command]
+pub fn set_diagram_update(label: String, data: Value) -> Result<(), String> {
+    let mut updates = DIAGRAM_UPDATES.lock().map_err(|e| e.to_string())?;
+    updates.insert(label, data);
+    Ok(())
+}
+
+/// Retrieve (non-destructively) the latest diagram snapshot for a label.
+/// The main window polls this periodically; once it has consumed the data
+/// it calls `clear_diagram_update`.
+#[tauri::command]
+pub fn get_diagram_update(label: String) -> Result<Option<Value>, String> {
+    let updates = DIAGRAM_UPDATES.lock().map_err(|e| e.to_string())?;
+    Ok(updates.get(&label).cloned())
+}
+
+/// Remove a diagram update entry after the main window has consumed it.
+#[tauri::command]
+pub fn clear_diagram_update(label: String) -> Result<(), String> {
+    let mut updates = DIAGRAM_UPDATES.lock().map_err(|e| e.to_string())?;
+    updates.remove(&label);
+    Ok(())
 }
 
 /// Return the root data directory: `~/.jdata/studio/`

@@ -28,6 +28,9 @@ pub fn run() {
             commands::storage::get_doc_path,
             commands::storage::set_preview_data,
             commands::storage::get_preview_data,
+            commands::storage::set_diagram_update,
+            commands::storage::get_diagram_update,
+            commands::storage::clear_diagram_update,
             // ── terminal (PTY) ──
             commands::terminal::pty_create,
             commands::terminal::pty_write,
