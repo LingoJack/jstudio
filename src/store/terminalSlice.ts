@@ -3,6 +3,7 @@ import type { SliceCreator } from './storeHelpers';
 import type {
   PaneGroup,
   PaneLayoutType,
+  PaneResizeState,
 } from '../components/terminal/types';
 
 // ────────────────────────────────────────────────
@@ -44,7 +45,7 @@ export interface TerminalSession {
 }
 
 // Re-export pane types for convenience.
-export type { PaneGroup, PaneLayoutType };
+export type { PaneGroup, PaneLayoutType, PaneResizeState };
 
 // ────────────────────────────────────────────────
 // Constants
@@ -355,7 +356,12 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
           g.activeSessionId === id
             ? sessionIds[0] ?? ''
             : g.activeSessionId;
-        return { ...g, sessionIds, activeSessionId };
+        return {
+          ...g,
+          sessionIds,
+          activeSessionId,
+          resizeState: undefined,
+        };
       });
 
       // Remove empty groups.
@@ -467,6 +473,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
               ...g,
               sessionIds: [...g.sessionIds, info.id],
               activeSessionId: info.id,
+              resizeState: undefined,
             }
           : g,
       ),
@@ -486,7 +493,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       const next = LAYOUT_CYCLE[(idx + 1) % LAYOUT_CYCLE.length];
       return {
         groups: s.groups.map((g) =>
-          g.id === group.id ? { ...g, layout: next } : g,
+          g.id === group.id ? { ...g, layout: next, resizeState: undefined } : g,
         ),
       };
     });
@@ -499,10 +506,19 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       if (!group) return {};
       return {
         groups: s.groups.map((g) =>
-          g.id === group.id ? { ...g, layout } : g,
+          g.id === group.id ? { ...g, layout, resizeState: undefined } : g,
         ),
       };
     });
+  },
+
+  /** Remember drag-adjusted pane proportions for a live tab. */
+  setPaneResizeState: (groupId, resizeState) => {
+    set((s) => ({
+      groups: s.groups.map((g) =>
+        g.id === groupId ? { ...g, resizeState } : g,
+      ),
+    }));
   },
 
   /**
@@ -525,7 +541,9 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
 
       return {
         groups: s.groups.map((g) =>
-          g.id === group.id ? { ...g, sessionIds: ids } : g,
+          g.id === group.id
+            ? { ...g, sessionIds: ids, resizeState: undefined }
+            : g,
         ),
       };
     });

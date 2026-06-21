@@ -1,6 +1,8 @@
 import {
   useRef,
   useEffect,
+  useMemo,
+  useCallback,
   type CSSProperties,
 } from 'react';
 import { useStore } from '../../store/useStore';
@@ -8,7 +10,7 @@ import { storage } from '../../lib/storage';
 import { getTerminalTheme } from '../../lib/terminalThemes';
 import { useTerminalManager } from './useTerminalManager';
 import CursorTrail from './CursorTrail';
-import type { PaneLayoutType } from './types';
+import type { PaneLayoutType, PaneResizeState } from './types';
 
 /**
  * xterm.js exposes `cursorHidden` at runtime but not in `ITerminalOptions`.
@@ -27,9 +29,16 @@ interface LayoutPlan {
   kind: string;
   containerCls: string;
   containerStyle: CSSProperties;
+  columns: number[];
+  rows: number[];
   /** Per-pane inline styles (grid-column / grid-row placement, etc.). */
   cells: CSSProperties[];
 }
+
+type ResizeAxis = 'column' | 'row';
+
+const GRID_GAP_PX = 1;
+const MIN_TRACK_PX = 80;
 
 /**
  * Compute a Kitty-style pane layout using CSS Grid.
@@ -70,6 +79,8 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
       kind: 'single',
       containerCls: 'w-full h-full',
       containerStyle: {},
+      columns: [1],
+      rows: [1],
       cells: [{ width: '100%', height: '100%' }],
     };
   }
@@ -83,9 +94,9 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
         containerCls: 'w-full h-full grid',
         containerStyle: {
           gap: '1px',
-          gridTemplateColumns: `repeat(${n}, 1fr)`,
-          gridTemplateRows: '1fr',
         },
+        columns: Array.from({ length: n }, () => 1),
+        rows: [1],
         cells: Array.from({ length: n }, () => ({ minWidth: 0, minHeight: 0 })),
       };
 
@@ -95,9 +106,9 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
         containerCls: 'w-full h-full grid',
         containerStyle: {
           gap: '1px',
-          gridTemplateColumns: '1fr',
-          gridTemplateRows: `repeat(${n}, 1fr)`,
         },
+        columns: [1],
+        rows: Array.from({ length: n }, () => 1),
         cells: Array.from({ length: n }, () => ({ minWidth: 0, minHeight: 0 })),
       };
 
@@ -115,9 +126,9 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
         containerCls: 'w-full h-full grid',
         containerStyle: {
           gap: '1px',
-          gridTemplateColumns: '1.5fr 1fr',
-          gridTemplateRows: `repeat(${stackRows}, 1fr)`,
         },
+        columns: [1.5, 1],
+        rows: Array.from({ length: stackRows }, () => 1),
         cells,
       };
     }
@@ -136,9 +147,9 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
         containerCls: 'w-full h-full grid',
         containerStyle: {
           gap: '1px',
-          gridTemplateColumns: `repeat(${stackCols}, 1fr)`,
-          gridTemplateRows: '1.5fr 1fr',
         },
+        columns: Array.from({ length: stackCols }, () => 1),
+        rows: [1.5, 1],
         cells,
       };
     }
@@ -175,13 +186,65 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
         containerCls: 'w-full h-full grid',
         containerStyle: {
           gap: '1px',
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gridTemplateRows: `repeat(${rows}, 1fr)`,
         },
+        columns: Array.from({ length: cols }, () => 1),
+        rows: Array.from({ length: rows }, () => 1),
         cells,
       };
     }
   }
+}
+
+function tracksToTemplate(tracks: number[]): string {
+  return tracks.map((value) => `${value}fr`).join(' ');
+}
+
+function canUseResizeState(
+  state: PaneResizeState | undefined,
+  layout: PaneLayoutType,
+  sessionKey: string,
+  columns: number[],
+  rows: number[],
+): state is PaneResizeState {
+  if (!state || state.layout !== layout || state.sessionKey !== sessionKey) {
+    return false;
+  }
+  if (state.columns && state.columns.length !== columns.length) return false;
+  if (state.rows && state.rows.length !== rows.length) return false;
+  return true;
+}
+
+function trackBoundaries(tracks: number[]): number[] {
+  const total = tracks.reduce((sum, value) => sum + value, 0);
+  let acc = 0;
+  return tracks.slice(0, -1).map((value) => {
+    acc += value;
+    return (acc / total) * 100;
+  });
+}
+
+function resizeAdjacentTracks(
+  tracks: number[],
+  index: number,
+  deltaPx: number,
+  containerPx: number,
+): number[] {
+  if (containerPx <= 0) return tracks;
+
+  const next = [...tracks];
+  const total = tracks.reduce((sum, value) => sum + value, 0);
+  const pairTotal = tracks[index] + tracks[index + 1];
+  const minTrack = Math.min(pairTotal / 2, (MIN_TRACK_PX / containerPx) * total);
+  const deltaFr = (deltaPx / containerPx) * total;
+
+  const first = Math.max(
+    minTrack,
+    Math.min(pairTotal - minTrack, tracks[index] + deltaFr),
+  );
+
+  next[index] = first;
+  next[index + 1] = pairTotal - first;
+  return next;
 }
 
 // ────────────────────────────────────────────────
