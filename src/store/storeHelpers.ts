@@ -72,12 +72,13 @@ export interface StoreState {
   editorLineHeight: number;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
-  settingsActiveSection: 'general' | 'editor' | 'terminal' | 'help' | 'about';
+  settingsActiveSection: 'general' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about';
   terminalThemeIdDark: string;
   terminalThemeIdLight: string;
   terminalFontSize: number;
   terminalFontId: string;
   terminalCursorStyle: TerminalCursorStyle;
+  keyboardShortcuts: ShortcutOverrides;
 
   // — terminal state (terminal slice) —
   templates: TerminalTemplate[];
@@ -144,12 +145,15 @@ export interface StoreState {
   setActivityBarBorder: (enabled: boolean) => void;
   setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
   setActiveSidebarView: (view: 'documents' | 'terminal') => void;
-  setSettingsActiveSection: (section: 'general' | 'editor' | 'terminal' | 'help' | 'about') => void;
+  setSettingsActiveSection: (section: 'general' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about') => void;
   setTerminalThemeIdDark: (id: string) => void;
   setTerminalThemeIdLight: (id: string) => void;
   setTerminalFontSize: (size: number) => void;
   setTerminalFontId: (id: string) => void;
   setTerminalCursorStyle: (style: TerminalCursorStyle) => void;
+  setKeyboardShortcut: (id: string, binding: string) => void;
+  resetKeyboardShortcut: (id: string) => void;
+  resetAllKeyboardShortcuts: () => void;
 
   // — terminal ops (terminal slice) —
   initTemplates: (raw: unknown) => void;

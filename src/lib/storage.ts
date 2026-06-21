@@ -111,6 +111,8 @@ export interface AppSettings {
   terminalFontId?: string;
   /** Terminal cursor shape — also drives the cursor trail shape */
   terminalCursorStyle?: TerminalCursorStyle;
+  /** User-customized keyboard shortcut overrides — see lib/shortcuts.ts */
+  keyboardShortcuts?: Record<string, string>;
   [key: string]: unknown;
 }
 

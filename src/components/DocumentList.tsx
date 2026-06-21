@@ -435,7 +435,7 @@ export default function DocumentList() {
         level="secondary"
         lined
         active={isActive}
-        icon={!isRenaming ? <FileText className="w-4 h-4 opacity-50 shrink-0" /> : undefined}
+        icon={<FileText className="w-4 h-4 opacity-50 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => {
           if (suppressClick.current) {
@@ -502,10 +502,10 @@ export default function DocumentList() {
             e.stopPropagation();
             startFolderRename(f.id, f.name);
           }}
-          icon={!isRenaming ? (open
+          icon={open
             ? <FolderOpen className="w-5 h-5 opacity-70 shrink-0" />
             : <Folder className="w-5 h-5 opacity-70 shrink-0" />
-          ) : undefined}
+          }
           expandable={!isRenaming}
           expanded={open}
         >
