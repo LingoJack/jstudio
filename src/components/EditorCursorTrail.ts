@@ -49,7 +49,7 @@ const CORNER_IDX_Y = [0, 1, 1, 0]; // top, bottom, bottom, top
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 /** Horizontal thickness ratio (fraction of character width). */
 const BAR_THICKNESS_RATIO = 0.12;
-/** Approximate character width / font-size ratio for proportional text. */
+/** Character width ≈ font-size × 0.6 for proportional fonts. */
 const CHAR_WIDTH_RATIO = 0.6;
 /** Native caret bar width fallback. */
 const CARET_BAR_WIDTH_PX = 2;
@@ -307,10 +307,12 @@ export class EditorCursorTrail {
     const top = rect.top - canvasRect.top;
     const height = Math.max(rect.height, 1);
 
-    // Approximate character width from line height.  The browser caret
-    // is only ~2px wide, so for 'block' and 'underline' we need to
-    // estimate the actual character cell width.
-    const charWidth = Math.max(height * CHAR_WIDTH_RATIO, CARET_BAR_WIDTH_PX);
+    // Read font-size from the CSS variable on <html> to estimate
+    // character width.  We can't use `height` (which is line-height =
+    // font-size × line-spacing) because it would be far too large.
+    const fsStr = getComputedStyle(document.documentElement).getPropertyValue('--jstudio-font-size') || '14px';
+    const fontSize = parseFloat(fsStr) || 14;
+    const charWidth = Math.max(fontSize * CHAR_WIDTH_RATIO, CARET_BAR_WIDTH_PX);
 
     let trailLeft: number;
     let trailRight: number;
