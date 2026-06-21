@@ -131,28 +131,44 @@ function resolveLabel(): string {
 /**
  * In the diagram window, retrieve the initial payload from Rust memory.
  * Retries a few times in case the data isn't committed yet.
+ *
+ * NOTE: A module-level promise cache is used so that React StrictMode
+ * (which double-invokes effects in dev) doesn't trigger two independent
+ * fetches.  The Rust `get_preview_data` is a *destructive* read (it
+ * removes the entry from the cache), so a second concurrent fetch would
+ * always return null.  Deduplicating here ensures both callers share the
+ * same result.
  */
-export async function fetchDiagramData(): Promise<DiagramPayload | null> {
-  const label = resolveLabel();
-  console.log('[DiagramWindow] Fetching data for label:', label);
+let cachedFetch: Promise<DiagramPayload | null> | null = null;
 
-  for (let i = 0; i < 20; i++) {
-    try {
-      const data = await invoke<DiagramPayload | null>('get_preview_data', {
-        label,
-      });
-      if (data) {
-        console.log('[DiagramWindow] Data retrieved on attempt', i + 1);
-        return data;
+export function fetchDiagramData(): Promise<DiagramPayload | null> {
+  if (cachedFetch) return cachedFetch;
+
+  const doFetch = async (): Promise<DiagramPayload | null> => {
+    const label = resolveLabel();
+    console.log('[DiagramWindow] Fetching data for label:', label);
+
+    for (let i = 0; i < 20; i++) {
+      try {
+        const data = await invoke<DiagramPayload | null>('get_preview_data', {
+          label,
+        });
+        if (data) {
+          console.log('[DiagramWindow] Data retrieved on attempt', i + 1);
+          return data;
+        }
+      } catch (e) {
+        console.error('[DiagramWindow] Error fetching data:', e);
       }
-    } catch (e) {
-      console.error('[DiagramWindow] Error fetching data:', e);
+      await new Promise((r) => setTimeout(r, 300));
     }
-    await new Promise((r) => setTimeout(r, 300));
-  }
 
-  console.error('[DiagramWindow] Failed to retrieve data after retries');
-  return null;
+    console.error('[DiagramWindow] Failed to retrieve data after retries');
+    return null;
+  };
+
+  cachedFetch = doFetch();
+  return cachedFetch;
 }
 
 /**
