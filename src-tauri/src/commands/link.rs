@@ -577,53 +577,13 @@ fn rewrite_html_urls(html: &str) -> String {
 // HTML parsing helpers
 // ---------------------------------------------------------------------------
 
-/// Snap a byte index to the nearest preceding UTF-8 char boundary (<= idx).
-fn floor_char_boundary(s: &str, idx: usize) -> usize {
-    if idx >= s.len() {
-        s.len()
-    } else if idx == 0 {
-        0
-    } else {
-        let mut i = idx;
-        while !s.is_char_boundary(i) {
-            i -= 1;
-        }
-        i
-    }
-}
-
-/// Snap a byte index to the nearest following UTF-8 char boundary (>= idx).
-fn ceil_char_boundary(s: &str, idx: usize) -> usize {
-    if idx >= s.len() {
-        s.len()
-    } else if idx == 0 {
-        0
-    } else {
-        let mut i = idx;
-        while !s.is_char_boundary(i) {
-            i += 1;
-        }
-        i
-    }
-}
-
-/// Safe substring slice — snaps both indices to valid char boundaries.
-fn safe_slice(s: &str, start: usize, end: usize) -> &str {
-    let start = floor_char_boundary(s, start.min(s.len()));
-    let end = ceil_char_boundary(s, end.min(s.len()));
-    if start < end {
-        &s[start..end]
-    } else {
-        &s[start..start]
-    }
-}
-
+/// Extract `<title>…</title>` content using regex (UTF-8 safe).
 fn extract_html_title(html: &str) -> Option<String> {
-    let lower = html.to_lowercase();
-    let start = lower.find("<title")?;
-    let content_start = lower[start..].find('>')? + start + 1;
-    let end = lower[content_start..].find("</title>")? + content_start;
-    let title = html[content_start..end].trim();
+    let re = regex::Regex::new(r"(?is)<title[^>]*>(.*?)</title>").unwrap();
+    let title = re
+        .captures(html)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().trim())?;
     if title.is_empty() {
         None
     } else {
@@ -631,47 +591,60 @@ fn extract_html_title(html: &str) -> Option<String> {
     }
 }
 
+/// Extract `<meta property/name="key" content="value">` using regex.
 fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
-    let lower = html.to_lowercase();
-    let search = format!("{attr}=\"{key}\"");
-
-    let mut pos = 0;
-    while let Some(idx) = lower[pos..].find(&search) {
-        let abs = pos + idx;
-        let win_start = floor_char_boundary(&lower, abs.saturating_sub(200));
-        let win_end = ceil_char_boundary(&lower, (abs + search.len() + 300).min(html.len()));
-        let window = safe_slice(html, win_start, win_end);
-        let window_lower = safe_slice(&lower, win_start, win_end);
-
-        if let Some(c_idx) = window_lower.find("content=\"") {
-            let c_start = c_idx + 9;
-            if let Some(c_end) = window[c_start..].find('"') {
-                let value = &window[c_start..c_start + c_end];
-                if !value.is_empty() {
-                    return Some(decode_html_entities(value));
-                }
+    // Match: <meta ... attr="key" ... content="value">
+    //   or   <meta ... content="value" ... attr="key">
+    let attr_escaped = regex::escape(key);
+    let pattern =
+        format!(r#"(?is)<meta[^>]*{attr}=["']{attr_escaped}["'][^>]*content=["']([^"']*)["']"#);
+    if let Some(c) = regex::Regex::new(&pattern).ok()?.captures(html) {
+        if let Some(m) = c.get(1) {
+            let v = m.as_str();
+            if !v.is_empty() {
+                return Some(decode_html_entities(v));
             }
         }
-
-        pos = abs + search.len();
+    }
+    // Try reverse order: content before attr
+    let pattern2 =
+        format!(r#"(?is)<meta[^>]*content=["']([^"']*)["'][^>]*{attr}=["']{attr_escaped}["']"#);
+    if let Some(c) = regex::Regex::new(&pattern2).ok()?.captures(html) {
+        if let Some(m) = c.get(1) {
+            let v = m.as_str();
+            if !v.is_empty() {
+                return Some(decode_html_entities(v));
+            }
+        }
     }
     None
 }
 
+/// Extract favicon URL from `<link rel="icon" href="...">` using regex.
 fn extract_favicon_url(html: &str, base_url: &str) -> String {
-    let lower = html.to_lowercase();
-
     for rel in ["shortcut icon", "icon", "apple-touch-icon"] {
-        let search = format!("rel=\"{rel}\"");
-        if let Some(idx) = lower.find(&search) {
-            let win_end = ceil_char_boundary(html, (idx + 300).min(html.len()));
-            let window = safe_slice(html, idx, win_end);
-            let window_lower = safe_slice(&lower, idx, win_end);
-
-            if let Some(h_idx) = window_lower.find("href=\"") {
-                let h_start = h_idx + 6;
-                if let Some(h_end) = window[h_start..].find('"') {
-                    let href = &window[h_start..h_start + h_end];
+        // Match: <link ... rel="icon" ... href="url">
+        let pattern = format!(r#"(?is)<link[^>]*rel=["']{rel}["'][^>]*href=["']([^"']*)["']"#);
+        if let Some(c) = regex::Regex::new(&pattern)
+            .ok()
+            .and_then(|re| re.captures(html))
+        {
+            if let Some(m) = c.get(1) {
+                let href = m.as_str();
+                if !href.is_empty() {
+                    return resolve_url(href, base_url);
+                }
+            }
+        }
+        // Try reverse order: href before rel
+        let pattern2 = format!(r#"(?is)<link[^>]*href=["']([^"']*)["'][^>]*rel=["']{rel}["']"#);
+        if let Some(c) = regex::Regex::new(&pattern2)
+            .ok()
+            .and_then(|re| re.captures(html))
+        {
+            if let Some(m) = c.get(1) {
+                let href = m.as_str();
+                if !href.is_empty() {
                     return resolve_url(href, base_url);
                 }
             }

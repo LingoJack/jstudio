@@ -5,8 +5,8 @@ import { storage } from '../lib/storage';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { buildFolderTree, type FolderTreeNode } from '../lib/folderTree';
 import {
-  FolderDot, FileText, Plus, MoreHorizontal, FileDown,
-  FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput,
+  FolderDot, Plus, MoreHorizontal, FileDown,
+  FolderPlus, ChevronRight, Trash2, FolderInput,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
@@ -443,12 +443,9 @@ export default function DocumentList() {
       );
     }
     return (
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <FileText className="w-4 h-4 opacity-50 shrink-0" />
-        <span className="text-sm truncate">
-          {doc.title || t('doclist.untitled')}
-        </span>
-      </div>
+      <span className="text-sm truncate flex-1">
+        {doc.title || t('doclist.untitled')}
+      </span>
     );
   };
 
@@ -546,11 +543,6 @@ export default function DocumentList() {
               open ? 'rotate-90' : ''
             }`}
           />
-          {isDropTarget || open ? (
-            <FolderOpen className="w-4 h-4 opacity-60 shrink-0 transition-colors duration-200" />
-          ) : (
-            <Folder className="w-4 h-4 opacity-60 shrink-0" />
-          )}
           {renderFolderInner(f)}
         </NavLeaf>
 
