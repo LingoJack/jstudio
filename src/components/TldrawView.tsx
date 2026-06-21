@@ -1,9 +1,9 @@
 /**
  * TldrawView — React NodeView for the diagram (tldraw) block.
  *
- * Always shows an embedded mini tldraw canvas (even when empty). The
- * floating toolbar offers alignment and a "maximize" button that opens
- * the diagram in a new independent OS window for immersive editing.
+ * Always shows an embedded mini tldraw canvas. A persistent header bar on top
+ * provides the "open in new window" button at all times (no need to select the
+ * block first, which is difficult since tldraw captures pointer events).
  *
  * Data flow:
  *   - Embedded canvas edits → updateAttributes({ snapshot })
@@ -15,11 +15,9 @@ import {
   type NodeViewProps,
   NodeViewWrapper,
 } from '@tiptap/react';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, AlignLeft, AlignCenter } from 'lucide-react';
 
 import { useNodeResize } from '../hooks/useNodeResize';
-import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
-import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import { TldrawCanvas } from './TldrawCanvas';
 import { openDiagramWindow } from '../lib/diagramWindow';
 import type { DiagramNodeAttributes } from '../lib/tldrawExtension';
@@ -36,14 +34,6 @@ export default function TldrawView({
   const { snapshot, width, align } = node.attrs as DiagramNodeAttributes;
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
-
-  // Toolbar buttons: align-left, align-center, maximize
-  const toolbarBtnCount = 3;
-  const { activeIndex, registerButton } = useNodeToolbarNav(
-    selected,
-    null,
-    toolbarBtnCount,
-  );
 
   /* -------------------------------------------------------------- */
   /* Resize handle                                                   */
@@ -130,48 +120,44 @@ export default function TldrawView({
           className={`diagram-block-figure ${selected ? 'is-selected' : ''}`}
           style={figureStyle}
         >
-          {/* Floating toolbar */}
-          {selected && (
-            <div className="diagram-block-toolbar" contentEditable={false}>
-              <button
-                type="button"
-                ref={registerButton(0)}
-                className={`diagram-block-toolbar-btn ${
-                  effectiveAlign === 'left' ? 'is-active' : ''
-                } ${activeIndex === 0 ? 'is-focused' : ''}`}
-                onClick={() => updateAttributes({ align: 'left' })}
-                title="左对齐"
-              >
-                <AlignLeftIcon />
-              </button>
-              <button
-                type="button"
-                ref={registerButton(1)}
-                className={`diagram-block-toolbar-btn ${
-                  effectiveAlign === 'center' ? 'is-active' : ''
-                } ${activeIndex === 1 ? 'is-focused' : ''}`}
-                onClick={() => updateAttributes({ align: 'center' })}
-                title="居中对齐"
-              >
-                <AlignCenterIcon />
-              </button>
-              <span className="diagram-block-toolbar-divider" />
-              <button
-                type="button"
-                ref={registerButton(2)}
-                className={`diagram-block-toolbar-btn ${
-                  activeIndex === 2 ? 'is-focused' : ''
-                }`}
-                onClick={handleMaximize}
-                title="在新窗口编辑"
-                disabled={windowOpen}
-              >
-                <Maximize2 size={15} />
-              </button>
-            </div>
-          )}
+          {/* ─── Persistent header bar (always visible) ─── */}
+          <div className="diagram-block-header" contentEditable={false}>
+            <button
+              type="button"
+              className={`diagram-block-header-btn ${
+                effectiveAlign === 'left' ? 'is-active' : ''
+              }`}
+              onClick={() => updateAttributes({ align: 'left' })}
+              title="左对齐"
+            >
+              <AlignLeft size={15} />
+            </button>
+            <button
+              type="button"
+              className={`diagram-block-header-btn ${
+                effectiveAlign === 'center' ? 'is-active' : ''
+              }`}
+              onClick={() => updateAttributes({ align: 'center' })}
+              title="居中对齐"
+            >
+              <AlignCenter size={15} />
+            </button>
+            <span className="diagram-block-header-spacer" />
+            <button
+              type="button"
+              className="diagram-block-header-btn diagram-block-maximize-btn"
+              onClick={handleMaximize}
+              title="在新窗口编辑"
+              disabled={windowOpen}
+            >
+              <Maximize2 size={15} />
+              <span className="diagram-block-maximize-label">
+                {windowOpen ? '编辑窗口已打开' : '新窗口编辑'}
+              </span>
+            </button>
+          </div>
 
-          {/* Embedded tldraw canvas — always interactive */}
+          {/* ─── Embedded tldraw canvas ─── */}
           <div
             className="diagram-block-canvas"
             contentEditable={false}
@@ -183,7 +169,7 @@ export default function TldrawView({
             />
           </div>
 
-          {/* Resize handle */}
+          {/* ─── Resize handle (selected only) ─── */}
           {selected && (
             <div
               className="diagram-block-resize-handle"

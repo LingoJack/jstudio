@@ -206,6 +206,7 @@ jstudio/
 6. **图标**：使用 `lucide-react`，图标大小统一用 `w-4 h-4` 或 `w-3.5 h-3.5`。
 7. **路径别名**：`@/*` 映射到 `src/*`（tsconfig 配置），但项目中主要使用相对路径导入。
 8. **复用 UI 公共组件，不要重复造样式**：新增任何浮层 UI（菜单、下拉、上下文菜单等）之前，**先检查 `components/ui/` 下是否已有对应组件**。如果已有，直接引用；如果没有，先提取为公共组件再使用。详见下方「UI 组件复用规范」。
+9. **列表选中项高亮只用单一状态驱动，禁止 CSS `:hover`**：命令面板、斜杠菜单等"鼠标 + 键盘双模式选择"的列表，选中高亮**只能**由一个状态变量（如 `selectedIndex` / `activeIndex`）驱动。鼠标 hover 通过 `onMouseEnter={() => setSelectedIndex(index)}` 更新该状态，键盘方向键也更新同一状态。**禁止**在非选中行上使用 CSS `:hover` 伪类（如 `hover:bg-*`）作为高亮手段——否则鼠标物理位置所在行会与键盘选中行同时出现高亮。正确做法参考 `SlashMenuList`（`lib/tiptapExtensions.tsx`）和 `CommandPalette`（`components/CommandPalette.tsx`）。
 
 ### Rust 后端
 
