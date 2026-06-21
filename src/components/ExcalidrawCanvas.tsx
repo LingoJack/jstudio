@@ -33,14 +33,18 @@ export function ExcalidrawCanvas({
   const onChangeRef = useRef(onChange);
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
 
+  // Track the latest snapshot we have applied to the canvas.
+  // This is used to:
+  //   1. Detect external changes (from props) vs. internal changes (from onChange)
+  //   2. Avoid feedback loops when our own onChange triggers a prop update
+  const lastAppliedSnapshot = useRef(initialSnapshot);
+
   // Always keep the latest callback.
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
 
   // Parse initial snapshot once — only used on first mount.
-  // Only restore `elements` — never `appState` because it contains runtime
-  // objects (e.g. `collaborators` is a Map) that break on JSON round-trip.
   const initialData = useMemo<
     ExcalidrawInitialDataState | Promise<ExcalidrawInitialDataState | null> | null
   >(() => {
@@ -60,9 +64,28 @@ export function ExcalidrawCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sync external snapshot changes into the Excalidraw scene.
+  // When `initialSnapshot` changes from the OUTSIDE (e.g. diagram window
+  // sends an updated snapshot), push it into the canvas via updateScene.
+  // The `lastAppliedSnapshot` ref prevents feedback loops: our own onChange
+  // updates this ref, so we only react to genuinely new external data.
+  useEffect(() => {
+    if (initialSnapshot === lastAppliedSnapshot.current) return;
+    lastAppliedSnapshot.current = initialSnapshot;
+
+    const api = apiRef.current;
+    if (!api || !initialSnapshot) return;
+    try {
+      const parsed = JSON.parse(initialSnapshot);
+      api.updateScene({
+        elements: parsed?.elements ?? [],
+      });
+    } catch {
+      /* ignore malformed JSON */
+    }
+  }, [initialSnapshot]);
+
   // Excalidraw calls onChange on every edit — debounce the serialization.
-  // Only serialize `elements` (pure data). Serializing `appState` would
-  // corrupt runtime fields like `collaborators` (Map) on restore.
   const handleChange = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -71,6 +94,7 @@ export function ExcalidrawCanvas({
       try {
         const elements = api.getSceneElements();
         const snapshot = JSON.stringify({ elements });
+        lastAppliedSnapshot.current = snapshot;
         onChangeRef.current(snapshot);
       } catch {
         /* ignore */
