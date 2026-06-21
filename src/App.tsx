@@ -49,7 +49,15 @@ export default function App() {
 
       const overrides = useStore.getState().keyboardShortcuts;
 
-      // Check all registered shortcut commands
+      // ── Command palette (meta shortcut, not in buildCommands) ──
+      const cpTarget = resolveBinding('app.commandPalette', overrides);
+      if (cpTarget && binding === cpTarget) {
+        e.preventDefault();
+        useStore.getState().setCommandPaletteOpen(true);
+        return;
+      }
+
+      // ── All other shortcutId-mapped commands ──
       for (const [shortcutId, perform] of shortcutCommandMap) {
         const target = resolveBinding(shortcutId, overrides);
         if (!target || binding !== target) continue;
