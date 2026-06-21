@@ -68,6 +68,9 @@ export class EditorCursorTrail {
   /** Current cursor shape — controls the trail geometry. */
   private cursorStyle: EditorCursorStyle = 'bar';
 
+  /** Accumulated time (seconds) for cursor blink animation. */
+  private blinkTime = 0;
+
   // ── Trail state: 4 chasing corners (overlay-canvas pixel coords) ──
   private cornerX = [0, 0, 0, 0];
   private cornerY = [0, 0, 0, 0];
@@ -142,6 +145,8 @@ export class EditorCursorTrail {
       cursorRect: gl.getUniformLocation(program, 'u_cursorRect'),
       color: gl.getUniformLocation(program, 'u_color'),
       opacity: gl.getUniformLocation(program, 'u_opacity'),
+      fillCursor: gl.getUniformLocation(program, 'u_fillCursor'),
+      blinkPhase: gl.getUniformLocation(program, 'u_blinkPhase'),
     };
 
     // VAO + VBO for 6 vertices (2 triangles), 2 floats each.
@@ -463,6 +468,32 @@ export class EditorCursorTrail {
     );
     gl.uniform1f(this.u.opacity, this.opacity);
 
+    // Fill mode: when the cursor is a block or underline we render a solid
+    // blinking block inside the cursor rect (the native caret is hidden via
+    // caret-color:transparent).  For 'bar' we use cutout mode so the native
+    // thin caret shows through.
+    const useFill = this.cursorStyle === 'block' || this.cursorStyle === 'underline';
+    gl.uniform1f(this.u.fillCursor, useFill ? 1.0 : 0.0);
+
+    // Blink phase: a sine-based pulse with ~1s period.
+    //   sin oscillates -1..1; we map to 0..1.
+    //   When moving (trail is stretching), we keep the cursor fully visible
+    //   (no blink) — detected when the comet tail corners differ from the
+    //   cursor edges by more than a few pixels.
+    let blinkPhase = 1.0;
+    if (useFill) {
+      const isMoving =
+        Math.abs(this.cornerX[0] - this.cursorEdgeX[1]) > 3 ||
+        Math.abs(this.cornerX[2] - this.cursorEdgeX[0]) > 3;
+      if (!isMoving) {
+        // ~1s blink cycle (full on → full off → full on).
+        const phase = (this.blinkTime % 1.06) / 1.06; // 0..1
+        // Square-ish curve: visible ~53% of the time, hidden ~47%.
+        blinkPhase = phase < 0.53 ? 1.0 : 0.0;
+      }
+    }
+    gl.uniform1f(this.u.blinkPhase, blinkPhase);
+
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -478,6 +509,7 @@ export class EditorCursorTrail {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
+    this.blinkTime += dt;
 
     const caretRect = this.measureCaretRect();
     this.updateTarget(caretRect);

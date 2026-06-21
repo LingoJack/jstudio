@@ -39,14 +39,40 @@ uniform vec4 u_cursorRect;
 uniform vec3 u_color;
 uniform float u_opacity;
 
+// When > 0.5 the cursor rectangle is FILLED (rendered as a solid block)
+// instead of being cut out.  Used for block / underline cursor styles
+// where the native caret is hidden via caret-color:transparent.
+uniform float u_fillCursor;
+
+// Blink phase in 0..1 — modulates the fill opacity so the cursor
+// pulses on and off when stationary.
+uniform float u_blinkPhase;
+
 out vec4 fragColor;
 
 void main() {
     float opacity = u_opacity;
-    // Don't render if fragment is within cursor area.
+    // Test if fragment is inside the cursor rectangle.
     float in_x = step(u_cursorRect.x, v_px.x) * step(v_px.x, u_cursorRect.y);
     float in_y = step(u_cursorRect.z, v_px.y) * step(v_px.y, u_cursorRect.w);
-    opacity *= 1.0 - in_x * in_y;
-    if (opacity < 0.003) discard;
-    fragColor = vec4(u_color * opacity, opacity);
+    float inside = in_x * in_y;
+
+    if (u_fillCursor > 0.5) {
+      // FILL mode: inside the cursor rect, render a solid blinking block.
+      // Outside the rect, render the trail comet (no cutout).
+      if (inside > 0.5) {
+        float blink = u_blinkPhase;
+        if (blink < 0.003) discard;
+        fragColor = vec4(u_color * blink, blink);
+      } else {
+        if (opacity < 0.003) discard;
+        fragColor = vec4(u_color * opacity, opacity);
+      }
+    } else {
+      // CUTOUT mode (default): erase the cursor rect so the native
+      // caret shows through.
+      opacity *= 1.0 - inside;
+      if (opacity < 0.003) discard;
+      fragColor = vec4(u_color * opacity, opacity);
+    }
 }`;

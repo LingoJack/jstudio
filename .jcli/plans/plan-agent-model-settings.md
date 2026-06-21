@@ -249,5 +249,6 @@ export type SettingsSectionId = 'general' | 'editor' | 'terminal' | 'shortcuts' 
    - 能读取到 `~/.jdata/agent/data/agent_config.json` 中的 providers
    - 能切换 active provider 并写回
    - 能新增/编辑/删除 provider
+   - **配置文件不存在时**：点击"添加提供方"能自动创建 `~/.jdata/agent/data/agent_config.json`
    - 写回后用 `cat ~/.jdata/agent/data/agent_config.json` 确认其他字段（system_prompt、compact 等）未丢失
 4. 切换中/英文语言验证翻译键

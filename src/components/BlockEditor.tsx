@@ -291,10 +291,20 @@ export default function BlockEditor() {
   }, [editor]);
 
   // ------------------------------------------------------------------
-  // Sync cursor style → trail geometry
+  // Sync cursor style → trail geometry + native caret visibility
   // ------------------------------------------------------------------
   useEffect(() => {
     trailRef.current?.setCursorStyle(editorCursorStyle);
+    // For block / underline the WebGL overlay renders the cursor shape,
+    // so hide the native thin-bar caret.
+    const editorDom = editorRef.current?.view?.dom as HTMLElement | undefined;
+    if (editorDom) {
+      if (editorCursorStyle === 'bar') {
+        editorDom.style.caretColor = '';
+      } else {
+        editorDom.style.caretColor = 'transparent';
+      }
+    }
   }, [editorCursorStyle]);
 
   // ------------------------------------------------------------------
