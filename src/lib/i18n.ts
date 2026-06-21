@@ -281,6 +281,8 @@ export const translations = {
 
     // Shortcut categories
     'shortcut.category.general': '通用',
+    'shortcut.category.navigation': '导航',
+    'shortcut.category.appearance': '外观',
     'shortcut.category.terminal': '终端',
     'shortcut.category.terminalTabs': '标签页',
     'shortcut.category.terminalPanes': '分屏',
@@ -297,6 +299,21 @@ export const translations = {
     'shortcut.app.toggleOutline.desc': '展开或收起文档大纲',
     'shortcut.app.openSettings': '打开设置',
     'shortcut.app.openSettings.desc': '打开应用设置页面',
+    'shortcut.app.importMarkdown': '导入 Markdown',
+    'shortcut.app.importMarkdown.desc': '从 Markdown 文件导入文档',
+    'shortcut.app.goToDocuments': '转到文档',
+    'shortcut.app.goToDocuments.desc': '切换到文档列表视图',
+    'shortcut.app.goToTerminal': '转到终端',
+    'shortcut.app.goToTerminal.desc': '切换到终端视图',
+    'shortcut.app.toggleDarkMode': '切换深色模式',
+    'shortcut.app.toggleDarkMode.desc': '在深色和浅色模式之间切换',
+    'shortcut.app.setDarkTheme': '切换到深色主题',
+    'shortcut.app.setDarkTheme.desc': '将主题设置为深色',
+    'shortcut.app.setLightTheme': '切换到浅色主题',
+    'shortcut.app.setLightTheme.desc': '将主题设置为浅色',
+    'shortcut.app.setSystemTheme': '跟随系统主题',
+    'shortcut.app.setSystemTheme.desc': '将主题设置为跟随系统',
+    'shortcut.unbound': '未设置',
 
     // Terminal shortcuts
     'shortcut.terminal.newTab': '新建标签页',
@@ -596,6 +613,8 @@ export const translations = {
 
     // Shortcut categories
     'shortcut.category.general': 'General',
+    'shortcut.category.navigation': 'Navigation',
+    'shortcut.category.appearance': 'Appearance',
     'shortcut.category.terminal': 'Terminal',
     'shortcut.category.terminalTabs': 'Tabs',
     'shortcut.category.terminalPanes': 'Panes',
@@ -612,6 +631,21 @@ export const translations = {
     'shortcut.app.toggleOutline.desc': 'Show or hide the document outline',
     'shortcut.app.openSettings': 'Open settings',
     'shortcut.app.openSettings.desc': 'Open the application settings page',
+    'shortcut.app.importMarkdown': 'Import Markdown',
+    'shortcut.app.importMarkdown.desc': 'Import a document from a Markdown file',
+    'shortcut.app.goToDocuments': 'Go to documents',
+    'shortcut.app.goToDocuments.desc': 'Switch to the document list view',
+    'shortcut.app.goToTerminal': 'Go to terminal',
+    'shortcut.app.goToTerminal.desc': 'Switch to the terminal view',
+    'shortcut.app.toggleDarkMode': 'Toggle dark mode',
+    'shortcut.app.toggleDarkMode.desc': 'Switch between dark and light mode',
+    'shortcut.app.setDarkTheme': 'Set dark theme',
+    'shortcut.app.setDarkTheme.desc': 'Set the theme to dark',
+    'shortcut.app.setLightTheme': 'Set light theme',
+    'shortcut.app.setLightTheme.desc': 'Set the theme to light',
+    'shortcut.app.setSystemTheme': 'Follow system theme',
+    'shortcut.app.setSystemTheme.desc': 'Set the theme to follow the system',
+    'shortcut.unbound': 'Unbound',
 
     // Terminal shortcuts
     'shortcut.terminal.newTab': 'New tab',

@@ -22,6 +22,7 @@
  *   ordered-list                 →   orderedList
  *   divider                      →   horizontalRule
  *   collapsible                  →   collapsible
+ *   diagram                      →   diagramBlock
  *
  *   OUR RICHTEXT ANNOTATIONS     →   TIPTAP MARKS
  *   ─────────────────────────────────────────────────────────
@@ -198,6 +199,8 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'collapsible';
     case 'link':
       return 'linkBlock';
+    case 'diagram':
+      return 'diagramBlock';
     default:
       return 'paragraph';
   }
@@ -244,6 +247,8 @@ function tiptapTypeToOurType(
       return 'collapsible';
     case 'linkBlock':
       return 'link';
+    case 'diagramBlock':
+      return 'diagram';
     default:
       return 'text';
   }
@@ -434,6 +439,14 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       };
       break;
     }
+    case 'diagram': {
+      json.attrs = {
+        snapshot: block.properties?.diagramSnapshot ?? '',
+        width: block.properties?.diagramWidth ?? null,
+        align: block.properties?.diagramAlign ?? 'center',
+      };
+      break;
+    }
     case 'table': {
       const tableData = block.properties?.tableData;
       if (tableData) {
@@ -587,6 +600,20 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         linkWidth:
           typeof attrs.width === 'number' ? attrs.width : undefined,
         linkAlign:
+          attrs.align === 'left' || attrs.align === 'center'
+            ? attrs.align
+            : 'center',
+      };
+      break;
+    }
+    case 'diagram': {
+      block.content = [];
+      block.properties = {
+        diagramSnapshot:
+          typeof attrs.snapshot === 'string' ? attrs.snapshot : '',
+        diagramWidth:
+          typeof attrs.width === 'number' ? attrs.width : undefined,
+        diagramAlign:
           attrs.align === 'left' || attrs.align === 'center'
             ? attrs.align
             : 'center',

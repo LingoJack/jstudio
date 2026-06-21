@@ -16,7 +16,8 @@ export type BlockType =
   | 'ordered-list'
   | 'divider'
   | 'collapsible'
-  | 'link';
+  | 'link'
+  | 'diagram';
 
 export interface BlockProperties {
   language?: string; // code block syntax
@@ -61,6 +62,12 @@ export interface BlockProperties {
   linkWidth?: number;
   /** Link block: alignment. */
   linkAlign?: 'left' | 'center';
+  /** Diagram block: serialized tldraw snapshot JSON string. */
+  diagramSnapshot?: string;
+  /** Diagram block: display width (px). Undefined = auto. */
+  diagramWidth?: number;
+  /** Diagram block: alignment. */
+  diagramAlign?: 'left' | 'center';
 }
 
 export interface Block {

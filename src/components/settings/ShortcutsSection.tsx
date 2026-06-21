@@ -29,11 +29,20 @@ function KbdPill({ binding, recording, conflicted }: {
   conflicted: boolean;
 }) {
   const { t } = useI18n();
+  const unbound = !binding;
 
   if (recording) {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] text-xs font-mono animate-pulse">
         {t('shortcut.pressKeys')}
+      </span>
+    );
+  }
+
+  if (unbound) {
+    return (
+      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md border border-dashed border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] bg-transparent text-xs italic transition-colors hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)]">
+        {t('shortcut.unbound')}
       </span>
     );
   }
@@ -75,11 +84,12 @@ function ShortcutRow({
   const { t } = useI18n();
   const isRecording = recordingId === def.id;
   const currentBinding = resolveBinding(def.id, overrides);
-  const isOverridden = !!overrides[def.id];
-  const display = bindingToDisplay(currentBinding);
+  const isOverridden = def.id in overrides;
+  const display = currentBinding ? bindingToDisplay(currentBinding) : '';
+  const unbound = !currentBinding;
 
-  // Check if this shortcut is in a conflict
-  const conflictingDefs = conflictMap.get(currentBinding);
+  // Check if this shortcut is in a conflict (skip if unbound)
+  const conflictingDefs = unbound ? undefined : conflictMap.get(currentBinding);
   const isConflicted =
     conflictingDefs && conflictingDefs.some((d) => d.id !== def.id && d.scope === def.scope);
 
@@ -198,6 +208,16 @@ export default function ShortcutsSection() {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
+        setRecordingId(null);
+        setConflictWarning(null);
+        return;
+      }
+
+      // Backspace or Delete clears the binding (sets to unbound)
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        e.stopPropagation();
+        setKeyboardShortcut(recordingId!, '');
         setRecordingId(null);
         setConflictWarning(null);
         return;

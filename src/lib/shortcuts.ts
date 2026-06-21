@@ -21,11 +21,13 @@ export type ShortcutScope = 'global' | 'terminal' | 'editor';
 /** Shortcut category — used for UI grouping. */
 export type ShortcutCategory =
   | 'general'
+  | 'navigation'
+  | 'appearance'
   | 'terminal-tabs'
   | 'terminal-panes'
   | 'editor-blocks';
 
-/** Normalized binding string, e.g. "mod+p". */
+/** Normalized binding string, e.g. "mod+p". Empty string means unbound. */
 export type ShortcutBinding = string;
 
 /** User override map: { "terminal.newTab": "mod+shift+t", ... } */
@@ -39,7 +41,11 @@ export interface ShortcutDef {
   category: ShortcutCategory;
   /** Conflict detection scope */
   scope: ShortcutScope;
-  /** Default binding, e.g. "mod+p" */
+  /**
+   * Default binding, e.g. "mod+p".
+   * Empty string means the shortcut is registered but unbound by default —
+   * the user can assign one in Settings.
+   */
   defaultBinding: ShortcutBinding;
   /** Whether the user can rebind this shortcut */
   customizable: boolean;
@@ -99,6 +105,75 @@ export const SHORTCUTS: ShortcutDef[] = [
     customizable: true,
     labelKey: 'shortcut.app.openSettings',
     descKey: 'shortcut.app.openSettings.desc',
+  },
+
+  // ── Navigation ──
+  {
+    id: 'app.goToDocuments',
+    category: 'navigation',
+    scope: 'global',
+    defaultBinding: '',
+    customizable: true,
+    labelKey: 'shortcut.app.goToDocuments',
+    descKey: 'shortcut.app.goToDocuments.desc',
+  },
+  {
+    id: 'app.goToTerminal',
+    category: 'navigation',
+    scope: 'global',
+    defaultBinding: '',
+    customizable: true,
+    labelKey: 'shortcut.app.goToTerminal',
+    descKey: 'shortcut.app.goToTerminal.desc',
+  },
+
+  // ── Document ──
+  {
+    id: 'app.importMarkdown',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: '',
+    customizable: true,
+    labelKey: 'shortcut.app.importMarkdown',
+    descKey: 'shortcut.app.importMarkdown.desc',
+  },
+
+  // ── Appearance ──
+  {
+    id: 'app.toggleDarkMode',
+    category: 'appearance',
+    scope: 'global',
+    defaultBinding: '',
+    customizable: true,
+    labelKey: 'shortcut.app.toggleDarkMode',
+    descKey: 'shortcut.app.toggleDarkMode.desc',
+  },
+  {
+    id: 'app.setDarkTheme',
+    category: 'appearance',
+    scope: 'global',
+    defaultBinding: '',
+    customizable: true,
+    labelKey: 'shortcut.app.setDarkTheme',
+    descKey: 'shortcut.app.setDarkTheme.desc',
+  },
+  {
+    id: 'app.setLightTheme',
+    category: 'appearance',
+    scope: 'global',
+    defaultBinding: '',
+    customizable: true,
+    labelKey: 'shortcut.app.setLightTheme',
+    descKey: 'shortcut.app.setLightTheme.desc',
+  },
+  {
+    id: 'app.setSystemTheme',
+    category: 'appearance',
+    scope: 'global',
+    defaultBinding: '',
+    customizable: true,
+    labelKey: 'shortcut.app.setSystemTheme',
+    descKey: 'shortcut.app.setSystemTheme.desc',
   },
 
   // ── Terminal · Tabs ──
@@ -387,7 +462,9 @@ export function resolveBinding(
   const def = SHORTCUTS.find((s) => s.id === id);
   if (!def) return '';
 
-  if (overrides && overrides[id]) {
+  // Use `in` so that an explicit empty-string override (cleared shortcut)
+  // is respected rather than falling back to the default.
+  if (overrides && id in overrides) {
     return overrides[id];
   }
   return def.defaultBinding;
@@ -411,6 +488,7 @@ export function detectConflicts(
 
   for (const def of SHORTCUTS) {
     const binding = resolveBinding(def.id, overrides);
+    if (!binding) continue; // skip unbound shortcuts
     let scopeBindings = scopeMap.get(def.scope);
     if (!scopeBindings) {
       scopeBindings = new Map();
@@ -453,6 +531,7 @@ export function checkBindingConflict(
     if (def.id === excludeId) continue;
     if (def.scope !== scope) continue;
     const otherBinding = resolveBinding(def.id, overrides);
+    if (!otherBinding) continue; // skip unbound shortcuts
     if (otherBinding === binding) return def;
   }
   return null;
@@ -504,6 +583,8 @@ export function toTiptapBinding(binding: ShortcutBinding): string {
 
 export const CATEGORY_ORDER: ShortcutCategory[] = [
   'general',
+  'navigation',
+  'appearance',
   'terminal-tabs',
   'terminal-panes',
   'editor-blocks',
@@ -511,6 +592,8 @@ export const CATEGORY_ORDER: ShortcutCategory[] = [
 
 export const CATEGORY_LABEL_KEYS: Record<ShortcutCategory, string> = {
   general: 'shortcut.category.general',
+  navigation: 'shortcut.category.navigation',
+  appearance: 'shortcut.category.appearance',
   'terminal-tabs': 'shortcut.category.terminalTabs',
   'terminal-panes': 'shortcut.category.terminalPanes',
   'editor-blocks': 'shortcut.category.editorBlocks',

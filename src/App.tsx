@@ -52,7 +52,7 @@ export default function App() {
       // Check all registered shortcut commands
       for (const [shortcutId, perform] of shortcutCommandMap) {
         const target = resolveBinding(shortcutId, overrides);
-        if (binding !== target) continue;
+        if (!target || binding !== target) continue;
 
         // Editor conflict protection: when the focus is inside a contenteditable
         // element, let the editor handle known formatting shortcuts (bold,
