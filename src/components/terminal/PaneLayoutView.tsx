@@ -8,7 +8,10 @@ import {
 } from 'react';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
-import { getTerminalTheme } from '../../lib/terminalThemes';
+import {
+  getTerminalTheme,
+  withSemanticTerminalCursor,
+} from '../../lib/terminalThemes';
 import { useTerminalManager } from './useTerminalManager';
 import CursorTrail from './CursorTrail';
 import type { PaneLayoutType, PaneResizeState } from './types';
@@ -281,7 +284,14 @@ export default function PaneLayoutView({
   const setActivePane = useStore((s) => s.setActivePane);
   const setPaneResizeState = useStore((s) => s.setPaneResizeState);
 
-  const theme = getTerminalTheme(isDarkMode ? terminalThemeIdDark : terminalThemeIdLight);
+  const theme = useMemo(
+    () =>
+      withSemanticTerminalCursor(
+        getTerminalTheme(isDarkMode ? terminalThemeIdDark : terminalThemeIdLight),
+        isDarkMode,
+      ),
+    [isDarkMode, terminalThemeIdDark, terminalThemeIdLight],
+  );
 
   const { terminalsRef, setupTerminal, destroyTerminal, destroyAll, tryEnableWebgl } =
     useTerminalManager(terminalFontId, terminalFontSize, terminalCursorStyle);

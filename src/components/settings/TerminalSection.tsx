@@ -2,7 +2,10 @@ import { Minus, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n, type TranslationKey } from '../../lib/i18n';
 import { MONOSPACE_FONTS } from '../../lib/fonts';
-import { TERMINAL_THEMES } from '../../lib/terminalThemes';
+import {
+  TERMINAL_THEMES,
+  getSemanticTerminalCursor,
+} from '../../lib/terminalThemes';
 import type { TerminalCursorStyle } from '../../lib/storage';
 
 /** Cursor style options shown in the settings picker. */
@@ -29,6 +32,7 @@ function ThemeGrid({
   label: (id: string) => string;
 }) {
   const themes = TERMINAL_THEMES.filter((t) => t.isDark === isDark);
+  const cursorColor = getSemanticTerminalCursor(isDark);
   return (
     <div className="grid grid-cols-2 gap-4">
       {themes.map((th) => {
@@ -53,7 +57,7 @@ function ThemeGrid({
               }}
             >
               <span style={{ color: th.green }}>$</span>
-              <span style={{ color: th.cursor }} className="ml-0.5">_</span>
+              <span style={{ color: cursorColor }} className="ml-0.5">_</span>
             </div>
             <div className="min-w-0">
               <div

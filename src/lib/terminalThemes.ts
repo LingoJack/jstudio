@@ -46,6 +46,29 @@ export interface TerminalTheme {
   };
 }
 
+/** App-wide semantic cursor colors: dark mode uses green, light mode uses blue. */
+export const TERMINAL_CURSOR_DARK = '#07C160';
+export const TERMINAL_CURSOR_LIGHT = '#0052D9';
+
+export function getSemanticTerminalCursor(isDarkMode: boolean): string {
+  return isDarkMode ? TERMINAL_CURSOR_DARK : TERMINAL_CURSOR_LIGHT;
+}
+
+/**
+ * Keep the selected terminal palette, but make cursor color follow the
+ * app's black/green/blue/white design language instead of per-theme accents.
+ */
+export function withSemanticTerminalCursor(
+  theme: TerminalTheme,
+  isDarkMode: boolean,
+): TerminalTheme {
+  return {
+    ...theme,
+    cursor: getSemanticTerminalCursor(isDarkMode),
+    cursorAccent: theme.background,
+  };
+}
+
 export const TERMINAL_THEMES: TerminalTheme[] = [
   // ──────────────────────────────────────────────
   // Anthropic Dark  (theme-anthropic-dark.conf)
