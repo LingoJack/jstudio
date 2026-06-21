@@ -1,23 +1,17 @@
 /**
  * LinkView — React NodeView for the web link block.
  *
- * Three visual states (mirrors FileView pattern):
+ * Two visual states:
  *   1. Placeholder (no URL): dashed-border input prompting the user to paste a URL.
  *   2. Card mode: compact bookmark card with favicon, title, description, and
  *      optional OG thumbnail.
- *   3. Preview mode: inline web page preview in an iframe.  The iframe loads a
- *      `webpreview://` proxy URL — a Tauri custom protocol that acts as a
- *      transparent HTTP reverse proxy, injecting Chrome cookies to preserve the
- *      user's login state.  All sub-resources (CSS, JS, images, AJAX) also route
- *      through the proxy.
  *
- * Selection model:
- *   - When NOT selected, a transparent overlay sits above the iframe preview so
- *     the user can click to select the node.
- *   - When selected, the overlay disappears and a floating toolbar appears.
+ * Preview opens in a **native WebviewWindow** (real browser engine) via
+ * `storage.openLinkPreview(url)`. This preserves the user's Chrome login
+ * state without iframe/CORS/proxy limitations.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   type NodeViewProps,
   NodeViewWrapper,
@@ -26,14 +20,13 @@ import {
 import {
   Link2,
   Eye,
-  PanelsTopLeft,
   Loader2,
   ExternalLink,
   RefreshCw,
   Globe,
 } from 'lucide-react';
 
-import { storage, type LinkMetadata, buildProxyUrl } from '../lib/storage';
+import { storage, type LinkMetadata } from '../lib/storage';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
@@ -43,7 +36,6 @@ import type { LinkNodeAttributes } from '../lib/linkExtension';
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-/** Check whether a string is a valid http(s) URL. */
 function isValidUrl(url: string): boolean {
   if (!url) return false;
   try {
@@ -54,7 +46,6 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-/** Extract a readable hostname from a URL string. */
 function hostnameFromUrl(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -80,14 +71,11 @@ export default function LinkView({
     favicon,
     ogImage,
     siteName,
-    displayMode,
     width,
     align,
   } = node.attrs as LinkNodeAttributes;
 
-  const isPreviewMode = displayMode === 'preview';
-
-  // Toolbar button count: align-left, align-center, toggle-mode, refresh, open-external
+  // Toolbar buttons: align-left, align-center, preview-window, refresh, open-external
   const toolbarBtnCount = 5;
   const { activeIndex, registerButton } = useNodeToolbarNav(
     selected,
@@ -101,11 +89,6 @@ export default function LinkView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Preview state — the iframe loads a webpreview:// proxy URL directly.
-  // No need to fetch/store HTML; the Tauri custom protocol handler acts as a
-  // transparent reverse proxy with Chrome cookies injected.
-  const [refreshKey, setRefreshKey] = useState(0);
-
   /* -------------------------------------------------------------- */
   /* URL submission (placeholder → card)                            */
   /* -------------------------------------------------------------- */
@@ -115,7 +98,6 @@ export default function LinkView({
       const trimmed = rawUrl.trim();
       if (!trimmed) return;
 
-      // Auto-prepend https:// if the user typed a bare domain.
       let normalized = trimmed;
       if (!/^https?:\/\//i.test(trimmed)) {
         normalized = `https://${trimmed}`;
@@ -139,7 +121,6 @@ export default function LinkView({
           siteName: meta.siteName,
         });
       } catch {
-        // Even if metadata fetch fails, still set the URL so the user sees something.
         updateAttributes({
           url: normalized,
           title: hostnameFromUrl(normalized),
@@ -154,22 +135,6 @@ export default function LinkView({
     },
     [updateAttributes],
   );
-
-  /* -------------------------------------------------------------- */
-  /* Preview proxy URL                                               */
-  /* -------------------------------------------------------------- */
-
-  // Build the proxy URL that the iframe will load directly.
-  // `refreshKey` is appended as a query param to force iframe reload.
-  const proxyUrl = useMemo(() => {
-    if (!url) return '';
-    const base = buildProxyUrl(url);
-    if (refreshKey > 0) {
-      const sep = base.includes('?') ? '&' : '?';
-      return `${base}${sep}_r=${refreshKey}`;
-    }
-    return base;
-  }, [url, refreshKey]);
 
   /* -------------------------------------------------------------- */
   /* Resize handle                                                   */
@@ -207,30 +172,30 @@ export default function LinkView({
   /* -------------------------------------------------------------- */
 
   const handleRefresh = useCallback(() => {
-    if (url) {
-      // Bump refreshKey to force iframe reload via proxy.
-      setRefreshKey((k) => k + 1);
-      // Also re-fetch metadata.
-      setLoading(true);
-      storage
-        .fetchLinkMetadata(url)
-        .then((meta) => {
-          updateAttributes({
-            title: meta.title,
-            description: meta.description,
-            favicon: meta.faviconUrl,
-            ogImage: meta.ogImage,
-            siteName: meta.siteName,
-          });
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }
+    if (!url) return;
+    setLoading(true);
+    storage
+      .fetchLinkMetadata(url)
+      .then((meta) => {
+        updateAttributes({
+          title: meta.title,
+          description: meta.description,
+          favicon: meta.faviconUrl,
+          ogImage: meta.ogImage,
+          siteName: meta.siteName,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [url, updateAttributes]);
+
+  const handleOpenPreview = useCallback(() => {
+    if (!url) return;
+    storage.openLinkPreview(url).catch(() => {});
+  }, [url]);
 
   const handleOpenExternal = useCallback(() => {
     if (!url) return;
-    // Use the opener plugin to launch the URL in the system browser.
     import('@tauri-apps/plugin-opener').then(({ openUrl }) => {
       openUrl(url);
     });
@@ -240,7 +205,6 @@ export default function LinkView({
   /* Render                                                          */
   /* -------------------------------------------------------------- */
 
-  // Display name for the card
   const displayName = title || hostnameFromUrl(url);
   const displayDesc = description || '';
   const hostname = hostnameFromUrl(url);
@@ -273,7 +237,6 @@ export default function LinkView({
                 }
               }}
               onPaste={(e) => {
-                // Auto-submit on paste
                 const pasted = e.clipboardData.getData('text');
                 if (pasted) {
                   e.preventDefault();
@@ -283,17 +246,13 @@ export default function LinkView({
               disabled={loading}
             />
             {loading && <Loader2 size={16} className="animate-spin ml-2" />}
-            {error && (
-              <span className="link-block-error">{error}</span>
-            )}
+            {error && <span className="link-block-error">{error}</span>}
           </div>
         ) : (
-          /* Loaded state */
+          /* Loaded state — always card mode */
           <div
             ref={setFigureRef}
-            className={`link-block-figure ${selected ? 'is-selected' : ''} ${
-              isPreviewMode ? 'is-preview' : 'is-card'
-            }`}
+            className={`link-block-figure ${selected ? 'is-selected' : ''} is-card`}
             style={figureStyle}
           >
             {/* Floating toolbar */}
@@ -328,18 +287,10 @@ export default function LinkView({
                   className={`link-block-toolbar-btn ${
                     activeIndex === 2 ? 'is-focused' : ''
                   }`}
-                  onClick={() =>
-                    updateAttributes({
-                      displayMode: isPreviewMode ? 'card' : 'preview',
-                    })
-                  }
-                  title={isPreviewMode ? 'Switch to card' : 'Switch to preview'}
+                  onClick={handleOpenPreview}
+                  title="Open preview window"
                 >
-                  {isPreviewMode ? (
-                    <PanelsTopLeft size={15} />
-                  ) : (
-                    <Eye size={15} />
-                  )}
+                  <Eye size={15} />
                 </button>
                 <button
                   type="button"
@@ -366,100 +317,71 @@ export default function LinkView({
               </div>
             )}
 
-            {/* Card mode */}
-            {!isPreviewMode && (
-              <div
-                className="link-block-card"
-                contentEditable={false}
-                onClick={handleOpenExternal}
-                role="link"
-                tabIndex={0}
-              >
-                <div className="link-block-card-left">
-                  {favicon ? (
-                    <img
-                      src={favicon}
-                      alt=""
-                      className="link-block-card-favicon"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <Globe size={16} className="link-block-card-favicon-fallback" />
-                  )}
-                  <div className="link-block-card-info">
-                    <span className="link-block-card-title" title={displayName}>
-                      {displayName}
-                    </span>
-                    {displayDesc && (
-                      <span className="link-block-card-desc">
-                        {displayDesc.length > 120
-                          ? `${displayDesc.slice(0, 120)}…`
-                          : displayDesc}
-                      </span>
-                    )}
-                    <span className="link-block-card-url">
-                      {siteName ? `${siteName} · ` : ''}
-                      {hostname}
-                    </span>
-                  </div>
-                </div>
-                {ogImage && (
-                  <div className="link-block-card-right">
-                    <img
-                      src={ogImage}
-                      alt=""
-                      className="link-block-card-thumbnail"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).parentElement!.style.display =
-                          'none';
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Preview mode — iframe loads the webpreview:// proxy URL directly */}
-            {isPreviewMode && (
-              <div className="link-block-preview" contentEditable={false}>
-                {/* Transparent overlay when NOT selected */}
-                {!selected && <div className="link-block-preview-overlay" />}
-
-                <iframe
-                  src={proxyUrl}
-                  className="link-block-preview-frame"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-popups-to-escape-sandbox"
-                  title={displayName}
-                />
-
-                {/* Preview header bar (always visible in preview mode) */}
-                <div className="link-block-preview-header" contentEditable={false}>
-                  <a
-                    href={url}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleOpenExternal();
+            {/* Card — Cmd/Ctrl+Click opens preview, plain click selects the block */}
+            <div
+              className="link-block-card"
+              contentEditable={false}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenPreview();
+                }
+                // Plain click: do nothing — let ProseMirror select the node.
+              }}
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOpenPreview();
+              }}
+              title="Cmd+Click to open preview · Double-click to open"
+              role="link"
+              tabIndex={0}
+            >
+              <div className="link-block-card-left">
+                {favicon ? (
+                  <img
+                    src={favicon}
+                    alt=""
+                    className="link-block-card-favicon"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
-                    className="link-block-preview-header-link"
-                  >
-                    {favicon && (
-                      <img
-                        src={favicon}
-                        alt=""
-                        className="link-block-preview-header-favicon"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    )}
-                    <span>{displayName}</span>
-                    <ExternalLink size={12} />
-                  </a>
+                  />
+                ) : (
+                  <Globe size={16} className="link-block-card-favicon-fallback" />
+                )}
+                <div className="link-block-card-info">
+                  <span className="link-block-card-title" title={displayName}>
+                    {displayName}
+                  </span>
+                  {displayDesc && (
+                    <span className="link-block-card-desc">
+                      {displayDesc.length > 120
+                        ? `${displayDesc.slice(0, 120)}…`
+                        : displayDesc}
+                    </span>
+                  )}
+                  <span className="link-block-card-url">
+                    {siteName ? `${siteName} · ` : ''}
+                    {hostname}
+                  </span>
                 </div>
               </div>
-            )}
+              {ogImage && (
+                <div className="link-block-card-right">
+                  <img
+                    src={ogImage}
+                    alt=""
+                    className="link-block-card-thumbnail"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).parentElement!.style.display =
+                        'none';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Resize handle */}
             {selected && (

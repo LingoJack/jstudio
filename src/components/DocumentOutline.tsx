@@ -29,6 +29,7 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
   const { t } = useI18n();
   const [headings, setHeadings] = useState<HeadingItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [collapsedHeadings, setCollapsedHeadings] = useState<Set<string>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -245,6 +246,18 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
     [editor],
   );
 
+  // ------------------------------------------------------------------
+  // Toggle heading collapse/expand
+  // ------------------------------------------------------------------
+  const toggleHeading = useCallback((item: HeadingItem) => {
+    setCollapsedHeadings((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
+  }, []);
+
   return (
     <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
       {/* Header — aligned with Settings/DocumentList */}
@@ -261,7 +274,7 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
             {t('outline.empty')}
           </p>
         ) : (
-          renderOutlineTree(headings, 1, activeId, handleHeadingClick)
+          renderOutlineTree(headings, 1, activeId, handleHeadingClick, collapsedHeadings, toggleHeading)
         )}
       </div>
     </div>
@@ -273,18 +286,21 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
 // ──────────────────────────────────────────────────────────────────
 
 /**
- * Recursively render an outline heading list as a NavBranch tree.
+ * Recursively render outline headings as a collapsible tree.
  *
- * Headings at the *current* level are rendered as NavLeaf rows.
- * Whenever a heading at a deeper level appears, all consecutive
- * deeper-level headings are collected and rendered as a nested
- * NavBranch (indented, gray guide line).
+ * Every heading that has children is expandable (chevron arrow on the
+ * right, click to toggle). Children are rendered inside a NavBranch
+ * (gray guide line) with secondary NavRow styling (lined, 13px text).
+ *
+ * This mirrors the Settings pattern at every level — not just the top.
  */
 function renderOutlineTree(
   headings: HeadingItem[],
-  level: number,
+  headingLevel: number,
   activeId: string | null,
   onClick: (item: HeadingItem) => void,
+  collapsed: Set<string>,
+  onToggle: (item: HeadingItem) => void,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let i = 0;
@@ -292,37 +308,58 @@ function renderOutlineTree(
   while (i < headings.length) {
     const item = headings[i];
 
-    if (item.level === level) {
+    if (item.level === headingLevel) {
+      // Collect consecutive deeper-level headings as children
+      const childLevel =
+        i + 1 < headings.length && headings[i + 1].level > item.level
+          ? headings[i + 1].level
+          : 0;
+      const children: HeadingItem[] = [];
+      if (childLevel > 0) {
+        let j = i + 1;
+        while (j < headings.length && headings[j].level >= childLevel && headings[j].level > item.level) {
+          children.push(headings[j]);
+          j++;
+        }
+      }
+      const hasChildren = children.length > 0;
+      const isCollapsed = collapsed.has(item.id);
+
       result.push(
         <NavRow
           key={item.id}
           level="primary"
           active={item.id === activeId}
-          onClick={() => onClick(item)}
+          plainActive
+          expandable={hasChildren}
+          expanded={!isCollapsed}
+          onClick={() => {
+            if (hasChildren) onToggle(item);
+            onClick(item);
+          }}
           title={item.text}
         >
           {item.text}
         </NavRow>,
       );
-      i++;
-    } else if (item.level > level) {
-      const deeperMin = item.level;
-      const children: HeadingItem[] = [];
-      while (
-        i < headings.length &&
-        headings[i].level >= deeperMin &&
-        headings[i].level > level
-      ) {
-        children.push(headings[i]);
-        i++;
+
+      // Render children inside a NavBranch unless collapsed
+      if (hasChildren && !isCollapsed) {
+        const childMin = Math.min(...children.map((c) => c.level));
+        result.push(
+          <NavBranch key={`branch-${item.id}`} className="mt-0.5 mb-1 ml-[18px]">
+            {renderOutlineTree(children, childMin, activeId, onClick, collapsed, onToggle)}
+          </NavBranch>,
+        );
       }
-      const childLevel = Math.min(...children.map((c) => c.level));
-      result.push(
-        <NavBranch key={`branch-${level}-${i}`} className="mt-0.5 mb-1 ml-[18px]">
-          {renderOutlineTree(children, childLevel, activeId, onClick)}
-        </NavBranch>,
-      );
+
+      // Skip past this heading and all its children (they're handled above)
+      i += 1 + children.length;
+    } else if (item.level > headingLevel) {
+      // Shouldn't happen — deeper levels are consumed by parent above
+      i++;
     } else {
+      // Shallower level — shouldn't reach here
       i++;
     }
   }

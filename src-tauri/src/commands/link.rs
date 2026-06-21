@@ -1,26 +1,17 @@
 /**
- * Link preview backend — Chrome cookie extraction + HTTP reverse proxy.
+ * Link preview backend — Chrome cookie extraction + native WebviewWindow.
  *
- * Two main entry points:
- *   1. `fetch_link_metadata` — Tauri command, fetches OG/title/description for card mode.
- *   2. `handle_webpreview_request` — Tauri custom protocol handler (`webpreview://`),
- *      acts as a transparent HTTP reverse proxy that injects Chrome cookies.
- *
- * How the proxy works:
- *   - iframe loads `webpreview://github.com/repo`
- *   - Handler reconstructs `https://github.com/repo`, reads Chrome cookies,
- *     makes an HTTP GET with cookies injected.
- *   - For HTML responses, rewrites absolute `https://` / `http://` / `//` URLs in
- *     attributes to `webpreview://` so all sub-resources (CSS, JS, images, AJAX)
- *     also route through the proxy.
- *   - Strips `X-Frame-Options` and `Content-Security-Policy` response headers so
- *     the page can be embedded in an iframe.
- *   - All relative URLs resolve naturally against the `webpreview://host/path` base.
+ * Two Tauri commands:
+ *   1. `fetch_link_metadata` — async, fetches OG/title/description for card mode.
+ *   2. `open_link_preview`   — creates a native WebviewWindow loading the real URL,
+ *      with Chrome cookies injected via `initialization_script` as `document.cookie`.
  *
  * Cookie extraction chain (macOS):
  *   Keychain → Chrome Safe Storage password → PBKDF2-HMAC-SHA1 → AES-128 key
- *   → decrypt Chrome Cookies SQLite DB → inject as `Cookie` header.
+ *   → decrypt Chrome Cookies SQLite DB (skip 32-byte app-bound prefix)
+ *   → inject as `document.cookie` in the WebviewWindow.
  */
+
 use aes::Aes128;
 use cbc::Decryptor;
 use cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
@@ -28,14 +19,13 @@ use pbkdf2::pbkdf2_hmac;
 use rusqlite::Connection;
 use serde::Serialize;
 use sha1::Sha1;
-use std::borrow::Cow;
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::http::{Request, Response};
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 // ---------------------------------------------------------------------------
-// Types returned to the frontend
+// Types
 // ---------------------------------------------------------------------------
 
 #[derive(Serialize, Clone)]
@@ -45,7 +35,6 @@ pub struct LinkMetadata {
     pub favicon_url: String,
     pub og_image: String,
     pub site_name: String,
-    /// Final URL after HTTP redirects.
     pub url: String,
 }
 
@@ -57,10 +46,8 @@ fn get_chrome_keychain_password() -> Result<String, String> {
     let output = Command::new("security")
         .args([
             "find-generic-password",
-            "-ga",
-            "Chrome",
-            "-s",
-            "Chrome Safe Storage",
+            "-ga", "Chrome",
+            "-s", "Chrome Safe Storage",
         ])
         .output()
         .map_err(|e| format!("failed to run `security`: {e}"))?;
@@ -117,15 +104,14 @@ fn decrypt_cookie_value(encrypted: &[u8], key: &[u8; 16]) -> Result<String, Stri
 
     // Chrome 127+ (macOS) adds an app-bound encryption layer. The AES
     // decrypted output is `[32-byte app-bound hash][actual cookie value]`.
-    // We skip the 32-byte prefix to recover the real cookie value.
     let cookie_value = if plaintext.len() > 32 {
         &plaintext[32..]
     } else {
-        // Older Chrome versions without app-bound encryption.
         &plaintext[..]
     };
 
-    String::from_utf8(cookie_value.to_vec()).map_err(|e| format!("decrypted cookie not UTF-8: {e}"))
+    String::from_utf8(cookie_value.to_vec())
+        .map_err(|e| format!("decrypted cookie not UTF-8: {e}"))
 }
 
 fn extract_domain(url: &str) -> Result<String, String> {
@@ -146,9 +132,11 @@ fn parent_domain(host: &str) -> String {
 }
 
 fn open_chrome_cookies_db() -> Result<Connection, String> {
-    let home = dirs::home_dir().ok_or_else(|| "could not determine home directory".to_string())?;
+    let home = dirs::home_dir()
+        .ok_or_else(|| "could not determine home directory".to_string())?;
 
-    let cookies_path = home.join("Library/Application Support/Google/Chrome/Default/Cookies");
+    let cookies_path = home
+        .join("Library/Application Support/Google/Chrome/Default/Cookies");
 
     if !cookies_path.exists() {
         return Err("Chrome cookies database not found".into());
@@ -156,7 +144,8 @@ fn open_chrome_cookies_db() -> Result<Connection, String> {
 
     let tmp =
         std::env::temp_dir().join(format!("jstudio_chrome_cookies_{}.db", std::process::id()));
-    std::fs::copy(&cookies_path, &tmp).map_err(|e| format!("failed to copy cookies db: {e}"))?;
+    std::fs::copy(&cookies_path, &tmp)
+        .map_err(|e| format!("failed to copy cookies db: {e}"))?;
 
     Connection::open(&tmp).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
@@ -164,7 +153,7 @@ fn open_chrome_cookies_db() -> Result<Connection, String> {
     })
 }
 
-/// Read all cookies for a given URL from Chrome's cookie database (uncached).
+/// Read all cookies for a given URL from Chrome's cookie database.
 fn read_chrome_cookies_raw(url: &str) -> Result<Vec<(String, String)>, String> {
     let host = extract_domain(url)?;
     let domain = parent_domain(&host);
@@ -187,10 +176,6 @@ fn read_chrome_cookies_raw(url: &str) -> Result<Vec<(String, String)>, String> {
             )
             .map_err(|e| format!("cookies query failed: {e}"))?;
 
-        // Match exact Chrome host_key entries:
-        //   1. `.github.com`   — parent domain cookies (covered by domain)
-        //   2. `github.com`    — exact host cookies
-        //   3. `.www.github.com` — sub-domain of the requested host
         let pattern1 = format!(".{domain}");
         let pattern2 = domain.clone();
         let pattern3 = format!(".{host}");
@@ -225,7 +210,7 @@ fn read_chrome_cookies_raw(url: &str) -> Result<Vec<(String, String)>, String> {
 }
 
 // ---------------------------------------------------------------------------
-// Cookie cache (avoid re-reading SQLite DB on every sub-resource request)
+// Cookie cache (30s TTL — avoid re-reading SQLite on rapid calls)
 // ---------------------------------------------------------------------------
 
 struct CookieCacheEntry {
@@ -237,7 +222,6 @@ struct CookieCacheEntry {
 static COOKIE_CACHE: Mutex<Option<CookieCacheEntry>> = Mutex::new(None);
 const COOKIE_CACHE_TTL: Duration = Duration::from_secs(30);
 
-/// Read Chrome cookies with a 30-second in-memory cache keyed by parent domain.
 fn read_chrome_cookies_cached(url: &str) -> Vec<(String, String)> {
     let domain = match extract_domain(url) {
         Ok(h) => parent_domain(&h),
@@ -253,7 +237,6 @@ fn read_chrome_cookies_cached(url: &str) -> Vec<(String, String)> {
         }
     }
 
-    // Cache miss — read fresh.
     match read_chrome_cookies_raw(url) {
         Ok(cookies) => {
             let mut cache = COOKIE_CACHE.lock().unwrap();
@@ -268,19 +251,13 @@ fn read_chrome_cookies_cached(url: &str) -> Vec<(String, String)> {
     }
 }
 
-fn build_cookie_header(cookies: &[(String, String)]) -> String {
-    cookies
-        .iter()
-        .map(|(k, v)| format!("{k}={v}"))
-        .collect::<Vec<_>>()
-        .join("; ")
-}
+const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+     (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // ---------------------------------------------------------------------------
-// Shared HTTP clients — async for Tauri commands, blocking for protocol handler
+// Tauri command: fetch_link_metadata (async)
 // ---------------------------------------------------------------------------
 
-/// Async client for `#[tauri::command] async fn` (runs on Tokio runtime).
 static ASYNC_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 fn async_http_client() -> &'static reqwest::Client {
@@ -294,27 +271,6 @@ fn async_http_client() -> &'static reqwest::Client {
     })
 }
 
-/// Blocking client for the URI scheme protocol handler (synchronous context).
-static BLOCKING_CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
-
-fn blocking_http_client() -> &'static reqwest::blocking::Client {
-    BLOCKING_CLIENT.get_or_init(|| {
-        reqwest::blocking::Client::builder()
-            .redirect(reqwest::redirect::Policy::limited(5))
-            .timeout(Duration::from_secs(15))
-            .danger_accept_invalid_certs(true)
-            .build()
-            .expect("failed to build blocking HTTP client")
-    })
-}
-
-const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
-     (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-// ---------------------------------------------------------------------------
-// Tauri command: fetch_link_metadata (async — uses reqwest async API)
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     let cookies = read_chrome_cookies_cached(&url);
@@ -324,7 +280,7 @@ pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     let mut req = client
         .get(&url)
         .header("User-Agent", BROWSER_UA)
-        .header("Accept-Encoding", "identity"); // no compression
+        .header("Accept-Encoding", "identity");
 
     if !cookie_header.is_empty() {
         req = req.header("Cookie", cookie_header);
@@ -344,9 +300,11 @@ pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     let description = extract_meta_content(&html, "name", "description")
         .or_else(|| extract_meta_content(&html, "property", "og:description"))
         .unwrap_or_default();
-    let og_image = extract_meta_content(&html, "property", "og:image").unwrap_or_default();
+    let og_image =
+        extract_meta_content(&html, "property", "og:image").unwrap_or_default();
     let favicon_url = extract_favicon_url(&html, &final_url);
-    let site_name = extract_meta_content(&html, "property", "og:site_name").unwrap_or_default();
+    let site_name =
+        extract_meta_content(&html, "property", "og:site_name").unwrap_or_default();
 
     Ok(LinkMetadata {
         title,
@@ -358,232 +316,88 @@ pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     })
 }
 
+fn build_cookie_header(cookies: &[(String, String)]) -> String {
+    cookies
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 // ---------------------------------------------------------------------------
-// Tauri custom protocol handler: webpreview://
+// Tauri command: open_link_preview — native WebviewWindow
 // ---------------------------------------------------------------------------
 
-/// Handle a `webpreview://` protocol request.
+/// Create a native WebviewWindow that loads the real URL, with Chrome cookies
+/// injected via `initialization_script`.
 ///
-/// This is the transparent HTTP reverse proxy. It:
-///   1. Reconstructs the original HTTPS URL from the proxy URI.
-///   2. Reads Chrome cookies for the target domain (cached).
-///   3. Forwards the request (method, select headers, body) with cookies.
-///   4. For HTML responses, rewrites absolute URLs to use `webpreview://`.
-///   5. Strips iframe-blocking headers (`X-Frame-Options`, CSP).
-pub fn handle_webpreview_request(request: &Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
-    let uri = request.uri().to_string();
+/// The WKWebView (macOS) / WebView2 (Windows) engine handles all rendering,
+/// JS execution, AJAX, etc. natively — no proxy or URL rewriting needed.
+#[tauri::command]
+pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let cookies = read_chrome_cookies_cached(&url);
+    let host = extract_domain(&url).unwrap_or_else(|_| "site".to_string());
 
-    let target_url = match reconstruct_target_url(&uri) {
-        Ok(u) => u,
-        Err(e) => return error_response(400, &e),
-    };
-
-    let cookies = read_chrome_cookies_cached(&target_url);
-    let cookie_header = build_cookie_header(&cookies);
-
-    let client = blocking_http_client();
-    let method = request.method();
-    let mut req = match method.as_str() {
-        "POST" => client.post(&target_url),
-        "PUT" => client.put(&target_url),
-        "DELETE" => client.delete(&target_url),
-        "HEAD" => client.head(&target_url),
-        _ => client.get(&target_url),
-    };
-
-    req = req
-        .header("User-Agent", BROWSER_UA)
-        .header("Accept-Encoding", "identity");
-
-    if !cookie_header.is_empty() {
-        req = req.header("Cookie", cookie_header);
-    }
-
-    // Forward select request headers, rewriting proxy-specific ones.
-    let target_host = extract_domain(&target_url).unwrap_or_default();
-    for (name, value) in request.headers() {
-        if let Ok(v) = value.to_str() {
-            match name.as_str().to_lowercase().as_str() {
-                "accept" | "accept-language" | "content-type" => {
-                    req = req.header(name.as_str(), v);
-                }
-                "origin" => {
-                    // Rewrite webpreview:// → https://
-                    let rewritten = v.replace("webpreview://", "https://");
-                    req = req.header("Origin", &rewritten);
-                }
-                "referer" => {
-                    let rewritten = v.replace("webpreview://", "https://");
-                    req = req.header("Referer", &rewritten);
-                }
-                "host" => {
-                    req = req.header("Host", &target_host);
-                }
-                _ => {} // skip all other headers
-            }
-        }
-    }
-
-    // Forward body for POST/PUT.
-    if method == "POST" || method == "PUT" {
-        let body = request.body().clone();
-        if !body.is_empty() {
-            req = req.body(body);
-        }
-    }
-
-    let resp = match req.send() {
-        Ok(r) => r,
-        Err(e) => return error_response(502, &format!("proxy fetch failed: {e}")),
-    };
-
-    let status = resp.status();
-    let headers = resp.headers().clone();
-    let content_type = headers
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let body_bytes = resp.bytes().unwrap_or_default();
-
-    // Rewrite URLs in HTML; pass through everything else.
-    let final_body: Vec<u8> = if content_type.contains("text/html") {
-        let html = String::from_utf8_lossy(&body_bytes);
-        let mut html = rewrite_html_urls(&html);
-        // Inject a script that monkey-patches fetch() and XMLHttpRequest
-        // at runtime so dynamically-created requests also route through proxy.
-        inject_proxy_script(&mut html);
-        html.into_bytes()
+    // Build a JS initialization script that sets document.cookie for each
+    // Chrome cookie. This runs before the page's own scripts, ensuring
+    // the login state is present when the page loads.
+    let cookie_script = if cookies.is_empty() {
+        String::new()
     } else {
-        body_bytes.to_vec()
+        let mut lines = Vec::new();
+        for (name, value) in &cookies {
+            // Escape single quotes in values to avoid breaking the JS string.
+            let safe_value = value.replace('\\', "\\\\").replace('\'', "\\'");
+            let safe_name = name.replace('\\', "\\\\").replace('\'', "\\'");
+            lines.push(format!(
+                "document.cookie='{}={}; path=/; domain=.{}; SameSite=None; Secure';",
+                safe_name, safe_value, host
+            ));
+        }
+        lines.join("\n")
     };
 
-    // Build response, stripping headers that prevent iframe embedding.
-    let mut builder = Response::builder().status(status);
-    for (name, value) in &headers {
-        match name.as_str().to_lowercase().as_str() {
-            // Strip — these prevent iframe embedding or break proxy
-            "x-frame-options"
-            | "content-security-policy"
-            | "content-security-policy-report-only"
-            | "set-cookie"
-            | "set-cookie2"
-            | "transfer-encoding"
-            | "content-encoding"
-            | "content-length"
-            | "connection"
-            | "keep-alive" => {}
-            _ => {
-                builder = builder.header(name, value);
-            }
-        }
+    let label = format!("link-preview-{}", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis());
+
+    let title = url::Url::parse(&url)
+        .ok()
+        .and_then(|u| u.host_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "Link Preview".to_string());
+
+    let url_parsed = url::Url::parse(&url)
+        .map_err(|e| format!("invalid URL: {e}"))?;
+
+    let mut builder = WebviewWindowBuilder::new(
+        &app,
+        &label,
+        WebviewUrl::External(url_parsed),
+    )
+    .title(&title)
+    .inner_size(1100.0, 800.0)
+    .min_inner_size(400.0, 300.0)
+    .resizable(true)
+    .user_agent(BROWSER_UA);
+
+    if !cookie_script.is_empty() {
+        builder = builder.initialization_script(&cookie_script);
     }
 
     builder
-        .body(Cow::Owned(final_body))
-        .unwrap_or_else(|_| error_response(500, "failed to build proxy response"))
-}
+        .build()
+        .map_err(|e| format!("failed to create webview window: {e}"))?;
 
-/// Reconstruct the real HTTPS URL from a `webpreview://` proxy URI.
-///
-/// `webpreview://github.com/user/repo?foo=bar` → `https://github.com/user/repo?foo=bar`
-fn reconstruct_target_url(proxy_uri: &str) -> Result<String, String> {
-    // Standard format: webpreview://host/path
-    if let Some(rest) = proxy_uri.strip_prefix("webpreview://") {
-        return Ok(format!("https://{rest}"));
-    }
-    // Fallback: some platforms pass it differently
-    if let Some(rest) = proxy_uri.strip_prefix("webpreview/") {
-        return Ok(format!("https://{rest}"));
-    }
-    Err(format!("unrecognized proxy URI: {proxy_uri}"))
-}
-
-/// Build a minimal error response.
-fn error_response(status: u16, msg: &str) -> Response<Cow<'static, [u8]>> {
-    Response::builder()
-        .status(status)
-        .header("content-type", "text/plain; charset=utf-8")
-        .body(Cow::Owned(msg.as_bytes().to_vec()))
-        .unwrap()
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
-// HTML URL rewriting
+// HTML parsing helpers (used by fetch_link_metadata)
 // ---------------------------------------------------------------------------
 
-/// Rewrite absolute `https://` / `http://` / `//` URLs in HTML attributes and
-/// inline CSS to use the `webpreview://` proxy scheme.
-///
-/// Relative URLs (e.g. `/about`, `../style.css`) resolve naturally against the
-/// proxy base URL and need no rewriting.
-fn rewrite_html_urls(html: &str) -> String {
-    let mut result = html.to_string();
-
-    // 1. Rewrite absolute URLs in HTML attributes:
-    //    src="https://..." → src="webpreview://..."
-    //    href="http://..."  → href="webpreview://..."
-    {
-        let re = regex::Regex::new(
-            r#"(?i)((?:src|href|action|poster|data-src|srcset|content|formaction)\s*=\s*["'])https?://"#,
-        )
-        .unwrap();
-        result = re
-            .replace_all(&result, |caps: &regex::Captures| {
-                format!("{}webpreview://", &caps[1])
-            })
-            .to_string();
-    }
-
-    // 2. Rewrite protocol-relative URLs in attributes:
-    //    src="//cdn.example.com/..." → src="webpreview://cdn.example.com/..."
-    {
-        let re =
-            regex::Regex::new(r#"(?i)((?:src|href|action|poster|data-src)\s*=\s*["'])//"#).unwrap();
-        result = re
-            .replace_all(&result, |caps: &regex::Captures| {
-                format!("{}webpreview://", &caps[1])
-            })
-            .to_string();
-    }
-
-    // 3. Rewrite CSS url() references:
-    //    url(https://...) → url(webpreview://...)
-    //    url('https://...) → url('webpreview://...)
-    {
-        // Capture group 1 = optional opening quote
-        let re = regex::Regex::new(r#"(?i)url\(\s*(['"]?)https?://"#).unwrap();
-        result = re
-            .replace_all(&result, |caps: &regex::Captures| {
-                let quote = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-                format!("url({quote}webpreview://")
-            })
-            .to_string();
-    }
-
-    // 4. Rewrite CSS @import statements
-    {
-        // Capture group 1 = the quote character
-        let re = regex::Regex::new(r#"(?i)@import\s+(['"])https?://"#).unwrap();
-        result = re
-            .replace_all(&result, |caps: &regex::Captures| {
-                let quote = caps.get(1).map(|m| m.as_str()).unwrap_or("\"");
-                format!("@import {quote}webpreview://")
-            })
-            .to_string();
-    }
-
-    result
-}
-
-// ---------------------------------------------------------------------------
-// HTML parsing helpers
-// ---------------------------------------------------------------------------
-
-/// Extract `<title>…</title>` content using regex (UTF-8 safe).
 fn extract_html_title(html: &str) -> Option<String> {
-    let re = regex::Regex::new(r"(?is)<title[^>]*>(.*?)</title>").unwrap();
+    let re = regex::Regex::new(r"(?is)<title[^>]*>(.*?)</title>").ok()?;
     let title = re
         .captures(html)
         .and_then(|c| c.get(1))
@@ -595,13 +409,12 @@ fn extract_html_title(html: &str) -> Option<String> {
     }
 }
 
-/// Extract `<meta property/name="key" content="value">` using regex.
 fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
-    // Match: <meta ... attr="key" ... content="value">
-    //   or   <meta ... content="value" ... attr="key">
     let attr_escaped = regex::escape(key);
-    let pattern =
-        format!(r#"(?is)<meta[^>]*{attr}=["']{attr_escaped}["'][^>]*content=["']([^"']*)["']"#);
+    // attr="key" ... content="value"
+    let pattern = format!(
+        r#"(?is)<meta[^>]*{attr}=["']{attr_escaped}["'][^>]*content=["']([^"']*)["']"#
+    );
     if let Some(c) = regex::Regex::new(&pattern).ok()?.captures(html) {
         if let Some(m) = c.get(1) {
             let v = m.as_str();
@@ -610,9 +423,10 @@ fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
             }
         }
     }
-    // Try reverse order: content before attr
-    let pattern2 =
-        format!(r#"(?is)<meta[^>]*content=["']([^"']*)["'][^>]*{attr}=["']{attr_escaped}["']"#);
+    // content="value" ... attr="key"
+    let pattern2 = format!(
+        r#"(?is)<meta[^>]*content=["']([^"']*)["'][^>]*{attr}=["']{attr_escaped}["']"#
+    );
     if let Some(c) = regex::Regex::new(&pattern2).ok()?.captures(html) {
         if let Some(m) = c.get(1) {
             let v = m.as_str();
@@ -624,11 +438,11 @@ fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
     None
 }
 
-/// Extract favicon URL from `<link rel="icon" href="...">` using regex.
 fn extract_favicon_url(html: &str, base_url: &str) -> String {
     for rel in ["shortcut icon", "icon", "apple-touch-icon"] {
-        // Match: <link ... rel="icon" ... href="url">
-        let pattern = format!(r#"(?is)<link[^>]*rel=["']{rel}["'][^>]*href=["']([^"']*)["']"#);
+        let pattern = format!(
+            r#"(?is)<link[^>]*rel=["']{rel}["'][^>]*href=["']([^"']*)["']"#
+        );
         if let Some(c) = regex::Regex::new(&pattern)
             .ok()
             .and_then(|re| re.captures(html))
@@ -640,8 +454,9 @@ fn extract_favicon_url(html: &str, base_url: &str) -> String {
                 }
             }
         }
-        // Try reverse order: href before rel
-        let pattern2 = format!(r#"(?is)<link[^>]*href=["']([^"']*)["'][^>]*rel=["']{rel}["']"#);
+        let pattern2 = format!(
+            r#"(?is)<link[^>]*href=["']([^"']*)["'][^>]*rel=["']{rel}["']"#
+        );
         if let Some(c) = regex::Regex::new(&pattern2)
             .ok()
             .and_then(|re| re.captures(html))

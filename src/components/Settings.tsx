@@ -5,7 +5,7 @@ import type { TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import type { SettingsSectionId } from '../store/uiSlice';
 import { useCollapsibleTree } from './ui/useCollapsibleTree';
-import { NavBranch, NavRow } from './ui/NavTree';
+import { NavBranch } from './ui/NavTree';
 import GeneralSection from './settings/GeneralSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
@@ -174,17 +174,26 @@ export default function Settings() {
             return (
               <div key={item.id}>
                 {/* Main header */}
-                <NavRow
+                <button
                   onClick={() => handleMainClick(item)}
-                  level="primary"
-                  active={active}
-                  plainActive={hasSubs}
-                  icon={<Icon className="w-5 h-5 opacity-70" />}
-                  expandable={hasSubs}
-                  expanded={open}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors duration-150 cursor-pointer ${
+                    active
+                      ? hasSubs
+                        ? 'text-[var(--vscode-foreground)] font-medium'
+                        : 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+                      : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                  }`}
                 >
-                  {t(item.labelKey)}
-                </NavRow>
+                  <Icon className="w-5 h-5 opacity-70 shrink-0" />
+                  <span className="flex-1 text-left">{t(item.labelKey)}</span>
+                  {hasSubs && (
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
+                        open ? 'rotate-90' : ''
+                      }`}
+                    />
+                  )}
+                </button>
 
                 {/* Sub-items */}
                 {hasSubs && open && (
@@ -192,15 +201,17 @@ export default function Settings() {
                     {item.subItems!.map((sub) => {
                       const subActive = active && activeAnchor === sub.anchorId;
                       return (
-                        <NavRow
+                        <button
                           key={sub.anchorId}
-                          level="secondary"
-                          lined
-                          active={subActive}
                           onClick={() => handleSubClick(item.id, sub.anchorId)}
+                          className={`w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2 ${
+                            subActive
+                              ? 'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium'
+                              : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                          }`}
                         >
-                          {t(sub.labelKey)}
-                        </NavRow>
+                          <span>{t(sub.labelKey)}</span>
+                        </button>
                       );
                     })}
                   </NavBranch>

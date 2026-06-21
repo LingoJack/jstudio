@@ -26,7 +26,7 @@ base64 = "0.22"
 portable-pty = "0.8"
 
 # ── link preview: HTTP + Chrome cookie decryption ──
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "charset", "http2"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "charset", "http2"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 aes = "0.8"
 cbc = { version = "0.1", features = ["alloc"] }

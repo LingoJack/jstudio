@@ -4,21 +4,13 @@ import { ChevronRight } from 'lucide-react';
 // ──────────────────────────────────────────────────────────────────
 // NavBranch / NavRow
 //
-// Shared navigation tree components used by:
-//   • Settings sidebar (section → sub-items)
-//   • DocumentList sidebar (folder → documents / sub-folders)
-//   • DocumentOutline panel (heading hierarchy)
+// These components replicate — class-for-class — the hand-written
+// styles originally created in Settings.tsx.  Settings.tsx itself
+// keeps its original `<button>` markup; this file is the *extracted*
+// version that other pages (DocumentList, DocumentOutline) consume.
 //
-// Visual pattern (mirrors VS Code's indentation guides):
-//
-//   <NavBranch>                 ← 1px gray guide line (widget-border)
-//     <NavRow level="secondary" active>
-//       row content             ← 2px green line overlaps the gray line
-//     </NavRow>
-//     <NavRow level="secondary">
-//       row content             ← transparent border, gray line shows through
-//     </NavRow>
-//   </NavBranch>
+// If you ever change the visual spec, update Settings.tsx first,
+// then mirror the exact classes here.
 // ──────────────────────────────────────────────────────────────────
 
 interface NavBranchProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -26,11 +18,10 @@ interface NavBranchProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * Vertical branch container — draws a thin gray guide line
- * (`--vscode-widget-border`) on the left edge.
+ * Vertical branch container — thin gray guide line.
  *
- * Place `NavRow` children inside. Each secondary-level row's
- * `-ml-px border-l-2` sits exactly on top of this line.
+ * Exact copy of Settings.tsx:
+ *   className="border-l border-[var(--vscode-widget-border)] space-y-0.5"
  */
 export function NavBranch({ children, className = '', style, ...rest }: NavBranchProps) {
   return (
@@ -47,51 +38,30 @@ export function NavBranch({ children, className = '', style, ...rest }: NavBranc
 // ──────────────────────────────────────────────────────────────────
 
 interface NavRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'className'> {
-  /**
-   * Visual weight:
-   * - `'primary'`   — 14px text, `py-2.5 gap-3 px-3` (top-level items)
-   * - `'secondary'` — 13px text, `py-1.5 gap-2 pl-4 pr-3` (nested items)
-   */
   level?: 'primary' | 'secondary';
-  /**
-   * Show the 2px left focus line.
-   *
-   * Set to `true` for rows inside a `NavBranch` (the line overlaps the
-   * branch's gray guide). Also set `true` for standalone rows that need
-   * a line indicator (e.g. folder drop-target highlight).
-   */
-  lined?: boolean;
-  /** Active selection — green line + selection background. */
   active?: boolean;
-  /** Transient highlight — green line only (e.g. drop target, flash). */
   highlighted?: boolean;
-  /**
-   * When `true` and `active`, skip the background fill and only bold
-   * the text. Used for expandable primary items (per Settings pattern).
-   */
   plainActive?: boolean;
-  /** Optional icon element (caller sizes it, e.g. `w-5 h-5 opacity-70`). */
   icon?: React.ReactNode;
-  /** Show an expand/collapse chevron on the right. */
   expandable?: boolean;
-  /** Chevron rotation state (only relevant when `expandable`). */
   expanded?: boolean;
   className?: string;
   children: React.ReactNode;
 }
 
 /**
- * A single navigation row with consistent styling across the app.
+ * Navigation row — exact visual clone of Settings.tsx hand-written styles.
  *
- * Encapsulates layout (padding, gap, text size), state (active /
- * highlighted / hover), the optional left focus line, icon slot, and
- * expand chevron — so callers never need to repeat class names.
+ * Primary level (copied from Settings main row):
+ *   "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm
+ *    transition-colors duration-150 cursor-pointer"
  *
- * All standard `<div>` props are forwarded via `...rest`.
+ * Secondary level (copied from Settings sub-item):
+ *   "w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px]
+ *    transition-colors duration-150 cursor-pointer border-l-2"
  */
 export function NavRow({
   level = 'primary',
-  lined = false,
   active = false,
   highlighted = false,
   plainActive = false,
@@ -103,36 +73,46 @@ export function NavRow({
   ...rest
 }: NavRowProps) {
   const isPrimary = level === 'primary';
-  const showLine = (active || highlighted) && lined;
+  const showLine = active || highlighted;
+
+  // ── Classes copied verbatim from Settings.tsx ──────────────
+
+  // Base layout — primary row
+  const primaryBase =
+    'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors duration-150 cursor-pointer';
+
+  // Base layout — secondary row
+  const secondaryBase =
+    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2';
+
+  // Primary active/inactive — copied from Settings main header
+  let primaryState: string;
+  if (active) {
+    primaryState = plainActive
+      ? 'text-[var(--vscode-foreground)] font-medium'
+      : 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
+  } else {
+    primaryState = 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+  }
+
+  // Secondary active/inactive — copied from Settings sub-item
+  let secondaryState: string;
+  if (showLine) {
+    secondaryState =
+      'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium';
+  } else {
+    secondaryState =
+      'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+  }
+
+  const cls = isPrimary
+    ? `${primaryBase} ${primaryState}`
+    : `${secondaryBase} ${secondaryState}`;
 
   return (
-    <div
-      {...rest}
-      className={[
-        'flex items-center rounded-md transition-colors duration-150 cursor-pointer',
-        // ── Layout by level ──
-        isPrimary
-          ? 'gap-3 px-3 py-2.5 text-sm'
-          : 'gap-2 pl-4 pr-3 py-1.5 text-[13px]',
-        // ── Left focus line (only when lined) ──
-        lined
-          ? '-ml-px border-l-2 ' + (showLine
-            ? 'border-[var(--vscode-focusBorder)]'
-            : 'border-transparent')
-          : '',
-        // ── State ──
-        active
-          ? plainActive
-            ? 'text-[var(--vscode-foreground)] font-medium'
-            : 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-          : isPrimary
-            ? 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-            : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]',
-        className,
-      ].filter(Boolean).join(' ')}
-    >
+    <div {...rest} className={`${cls} ${className}`}>
       {icon != null && <span className="shrink-0">{icon}</span>}
-      <span className="flex-1 min-w-0 truncate text-left">{children}</span>
+      <span className="flex-1 text-left truncate">{children}</span>
       {expandable && (
         <ChevronRight
           className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
