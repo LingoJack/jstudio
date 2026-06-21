@@ -10,9 +10,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
-import { ListTree } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
-import { NavBranch, NavLeaf } from './ui/NavTree';
+import { NavBranch, NavRow } from './ui/NavTree';
 
 interface HeadingItem {
   id: string;
@@ -248,16 +247,15 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
 
   return (
     <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
-      {/* Header */}
-      <div className="flex items-center gap-1.5 px-3 py-3 shrink-0">
-        <ListTree className="w-4 h-4 text-[var(--vscode-descriptionForeground)]" />
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+      {/* Header — aligned with Settings/DocumentList */}
+      <div className="px-5 mb-5 shrink-0">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
           {t('outline.title')}
-        </h4>
+        </h2>
       </div>
 
       {/* Outline items */}
-      <div className="flex-1 overflow-y-auto px-1.5 pb-3 space-y-0.5">
+      <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
         {headings.length === 0 ? (
           <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
             {t('outline.empty')}
@@ -296,23 +294,18 @@ function renderOutlineTree(
 
     if (item.level === level) {
       result.push(
-        <NavLeaf
+        <NavRow
           key={item.id}
+          level="primary"
           active={item.id === activeId}
           onClick={() => onClick(item)}
-          className={`cursor-pointer rounded-r-md py-1.5 pr-2 pl-3 text-sm leading-snug transition-colors duration-150 truncate ${
-            item.id === activeId
-              ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-              : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-          }`}
           title={item.text}
         >
           {item.text}
-        </NavLeaf>,
+        </NavRow>,
       );
       i++;
     } else if (item.level > level) {
-      // Deeper level → collect all consecutive deeper headings
       const deeperMin = item.level;
       const children: HeadingItem[] = [];
       while (
@@ -325,12 +318,11 @@ function renderOutlineTree(
       }
       const childLevel = Math.min(...children.map((c) => c.level));
       result.push(
-        <NavBranch key={`branch-${level}-${i}`} className="ml-3">
+        <NavBranch key={`branch-${level}-${i}`} className="mt-0.5 mb-1 ml-[18px]">
           {renderOutlineTree(children, childLevel, activeId, onClick)}
         </NavBranch>,
       );
     } else {
-      // Shallower level — shouldn't happen here, skip
       i++;
     }
   }

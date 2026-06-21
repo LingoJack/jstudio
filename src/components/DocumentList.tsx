@@ -10,8 +10,7 @@ import {
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
-import { NavBranch, NavLeaf } from './ui/NavTree';
-import type { FolderMeta } from '../lib/storage';
+import { NavBranch, NavRow } from './ui/NavTree';
 
 // ──────────────────────────────────────────────────────────────────
 // Constants
@@ -421,49 +420,22 @@ export default function DocumentList() {
 
   // ── Render helpers ────────────────────────────────────────
 
-  /** Inner content of a document row (shared by tree + search modes). */
-  const renderDocInner = (doc: (typeof docList)[number]) => {
-    const isRenaming = renamingId === doc.id;
-    if (isRenaming) {
-      return (
-        <input
-          ref={renameInputRef}
-          type="text"
-          value={renameValue}
-          onChange={(e) => setRenameValue(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={commitRename}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitRename();
-            if (e.key === 'Escape') setRenamingId(null);
-          }}
-          className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-          placeholder={t('doclist.renamePlaceholder')}
-        />
-      );
-    }
-    return (
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <FileText className="w-5 h-5 opacity-70 shrink-0" />
-        <span className="flex-1 truncate">
-          {doc.title || t('doclist.untitled')}
-        </span>
-      </div>
-    );
-  };
-
   /**
    * Render a single document row inside the folder tree.
-   * The `NavLeaf` active line replaces the old per-row border-l-2.
+   * Uses NavRow (secondary level) so it matches Settings sub-items.
    */
   const renderDoc = (doc: (typeof docList)[number]) => {
     const isActive = doc.id === activeDocId;
     const isDragging = draggingDocId === doc.id;
+    const isRenaming = renamingId === doc.id;
 
     return (
-      <NavLeaf
+      <NavRow
         key={doc.id}
+        level="secondary"
+        lined
         active={isActive}
+        icon={!isRenaming ? <FileText className="w-4 h-4 opacity-50 shrink-0" /> : undefined}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => {
           if (suppressClick.current) {
@@ -478,39 +450,28 @@ export default function DocumentList() {
           startRename(doc.id, doc.title || '');
         }}
         style={{ opacity: isDragging ? 0.4 : undefined }}
-        className={`group flex items-center gap-2 pl-4 pr-3 py-1.5 text-[13px] rounded-r-md cursor-pointer transition-colors duration-150 ${
-          isActive
-            ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-            : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-descriptionForeground)]'
-        } ${isDragging ? 'cursor-grabbing' : ''}`}
+        className={isDragging ? 'cursor-grabbing' : ''}
       >
-        {renderDocInner(doc)}
-      </NavLeaf>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') setRenamingId(null);
+            }}
+            className="flex-1 min-w-0 h-6 text-[13px] bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+            placeholder={t('doclist.renamePlaceholder')}
+          />
+        ) : (
+          doc.title || t('doclist.untitled')
+        )}
+      </NavRow>
     );
-  };
-
-  /** Inner content of a folder row (shared). */
-  const renderFolderInner = (f: FolderMeta) => {
-    const isRenaming = renamingFolderId === f.id;
-    if (isRenaming) {
-      return (
-        <input
-          ref={folderRenameRef}
-          type="text"
-          value={folderRenameValue}
-          onChange={(e) => setFolderRenameValue(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={commitFolderRename}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitFolderRename();
-            if (e.key === 'Escape') setRenamingFolderId(null);
-          }}
-          className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-          placeholder={t('doclist.folderNamePlaceholder')}
-        />
-      );
-    }
-    return <span className="text-sm truncate flex-1">{f.name}</span>;
   };
 
   /**
@@ -526,11 +487,13 @@ export default function DocumentList() {
     const open = isFolderExpanded(f.id);
     const isDropTarget = dragOverTarget === f.id;
     const isFlashing = flashFolderId === f.id;
+    const isRenaming = renamingFolderId === f.id;
 
     return (
       <div key={f.id}>
         {/* Folder row — also a drop target */}
-        <NavLeaf
+        <NavRow
+          level="primary"
           highlighted={isDropTarget || isFlashing}
           data-drop-target={f.id}
           onClick={() => handleToggleFolder(f.id)}
@@ -539,24 +502,36 @@ export default function DocumentList() {
             e.stopPropagation();
             startFolderRename(f.id, f.name);
           }}
-          className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-r-md cursor-pointer text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+          icon={!isRenaming ? (open
+            ? <FolderOpen className="w-5 h-5 opacity-70 shrink-0" />
+            : <Folder className="w-5 h-5 opacity-70 shrink-0" />
+          ) : undefined}
+          expandable={!isRenaming}
+          expanded={open}
         >
-          {open ? (
-            <FolderOpen className="w-5 h-5 opacity-70 shrink-0" />
+          {isRenaming ? (
+            <input
+              ref={folderRenameRef}
+              type="text"
+              value={folderRenameValue}
+              onChange={(e) => setFolderRenameValue(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={commitFolderRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitFolderRename();
+                if (e.key === 'Escape') setRenamingFolderId(null);
+              }}
+              className="flex-1 min-w-0 h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+              placeholder={t('doclist.folderNamePlaceholder')}
+            />
           ) : (
-            <Folder className="w-5 h-5 opacity-70 shrink-0" />
+            f.name
           )}
-          {renderFolderInner(f)}
-          <ChevronRight
-            className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
-              open ? 'rotate-90' : ''
-            }`}
-          />
-        </NavLeaf>
+        </NavRow>
 
         {/* Children wrapped in NavBranch for continuous guide line */}
         {open && (
-          <NavBranch className="ml-[14px]">
+          <NavBranch className="mt-0.5 mb-1 ml-[18px]">
             {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
             {node.documents.map((doc) => renderDoc(doc))}
           </NavBranch>
@@ -574,40 +549,33 @@ export default function DocumentList() {
         </p>
       );
     }
-    return filteredDocs.map((doc) => {
-      const isActive = doc.id === activeDocId;
-      const isDragging = draggingDocId === doc.id;
-      return (
-        <div
-          key={doc.id}
-          onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-          onClick={(e) => {
-            if (suppressClick.current) {
-              suppressClick.current = false;
-              return;
-            }
-            openDocument(doc.id);
-          }}
-          onContextMenu={(e) => handleContextMenu(e, doc.id)}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            startRename(doc.id, doc.title || '');
-          }}
-          style={{ opacity: isDragging ? 0.4 : undefined }}
-          className={`group flex items-center gap-3 pl-3 pr-2 py-2.5 text-sm rounded-md cursor-pointer transition-colors duration-150 ${
-            isActive
-              ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-              : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
-          } ${isDragging ? 'cursor-grabbing' : ''}`}
-        >
-          {renderDocInner(doc)}
-        </div>
-      );
-    });
+    return filteredDocs.map((doc) => (
+      <NavRow
+        key={doc.id}
+        level="primary"
+        active={doc.id === activeDocId}
+        icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
+        onPointerDown={(e) => onDocPointerDown(e, doc.id)}
+        onClick={(e) => {
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
+          openDocument(doc.id);
+        }}
+        onContextMenu={(e) => handleContextMenu(e, doc.id)}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          startRename(doc.id, doc.title || '');
+        }}
+        className={draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''}
+      >
+        {doc.title || t('doclist.untitled')}
+      </NavRow>
+    ));
   };
 
   // ── Main render ───────────────────────────────────────────
-  const totalCount = docList.length;
   const isRootDropTarget = dragOverTarget === ROOT_DROP_ID;
 
   return (
@@ -684,36 +652,30 @@ export default function DocumentList() {
                 {t('doclist.noMatch')}
               </p>
             ) : (
-              tree.documents.map((doc) => {
-                const isActive = doc.id === activeDocId;
-                const isDragging = draggingDocId === doc.id;
-                return (
-                  <div
-                    key={doc.id}
-                    onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-                    onClick={(e) => {
-                      if (suppressClick.current) {
-                        suppressClick.current = false;
-                        return;
-                      }
-                      openDocument(doc.id);
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, doc.id)}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      startRename(doc.id, doc.title || '');
-                    }}
-                    style={{ opacity: isDragging ? 0.4 : undefined }}
-                    className={`group flex items-center gap-3 pl-3 pr-2 py-2.5 text-sm rounded-md cursor-pointer transition-colors duration-150 ${
-                      isActive
-                        ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-                        : 'hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-sideBar-foreground)]'
-                    } ${isDragging ? 'cursor-grabbing' : ''}`}
-                  >
-                    {renderDocInner(doc)}
-                  </div>
-                );
-              })
+              tree.documents.map((doc) => (
+                <NavRow
+                  key={doc.id}
+                  level="primary"
+                  active={doc.id === activeDocId}
+                  icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
+                  onPointerDown={(e) => onDocPointerDown(e, doc.id)}
+                  onClick={(e) => {
+                    if (suppressClick.current) {
+                      suppressClick.current = false;
+                      return;
+                    }
+                    openDocument(doc.id);
+                  }}
+                  onContextMenu={(e) => handleContextMenu(e, doc.id)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    startRename(doc.id, doc.title || '');
+                  }}
+                  className={draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''}
+                >
+                  {doc.title || t('doclist.untitled')}
+                </NavRow>
+              ))
             )}
           </>
         )}

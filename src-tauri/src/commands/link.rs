@@ -450,7 +450,11 @@ pub fn handle_webpreview_request(request: &Request<Vec<u8>>) -> Response<Cow<'st
     // Rewrite URLs in HTML; pass through everything else.
     let final_body: Vec<u8> = if content_type.contains("text/html") {
         let html = String::from_utf8_lossy(&body_bytes);
-        rewrite_html_urls(&html).into_bytes()
+        let mut html = rewrite_html_urls(&html);
+        // Inject a script that monkey-patches fetch() and XMLHttpRequest
+        // at runtime so dynamically-created requests also route through proxy.
+        inject_proxy_script(&mut html);
+        html.into_bytes()
     } else {
         body_bytes.to_vec()
     };
