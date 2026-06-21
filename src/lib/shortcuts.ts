@@ -183,14 +183,14 @@ export const REFERENCE_SHORTCUTS: { category: string; items: ReferenceShortcut[]
   {
     category: 'shortcut.ref.editorFormatting',
     items: [
-      { labelKey: 'shortcut.ref.bold', binding: 'Mod+B' },
-      { labelKey: 'shortcut.ref.italic', binding: 'Mod+I' },
-      { labelKey: 'shortcut.ref.underline', binding: 'Mod+U' },
-      { labelKey: 'shortcut.ref.strikethrough', binding: 'Mod+Shift+S' },
-      { labelKey: 'shortcut.ref.inlineCode', binding: 'Mod+E' },
-      { labelKey: 'shortcut.ref.undo', binding: 'Mod+Z' },
-      { labelKey: 'shortcut.ref.redo', binding: 'Mod+Shift+Z' },
-      { labelKey: 'shortcut.ref.selectAll', binding: 'Mod+A' },
+      { labelKey: 'shortcut.ref.bold', binding: 'Mod + B' },
+      { labelKey: 'shortcut.ref.italic', binding: 'Mod + I' },
+      { labelKey: 'shortcut.ref.underline', binding: 'Mod + U' },
+      { labelKey: 'shortcut.ref.strikethrough', binding: 'Mod + Shift + S' },
+      { labelKey: 'shortcut.ref.inlineCode', binding: 'Mod + E' },
+      { labelKey: 'shortcut.ref.undo', binding: 'Mod + Z' },
+      { labelKey: 'shortcut.ref.redo', binding: 'Mod + Shift + Z' },
+      { labelKey: 'shortcut.ref.selectAll', binding: 'Mod + A' },
     ],
   },
   {
@@ -331,7 +331,7 @@ export function bindingToDisplay(binding: ShortcutBinding): string {
       // Capitalize first letter for named keys not in map
       return part.charAt(0).toUpperCase() + part.slice(1);
     })
-    .join(isMac ? '' : '+');
+    .join(' ');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -4,13 +4,13 @@ import { ChevronRight } from 'lucide-react';
 // ──────────────────────────────────────────────────────────────────
 // NavBranch / NavRow
 //
-// These components replicate — class-for-class — the hand-written
-// styles originally created in Settings.tsx.  Settings.tsx itself
-// keeps its original `<button>` markup; this file is the *extracted*
-// version that other pages (DocumentList, DocumentOutline) consume.
+// Shared navigation tree primitives used across the app:
+// - `Settings.tsx` — sidebar settings nav (primary + secondary)
+// - `DocumentList.tsx` — folder/document tree (primary + secondary)
+// - `DocumentOutline.tsx` — heading outline (primary + secondary)
 //
-// If you ever change the visual spec, update Settings.tsx first,
-// then mirror the exact classes here.
+// All three consumers share the exact same visual spec via NavRow /
+// NavBranch, so there is a single place to update styles.
 // ──────────────────────────────────────────────────────────────────
 
 interface NavBranchProps extends React.HTMLAttributes<HTMLDivElement> {
