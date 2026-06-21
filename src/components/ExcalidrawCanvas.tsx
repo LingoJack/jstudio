@@ -1,7 +1,7 @@
 /**
  * ExcalidrawCanvas — reusable wrapper around @excalidraw/excalidraw.
  *
- * Used by both the embedded block view (TldrawView → DiagramBlockView) and
+ * Used by both the embedded block view (DiagramBlockView) and
  * the standalone OS window (DiagramWindowApp). Drawing data flows in via
  * `initialSnapshot` (serialized JSON) and out via the debounced `onChange`.
  */

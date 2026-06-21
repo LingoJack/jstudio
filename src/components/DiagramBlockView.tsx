@@ -19,7 +19,7 @@ import { Maximize2, AlignLeft, AlignCenter } from 'lucide-react';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { ExcalidrawCanvas } from './ExcalidrawCanvas';
 import { openDiagramWindow } from '../lib/diagramWindow';
-import type { DiagramNodeAttributes } from '../lib/tldrawExtension';
+import type { DiagramNodeAttributes } from '../lib/diagramExtension';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */

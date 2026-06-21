@@ -1590,6 +1590,8 @@ button {
   position: relative;
   border-radius: 8px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Transparent overlay — only when NOT selected.
@@ -1606,7 +1608,8 @@ button {
 /* HTML / PDF iframe */
 .file-block-preview-frame {
   width: 100%;
-  min-height: 400px;
+  flex: 1;
+  min-height: 200px;
   border: none;
   border-radius: 8px;
   background: #fff;
@@ -1617,6 +1620,9 @@ button {
 .file-block-preview-image-wrap {
   display: flex;
   justify-content: center;
+  align-items: center;
+  flex: 1;
+  overflow: auto;
   padding: 12px;
 }
 
@@ -1630,6 +1636,8 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
+  flex: 1;
+  overflow: auto;
   padding: 12px;
 }
 
@@ -1648,7 +1656,7 @@ button {
 /* DOCX */
 .file-block-preview-docx {
   padding: 16px 20px;
-  max-height: 600px;
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -1671,8 +1679,7 @@ button {
 .file-block-preview-text {
   margin: 0;
   padding: 14px 16px;
-  font-family: Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
-  font-size: 13px;
+  font-family: Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;  font-size: 13px;
   line-height: 1.6;
   color: var(--vscode-editor-foreground);
   white-space: pre-wrap;
@@ -2333,7 +2340,7 @@ button {
 }
 
 /* ============================================
-   Diagram Block (/diagram) — tldraw
+   Diagram Block (/diagram) — excalidraw
    ============================================ */
 
 .diagram-block-wrapper {
@@ -2448,11 +2455,11 @@ button {
 }
 
 /* ============================================
-   tldraw canvas & diagram window styles
+   excalidraw canvas & diagram window styles
    ============================================ */
 
-/* tldraw canvas root: ensure it fills its container */
-.tldraw-canvas-root {
+/* excalidraw canvas root: ensure it fills its container */
+.excalidraw-canvas-root {
   position: absolute;
   inset: 0;
 }

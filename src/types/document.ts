@@ -62,7 +62,7 @@ export interface BlockProperties {
   linkWidth?: number;
   /** Link block: alignment. */
   linkAlign?: 'left' | 'center';
-  /** Diagram block: serialized tldraw snapshot JSON string. */
+  /** Diagram block: serialized excalidraw scene JSON string. */
   diagramSnapshot?: string;
   /** Diagram block: display width (px). Undefined = auto. */
   diagramWidth?: number;

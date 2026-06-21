@@ -26,7 +26,7 @@ import Image from '../lib/imageExtension';
 import { FileExtension } from '../lib/fileExtension';
 import { LinkExtension } from '../lib/linkExtension';
 import { CollapsibleExtension } from '../lib/collapsibleExtension';
-import { TldrawExtension } from '../lib/tldrawExtension';
+import { DiagramExtension } from '../lib/diagramExtension';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -136,7 +136,7 @@ export default function BlockEditor() {
       FileExtension,
       LinkExtension,
       CollapsibleExtension,
-      TldrawExtension,
+      DiagramExtension,
       Link.configure({
         openOnClick: false,
         autolink: true,

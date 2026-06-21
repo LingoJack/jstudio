@@ -19,7 +19,7 @@
  *   /table             → editable table
  *   /divider           → horizontal rule
  *   /collapse          → collapsible block
- *   /diagram           → tldraw diagram block
+ *   /diagram           → excalidraw diagram block
  */
 
 import { Extension } from '@tiptap/core';
@@ -191,7 +191,7 @@ export const slashCommands: SlashCommandItem[] = [
     title: 'Diagram',
     description: '绘制架构图、流程图、需求图',
     icon: '▦',
-    aliases: ['diagram', 'draw', 'tldraw', '画板', '架构图', '流程图', '需求图', '白板'],
+    aliases: ['diagram', 'draw', 'excalidraw', '画板', '架构图', '流程图', '需求图', '白板'],
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).setDiagram().run(),
   },
