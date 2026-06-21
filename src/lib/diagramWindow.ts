@@ -9,7 +9,7 @@
  * 来区分渲染逻辑（见 main.tsx → DiagramWindowApp）。
  */
 
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { WebviewWindow, getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, emit, type UnlistenFn } from '@tauri-apps/api/event';
@@ -116,7 +116,9 @@ export async function openDiagramWindow(
  * Retries a few times in case the data isn't committed yet.
  */
 export async function fetchDiagramData(): Promise<DiagramPayload | null> {
-  const label = getCurrentWindow().label;
+  // Use getCurrentWebviewWindow to match the label used in `new WebviewWindow(label, ...)`.
+  // `getCurrentWindow().label` may differ from the webview label in Tauri v2.
+  const label = getCurrentWebviewWindow().label;
   console.log('[DiagramWindow] Fetching data for label:', label);
 
   for (let i = 0; i < 20; i++) {
@@ -143,7 +145,7 @@ export async function fetchDiagramData(): Promise<DiagramPayload | null> {
  * Called from within the diagram window.
  */
 export async function sendDiagramUpdate(snapshot: string): Promise<void> {
-  const label = getCurrentWindow().label;
+  const label = getCurrentWebviewWindow().label;
   const eventName = updateEventName(label);
   try {
     await emit(eventName, { snapshot } satisfies DiagramPayload);

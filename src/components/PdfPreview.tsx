@@ -1,15 +1,14 @@
 /**
  * PdfPreview — 基于 react-pdf (pdf.js) 的 PDF 预览组件。
  *
- * 替代之前裸 `<iframe>` 方案，提供：
- *   - 自定义 VSCode 风格工具栏（翻页 / 缩放 / 适配宽度）
- *   - Ctrl+滚轮缩放、双击适配宽度
- *   - 连续竖向滚动浏览所有页面
- *   - 加载 / 错误状态
+ * 单页模式：一次只渲染当前页，通过工具栏 / 键盘翻页。
+ * 页面在容器内滚动查看，不会把所有页面平铺撑开。
  *
- * 用法：
- *   <PdfPreview src={dataUrl} />
- *   <PdfPreview src={dataUrl} fillContainer />  // 撑满父容器（预览窗口模式）
+ * 交互：
+ *   - 工具栏：上/下翻页、缩放、适配宽度
+ *   - Ctrl/⌘ + 滚轮：缩放
+ *   - 双击：适配宽度
+ *   - 键盘 ← →：翻页（容器聚焦时）
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -37,6 +36,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 4;
 const SCALE_STEP = 0.15;
+/** Letter 纸标准宽度（pt），用于计算适配宽度时的 scale */
+const PDF_BASE_WIDTH = 612;
 
 // ── Component ────────────────────────────────────────────
 
@@ -58,34 +59,65 @@ export default function PdfPreview({
   fillContainer = false,
 }: PdfPreviewProps) {
   const [numPages, setNumPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
-  const [pageWidth, setPageWidth] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Document load callbacks ────────────────────────────
   const onLoadSuccess: OnDocumentLoadSuccess = useCallback((pdf) => {
     setNumPages(pdf.numPages);
+    setCurrentPage(1);
     setLoadError(null);
     // 初始适配宽度
-    fitWidth();
+    requestAnimationFrame(fitWidth);
   }, []);
 
   const onLoadError = useCallback((err: Error) => {
     setLoadError(err.message || '无法加载 PDF');
   }, []);
 
-  // ── 适配宽度：计算使首页适配容器宽度的 scale ────────────
+  // ── 适配宽度：计算使页面适配容器宽度的 scale ────────────
   const fitWidth = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
     const availW = container.clientWidth - 24; // 减去 padding
     if (availW > 0) {
-      setScale(availW / 612); // 612pt = Letter 纸标准宽度
+      setScale(availW / PDF_BASE_WIDTH);
     }
   }, []);
+
+  // ── 翻页 ───────────────────────────────────────────────
+  const goToPage = useCallback(
+    (page: number) => {
+      setCurrentPage((prev) => {
+        const next = Math.min(Math.max(page, 1), numPages || 1);
+        if (next !== prev && containerRef.current) {
+          containerRef.current.scrollTop = 0;
+        }
+        return next;
+      });
+    },
+    [numPages],
+  );
+
+  const prevPage = useCallback(() => goToPage(currentPage - 1), [currentPage, goToPage]);
+  const nextPage = useCallback(() => goToPage(currentPage + 1), [currentPage, goToPage]);
+
+  // ── 键盘翻页 ───────────────────────────────────────────
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        prevPage();
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        nextPage();
+      }
+    },
+    [prevPage, nextPage],
+  );
 
   // ── 缩放控制 ───────────────────────────────────────────
   const zoomIn = useCallback(() => {
@@ -94,11 +126,8 @@ export default function PdfPreview({
   const zoomOut = useCallback(() => {
     setScale((s) => Math.max(s - SCALE_STEP, MIN_SCALE));
   }, []);
-  const resetZoom = useCallback(() => {
-    setScale(1);
-  }, []);
 
-  // ── Ctrl+滚轮缩放 ──────────────────────────────────────
+  // ── Ctrl+滚轮缩放（普通滚动翻页） ──────────────────────
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
@@ -135,19 +164,21 @@ export default function PdfPreview({
           <button
             type="button"
             className="pdf-preview-btn"
-            onClick={() => scrollPage(-1)}
+            onClick={prevPage}
             title="上一页"
+            disabled={currentPage <= 1}
           >
             <ChevronLeft size={15} />
           </button>
           <span className="pdf-preview-page-info">
-            {numPages > 0 ? `${numPages} 页` : '—'}
+            {numPages > 0 ? `${currentPage} / ${numPages}` : '—'}
           </span>
           <button
             type="button"
             className="pdf-preview-btn"
-            onClick={() => scrollPage(1)}
+            onClick={nextPage}
             title="下一页"
+            disabled={numPages > 0 && currentPage >= numPages}
           >
             <ChevronRight size={15} />
           </button>
@@ -186,12 +217,14 @@ export default function PdfPreview({
         </div>
       </div>
 
-      {/* ── Pages scroll area ── */}
+      {/* ── Single page scroll area ── */}
       <div
         ref={containerRef}
         className="pdf-preview-pages"
         onWheel={onWheel}
+        onKeyDown={onKeyDown}
         onDoubleClick={fitWidth}
+        tabIndex={0}
       >
         <Document
           file={src}
@@ -210,51 +243,22 @@ export default function PdfPreview({
             </div>
           }
         >
-          {Array.from({ length: numPages }, (_, i) => (
-            <div key={i} className="pdf-preview-page-wrap" data-page={i + 1}>
-              <Page
-                pageNumber={i + 1}
-                scale={scale}
-                renderTextLayer
-                renderAnnotationLayer
-                loading={
-                  <div className="pdf-preview-page-loading">
-                    <Loader2 size={18} className="animate-spin" />
-                  </div>
-                }
-              />
-            </div>
-          ))}
+          <div className="pdf-preview-page-wrap">
+            <Page
+              key={currentPage}
+              pageNumber={currentPage}
+              scale={scale}
+              renderTextLayer
+              renderAnnotationLayer
+              loading={
+                <div className="pdf-preview-page-loading">
+                  <Loader2 size={18} className="animate-spin" />
+                </div>
+              }
+            />
+          </div>
         </Document>
       </div>
     </div>
   );
-
-  // ── 翻页滚动 ───────────────────────────────────────────
-  function scrollPage(direction: 1 | -1) {
-    const container = scrollRef.current ?? containerRef.current;
-    if (!container) return;
-    const pages = container.querySelectorAll('.pdf-preview-page-wrap');
-    if (!pages.length) return;
-
-    const scrollTop = container.scrollTop;
-    const containerH = container.clientHeight;
-
-    // 找当前可见页
-    let currentPage = 0;
-    for (let i = 0; i < pages.length; i++) {
-      const top = (pages[i] as HTMLElement).offsetTop;
-      if (top >= scrollTop - containerH * 0.3) {
-        currentPage = i;
-        break;
-      }
-      currentPage = i;
-    }
-
-    const target = Math.min(Math.max(currentPage + direction, 0), pages.length - 1);
-    const targetEl = pages[target] as HTMLElement;
-    if (targetEl) {
-      container.scrollTo({ top: targetEl.offsetTop - 8, behavior: 'smooth' });
-    }
-  }
 }
