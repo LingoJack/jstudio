@@ -478,7 +478,7 @@ function PaletteRow({
   const baseClass = `flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-sm rounded-md transition-colors duration-75 ${
     isSelected
       ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-      : 'text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+      : 'text-[var(--vscode-foreground)]'
   }`;
   const descClass = isSelected ? 'opacity-70' : 'text-[var(--vscode-descriptionForeground)]';
 

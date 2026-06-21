@@ -1,30 +1,27 @@
 /**
  * TldrawView — React NodeView for the diagram (tldraw) block.
  *
- * Two visual states:
- *   1. Empty (no snapshot): a dashed-border placeholder prompting the user to
- *      start drawing. Clicking it (or pressing the button) opens the full-screen
- *      modal with a fresh canvas.
- *   2. Loaded: an embedded mini tldraw canvas (300px tall) with a floating
- *      toolbar — align, maximize, and resize handle.
+ * Always shows an embedded mini tldraw canvas (even when empty). The
+ * floating toolbar offers alignment and a "maximize" button that opens
+ * the diagram in a new independent OS window for immersive editing.
  *
- * The full-screen modal (TldrawEditorModal) is the primary editing surface.
- * The embedded canvas is always interactive for quick tweaks.
+ * Data flow:
+ *   - Embedded canvas edits → updateAttributes({ snapshot })
+ *   - New window edits → Tauri event → updateAttributes({ snapshot })
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NodeViewProps,
   NodeViewWrapper,
-  type Editor,
 } from '@tiptap/react';
-import { Maximize2, PenTool } from 'lucide-react';
+import { Maximize2 } from 'lucide-react';
 
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import { TldrawCanvas } from './TldrawCanvas';
-import { TldrawEditorModal } from './TldrawEditorModal';
+import { openDiagramWindow } from '../lib/diagramWindow';
 import type { DiagramNodeAttributes } from '../lib/tldrawExtension';
 
 /* ------------------------------------------------------------------ */
@@ -35,46 +32,35 @@ export default function TldrawView({
   node,
   selected,
   updateAttributes,
-  editor,
 }: NodeViewProps) {
   const { snapshot, width, align } = node.attrs as DiagramNodeAttributes;
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const effectiveAlign = (align ?? 'center') as 'left' | 'center';
 
   // Toolbar buttons: align-left, align-center, maximize
   const toolbarBtnCount = 3;
   const { activeIndex, registerButton } = useNodeToolbarNav(
     selected,
-    (editor as Editor | null) ?? null,
+    null,
     toolbarBtnCount,
   );
-
-  const effectiveAlign = (align ?? 'center') as 'left' | 'center';
-  const hasSnapshot = Boolean(snapshot);
 
   /* -------------------------------------------------------------- */
   /* Resize handle                                                   */
   /* -------------------------------------------------------------- */
 
-  const figureRefInternal = useRef<HTMLDivElement>(null);
-
-  const { ref: figureRef, displayWidth, onResizeStart } =
-    useNodeResize<HTMLDivElement>({
-      width: width ?? undefined,
-      updateAttributes,
-      minWidth: 300,
-      fallbackWidth: 520,
-      maxWidth: () => {
-        const el = figureRefInternal.current;
-        const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
-        return (editorSurface?.clientWidth ?? window.innerWidth) - 24;
-      },
-    });
-
-  const setFigureRef = useCallback((el: HTMLDivElement | null) => {
-    (figureRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    figureRefInternal.current = el;
-  }, []);
+  const figureRef = useRef<HTMLDivElement>(null);
+  const { displayWidth, onResizeStart } = useNodeResize<HTMLDivElement>({
+    width: width ?? undefined,
+    updateAttributes,
+    minWidth: 300,
+    fallbackWidth: 520,
+    maxWidth: () => {
+      const el = figureRef.current;
+      const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
+      return (editorSurface?.clientWidth ?? window.innerWidth) - 24;
+    },
+  });
 
   const figureStyle: React.CSSProperties = {};
   if (displayWidth) {
@@ -82,10 +68,9 @@ export default function TldrawView({
   }
 
   /* -------------------------------------------------------------- */
-  /* Snapshot change handlers                                        */
+  /* Embedded canvas change handler                                  */
   /* -------------------------------------------------------------- */
 
-  // Embedded canvas → update node attributes (debounced inside TldrawCanvas).
   const handleEmbeddedChange = useCallback(
     (json: string) => {
       updateAttributes({ snapshot: json });
@@ -93,17 +78,45 @@ export default function TldrawView({
     [updateAttributes],
   );
 
-  // Modal save → update node attributes with latest snapshot.
-  const handleModalSave = useCallback(
-    (json: string) => {
-      updateAttributes({ snapshot: json });
-    },
-    [updateAttributes],
-  );
+  /* -------------------------------------------------------------- */
+  /* Open new window for full-screen editing                         */
+  /* -------------------------------------------------------------- */
+
+  const unlistenRef = useRef<(() => void) | null>(null);
+  const [windowOpen, setWindowOpen] = useState(false);
+
+  const handleMaximize = useCallback(() => {
+    if (windowOpen) return;
+    setWindowOpen(true);
+
+    const isDark = document.documentElement.classList.contains('dark');
+
+    openDiagramWindow(
+      snapshot ?? '',
+      (updatedSnapshot: string) => {
+        updateAttributes({ snapshot: updatedSnapshot });
+      },
+      isDark,
+    )
+      .then((unlisten) => {
+        unlistenRef.current = unlisten;
+      })
+      .catch((e) => {
+        console.error('[TldrawView] Failed to open diagram window:', e);
+        setWindowOpen(false);
+      });
+  }, [snapshot, updateAttributes, windowOpen]);
+
+  // Cleanup listener on unmount.
+  useEffect(() => {
+    return () => {
+      unlistenRef.current?.();
+    };
+  }, []);
 
   /* -------------------------------------------------------------- */
   /* Render                                                          */
-  /* --------------------------------------------------  ------------- */
+  /* ---------------------------------------------------------------- */
 
   return (
     <NodeViewWrapper
@@ -112,99 +125,74 @@ export default function TldrawView({
       as="div"
     >
       <div className="diagram-block-container">
-        {/* Empty state — placeholder */}
-        {!hasSnapshot ? (
-          <div
-            className="diagram-block-placeholder"
-            contentEditable={false}
-            onClick={() => setIsModalOpen(true)}
-          >
-            <PenTool size={24} className="diagram-block-placeholder-icon" />
-            <span className="diagram-block-placeholder-text">
-              点击开始绘图
-            </span>
-            <span className="diagram-block-placeholder-hint">
-              架构图 · 流程图 · 需求图
-            </span>
-          </div>
-        ) : (
-          /* Loaded state — embedded canvas */
-          <div
-            ref={setFigureRef}
-            className={`diagram-block-figure ${selected ? 'is-selected' : ''}`}
-            style={figureStyle}
-          >
-            {/* Floating toolbar */}
-            {selected && (
-              <div className="diagram-block-toolbar" contentEditable={false}>
-                <button
-                  type="button"
-                  ref={registerButton(0)}
-                  className={`diagram-block-toolbar-btn ${
-                    effectiveAlign === 'left' ? 'is-active' : ''
-                  } ${activeIndex === 0 ? 'is-focused' : ''}`}
-                  onClick={() => updateAttributes({ align: 'left' })}
-                  title="左对齐"
-                >
-                  <AlignLeftIcon />
-                </button>
-                <button
-                  type="button"
-                  ref={registerButton(1)}
-                  className={`diagram-block-toolbar-btn ${
-                    effectiveAlign === 'center' ? 'is-active' : ''
-                  } ${activeIndex === 1 ? 'is-focused' : ''}`}
-                  onClick={() => updateAttributes({ align: 'center' })}
-                  title="居中对齐"
-                >
-                  <AlignCenterIcon />
-                </button>
-                <span className="diagram-block-toolbar-divider" />
-                <button
-                  type="button"
-                  ref={registerButton(2)}
-                  className={`diagram-block-toolbar-btn ${
-                    activeIndex === 2 ? 'is-focused' : ''
-                  }`}
-                  onClick={() => setIsModalOpen(true)}
-                  title="放大编辑"
-                >
-                  <Maximize2 size={15} />
-                </button>
-              </div>
-            )}
-
-            {/* Embedded tldraw canvas — always interactive */}
-            <div
-              className="diagram-block-canvas"
-              contentEditable={false}
-              style={{ height: 300 }}
-            >
-              <TldrawCanvas
-                initialSnapshot={snapshot}
-                onChange={handleEmbeddedChange}
-              />
+        <div
+          ref={figureRef}
+          className={`diagram-block-figure ${selected ? 'is-selected' : ''}`}
+          style={figureStyle}
+        >
+          {/* Floating toolbar */}
+          {selected && (
+            <div className="diagram-block-toolbar" contentEditable={false}>
+              <button
+                type="button"
+                ref={registerButton(0)}
+                className={`diagram-block-toolbar-btn ${
+                  effectiveAlign === 'left' ? 'is-active' : ''
+                } ${activeIndex === 0 ? 'is-focused' : ''}`}
+                onClick={() => updateAttributes({ align: 'left' })}
+                title="左对齐"
+              >
+                <AlignLeftIcon />
+              </button>
+              <button
+                type="button"
+                ref={registerButton(1)}
+                className={`diagram-block-toolbar-btn ${
+                  effectiveAlign === 'center' ? 'is-active' : ''
+                } ${activeIndex === 1 ? 'is-focused' : ''}`}
+                onClick={() => updateAttributes({ align: 'center' })}
+                title="居中对齐"
+              >
+                <AlignCenterIcon />
+              </button>
+              <span className="diagram-block-toolbar-divider" />
+              <button
+                type="button"
+                ref={registerButton(2)}
+                className={`diagram-block-toolbar-btn ${
+                  activeIndex === 2 ? 'is-focused' : ''
+                }`}
+                onClick={handleMaximize}
+                title="在新窗口编辑"
+                disabled={windowOpen}
+              >
+                <Maximize2 size={15} />
+              </button>
             </div>
+          )}
 
-            {/* Resize handle */}
-            {selected && (
-              <div
-                className="diagram-block-resize-handle"
-                onPointerDown={onResizeStart}
-                contentEditable={false}
-              />
-            )}
+          {/* Embedded tldraw canvas — always interactive */}
+          <div
+            className="diagram-block-canvas"
+            contentEditable={false}
+            style={{ height: 300 }}
+          >
+            <TldrawCanvas
+              initialSnapshot={snapshot ?? ''}
+              onChange={handleEmbeddedChange}
+            />
           </div>
-        )}
-      </div>
 
-      {/* Full-screen modal editor */}
-      <TldrawEditorModal
-        open={isModalOpen}
-        initialSnapshot={snapshot}
-        onSave={handleModalSave}
-        onClose={() => setIsModalOpen(false)}
-      />
+          {/* Resize handle */}
+          {selected && (
+            <div
+              className="diagram-block-resize-handle"
+              onPointerDown={onResizeStart}
+              contentEditable={false}
+            />
+          )}
+        </div>
+      </div>
     </NodeViewWrapper>
   );
 }

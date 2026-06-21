@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import PreviewWindowApp from './components/PreviewWindowApp';
+import DiagramWindowApp from './components/DiagramWindowApp';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';
@@ -20,15 +21,23 @@ window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
 });
 
-// Detect if this is a preview window via URL query param.
-// Preview windows render PreviewWindowApp instead of the main App.
+// Detect if this is a preview/diagram window via URL query param.
+// These windows render their own root component instead of the main App.
 const params = new URLSearchParams(window.location.search);
-const isPreviewWindow = params.get('window') === 'preview';
+const windowType = params.get('window');
+const isPreviewWindow = windowType === 'preview';
+const isDiagramWindow = windowType === 'diagram';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      {isPreviewWindow ? <PreviewWindowApp /> : <App />}
+      {isPreviewWindow ? (
+        <PreviewWindowApp />
+      ) : isDiagramWindow ? (
+        <DiagramWindowApp />
+      ) : (
+        <App />
+      )}
     </ErrorBoundary>
   </StrictMode>,
 );

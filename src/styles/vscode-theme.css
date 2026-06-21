@@ -2355,54 +2355,15 @@ button {
 
 .diagram-block-container {
   position: relative;
-  display: inline-block;
+  display: block;
+  width: 100%;
   max-width: 100%;
 }
 
-/* ─── Placeholder (empty state) ─── */
-
-.diagram-block-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 120px;
-  padding: 24px;
-  border: 2px dashed var(--vscode-widget-border, #454545);
-  border-radius: 10px;
-  background: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.08));
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.diagram-block-placeholder:hover {
-  border-color: var(--vscode-focusBorder, #007fd4);
-  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
-}
-
-.diagram-block-placeholder-icon {
-  color: var(--vscode-descriptionForeground, #9d9d9d);
-  margin-bottom: 4px;
-}
-
-.diagram-block-placeholder-text {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--vscode-foreground);
-}
-
-.diagram-block-placeholder-hint {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground, #9d9d9d);
-}
-
-/* ─── Loaded figure ─── */
+/* ─── Figure (canvas container) ─── */
 
 .diagram-block-figure {
   position: relative;
-  display: inline-block;
   border-radius: 8px;
   border: 2px solid var(--vscode-widget-border);
   overflow: hidden;
@@ -2415,6 +2376,7 @@ button {
 
 .diagram-block-canvas {
   width: 100%;
+  min-width: 300px;
   overflow: hidden;
   background: var(--vscode-editor-background, #ffffff);
 }
@@ -2488,76 +2450,49 @@ button {
 }
 
 /* ============================================
-   tldraw Full-screen Modal Editor
+   tldraw canvas & diagram window styles
    ============================================ */
-
-.tldraw-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(2px);
-}
-
-.tldraw-modal-container {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  margin: 24px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--vscode-editor-background, #1e1e1e);
-  border: 1px solid var(--vscode-widget-border, #454545);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-.tldraw-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  background: var(--vscode-editorWidget-background, #252526);
-  border-bottom: 1px solid var(--vscode-widget-border, #454545);
-  flex-shrink: 0;
-}
-
-.tldraw-modal-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
-}
-
-.tldraw-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--vscode-foreground);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-
-.tldraw-modal-close:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
-}
-
-.tldraw-modal-canvas {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
 
 /* tldraw canvas root: ensure it fills its container */
 .tldraw-canvas-root {
   position: absolute;
   inset: 0;
+}
+
+/* Diagram window (new OS window) loading & error states */
+.diagram-window-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 16px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px;
+}
+
+.diagram-window-loading .spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--vscode-widget-border, #454545);
+  border-top-color: var(--vscode-focusBorder, #007fd4);
+  border-radius: 50%;
+  animation: diagram-spin 0.8s linear infinite;
+}
+
+@keyframes diagram-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.diagram-window-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--vscode-errorForeground, #f48771);
+  font-size: 14px;
 }
 
 
