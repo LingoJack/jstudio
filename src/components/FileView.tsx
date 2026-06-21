@@ -43,6 +43,7 @@ import {
 import { docxToHtml } from '../lib/docxPreview';
 import { bytesToDataUrl, genStoredName } from '../lib/upload';
 import { useNodeResize } from '../hooks/useNodeResize';
+import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { FileNodeAttributes } from '../lib/fileExtension';
@@ -59,7 +60,7 @@ export default function FileView({
   updateAttributes,
   editor,
 }: NodeViewProps) {
-  const { src, fileName, fileSize, fileType, displayMode, width, height, align } =
+  const { src, fileName, fileSize, fileType, displayMode, width, widthPct, height, align } =
     node.attrs as FileNodeAttributes;
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
@@ -143,6 +144,7 @@ export default function FileView({
         fileType: mime,
         displayMode: autoModeFinal,
         width: null,
+        widthPct: null,
       });
     } catch {
       // silently ignore
@@ -180,12 +182,27 @@ export default function FileView({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Track editor width for pct ↔ px conversion.
+  const editorWidth = useEditorWidth();
+
+  // Lazy migration: if legacy pixel `width` exists but `widthPct` is null,
+  // compute the percentage from the current editor width and persist it.
+  useEffect(() => {
+    if (width != null && widthPct == null && editorWidth > 0) {
+      const pct = Math.min(100, Math.max(1, Math.round((width / editorWidth) * 100)));
+      updateAttributes({ widthPct: pct, width: null });
+    }
+  }, [width, widthPct, editorWidth, updateAttributes]);
+
+  // Compute the pixel width from widthPct (preferred) or fall back to legacy px.
+  const widthPx = widthPct != null ? Math.round((widthPct * editorWidth) / 100) : width;
+
   // Separate ref for reading DOM in maxWidth (before hook call).
   const figureRefInternal = useRef<HTMLDivElement>(null);
 
   const { ref: figureRef, displayWidth, displayHeight, onResizeStart } =
     useNodeResize<HTMLDivElement>({
-      width,
+      width: widthPx,
       // Only track height in preview mode — card mode height is content-driven.
       height: isPreviewMode ? height : undefined,
       updateAttributes,
@@ -197,6 +214,17 @@ export default function FileView({
         const el = figureRefInternal.current;
         const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
         return (editorSurface?.clientWidth ?? window.innerWidth) - 24;
+      },
+      onCommit: (finalWidth, finalHeight) => {
+        const pct =
+          editorWidth > 0
+            ? Math.min(100, Math.max(1, Math.round((finalWidth / editorWidth) * 100)))
+            : 50;
+        const attrs: Record<string, number | null> = { widthPct: pct, width: null };
+        if (isPreviewMode && finalHeight !== null) {
+          attrs.height = finalHeight;
+        }
+        return attrs;
       },
     });
 

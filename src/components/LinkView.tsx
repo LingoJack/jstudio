@@ -11,7 +11,7 @@
  * state without iframe/CORS/proxy limitations.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NodeViewProps,
   NodeViewWrapper,
@@ -28,6 +28,7 @@ import {
 
 import { storage, type LinkMetadata } from '../lib/storage';
 import { useNodeResize } from '../hooks/useNodeResize';
+import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import type { LinkNodeAttributes } from '../lib/linkExtension';
@@ -72,6 +73,7 @@ export default function LinkView({
     ogImage,
     siteName,
     width,
+    widthPct,
     align,
   } = node.attrs as LinkNodeAttributes;
 
@@ -140,11 +142,25 @@ export default function LinkView({
   /* Resize handle                                                   */
   /* -------------------------------------------------------------- */
 
+  const editorWidth = useEditorWidth();
+
+  // Lazy migration: if legacy pixel `width` exists but `widthPct` is null,
+  // compute the percentage from the current editor width and persist it.
+  useEffect(() => {
+    if (width != null && widthPct == null && editorWidth > 0) {
+      const pct = Math.min(100, Math.max(1, Math.round((width / editorWidth) * 100)));
+      updateAttributes({ widthPct: pct, width: null });
+    }
+  }, [width, widthPct, editorWidth, updateAttributes]);
+
+  // Compute the pixel width from widthPct (preferred) or fall back to legacy px.
+  const widthPx = widthPct != null ? Math.round((widthPct * editorWidth) / 100) : width;
+
   const figureRefInternal = useRef<HTMLDivElement>(null);
 
   const { ref: figureRef, displayWidth, onResizeStart } =
     useNodeResize<HTMLDivElement>({
-      width,
+      width: widthPx,
       updateAttributes,
       minWidth: 240,
       fallbackWidth: 480,
@@ -152,6 +168,13 @@ export default function LinkView({
         const el = figureRefInternal.current;
         const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
         return (editorSurface?.clientWidth ?? window.innerWidth) - 24;
+      },
+      onCommit: (finalWidth) => {
+        const pct =
+          editorWidth > 0
+            ? Math.min(100, Math.max(1, Math.round((finalWidth / editorWidth) * 100)))
+            : 50;
+        return { widthPct: pct, width: null };
       },
     });
 

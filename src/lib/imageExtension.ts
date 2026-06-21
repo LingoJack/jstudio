@@ -15,7 +15,10 @@ export interface ImageNodeAttributes {
   src: string;
   alt?: string | null;
   title?: string | null;
+  /** Legacy pixel width (kept for backward-compat migration). */
   width?: number | null;
+  /** Width as a percentage of the editor surface width (0-100). Preferred. */
+  widthPct?: number | null;
   height?: number | null;
   align?: 'left' | 'center' | null;
 }
@@ -42,6 +45,17 @@ export const ImageExtension = Image.extend({
         renderHTML: (attributes) => {
           if (!attributes.width) return {};
           return { width: attributes.width };
+        },
+      },
+      widthPct: {
+        default: null,
+        parseHTML: (element) => {
+          const v = element.getAttribute('data-width-pct');
+          return v ? Number(v) : null;
+        },
+        renderHTML: (attributes) => {
+          if (attributes.widthPct == null) return {};
+          return { 'data-width-pct': attributes.widthPct };
         },
       },
       height: {

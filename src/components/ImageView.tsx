@@ -9,13 +9,14 @@
  *      (bottom-right corner) appear.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react';
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
 import { bytesToDataUrl, genStoredName } from '../lib/upload';
 import { useNodeResize } from '../hooks/useNodeResize';
+import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { UploadIcon, AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 
@@ -23,13 +24,16 @@ interface ImageNodeAttrs {
   src: string;
   alt: string | null;
   title: string | null;
+  /** Legacy pixel width (kept for backward-compat migration). */
   width: number | null;
+  /** Width as a percentage of the editor surface width (0-100). Preferred. */
+  widthPct: number | null;
   height: number | null;
   align: 'left' | 'center';
 }
 
 export default function ImageView({ node, selected, updateAttributes, editor }: NodeViewProps) {
-  const { src, alt, title, width, height, align } = node.attrs as ImageNodeAttrs;
+  const { src, alt, title, width, widthPct, height, align } = node.attrs as ImageNodeAttrs;
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
   const toolbarBtnCount = 2; // align-left, align-center
@@ -76,22 +80,44 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
   // Resize: drag the bottom-right handle (via shared useNodeResize hook)
   // -----------------------------------------------------------------------
 
+  const editorWidth = useEditorWidth();
+
+  // Lazy migration: if legacy pixel `width` exists but `widthPct` is null,
+  // compute the percentage from the current editor width and persist it.
+  useEffect(() => {
+    if (width != null && widthPct == null && editorWidth > 0) {
+      const pct = Math.min(100, Math.max(1, Math.round((width / editorWidth) * 100)));
+      updateAttributes({ widthPct: pct, width: null });
+    }
+  }, [width, widthPct, editorWidth, updateAttributes]);
+
+  // Compute the pixel width from widthPct (preferred) or fall back to legacy px.
+  const widthPx = widthPct != null ? Math.round((widthPct * editorWidth) / 100) : width;
+
   // Read natural aspect ratio at commit time so we can persist height too.
   const imgElRef = useRef<HTMLImageElement | null>(null);
 
   const { ref: resizeRef, displayWidth, onResizeStart } =
     useNodeResize<HTMLImageElement>({
-      width,
+      width: widthPx,
       updateAttributes,
       minWidth: 80,
       fallbackWidth: 300,
+      maxWidth: editorWidth,
       onCommit: (finalWidth, _finalHeight) => {
+        const pct =
+          editorWidth > 0
+            ? Math.min(100, Math.max(1, Math.round((finalWidth / editorWidth) * 100)))
+            : 50;
         const img = imgElRef.current;
         const ratio =
           img && img.naturalHeight && img.naturalWidth
             ? img.naturalHeight / img.naturalWidth
             : 0;
-        const newAttrs: { width: number; height?: number } = { width: finalWidth };
+        const newAttrs: { widthPct: number; width: null; height?: number } = {
+          widthPct: pct,
+          width: null,
+        };
         if (ratio > 0) {
           newAttrs.height = Math.round(finalWidth * ratio);
         }

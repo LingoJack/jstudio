@@ -21,6 +21,7 @@ import {
 import { Maximize2 } from 'lucide-react';
 
 import { useNodeResize } from '../hooks/useNodeResize';
+import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { AlignLeftIcon, AlignCenterIcon } from './shared/icons';
 import { ExcalidrawCanvas } from './ExcalidrawCanvas';
@@ -37,7 +38,7 @@ export default function DiagramBlockView({
   updateAttributes,
   editor,
 }: NodeViewProps) {
-  const { snapshot, width, height, align } =
+  const { snapshot, width, widthPct, height, align } =
     node.attrs as DiagramNodeAttributes;
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
@@ -67,11 +68,25 @@ export default function DiagramBlockView({
   /* 2D resize (width + height) — same as FileView                   */
   /* -------------------------------------------------------------- */
 
+  const editorWidth = useEditorWidth();
+
+  // Lazy migration: if legacy pixel `width` exists but `widthPct` is null,
+  // compute the percentage from the current editor width and persist it.
+  useEffect(() => {
+    if (width != null && widthPct == null && editorWidth > 0) {
+      const pct = Math.min(100, Math.max(1, Math.round((width / editorWidth) * 100)));
+      updateAttributes({ widthPct: pct, width: null });
+    }
+  }, [width, widthPct, editorWidth, updateAttributes]);
+
+  // Compute the pixel width from widthPct (preferred) or fall back to legacy px.
+  const widthPx = widthPct != null ? Math.round((widthPct * editorWidth) / 100) : width;
+
   const figureRefInternal = useRef<HTMLDivElement>(null);
 
   const { ref: figureRef, displayWidth, displayHeight, onResizeStart } =
     useNodeResize<HTMLDivElement>({
-      width,
+      width: widthPx,
       height,
       updateAttributes,
       minWidth: 300,
@@ -82,6 +97,17 @@ export default function DiagramBlockView({
         const el = figureRefInternal.current;
         const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
         return (editorSurface?.clientWidth ?? window.innerWidth) - 24;
+      },
+      onCommit: (finalWidth, finalHeight) => {
+        const pct =
+          editorWidth > 0
+            ? Math.min(100, Math.max(1, Math.round((finalWidth / editorWidth) * 100)))
+            : 50;
+        const attrs: Record<string, number | null> = { widthPct: pct, width: null };
+        if (finalHeight !== null) {
+          attrs.height = finalHeight;
+        }
+        return attrs;
       },
     });
 

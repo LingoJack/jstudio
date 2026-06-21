@@ -29,7 +29,10 @@ export interface LinkNodeAttributes {
   ogImage: string;
   siteName: string;
   displayMode: 'card' | 'preview';
+  /** Legacy pixel width (kept for backward-compat migration). */
   width: number | null;
+  /** Width as a percentage of the editor surface width (0-100). Preferred. */
+  widthPct?: number | null;
   align: 'left' | 'center';
 }
 
@@ -120,6 +123,17 @@ export const LinkExtension = Node.create({
         renderHTML: (attrs) => {
           if (!attrs.width) return {};
           return { 'data-width': attrs.width };
+        },
+      },
+      widthPct: {
+        default: null,
+        parseHTML: (el) => {
+          const v = el.getAttribute('data-width-pct');
+          return v ? Number(v) : null;
+        },
+        renderHTML: (attrs) => {
+          if (attrs.widthPct == null) return {};
+          return { 'data-width-pct': attrs.widthPct };
         },
       },
       align: {

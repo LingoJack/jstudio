@@ -7,23 +7,33 @@
  *   2. Two-dimensional: pass both `width` and `height` — tracks both dimensions
  *      independently. Used by DiagramBlockView, FileView (preview mode).
  *
- * Usage (width-only):
+ * The hook operates entirely in **pixels**. For percentage-based width storage
+ * (widthPct), each calling component is responsible for converting between
+ * pct and px at the boundary:
+ *   - **Input**: pass `width` as the px value computed from `widthPct × editorWidth / 100`.
+ *   - **Output**: inside `onCommit`, convert the final px back to pct via
+ *     `Math.round(finalWidth / editorWidth × 100)` and return `{ widthPct }`.
+ *
+ * Usage (width-only, percentage-backed):
+ *   const editorWidth = useEditorWidth();
  *   const { displayWidth, onResizeStart, ref } = useNodeResize({
- *     width: node.attrs.width,
+ *     width: widthPct != null ? widthPct * editorWidth / 100 : width,
  *     updateAttributes,
  *     minWidth: 80,
+ *     maxWidth: editorWidth,
  *     fallbackWidth: 300,
- *     onCommit: (w) => ({ width: w }),
+ *     onCommit: (w) => ({ widthPct: Math.round(w / editorWidth * 100), width: null }),
  *   });
  *
- * Usage (width + height):
+ * Usage (width + height, percentage-backed width):
+ *   const editorWidth = useEditorWidth();
  *   const { displayWidth, displayHeight, onResizeStart, ref } = useNodeResize({
- *     width: node.attrs.width,
- *     height: node.attrs.height,
+ *     width: widthPct != null ? widthPct * editorWidth / 100 : width,
+ *     height,
  *     updateAttributes,
  *     minWidth: 300, minHeight: 200,
  *     fallbackWidth: 520, fallbackHeight: 320,
- *     onCommit: (w, h) => ({ width: w, height: h }),
+ *     onCommit: (w, h) => ({ widthPct: Math.round(w / editorWidth * 100), width: null, height: h }),
  *   });
  */
 
