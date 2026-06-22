@@ -29,6 +29,10 @@ const CARET_BAR_WIDTH_PX = 2;
 /** Caret body height relative to font-size (a touch taller than the glyph
  *  so it visually matches the text, centred within the line box). */
 const GLYPH_HEIGHT_RATIO = 1.15;
+/** Block-cursor fill opacity.  A full-opacity block would completely hide
+ *  the glyph it sits on; keeping it semi-transparent tints the character
+ *  with the cursor colour while leaving it readable underneath. */
+const BLOCK_FILL_ALPHA = 0.5;
 
 // ── Blink animation timing (ms) ──────────────────────────────────────
 /** Stay fully solid for this long after the caret moves/appears. */
@@ -120,7 +124,11 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * fully-solid whenever the caret moves or reappears.
    */
   protected getRenderOptions(): RenderOptions {
-    return { fillCursor: true, blink: this.computeBlink() };
+    let blink = this.computeBlink();
+    // Block sits directly on top of a glyph; dim it so the character
+    // underneath stays readable (the fill only tints it).
+    if (this.cursorStyle === 'block') blink *= BLOCK_FILL_ALPHA;
+    return { fillCursor: true, blink };
   }
 
   /**
@@ -301,6 +309,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     return this.toCanvasLocal(rect, fontSize, {
       width: fontSize * CHAR_WIDTH_RATIO,
       onChar: false,
+      before: false,
     });
   }
 
@@ -318,10 +327,10 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private toCanvasLocal(
     rect: DOMRect,
     fontSize: number,
-    glyph: { width: number; onChar: boolean },
+    glyph: { width: number; onChar: boolean; before: boolean },
   ): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
-    const left = rect.left - canvasRect.left;
+    const caretLeft = rect.left - canvasRect.left;
     const top = rect.top - canvasRect.top;
     const lineHeight = Math.max(rect.height, 1);
 
@@ -331,6 +340,13 @@ export class EditorCursorTrail extends BaseCursorTrail {
       glyph.onChar ? glyph.width : glyph.width * 0.5,
       CARET_BAR_WIDTH_PX,
     );
+
+    // Horizontal anchor: a glyph *after* the caret occupies the space to
+    // the right (left edge = caret); a glyph *before* the caret (e.g. a
+    // CJK char you just typed, caret now at end of line) occupies the
+    // space to the left, so the cursor must extend leftwards to sit under
+    // it instead of dangling half-width to the right.
+    const left = glyph.before ? caretLeft - cellWidth : caretLeft;
 
     // Em-box: the glyph's vertical extent, centred within the line box
     // (CSS splits the leading equally above and below the glyphs).
@@ -364,10 +380,11 @@ export class EditorCursorTrail extends BaseCursorTrail {
       }
       case 'bar':
       default: {
-        // Thin vertical bar spanning the glyph height.
+        // Thin vertical bar spanning the glyph height — always at the
+        // caret itself, never offset to a neighbouring glyph.
         const barW = Math.max(cellWidth * BAR_THICKNESS_RATIO, CARET_BAR_WIDTH_PX);
-        trailLeft = left;
-        trailRight = left + barW;
+        trailLeft = caretLeft;
+        trailRight = caretLeft + barW;
         trailTop = emTop;
         trailBottom = emBottom;
         break;
