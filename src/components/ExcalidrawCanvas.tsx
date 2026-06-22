@@ -405,6 +405,32 @@ export function ExcalidrawCanvas({
       }
 
       viewportRef.current = { scrollX, scrollY, zoom };
+
+      // Pure pan/zoom (no element change) doesn't trigger Excalidraw's
+      // onChange. Schedule a debounced save so the new viewport survives
+      // a document switch — uses the same debounceRef as handleChange.
+      const api = apiRef.current;
+      if (api && !isInactiveGestureTarget) {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          try {
+            const cleanElements = stripPrefixes(
+              api.getSceneElements(),
+              instPrefix,
+            );
+            const snapshot = JSON.stringify({
+              elements: cleanElements,
+              viewport: { scrollX, scrollY, zoom: zoom.value },
+            });
+            if (snapshot === lastEmittedSnapshot.current) return;
+            lastEmittedSnapshot.current = snapshot;
+            lastAppliedSnapshot.current = snapshot;
+            onChangeRef.current(snapshot);
+          } catch {
+            /* ignore */
+          }
+        }, 400);
+      }
     },
     [instPrefix],
   );
@@ -419,7 +445,15 @@ export function ExcalidrawCanvas({
         if (api) {
           try {
             const elements = stripPrefixes(api.getSceneElements(), instPrefix);
-            const snapshot = JSON.stringify({ elements });
+            const appState = api.getAppState();
+            const snapshot = JSON.stringify({
+              elements,
+              viewport: {
+                scrollX: appState.scrollX,
+                scrollY: appState.scrollY,
+                zoom: appState.zoom?.value ?? 1,
+              },
+            });
             if (snapshot === lastEmittedSnapshot.current) return;
             lastEmittedSnapshot.current = snapshot;
             onChangeRef.current(snapshot);

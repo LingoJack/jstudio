@@ -135,7 +135,7 @@ export default function AgentModelSection() {
         <p className="text-xs mt-1 opacity-70">{error}</p>
         <button
           onClick={loadConfig}
-          className="mt-4 px-4 py-1.5 text-sm rounded border border-[var(--vscode-widget-border)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer"
+          className="jstudio-btn-primary mt-4"
         >
           {t('agent.retry')}
         </button>
@@ -154,6 +154,9 @@ export default function AgentModelSection() {
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('agent.activeModel')}
         </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('agent.providersDesc')}
+        </p>
         {activeProvider ? (
           <div className="flex items-center gap-3 p-4 rounded-lg bg-[var(--vscode-list-activeSelectionBackground)] border border-[var(--vscode-focusBorder)]">
             <div className="w-10 h-10 rounded-lg bg-[var(--vscode-badge-background)] flex items-center justify-center flex-shrink-0">
@@ -182,37 +185,32 @@ export default function AgentModelSection() {
 
       {/* ---- Provider List ---- */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <label className="block text-sm font-medium text-[var(--vscode-foreground)]">
-              {t('agent.providers')}
-            </label>
-            <p className="text-sm text-[var(--vscode-descriptionForeground)] mt-1">
-              {t('agent.providersDesc')}
-            </p>
-          </div>
-          {!isAdding && editingIndex === null && (
-            <button
-              onClick={() => setIsAdding(true)}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-button-secondaryBackground)] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" />
-              {t('agent.addProvider')}
-            </button>
-          )}
-        </div>
+        {/* Header: title + add button (button below to avoid text wrapping) */}
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1">
+          {t('agent.providers')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('agent.noProvidersDesc')}
+        </p>
 
         {/* Empty state */}
         {providers.length === 0 && !isAdding && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Bot className="w-12 h-12 text-[var(--vscode-descriptionForeground)] opacity-40 mb-3" />
+          <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed border-[var(--vscode-widget-border)] rounded-lg">
+            <Bot className="w-10 h-10 text-[var(--vscode-descriptionForeground)] opacity-40 mb-3" />
             <p className="text-sm font-medium text-[var(--vscode-foreground)] mb-1">
               {t('agent.noProviders')}
             </p>
-            <p className="text-xs text-[var(--vscode-descriptionForeground)] max-w-xs">
+            <p className="text-xs text-[var(--vscode-descriptionForeground)] max-w-xs mb-4">
               {t('agent.noProvidersDesc')}
             </p>
+            <button
+              onClick={() => setIsAdding(true)}
+              disabled={saving}
+              className="jstudio-btn-primary"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{t('agent.addProvider')}</span>
+            </button>
           </div>
         )}
 
@@ -238,7 +236,7 @@ export default function AgentModelSection() {
             return (
               <div
                 key={`provider-${index}`}
-                className={`group relative flex items-start gap-3 p-4 rounded-lg border transition-colors ${
+                className={`relative flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
                   isActive
                     ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
                     : 'border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)]'
@@ -247,7 +245,7 @@ export default function AgentModelSection() {
                 {/* Radio to set active */}
                 <button
                   onClick={() => !isActive && handleSetActive(index)}
-                  className="mt-0.5 flex-shrink-0 cursor-pointer"
+                  className="flex-shrink-0 cursor-pointer flex items-center justify-center w-5 h-5"
                   title={t('agent.setActive')}
                 >
                   {isActive ? (
@@ -255,63 +253,51 @@ export default function AgentModelSection() {
                       <div className="w-1.5 h-1.5 rounded-full bg-[var(--vscode-list-activeSelectionBackground)]" />
                     </div>
                   ) : (
-                    <Circle className="w-4 h-4 text-[var(--vscode-descriptionForeground)] opacity-50 group-hover:opacity-100" />
+                    <Circle className="w-4 h-4 text-[var(--vscode-descriptionForeground)] opacity-40 transition-opacity" />
                   )}
                 </button>
 
                 {/* Content */}
                 <div className="min-w-0 flex-1">
+                  {/* Row 1: name + badges */}
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-[var(--vscode-foreground)] truncate">
                       {provider.name}
                     </span>
                     {provider.supports_vision && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0 leading-tight">
                         Vision
                       </span>
                     )}
                     {provider.tool_call_mode === 'disabled' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--vscode-editorWarning-background)] text-[var(--vscode-editorWarning-foreground)] flex-shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vscode-editorWarning-background)] text-[var(--vscode-editorWarning-foreground)] flex-shrink-0 leading-tight">
                         No Tools
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-[var(--vscode-descriptionForeground)] mt-0.5 space-y-0.5">
-                    <p>
-                      <span className="opacity-70">model:</span>{' '}
-                      <span className="text-[var(--vscode-foreground)]">{provider.model}</span>
-                    </p>
-                    <p className="truncate">
-                      <span className="opacity-70">base:</span>{' '}
-                      <span className="text-[var(--vscode-foreground)]">{provider.api_base}</span>
-                    </p>
-                    <p>
-                      <span className="opacity-70">key:</span>{' '}
-                      <span className="text-[var(--vscode-foreground)]">
-                        {'•'.repeat(Math.min(12, provider.api_key.length || 0))}
-                      </span>
-                    </p>
+                  {/* Row 2: model + api_base (inline, clean) */}
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--vscode-descriptionForeground)]">
+                    <span className="truncate font-mono">{provider.model}</span>
+                    <span className="opacity-40 flex-shrink-0">·</span>
+                    <span className="truncate">{provider.api_base}</span>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 flex-shrink-0">
+                <div className="flex items-center gap-0.5 flex-shrink-0">
                   {isConfirmingDelete ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-[var(--vscode-errorForeground)] mr-1">
-                        {t('agent.deleteConfirm', { name: provider.name })}
-                      </span>
+                    <div className="flex items-center gap-1 px-1">
                       <button
                         onClick={() => handleDeleteProvider(index)}
                         disabled={saving}
-                        className="p-1.5 rounded text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer disabled:opacity-50"
+                        className="p-1.5 rounded text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer disabled:opacity-50 transition-colors"
                         title={t('agent.delete')}
                       >
                         <Check className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteIndex(null)}
-                        className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer"
+                        className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -321,18 +307,18 @@ export default function AgentModelSection() {
                       <button
                         onClick={() => setEditingIndex(index)}
                         disabled={saving}
-                        className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                        className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer disabled:opacity-50 transition-colors"
                         title={t('agent.edit')}
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteIndex(index)}
                         disabled={saving}
-                        className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                        className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer disabled:opacity-50 transition-colors"
                         title={t('agent.delete')}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </>
                   )}
@@ -350,6 +336,18 @@ export default function AgentModelSection() {
             />
           )}
         </div>
+
+        {/* Add button — full width row below the list */}
+        {!isAdding && editingIndex === null && providers.length > 0 && (
+          <button
+            onClick={() => setIsAdding(true)}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-1.5 mt-3 px-4 py-2.5 text-sm rounded-lg border border-dashed border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-all cursor-pointer disabled:opacity-50"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('agent.addProvider')}</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -403,8 +401,11 @@ function ProviderEditForm({
     });
   };
 
+  const inputClass =
+    'w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors';
+
   return (
-    <div className="p-4 rounded-lg border border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] space-y-4">
+    <div className="p-5 rounded-lg border border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] space-y-4">
       {/* Name + Model */}
       <div className="grid grid-cols-2 gap-4">
         <FormField label={t('agent.field.name')}>
@@ -414,7 +415,7 @@ function ProviderEditForm({
             onChange={(e) => update('name', e.target.value)}
             placeholder={t('agent.field.namePlaceholder')}
             autoFocus
-            className="w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors"
+            className={inputClass}
           />
         </FormField>
         <FormField label={t('agent.field.model')}>
@@ -423,7 +424,7 @@ function ProviderEditForm({
             value={form.model}
             onChange={(e) => update('model', e.target.value)}
             placeholder={t('agent.field.modelPlaceholder')}
-            className="w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors"
+            className={`${inputClass} font-mono`}
           />
         </FormField>
       </div>
@@ -435,7 +436,7 @@ function ProviderEditForm({
           value={form.api_base}
           onChange={(e) => update('api_base', e.target.value)}
           placeholder={t('agent.field.apiBasePlaceholder')}
-          className="w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors"
+          className={`${inputClass} font-mono`}
         />
       </FormField>
 
@@ -447,30 +448,28 @@ function ProviderEditForm({
             value={form.api_key}
             onChange={(e) => update('api_key', e.target.value)}
             placeholder={t('agent.field.apiKeyPlaceholder')}
-            className="w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors pr-20 font-mono text-xs"
+            className={`${inputClass} pr-12 font-mono`}
           />
           <button
             type="button"
             onClick={() => setShowKey((v) => !v)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] cursor-pointer"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] cursor-pointer transition-colors"
+            title={showKey ? t('agent.hideKey') : t('agent.showKey')}
           >
-            {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            {showKey ? t('agent.hideKey') : t('agent.showKey')}
+            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
       </FormField>
 
       {/* Toggles */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 pt-1">
         {/* Supports Vision */}
-        <div>
-          <ToggleRow
-            label={t('agent.field.supportsVision')}
-            desc={t('agent.field.supportsVisionDesc')}
-            checked={form.supports_vision}
-            onChange={(v) => update('supports_vision', v)}
-          />
-        </div>
+        <ToggleRow
+          label={t('agent.field.supportsVision')}
+          desc={t('agent.field.supportsVisionDesc')}
+          checked={form.supports_vision}
+          onChange={(v) => update('supports_vision', v)}
+        />
 
         {/* Tool Call Mode */}
         <div>
@@ -483,24 +482,26 @@ function ProviderEditForm({
                 key={mode}
                 type="button"
                 onClick={() => update('tool_call_mode', mode)}
-                className={`flex-1 px-3 py-1.5 text-xs rounded border transition-colors cursor-pointer ${
+                className={`flex-1 px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer ${
                   form.tool_call_mode === mode
                     ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
                     : 'border-[var(--vscode-input-border)] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]'
                 }`}
               >
-                {mode === 'native' ? t('agent.field.toolCallModeNative') : t('agent.field.toolCallModeDisabled')}
+                {mode === 'native'
+                  ? t('agent.field.toolCallModeNative')
+                  : t('agent.field.toolCallModeDisabled')}
               </button>
             ))}
           </div>
-          <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1 opacity-70">
+          <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5 opacity-70 leading-tight">
             {t('agent.field.toolCallModeDesc')}
           </p>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--vscode-widget-border)]">
+      <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--vscode-widget-border)]">
         <button
           onClick={onCancel}
           disabled={saving}
@@ -511,10 +512,10 @@ function ProviderEditForm({
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+          className="jstudio-btn-primary"
         >
           {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {t('agent.save')}
+          <span>{t('agent.save')}</span>
         </button>
       </div>
     </div>
@@ -564,13 +565,15 @@ function ToggleRow({
         onClick={() => onChange(!checked)}
         className={`relative w-8 h-5 rounded-full transition-colors flex-shrink-0 cursor-pointer ${
           checked
-            ? 'bg-[var(--vscode-focusBorder)]'
+            ? 'bg-[var(--vscode-button-background)]'
             : 'bg-[var(--vscode-input-border)]'
         }`}
       >
         <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-            checked ? 'translate-x-3' : ''
+          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
+            checked
+              ? 'translate-x-3 bg-[var(--vscode-button-foreground)]'
+              : 'bg-[var(--vscode-descriptionForeground)]'
           }`}
         />
       </button>
