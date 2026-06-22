@@ -67,7 +67,7 @@ export default function FileView({
   updateAttributes,
   editor,
 }: NodeViewProps) {
-  const { src, fileName, fileSize, fileType, displayMode, width, widthPct, height, align } =
+  const { src, fileName, fileSize, fileType, displayMode, width, widthPct, height, heightPct, align } =
     node.attrs as FileNodeAttributes;
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
@@ -231,8 +231,20 @@ export default function FileView({
     }
   }, [width, widthPct, editorWidth, updateAttributes]);
 
+  // Lazy migration: if legacy pixel `height` exists but `heightPct` is null,
+  // compute the percentage from the current editor width and persist it.
+  useEffect(() => {
+    if (height != null && heightPct == null && editorWidth > 0) {
+      const pct = Math.min(100, Math.max(1, Math.round((height / editorWidth) * 100)));
+      updateAttributes({ heightPct: pct, height: null });
+    }
+  }, [height, heightPct, editorWidth, updateAttributes]);
+
   // Compute the pixel width from widthPct (preferred) or fall back to legacy px.
   const widthPx = widthPct != null ? Math.round((widthPct * editorWidth) / 100) : width;
+
+  // Compute the pixel height from heightPct (preferred) or fall back to legacy px.
+  const heightPx = heightPct != null ? Math.round((heightPct * editorWidth) / 100) : height;
 
   // Separate ref for reading DOM in maxWidth (before hook call).
   const figureRefInternal = useRef<HTMLDivElement>(null);
@@ -241,7 +253,7 @@ export default function FileView({
     useNodeResize<HTMLDivElement>({
       width: widthPx,
       // Only track height in preview mode — card mode height is content-driven.
-      height: isPreviewMode ? height : undefined,
+      height: isPreviewMode ? heightPx : undefined,
       updateAttributes,
       minWidth: 200,
       minHeight: 150,
@@ -259,7 +271,12 @@ export default function FileView({
             : 50;
         const attrs: Record<string, number | null> = { widthPct: pct, width: null };
         if (isPreviewMode && finalHeight !== null) {
-          attrs.height = finalHeight;
+          const hPct =
+            editorWidth > 0
+              ? Math.min(100, Math.max(1, Math.round((finalHeight / editorWidth) * 100)))
+              : null;
+          attrs.heightPct = hPct;
+          attrs.height = null;
         }
         return attrs;
       },

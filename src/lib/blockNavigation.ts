@@ -20,8 +20,8 @@
  *      no text content, so normal text editing inside a code block is
  *      unaffected.
  *   6. Cmd/Ctrl+ArrowLeft / ArrowRight → jump caret to the start / end of
- *      the current visual line (respects soft-wrapped line boundaries).
- *      Add Shift to extend the selection instead of moving the caret.
+ *      the current text block. Add Shift to extend the selection instead
+ *      of moving the caret.
  */
 
 import { Extension, type KeyboardShortcutCommand } from '@tiptap/core';
@@ -187,57 +187,44 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
 
     // -----------------------------------------------------------------
     // Cmd/Ctrl+ArrowLeft  — jump caret to the start of the current
-    //                       visual line (respects soft-wrap).
-    // Cmd/Ctrl+ArrowRight — jump caret to the end of the current visual
-    //                       line.
+    //                       text block (paragraph / heading / code …).
+    // Cmd/Ctrl+ArrowRight — jump caret to the end of the current text
+    //                       block.
     // Holding Shift extends the selection instead of moving the caret.
-    //
-    // We delegate the actual line-boundary computation to the browser's
-    // native Selection.modify(…, 'lineboundary'), then map the resulting
-    // DOM Range back to ProseMirror positions so editor state stays in
-    // sync.  This is more accurate than guessing block start/end because
-    // the browser knows about soft-wrapped line boundaries.
     // -----------------------------------------------------------------
-    const jumpLineBoundary = (
-      direction: 'left' | 'right',
+    const jumpBlockBoundary = (
+      toStart: boolean,
       extend: boolean,
     ): boolean => {
       if (isSuggestionActive()) return false;
-      const { view, state } = editor;
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return false;
+      const { state, view } = editor;
+      const { selection } = state;
+      const $head = selection.$head;
+      if ($head.depth < 1) return false;
 
-      // Let the browser compute the visual line boundary.
-      sel.modify(extend ? 'extend' : 'move', direction, 'lineboundary');
-
-      // Map the DOM range back to ProseMirror document positions.
-      const range = sel.getRangeAt(0);
-      let startPos: number;
-      let endPos: number;
-      try {
-        startPos = view.posAtDOM(range.startContainer, range.startOffset);
-        endPos = view.posAtDOM(range.endContainer, range.endOffset);
-      } catch {
-        return false;
+      const edge = toStart ? $head.start(1) : $head.end(1);
+      if (extend) {
+        // Extend selection: keep anchor, move head to the boundary.
+        view.dispatch(
+          state.tr
+            .setSelection(TextSelection.create(state.doc, selection.$anchor.pos, edge))
+            .setMeta('addToHistory', false),
+        );
+      } else {
+        view.dispatch(
+          state.tr
+            .setSelection(TextSelection.create(state.doc, edge))
+            .setMeta('addToHistory', false),
+        );
       }
-
-      const max = state.doc.content.size;
-      const anchor = Math.max(0, Math.min(max, startPos));
-      const head = Math.max(0, Math.min(max, endPos));
-
-      const tr = state.tr.setSelection(
-        TextSelection.create(state.doc, anchor, head),
-      );
-      // Selection-only change — don't pollute the undo history.
-      tr.setMeta('addToHistory', false);
-      view.dispatch(tr);
+      view.focus();
       return true;
     };
 
-    const onModArrowLeft = () => jumpLineBoundary('left', false);
-    const onModArrowRight = () => jumpLineBoundary('right', false);
-    const onModShiftArrowLeft = () => jumpLineBoundary('left', true);
-    const onModShiftArrowRight = () => jumpLineBoundary('right', true);
+    const onModArrowLeft = () => jumpBlockBoundary(true, false);
+    const onModArrowRight = () => jumpBlockBoundary(false, false);
+    const onModShiftArrowLeft = () => jumpBlockBoundary(true, true);
+    const onModShiftArrowRight = () => jumpBlockBoundary(false, true);
 
     // Resolve user-customizable bindings from the shortcut registry.
     const ov = useStore.getState().keyboardShortcuts;

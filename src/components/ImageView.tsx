@@ -30,12 +30,15 @@ interface ImageNodeAttrs {
   width: number | null;
   /** Width as a percentage of the editor surface width (0-100). Preferred. */
   widthPct: number | null;
+  /** Legacy pixel height (kept for backward-compat migration). */
   height: number | null;
+  /** Height as a percentage of the editor surface width (0-100). Preferred. */
+  heightPct: number | null;
   align: 'left' | 'center';
 }
 
 export default function ImageView({ node, selected, updateAttributes, editor }: NodeViewProps) {
-  const { src, alt, title, width, widthPct, height, align } = node.attrs as ImageNodeAttrs;
+  const { src, alt, title, width, widthPct, height, heightPct, align } = node.attrs as ImageNodeAttrs;
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
   const toolbarBtnCount = 2; // align-left, align-center
@@ -93,6 +96,15 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
     }
   }, [width, widthPct, editorWidth, updateAttributes]);
 
+  // Lazy migration: if legacy pixel `height` exists but `heightPct` is null,
+  // compute the percentage from the current editor width and persist it.
+  useEffect(() => {
+    if (height != null && heightPct == null && editorWidth > 0) {
+      const pct = Math.min(100, Math.max(1, Math.round((height / editorWidth) * 100)));
+      updateAttributes({ heightPct: pct, height: null });
+    }
+  }, [height, heightPct, editorWidth, updateAttributes]);
+
   // Compute the pixel width from widthPct (preferred) or fall back to legacy px.
   const widthPx = widthPct != null ? Math.round((widthPct * editorWidth) / 100) : width;
 
@@ -116,12 +128,14 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
           img && img.naturalHeight && img.naturalWidth
             ? img.naturalHeight / img.naturalWidth
             : 0;
-        const newAttrs: { widthPct: number; width: null; height?: number } = {
+        const newAttrs: { widthPct: number; width: null; height: null; heightPct?: number } = {
           widthPct: pct,
           width: null,
+          height: null,
         };
-        if (ratio > 0) {
-          newAttrs.height = Math.round(finalWidth * ratio);
+        if (ratio > 0 && editorWidth > 0) {
+          const heightPx = Math.round(finalWidth * ratio);
+          newAttrs.heightPct = Math.min(100, Math.max(1, Math.round((heightPx / editorWidth) * 100)));
         }
         return newAttrs;
       },
@@ -141,7 +155,12 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
   const imgStyle: React.CSSProperties = {};
   if (displayWidth) {
     imgStyle.width = `${displayWidth}px`;
-    imgStyle.height = 'auto';
+    // Derive height from heightPct for proportional scaling, otherwise auto.
+    if (heightPct != null && editorWidth > 0) {
+      imgStyle.height = `${Math.round((heightPct * editorWidth) / 100)}px`;
+    } else {
+      imgStyle.height = 'auto';
+    }
   }
 
   return (

@@ -23,10 +23,12 @@ export interface BlockProperties {
   language?: string; // code block syntax
   caption?: string; // image block caption
   imageType?: 'url' | 'base64' | 'asset';
-  width?: number; // image display width (px)
-  /** Image block: width as percentage of editor surface (0-100). Preferred over px. */
+  width?: number; // image display width (px, legacy)
+  /** Image block: width as percentage of editor surface (0-100). Preferred. */
   widthPct?: number;
-  height?: number; // image display height (px)
+  height?: number; // image display height (px, legacy)
+  /** Image block: height as percentage of editor surface (0-100). Preferred. */
+  heightPct?: number;
   align?: 'left' | 'center'; // image alignment
   /** File attachment: MIME type of the uploaded file. */
   fileType?: string;
@@ -36,12 +38,14 @@ export interface BlockProperties {
   fileSize?: number;
   /** File attachment: display mode — compact card or inline preview. */
   fileDisplayMode?: 'card' | 'preview';
-  /** File attachment: preview display width (px). Undefined = auto. */
+  /** File attachment: preview display width (px, legacy). Undefined = auto. */
   fileWidth?: number;
-  /** File attachment: width as percentage of editor surface (0-100). Preferred over px. */
+  /** File attachment: width as percentage of editor surface (0-100). Preferred. */
   fileWidthPct?: number;
-  /** File attachment: preview area height (px). Undefined = auto. */
+  /** File attachment: preview area height (px, legacy). Undefined = auto. */
   fileHeight?: number;
+  /** File attachment: height as percentage of editor surface (0-100). Preferred. */
+  fileHeightPct?: number;
   /** File attachment: alignment. */
   fileAlign?: 'left' | 'center';
   /** Table block: serialized table structure. */
@@ -74,12 +78,14 @@ export interface BlockProperties {
   linkAlign?: 'left' | 'center';
   /** Diagram block: serialized excalidraw scene JSON string. */
   diagramSnapshot?: string;
-  /** Diagram block: display width (px). Undefined = auto. */
+  /** Diagram block: display width (px, legacy). Undefined = auto. */
   diagramWidth?: number;
-  /** Diagram block: width as percentage of editor surface (0-100). Preferred over px. */
+  /** Diagram block: width as percentage of editor surface (0-100). Preferred. */
   diagramWidthPct?: number;
-  /** Diagram block: display height (px). Undefined = default 320. */
+  /** Diagram block: display height (px, legacy). Undefined = default 320. */
   diagramHeight?: number;
+  /** Diagram block: height as percentage of editor surface (0-100). Preferred. */
+  diagramHeightPct?: number;
   /** Diagram block: alignment. */
   diagramAlign?: 'left' | 'center';
 }

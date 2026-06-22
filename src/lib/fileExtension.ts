@@ -30,7 +30,10 @@ export interface FileNodeAttributes {
   width: number | null;
   /** Width as a percentage of the editor surface width (0-100). Preferred. */
   widthPct?: number | null;
+  /** Legacy pixel height (kept for backward-compat migration). */
   height: number | null;
+  /** Height as a percentage of the editor surface width (0-100). Preferred. */
+  heightPct?: number | null;
   align?: 'left' | 'center' | null;
 }
 
@@ -130,6 +133,17 @@ export const FileExtension = Node.create({
         renderHTML: (attrs) => {
           if (!attrs.height) return {};
           return { 'data-height': attrs.height };
+        },
+      },
+      heightPct: {
+        default: null,
+        parseHTML: (el) => {
+          const v = el.getAttribute('data-height-pct');
+          return v ? Number(v) : null;
+        },
+        renderHTML: (attrs) => {
+          if (attrs.heightPct == null) return {};
+          return { 'data-height-pct': attrs.heightPct };
         },
       },
       align: {

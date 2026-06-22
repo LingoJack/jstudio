@@ -414,6 +414,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         width: block.properties?.width ?? null,
         widthPct: block.properties?.widthPct ?? null,
         height: block.properties?.height ?? null,
+        heightPct: block.properties?.heightPct ?? null,
         align: block.properties?.align ?? 'center',
       };
       break;
@@ -430,6 +431,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         width: block.properties?.fileWidth ?? null,
         widthPct: block.properties?.fileWidthPct ?? null,
         height: block.properties?.fileHeight ?? null,
+        heightPct: block.properties?.fileHeightPct ?? null,
         align: block.properties?.fileAlign ?? 'center',
       };
       break;
@@ -458,6 +460,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         width: block.properties?.diagramWidth ?? null,
         widthPct: block.properties?.diagramWidthPct ?? null,
         height: block.properties?.diagramHeight ?? null,
+        heightPct: block.properties?.diagramHeightPct ?? null,
         align: block.properties?.diagramAlign ?? 'center',
       };
       break;
@@ -578,6 +581,7 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
       const width = typeof attrs.width === 'number' ? attrs.width : undefined;
       const widthPct = typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined;
       const height = typeof attrs.height === 'number' ? attrs.height : undefined;
+      const heightPct = typeof attrs.heightPct === 'number' ? attrs.heightPct : undefined;
       const align = attrs.align === 'left' || attrs.align === 'center' ? attrs.align : 'center';
       block.content = src;
       block.properties = {
@@ -586,6 +590,7 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         width,
         widthPct,
         height,
+        heightPct,
         align,
       };
       break;
@@ -602,6 +607,7 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         fileWidth: typeof attrs.width === 'number' ? attrs.width : undefined,
         fileWidthPct: typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined,
         fileHeight: typeof attrs.height === 'number' ? attrs.height : undefined,
+        fileHeightPct: typeof attrs.heightPct === 'number' ? attrs.heightPct : undefined,
         fileAlign:
           attrs.align === 'left' || attrs.align === 'center'
             ? attrs.align
@@ -643,6 +649,8 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
           typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined,
         diagramHeight:
           typeof attrs.height === 'number' ? attrs.height : undefined,
+        diagramHeightPct:
+          typeof attrs.heightPct === 'number' ? attrs.heightPct : undefined,
         diagramAlign:
           attrs.align === 'left' || attrs.align === 'center'
             ? attrs.align

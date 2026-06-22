@@ -19,7 +19,10 @@ export interface ImageNodeAttributes {
   width?: number | null;
   /** Width as a percentage of the editor surface width (0-100). Preferred. */
   widthPct?: number | null;
+  /** Legacy pixel height (kept for backward-compat migration). */
   height?: number | null;
+  /** Height as a percentage of the editor surface width (0-100). Preferred. */
+  heightPct?: number | null;
   align?: 'left' | 'center' | null;
 }
 
@@ -67,6 +70,17 @@ export const ImageExtension = Image.extend({
         renderHTML: (attributes) => {
           if (!attributes.height) return {};
           return { height: attributes.height };
+        },
+      },
+      heightPct: {
+        default: null,
+        parseHTML: (element) => {
+          const v = element.getAttribute('data-height-pct');
+          return v ? Number(v) : null;
+        },
+        renderHTML: (attributes) => {
+          if (attributes.heightPct == null) return {};
+          return { 'data-height-pct': attributes.heightPct };
         },
       },
       align: {
