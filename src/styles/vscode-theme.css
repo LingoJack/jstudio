@@ -129,6 +129,10 @@
   --vscode-symbolIcon-folderForeground: #C09553;
   --vscode-terminal-ansiGreen: #00BC00;
   --vscode-terminal-ansiBlue: #0451A5;
+
+  /* Block editing glow — vivid violet contrasts strongly with the blue
+     selection color on light backgrounds. */
+  --jstudio-editGlow: 139 92 246; /* Violet #8B5CF6 */
 }
 
 .dark {
@@ -247,6 +251,10 @@
   --vscode-symbolIcon-folderForeground: #D4A259;
   --vscode-terminal-ansiGreen: #4EC9B0;
   --vscode-terminal-ansiBlue: #6796E6;
+
+  /* Block editing glow — hot pink/magenta contrasts strongly with the green
+     selection color and naturally glows on dark backgrounds. */
+  --jstudio-editGlow: 236 72 153; /* Pink #EC4899 */
 }
 
 /* ============================================
@@ -1490,10 +1498,15 @@ button {
   border-color: var(--vscode-focusBorder);
 }
 
-/* Edit mode: the inline preview owns the keyboard — brighter, thicker ring. */
+/* Edit mode: the inline preview owns the keyboard — show a prominent
+   border + glow so it is visually unmistakable from the plain "selected" state.
+   - Selected: 2px solid focusBorder (blue/green, flat)
+   - Editing:  2px solid violet(pink) border + thick matching halo */
 .file-block-figure.is-editing {
-  border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+  border-color: rgb(var(--jstudio-editGlow));
+  box-shadow:
+    0 0 0 3px rgba(var(--jstudio-editGlow), 0.4),
+    0 0 16px 4px rgba(var(--jstudio-editGlow), 0.3);
 }
 
 /* ─── Card mode ─── */
@@ -2311,11 +2324,15 @@ button {
   border-color: var(--vscode-focusBorder);
 }
 
-/* Edit mode: the inner widget owns the keyboard — show a brighter, thicker
-   ring so it is visually distinct from the plain "selected" state. */
+/* Edit mode: the inner widget owns the keyboard — show a prominent
+   border + glow so it is visually unmistakable from the plain "selected" state.
+   - Selected: 2px solid focusBorder (blue/green, flat)
+   - Editing:  2px solid violet(pink) border + thick matching halo */
 .diagram-block-figure.is-editing {
-  border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+  border-color: rgb(var(--jstudio-editGlow));
+  box-shadow:
+    0 0 0 3px rgba(var(--jstudio-editGlow), 0.4),
+    0 0 16px 4px rgba(var(--jstudio-editGlow), 0.3);
 }
 
 .diagram-block-canvas {
