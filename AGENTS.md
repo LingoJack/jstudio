@@ -249,6 +249,39 @@ jstudio/
 
 历史上 `DocumentContextMenu` 和 `TerminalTabContextMenu` 是复制粘贴的，样式重复但散落在各自的文件里。当新增第三个菜单时，如果没有意识到应该用公共组件，就会手写一套 CSS 变量组合（用了不同的 `--vscode-*` 变量名），导致同一类 UI 视觉风格不一致。公共组件的意义在于**让一致性由结构保证，而非靠人记**。
 
+## Tauri WebView 已知陷阱
+
+> Tauri 使用系统原生 WebView（macOS = WKWebView, Windows = WebView2, Linux = WebKitGTK），行为与 Chrome/Firefox 不完全一致。以下是已踩过的坑。
+
+### 1. macOS WKWebView 会吞掉 `Cmd+Arrow` 键事件
+
+**现象**：`Cmd+Left` / `Cmd+Right` 等组合键的 `keydown` 事件在到达 ProseMirror 之前就被原生层 `preventDefault()` 了。
+
+**根因**：WKWebView 原生层用 `Cmd+Arrow` 实现行首/行尾跳转，在 JS 事件派发前就标记了 `defaultPrevented = true`。而 ProseMirror 的 `editHandlers.keydown` 开头有 `if (event.defaultPrevented) return;`，直接跳过所有 handler。
+
+**影响**：以下注册方式**全部无效**：
+- TipTap `addKeyboardShortcuts`（被 ProseMirror keymap 插件跳过）
+- ProseMirror `editorProps.handleKeyDown`（同样被跳过）
+- 任何依赖事件冒泡到 editor DOM 的监听器
+
+**正确做法**：在 `window` 级别用 **capture 阶段** 拦截，这是 JS 能接触到的最早时机，在系统默认行为之前截胡：
+
+```ts
+window.addEventListener('keydown', handler, true); // ← capture: true 是关键
+```
+
+详见 `docs/bug-graveyard.md` #001。
+
+### 2. 调试键盘事件的方法论
+
+当键盘快捷键"注册了但没反应"时，按以下顺序排查：
+
+1. **先加 `console.log`，不要假设注册了就一定生效。**
+2. **在 `editorProps.handleKeyDown` 加 log** → 有输出说明 ProseMirror 收到了事件，问题在逻辑；无输出说明事件没到达。
+3. **在 `window.addEventListener('keydown', fn, true)` 加 log** → 检查 `event.defaultPrevented` 字段。如果为 `true`，说明原生层拦截了，需要用 window capture 方案。
+
+> 关键心态：ProseMirror 的事件链有多层拦截（`defaultPrevented` 检查 → keymap 插件 → `handleKeyDown` → `handleKeyPress`），任何一层拦截都会导致后续层收不到事件。逐层加 log 确认事件到底走到哪一步被吞了。
+
 ## 构建与运行
 
 ```bash
