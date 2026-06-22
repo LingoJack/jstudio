@@ -18,7 +18,7 @@ import {
   NodeViewWrapper,
   type Editor,
 } from '@tiptap/react';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, Pencil, Check } from 'lucide-react';
 
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
@@ -54,13 +54,41 @@ export default function DiagramBlockView({
   /* Keyboard navigation for the floating toolbar                    */
   /* -------------------------------------------------------------- */
 
-  // Buttons: align-left, align-center, divider, maximize
-  const toolbarBtnCount = 3;
-  const { activeIndex, registerButton } = useNodeToolbarNav(
+  // Buttons: align-left, align-center, [edit/done], maximize
+  const toolbarBtnCount = 4;
+  const {
+    activeIndex,
+    registerButton,
+    editing,
+    enterEditing,
+    exitEditing,
+    interactiveRef,
+    interactiveProps,
+  } = useNodeToolbarNav(
     selected,
     (editor as Editor | null) ?? null,
     toolbarBtnCount,
+    true, // interactive: the Excalidraw canvas can take over the keyboard
   );
+
+  // The Excalidraw root element, exposed by ExcalidrawCanvas so we can move
+  // DOM focus into it when entering edit mode (makes 1/2/3 tool shortcuts,
+  // space-pan, etc. work).
+  const excalidrawRootRef = useRef<HTMLDivElement | null>(null);
+  const handleExcalidrawRoot = useCallback((el: HTMLDivElement | null) => {
+    excalidrawRootRef.current = el;
+  }, []);
+
+  // When entering edit mode, focus the Excalidraw surface so it receives keys.
+  useEffect(() => {
+    if (!editing) return;
+    const root = excalidrawRootRef.current;
+    if (!root) return;
+    const surface =
+      (root.querySelector('.excalidraw') as HTMLElement | null) ?? root;
+    if (surface.tabIndex < 0) surface.tabIndex = -1;
+    surface.focus({ preventScroll: true });
+  }, [editing]);
 
   /* -------------------------------------------------------------- */
   /* Dark mode detection                                             */
@@ -121,7 +149,8 @@ export default function DiagramBlockView({
   const setFigureRef = useCallback((el: HTMLDivElement | null) => {
     (figureRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
     figureRefInternal.current = el;
-  }, []);
+    interactiveRef(el);
+  }, [interactiveRef]);
 
   const figureStyle: React.CSSProperties = {};
   if (displayWidth) {
@@ -214,8 +243,11 @@ export default function DiagramBlockView({
       <div className="diagram-block-container">
         <div
           ref={setFigureRef}
-          className={`diagram-block-figure ${selected ? 'is-selected' : ''}`}
+          className={`diagram-block-figure ${selected ? 'is-selected' : ''} ${
+            editing ? 'is-editing' : ''
+          }`}
           style={figureStyle}
+          {...interactiveProps}
         >
           {/* Floating toolbar (top-right) — visible when selected */}
           <BlockToolbar selected={selected}>
@@ -225,9 +257,20 @@ export default function DiagramBlockView({
               onAlignChange={(a) => updateAttributes({ align: a })}
             />
             <BlockToolbarDivider />
+            {/* Enter / leave inline edit mode. While editing, the Excalidraw
+                canvas owns the keyboard (1/2/3 tool shortcuts, etc.). */}
             <BlockToolbarButton
               nav={{ activeIndex, registerButton }}
               index={2}
+              active={editing}
+              title={editing ? '完成编辑（Esc）' : '编辑画板（Enter）'}
+              onClick={() => (editing ? exitEditing() : enterEditing())}
+            >
+              {editing ? <Check size={15} /> : <Pencil size={15} />}
+            </BlockToolbarButton>
+            <BlockToolbarButton
+              nav={{ activeIndex, registerButton }}
+              index={3}
               title="放大编辑（新窗口）"
               onClick={handleMaximize}
               disabled={windowOpen}
@@ -246,12 +289,15 @@ export default function DiagramBlockView({
               initialSnapshot={snapshot ?? ''}
               onChange={handleEmbeddedChange}
               darkMode={isDark}
+              rootElRef={handleExcalidrawRoot}
             />
           </div>
 
-          {/* Transparent overlay when NOT selected — lets the user
-              click to select the node even over the Excalidraw canvas. */}
-          {!selected && (
+          {/* Transparent overlay when NOT editing — lets the user click to
+              select the node (and the toolbar/resize handle to work) without
+              the Excalidraw canvas swallowing the click. Removed in edit mode
+              so drawing interactions pass through. */}
+          {!editing && (
             <div className="diagram-block-overlay" contentEditable={false} />
           )}
 

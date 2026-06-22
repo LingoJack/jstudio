@@ -76,13 +76,43 @@ export default function FileView({
   // Button count depends on whether preview buttons are shown:
   //   align-left, align-center, [toggle preview], [maximize]
   const toolbarBtnCount = 2 + (canPreview ? (isPreviewMode ? 2 : 1) : 0);
-  const { activeIndex, registerButton } = useNodeToolbarNav(
+  const {
+    activeIndex,
+    registerButton,
+    editing,
+    interactiveRef,
+    interactiveProps,
+  } = useNodeToolbarNav(
     selected,
     (editor as Editor | null) ?? null,
     toolbarBtnCount,
+    isPreviewMode, // interactive only when an inline preview is showing
   );
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
+
+  // When entering edit mode, move focus into the inline preview so its native
+  // controls (iframe content, <video>/<audio> keyboard shortcuts, PDF viewer)
+  // receive keystrokes instead of ProseMirror.
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const setPreviewRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      previewRef.current = el;
+      interactiveRef(el);
+    },
+    [interactiveRef],
+  );
+  useEffect(() => {
+    if (!editing) return;
+    const container = previewRef.current;
+    if (!container) return;
+    const focusable = container.querySelector(
+      'iframe, video, audio, [tabindex]',
+    ) as HTMLElement | null;
+    const target = focusable ?? container;
+    if (target.tabIndex < 0 && target === container) target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+  }, [editing]);
 
   const [loading, setLoading] = useState(false);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
@@ -290,9 +320,10 @@ export default function FileView({
           <div
             ref={setFigureRef}
             className={`file-block-figure ${selected ? 'is-selected' : ''} ${
-              isPreviewMode ? 'is-preview' : 'is-card'
-            }`}
+              editing ? 'is-editing' : ''
+            } ${isPreviewMode ? 'is-preview' : 'is-card'}`}
             style={figureStyle}
+            {...interactiveProps}
           >
             {/* Floating toolbar (top-right) — visible when selected */}
             <BlockToolbar selected={selected}>
@@ -355,10 +386,16 @@ export default function FileView({
 
             {/* Preview mode */}
             {isPreviewMode && (
-              <div className="file-block-preview" contentEditable={false} style={previewStyle}>
-                {/* Transparent overlay when NOT selected — lets the user
-                    click to select the node even over an <iframe>. */}
-                {!selected && (
+              <div
+                ref={setPreviewRef}
+                className="file-block-preview"
+                contentEditable={false}
+                style={previewStyle}
+              >
+                {/* Transparent overlay when NOT editing — lets the user
+                    click to select the node even over an <iframe>. Removed in
+                    edit mode so the preview content becomes interactive. */}
+                {!editing && (
                   <div className="file-block-preview-overlay" />
                 )}
 

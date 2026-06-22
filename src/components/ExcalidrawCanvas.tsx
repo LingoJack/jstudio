@@ -143,6 +143,12 @@ export interface ExcalidrawCanvasProps {
   darkMode?: boolean;
   /** Extra className on the container div. */
   className?: string;
+  /**
+   * Exposes the canvas root element to the parent (e.g. so the embedding
+   * NodeView can focus the Excalidraw surface when entering edit mode, making
+   * its 1/2/3 tool shortcuts work). Called with `null` on unmount.
+   */
+  rootElRef?: (el: HTMLDivElement | null) => void;
 }
 
 export function ExcalidrawCanvas({
@@ -150,6 +156,7 @@ export function ExcalidrawCanvas({
   onChange,
   darkMode = false,
   className = '',
+  rootElRef,
 }: ExcalidrawCanvasProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -169,6 +176,15 @@ export function ExcalidrawCanvas({
   const markActive = useCallback(() => {
     activeExcalidrawInstance = instPrefix;
   }, [instPrefix]);
+
+  // Merge the internal rootRef with the optional parent-exposed ref.
+  const setRootRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      rootRef.current = el;
+      rootElRef?.(el);
+    },
+    [rootElRef],
+  );
 
   // Track the latest snapshot we have applied to the canvas.
   // This is used to:
@@ -320,7 +336,7 @@ export function ExcalidrawCanvas({
 
   return (
     <div
-      ref={rootRef}
+      ref={setRootRef}
       className={`excalidraw-canvas-root ${className}`}
       data-excalidraw-instance={instPrefix}
       onPointerDownCapture={markActive}

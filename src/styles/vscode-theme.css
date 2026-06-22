@@ -1490,6 +1490,12 @@ button {
   border-color: var(--vscode-focusBorder);
 }
 
+/* Edit mode: the inline preview owns the keyboard — brighter, thicker ring. */
+.file-block-figure.is-editing {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+
 /* ─── Card mode ─── */
 
 .file-block-card {
@@ -2303,6 +2309,13 @@ button {
 
 .diagram-block-figure.is-selected {
   border-color: var(--vscode-focusBorder);
+}
+
+/* Edit mode: the inner widget owns the keyboard — show a brighter, thicker
+   ring so it is visually distinct from the plain "selected" state. */
+.diagram-block-figure.is-editing {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
 }
 
 .diagram-block-canvas {
