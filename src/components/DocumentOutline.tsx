@@ -77,6 +77,12 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
   useEffect(() => {
     extractHeadings();
 
+    // In static/read-only mode the content is loaded asynchronously via
+    // setContent() in a parent useEffect.  The first extractHeadings() call
+    // above may run before the content is available.  Re-run after a short
+    // delay to catch the loaded content.
+    const fallback = setTimeout(extractHeadings, 100);
+
     const onUpdate = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
@@ -84,10 +90,16 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
       }, 300);
     };
 
+    // Listen to both 'update' and 'transaction' for maximum reliability.
+    // In TipTap v3, 'transaction' fires on every state change including
+    // setContent(), while 'update' may not always fire in read-only mode.
     editor.on('update', onUpdate);
+    editor.on('transaction', onUpdate);
     return () => {
       editor.off('update', onUpdate);
+      editor.off('transaction', onUpdate);
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      clearTimeout(fallback);
     };
   }, [editor, extractHeadings]);
 

@@ -104,6 +104,10 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     const editorDom = editor.view.dom;
 
     const handleCaptureKeyDown = (e: KeyboardEvent) => {
+      // Never intercept during IME composition — preventDefault() would
+      // cancel the composition and lose the character.
+      if (e.isComposing || e.keyCode === 229) return;
+
       const key = e.key;
       const isTab = key === 'Tab';
       const isEnter = key === 'Enter';

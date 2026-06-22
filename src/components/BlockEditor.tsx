@@ -212,7 +212,12 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       loadedDocIdRef.current = '__static__';
       isReplacingRef.current = true;
       const tiptapContent = ourBlocksToTiptapJSON(doc.blocks);
-      editor.commands.setContent(tiptapContent);
+      try {
+        editor.commands.setContent(tiptapContent);
+      } catch (e) {
+        console.error('[BlockEditor] setContent failed for static doc:', e);
+        console.error('[BlockEditor] tiptapContent that failed:', JSON.stringify(tiptapContent, null, 2));
+      }
       requestAnimationFrame(() => {
         isReplacingRef.current = false;
       });
@@ -324,21 +329,17 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // ------------------------------------------------------------------
   // Sync cursor style → trail geometry + native caret visibility
   //
-  // Same approach as the terminal: the trail only renders the comet-tail
-  // animation (cutout mode).  The actual cursor shape for 'bar' is the
-  // browser's native caret; for 'block'/'underline' the native caret is
-  // hidden and a solid cursor is drawn by the trail's fill geometry.
+  // All cursor styles (bar / block / underline) are rendered by the trail
+  // in fill mode, because Tauri's WebView native caret does not blink.
+  // The native caret is always hidden; the trail draws a solid cursor with
+  // blink animation instead.
   // ------------------------------------------------------------------
   useEffect(() => {
     if (readOnly) return; // no cursor style manipulation in read-only mode
     trailRef.current?.setCursorStyle(editorCursorStyle);
     const editorDom = editorRef.current?.view?.dom as HTMLElement | undefined;
     if (editorDom) {
-      // 'bar' uses the native caret (thin vertical line).
-      // 'block'/'underline' hide the native caret; the trail renders a
-      // solid cursor at the caret position (no blink, like xterm).
-      editorDom.style.caretColor =
-        editorCursorStyle === 'bar' ? '' : 'transparent';
+      editorDom.style.caretColor = 'transparent';
     }
   }, [editorCursorStyle]);
 

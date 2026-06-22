@@ -75,8 +75,10 @@ export interface NodeToolbarNav {
 }
 
 /** A printable single character that, with no command modifier, would cause
- *  ProseMirror to replace the selected atom node with the typed text. */
+ *  ProseMirror to replace the selected atom node with the typed text.
+ *  Returns false during IME composition to avoid swallowing input. */
 function isPrintableKey(e: KeyboardEvent): boolean {
+  if (e.isComposing || e.keyCode === 229) return false;
   return e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
 }
 
@@ -154,6 +156,10 @@ export function useNodeToolbarNav(
       // While editing, the inner widget owns the keyboard — never intercept
       // here (the widget-host listener handles shielding instead).
       if (editingRef.current) return;
+
+      // Never intercept during IME composition — preventDefault() would
+      // cancel the composition and lose the character.
+      if (e.isComposing || e.keyCode === 229) return;
 
       const key = e.key;
       const isTab = key === 'Tab';

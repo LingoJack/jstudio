@@ -5,7 +5,7 @@
  * Editor-specific responsibilities:
  *   - Reading cursor position from the browser Selection / Range API.
  *   - Deriving cell metrics from font-size (no fixed grid like xterm).
- *   - Blink animation for block / underline styles (VS Code default rhythm).
+ *   - Blink animation for all cursor styles (VS Code default rhythm).
  *   - Shaping the trail quad by cursor style (bar / block / underline).
  *
  * All GL pipeline, kitty physics, and rendering are inherited from
@@ -110,7 +110,14 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   /**
-   * Render options: fill mode + blink for block/underline.
+   * Render options.
+   *
+   * 'bar' uses CUTOUT mode: the native caret shows through the hole in
+   * the trail quad.  Blink is handled by CSS caret-color animation on
+   * the editor element (see vscode-theme.css).
+   *
+   * 'block'/'underline' use FILL mode with shader blink because there
+   * is no native equivalent — the solid fill IS the cursor.
    */
   protected getRenderOptions(): RenderOptions {
     const useFill = this.cursorStyle === 'block' || this.cursorStyle === 'underline';

@@ -52,4 +52,6 @@ allow:
 - Shell(cat package.json:*)
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@excalidraw/excalidraw/dist/types/:*)
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@excalidraw/excalidraw/*.d.ts:*)
+- Shell(lsof -ti:1420:*)
+- Shell(ps -p:*)
 deny: []

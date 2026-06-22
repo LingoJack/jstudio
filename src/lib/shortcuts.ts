@@ -382,11 +382,17 @@ function normalizeKey(e: KeyboardEvent): string | null {
 
 /**
  * Converts a KeyboardEvent into a normalized binding string.
- * Returns null if the event is a modifier-only press or an invalid key.
+ * Returns null if the event is a modifier-only press, an invalid key,
+ * or is fired during IME composition.
  *
  * Output format: "mod+p", "mod+shift+enter", "mod+alt+arrowleft"
  */
 export function eventToBinding(e: KeyboardEvent): ShortcutBinding | null {
+  // Skip events during IME composition — calling preventDefault() on these
+  // would interrupt the composition and cause characters to be lost (especially
+  // Shift+key combinations in Chinese/Japanese/Korean input methods).
+  if (e.isComposing || e.keyCode === 229) return null;
+
   const key = normalizeKey(e);
   if (!key) return null;
 
