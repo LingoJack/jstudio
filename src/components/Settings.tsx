@@ -330,10 +330,12 @@ export default function Settings() {
             (which manages its own scrolling); other settings sections use
             a centered narrow column with external scroll. */}
         {activeSection === 'help' ? (
-          <div id="settings-content-top" className="h-0 w-full" aria-hidden />
-        ) : null}
-        {activeSection === 'help' ? (
-          <ActiveSection />
+          <>
+            <div id="settings-content-top" className="h-0 w-full" aria-hidden />
+            <div className="flex-1 min-h-0">
+              <ActiveSection />
+            </div>
+          </>
         ) : (
           <div className="flex-1 overflow-y-auto">
             {/* Scroll sentinel — lets us jump to top when switching sections */}

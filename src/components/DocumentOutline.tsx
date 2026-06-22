@@ -76,7 +76,6 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
   // ------------------------------------------------------------------
   useEffect(() => {
     extractHeadings();
-    console.log('[Outline] mounted, doc children:', editor.state.doc.childCount, 'headings found:', editor.state.doc.descendants(word => word.type.name === 'heading').length);
 
     const onUpdate = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
