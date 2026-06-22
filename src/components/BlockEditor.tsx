@@ -56,6 +56,7 @@ import { BlockNavigation } from '../lib/blockNavigation';
 import { BlockIdExtension } from '../lib/blockIdExtension';
 import { lowlight } from '../lib/extensions/lowlight';
 import { SelectAllText } from '../lib/extensions/selectAllText';
+import { ImeCapsLockFix } from '../lib/extensions/imeCapsLockFix';
 import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
 import TableControls from './TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
@@ -177,6 +178,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       }),
       BlockIdExtension,
       SelectAllText,
+      ImeCapsLockFix,
       SlashMenuExtension,
       BlockNavigation.configure({
         onExitToTitle: () => focusTitleEnd(),
