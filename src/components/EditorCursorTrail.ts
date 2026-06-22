@@ -545,11 +545,16 @@ export class EditorCursorTrail extends BaseCursorTrail {
         break;
       }
       case 'underline': {
-        // Horizontal bar resting on the glyph baseline (em-box bottom),
-        // spanning the glyph width.
+        // Horizontal bar resting on the glyph baseline (em-box bottom).
+        // Spans the real glyph width when over a character; at empty
+        // positions its minimum is ONE full character width (not the
+        // half-width used by block) so the underline stays clearly visible.
         const underH = Math.max(fontSize * UNDERLINE_THICKNESS_RATIO, 2);
+        const underW = glyph.onChar
+          ? glyph.width
+          : Math.max(glyph.width, fontSize * CHAR_WIDTH_RATIO);
         trailLeft = left;
-        trailRight = left + cellWidth;
+        trailRight = left + underW;
         trailBottom = emBottom;
         trailTop = emBottom - underH;
         break;
