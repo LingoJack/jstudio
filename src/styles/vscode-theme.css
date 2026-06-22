@@ -2513,13 +2513,18 @@ button {
 /* ── Pages scroll area ───────────────────── */
 
 .pdf-preview-pages {
-  flex: 1;
-  overflow: auto;
+  overflow-y: auto;
   padding: 12px;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   outline: none;
+}
+
+/* fillContainer mode (preview window): pages area grows to fill parent */
+.pdf-preview-fill .pdf-preview-pages {
+  flex: 1;
 }
 
 .pdf-preview-page-wrap {
@@ -2527,6 +2532,12 @@ button {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   border-radius: 2px;
   overflow: hidden;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s ease;
+}
+
+.pdf-preview-page-wrap.is-current {
+  box-shadow: 0 2px 12px rgba(0, 122, 204, 0.35);
 }
 
 .pdf-preview-page-loading {
