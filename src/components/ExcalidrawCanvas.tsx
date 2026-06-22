@@ -275,36 +275,43 @@ export function ExcalidrawCanvas({
   // Element ids are prefixed with the instance prefix before they enter
   // Excalidraw so they are globally unique.
   //
-  // Viewport (scrollX / scrollY / zoom) is restored from the snapshot if
-  // present — this preserves the user's zoom level and pan position when
-  // switching documents and coming back. Old snapshots without viewport
-  // data fall through to scrollToContent.
+  // We do NOT pass scrollX/scrollY/zoom via initialData.appState because
+  // Excalidraw's internal `restore()` silently strips those fields during
+  // initialization. Instead, viewport is restored imperatively in the
+  // excalidrawAPI callback after the scene is ready.
   const initialData = useMemo<
     ExcalidrawInitialDataState | Promise<ExcalidrawInitialDataState | null> | null
   >(() => {
     if (!initialSnapshot) return null;
     try {
       const parsed = JSON.parse(initialSnapshot);
-      const vp = parsed?.viewport;
-      const hasViewport =
-        vp && typeof vp.zoom === 'number' && typeof vp.scrollX === 'number';
       return {
         elements: prefixElements(parsed?.elements ?? [], instPrefix),
         appState: {
           theme: darkMode ? 'dark' : 'light',
-          ...(hasViewport
-            ? {
-                scrollX: vp.scrollX,
-                scrollY: vp.scrollY,
-                zoom: { value: vp.zoom } as Zoom,
-              }
-            : {}),
         },
-        scrollToContent: !hasViewport,
+        scrollToContent: true,
       };
     } catch {
       return null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Extract viewport from the initial snapshot so it can be restored
+  // imperatively once the Excalidraw API is ready.
+  const initialViewport = useMemo(() => {
+    if (!initialSnapshot) return null;
+    try {
+      const parsed = JSON.parse(initialSnapshot);
+      const vp = parsed?.viewport;
+      if (vp && typeof vp.zoom === 'number' && typeof vp.scrollX === 'number') {
+        return { scrollX: vp.scrollX, scrollY: vp.scrollY, zoom: vp.zoom };
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -315,8 +322,9 @@ export function ExcalidrawCanvas({
   // updates this ref, so we only react to genuinely new external data.
   //
   // External snapshots always arrive with CLEAN ids (no prefix), so we add
-  // the instance prefix before pushing them in. The viewport is restored
-  // alongside the elements.
+  // the instance prefix before pushing them in. The viewport is also
+  // restored — note that updateScene.appState DOES correctly apply zoom /
+  // scrollX / scrollY (unlike initialData which gets stripped by restore).
   useEffect(() => {
     if (initialSnapshot === lastAppliedSnapshot.current) return;
     lastAppliedSnapshot.current = initialSnapshot;
@@ -484,6 +492,40 @@ export function ExcalidrawCanvas({
             scrollY: appState.scrollY,
             zoom: appState.zoom,
           };
+
+          // Restore viewport AFTER Excalidraw finishes its async init.
+          // Excalidraw's `restore()` strips scrollX/scrollY/zoom from
+          // initialData.appState, so we must apply them imperatively
+          // once the scene is loaded. The double-rAF ensures we run
+          // after Excalidraw's componentDidMount → initializeScene cycle.
+          if (initialViewport) {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                const current = api.getAppState();
+                // Only restore if Excalidraw hasn't already applied a
+                // user-initiated change since mount.
+                if (
+                  current.scrollX === appState.scrollX &&
+                  current.scrollY === appState.scrollY &&
+                  current.zoom.value === appState.zoom.value
+                ) {
+                  restoringViewportRef.current = true;
+                  api.updateScene({
+                    appState: {
+                      scrollX: initialViewport.scrollX,
+                      scrollY: initialViewport.scrollY,
+                      zoom: { value: initialViewport.zoom } as Zoom,
+                    },
+                  });
+                  viewportRef.current = {
+                    scrollX: initialViewport.scrollX,
+                    scrollY: initialViewport.scrollY,
+                    zoom: { value: initialViewport.zoom } as Zoom,
+                  };
+                }
+              });
+            });
+          }
         }}
         initialData={initialData}
         onChange={handleChange}
