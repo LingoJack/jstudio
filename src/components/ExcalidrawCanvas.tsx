@@ -53,6 +53,44 @@ const SEP = '$';
 
 let activeExcalidrawInstance: string | null = null;
 
+/* ------------------------------------------------------------------ */
+/* Trackpad pinch-zoom guard (macOS Safari `gesture*` events)          */
+/*                                                                     */
+/* Excalidraw attaches `gesturestart/change/end` listeners on the      */
+/* global `document` (bubble phase) and, on every gesture, zooms its   */
+/* scene — WITHOUT checking whether the gesture occurred over its own  */
+/* canvas. A transparent DOM overlay therefore cannot stop it: pinch   */
+/* anywhere zooms EVERY mounted Excalidraw instance, including diagram */
+/* blocks the user is merely viewing (not editing).                    */
+/*                                                                     */
+/* Fix: a single capture-phase guard on `document` runs BEFORE         */
+/* Excalidraw's bubble listener. Unless the gesture target sits inside */
+/* an instance that is currently in edit mode, we stop propagation so  */
+/* the event never reaches Excalidraw. When no instance is editing,    */
+/* all gestures are blocked — so a static diagram never zooms.         */
+/* ------------------------------------------------------------------ */
+
+const editingRoots = new Set<HTMLElement>();
+let gestureGuardInstalled = false;
+
+function installGestureGuard(): void {
+  if (gestureGuardInstalled || typeof document === 'undefined') return;
+  gestureGuardInstalled = true;
+
+  const guard = (e: Event) => {
+    const target = e.target as Node | null;
+    for (const root of editingRoots) {
+      if (target && root.contains(target)) return; // allow zoom in the edited diagram
+    }
+    // No editing instance owns this gesture — keep it away from Excalidraw.
+    e.stopPropagation();
+  };
+
+  document.addEventListener('gesturestart', guard, true);
+  document.addEventListener('gesturechange', guard, true);
+  document.addEventListener('gestureend', guard, true);
+}
+
 // Excalidraw element shapes that carry id references.
 type BindingLike = { elementId: string } | null;
 type BoundElementLike = { id: string; type: string } | undefined;
@@ -149,6 +187,14 @@ export interface ExcalidrawCanvasProps {
    * its 1/2/3 tool shortcuts work). Called with `null` on unmount.
    */
   rootElRef?: (el: HTMLDivElement | null) => void;
+  /**
+   * Whether this canvas is currently in edit mode. When false, trackpad
+   * pinch-zoom gestures are blocked from reaching Excalidraw (see the
+   * gesture-guard comment above) so a viewed-but-not-edited diagram never
+   * zooms. When true, the canvas is registered as a gesture owner and zoom
+   * works normally. Defaults to true (standalone diagram window always edits).
+   */
+  editing?: boolean;
 }
 
 export function ExcalidrawCanvas({
@@ -157,6 +203,7 @@ export function ExcalidrawCanvas({
   darkMode = false,
   className = '',
   rootElRef,
+  editing = true,
 }: ExcalidrawCanvasProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -185,6 +232,18 @@ export function ExcalidrawCanvas({
     },
     [rootElRef],
   );
+
+  // Install the document-level pinch-gesture guard once, and register this
+  // instance's root as a "gesture owner" only while it is in edit mode.
+  useEffect(() => {
+    installGestureGuard();
+    const root = rootRef.current;
+    if (!root || !editing) return;
+    editingRoots.add(root);
+    return () => {
+      editingRoots.delete(root);
+    };
+  }, [editing]);
 
   // Track the latest snapshot we have applied to the canvas.
   // This is used to:

@@ -290,6 +290,7 @@ export default function DiagramBlockView({
               onChange={handleEmbeddedChange}
               darkMode={isDark}
               rootElRef={handleExcalidrawRoot}
+              editing={editing}
             />
           </div>
 

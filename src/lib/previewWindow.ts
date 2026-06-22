@@ -87,27 +87,42 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
 /**
  * In the preview window, retrieve the file data payload from Rust memory.
  * The label of this window is used as the key.
+ *
+ * NOTE: A module-level promise cache dedupes React StrictMode's double
+ * effect invocation in dev.  `get_preview_data` is a *destructive* read
+ * (it removes the entry from the Rust cache), so a second concurrent fetch
+ * would always return null and the window would render forever-loading.
+ * Sharing one promise guarantees both callers get the same payload.
  */
-export async function fetchPreviewData(): Promise<PreviewPayload | null> {
-  const label = getCurrentWindow().label;
-  console.log('[PreviewWindow] Fetching preview data for label:', label);
+let cachedPreviewFetch: Promise<PreviewPayload | null> | null = null;
 
-  // Retry a few times — the data might not be fully committed yet.
-  for (let i = 0; i < 20; i++) {
-    try {
-      const data = await invoke<PreviewPayload | null>('get_preview_data', { label });
-      if (data) {
-        console.log('[PreviewWindow] Data retrieved on attempt', i + 1);
-        return data;
+export function fetchPreviewData(): Promise<PreviewPayload | null> {
+  if (cachedPreviewFetch) return cachedPreviewFetch;
+
+  const doFetch = async (): Promise<PreviewPayload | null> => {
+    const label = getCurrentWindow().label;
+    console.log('[PreviewWindow] Fetching preview data for label:', label);
+
+    // Retry a few times — the data might not be fully committed yet.
+    for (let i = 0; i < 20; i++) {
+      try {
+        const data = await invoke<PreviewPayload | null>('get_preview_data', { label });
+        if (data) {
+          console.log('[PreviewWindow] Data retrieved on attempt', i + 1);
+          return data;
+        }
+      } catch (e) {
+        console.error('[PreviewWindow] Error fetching data:', e);
       }
-    } catch (e) {
-      console.error('[PreviewWindow] Error fetching data:', e);
+      await new Promise((r) => setTimeout(r, 300));
     }
-    await new Promise((r) => setTimeout(r, 300));
-  }
 
-  console.error('[PreviewWindow] Failed to retrieve preview data after retries');
-  return null;
+    console.error('[PreviewWindow] Failed to retrieve preview data after retries');
+    return null;
+  };
+
+  cachedPreviewFetch = doFetch();
+  return cachedPreviewFetch;
 }
 
 /**

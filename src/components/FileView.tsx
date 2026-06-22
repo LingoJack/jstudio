@@ -392,10 +392,12 @@ export default function FileView({
                 contentEditable={false}
                 style={previewStyle}
               >
-                {/* Transparent overlay when NOT editing — lets the user
-                    click to select the node even over an <iframe>. Removed in
-                    edit mode so the preview content becomes interactive. */}
-                {!editing && (
+                {/* Transparent overlay only when NOT selected — lets the user
+                    click to select the node even over an <iframe>. Once the
+                    block is selected the overlay is removed so the preview's
+                    own controls (PDF page/zoom toolbar, media controls) are
+                    immediately clickable without entering edit mode. */}
+                {!selected && (
                   <div className="file-block-preview-overlay" />
                 )}
 

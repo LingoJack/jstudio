@@ -15,6 +15,11 @@
  *   editor.getJSON()        →  tiptapJSONToOurBlocks()  →  store.setActiveDocBlocks()
  *
  * The two systems are decoupled by the adapter layer (`lib/tiptapAdapter`).
+ *
+ * When called with `{ doc, readOnly }` props the editor renders as a static,
+ * non-editable document — used by HelpSection. This guarantees that any change
+ * to the rendering extensions / styles here is automatically reflected in the
+ * help document.
  */
 
 import { useEffect, useRef, useCallback } from 'react';
@@ -59,7 +64,18 @@ import { EditorCursorTrail } from './EditorCursorTrail';
 import type { Block } from '../types';
 import { ListTree } from 'lucide-react';
 
-export default function BlockEditor() {
+export interface BlockEditorProps {
+  /** When provided, the editor renders this static document instead of the
+   *  store's active document. Used by HelpSection. */
+  doc?: { title: string; blocks: Block[] };
+  /** Render in read-only mode (no editing, no toolbar, no cursor trail). */
+  readOnly?: boolean;
+}
+
+export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
+  // ── Read-only / static-document mode ──────────────────────────────
+  const isStatic = !!doc;
+
   // Only subscribe to the fields this component actually renders, so that
   // setActiveDocBlocks() (fires on every debounce tick) — which replaces the
   // activeDoc reference — does NOT trigger a re-render here.  Re-rendering the
@@ -119,6 +135,7 @@ export default function BlockEditor() {
   }, []);
 
   const editor = useEditor({
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({
         codeBlock: false, // replaced by CodeBlockLowlight
@@ -145,7 +162,7 @@ export default function BlockEditor() {
       CollapsibleExtension,
       DiagramExtension,
       Link.configure({
-        openOnClick: false,
+        openOnClick: readOnly, // allow link clicks in read-only mode
         autolink: true,
       }),
       Underline,
@@ -169,13 +186,13 @@ export default function BlockEditor() {
       }),
     ],
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
-    onUpdate: handleChange,
+    onUpdate: readOnly ? undefined : handleChange,
     editorProps: {
       attributes: {
         class: 'max-w-none focus:outline-none',
       },
-      handlePaste: createPasteHandler(editorRef),
-      handleDrop: createDropHandler(editorRef),
+      handlePaste: readOnly ? undefined : createPasteHandler(editorRef),
+      handleDrop: readOnly ? undefined : createDropHandler(editorRef),
     },
   });
 
@@ -185,10 +202,23 @@ export default function BlockEditor() {
   }, [editor]);
 
   // ------------------------------------------------------------------
-  // Load content when switching documents
+  // Load content when switching documents, or once for a static doc
   // ------------------------------------------------------------------
   useEffect(() => {
     if (!editor) return;
+
+    // Static document mode — load once
+    if (isStatic && doc) {
+      loadedDocIdRef.current = '__static__';
+      isReplacingRef.current = true;
+      const tiptapContent = ourBlocksToTiptapJSON(doc.blocks);
+      editor.commands.setContent(tiptapContent);
+      requestAnimationFrame(() => {
+        isReplacingRef.current = false;
+      });
+      return;
+    }
+
     if (!hasActiveDoc) {
       loadedDocIdRef.current = null;
       return;
@@ -210,7 +240,7 @@ export default function BlockEditor() {
       isReplacingRef.current = false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDocId, editor]);
+  }, [activeDocId, editor, isStatic, doc]);
 
   // ------------------------------------------------------------------
   // Cleanup debounce timer on unmount
@@ -375,6 +405,32 @@ export default function BlockEditor() {
     [editor],
   );
 
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
+
+  // ── Static / read-only mode ──
+  if (isStatic && doc) {
+    return (
+      <div className="flex h-full bg-transparent overflow-hidden relative">
+        <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text">
+          {/* Document Title (static text, not editable) */}
+          <div className="pb-4">
+            <h1 className="text-4xl font-bold text-[var(--vscode-editor-foreground)] pb-1">
+              {doc.title}
+            </h1>
+          </div>
+
+          {/* TipTap Editor (read-only) */}
+          <div className="tiptap-editor-container min-h-[50vh] relative">
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal editing mode ──
   if (!hasActiveDoc) return null;
 
   return (
