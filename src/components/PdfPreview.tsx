@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page } from 'react-pdf';
-import type { OnDocumentLoadSuccess } from 'react-pdf/dist/shared/types';
+import type { DocumentProps } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import {
@@ -67,7 +67,7 @@ export default function PdfPreview({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // ── Document load callbacks ────────────────────────────
-  const onLoadSuccess: OnDocumentLoadSuccess = useCallback((pdf) => {
+  const onLoadSuccess: NonNullable<DocumentProps['onLoadSuccess']> = useCallback((pdf) => {
     setNumPages(pdf.numPages);
     setCurrentPage(1);
     setLoadError(null);

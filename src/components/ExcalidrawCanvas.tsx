@@ -101,7 +101,7 @@ function prefixElements<T extends Record<string, any>>(
 
 /** Strip the instance prefix from every element id and id reference. */
 function stripPrefixes<T extends Record<string, any>>(
-  elements: T[],
+  elements: readonly T[],
   prefix: string,
 ): T[] {
   const marker = prefix + SEP;
