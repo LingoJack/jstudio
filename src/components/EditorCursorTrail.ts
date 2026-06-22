@@ -85,12 +85,45 @@ export class EditorCursorTrail extends BaseCursorTrail {
     super(canvas, color);
     this.editorEl = editorEl;
     this.scrollContainer = scrollContainer;
+    this.invertColor = this.resolveInvertColor();
+  }
+
+  /**
+   * Colour to paint the glyph that a block cursor covers.  We use the
+   * editor's background colour so the character reads as inverted (e.g.
+   * white-on-dark text becomes dark-on-green-block), matching how a
+   * terminal block cursor swaps foreground/background.
+   */
+  private resolveInvertColor(): string {
+    const fromVar = getComputedStyle(document.documentElement)
+      .getPropertyValue('--vscode-editor-background')
+      .trim();
+    if (fromVar) return fromVar;
+    // Walk up from the editor for a non-transparent background.
+    let el: HTMLElement | null = this.editorEl;
+    while (el) {
+      const bg = getComputedStyle(el).backgroundColor;
+      if (bg && bg !== 'transparent' && !bg.startsWith('rgba(0, 0, 0, 0')) return bg;
+      el = el.parentElement;
+    }
+    return '#1e1e1e';
   }
 
   // ── Public API ──
 
   setCursorStyle(style: EditorCursorStyle) {
     this.cursorStyle = style;
+  }
+
+  stop() {
+    super.stop();
+    if (this.glyphEl) this.glyphEl.style.display = 'none';
+  }
+
+  dispose() {
+    super.dispose();
+    if (this.glyphEl?.parentNode) this.glyphEl.parentNode.removeChild(this.glyphEl);
+    this.glyphEl = null;
   }
 
   // ── BaseCursorTrail implementation ──
@@ -124,6 +157,59 @@ export class EditorCursorTrail extends BaseCursorTrail {
       this.snapCorners();
       this.firstFrame = false;
     }
+
+    // Sync the inverted-glyph overlay (block cursor only).
+    this.syncGlyphOverlay();
+  }
+
+  /**
+   * Render / position / hide the DOM overlay that re-draws the glyph sitting
+   * under a block cursor in the editor's background colour.
+   *
+   * The WebGL block is drawn in the trail colour and is opaque, so it hides
+   * whatever character it covers.  Rather than dimming the block (which
+   * leaves the glyph muddy), we paint the same character on top of it in the
+   * inverted colour — exactly how a terminal block cursor inverts fg/bg.
+   *
+   * The overlay's opacity tracks the block's blink so the glyph fades in
+   * lock-step with the block (they invert together, never out of phase).
+   */
+  private syncGlyphOverlay() {
+    const g = this.cursorVisible ? this.coveredGlyph : null;
+    if (!g) {
+      if (this.glyphEl) this.glyphEl.style.display = 'none';
+      return;
+    }
+
+    if (!this.glyphEl) {
+      const el = document.createElement('div');
+      Object.assign(el.style, {
+        position: 'absolute',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        overflow: 'hidden',
+        whiteSpace: 'pre',
+        zIndex: '1',
+      } as Partial<CSSStyleDeclaration>);
+      // Layer the glyph above the trail canvas inside the same overlay.
+      this.canvas.parentElement?.appendChild(el);
+      this.glyphEl = el;
+    }
+
+    const el = this.glyphEl;
+    el.style.display = 'flex';
+    el.style.left = `${g.left}px`;
+    el.style.top = `${g.top}px`;
+    el.style.width = `${g.width}px`;
+    el.style.height = `${g.height}px`;
+    el.style.font = g.font;
+    el.style.letterSpacing = g.letterSpacing;
+    el.style.color = this.invertColor;
+    el.style.opacity = String(this.computeBlink());
+    if (el.textContent !== g.text) el.textContent = g.text;
   }
 
   /**
@@ -186,22 +272,13 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const glyph = this.measureGlyphAt(range, fontSize);
 
     if (rect.width === 0 && rect.height === 0) {
+      this.coveredGlyph = null;
       return this.measureCaretViaTempSpan();
     }
 
     return this.toCanvasLocal(rect, fontSize, glyph);
   }
 
-  /**
-   * Measure the glyph the caret is anchored to.
-   *
-   * We look at the character *following* the caret (the one you'd overtype
-   * in block mode).  If a real character is there, we return its actual
-   * advance width and `onChar = true` so the cursor matches CJK / wide /
-   * narrow glyphs exactly.  If there's nothing after the caret (end of
-   * line, empty block), `onChar = false` and the caller falls back to the
-   * half-width rule.
-   */
   /**
    * Measure the glyph the caret is anchored to.
    *
@@ -215,12 +292,19 @@ export class EditorCursorTrail extends BaseCursorTrail {
    *
    * Returning the real advance width makes the cursor match CJK / wide /
    * narrow glyphs exactly; `before` tells the caller which side of the
-   * caret the glyph occupies so it can position the cursor over it.
+   * caret the glyph occupies so it can position the cursor over it.  When
+   * a real glyph is found, `cover` carries everything needed to re-draw it
+   * in the inverted colour on top of a block cursor.
    */
   private measureGlyphAt(
     caret: Range,
     fontSize: number,
-  ): { width: number; onChar: boolean; before: boolean } {
+  ): {
+    width: number;
+    onChar: boolean;
+    before: boolean;
+    cover: { text: string; rect: DOMRect; font: string; letterSpacing: string } | null;
+  } {
     const fallback = fontSize * CHAR_WIDTH_RATIO;
     const node = caret.startContainer;
     const offset = caret.startOffset;
@@ -230,45 +314,67 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
       // 1. Character after the caret.
       if (offset < text.length) {
-        const w = this.rangeWidth(node, offset, text, +1);
-        if (w > 0.5) return { width: w, onChar: true, before: false };
+        const m = this.measureCodePoint(node, offset, text, +1);
+        if (m) return { width: m.rect.width, onChar: true, before: false, cover: m };
       }
 
       // 2. Character before the caret.
       if (offset > 0) {
-        const w = this.rangeWidth(node, offset, text, -1);
-        if (w > 0.5) return { width: w, onChar: true, before: true };
+        const m = this.measureCodePoint(node, offset, text, -1);
+        if (m) return { width: m.rect.width, onChar: true, before: true, cover: m };
       }
     }
 
-    return { width: fallback, onChar: false, before: false };
+    return { width: fallback, onChar: false, before: false, cover: null };
   }
 
   /**
-   * Width (px) of the code point adjacent to `offset` in `text`.
+   * Measure the code point adjacent to `offset` in `text`: its bounding
+   * rect, the character string, and the computed font of its container
+   * (so it can be re-rendered identically by the inverted-glyph overlay).
+   *
    * @param dir +1 = the character starting at `offset` (after the caret),
    *            -1 = the character ending at `offset` (before the caret).
    */
-  private rangeWidth(node: Node, offset: number, text: string, dir: 1 | -1): number {
+  private measureCodePoint(
+    node: Node,
+    offset: number,
+    text: string,
+    dir: 1 | -1,
+  ): { text: string; rect: DOMRect; font: string; letterSpacing: string } | null {
     try {
       const r = document.createRange();
+      let start: number;
+      let end: number;
       if (dir === 1) {
-        // Code point starting at offset (handle surrogate pairs / emoji).
         const cp = text.codePointAt(offset);
         const len = cp !== undefined && cp > 0xffff ? 2 : 1;
-        r.setStart(node, offset);
-        r.setEnd(node, Math.min(offset + len, text.length));
+        start = offset;
+        end = Math.min(offset + len, text.length);
       } else {
-        // Code point ending at offset.
         const prev = text.codePointAt(offset - 2);
-        const isPair =
-          offset >= 2 && prev !== undefined && prev > 0xffff;
-        r.setStart(node, offset - (isPair ? 2 : 1));
-        r.setEnd(node, offset);
+        const isPair = offset >= 2 && prev !== undefined && prev > 0xffff;
+        start = offset - (isPair ? 2 : 1);
+        end = offset;
       }
-      return r.getBoundingClientRect().width;
+      r.setStart(node, start);
+      r.setEnd(node, end);
+      const rect = r.getBoundingClientRect();
+      if (rect.width <= 0.5) return null;
+
+      const parent =
+        node.nodeType === Node.ELEMENT_NODE
+          ? (node as Element)
+          : node.parentElement;
+      const cs = parent ? getComputedStyle(parent) : null;
+      const font = cs
+        ? `${cs.fontStyle} ${cs.fontVariant} ${cs.fontWeight} ${cs.fontSize}/${cs.lineHeight} ${cs.fontFamily}`
+        : '';
+      const letterSpacing = cs?.letterSpacing ?? 'normal';
+
+      return { text: text.slice(start, end), rect, font, letterSpacing };
     } catch {
-      return 0;
+      return null;
     }
   }
 
@@ -339,7 +445,12 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private toCanvasLocal(
     rect: DOMRect,
     fontSize: number,
-    glyph: { width: number; onChar: boolean; before: boolean },
+    glyph: {
+      width: number;
+      onChar: boolean;
+      before: boolean;
+      cover: { text: string; rect: DOMRect; font: string; letterSpacing: string } | null;
+    },
   ): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
     const caretLeft = rect.left - canvasRect.left;
@@ -365,6 +476,24 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const emHeight = Math.min(fontSize * GLYPH_HEIGHT_RATIO, lineHeight);
     const emTop = top + (lineHeight - emHeight) / 2;
     const emBottom = emTop + emHeight;
+
+    // Only the block cursor sits ON TOP of a glyph and hides it.  Capture
+    // the covered glyph so the render loop can re-draw it in the inverted
+    // colour; clear it for the other styles (and when over empty space).
+    if (this.cursorStyle === 'block' && glyph.cover) {
+      const c = glyph.cover;
+      this.coveredGlyph = {
+        text: c.text,
+        left: c.rect.left - canvasRect.left,
+        top: c.rect.top - canvasRect.top,
+        width: c.rect.width,
+        height: c.rect.height,
+        font: c.font,
+        letterSpacing: c.letterSpacing,
+      };
+    } else {
+      this.coveredGlyph = null;
+    }
 
     let trailLeft: number;
     let trailRight: number;
