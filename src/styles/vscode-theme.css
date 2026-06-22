@@ -983,17 +983,6 @@ button {
   outline: none;
 }
 
-/* ─── Help Document (read-only TipTap surface) ────────────────────────── */
-
-.ProseMirror.help-doc {
-  min-height: auto;
-}
-
-.ProseMirror.help-doc a {
-  color: var(--vscode-textLink-foreground);
-  text-decoration: underline;
-}
-
 /* ─── Image NodeView (React) ─────────────────────────────────────────────── */
 
 .image-node-wrapper {
