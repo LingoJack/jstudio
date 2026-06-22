@@ -274,18 +274,33 @@ export function ExcalidrawCanvas({
   // Parse initial snapshot once — only used on first mount.
   // Element ids are prefixed with the instance prefix before they enter
   // Excalidraw so they are globally unique.
+  //
+  // Viewport (scrollX / scrollY / zoom) is restored from the snapshot if
+  // present — this preserves the user's zoom level and pan position when
+  // switching documents and coming back. Old snapshots without viewport
+  // data fall through to scrollToContent.
   const initialData = useMemo<
     ExcalidrawInitialDataState | Promise<ExcalidrawInitialDataState | null> | null
   >(() => {
     if (!initialSnapshot) return null;
     try {
       const parsed = JSON.parse(initialSnapshot);
+      const vp = parsed?.viewport;
+      const hasViewport =
+        vp && typeof vp.zoom === 'number' && typeof vp.scrollX === 'number';
       return {
         elements: prefixElements(parsed?.elements ?? [], instPrefix),
         appState: {
           theme: darkMode ? 'dark' : 'light',
+          ...(hasViewport
+            ? {
+                scrollX: vp.scrollX,
+                scrollY: vp.scrollY,
+                zoom: { value: vp.zoom } as Zoom,
+              }
+            : {}),
         },
-        scrollToContent: true,
+        scrollToContent: !hasViewport,
       };
     } catch {
       return null;
@@ -300,7 +315,8 @@ export function ExcalidrawCanvas({
   // updates this ref, so we only react to genuinely new external data.
   //
   // External snapshots always arrive with CLEAN ids (no prefix), so we add
-  // the instance prefix before pushing them in.
+  // the instance prefix before pushing them in. The viewport is restored
+  // alongside the elements.
   useEffect(() => {
     if (initialSnapshot === lastAppliedSnapshot.current) return;
     lastAppliedSnapshot.current = initialSnapshot;
@@ -309,8 +325,20 @@ export function ExcalidrawCanvas({
     if (!api || !initialSnapshot) return;
     try {
       const parsed = JSON.parse(initialSnapshot);
+      const vp = parsed?.viewport;
+      const hasViewport =
+        vp && typeof vp.zoom === 'number' && typeof vp.scrollX === 'number';
       api.updateScene({
         elements: prefixElements(parsed?.elements ?? [], instPrefix),
+        ...(hasViewport
+          ? {
+              appState: {
+                scrollX: vp.scrollX,
+                scrollY: vp.scrollY,
+                zoom: { value: vp.zoom } as Zoom,
+              },
+            }
+          : {}),
       });
     } catch {
       /* ignore malformed JSON */
@@ -319,17 +347,27 @@ export function ExcalidrawCanvas({
 
   // Excalidraw calls onChange on every edit — debounce the serialization.
   // When serializing, strip the instance prefix so the persisted snapshot
-  // uses clean, portable ids.
+  // uses clean, portable ids. The viewport (scrollX / scrollY / zoom) is
+  // saved alongside the elements so the user's zoom/pan is restored when
+  // the component remounts (e.g. switching documents and back).
   const handleChange = useCallback((
     elements: readonly OrderedExcalidrawElement[],
-    _appState: AppState,
+    appState: AppState,
     _files: BinaryFiles,
   ) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       try {
         const cleanElements = stripPrefixes([...elements], instPrefix);
-        const snapshot = JSON.stringify({ elements: cleanElements });
+        // Capture the current viewport from appState so it survives remounts.
+        const snapshot = JSON.stringify({
+          elements: cleanElements,
+          viewport: {
+            scrollX: appState.scrollX,
+            scrollY: appState.scrollY,
+            zoom: appState.zoom?.value ?? 1,
+          },
+        });
         if (snapshot === lastEmittedSnapshot.current) return;
         lastEmittedSnapshot.current = snapshot;
         lastAppliedSnapshot.current = snapshot;
