@@ -327,21 +327,23 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   }, [editor]);
 
   // ------------------------------------------------------------------
-  // Sync cursor style → trail geometry + native caret visibility
-  //
-  // All cursor styles (bar / block / underline) are rendered by the trail
-  // in fill mode, because Tauri's WebView native caret does not blink.
-  // The native caret is always hidden; the trail draws a solid cursor with
-  // blink animation instead.
+  // Cursor rendering is fully owned by the WebGL EditorCursorTrail:
+  // the trail draws the cursor SHAPE (bar / block / underline) as a solid
+  // fill and animates both motion (kitty comet easing) and blink (smooth
+  // sine fade).  The native browser caret is therefore hidden — it can
+  // only ever be a thin vertical line and would clash with block/underline.
   // ------------------------------------------------------------------
   useEffect(() => {
-    if (readOnly) return; // no cursor style manipulation in read-only mode
+    if (readOnly) return;
     trailRef.current?.setCursorStyle(editorCursorStyle);
-    const editorDom = editorRef.current?.view?.dom as HTMLElement | undefined;
-    if (editorDom) {
-      editorDom.style.caretColor = 'transparent';
-    }
-  }, [editorCursorStyle]);
+    const editorDom = editor?.view?.dom as HTMLElement | undefined;
+    if (!editorDom) return;
+
+    editorDom.style.caretColor = 'transparent';
+    return () => {
+      editorDom.style.caretColor = '';
+    };
+  }, [editorCursorStyle, editor, readOnly]);
 
   // ------------------------------------------------------------------
   // Title keydown — Enter / Arrow navigation

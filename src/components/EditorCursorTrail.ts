@@ -5,8 +5,8 @@
  * Editor-specific responsibilities:
  *   - Reading cursor position from the browser Selection / Range API.
  *   - Deriving cell metrics from font-size (no fixed grid like xterm).
- *   - Blink animation for all cursor styles (VS Code default rhythm).
  *   - Shaping the trail quad by cursor style (bar / block / underline).
+ *   - Blink is handled in BlockEditor via JS caret-color toggle.
  *
  * All GL pipeline, kitty physics, and rendering are inherited from
  * BaseCursorTrail — no duplication.
@@ -18,16 +18,20 @@ import {
 } from './cursor/BaseCursorTrail';
 import type { EditorCursorStyle } from '../lib/storage';
 
-// ── Cursor blink (milliseconds) ──────────────────────────────────────
-// Matches VS Code's default cursor blink: 530ms on, 530ms off.
-const BLINK_PERIOD_MS = 1060;
-const BLINK_ON_RATIO = 0.5;
-
 // ── Caret geometry (same ratios as terminal CursorTrail) ─────────────
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 const BAR_THICKNESS_RATIO = 0.12;
 const CHAR_WIDTH_RATIO = 0.6;
 const CARET_BAR_WIDTH_PX = 2;
+/** Caret body height relative to font-size (a touch taller than the glyph
+ *  so it visually matches the text, centred within the line box). */
+const GLYPH_HEIGHT_RATIO = 1.15;
+
+// ── Blink animation timing (ms) ──────────────────────────────────────
+/** Stay fully solid for this long after the caret moves/appears. */
+const BLINK_SOLID_MS = 530;
+/** Full blink cycle (fade out + back in) once blinking begins. */
+const BLINK_PERIOD_MS = 1060;
 
 export class EditorCursorTrail extends BaseCursorTrail {
   /** The ProseMirror editor DOM element (for focus detection). */
@@ -42,8 +46,6 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private cursorVisibleStartTime = 0;
   /** Whether the caret position has changed since last frame. */
   private prevCaretKey = '';
-  /** Cached line-spacing value (avoid getComputedStyle every frame). */
-  private cachedLineSpacing = 1.7;
 
   /**
    * @param canvas           An overlay canvas positioned over the editor area.
@@ -66,14 +68,6 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
   setCursorStyle(style: EditorCursorStyle) {
     this.cursorStyle = style;
-  }
-
-  resize() {
-    super.resize();
-    // Refresh cached line-spacing (cheap, only called on resize).
-    const lsStr =
-      getComputedStyle(document.documentElement).getPropertyValue('--jstudio-line-height') || '1.7';
-    this.cachedLineSpacing = parseFloat(lsStr) || 1.7;
   }
 
   // ── BaseCursorTrail implementation ──
@@ -110,35 +104,39 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   /**
-   * Render options.
+   * Render options: FILL mode for all styles.
    *
-   * 'bar' uses CUTOUT mode: the native caret shows through the hole in
-   * the trail quad.  Blink is handled by CSS caret-color animation on
-   * the editor element (see vscode-theme.css).
+   * The WebGL fill IS the cursor — the solid quad is shaped per style
+   * (bar / block / underline) in {@link toCanvasLocal}, and the native
+   * caret is hidden by BlockEditor (caret-color: transparent).  This is
+   * what lets `block` render as a solid block and `underline` as a bar
+   * along the baseline — the native caret can only ever be a thin line.
    *
-   * 'block'/'underline' use FILL mode with shader blink because there
-   * is no native equivalent — the solid fill IS the cursor.
+   * Blink is computed here as a smooth 0..1 multiplier so the cursor
+   * fades out and back in (rather than a hard on/off), and is reset to
+   * fully-solid whenever the caret moves or reappears.
    */
   protected getRenderOptions(): RenderOptions {
-    const useFill = this.cursorStyle === 'block' || this.cursorStyle === 'underline';
+    return { fillCursor: true, blink: this.computeBlink() };
+  }
 
-    let blink = 1.0;
-    if (useFill) {
-      // Blink only when stationary (trail corners ≈ target).
-      const maxDelta = Math.max(
-        Math.abs(this.cornerX[0] - this.cursorEdgeX[1]),
-        Math.abs(this.cornerX[2] - this.cursorEdgeX[0]),
-        Math.abs(this.cornerY[0] - this.cursorEdgeY[0]),
-        Math.abs(this.cornerY[2] - this.cursorEdgeY[1]),
-      );
-      if (maxDelta < 2) {
-        const elapsed = performance.now() - this.cursorVisibleStartTime;
-        const phase = (elapsed % BLINK_PERIOD_MS) / BLINK_PERIOD_MS;
-        blink = phase < BLINK_ON_RATIO ? 1.0 : 0.0;
-      }
-    }
+  /**
+   * Smooth blink phase in 0..1.
+   *
+   * The caret stays fully solid (1.0) for {@link BLINK_SOLID_MS} after it
+   * last moved/appeared, then eases between solid and dim on a sine curve
+   * with period {@link BLINK_PERIOD_MS}.  The dim floor is 0.15 (never
+   * fully invisible) so the cursor remains discoverable while pulsing.
+   */
+  private computeBlink(): number {
+    const elapsed = performance.now() - this.cursorVisibleStartTime;
+    if (elapsed < BLINK_SOLID_MS) return 1.0;
 
-    return { fillCursor: useFill, blink };
+    const phase = ((elapsed - BLINK_SOLID_MS) % BLINK_PERIOD_MS) / BLINK_PERIOD_MS;
+    // cos: 1 → -1 → 1 over the period.  Map to 1 → floor → 1.
+    const wave = (Math.cos(phase * Math.PI * 2) + 1) * 0.5; // 1..0..1
+    const floor = 0.15;
+    return floor + (1 - floor) * wave;
   }
 
   // ── Private: Caret measurement ──
@@ -165,7 +163,25 @@ export class EditorCursorTrail extends BaseCursorTrail {
       return this.measureCaretViaTempSpan();
     }
 
-    return this.toCanvasLocal(rect);
+    return this.toCanvasLocal(rect, this.fontSizeAt(range.startContainer));
+  }
+
+  /**
+   * Read the actual computed font-size (px) of the element containing the
+   * caret.  This is essential because headings, code blocks, etc. each have
+   * their own font-size and line-height — deriving the glyph size from a
+   * single global line-spacing constant mis-sizes the cursor on those lines
+   * (block too small / underline floating above the baseline).
+   */
+  private fontSizeAt(node: Node | null): number {
+    let el: Element | null =
+      node && node.nodeType === Node.ELEMENT_NODE
+        ? (node as Element)
+        : node?.parentElement ?? null;
+    if (!el || !(el instanceof HTMLElement)) el = this.editorEl;
+    if (!el) return 16;
+    const fs = parseFloat(getComputedStyle(el).fontSize);
+    return Number.isFinite(fs) && fs > 0 ? fs : 16;
   }
 
   /**
@@ -186,6 +202,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     const rect = span.getBoundingClientRect();
     const parent = span.parentNode;
+    const fontSize = this.fontSizeAt(parent);
     if (parent) parent.removeChild(span);
 
     sel.removeAllRanges();
@@ -193,7 +210,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     if (rect.width === 0 && rect.height === 0) return null;
 
-    return this.toCanvasLocal(rect);
+    return this.toCanvasLocal(rect, fontSize);
   }
 
   /**
@@ -204,14 +221,23 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * NOT from the DOMRect height (which includes line-spacing and would be
    * too large for 'block').
    */
-  private toCanvasLocal(rect: DOMRect): { left: number; right: number; top: number; bottom: number } | null {
+  private toCanvasLocal(
+    rect: DOMRect,
+    fontSize: number,
+  ): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
     const left = rect.left - canvasRect.left;
     const top = rect.top - canvasRect.top;
     const lineHeight = Math.max(rect.height, 1);
 
-    const fontSize = lineHeight / this.cachedLineSpacing;
     const charWidth = Math.max(fontSize * CHAR_WIDTH_RATIO, CARET_BAR_WIDTH_PX);
+
+    // Em-box: the glyph band, slightly taller than font-size to cover
+    // ascenders→descenders, centred within the line box (CSS splits the
+    // leading equally above and below the glyphs).
+    const emHeight = Math.min(fontSize * GLYPH_HEIGHT_RATIO, lineHeight);
+    const emTop = top + (lineHeight - emHeight) / 2;
+    const emBottom = emTop + emHeight;
 
     let trailLeft: number;
     let trailRight: number;
@@ -220,28 +246,31 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     switch (this.cursorStyle) {
       case 'block': {
-        const blockH = fontSize;
+        // Solid block covering the glyph cell.
         trailLeft = left;
         trailRight = left + charWidth;
-        trailTop = top + (lineHeight - blockH) / 2;
-        trailBottom = trailTop + blockH;
+        trailTop = emTop;
+        trailBottom = emBottom;
         break;
       }
       case 'underline': {
+        // Horizontal bar resting on the glyph baseline (em-box bottom),
+        // full character width.
         const underH = Math.max(fontSize * UNDERLINE_THICKNESS_RATIO, 2);
         trailLeft = left;
         trailRight = left + charWidth;
-        trailTop = top + lineHeight - underH;
-        trailBottom = top + lineHeight;
+        trailBottom = emBottom;
+        trailTop = emBottom - underH;
         break;
       }
       case 'bar':
       default: {
+        // Thin vertical bar spanning the glyph height.
         const barW = Math.max(charWidth * BAR_THICKNESS_RATIO, CARET_BAR_WIDTH_PX);
         trailLeft = left;
         trailRight = left + barW;
-        trailTop = top;
-        trailBottom = top + lineHeight;
+        trailTop = emTop;
+        trailBottom = emBottom;
         break;
       }
     }
