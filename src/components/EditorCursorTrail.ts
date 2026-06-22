@@ -18,6 +18,15 @@ import {
 } from './cursor/BaseCursorTrail';
 import type { EditorCursorStyle } from '../lib/storage';
 
+/** Longhand font properties of a glyph, used to re-draw it identically. */
+interface GlyphFont {
+  fontStyle: string;
+  fontWeight: string;
+  fontSize: string;
+  fontFamily: string;
+  letterSpacing: string;
+}
+
 // ── Caret geometry ───────────────────────────────────────────────────
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 const BAR_THICKNESS_RATIO = 0.12;
@@ -63,8 +72,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     top: number;
     width: number;
     height: number;
-    font: string;
-    letterSpacing: string;
+    font: GlyphFont;
   } | null = null;
   /** Editor background colour for the inverted glyph (cached, refreshed on
    *  caret move). */
@@ -186,12 +194,13 @@ export class EditorCursorTrail extends BaseCursorTrail {
       Object.assign(el.style, {
         position: 'absolute',
         pointerEvents: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        overflow: 'hidden',
+        display: 'block',
+        textAlign: 'left',
         whiteSpace: 'pre',
+        margin: '0',
+        padding: '0',
+        boxSizing: 'border-box',
+        overflow: 'visible',
         zIndex: '1',
       } as Partial<CSSStyleDeclaration>);
       // Layer the glyph above the trail canvas inside the same overlay.
@@ -200,13 +209,22 @@ export class EditorCursorTrail extends BaseCursorTrail {
     }
 
     const el = this.glyphEl;
-    el.style.display = 'flex';
+    el.style.display = 'block';
     el.style.left = `${g.left}px`;
     el.style.top = `${g.top}px`;
     el.style.width = `${g.width}px`;
     el.style.height = `${g.height}px`;
-    el.style.font = g.font;
-    el.style.letterSpacing = g.letterSpacing;
+    // Apply font as LONGHAND props (the `font` shorthand silently fails on
+    // some font-variant values, dropping back to 16px).  The glyph's
+    // bounding rect IS its original line box, so setting line-height to the
+    // rect height reproduces the baseline exactly — only colour changes.
+    const f = g.font;
+    el.style.fontStyle = f.fontStyle;
+    el.style.fontWeight = f.fontWeight;
+    el.style.fontSize = f.fontSize;
+    el.style.fontFamily = f.fontFamily;
+    el.style.letterSpacing = f.letterSpacing;
+    el.style.lineHeight = `${g.height}px`;
     el.style.color = this.invertColor;
     el.style.opacity = String(this.computeBlink());
     if (el.textContent !== g.text) el.textContent = g.text;
@@ -230,16 +248,27 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   /**
-   * Smooth blink phase in 0..1.
+   * Blink phase in 0..1 for the current cursor style.
    *
-   * The caret stays fully solid (1.0) for {@link BLINK_SOLID_MS} after it
-   * last moved/appeared, then eases between solid and dim on a sine curve
-   * with period {@link BLINK_PERIOD_MS}.  The dim floor is 0.15 (never
-   * fully invisible) so the cursor remains discoverable while pulsing.
+   * - bar / underline: SMOOTH sine fade (they float beside/below the text
+   *   and never occlude it, so a gentle pulse looks best).
+   * - block: HARD on/off.  A block sits on top of a glyph and inverts its
+   *   colour; a partially-faded block would let the original glyph bleed
+   *   through the half-transparent fill AND show the inverted glyph at
+   *   reduced opacity — a muddy three-way blend.  Snapping between fully
+   *   solid (clean inversion) and fully off (original glyph) keeps it crisp,
+   *   exactly like a terminal block cursor.
    */
   private computeBlink(): number {
     const elapsed = performance.now() - this.cursorVisibleStartTime;
     if (elapsed < BLINK_SOLID_MS) return 1.0;
+
+    if (this.cursorStyle === 'block') {
+      // Hard square-wave: solid for the first half of each cycle, off for
+      // the second.
+      const t = (elapsed - BLINK_SOLID_MS) % BLINK_PERIOD_MS;
+      return t < BLINK_PERIOD_MS * 0.5 ? 1.0 : 0.0;
+    }
 
     const phase = ((elapsed - BLINK_SOLID_MS) % BLINK_PERIOD_MS) / BLINK_PERIOD_MS;
     // cos: 1 → -1 → 1 over the period.  Map to 1 → floor → 1.
@@ -303,7 +332,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     width: number;
     onChar: boolean;
     before: boolean;
-    cover: { text: string; rect: DOMRect; font: string; letterSpacing: string } | null;
+    cover: { text: string; rect: DOMRect; font: GlyphFont } | null;
   } {
     const fallback = fontSize * CHAR_WIDTH_RATIO;
     const node = caret.startContainer;
@@ -341,7 +370,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     offset: number,
     text: string,
     dir: 1 | -1,
-  ): { text: string; rect: DOMRect; font: string; letterSpacing: string } | null {
+  ): { text: string; rect: DOMRect; font: GlyphFont } | null {
     try {
       const r = document.createRange();
       let start: number;
@@ -367,12 +396,19 @@ export class EditorCursorTrail extends BaseCursorTrail {
           ? (node as Element)
           : node.parentElement;
       const cs = parent ? getComputedStyle(parent) : null;
-      const font = cs
-        ? `${cs.fontStyle} ${cs.fontVariant} ${cs.fontWeight} ${cs.fontSize}/${cs.lineHeight} ${cs.fontFamily}`
-        : '';
-      const letterSpacing = cs?.letterSpacing ?? 'normal';
+      // Capture longhand font properties — NOT the `font` shorthand.  The
+      // shorthand is invalid (and silently ignored, falling back to the
+      // browser default 16px) whenever font-variant is something CSS won't
+      // accept in the shorthand, which made the inverted glyph shrink.
+      const fontStyle: GlyphFont = {
+        fontStyle: cs?.fontStyle ?? 'normal',
+        fontWeight: cs?.fontWeight ?? 'normal',
+        fontSize: cs?.fontSize ?? '16px',
+        fontFamily: cs?.fontFamily ?? 'inherit',
+        letterSpacing: cs?.letterSpacing ?? 'normal',
+      };
 
-      return { text: text.slice(start, end), rect, font, letterSpacing };
+      return { text: text.slice(start, end), rect, font: fontStyle };
     } catch {
       return null;
     }
@@ -449,7 +485,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
       width: number;
       onChar: boolean;
       before: boolean;
-      cover: { text: string; rect: DOMRect; font: string; letterSpacing: string } | null;
+      cover?: { text: string; rect: DOMRect; font: GlyphFont } | null;
     },
   ): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
@@ -489,7 +525,6 @@ export class EditorCursorTrail extends BaseCursorTrail {
         width: c.rect.width,
         height: c.rect.height,
         font: c.font,
-        letterSpacing: c.letterSpacing,
       };
     } else {
       this.coveredGlyph = null;
