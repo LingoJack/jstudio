@@ -263,8 +263,24 @@ pub fn uninstall_jcli() -> Result<(), String> {
     // Remove global symlink
     let link = global_link_path();
     if link.exists() || link.is_symlink() {
-        fs::remove_file(&link)
-            .map_err(|e| format!("Failed to remove {}: {}", link.display(), e))?;
+        // Attempt direct removal (works if user has write access)
+        if let Err(e) = fs::remove_file(&link) {
+            // On macOS, fall back to osascript with administrator privileges
+            #[cfg(target_os = "macos")]
+            {
+                let _ = e; // error detail unused — we retry via osascript
+                run_osascript_unlink(&link)?;
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                return Err(format!(
+                    "Failed to remove {}: {}. Please run: `sudo rm -f {}`",
+                    link.display(),
+                    e,
+                    link.display()
+                ));
+            }
+        }
     }
 
     // Remove ~/.jdata/bin/j
@@ -280,6 +296,32 @@ pub fn uninstall_jcli() -> Result<(), String> {
 // ────────────────────────────────────────────────
 // macOS osascript helper
 // ────────────────────────────────────────────────
+
+#[cfg(target_os = "macos")]
+fn run_osascript_unlink(link: &PathBuf) -> Result<(), String> {
+    let script = format!(
+        "do shell script \"rm -f '{}'\" with administrator privileges",
+        link.display()
+    );
+
+    let output = Command::new("osascript")
+        .args(["-e", &script])
+        .output()
+        .map_err(|e| format!("Failed to invoke osascript: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("User canceled") || stderr.contains("-128") {
+            return Err("Uninstall cancelled by user.".to_string());
+        }
+        return Err(format!(
+            "Failed to remove symlink with administrator privileges: {}",
+            stderr.trim()
+        ));
+    }
+
+    Ok(())
+}
 
 #[cfg(target_os = "macos")]
 fn run_osascript_symlink(dest: &PathBuf, link: &PathBuf) -> Result<(), String> {
