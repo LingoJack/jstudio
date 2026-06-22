@@ -330,22 +330,23 @@ export default function Settings() {
 
       {/* ── Right content ── */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Content — scrollable, centered for readability */}
-        <div className="flex-1 overflow-y-auto">
-          {/* Scroll sentinel — lets us jump to top when switching sections */}
+        {/* Help section renders as a full-width document via BlockEditor
+            (which manages its own scrolling); other settings sections use
+            a centered narrow column with external scroll. */}
+        {activeSection === 'help' ? (
           <div id="settings-content-top" className="h-0 w-full" aria-hidden />
-          {/* Help section renders as a full-width document via BlockEditor;
-              other settings sections use the centered narrow column. */}
-          {activeSection === 'help' ? (
-            <div className="h-full">
-              <ActiveSection />
-            </div>
-          ) : (
+        ) : null}
+        {activeSection === 'help' ? (
+          <ActiveSection />
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            {/* Scroll sentinel — lets us jump to top when switching sections */}
+            <div id="settings-content-top" className="h-0 w-full" aria-hidden />
             <div className="max-w-2xl mx-auto px-10 py-8">
               <ActiveSection />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
