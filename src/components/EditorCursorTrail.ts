@@ -18,9 +18,12 @@ import {
 } from './cursor/BaseCursorTrail';
 import type { EditorCursorStyle } from '../lib/storage';
 
-// ── Caret geometry (same ratios as terminal CursorTrail) ─────────────
+// ── Caret geometry ───────────────────────────────────────────────────
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 const BAR_THICKNESS_RATIO = 0.12;
+/** Fallback character width (× font-size) when no glyph sits at the caret
+ *  — e.g. end of line or empty paragraph.  The cursor then uses HALF of
+ *  this, per the "no character → 1/2 width" rule. */
 const CHAR_WIDTH_RATIO = 0.6;
 const CARET_BAR_WIDTH_PX = 2;
 /** Caret body height relative to font-size (a touch taller than the glyph
@@ -159,11 +162,94 @@ export class EditorCursorTrail extends BaseCursorTrail {
     if (!range.collapsed) return null;
 
     const rect = range.getBoundingClientRect();
+    const fontSize = this.fontSizeAt(range.startContainer);
+    const glyph = this.measureGlyphAt(range, fontSize);
+
     if (rect.width === 0 && rect.height === 0) {
       return this.measureCaretViaTempSpan();
     }
 
-    return this.toCanvasLocal(rect, this.fontSizeAt(range.startContainer));
+    return this.toCanvasLocal(rect, fontSize, glyph);
+  }
+
+  /**
+   * Measure the glyph the caret is anchored to.
+   *
+   * We look at the character *following* the caret (the one you'd overtype
+   * in block mode).  If a real character is there, we return its actual
+   * advance width and `onChar = true` so the cursor matches CJK / wide /
+   * narrow glyphs exactly.  If there's nothing after the caret (end of
+   * line, empty block), `onChar = false` and the caller falls back to the
+   * half-width rule.
+   */
+  /**
+   * Measure the glyph the caret is anchored to.
+   *
+   * Preference order:
+   *   1. Character *after* the caret (the one you'd overtype) → anchor to
+   *      the right of the caret.
+   *   2. If nothing follows (end of line / end of text), the character
+   *      *before* the caret (the one the caret visually sits under, e.g.
+   *      a Chinese glyph you just typed) → anchor to the left.
+   *   3. Neither → half-width fallback.
+   *
+   * Returning the real advance width makes the cursor match CJK / wide /
+   * narrow glyphs exactly; `before` tells the caller which side of the
+   * caret the glyph occupies so it can position the cursor over it.
+   */
+  private measureGlyphAt(
+    caret: Range,
+    fontSize: number,
+  ): { width: number; onChar: boolean; before: boolean } {
+    const fallback = fontSize * CHAR_WIDTH_RATIO;
+    const node = caret.startContainer;
+    const offset = caret.startOffset;
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent ?? '';
+
+      // 1. Character after the caret.
+      if (offset < text.length) {
+        const w = this.rangeWidth(node, offset, text, +1);
+        if (w > 0.5) return { width: w, onChar: true, before: false };
+      }
+
+      // 2. Character before the caret.
+      if (offset > 0) {
+        const w = this.rangeWidth(node, offset, text, -1);
+        if (w > 0.5) return { width: w, onChar: true, before: true };
+      }
+    }
+
+    return { width: fallback, onChar: false, before: false };
+  }
+
+  /**
+   * Width (px) of the code point adjacent to `offset` in `text`.
+   * @param dir +1 = the character starting at `offset` (after the caret),
+   *            -1 = the character ending at `offset` (before the caret).
+   */
+  private rangeWidth(node: Node, offset: number, text: string, dir: 1 | -1): number {
+    try {
+      const r = document.createRange();
+      if (dir === 1) {
+        // Code point starting at offset (handle surrogate pairs / emoji).
+        const cp = text.codePointAt(offset);
+        const len = cp !== undefined && cp > 0xffff ? 2 : 1;
+        r.setStart(node, offset);
+        r.setEnd(node, Math.min(offset + len, text.length));
+      } else {
+        // Code point ending at offset.
+        const prev = text.codePointAt(offset - 2);
+        const isPair =
+          offset >= 2 && prev !== undefined && prev > 0xffff;
+        r.setStart(node, offset - (isPair ? 2 : 1));
+        r.setEnd(node, offset);
+      }
+      return r.getBoundingClientRect().width;
+    } catch {
+      return 0;
+    }
   }
 
   /**
@@ -210,31 +296,44 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     if (rect.width === 0 && rect.height === 0) return null;
 
-    return this.toCanvasLocal(rect, fontSize);
+    // The temp-span path only triggers at empty positions (no glyph),
+    // so there is no character under the caret → half-width fallback.
+    return this.toCanvasLocal(rect, fontSize, {
+      width: fontSize * CHAR_WIDTH_RATIO,
+      onChar: false,
+    });
   }
 
   /**
    * Convert a screen-space DOMRect to overlay-canvas-local coordinates,
-   * adjusting the shape to match the selected cursor style.
+   * shaping the cursor to match the glyph at the caret.
    *
-   * Cell metrics are derived from font-size (via line-height ÷ line-spacing),
-   * NOT from the DOMRect height (which includes line-spacing and would be
-   * too large for 'block').
+   * Width rule (per the spec):
+   *   - caret sits ON a character → use that glyph's real advance width
+   *     (so CJK / wide / narrow chars all match exactly);
+   *   - caret NOT on a character (end of line, empty block) → half width.
+   * Height is always the glyph's em-box height.  Position is anchored at
+   * the caret's left edge, which is the glyph's left edge.
    */
   private toCanvasLocal(
     rect: DOMRect,
     fontSize: number,
+    glyph: { width: number; onChar: boolean },
   ): { left: number; right: number; top: number; bottom: number } | null {
     const canvasRect = this.canvas.getBoundingClientRect();
     const left = rect.left - canvasRect.left;
     const top = rect.top - canvasRect.top;
     const lineHeight = Math.max(rect.height, 1);
 
-    const charWidth = Math.max(fontSize * CHAR_WIDTH_RATIO, CARET_BAR_WIDTH_PX);
+    // Cursor footprint width: full glyph width when overtyping a real
+    // character, otherwise half the fallback character width.
+    const cellWidth = Math.max(
+      glyph.onChar ? glyph.width : glyph.width * 0.5,
+      CARET_BAR_WIDTH_PX,
+    );
 
-    // Em-box: the glyph band, slightly taller than font-size to cover
-    // ascenders→descenders, centred within the line box (CSS splits the
-    // leading equally above and below the glyphs).
+    // Em-box: the glyph's vertical extent, centred within the line box
+    // (CSS splits the leading equally above and below the glyphs).
     const emHeight = Math.min(fontSize * GLYPH_HEIGHT_RATIO, lineHeight);
     const emTop = top + (lineHeight - emHeight) / 2;
     const emBottom = emTop + emHeight;
@@ -248,17 +347,17 @@ export class EditorCursorTrail extends BaseCursorTrail {
       case 'block': {
         // Solid block covering the glyph cell.
         trailLeft = left;
-        trailRight = left + charWidth;
+        trailRight = left + cellWidth;
         trailTop = emTop;
         trailBottom = emBottom;
         break;
       }
       case 'underline': {
         // Horizontal bar resting on the glyph baseline (em-box bottom),
-        // full character width.
+        // spanning the glyph width.
         const underH = Math.max(fontSize * UNDERLINE_THICKNESS_RATIO, 2);
         trailLeft = left;
-        trailRight = left + charWidth;
+        trailRight = left + cellWidth;
         trailBottom = emBottom;
         trailTop = emBottom - underH;
         break;
@@ -266,7 +365,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
       case 'bar':
       default: {
         // Thin vertical bar spanning the glyph height.
-        const barW = Math.max(charWidth * BAR_THICKNESS_RATIO, CARET_BAR_WIDTH_PX);
+        const barW = Math.max(cellWidth * BAR_THICKNESS_RATIO, CARET_BAR_WIDTH_PX);
         trailLeft = left;
         trailRight = left + barW;
         trailTop = emTop;
