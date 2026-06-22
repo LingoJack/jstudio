@@ -21,7 +21,7 @@
  *      unaffected.
  */
 
-import { Extension } from '@tiptap/core';
+import { Extension, type KeyboardShortcutCommand } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 
 import { slashMenuPluginKey } from './tiptapExtensions';
@@ -187,7 +187,7 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     const modEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockBelow', ov));
     const modShiftEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockAbove', ov));
 
-    const keymap: Record<string, ReturnType<typeof onModEnter>> = {
+    const keymap: Record<string, KeyboardShortcutCommand> = {
       ArrowUp: onArrowUp,
       ArrowLeft: onArrowLeft,
       ArrowDown: onArrowDown,

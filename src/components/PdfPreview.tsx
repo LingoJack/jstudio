@@ -12,7 +12,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Document, Page, type OnDocumentLoadSuccess } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
+import type { OnDocumentLoadSuccess } from 'react-pdf/dist/shared/types';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import {
