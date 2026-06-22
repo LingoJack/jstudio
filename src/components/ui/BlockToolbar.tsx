@@ -98,8 +98,8 @@ export function BlockToolbarDivider() {
 // ── AlignButtonGroup (preset) ─────────────────────────────
 
 interface AlignButtonGroupProps {
-  /** Navigation state from useNodeToolbarNav. */
-  nav: NodeToolbarNav;
+  /** Navigation state from useNodeToolbarNav (only activeIndex + registerButton are used). */
+  nav: Pick<NodeToolbarNav, 'activeIndex' | 'registerButton'>;
   /** Current alignment value ('left' | 'center'). */
   align: string;
   /** Callback when the user picks a new alignment. */
