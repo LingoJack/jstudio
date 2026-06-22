@@ -50,4 +50,6 @@ allow:
 - Shell(ls /Users/lingojack/dev_custom/jcli/:*)
 - Shell(git checkout:*)
 - Shell(cat package.json:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@excalidraw/excalidraw/dist/types/:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@excalidraw/excalidraw/*.d.ts:*)
 deny: []

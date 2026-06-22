@@ -25,14 +25,15 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Excalidraw, type ExcalidrawImperativeAPI } from '@excalidraw/excalidraw';
+import { Excalidraw } from '@excalidraw/excalidraw';
+import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import type {
   AppState,
   BinaryFiles,
   ExcalidrawInitialDataState,
-  OrderedExcalidrawElement,
   Zoom,
 } from '@excalidraw/excalidraw/types';
+import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types';
 
 /* ------------------------------------------------------------------ */
 /* ID prefixing helpers                                                 */

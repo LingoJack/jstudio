@@ -331,7 +331,6 @@ function renderOutlineTree(
         <NavRow
           key={item.id}
           level={isTopLevel ? 'primary' : 'secondary'}
-          lined={!isTopLevel}
           active={item.id === activeId}
           plainActive={isTopLevel}
           expandable={hasChildren}

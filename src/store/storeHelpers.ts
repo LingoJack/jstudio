@@ -9,6 +9,7 @@ import type {
   PaneResizeState,
 } from './terminalSlice';
 import type { ToastItem, ToastType } from './toastSlice';
+import type { SettingsSectionId } from './uiSlice';
 import { storage } from '../lib/storage';
 
 /**
@@ -74,7 +75,7 @@ export interface StoreState {
   editorCursorStyle: EditorCursorStyle;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal';
-  settingsActiveSection: 'general' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about';
+  settingsActiveSection: SettingsSectionId;
   terminalThemeIdDark: string;
   terminalThemeIdLight: string;
   terminalFontSize: number;
@@ -148,7 +149,7 @@ export interface StoreState {
   setActivityBarBorder: (enabled: boolean) => void;
   setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
   setActiveSidebarView: (view: 'documents' | 'terminal') => void;
-  setSettingsActiveSection: (section: 'general' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about') => void;
+  setSettingsActiveSection: (section: SettingsSectionId) => void;
   setTerminalThemeIdDark: (id: string) => void;
   setTerminalThemeIdLight: (id: string) => void;
   setTerminalFontSize: (size: number) => void;
