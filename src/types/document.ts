@@ -24,6 +24,8 @@ export interface BlockProperties {
   caption?: string; // image block caption
   imageType?: 'url' | 'base64' | 'asset';
   width?: number; // image display width (px)
+  /** Image block: width as percentage of editor surface (0-100). Preferred over px. */
+  widthPct?: number;
   height?: number; // image display height (px)
   align?: 'left' | 'center'; // image alignment
   /** File attachment: MIME type of the uploaded file. */
@@ -36,6 +38,12 @@ export interface BlockProperties {
   fileDisplayMode?: 'card' | 'preview';
   /** File attachment: preview display width (px). Undefined = auto. */
   fileWidth?: number;
+  /** File attachment: width as percentage of editor surface (0-100). Preferred over px. */
+  fileWidthPct?: number;
+  /** File attachment: preview area height (px). Undefined = auto. */
+  fileHeight?: number;
+  /** File attachment: alignment. */
+  fileAlign?: 'left' | 'center';
   /** Table block: serialized table structure. */
   tableData?: TableData;
   /** Collapsible block: whether the body is expanded. */
@@ -60,12 +68,16 @@ export interface BlockProperties {
   linkDisplayMode?: 'card' | 'preview';
   /** Link block: preview display width (px). Undefined = auto. */
   linkWidth?: number;
+  /** Link block: width as percentage of editor surface (0-100). Preferred over px. */
+  linkWidthPct?: number;
   /** Link block: alignment. */
   linkAlign?: 'left' | 'center';
   /** Diagram block: serialized excalidraw scene JSON string. */
   diagramSnapshot?: string;
   /** Diagram block: display width (px). Undefined = auto. */
   diagramWidth?: number;
+  /** Diagram block: width as percentage of editor surface (0-100). Preferred over px. */
+  diagramWidthPct?: number;
   /** Diagram block: display height (px). Undefined = default 320. */
   diagramHeight?: number;
   /** Diagram block: alignment. */

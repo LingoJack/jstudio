@@ -412,6 +412,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         src,
         alt: block.properties?.caption ?? '',
         width: block.properties?.width ?? null,
+        widthPct: block.properties?.widthPct ?? null,
         height: block.properties?.height ?? null,
         align: block.properties?.align ?? 'center',
       };
@@ -427,6 +428,9 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         fileType: block.properties?.fileType ?? '',
         displayMode: block.properties?.fileDisplayMode ?? 'card',
         width: block.properties?.fileWidth ?? null,
+        widthPct: block.properties?.fileWidthPct ?? null,
+        height: block.properties?.fileHeight ?? null,
+        align: block.properties?.fileAlign ?? 'center',
       };
       break;
     }
@@ -442,6 +446,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         siteName: block.properties?.linkSiteName ?? '',
         displayMode: block.properties?.linkDisplayMode ?? 'card',
         width: block.properties?.linkWidth ?? null,
+        widthPct: block.properties?.linkWidthPct ?? null,
         align: block.properties?.linkAlign ?? 'center',
       };
       break;
@@ -451,6 +456,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         ...json.attrs,
         snapshot: block.properties?.diagramSnapshot ?? '',
         width: block.properties?.diagramWidth ?? null,
+        widthPct: block.properties?.diagramWidthPct ?? null,
         height: block.properties?.diagramHeight ?? null,
         align: block.properties?.diagramAlign ?? 'center',
       };
@@ -570,6 +576,7 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
       const src = typeof attrs.src === 'string' ? attrs.src : '';
       const alt = typeof attrs.alt === 'string' ? attrs.alt : '';
       const width = typeof attrs.width === 'number' ? attrs.width : undefined;
+      const widthPct = typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined;
       const height = typeof attrs.height === 'number' ? attrs.height : undefined;
       const align = attrs.align === 'left' || attrs.align === 'center' ? attrs.align : 'center';
       block.content = src;
@@ -577,6 +584,7 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         caption: alt,
         imageType: 'url',
         width,
+        widthPct,
         height,
         align,
       };
@@ -592,6 +600,12 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         fileDisplayMode:
           attrs.displayMode === 'preview' ? 'preview' : 'card',
         fileWidth: typeof attrs.width === 'number' ? attrs.width : undefined,
+        fileWidthPct: typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined,
+        fileHeight: typeof attrs.height === 'number' ? attrs.height : undefined,
+        fileAlign:
+          attrs.align === 'left' || attrs.align === 'center'
+            ? attrs.align
+            : 'center',
       };
       break;
     }
@@ -609,6 +623,8 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
           attrs.displayMode === 'preview' ? 'preview' : 'card',
         linkWidth:
           typeof attrs.width === 'number' ? attrs.width : undefined,
+        linkWidthPct:
+          typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined,
         linkAlign:
           attrs.align === 'left' || attrs.align === 'center'
             ? attrs.align
@@ -623,6 +639,8 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
           typeof attrs.snapshot === 'string' ? attrs.snapshot : '',
         diagramWidth:
           typeof attrs.width === 'number' ? attrs.width : undefined,
+        diagramWidthPct:
+          typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined,
         diagramHeight:
           typeof attrs.height === 'number' ? attrs.height : undefined,
         diagramAlign:
