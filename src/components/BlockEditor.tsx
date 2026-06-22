@@ -263,6 +263,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // ------------------------------------------------------------------
   useEffect(() => {
     if (!editor) return;
+    if (readOnly) return; // no cursor trail in read-only mode
 
     const overlay = trailOverlayRef.current;
     if (!overlay) return;
@@ -329,6 +330,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // hidden and a solid cursor is drawn by the trail's fill geometry.
   // ------------------------------------------------------------------
   useEffect(() => {
+    if (readOnly) return; // no cursor style manipulation in read-only mode
     trailRef.current?.setCursorStyle(editorCursorStyle);
     const editorDom = editorRef.current?.view?.dom as HTMLElement | undefined;
     if (editorDom) {
