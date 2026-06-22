@@ -101,10 +101,6 @@ const NAV_ITEMS: NavItem[] = [
     id: 'help',
     labelKey: 'settings.help',
     icon: BookOpen,
-    subItems: [
-      { anchorId: 'settings-help-editor', labelKey: 'about.help.editor' },
-      { anchorId: 'settings-help-terminal', labelKey: 'about.help.terminal' },
-    ],
   },
   { id: 'about', labelKey: 'settings.about', icon: Info },
 ];

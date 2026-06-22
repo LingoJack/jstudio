@@ -213,6 +213,9 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       isReplacingRef.current = true;
       const tiptapContent = ourBlocksToTiptapJSON(doc.blocks);
       editor.commands.setContent(tiptapContent);
+      // DEBUG: verify content loaded
+      console.log('[Help] static content loaded, heading count:', tiptapContent.filter(n => n.type === 'heading').length);
+      console.log('[Help] doc child count after setContent:', editor.state.doc.childCount);
       requestAnimationFrame(() => {
         isReplacingRef.current = false;
       });
@@ -428,6 +431,30 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
             <EditorContent editor={editor} />
           </div>
         </div>
+
+        {/* Outline panel (conditional) — same as editing mode */}
+        {editor && isOutlineOpen && <DocumentOutline editor={editor} />}
+
+        {/* Outline toggle icon */}
+        {editor && (
+          isOutlineOpen ? (
+            <button
+              onClick={toggleOutline}
+              title={t('outline.hide')}
+              className="absolute top-2.5 right-2 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+            >
+              <ListTree className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={toggleOutline}
+              title={t('outline.show')}
+              className="absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+            >
+              <ListTree className="w-4 h-4" />
+            </button>
+          )
+        )}
       </div>
     );
   }
