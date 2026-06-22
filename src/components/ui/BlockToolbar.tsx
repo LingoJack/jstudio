@@ -48,8 +48,8 @@ export function BlockToolbar({ selected, children }: BlockToolbarProps) {
 
 interface BlockToolbarButtonProps
   extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'ref'> {
-  /** Navigation state from useNodeToolbarNav. */
-  nav: NodeToolbarNav;
+  /** Navigation state from useNodeToolbarNav (only activeIndex + registerButton are used). */
+  nav: Pick<NodeToolbarNav, 'activeIndex' | 'registerButton'>;
   /** This button's position in the toolbar's tab order (0-based). */
   index: number;
   /** Whether the button represents the currently-active option (e.g. current align). */
