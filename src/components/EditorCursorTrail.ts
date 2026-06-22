@@ -29,10 +29,6 @@ const CARET_BAR_WIDTH_PX = 2;
 /** Caret body height relative to font-size (a touch taller than the glyph
  *  so it visually matches the text, centred within the line box). */
 const GLYPH_HEIGHT_RATIO = 1.15;
-/** Block-cursor fill opacity.  A full-opacity block would completely hide
- *  the glyph it sits on; keeping it semi-transparent tints the character
- *  with the cursor colour while leaving it readable underneath. */
-const BLOCK_FILL_ALPHA = 0.5;
 
 // ── Blink animation timing (ms) ──────────────────────────────────────
 /** Stay fully solid for this long after the caret moves/appears. */
@@ -53,6 +49,26 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private cursorVisibleStartTime = 0;
   /** Whether the caret position has changed since last frame. */
   private prevCaretKey = '';
+
+  /**
+   * DOM overlay that re-draws the glyph covered by a block cursor in the
+   * editor's *background* colour, so the character stays legible on top of
+   * the opaque block (terminal-style colour inversion).  Lazily created.
+   */
+  private glyphEl: HTMLDivElement | null = null;
+  /** The glyph currently sitting under the block cursor (canvas-local). */
+  private coveredGlyph: {
+    text: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    font: string;
+    letterSpacing: string;
+  } | null = null;
+  /** Editor background colour for the inverted glyph (cached, refreshed on
+   *  caret move). */
+  private invertColor = '#1e1e1e';
 
   /**
    * @param canvas           An overlay canvas positioned over the editor area.
@@ -124,11 +140,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * fully-solid whenever the caret moves or reappears.
    */
   protected getRenderOptions(): RenderOptions {
-    let blink = this.computeBlink();
-    // Block sits directly on top of a glyph; dim it so the character
-    // underneath stays readable (the fill only tints it).
-    if (this.cursorStyle === 'block') blink *= BLOCK_FILL_ALPHA;
-    return { fillCursor: true, blink };
+    return { fillCursor: true, blink: this.computeBlink() };
   }
 
   /**
