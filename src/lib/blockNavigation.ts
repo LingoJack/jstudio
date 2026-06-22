@@ -19,9 +19,6 @@
  *      paragraph (Notion-style "delete block"). Only fires when the block has
  *      no text content, so normal text editing inside a code block is
  *      unaffected.
- *   6. Cmd/Ctrl+ArrowLeft / ArrowRight → jump caret to the start / end of
- *      the current text block. Add Shift to extend the selection instead
- *      of moving the caret.
  */
 
 import { Extension, type KeyboardShortcutCommand } from '@tiptap/core';
@@ -185,47 +182,6 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       return true;
     };
 
-    // -----------------------------------------------------------------
-    // Cmd/Ctrl+ArrowLeft  — jump caret to the start of the current
-    //                       text block (paragraph / heading / code …).
-    // Cmd/Ctrl+ArrowRight — jump caret to the end of the current text
-    //                       block.
-    // Holding Shift extends the selection instead of moving the caret.
-    // -----------------------------------------------------------------
-    const jumpBlockBoundary = (
-      toStart: boolean,
-      extend: boolean,
-    ): boolean => {
-      if (isSuggestionActive()) return false;
-      const { state, view } = editor;
-      const { selection } = state;
-      const $head = selection.$head;
-      if ($head.depth < 1) return false;
-
-      const edge = toStart ? $head.start(1) : $head.end(1);
-      if (extend) {
-        // Extend selection: keep anchor, move head to the boundary.
-        view.dispatch(
-          state.tr
-            .setSelection(TextSelection.create(state.doc, selection.$anchor.pos, edge))
-            .setMeta('addToHistory', false),
-        );
-      } else {
-        view.dispatch(
-          state.tr
-            .setSelection(TextSelection.create(state.doc, edge))
-            .setMeta('addToHistory', false),
-        );
-      }
-      view.focus();
-      return true;
-    };
-
-    const onModArrowLeft = () => jumpBlockBoundary(true, false);
-    const onModArrowRight = () => jumpBlockBoundary(false, false);
-    const onModShiftArrowLeft = () => jumpBlockBoundary(true, true);
-    const onModShiftArrowRight = () => jumpBlockBoundary(false, true);
-
     // Resolve user-customizable bindings from the shortcut registry.
     const ov = useStore.getState().keyboardShortcuts;
     const modEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockBelow', ov));
@@ -236,10 +192,6 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       ArrowLeft: onArrowLeft,
       ArrowDown: onArrowDown,
       Backspace: onBackspace,
-      'Mod-ArrowLeft': onModArrowLeft,
-      'Mod-ArrowRight': onModArrowRight,
-      'Mod-Shift-ArrowLeft': onModShiftArrowLeft,
-      'Mod-Shift-ArrowRight': onModShiftArrowRight,
     };
     keymap[modEnterBinding] = onModEnter;
     keymap[modShiftEnterBinding] = onModShiftEnter;

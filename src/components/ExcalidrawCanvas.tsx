@@ -25,7 +25,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Excalidraw } from '@excalidraw/excalidraw';
+import { Excalidraw, MainMenu } from '@excalidraw/excalidraw';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import type {
   AppState,
@@ -428,7 +428,20 @@ export function ExcalidrawCanvas({
             toggleTheme: false,
           },
         }}
-      />
+      >
+        {/* ── 极简主菜单：只保留画板核心操作，移除 GitHub/帮助/社交/协作 ── */}
+        <MainMenu>
+          <MainMenu.DefaultItems.ClearCanvas />
+          <MainMenu.DefaultItems.ChangeCanvasBackground />
+          <MainMenu.Separator />
+          <MainMenu.DefaultItems.SaveAsImage />
+          <MainMenu.DefaultItems.Export />
+          <MainMenu.Separator />
+          <MainMenu.DefaultItems.CommandPalette />
+        </MainMenu>
+        {/* 不渲染 <WelcomeScreen /> → 无欢迎屏 */}
+        {/* 不渲染 <Footer /> → 无底部信息 */}
+      </Excalidraw>
     </div>
   );
 }

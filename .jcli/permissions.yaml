@@ -55,4 +55,5 @@ allow:
 - Shell(lsof -ti:1420:*)
 - Shell(ps -p:*)
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/w3c-keyname/:*)
+- Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@excalidraw/excalidraw/dist/:*)
 deny: []

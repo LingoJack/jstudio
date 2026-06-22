@@ -24,6 +24,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Code from '@tiptap/extension-code';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -202,6 +203,49 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
+
+  // -----------------------------------------------------------------
+  // Cmd/Ctrl + ArrowLeft / ArrowRight → jump to block start / end
+  //
+  // macOS WKWebView (Tauri's webview) intercepts Cmd+Arrow at the
+  // native level and calls preventDefault() before the event reaches
+  // ProseMirror's handleKeyDown. So we must listen at the window
+  // capture phase — the earliest point we can see the event — and
+  // handle it ourselves.
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (readOnly) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (!editor) return;
+
+      const view = editor.view;
+      const { state } = view;
+      const { selection } = state;
+      const $head = selection.$head;
+      if ($head.depth < 1) return;
+
+      const toStart = e.key === 'ArrowLeft';
+      const extend = e.shiftKey;
+      const edge = toStart ? $head.start(1) : $head.end(1);
+
+      const tr = extend
+        ? state.tr.setSelection(
+            TextSelection.create(state.doc, selection.$anchor.pos, edge),
+          )
+        : state.tr.setSelection(TextSelection.create(state.doc, edge));
+      tr.setMeta('addToHistory', false);
+      view.dispatch(tr);
+      view.focus();
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [editor, readOnly]);
 
   // ------------------------------------------------------------------
   // Load content when switching documents, or once for a static doc
