@@ -2367,6 +2367,11 @@ button {
   display: none !important;
 }
 
+/* ── 非编辑（只读）模式：彻底隐藏所有 UI，只保留画板 ── */
+.excalidraw-canvas-root.is-readonly .excalidraw .layer-ui__wrapper {
+  display: none !important;
+}
+
 /* excalidraw canvas root: fill its container in normal flow */
 .excalidraw-canvas-root {
   position: relative;

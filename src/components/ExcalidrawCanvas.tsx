@@ -476,7 +476,9 @@ export function ExcalidrawCanvas({
   return (
     <div
       ref={setRootRef}
-      className={`excalidraw-canvas-root ${className}`}
+      className={`excalidraw-canvas-root ${className} ${
+        editing ? 'is-editing' : 'is-readonly'
+      }`}
       data-excalidraw-instance={instPrefix}
       onPointerDownCapture={markActive}
       onPointerEnter={markActive}
@@ -534,6 +536,7 @@ export function ExcalidrawCanvas({
         name={instPrefix}
         detectScroll={false}
         handleKeyboardGlobally={false}
+        viewModeEnabled={!editing}
         UIOptions={{
           canvasActions: {
             loadScene: false,
@@ -544,15 +547,18 @@ export function ExcalidrawCanvas({
         }}
       >
         {/* ── 极简主菜单：只保留画板核心操作，移除 GitHub/帮助/社交/协作 ── */}
-        <MainMenu>
-          <MainMenu.DefaultItems.ClearCanvas />
-          <MainMenu.DefaultItems.ChangeCanvasBackground />
-          <MainMenu.Separator />
-          <MainMenu.DefaultItems.SaveAsImage />
-          <MainMenu.DefaultItems.Export />
-          <MainMenu.Separator />
-          <MainMenu.DefaultItems.CommandPalette />
-        </MainMenu>
+        {/* 非编辑时不渲染 MainMenu → 左上角菜单按钮也不出现 */}
+        {editing && (
+          <MainMenu>
+            <MainMenu.DefaultItems.ClearCanvas />
+            <MainMenu.DefaultItems.ChangeCanvasBackground />
+            <MainMenu.Separator />
+            <MainMenu.DefaultItems.SaveAsImage />
+            <MainMenu.DefaultItems.Export />
+            <MainMenu.Separator />
+            <MainMenu.DefaultItems.CommandPalette />
+          </MainMenu>
+        )}
         {/* 不渲染 <WelcomeScreen /> → 无欢迎屏 */}
         {/* 不渲染 <Footer /> → 无底部信息 */}
       </Excalidraw>
