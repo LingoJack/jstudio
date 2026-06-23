@@ -20,6 +20,7 @@
  *   table                        →   table
  *   bullet-list                  →   bulletList
  *   ordered-list                 →   orderedList
+ *   todo-list                    →   taskList
  *   divider                      →   horizontalRule
  *   collapsible                  →   collapsible
  *   diagram                      →   diagramBlock
@@ -37,7 +38,7 @@
 
 import type { JSONContent } from '@tiptap/react';
 
-import type { Block, BlockType, TableData, TableCellData, TableRowData } from '../types/document';
+import type { Block, BlockType, TableData, TableCellData, TableRowData, TodoItemData } from '../types/document';
 import type { RichText, RichTextAnnotations } from '../types/richText';
 import { isAssetPath } from './assetUrl';
 
@@ -199,6 +200,8 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'bulletList';
     case 'ordered-list':
       return 'orderedList';
+    case 'todo-list':
+      return 'taskList';
     case 'divider':
       return 'horizontalRule';
     case 'collapsible':
@@ -247,6 +250,8 @@ function tiptapTypeToOurType(
       return 'bullet-list';
     case 'orderedList':
       return 'ordered-list';
+    case 'taskList':
+      return 'todo-list';
     case 'horizontalRule':
       return 'divider';
     case 'collapsible':
@@ -496,6 +501,21 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       }));
       break;
     }
+    case 'todo-list': {
+      // Each todo item becomes a taskItem with checked attr > paragraph.
+      const items = block.properties?.todoItems ?? [];
+      json.content = items.map((item) => ({
+        type: 'taskItem',
+        attrs: { checked: item.checked },
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: item.text }],
+          },
+        ],
+      }));
+      break;
+    }
     case 'divider': {
       // horizontalRule is an atom node — no content needed.
       break;
@@ -696,6 +716,27 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         }
       }
       block.content = items as unknown as RichText[] | string;
+      break;
+    }
+    case 'todo-list': {
+      // TipTap: taskList > taskItem(attrs.checked) > paragraph > text
+      // Our model: todoItems: { checked, text }[]
+      const todoItems: TodoItemData[] = [];
+      for (const taskItem of node.content ?? []) {
+        if (taskItem.type !== 'taskItem') continue;
+        const checked = taskItem.attrs?.checked === true;
+        // Extract text from nested paragraphs
+        let text = '';
+        for (const child of taskItem.content ?? []) {
+          if (child.type === 'paragraph') {
+            const rich = tiptapInlineToRichText(child.content ?? []);
+            text += rich.map((r) => r.text).join('');
+          }
+        }
+        todoItems.push({ checked, text });
+      }
+      block.content = [];
+      block.properties = { todoItems };
       break;
     }
     case 'divider': {

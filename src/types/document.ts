@@ -14,6 +14,7 @@ export type BlockType =
   | 'table'
   | 'bullet-list'
   | 'ordered-list'
+  | 'todo-list'
   | 'divider'
   | 'collapsible'
   | 'link'
@@ -59,6 +60,8 @@ export interface BlockProperties {
   collapsibleSummary?: string;
   /** Collapsible block: serialized TipTap JSONContent[] of child nodes. */
   collapsibleChildren?: unknown[];
+  /** Todo list block: items array, each with checked state and text content. */
+  todoItems?: TodoItemData[];
   /** Link block: target URL. */
   linkUrl?: string;
   /** Link block: page title. */
@@ -155,4 +158,12 @@ export interface TableRowData {
 /** Serialized table structure stored in `BlockProperties.tableData`. */
 export interface TableData {
   rows: TableRowData[];
+}
+
+/** A single todo list item, stored in `BlockProperties.todoItems`. */
+export interface TodoItemData {
+  /** Whether this item is checked off. */
+  checked: boolean;
+  /** The text content of this todo item. */
+  text: string;
 }

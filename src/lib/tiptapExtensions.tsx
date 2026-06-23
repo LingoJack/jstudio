@@ -12,6 +12,7 @@
  *   /heading3 (or /h3) → heading level 3
  *   /bullet   (or /ul)  → bullet list
  *   /numbered (or /ol)  → numbered list
+ *   /todo     (or /待办) → to-do list (checkbox list)
  *   /quote   (or /引用) → block quote
  *   /code              → code block
  *   /image             → image
@@ -117,6 +118,14 @@ export const slashCommands: SlashCommandItem[] = [
     aliases: ['numbered', 'ordered', 'ol', 'number', '有序'],
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
+  },
+  {
+    title: 'To-do List',
+    description: 'Track tasks with a checkbox list',
+    icon: '☐',
+    aliases: ['todo', 'task', 'checklist', 'checkbox', '待办', '清单', '任务'],
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).toggleTaskList().run(),
   },
   {
     title: 'Quote',

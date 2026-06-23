@@ -41,6 +41,7 @@ import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
 import TextAlign from '@tiptap/extension-text-align';
+import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { Markdown } from '@tiptap/markdown';
 
 import Color from '@tiptap/extension-color';
@@ -174,6 +175,8 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       TableRow,
       TableHeader,
       TableCell,
+      TaskList,
+      TaskItem.configure({ nested: true }),
       TextAlign.configure({
         types: ['paragraph', 'heading', 'blockquote'],
       }),

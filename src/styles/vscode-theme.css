@@ -971,6 +971,78 @@ button {
   margin: 0.15em 0;
 }
 
+/* ── To-do List (taskList / taskItem) ────────────────────────────── */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  padding: 0.15em 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  user-select: none;
+  margin-top: 0.3em;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Hide the native checkbox — we style our own */
+.ProseMirror ul[data-type="taskList"] li > label > input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--vscode-input-placeholderForeground, #888);
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+/* Checked state — fill with accent color */
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > label > input[type="checkbox"] {
+  background: var(--vscode-button-background, #0e639c);
+  border-color: var(--vscode-button-background, #0e639c);
+}
+
+/* Checkmark using ::after on the input */
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > label > input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Content area takes remaining space */
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div > p {
+  margin: 0;
+}
+
+/* Completed items: strike-through + dimmed text */
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--vscode-descriptionForeground);
+  text-decoration: line-through;
+  text-decoration-color: var(--vscode-descriptionForeground);
+}
+
 /* 选中节点的边框 */
 .ProseMirror-selectednode {
   outline: 2px solid var(--vscode-focusBorder);

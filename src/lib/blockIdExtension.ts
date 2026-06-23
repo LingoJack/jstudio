@@ -24,6 +24,7 @@ export const BlockIdExtension = Extension.create({
           'table',
           'bulletList',
           'orderedList',
+          'taskList',
           'horizontalRule',
           'collapsible',
         ],
