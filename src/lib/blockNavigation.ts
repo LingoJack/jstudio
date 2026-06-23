@@ -24,7 +24,7 @@
 import { Extension, type KeyboardShortcutCommand } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 
-import { slashMenuPluginKey } from './tiptapExtensions';
+import { slashMenuPluginKey } from './slashMenu';
 import { resolveBinding, toTiptapBinding } from './shortcuts';
 import { useStore } from '../store/useStore';
 

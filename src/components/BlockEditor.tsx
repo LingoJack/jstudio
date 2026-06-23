@@ -52,7 +52,7 @@ import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
 } from '../lib/tiptapAdapter';
-import { SlashMenuExtension } from '../lib/tiptapExtensions';
+import { SlashMenuExtension } from '../lib/slashMenu';
 import { CodeBlockWithChrome } from '../lib/codeBlockExtension';
 import { BlockNavigation } from '../lib/blockNavigation';
 import { BlockIdExtension } from '../lib/blockIdExtension';

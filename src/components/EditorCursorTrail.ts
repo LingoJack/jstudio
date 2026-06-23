@@ -296,11 +296,52 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const range = sel.getRangeAt(0);
     if (!range.collapsed) return null;
 
-    const rect = range.getBoundingClientRect();
+    // ── Workaround: WebKit getBoundingClientRect() on collapsed ranges ──
+    //
+    // For a collapsed caret inside a multi-line text node (very common in
+    // `<pre>` code blocks with `white-space: pre`), WebKit/WKWebView's
+    // `range.getBoundingClientRect()` returns the **union** of every line
+    // box the range touches — NOT the single line box the caret is on.
+    //
+    // Concretely, when the caret sits on the last line of a multi-line code
+    // block:
+    //   rect.top    = top of the FIRST line (wrong — should be the last line)
+    //   rect.height = total height of ALL lines
+    //   rect.width  = width of the WIDEST line (wrong — should be 0)
+    //
+    // This produces two visible bugs:
+    //   1. Cursor appears at the bottom, overlapping the code block border
+    //      (because `toCanvasLocal` centres the em-box within an oversized
+    //      `lineHeight`).
+    //   2. Cursor width is wider than normal (because `rect.width` reflects
+    //      the widest line, not the caret's actual zero-width position).
+    //
+    // The fix: use `getClientRects()` which, even for a collapsed range,
+    // returns an array of per-line boxes.  We pick the LAST one — that is
+    // always the line box the caret physically sits on (browsers lay out
+    // line boxes top-to-bottom, and the caret is at the end of the last
+    // box).
+    //
+    // Chromium has never had this bug, so this is purely a WebKit fix.
+    // The fallback to `getBoundingClientRect()` preserves the original
+    // behaviour for any edge case where `getClientRects()` is empty.
+    const rects = range.getClientRects();
+    let rect: DOMRect;
+    if (rects.length > 0) {
+      // Last client rect = the actual line box the caret is on.
+      rect = rects[rects.length - 1];
+    } else {
+      rect = range.getBoundingClientRect();
+    }
+
     const fontSize = this.fontSizeAt(range.startContainer);
     const lineHeight = this.lineHeightAt(range.startContainer, fontSize);
     const glyph = this.measureGlyphAt(range, fontSize);
 
+    // With the per-line rect from getClientRects(), a collapsed caret on a
+    // real character has width 0 and height ≈ lineHeight.  But a collapsed
+    // caret at an "empty" spot (truly empty paragraph, or between blocks)
+    // also returns width=0 height=0 — that's the tempSpan fallback case.
     if (rect.width === 0 && rect.height === 0) {
       this.coveredGlyph = null;
       return this.measureCaretViaTempSpan(lineHeight);
