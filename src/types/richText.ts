@@ -15,6 +15,8 @@ export interface RichTextAnnotations {
   italic?: boolean;
   underline?: boolean;
   strikethrough?: boolean;
+  /** Inline code. When present the segment is rendered as `<code>`. */
+  code?: boolean;
   /** CSS color value or a semantic color token. */
   color?: string;
   /** Link URL. When present the segment is rendered as an `<a>`. */

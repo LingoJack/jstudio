@@ -38,6 +38,7 @@ function renderSegment(segment: RichText): string {
     annotations.italic ||
     annotations.underline ||
     annotations.strikethrough ||
+    annotations.code ||
     annotations.color ||
     annotations.href;
   if (!hasAny) return escaped;
@@ -50,6 +51,7 @@ function renderSegment(segment: RichText): string {
   if (annotations.italic) classes.push('rt-italic');
   if (annotations.underline) classes.push('rt-underline');
   if (annotations.strikethrough) classes.push('rt-strikethrough');
+  if (annotations.code) classes.push('rt-code');
   if (annotations.color) styles.push(`color: ${annotations.color}`);
 
   const classAttr = classes.length ? ` class="${classes.join(' ')}"` : '';

@@ -30,6 +30,7 @@
  *   italic                       →   italic
  *   underline                    →   underline
  *   strikethrough                →   strike
+ *   code                         →   code
  *   color (≠ 'default')          →   textStyle (attrs.color)
  *   href                         →   link (attrs.href)
  */
@@ -59,7 +60,7 @@ interface TiptapMark {
  * annotations.
  *
  * Order matters for rendering consistency: we emit marks in a stable order
- * (bold, italic, underline, strike, textStyle, link).
+ * (bold, italic, underline, strike, code, textStyle, link).
  */
 function annotationsToMarks(ann: RichTextAnnotations): TiptapMark[] {
   const marks: TiptapMark[] = [];
@@ -68,6 +69,7 @@ function annotationsToMarks(ann: RichTextAnnotations): TiptapMark[] {
   if (ann.italic) marks.push({ type: 'italic' });
   if (ann.underline) marks.push({ type: 'underline' });
   if (ann.strikethrough) marks.push({ type: 'strike' });
+  if (ann.code) marks.push({ type: 'code' });
 
   if (ann.color && ann.color !== 'default') {
     marks.push({ type: 'textStyle', attrs: { color: ann.color } });
@@ -143,6 +145,9 @@ function marksToAnnotations(marks: TiptapMark[]): RichTextAnnotations {
         break;
       case 'strike':
         annotations.strikethrough = true;
+        break;
+      case 'code':
+        annotations.code = true;
         break;
       case 'textStyle': {
         const color = mark.attrs?.color;
