@@ -57,4 +57,5 @@ allow:
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/w3c-keyname/:*)
 - Shell(ls /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@excalidraw/excalidraw/dist/:*)
 - Shell(ls node_modules/@tiptap/:*)
+- Shell(cat /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@tiptap/starter-kit/dist/index.js:*)
 deny: []

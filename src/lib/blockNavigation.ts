@@ -56,6 +56,20 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     };
 
     // -----------------------------------------------------------------
+    // Helper: check whether the cursor is in the very first leaf node of
+    // the document (first child at every nesting level). This is needed
+    // because `$head.before(1) === 0` is true for *any* list item inside
+    // a list that happens to be the first top-level block — but only the
+    // first item's first paragraph should trigger an exit-to-title.
+    // -----------------------------------------------------------------
+    const isInFirstDocLeaf = ($head: typeof editor.state.selection.$head) => {
+      for (let d = 0; d < $head.depth; d++) {
+        if ($head.index(d) !== 0) return false;
+      }
+      return true;
+    };
+
+    // -----------------------------------------------------------------
     // ArrowUp — at the first block's top boundary, exit to the title.
     // -----------------------------------------------------------------
     const onArrowUp = () => {
@@ -65,8 +79,10 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       if (!selection.empty) return false;
       const $head = selection.$head;
       if ($head.depth < 1) return false;
-      // Only the very first top-level block can exit upward to the title.
-      if ($head.before(1) !== 0) return false;
+      // Only the very first content node (at every nesting level) can exit
+      // upward to the title.  This prevents ArrowUp in the 2nd list item of
+      // a list-as-first-block from jumping to the title.
+      if (!isInFirstDocLeaf($head)) return false;
       // Cursor is on the first visual line / at the very start of the block.
       const atTop =
         view.endOfTextblock('up', state) || $head.pos === $head.start(1);
@@ -87,7 +103,7 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       if (!selection.empty) return false;
       const $head = selection.$head;
       if ($head.depth < 1) return false;
-      if ($head.before(1) !== 0) return false;
+      if (!isInFirstDocLeaf($head)) return false;
       if ($head.pos === $head.start(1)) {
         this.options.onExitToTitle?.();
         return true;
