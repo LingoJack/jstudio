@@ -20,7 +20,10 @@ export type BlockType =
   | 'diagram';
 
 export interface BlockProperties {
-  language?: string; // code block syntax
+  /** Code block: syntax language. */
+  language?: string;
+  /** Code block: maximum body height as percentage of viewport height (0-100). null = auto (no scroll). */
+  codeMaxHeightPct?: number;
   caption?: string; // image block caption
   imageType?: 'url' | 'base64' | 'asset';
   width?: number; // image display width (px, legacy)

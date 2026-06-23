@@ -71,6 +71,8 @@ function getLanguageLabel(value: string): string {
 
 export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
+  // Maximum body height as percentage of viewport height (default 60).
+  const maxHeightPct = (node.attrs?.maxHeightPct as number | null | undefined) ?? 60;
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
 
@@ -91,6 +93,38 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // ---- Height resize handle ----
+  // The user drags the bottom handle to set a max-height percentage of the
+  // viewport. The value persists via the node's `maxHeightPct` attribute.
+  const onHeightResizeStart = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startY = e.clientY;
+      const startPct = maxHeightPct;
+
+      const onMove = (ev: PointerEvent) => {
+        const deltaY = ev.clientY - startY;
+        // Convert delta px to percentage of viewport height.
+        const deltaPct = (deltaY / window.innerHeight) * 100;
+        const newPct = Math.min(95, Math.max(10, Math.round(startPct + deltaPct)));
+        updateAttributes({ maxHeightPct: newPct });
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    },
+    [maxHeightPct, updateAttributes],
+  );
+
+  // Double-click the handle to reset to default 60%.
+  const onHeightReset = useCallback(() => {
+    updateAttributes({ maxHeightPct: 60 });
+  }, [updateAttributes]);
 
   // ---- Language dropdown state ----
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -311,10 +345,25 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         </div>
       )}
 
-      {/* Code content — highlighted by lowlight */}
-      <pre ref={codeRef} className="code-block-body">
+      {/* Code content — highlighted by lowlight.
+          max-height is driven by maxHeightPct (percentage of viewport).
+          When content exceeds the limit, a scrollbar appears. */}
+      <pre
+        ref={codeRef}
+        className="code-block-body"
+        style={{ maxHeight: `${maxHeightPct}vh`, overflow: 'auto' }}
+      >
         <NodeViewContent as="div" className={`hljs language-${language || 'plaintext'}`} />
       </pre>
+
+      {/* Height resize handle — drag to adjust max-height percentage */}
+      <div
+        className="code-block-resize-handle"
+        onPointerDown={onHeightResizeStart}
+        onDoubleClick={onHeightReset}
+        contentEditable={false}
+        title="拖拽调节高度，双击重置"
+      />
     </NodeViewWrapper>
   );
 }

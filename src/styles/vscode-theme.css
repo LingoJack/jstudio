@@ -1247,6 +1247,34 @@ button {
   overflow-x: auto;
 }
 
+/* Height resize handle — centered at the bottom edge of the code block.
+   Drag vertically to adjust the max-height percentage (persistent). */
+.code-block-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  width: 36px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background, #2d2d2d);
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  cursor: ns-resize;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.code-block-wrapper:hover .code-block-resize-handle,
+.code-block-resize-handle:active {
+  opacity: 1;
+}
+
+.code-block-resize-handle:hover,
+.code-block-resize-handle:active {
+  background: var(--vscode-focusBorder, #007fd4);
+}
+
 /* NodeViewContent 渲染的 div.hljs — 代码高亮由 hljs-* token 规则着色 */
 .code-block-wrapper pre code.hljs,
 .code-block-wrapper .code-block-body .hljs {

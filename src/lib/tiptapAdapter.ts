@@ -402,6 +402,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       json.attrs = {
         ...json.attrs,
         language: block.properties?.language ?? 'plaintext',
+        maxHeightPct: block.properties?.codeMaxHeightPct ?? 60,
       };
       break;
     }
@@ -572,6 +573,8 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
       block.content = [{ text: codeText, annotations: {} }];
       block.properties = {
         language: (attrs.language as string) ?? 'plaintext',
+        codeMaxHeightPct:
+          typeof attrs.maxHeightPct === 'number' ? attrs.maxHeightPct : undefined,
       };
       break;
     }
