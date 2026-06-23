@@ -5,7 +5,6 @@
   "windows": ["main", "preview-*", "diagram-*", "link-preview-*"],
   "permissions": [
     "core:default",
-    "core:asset:default",
     "core:window:allow-start-dragging",
     "core:window:allow-close",
     "core:window:allow-set-title",

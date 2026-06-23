@@ -6,6 +6,7 @@ import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
 import { markdownToBlocks } from '../lib/markdownImport';
+import { migrateDocAssets } from '../lib/migrateAssets';
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
@@ -182,7 +183,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       for (const meta of index) {
         try {
           const doc = await storage.loadDocument(meta.id);
-          docs.push(doc);
+          const migrated = await migrateDocAssets(doc);
+          if (migrated) {
+            await storage.saveDocument(migrated);
+            docs.push(migrated);
+          } else {
+            docs.push(doc);
+          }
         } catch (e) {
           console.error(`Failed to load document ${meta.id}:`, e);
         }

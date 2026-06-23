@@ -82,7 +82,10 @@ useEffect(() => {
 
     const toStart = e.key === 'ArrowLeft';
     const extend = e.shiftKey;
-    const edge = toStart ? $head.start(1) : $head.end(1);
+    // Use $head.start() / $head.end() (defaults to $head.depth) to always
+    // resolve to the text-block boundary, not the top-level node boundary.
+    // This matters for list items where the paragraph lives at depth 3.
+    const edge = toStart ? $head.start() : $head.end();
 
     const tr = extend
       ? state.tr.setSelection(

@@ -265,8 +265,6 @@ export const storage = {
 
   saveDocAsset: (docId: string, fileName: string, data: number[]) =>
     invoke<string>('save_doc_asset', { docId, fileName, data }),
-  readDocAssetBase64: (docId: string, fileName: string) =>
-    invoke<string>('read_doc_asset_base64', { docId, fileName }),
   deleteDocAsset: (docId: string, fileName: string) =>
     invoke<void>('delete_doc_asset', { docId, fileName }),
   listDocAssets: (docId: string) =>

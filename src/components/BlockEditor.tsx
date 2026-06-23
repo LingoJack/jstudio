@@ -229,7 +229,12 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
       const toStart = e.key === 'ArrowLeft';
       const extend = e.shiftKey;
-      const edge = toStart ? $head.start(1) : $head.end(1);
+      // Use $head.start() / $head.end() (defaults to $head.depth) so that we
+      // always resolve to the **text block** boundary (paragraph/heading)
+      // rather than the top-level node. For list items the paragraph lives at
+      // depth 3 (doc > bulletList > listItem > paragraph); using depth 1 would
+      // jump to the start/end of the *entire list* instead of the current item.
+      const edge = toStart ? $head.start() : $head.end();
 
       const tr = extend
         ? state.tr.setSelection(
