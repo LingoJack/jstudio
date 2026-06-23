@@ -298,14 +298,15 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     const rect = range.getBoundingClientRect();
     const fontSize = this.fontSizeAt(range.startContainer);
+    const lineHeight = this.lineHeightAt(range.startContainer, fontSize);
     const glyph = this.measureGlyphAt(range, fontSize);
 
     if (rect.width === 0 && rect.height === 0) {
       this.coveredGlyph = null;
-      return this.measureCaretViaTempSpan();
+      return this.measureCaretViaTempSpan(lineHeight);
     }
 
-    return this.toCanvasLocal(rect, fontSize, glyph);
+    return this.toCanvasLocal(rect, fontSize, lineHeight, glyph);
   }
 
   /**
@@ -433,10 +434,47 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   /**
+   * Read the computed CSS line-height (px) of the element containing the
+   * caret.
+   *
+   * We MUST read the real line-height from CSS rather than relying on
+   * `range.getBoundingClientRect().height`, because the latter is
+   * unreliable for collapsed caret ranges — especially inside `<pre>` blocks
+   * with `white-space: pre` on WebKit/WKWebView, where it can return the
+   * height of the entire content area instead of a single line box.  This
+   * causes the cursor's em-box to be vertically centred within an
+   * oversized rectangle, pushing it far below the actual text line (e.g.
+   * overlapping the code block's bottom border).
+   *
+   * @param fontSize  The font-size already resolved by `fontSizeAt()`,
+   *                  used as a fallback for the `"normal"` keyword.
+   */
+  private lineHeightAt(node: Node | null, fontSize: number): number {
+    let el: Element | null =
+      node && node.nodeType === Node.ELEMENT_NODE
+        ? (node as Element)
+        : node?.parentElement ?? null;
+    if (!el || !(el instanceof HTMLElement)) el = this.editorEl;
+    if (!el) return fontSize * 1.6;
+    const lh = getComputedStyle(el).lineHeight;
+    if (lh === 'normal' || lh === '') {
+      // "normal" ≈ 1.2 × font-size (CSS specification default).
+      return fontSize * 1.2;
+    }
+    const px = parseFloat(lh);
+    if (Number.isFinite(px) && px > 0) return px;
+    // Final fallback: assume 1.6 × font-size (matches the app's body text).
+    return fontSize * 1.6;
+  }
+
+  /**
    * Fallback caret measurement: insert a temporary zero-width span at the
    * caret position and measure its bounding rect.
+   *
+   * @param lineHeight  Computed CSS line-height (px), passed through from
+   *                    the caller so we don't need to re-derive it here.
    */
-  private measureCaretViaTempSpan(): { left: number; right: number; top: number; bottom: number } | null {
+  private measureCaretViaTempSpan(lineHeight: number): { left: number; right: number; top: number; bottom: number } | null {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return null;
 
@@ -460,7 +498,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     // The temp-span path only triggers at empty positions (no glyph),
     // so there is no character under the caret → half-width fallback.
-    return this.toCanvasLocal(rect, fontSize, {
+    return this.toCanvasLocal(rect, fontSize, lineHeight, {
       width: fontSize * CHAR_WIDTH_RATIO,
       onChar: false,
       before: false,
@@ -477,10 +515,20 @@ export class EditorCursorTrail extends BaseCursorTrail {
    *   - caret NOT on a character (end of line, empty block) → half width.
    * Height is always the glyph's em-box height.  Position is anchored at
    * the caret's left edge, which is the glyph's left edge.
+   *
+   * @param lineHeight  Computed CSS line-height (px).  MUST be passed in
+   *                    from the caller (via `lineHeightAt()`) rather than
+   *                    derived from `rect.height`, because
+   *                    `range.getBoundingClientRect().height` is unreliable
+   *                    for collapsed caret ranges — especially inside `<pre>`
+   *                    blocks on WebKit/WKWebView, where it can return the
+   *                    entire content area height instead of a single line
+   *                    box, causing the cursor to be vertically misplaced.
    */
   private toCanvasLocal(
     rect: DOMRect,
     fontSize: number,
+    lineHeight: number,
     glyph: {
       width: number;
       onChar: boolean;
@@ -491,7 +539,6 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const canvasRect = this.canvas.getBoundingClientRect();
     const caretLeft = rect.left - canvasRect.left;
     const top = rect.top - canvasRect.top;
-    const lineHeight = Math.max(rect.height, 1);
 
     // Cursor footprint width: full glyph width when overtyping a real
     // character, otherwise half the fallback character width.
@@ -509,8 +556,18 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     // Em-box: the glyph's vertical extent, centred within the line box
     // (CSS splits the leading equally above and below the glyphs).
-    const emHeight = Math.min(fontSize * GLYPH_HEIGHT_RATIO, lineHeight);
-    const emTop = top + (lineHeight - emHeight) / 2;
+    //
+    // IMPORTANT: we use the CSS-computed `lineHeight` (passed in from the
+    // caller) instead of `rect.height`.  The latter is the raw
+    // getBoundingClientRect() height of the collapsed caret range, which
+    // is unreliable on WebKit/WKWebView — especially inside `<pre>` code
+    // blocks with `white-space: pre`, where it can span the entire
+    // remaining content area.  Using an oversized `lineHeight` here would
+    // vertically centre the em-box far below the actual text line,
+    // causing the cursor to overlap the code block's bottom border.
+    const safeLineHeight = Math.max(lineHeight, 1);
+    const emHeight = Math.min(fontSize * GLYPH_HEIGHT_RATIO, safeLineHeight);
+    const emTop = top + (safeLineHeight - emHeight) / 2;
     const emBottom = emTop + emHeight;
 
     // Only the block cursor sits ON TOP of a glyph and hides it.  Capture
