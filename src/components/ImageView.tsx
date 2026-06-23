@@ -14,7 +14,8 @@ import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react'
 
 import { useStore } from '../store/useStore';
 import { storage } from '../lib/storage';
-import { bytesToDataUrl, genStoredName } from '../lib/upload';
+import { saveBytesAsAsset, genStoredName } from '../lib/upload';
+import { toDisplaySrc } from '../lib/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
@@ -39,6 +40,12 @@ interface ImageNodeAttrs {
 
 export default function ImageView({ node, selected, updateAttributes, editor }: NodeViewProps) {
   const { src, alt, title, width, widthPct, height, heightPct, align } = node.attrs as ImageNodeAttrs;
+
+  // Resolve doc-relative asset paths (`assets/…`) to a loadable URL via the
+  // asset protocol; data:/http(s): srcs pass through unchanged.
+  const studioRoot = useStore((s) => s.studioRoot);
+  const activeDocId = useStore((s) => s.activeDocId);
+  const displaySrc = toDisplaySrc(src, studioRoot, activeDocId);
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
   const toolbarBtnCount = 2; // align-left, align-center
@@ -72,8 +79,8 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
       const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
       const fileName = genStoredName('image', ext);
 
-      const dataUrl = await bytesToDataUrl(bytes, mime, activeDocId, fileName);
-      updateAttributes({ src: dataUrl, alt: fileName });
+      const ref = await saveBytesAsAsset(bytes, mime, activeDocId, fileName);
+      updateAttributes({ src: ref, alt: fileName });
     } catch {
       // silently ignore — user can click again
     } finally {
@@ -200,7 +207,7 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
 
             <img
               ref={setImgRef}
-              src={src}
+              src={displaySrc}
               alt={alt ?? ''}
               title={title ?? undefined}
               style={imgStyle}

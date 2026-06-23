@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose, Engine as _};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -322,15 +321,6 @@ pub fn save_doc_asset(doc_id: String, file_name: String, data: Vec<u8>) -> Resul
     let path = dir.join(&final_name);
     fs::write(&path, &data).map_err(|e| format!("failed to save doc asset: {e}"))?;
     Ok(final_name)
-}
-
-/// Read a document-scoped asset as base64.
-#[tauri::command]
-pub fn read_doc_asset_base64(doc_id: String, file_name: String) -> Result<String, String> {
-    let path = doc_assets_dir(&doc_id).join(&file_name);
-    let bytes =
-        fs::read(&path).map_err(|e| format!("failed to read doc asset {file_name}: {e}"))?;
-    Ok(general_purpose::STANDARD.encode(&bytes))
 }
 
 /// Delete a single asset from a document's assets folder.

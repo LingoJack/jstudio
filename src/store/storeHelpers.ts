@@ -52,6 +52,8 @@ export interface StoreState {
   activeDoc: Document | null;
   activeDocId: string;
   documents: Document[];
+  /** Absolute path of the studio root dir (~/.jdata/studio), cached at init. */
+  studioRoot: string;
 
   // — data (folders slice) —
   folders: FolderMeta[];

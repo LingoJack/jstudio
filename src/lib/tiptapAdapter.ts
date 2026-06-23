@@ -38,6 +38,7 @@ import type { JSONContent } from '@tiptap/react';
 
 import type { Block, BlockType, TableData, TableCellData, TableRowData } from '../types/document';
 import type { RichText, RichTextAnnotations } from '../types/richText';
+import { isAssetPath } from './assetUrl';
 
 // ---------------------------------------------------------------------------
 // Types (local helpers)
@@ -589,7 +590,11 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
       block.content = src;
       block.properties = {
         caption: alt,
-        imageType: 'url',
+        imageType: isAssetPath(src)
+          ? 'asset'
+          : src.startsWith('data:')
+            ? 'base64'
+            : 'url',
         width,
         widthPct,
         height,

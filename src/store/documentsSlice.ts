@@ -13,13 +13,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   activeDoc: null,
   activeDocId: '',
   documents: [],
+  studioRoot: '',
 
   // ================================================================
   // init
   // ================================================================
   init: async () => {
     try {
-      await storage.init();
+      const studioRoot = await storage.init();
       await migrateFromLocalStorage();
 
       // One-time cleanup: remove the legacy global assets directory.
@@ -192,6 +193,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       set({
         docList: index,
         documents: docs,
+        studioRoot,
         activeDoc: docs[0] ?? null,
         activeDocId: firstId,
         themeMode,

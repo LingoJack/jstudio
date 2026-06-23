@@ -1,89 +1,46 @@
 /**
  * Unified file upload pipeline.
  *
- * Extracted from ImageView / FileView / BlockEditor to eliminate
- * triple-duplicated Tauri dialog → readFileBytes → saveDocAsset
- * → readDocAssetBase64 → data-URL logic.
+ * Saves a file's raw bytes into the active document's `assets/` folder and
+ * returns a portable, doc-relative reference (`assets/{fileName}`). The
+ * reference is resolved to a loadable URL at render time via the asset
+ * protocol (see `lib/assetUrl.ts`) — no base64 round-trip.
  */
 
 import { storage } from './storage';
-import { getMimeType } from './fileUtils';
-
-/* ------------------------------------------------------------------ */
-/* Types                                                              */
-/* ------------------------------------------------------------------ */
-
-export interface UploadResult {
-  /** Base64 data URL of the file content (e.g. `data:image/png;base64,…`). */
-  dataUrl: string;
-  /** Original file name extracted from the file path. */
-  fileName: string;
-  /** File size in bytes. */
-  fileSize: number;
-  /** MIME type. */
-  mime: string;
-}
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
 /**
- * For text-based MIME types, append `;charset=utf-8` so the browser
- * decodes the content as UTF-8 instead of defaulting to latin1.
+ * Save an array of bytes to the active document's `assets/` folder and return
+ * a doc-relative reference (`assets/{fileName}`).
  *
- * This is critical for HTML/SVG/text previews rendered in <iframe> —
- * without an explicit charset, non-ASCII characters (e.g. Chinese)
- * appear as garbled text (mojibake).
+ * When no `activeDocId`/`storedName` is available (rare — e.g. no open
+ * document), falls back to an inline base64 data URL so the content is still
+ * usable in the current session.
  */
-function withCharset(mime: string): string {
-  const textPrefixes = [
-    'text/',
-    'application/json',
-    'application/xml',
-    'application/javascript',
-    'image/svg+xml',
-  ];
-  if (
-    !mime.includes('charset') &&
-    textPrefixes.some((p) => mime.startsWith(p))
-  ) {
-    return `${mime};charset=utf-8`;
-  }
-  return mime;
-}
-
-/**
- * Convert an array of bytes to a base64 data URL.
- *
- * When an `activeDocId` is provided, the bytes are persisted to the
- * document's local `assets/` folder and read back as base64 (keeping the
- * document self-contained on disk). Otherwise the bytes are encoded inline.
- */
-export async function bytesToDataUrl(
+export async function saveBytesAsAsset(
   bytes: number[],
   mime: string,
   activeDocId?: string | null,
   storedName?: string,
 ): Promise<string> {
-  const fullMime = withCharset(mime);
   if (activeDocId && storedName) {
-    await storage.saveDocAsset(activeDocId, storedName, bytes);
-    const base64 = await storage.readDocAssetBase64(activeDocId, storedName);
-    return `data:${fullMime};base64,${base64}`;
+    const finalName = await storage.saveDocAsset(activeDocId, storedName, bytes);
+    return `assets/${finalName}`;
   }
   // Fallback: encode directly in-memory.
   const binary = String.fromCharCode(...bytes);
-  const base64 = btoa(binary);
-  return `data:${fullMime};base64,${base64}`;
+  return `data:${mime};base64,${btoa(binary)}`;
 }
 
 /**
- * Encode a `File` object (from clipboard/drag-drop) into a data URL.
- *
- * Uses the document's local asset folder when available.
+ * Save a `File` object (from clipboard/drag-drop) to the active document's
+ * `assets/` folder and return a doc-relative reference.
  */
-export async function fileToDataUrl(
+export async function fileToAssetRef(
   file: File,
   activeDocId: string | null,
   prefix: string = 'file',
@@ -94,13 +51,11 @@ export async function fileToDataUrl(
   const bytes = Array.from(new Uint8Array(arrayBuffer));
 
   if (activeDocId) {
-    const storedName = `${prefix}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 7)}.${ext}`;
-    return bytesToDataUrl(bytes, mime, activeDocId, storedName);
+    const storedName = genStoredName(prefix, ext);
+    return saveBytesAsAsset(bytes, mime, activeDocId, storedName);
   }
 
-  // Fallback: FileReader (handles large files reliably).
+  // Fallback: FileReader data URL (handles large files reliably).
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
@@ -116,3 +71,4 @@ export function genStoredName(prefix: string, ext: string): string {
     .toString(36)
     .slice(2, 7)}.${ext || 'bin'}`;
 }
+

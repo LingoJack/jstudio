@@ -1,17 +1,19 @@
 /**
  * Editor upload helpers — save pasted/dropped files to the active document's
- * assets folder and return data URLs suitable for TipTap node attributes.
+ * assets folder and return doc-relative references suitable for TipTap node
+ * attributes (resolved to loadable URLs at render time via the asset protocol).
  */
 
-import { bytesToDataUrl, fileToDataUrl, genStoredName } from './upload';
+import { saveBytesAsAsset, fileToAssetRef, genStoredName } from './upload';
 import { useStore } from '../store/useStore';
 
 /**
- * Save an image file to the active document's assets and return a data URL.
+ * Save an image file to the active document's assets and return a
+ * doc-relative reference (`assets/{fileName}`).
  */
 export async function uploadImage(file: File): Promise<string> {
   const activeDocId = useStore.getState().activeDocId;
-  return fileToDataUrl(file, activeDocId, 'image');
+  return fileToAssetRef(file, activeDocId, 'image');
 }
 
 /**
@@ -31,12 +33,13 @@ export async function uploadAttachment(
   const sizeBytes = bytes.length;
   const storedName = genStoredName('file', ext);
 
-  const dataUrl = await bytesToDataUrl(bytes, mime, activeDocId, storedName);
+  const src = await saveBytesAsAsset(bytes, mime, activeDocId, storedName);
 
   return {
-    src: dataUrl,
+    src,
     fileName: originalName,
     fileSize: sizeBytes,
     fileType: mime,
   };
 }
+

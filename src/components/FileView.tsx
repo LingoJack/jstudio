@@ -41,7 +41,8 @@ import {
   type PreviewCategory,
 } from '../lib/fileUtils';
 import { docxToHtml } from '../lib/docxPreview';
-import { bytesToDataUrl, genStoredName } from '../lib/upload';
+import { saveBytesAsAsset, genStoredName } from '../lib/upload';
+import { toDisplaySrc } from '../lib/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
@@ -69,6 +70,12 @@ export default function FileView({
 }: NodeViewProps) {
   const { src, fileName, fileSize, fileType, displayMode, width, widthPct, height, heightPct, align } =
     node.attrs as FileNodeAttributes;
+
+  // Resolve doc-relative asset paths (`assets/…`) to a loadable URL via the
+  // asset protocol; data:/http(s): srcs pass through unchanged.
+  const studioRoot = useStore((s) => s.studioRoot);
+  const activeDocId = useStore((s) => s.activeDocId);
+  const resolvedSrc = toDisplaySrc(src ?? '', studioRoot, activeDocId);
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
   const canPreview = getPreviewCategory(fileType, fileName) !== 'other';
@@ -122,12 +129,12 @@ export default function FileView({
   const handleOpenPreview = useCallback(() => {
     if (!src) return;
     openPreviewWindow({
-      src,
+      src: resolvedSrc,
       fileName,
       fileSize,
       category: getPreviewCategory(fileType, fileName),
     });
-  }, [src, fileName, fileSize, fileType]);
+  }, [src, resolvedSrc, fileName, fileSize, fileType]);
 
   const category = useMemo(
     () => getPreviewCategory(fileType, fileName),
@@ -137,8 +144,9 @@ export default function FileView({
   /**
    * Patched src: ensures text-based data URLs include `charset=utf-8`
    * so HTML/SVG/text previews render correctly instead of mojibake.
+   * Operates on the resolved (asset-protocol) URL; a no-op for non-data URLs.
    */
-  const safeSrc = useMemo(() => ensureUtf8Charset(src ?? ''), [src]);
+  const safeSrc = useMemo(() => ensureUtf8Charset(resolvedSrc), [resolvedSrc]);
 
   /* -------------------------------------------------------------- */
   /* Upload handler                                                 */
@@ -155,7 +163,6 @@ export default function FileView({
       });
       if (!filePath || typeof filePath !== 'string') return;
 
-      const activeDocId = useStore.getState().activeDocId;
       const originalName = filePath.split(/[/\\]/).pop() || 'file';
       const ext = getExtension(originalName);
       const mime = getMimeType(ext);
@@ -163,7 +170,7 @@ export default function FileView({
       const bytes = await storage.readFileBytes(filePath);
       const sizeBytes = bytes.length;
       const storedName = genStoredName('file', ext);
-      const dataUrl = await bytesToDataUrl(bytes, mime, activeDocId, storedName);
+      const ref = await saveBytesAsAsset(bytes, mime, activeDocId, storedName);
 
       // Auto-select initial display mode.
       const autoMode: 'card' | 'preview' =
@@ -175,7 +182,7 @@ export default function FileView({
           : 'preview';
 
       updateAttributes({
-        src: dataUrl,
+        src: ref,
         fileName: originalName,
         fileSize: sizeBytes,
         fileType: mime,
@@ -189,7 +196,7 @@ export default function FileView({
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, updateAttributes]);
+  }, [src, activeDocId, updateAttributes]);
 
   /* -------------------------------------------------------------- */
   /* DOCX preview: load on demand                                   */
@@ -204,14 +211,14 @@ export default function FileView({
       !docxLoading
     ) {
       setDocxLoading(true);
-      docxToHtml(src)
+      docxToHtml(resolvedSrc)
         .then((html) => setDocxHtml(html))
         .catch(() =>
           setDocxHtml('<p style="color:#f85149;">Failed to load DOCX</p>'),
         )
         .finally(() => setDocxLoading(false));
     }
-  }, [category, isPreviewMode, src, docxHtml, docxLoading]);
+  }, [category, isPreviewMode, src, resolvedSrc, docxHtml, docxLoading]);
 
   /* -------------------------------------------------------------- */
   /* Resize: drag the bottom-right handle (via shared useNodeResize) */
@@ -499,29 +506,28 @@ export default function FileView({
 /* Text preview sub-component                                         */
 /* ------------------------------------------------------------------ */
 
-/** Fetches the text content from a data URL and renders it in a <pre>. */
+/** Fetches the text content from a URL (asset or data) and renders it in a <pre>. */
 function FileTextPreview({ src }: { src: string }) {
   const [text, setText] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    try {
-      const commaIdx = src.indexOf(',');
-      const header = src.substring(5, commaIdx); // strip "data:"
-      const isBase64 = header.includes('base64');
-      const payload = src.substring(commaIdx + 1);
-
-      if (isBase64) {
-        setText(decodeURIComponent(escape(atob(payload))));
-      } else {
-        setText(decodeURIComponent(payload));
-      }
-    } catch {
-      setText('无法读取文件内容');
-    } finally {
-      setLoading(false);
-    }
+    fetch(src)
+      .then((res) => res.text())
+      .then((t) => {
+        if (!cancelled) setText(t);
+      })
+      .catch(() => {
+        if (!cancelled) setText('无法读取文件内容');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [src]);
 
   if (loading) {

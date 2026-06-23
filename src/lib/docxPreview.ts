@@ -5,20 +5,15 @@
  */
 
 /**
- * Convert a DOCX data URL to an HTML string using mammoth.js.
+ * Convert a DOCX URL (asset-protocol or data URL) to an HTML string using
+ * mammoth.js.
  *
  * mammoth is dynamically imported so it only loads when a user actually
  * opens a .docx preview, keeping the initial bundle small.
  */
-export async function docxToHtml(dataUrl: string): Promise<string> {
+export async function docxToHtml(src: string): Promise<string> {
   const mammoth = await import('mammoth/mammoth.browser');
-  const base64 = dataUrl.split(',')[1] ?? '';
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const arrayBuffer = bytes.buffer;
+  const arrayBuffer = await (await fetch(src)).arrayBuffer();
   const result = await mammoth.convertToHtml({ arrayBuffer });
   return result.value || '<p style="color:#999;">Empty document</p>';
 }

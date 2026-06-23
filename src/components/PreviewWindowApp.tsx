@@ -311,22 +311,22 @@ function TextPreview({ src }: { src: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    try {
-      const commaIdx = src.indexOf(',');
-      const header = src.substring(5, commaIdx);
-      const isBase64 = header.includes('base64');
-      const payload = src.substring(commaIdx + 1);
-      setText(
-        isBase64
-          ? decodeURIComponent(escape(atob(payload)))
-          : decodeURIComponent(payload),
-      );
-    } catch {
-      setText('无法读取文件内容');
-    } finally {
-      setLoading(false);
-    }
+    fetch(src)
+      .then((res) => res.text())
+      .then((t) => {
+        if (!cancelled) setText(t);
+      })
+      .catch(() => {
+        if (!cancelled) setText('无法读取文件内容');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [src]);
 
   if (loading)
