@@ -326,16 +326,26 @@ export class EditorCursorTrail extends BaseCursorTrail {
     // The fallback to `getBoundingClientRect()` preserves the original
     // behaviour for any edge case where `getClientRects()` is empty.
     const rects = range.getClientRects();
-    let rect: DOMRect;
+    let rawRect: DOMRect;
     if (rects.length > 0) {
       // Last client rect = the actual line box the caret is on.
-      rect = rects[rects.length - 1];
+      rawRect = rects[rects.length - 1];
     } else {
-      rect = range.getBoundingClientRect();
+      rawRect = range.getBoundingClientRect();
     }
 
     const fontSize = this.fontSizeAt(range.startContainer);
     const lineHeight = this.lineHeightAt(range.startContainer, fontSize);
+
+    // ── Refine the rect for <pre> code blocks ──
+    //
+    // Even with getClientRects(), WebKit can return a rect whose top/height
+    // span multiple lines inside <pre white-space:pre>.  refinePreCaretRect()
+    // deterministically recomputes the caret's vertical position from the
+    // <pre> geometry + line number, eliminating both the vertical overlap
+    // bug and the width inflation bug at their source.
+    const rect = this.refinePreCaretRect(rawRect, range, lineHeight);
+
     const glyph = this.measureGlyphAt(range, fontSize);
 
     // With the per-line rect from getClientRects(), a collapsed caret on a
@@ -383,16 +393,25 @@ export class EditorCursorTrail extends BaseCursorTrail {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent ?? '';
 
-      // 1. Character after the caret.
+      // 1. Character after the caret (skip line breaks — `\n` / `\r` are
+      //    not visible glyphs, and on WebKit their getBoundingClientRect()
+      //    inside `<pre>` spans the entire previous line's width, which
+      //    inflates the cursor width).
       if (offset < text.length) {
-        const m = this.measureCodePoint(node, offset, text, +1);
-        if (m) return { width: m.rect.width, onChar: true, before: false, cover: m };
+        const ch = text[offset];
+        if (ch !== '\n' && ch !== '\r') {
+          const m = this.measureCodePoint(node, offset, text, +1);
+          if (m) return { width: m.rect.width, onChar: true, before: false, cover: m };
+        }
       }
 
-      // 2. Character before the caret.
+      // 2. Character before the caret (skip line breaks — same reason).
       if (offset > 0) {
-        const m = this.measureCodePoint(node, offset, text, -1);
-        if (m) return { width: m.rect.width, onChar: true, before: true, cover: m };
+        const ch = text[offset - 1];
+        if (ch !== '\n' && ch !== '\r') {
+          const m = this.measureCodePoint(node, offset, text, -1);
+          if (m) return { width: m.rect.width, onChar: true, before: true, cover: m };
+        }
       }
     }
 
@@ -430,7 +449,22 @@ export class EditorCursorTrail extends BaseCursorTrail {
       }
       r.setStart(node, start);
       r.setEnd(node, end);
-      const rect = r.getBoundingClientRect();
+
+      // Use getClientRects() instead of getBoundingClientRect() — the same
+      // WebKit/WKWebView multi-line bug that affects collapsed ranges (see
+      // measureCaretRect) also affects non-collapsed ranges inside multi-
+      // line text nodes (e.g. <pre> code blocks with white-space: pre).
+      // getBoundingClientRect() returns the union of ALL line boxes, making
+      // rect.width = width of the WIDEST line instead of the single char.
+      // getClientRects() returns per-line boxes; a single character lives on
+      // exactly one line, so we get its true advance width.
+      const rects = r.getClientRects();
+      let rect: DOMRect;
+      if (rects.length > 0) {
+        rect = rects[rects.length - 1];
+      } else {
+        rect = r.getBoundingClientRect();
+      }
       if (rect.width <= 0.5) return null;
 
       const parent =
@@ -454,6 +488,112 @@ export class EditorCursorTrail extends BaseCursorTrail {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Refine the caret rect when the caret sits inside a `<pre>` code block.
+   *
+   * WebKit/WKWebView has two bugs with collapsed caret ranges inside `<pre>`
+   * with `white-space: pre`:
+   *
+   *   A. **Vertical misplacement** — `getClientRects()` / `getBoundingClientRect()`
+   *      can return a rect whose `top` and `height` span multiple lines (or
+   *      the entire content area), not the single line the caret is on.  This
+   *      pushes the cursor to the bottom and overlaps the code block border.
+   *
+   *   B. **Width inflation** — the rect `width` can reflect the widest line
+   *      above the caret, not zero.  This makes the cursor wider than normal.
+   *
+   * Both bugs stem from the same root: WebKit collapses a caret at a line
+   * boundary into a range that "touches" preceding line boxes.
+   *
+   * Rather than fighting the browser, we compute the caret's vertical
+   * position *deterministically* from the `<pre>` element's geometry:
+   *
+   *   caretTop = preTop + paddingTop + lineIndex × lineHeight
+   *
+   * where `lineIndex` is the 0-based line number the caret is on (counting
+   * `\n`-delimited lines in the text node).  The horizontal position (`left`)
+   * is taken from the raw rect when it looks sane, or from the `<pre>`'s
+   * `paddingLeft` when the caret is at the start of a line.
+   *
+   * @returns A refined `{ top, height, left, width }` rect, or `null` when
+   *          the caret is NOT inside a `<pre>` (caller falls back to the
+   *          raw rect).
+   */
+  private refinePreCaretRect(
+    rect: DOMRect,
+    range: Range,
+    lineHeight: number,
+  ): DOMRect {
+    // Walk up from the caret's container to find a <pre> ancestor.
+    const startContainer = range.startContainer;
+    let node: Node | null =
+      startContainer.nodeType === Node.ELEMENT_NODE
+        ? startContainer
+        : startContainer.parentElement;
+    let preEl: HTMLPreElement | null = null;
+    while (node) {
+      if (node.nodeName === 'PRE') {
+        preEl = node as HTMLPreElement;
+        break;
+      }
+      node = node.parentElement;
+    }
+    if (!preEl) return rect;
+
+    // Only refine when the rect looks suspicious.  A reliable single-line
+    // rect has height ≈ lineHeight (within 2px tolerance).  If WebKit gave
+    // us a good rect, trust it.
+    if (rect.height > 0 && Math.abs(rect.height - lineHeight) <= 2) {
+      return rect;
+    }
+
+    // ── Deterministic vertical computation ──
+    const preRect = preEl.getBoundingClientRect();
+    const preStyle = getComputedStyle(preEl);
+    const paddingTop = parseFloat(preStyle.paddingTop) || 0;
+    const paddingLeft = parseFloat(preStyle.paddingLeft) || 0;
+
+    // Determine which line the caret is on by counting `\n` characters
+    // before the caret offset within the text node.
+    let lineIndex = 0;
+    if (startContainer.nodeType === Node.TEXT_NODE) {
+      const text = startContainer.textContent ?? '';
+      const offset = Math.min(range.startOffset, text.length);
+      // Count complete lines before the caret.
+      for (let i = 0; i < offset; i++) {
+        if (text[i] === '\n') lineIndex++;
+      }
+    }
+
+    const caretTop = preRect.top + paddingTop + lineIndex * lineHeight;
+
+    // ── Horizontal position ──
+    // If the raw rect's left is inside the <pre> horizontally and looks
+    // reasonable, keep it.  Otherwise (WebKit reported a bogus left),
+    // fall back to the <pre>'s left padding edge.
+    let caretLeft = rect.left;
+    if (
+      rect.left < preRect.left + paddingLeft - 2 ||
+      rect.left > preRect.right
+    ) {
+      caretLeft = preRect.left + paddingLeft;
+    }
+
+    // Create a synthetic DOMRect-like object with the corrected geometry.
+    // Width is always 0 for a collapsed caret.
+    return {
+      left: caretLeft,
+      top: caretTop,
+      width: 0,
+      height: lineHeight,
+      right: caretLeft,
+      bottom: caretTop + lineHeight,
+      x: caretLeft,
+      y: caretTop,
+      toJSON: () => ({}),
+    } as DOMRect;
   }
 
   /**
@@ -527,7 +667,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const clonedRange = range.cloneRange();
     clonedRange.insertNode(span);
 
-    const rect = span.getBoundingClientRect();
+    const rawRect = span.getBoundingClientRect();
     const parent = span.parentNode;
     const fontSize = this.fontSizeAt(parent);
     if (parent) parent.removeChild(span);
@@ -535,7 +675,10 @@ export class EditorCursorTrail extends BaseCursorTrail {
     sel.removeAllRanges();
     sel.addRange(range);
 
-    if (rect.width === 0 && rect.height === 0) return null;
+    if (rawRect.width === 0 && rawRect.height === 0) return null;
+
+    // Refine for <pre> code blocks (same reason as measureCaretRect()).
+    const rect = this.refinePreCaretRect(rawRect, range, lineHeight);
 
     // The temp-span path only triggers at empty positions (no glyph),
     // so there is no character under the caret → half-width fallback.
