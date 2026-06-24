@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { eventToBinding, resolveBinding } from '../../lib/shortcuts';
@@ -118,17 +117,13 @@ export default function TerminalTabs() {
   const historyRef = useRef<HTMLDivElement>(null);
   const historyCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Tab tear-off (drag a tab out of the window → new OS window) ──
+  // ── Tab tear-off (drag a tab out of the tab strip → new OS window) ──
   // Tracks the in-flight drag. `outside` flips true once the cursor leaves
-  // the current OS window's screen bounds, which highlights the ghost and
-  // arms detach-on-release.
+  // the tab strip's bounds (the horizontal tab bar), which highlights the
+  // ghost and arms detach-on-release. Dragging down into the terminal area
+  // counts as "outside" too, since it left the strip.
   const dragGroupId = useRef<string | null>(null);
-  const winBoundsRef = useRef<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null>(null);
+  const tabBarRef = useRef<HTMLDivElement>(null);
   const [ghost, setGhost] = useState<{
     x: number;
     y: number;
@@ -287,8 +282,10 @@ export default function TerminalTabs() {
 
   // ── Tab tear-off drag handlers ───────────────────────────────────
   // HTML5 drag can't truly drag content into a new OS window, so we detect
-  // when the cursor leaves the current window's screen bounds and, on drop,
-  // spawn a new window at the release point (kitty-style detach_window).
+  // when the cursor leaves the tab strip's bounds and, on drop, spawn a new
+  // window at the release point (kitty-style detach_window). Leaving the
+  // strip in any direction — including down into the terminal area — arms
+  // the detach.
   const handleTabDragStart = useCallback(
     (e: React.DragEvent, groupId: string) => {
       // Never detach the only tab — the parent would auto-respawn one.
@@ -304,61 +301,51 @@ export default function TerminalTabs() {
       img.src =
         'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
       e.dataTransfer.setDragImage(img, 0, 0);
-
-      // Cache window bounds once at drag start to avoid awaiting the Tauri
-      // IPC on every dragover tick.
-      const win = getCurrentWindow();
-      Promise.all([win.outerPosition(), win.outerSize()])
-        .then(([pos, size]) => {
-          winBoundsRef.current = {
-            x: pos.x,
-            y: pos.y,
-            w: size.width,
-            h: size.height,
-          };
-        })
-        .catch(() => {
-          winBoundsRef.current = null;
-        });
     },
     [groups.length],
   );
 
-  const handleTabDrag = useCallback((e: React.DragEvent, title: string) => {
-    // The final drag event fires with screenX/Y === 0; ignore it.
-    if (e.screenX === 0 && e.screenY === 0) return;
-
-    const b = winBoundsRef.current;
-    const outside = b
-      ? e.screenX < b.x ||
-        e.screenX > b.x + b.w ||
-        e.screenY < b.y ||
-        e.screenY > b.y + b.h
-      : false;
-
-    setGhost({ x: e.clientX, y: e.clientY, title, outside });
+  // True when the cursor (viewport coords) is outside the tab strip's box.
+  const isOutsideTabBar = useCallback((clientX: number, clientY: number) => {
+    const bar = tabBarRef.current;
+    if (!bar) return false;
+    const r = bar.getBoundingClientRect();
+    return (
+      clientX < r.left ||
+      clientX > r.right ||
+      clientY < r.top ||
+      clientY > r.bottom
+    );
   }, []);
 
-  const handleTabDragEnd = useCallback((e: React.DragEvent) => {
-    const groupId = dragGroupId.current;
-    const b = winBoundsRef.current;
-    dragGroupId.current = null;
-    winBoundsRef.current = null;
-    setGhost(null);
+  const handleTabDrag = useCallback(
+    (e: React.DragEvent, title: string) => {
+      // The final drag event fires with clientX/Y === 0; ignore it.
+      if (e.clientX === 0 && e.clientY === 0) return;
 
-    if (!groupId) return;
+      const outside = isOutsideTabBar(e.clientX, e.clientY);
+      setGhost({ x: e.clientX, y: e.clientY, title, outside });
+    },
+    [isOutsideTabBar],
+  );
 
-    const outside = b
-      ? e.screenX < b.x ||
-        e.screenX > b.x + b.w ||
-        e.screenY < b.y ||
-        e.screenY > b.y + b.h
-      : false;
+  const handleTabDragEnd = useCallback(
+    (e: React.DragEvent) => {
+      const groupId = dragGroupId.current;
+      dragGroupId.current = null;
+      setGhost(null);
 
-    if (outside) {
-      createTerminalWindow(groupId, { x: e.screenX, y: e.screenY });
-    }
-  }, []);
+      if (!groupId) return;
+
+      // dragend reports the release point; ignore the spurious 0,0 event.
+      if (e.clientX === 0 && e.clientY === 0) return;
+
+      if (isOutsideTabBar(e.clientX, e.clientY)) {
+        createTerminalWindow(groupId, { x: e.screenX, y: e.screenY });
+      }
+    },
+    [isOutsideTabBar],
+  );
 
   if (groups.length === 0) return null;
 
@@ -367,7 +354,7 @@ export default function TerminalTabs() {
 
   return (
     <>
-      <div className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] relative">
+      <div className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] relative" ref={tabBarRef}>
         {/* Scrollable tab strip (includes trailing `+` so it follows tabs) */}
         <div
           ref={scrollRef}
