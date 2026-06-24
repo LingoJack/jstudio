@@ -465,13 +465,25 @@ export class EditorCursorTrail extends BaseCursorTrail {
       } else {
         rect = r.getBoundingClientRect();
       }
-      if (rect.width <= 0.5) return null;
 
+      // ── Width sanity cap ──
+      // A single code point's advance width should never exceed roughly
+      // 2× the font-size (CJK and emoji glyphs are at most ~1em wide; even
+      // generous tab stops don't exceed this for a single character).  When
+      // getClientRects() is empty and we fall back to getBoundingClientRect()
+      // on a multi-line text node, WebKit returns the union of all line
+      // boxes — which can be hundreds of pixels wide (the widest line),
+      // making the cursor explode.  Cap it here as a last line of defence.
       const parent =
         node.nodeType === Node.ELEMENT_NODE
           ? (node as Element)
           : node.parentElement;
       const cs = parent ? getComputedStyle(parent) : null;
+      const fs = cs ? parseFloat(cs.fontSize) : 16;
+      const maxGlyphWidth = Math.max(fs * 2, 32); // never less than 32px floor
+      if (rect.width > maxGlyphWidth) return null;
+      if (rect.width <= 0.5) return null;
+
       // Capture longhand font properties — NOT the `font` shorthand.  The
       // shorthand is invalid (and silently ignored, falling back to the
       // browser default 16px) whenever font-variant is something CSS won't
@@ -542,32 +554,52 @@ export class EditorCursorTrail extends BaseCursorTrail {
     }
     if (!preEl) return rect;
 
-    // Only refine when the rect looks suspicious.  A reliable single-line
-    // rect has height ≈ lineHeight (within 2px tolerance).  If WebKit gave
-    // us a good rect, trust it.
-    if (rect.height > 0 && Math.abs(rect.height - lineHeight) <= 2) {
-      return rect;
-    }
-
     // ── Deterministic vertical computation ──
     const preRect = preEl.getBoundingClientRect();
     const preStyle = getComputedStyle(preEl);
     const paddingTop = parseFloat(preStyle.paddingTop) || 0;
     const paddingLeft = parseFloat(preStyle.paddingLeft) || 0;
 
-    // Determine which line the caret is on by counting `\n` characters
-    // before the caret offset within the text node.
+    // Determine which line the caret is on by counting `\n` characters in
+    // ALL text from the <pre> start to the caret position — not just within
+    // the current text node.
+    //
+    // With syntax highlighting (lowlight / highlight.js), the code inside
+    // <pre> is split across many child <span> elements, each with its own
+    // text node.  The `\n` characters that delimit visual lines are spread
+    // across these different text nodes.  Counting `\n` only within the
+    // caret's own text node (the old approach) gave lineIndex = 0 whenever
+    // the caret was inside a <span> whose text node didn't contain any `\n`,
+    // making the cursor always jump back to the first line.
+    //
+    // Using a Range from <pre> start to the caret and counting `\n` in its
+    // serialised text content correctly accounts for all preceding lines,
+    // regardless of how the DOM splits the text.
     let lineIndex = 0;
-    if (startContainer.nodeType === Node.TEXT_NODE) {
-      const text = startContainer.textContent ?? '';
-      const offset = Math.min(range.startOffset, text.length);
-      // Count complete lines before the caret.
-      for (let i = 0; i < offset; i++) {
-        if (text[i] === '\n') lineIndex++;
+    try {
+      const preRange = document.createRange();
+      preRange.setStart(preEl, 0);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      const textBeforeCaret = preRange.toString();
+      for (let i = 0; i < textBeforeCaret.length; i++) {
+        if (textBeforeCaret[i] === '\n') lineIndex++;
       }
+    } catch {
+      // Fallback: if the range fails (edge cases with element boundaries),
+      // keep lineIndex = 0.
     }
 
     const caretTop = preRect.top + paddingTop + lineIndex * lineHeight;
+
+    // If the raw rect's vertical position already matches the deterministic
+    // computation (within tolerance) AND the width is sane, trust it — no
+    // need to create a synthetic rect.  This avoids discarding a correct
+    // horizontal position from getClientRects().
+    const topOk = rect.height > 0 && Math.abs(rect.top - caretTop) <= lineHeight * 0.5;
+    const widthOk = rect.width <= lineHeight; // collapsed caret should be ~0
+    if (topOk && widthOk && Math.abs(rect.height - lineHeight) <= 2) {
+      return rect;
+    }
 
     // ── Horizontal position ──
     // If the raw rect's left is inside the <pre> horizontally and looks
