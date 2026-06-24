@@ -506,10 +506,11 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       const items = block.properties?.todoItems ?? [];
       json.content = items.map((item) => {
         // Backward compat: old documents stored `text: string`.
+        const legacyText = (item as { text?: string }).text;
         const rich =
-          (item as { richText?: RichText[] }).richText ??
-          (item.text
-            ? [{ text: item.text as string, annotations: {} }]
+          item.richText ??
+          (legacyText
+            ? [{ text: legacyText, annotations: {} }]
             : []);
         return {
           type: 'taskItem',

@@ -85,7 +85,12 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
 
   const toggleMark = useCallback(
     (markName: string) => {
-      editor.chain().focus().toggleMark(markName).run();
+      // Don't call .focus() here — it triggers scrollIntoView and
+      // delayed focus restoration (requestAnimationFrame) which
+      // interacts badly with taskItem's contentEditable=false checkbox
+      // NodeView, causing the cursor to jump to the end of the document.
+      // The editor already has focus when the BubbleMenu is visible.
+      editor.chain().toggleMark(markName).run();
     },
     [editor],
   );
@@ -252,6 +257,12 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
           padding: 8,
         },
       }}
+      // Wait for the DOM (and any scrollIntoView animation) to settle
+      // before repositioning the toolbar. Without this, coordsAtPos
+      // may read stale coordinates mid-scroll, causing the toolbar to
+      // appear at the wrong position — especially inside task lists
+      // where mark toggles trigger a ProseMirror view update.
+      updateDelay={100}
       className="bubble-menu"
     >
       <div className="flex items-center gap-0.5">
