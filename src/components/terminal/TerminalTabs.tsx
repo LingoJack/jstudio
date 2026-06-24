@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { eventToBinding, resolveBinding } from '../../lib/shortcuts';
+import { createTerminalWindow } from '../../lib/terminalDetach';
 import { Plus, X, Clock, FolderOpen, Trash2 } from 'lucide-react';
 import type { TerminalSession } from '../../store/terminalSlice';
 import TerminalTabContextMenu from './TerminalTabContextMenu';
@@ -115,6 +118,24 @@ export default function TerminalTabs() {
   const historyRef = useRef<HTMLDivElement>(null);
   const historyCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Tab tear-off (drag a tab out of the window → new OS window) ──
+  // Tracks the in-flight drag. `outside` flips true once the cursor leaves
+  // the current OS window's screen bounds, which highlights the ghost and
+  // arms detach-on-release.
+  const dragGroupId = useRef<string | null>(null);
+  const winBoundsRef = useRef<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+  const [ghost, setGhost] = useState<{
+    x: number;
+    y: number;
+    title: string;
+    outside: boolean;
+  } | null>(null);
+
   // ── Keyboard shortcuts ───────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -160,6 +181,16 @@ export default function TerminalTabs() {
 
         const next = (idx + 1) % groups.length;
         setActiveSession(groups[next].activeSessionId);
+        return;
+      }
+
+      // detachTab — tear the active tab off into a new OS window
+      if (binding === resolveBinding('terminal.detachTab', ov)) {
+        if (groups.length < 2) return;
+        if (!activeGroupId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        createTerminalWindow(activeGroupId);
         return;
       }
     };
@@ -254,6 +285,81 @@ export default function TerminalTabs() {
 
   const clearRecentDirs = useStore((s) => s.clearRecentDirs);
 
+  // ── Tab tear-off drag handlers ───────────────────────────────────
+  // HTML5 drag can't truly drag content into a new OS window, so we detect
+  // when the cursor leaves the current window's screen bounds and, on drop,
+  // spawn a new window at the release point (kitty-style detach_window).
+  const handleTabDragStart = useCallback(
+    (e: React.DragEvent, groupId: string) => {
+      // Never detach the only tab — the parent would auto-respawn one.
+      if (groups.length < 2) {
+        e.preventDefault();
+        return;
+      }
+      dragGroupId.current = groupId;
+      e.dataTransfer.effectAllowed = 'move';
+      // Suppress the browser's default drag image (a faded tab clone) so our
+      // custom ghost is the only thing the user sees.
+      const img = new Image();
+      img.src =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      e.dataTransfer.setDragImage(img, 0, 0);
+
+      // Cache window bounds once at drag start to avoid awaiting the Tauri
+      // IPC on every dragover tick.
+      const win = getCurrentWindow();
+      Promise.all([win.outerPosition(), win.outerSize()])
+        .then(([pos, size]) => {
+          winBoundsRef.current = {
+            x: pos.x,
+            y: pos.y,
+            w: size.width,
+            h: size.height,
+          };
+        })
+        .catch(() => {
+          winBoundsRef.current = null;
+        });
+    },
+    [groups.length],
+  );
+
+  const handleTabDrag = useCallback((e: React.DragEvent, title: string) => {
+    // The final drag event fires with screenX/Y === 0; ignore it.
+    if (e.screenX === 0 && e.screenY === 0) return;
+
+    const b = winBoundsRef.current;
+    const outside = b
+      ? e.screenX < b.x ||
+        e.screenX > b.x + b.w ||
+        e.screenY < b.y ||
+        e.screenY > b.y + b.h
+      : false;
+
+    setGhost({ x: e.clientX, y: e.clientY, title, outside });
+  }, []);
+
+  const handleTabDragEnd = useCallback((e: React.DragEvent) => {
+    const groupId = dragGroupId.current;
+    const b = winBoundsRef.current;
+    dragGroupId.current = null;
+    winBoundsRef.current = null;
+    setGhost(null);
+
+    if (!groupId) return;
+
+    const outside = b
+      ? e.screenX < b.x ||
+        e.screenX > b.x + b.w ||
+        e.screenY < b.y ||
+        e.screenY > b.y + b.h
+      : false;
+
+    if (outside) {
+      createTerminalWindow(groupId, { x: e.screenX, y: e.screenY });
+    }
+  }, []);
+
   if (groups.length === 0) return null;
 
   // Hide the close button on the last remaining tab.
@@ -281,6 +387,10 @@ export default function TerminalTabs() {
               <div
                 key={group.id}
                 ref={isActive ? activeTabRef : null}
+                draggable={!isRenaming && groups.length > 1}
+                onDragStart={(e) => handleTabDragStart(e, group.id)}
+                onDrag={(e) => handleTabDrag(e, title)}
+                onDragEnd={handleTabDragEnd}
                 onClick={() => setActiveSession(group.activeSessionId)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -449,8 +559,13 @@ export default function TerminalTabs() {
         <TerminalTabContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          canDetach={groups.length > 1}
           onRename={() => {
             startRename(contextMenu.groupId);
+            setContextMenu(null);
+          }}
+          onDetach={() => {
+            createTerminalWindow(contextMenu.groupId);
             setContextMenu(null);
           }}
           onClose={() => {
@@ -460,6 +575,35 @@ export default function TerminalTabs() {
           }}
         />
       )}
+
+      {/* Drag ghost — follows the cursor during a tab tear-off drag.
+          Rendered via portal to escape the tab strip's overflow clipping. */}
+      {ghost &&
+        createPortal(
+          <div
+            className="fixed z-[9999] pointer-events-none select-none"
+            style={{
+              left: ghost.x + 12,
+              top: ghost.y + 12,
+            }}
+          >
+            <div
+              className={`flex flex-col gap-0.5 px-3 py-2 rounded-md shadow-2xl border text-xs font-medium transition-colors ${
+                ghost.outside
+                  ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
+                  : 'border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-descriptionForeground)]'
+              }`}
+            >
+              <span className="max-w-[200px] truncate">{ghost.title}</span>
+              {ghost.outside && (
+                <span className="text-[10px] text-[var(--vscode-focusBorder)]">
+                  {t('terminal.releaseToDetach')}
+                </span>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

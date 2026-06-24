@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import PreviewWindowApp from './components/PreviewWindowApp';
 import DiagramWindowApp from './components/DiagramWindowApp';
+import TerminalWindowApp from './components/terminal/TerminalWindowApp';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';
@@ -21,17 +22,20 @@ window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
 });
 
-// Detect if this is a preview/diagram window via URL query param.
+// Detect if this is a preview/diagram/terminal window via URL query param.
 // These windows render their own root component instead of the main App.
 const params = new URLSearchParams(window.location.search);
 const windowType = params.get('window');
 const isPreviewWindow = windowType === 'preview';
 const isDiagramWindow = windowType === 'diagram';
+const isTerminalWindow = windowType === 'terminal';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      {isPreviewWindow ? (
+      {isTerminalWindow ? (
+        <TerminalWindowApp />
+      ) : isPreviewWindow ? (
         <PreviewWindowApp />
       ) : isDiagramWindow ? (
         <DiagramWindowApp />

@@ -504,16 +504,26 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     case 'todo-list': {
       // Each todo item becomes a taskItem with checked attr > paragraph.
       const items = block.properties?.todoItems ?? [];
-      json.content = items.map((item) => ({
-        type: 'taskItem',
-        attrs: { checked: item.checked },
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: item.text }],
-          },
-        ],
-      }));
+      json.content = items.map((item) => {
+        // Backward compat: old documents stored `text: string`.
+        const rich =
+          (item as { richText?: RichText[] }).richText ??
+          (item.text
+            ? [{ text: item.text as string, annotations: {} }]
+            : []);
+        return {
+          type: 'taskItem',
+          attrs: { checked: item.checked },
+          content: [
+            {
+              type: 'paragraph',
+              ...(rich.length > 0
+                ? { content: richTextToTiptapInline(rich) }
+                : {}),
+            },
+          ],
+        };
+      });
       break;
     }
     case 'divider': {
@@ -720,20 +730,22 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     }
     case 'todo-list': {
       // TipTap: taskList > taskItem(attrs.checked) > paragraph > text
-      // Our model: todoItems: { checked, text }[]
+      // Our model: todoItems: { checked, richText: RichText[] }[]
       const todoItems: TodoItemData[] = [];
       for (const taskItem of node.content ?? []) {
         if (taskItem.type !== 'taskItem') continue;
         const checked = taskItem.attrs?.checked === true;
-        // Extract text from nested paragraphs
-        let text = '';
+        // Collect rich text from nested paragraphs (one item = one paragraph
+        // in the common case, but we merge if multiple).
+        let richText: RichText[] = [];
         for (const child of taskItem.content ?? []) {
           if (child.type === 'paragraph') {
-            const rich = tiptapInlineToRichText(child.content ?? []);
-            text += rich.map((r) => r.text).join('');
+            richText = richText.concat(
+              tiptapInlineToRichText(child.content ?? []),
+            );
           }
         }
-        todoItems.push({ checked, text });
+        todoItems.push({ checked, richText });
       }
       block.content = [];
       block.properties = { todoItems };

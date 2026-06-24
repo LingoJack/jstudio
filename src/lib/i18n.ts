@@ -96,6 +96,8 @@ export const translations = {
     'terminal.recentDirs': '最近打开的目录',
     'terminal.clearRecent': '清除历史',
     'terminal.noRecentDirs': '暂无历史记录',
+    'terminal.detachTab': '分离到新窗口',
+    'terminal.releaseToDetach': '释放以分离到新窗口',
 
     // ── DocumentOutline ──
     'outline.title': '大纲',
@@ -368,6 +370,7 @@ export const translations = {
     'shortcut.terminal.closeTab': '关闭标签页',
     'shortcut.terminal.cycleTabLeft': '切换到左标签页',
     'shortcut.terminal.cycleTabRight': '切换到右标签页',
+    'shortcut.terminal.detachTab': '分离标签页到新窗口',
     'shortcut.terminal.splitPane': '分屏',
     'shortcut.terminal.closePane': '仅关闭当前面板',
     'shortcut.terminal.focusPrevPane': '焦点切到上一面板',
@@ -476,6 +479,8 @@ export const translations = {
     'terminal.recentDirs': 'Recent Directories',
     'terminal.clearRecent': 'Clear History',
     'terminal.noRecentDirs': 'No recent directories',
+    'terminal.detachTab': 'Detach to New Window',
+    'terminal.releaseToDetach': 'Release to detach into a new window',
 
     // ── DocumentOutline ──
     'outline.title': 'Outline',
@@ -748,6 +753,7 @@ export const translations = {
     'shortcut.terminal.closeTab': 'Close tab',
     'shortcut.terminal.cycleTabLeft': 'Switch to left tab',
     'shortcut.terminal.cycleTabRight': 'Switch to right tab',
+    'shortcut.terminal.detachTab': 'Detach tab to new window',
     'shortcut.terminal.splitPane': 'Split pane',
     'shortcut.terminal.closePane': 'Close active pane only',
     'shortcut.terminal.focusPrevPane': 'Focus previous pane',

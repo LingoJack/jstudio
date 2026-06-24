@@ -209,6 +209,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     customizable: true,
     labelKey: 'shortcut.terminal.cycleTabRight',
   },
+  {
+    id: 'terminal.detachTab',
+    category: 'terminal-tabs',
+    scope: 'terminal',
+    defaultBinding: 'mod+shift+d',
+    customizable: true,
+    labelKey: 'shortcut.terminal.detachTab',
+  },
 
   // ── Terminal · Panes ──
   {

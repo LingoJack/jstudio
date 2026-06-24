@@ -1,3 +1,4 @@
+pub mod detach;
 pub mod jcli;
 pub mod link;
 pub mod storage;

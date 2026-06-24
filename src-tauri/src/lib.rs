@@ -46,6 +46,10 @@ pub fn run() {
             // ── link preview ──
             commands::link::fetch_link_metadata,
             commands::link::open_link_preview,
+            // ── terminal detach (tear-off window mailbox) ──
+            commands::detach::set_terminal_detach_payload,
+            commands::detach::get_terminal_detach_payload,
+            commands::detach::clear_terminal_detach_payload,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

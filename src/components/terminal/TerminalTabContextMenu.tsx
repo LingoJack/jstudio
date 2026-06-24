@@ -1,5 +1,5 @@
 import { useI18n } from '../../lib/i18n';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, X, ExternalLink } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 
 export interface TerminalTabContextMenuProps {
@@ -8,6 +8,10 @@ export interface TerminalTabContextMenuProps {
   y: number;
   /** Callback when the user picks "Rename" */
   onRename: () => void;
+  /** Callback when the user picks "Detach to new window" */
+  onDetach: () => void;
+  /** Whether detaching is allowed (false for the last remaining tab) */
+  canDetach: boolean;
   /** Callback when the user picks "Close" */
   onClose: () => void;
 }
@@ -22,6 +26,8 @@ export default function TerminalTabContextMenu({
   x,
   y,
   onRename,
+  onDetach,
+  canDetach,
   onClose,
 }: TerminalTabContextMenuProps) {
   const { t } = useI18n();
@@ -31,6 +37,12 @@ export default function TerminalTabContextMenu({
       <MenuItem icon={<Pencil />} onClick={onRename}>
         {t('terminal.rename')}
       </MenuItem>
+
+      {canDetach && (
+        <MenuItem icon={<ExternalLink />} onClick={onDetach}>
+          {t('terminal.detachTab')}
+        </MenuItem>
+      )}
 
       <MenuDivider />
 

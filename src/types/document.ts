@@ -164,6 +164,14 @@ export interface TableData {
 export interface TodoItemData {
   /** Whether this item is checked off. */
   checked: boolean;
-  /** The text content of this todo item. */
-  text: string;
+  /**
+   * The rich text content of this todo item.
+   *
+   * Inline annotations (bold, italic, code, …) are stored per-segment so
+   * they persist across save/load cycles — see `RichText`.
+   *
+   * For backward compatibility with old documents that stored a plain
+   * `text: string`, loaders should detect `item.text` and wrap it.
+   */
+  richText: RichText[];
 }

@@ -1,12 +1,17 @@
 import type { Terminal } from '@xterm/xterm';
 import type { FitAddon } from '@xterm/addon-fit';
+import type { SerializeAddon } from '@xterm/addon-serialize';
 
 /**
  * Per-session terminal instance cache.
  *
- * Each entry holds the xterm.js Terminal + FitAddon + DOM container.
- * Cached so switching tabs doesn't destroy scrollback or re-instantiate
- * the renderer.
+ * Each entry holds the xterm.js Terminal + FitAddon + SerializeAddon + DOM
+ * container.  Cached so switching tabs doesn't destroy scrollback or
+ * re-instantiate the renderer.
+ *
+ * The SerializeAddon is loaded so a tab can be torn off into a separate OS
+ * window — the parent serializes its buffer and the child window replays it
+ * via `term.write(serialized)`.
  *
  * Note: cursor trail is managed by PaneLayoutView as a shared overlay,
  * not per-session.
@@ -14,6 +19,7 @@ import type { FitAddon } from '@xterm/addon-fit';
 export interface SessionTerminal {
   term: Terminal;
   fit: FitAddon;
+  serialize: SerializeAddon;
   container: HTMLDivElement;
 }
 

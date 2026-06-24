@@ -425,6 +425,25 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     });
   },
 
+  /**
+   * Detach a group into a separate OS window (tear-off).
+   *
+   * Removes the group + its sessions from THIS window's store but leaves
+   * the backing PTYs alive — the torn-off window attaches to the same PTY
+   * session ids and keeps receiving `pty-data-{id}` events (the Rust PTY
+   * registry is process-global and broadcasts to all windows).
+   *
+   * The caller (lib/terminalDetach.ts) must serialize each session's
+   * scrollback BEFORE calling this, since removing the group unmounts the
+   * panes and disposes their xterm instances in this window.
+   *
+   * Behaviourally identical to `removeGroupState` (which also spares the
+   * PTYs), but kept as a distinct, intent-revealing entry point.
+   */
+  detachGroup: (groupId) => {
+    get().removeGroupState(groupId);
+  },
+
   // ── Pane actions (Kitty-style splits) ───────────────────────────
 
   /**

@@ -177,6 +177,12 @@ export interface StoreState {
   setActiveSession: (id: string) => void;
   removeSessionState: (id: string) => void;
   removeGroupState: (groupId: string) => void;
+  /**
+   * Detach a group from this window's store WITHOUT killing its PTYs.
+   * Used by the tear-off flow: the torn-off window attaches to the same
+   * PTY sessions, so they must survive removal from the parent store.
+   */
+  detachGroup: (groupId: string) => void;
   // — pane ops (Kitty-style splits) —
   splitPane: (templateId?: string) => Promise<void>;
   cyclePaneLayout: () => void;

@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { SerializeAddon } from '@xterm/addon-serialize';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -10,6 +11,7 @@ import type { TerminalCursorStyle } from '../../lib/storage';
 import { resolveMonospaceFont } from '../../lib/fonts';
 import type { TerminalTheme } from '../../lib/terminalThemes';
 import type { SessionTerminal } from './types';
+import { registerTerminal, unregisterTerminal } from './terminalRegistry';
 
 /**
  * Extract a working directory path from a shell OSC title string.
@@ -157,6 +159,12 @@ export function useTerminalManager(
       const fit = new FitAddon();
       term.loadAddon(fit);
 
+      // SerializeAddon — enables tear-off: the parent window serializes the
+      // xterm buffer (scrollback + alt screen + cursor state) and the child
+      // window replays it via `term.write(serialized)`.
+      const serialize = new SerializeAddon();
+      term.loadAddon(serialize);
+
       // Unicode 11 addon — provides the real width calculation engine.
       // Without loading this addon, the `unicodeVersion: '11'` option above
       // is just a label with no actual width table behind it.  This addon
@@ -196,8 +204,25 @@ export function useTerminalManager(
 
       unlistenRef.current.set(sessionId, [unlistenData, unlistenExit]);
 
-      const entry: SessionTerminal = { term, fit, container };
+      const entry: SessionTerminal = { term, fit, serialize, container };
       terminalsRef.current.set(sessionId, entry);
+      registerTerminal(sessionId, entry);
+
+      // Tear-off child window: replay serialized scrollback from the parent
+      // window. TerminalWindowApp sets `window.__detachScrollback` before
+      // rendering; each entry is consumed once.
+      const scrollbackMap = (window as unknown as {
+        __detachScrollback?: Record<string, string>;
+      }).__detachScrollback;
+      const savedScrollback = scrollbackMap?.[sessionId];
+      if (savedScrollback) {
+        try {
+          term.write(savedScrollback);
+        } catch {
+          // ignore — malformed scrollback is non-fatal
+        }
+        delete scrollbackMap?.[sessionId];
+      }
 
       // Resize → PTY
       const resizeObserver = new ResizeObserver(() => {
@@ -226,6 +251,7 @@ export function useTerminalManager(
       obs?.disconnect();
       entry.term.dispose();
       terminalsRef.current.delete(sessionId);
+      unregisterTerminal(sessionId);
     }
     const unlistens = unlistenRef.current.get(sessionId);
     if (unlistens) {
