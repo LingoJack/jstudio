@@ -186,7 +186,25 @@ export function useTerminalManager(
       // term.paste() automatically wraps the content in bracketed-paste
       // escape sequences (ESC[200~ … ESC[201~) when the TUI app has enabled
       // that mode (DECSET 2004), so jcli / shells receive the paste correctly.
+      //
+      // ── Modifier-only key pass-through ──
+      // On macOS, Chinese IMEs (Pinyin, Wubi, etc.) use the Shift key to
+      // toggle between Chinese and English input mode. The IME listens for
+      // the Shift keydown → keyup cycle to perform the toggle. If xterm.js
+      // processes the Shift event (which may involve preventDefault()), the
+      // IME's toggle mechanism breaks, forcing users to press Shift+<key>
+      // twice to type characters like @ (Shift+2 on US layout).
+      //
+      // Returning false for modifier-only keys tells xterm.js "don't touch
+      // this event", so it propagates naturally to the IME.
+      const MODIFIER_ONLY_KEYS = new Set([
+        'Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'CapsLock',
+      ]);
       term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+        // Let modifier-only keys pass through for ALL event types (keydown,
+        // keyup, keypress) so the IME receives the complete key cycle.
+        if (MODIFIER_ONLY_KEYS.has(event.key)) return false;
+
         if (event.type !== 'keydown') return true;
         const isMac = navigator.platform.toLowerCase().includes('mac');
         const isPaste = isMac ? event.metaKey : event.ctrlKey;
