@@ -125,13 +125,17 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
       for (let i = 0; i < stackRows; i++) {
         cells.push({ gridColumn: '2', gridRow: `${i + 1}` });
       }
+      // With a single pane on the right (n=2) this is just an even 2-way
+      // split, so keep it 50/50.  Only widen the master when an actual
+      // stack sits beside it (n>=3).
+      const masterRatio = stackRows > 1 ? 1.5 : 1;
       return {
         kind: 'tall',
         containerCls: 'w-full h-full grid',
         containerStyle: {
           gap: '1px',
         },
-        columns: [1.5, 1],
+        columns: [masterRatio, 1],
         rows: Array.from({ length: stackRows }, () => 1),
         cells,
       };
@@ -146,6 +150,10 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
       for (let i = 0; i < stackCols; i++) {
         cells.push({ gridRow: '2', gridColumn: `${i + 1}` });
       }
+      // With a single pane on the bottom (n=2) this is just an even 2-way
+      // split, so keep it 50/50.  Only make the master taller when an
+      // actual row sits below it (n>=3).
+      const masterRatio = stackCols > 1 ? 1.5 : 1;
       return {
         kind: 'fat',
         containerCls: 'w-full h-full grid',
@@ -153,7 +161,7 @@ function computeLayout(layout: PaneLayoutType, n: number): LayoutPlan {
           gap: '1px',
         },
         columns: Array.from({ length: stackCols }, () => 1),
-        rows: [1.5, 1],
+        rows: [masterRatio, 1],
         cells,
       };
     }
