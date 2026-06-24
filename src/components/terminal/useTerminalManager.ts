@@ -5,6 +5,7 @@ import { SerializeAddon } from '@xterm/addon-serialize';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { readText } from '@tauri-apps/plugin-clipboard-manager';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
 import type { TerminalCursorStyle } from '../../lib/storage';
@@ -173,6 +174,32 @@ export function useTerminalManager(
       const unicode11 = new Unicode11Addon();
       term.loadAddon(unicode11);
       term.unicode.activeVersion = '11';
+
+      // Intercept paste shortcut (Cmd+V on macOS, Ctrl+V elsewhere).
+      //
+      // In Tauri's WKWebView the browser's native paste event is unreliable
+      // when the terminal (contentEditable helper textarea) has focus — the
+      // event often never fires, so Cmd+V does nothing.  We work around this
+      // by reading the system clipboard via Tauri's clipboard-manager plugin
+      // and feeding the text to the terminal manually.
+      //
+      // term.paste() automatically wraps the content in bracketed-paste
+      // escape sequences (ESC[200~ … ESC[201~) when the TUI app has enabled
+      // that mode (DECSET 2004), so jcli / shells receive the paste correctly.
+      term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+        if (event.type !== 'keydown') return true;
+        const isMac = navigator.platform.toLowerCase().includes('mac');
+        const isPaste = isMac ? event.metaKey : event.ctrlKey;
+        if (isPaste && (event.key === 'v' || event.key === 'V')) {
+          readText()
+            .then((text) => {
+              if (text) term.paste(text);
+            })
+            .catch(console.error);
+          return false; // suppress default (don't send raw Ctrl+V / 0x02)
+        }
+        return true; // let xterm handle everything else normally
+      });
 
       // Keyboard input → PTY
       term.onData((data) => {
