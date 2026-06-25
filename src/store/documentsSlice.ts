@@ -1,4 +1,4 @@
-import { storage, toMeta, DocumentMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
+import { storage, toMeta, DocumentMeta, type FolderMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
 import { migrateFromLocalStorage } from '../lib/migrate';
 import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
 import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/fonts';
@@ -389,7 +389,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     scheduleIndexSave(newDocList);
   },
 
-  importDocumentFromMarkdown: async (filename, md) => {
+  importDocumentFromMarkdown: async (filename, md, folderId) => {
     const blocks = markdownToBlocks(md);
 
     // Derive document title: prefer first Markdown H1, fall back to filename.
@@ -409,7 +409,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     await storage.saveDocument(newDoc);
 
-    const meta = toMeta(newDoc);
+    const meta = { ...toMeta(newDoc), folderId: folderId ?? null };
     const newDocList = [meta, ...get().docList];
     const newDocuments = [newDoc, ...get().documents];
 
@@ -421,5 +421,103 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       activeDoc: newDoc,
       activeDocId: newDoc.id,
     });
+  },
+
+  /**
+   * Import all Markdown files inside a directory, preserving the folder
+   * hierarchy.  Sub-directories become folders; `.md` / `.markdown` /
+   * `.mdown` files become documents placed in the corresponding folder.
+   *
+   * @param dirPath absolute path of the directory to import (from the
+   *                native directory picker).
+   * @returns the number of documents that were imported.
+   */
+  importMarkdownDirectory: async (dirPath) => {
+    const entries = await storage.listMarkdownFiles(dirPath);
+
+    /** relative-path → folder-id lookup (root maps to `null`). */
+    const folderMap = new Map<string, string | null>();
+    folderMap.set('', null);
+
+    const { folders } = get();
+    const newFolders: FolderMeta[] = [];
+    const newDocs: Document[] = [];
+    const newMetas: DocumentMeta[] = [];
+    let folderSeq = 0;
+    let docCount = 0;
+
+    for (const entry of entries) {
+      if (entry.isDir) continue; // directories are created lazily below
+
+      // Read + decode the Markdown file.
+      const bytes = await storage.readFileBytes(entry.path);
+      const md = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      const filename = entry.relativePath.split('/').pop() ?? 'Untitled.md';
+
+      // Ensure every ancestor folder exists.
+      const parts = entry.relativePath.split('/');
+      // Remove the file name; remaining parts are directory segments.
+      const dirParts = parts.slice(0, -1);
+      let currentRel = '';
+      let parentId: string | null = null;
+      for (const seg of dirParts) {
+        const childRel = currentRel ? `${currentRel}/${seg}` : seg;
+        if (folderMap.has(childRel)) {
+          parentId = folderMap.get(childRel)!;
+        } else {
+          const id = `folder-${Date.now()}-${folderSeq++}`;
+          newFolders.push({
+            id,
+            name: seg,
+            parentId,
+            sortOrder: 0,
+            collapsed: false,
+          });
+          folderMap.set(childRel, id);
+          parentId = id;
+        }
+        currentRel = childRel;
+      }
+
+      // Build the document.
+      const blocks = markdownToBlocks(md);
+      const h1Match = md.match(/^#\s+(.+)$/m);
+      const baseName = filename.replace(/\.(md|markdown|mdown)$/i, '');
+      const title = h1Match ? h1Match[1].trim() : baseName;
+      const now = new Date().toISOString();
+      const doc: Document = {
+        id: `doc-${Date.now()}-${docCount}`,
+        title,
+        emoji: '',
+        createdAt: now,
+        updatedAt: now,
+        blocks,
+      };
+      docCount++;
+
+      await storage.saveDocument(doc);
+      newDocs.push(doc);
+      newMetas.push({ ...toMeta(doc), folderId: parentId });
+    }
+
+    // Batch-persist everything.
+    const mergedFolders = newFolders.length > 0 ? [...folders, ...newFolders] : folders;
+    const newDocList = [...newMetas, ...get().docList];
+    const newDocuments = [...newDocs, ...get().documents];
+
+    await storage.saveFolders(mergedFolders);
+    await storage.saveIndex(newDocList);
+
+    set({
+      folders: mergedFolders,
+      docList: newDocList,
+      documents: newDocuments,
+      // Open the first imported document, if any.
+      ...(newDocs.length > 0
+        ? { activeDoc: newDocs[0], activeDocId: newDocs[0].id }
+        : {}),
+    });
+
+    return docCount;
   },
 });

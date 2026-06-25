@@ -219,6 +219,20 @@ export interface LinkMetadata {
 }
 
 /**
+ * A single entry returned by `list_markdown_files` — mirrors the Rust
+ * `MarkdownEntry` struct. Directories (`is_dir: true`) are included so the
+ * frontend can recreate the folder hierarchy.
+ */
+export interface MarkdownEntry {
+  /** Absolute filesystem path. */
+  path: string;
+  /** Path relative to the scanned root, using `/` separators. */
+  relativePath: string;
+  /** `true` for directories, `false` for Markdown files. */
+  isDir: boolean;
+}
+
+/**
  * Convert a full Document to its lightweight metadata form.
  */
 export function toMeta(doc: Document): DocumentMeta {
@@ -278,6 +292,14 @@ export const storage = {
   /** Read raw bytes from an arbitrary file path (e.g. from file dialog). */
   readFileBytes: (path: string) =>
     invoke<number[]>('read_file_bytes', { path }),
+
+  /**
+   * Recursively list all Markdown files (and directories) inside `dir`.
+   * Returns entries sorted so that any directory appears before the files
+   * it contains.
+   */
+  listMarkdownFiles: (dir: string) =>
+    invoke<MarkdownEntry[]>('list_markdown_files', { dir }),
 
   /** Open the studio data directory in the system file manager. */
   openDataDir: () => invoke<void>('open_studio_dir'),

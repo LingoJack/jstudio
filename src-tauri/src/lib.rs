@@ -24,6 +24,7 @@ pub fn run() {
             commands::storage::read_folders,
             commands::storage::write_folders,
             commands::storage::read_file_bytes,
+            commands::storage::list_markdown_files,
             commands::storage::open_studio_dir,
             commands::storage::open_doc_dir,
             commands::storage::get_doc_path,

@@ -6,7 +6,7 @@ import { useSidebarResize } from '../hooks/useSidebarResize';
 import { buildFolderTree, type FolderTreeNode } from '../lib/folderTree';
 import {
   FileText, Plus, MoreHorizontal, FileDown,
-  FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput,
+  FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
@@ -43,6 +43,8 @@ export default function DocumentList() {
   const deleteDocument = useStore((s) => s.deleteDocument);
   const createDocument = useStore((s) => s.createDocument);
   const importDocumentFromMarkdown = useStore((s) => s.importDocumentFromMarkdown);
+  const importMarkdownDirectory = useStore((s) => s.importMarkdownDirectory);
+  const addToast = useStore((s) => s.addToast);
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
@@ -291,6 +293,23 @@ export default function DocumentList() {
       console.error('Failed to import Markdown:', e);
     }
   }, [importDocumentFromMarkdown]);
+
+  const handleImportMarkdownDirectory = useCallback(async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const dirPath = await open({ directory: true, multiple: false });
+      if (!dirPath || typeof dirPath !== 'string') return;
+      const count = await importMarkdownDirectory(dirPath);
+      if (count === 0) {
+        addToast('info', t('doclist.importDirEmpty'));
+      } else {
+        addToast('success', t('doclist.importDirSuccess', { count }));
+      }
+    } catch (e) {
+      console.error('Failed to import Markdown directory:', e);
+      addToast('error', t('doclist.importDirFailed'));
+    }
+  }, [importMarkdownDirectory, addToast, t]);
 
   // ── Pointer-based drag-and-drop ───────────────────────────
   //
@@ -625,6 +644,15 @@ export default function DocumentList() {
                   }}
                 >
                   {t('doclist.importMarkdown')}
+                </MenuItem>
+                <MenuItem
+                  icon={<FolderDown />}
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    handleImportMarkdownDirectory();
+                  }}
+                >
+                  {t('doclist.importDirectory')}
                 </MenuItem>
               </MenuList>
             )}

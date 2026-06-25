@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   FilePlus2,
   FileDown,
+  FolderDown,
   PanelLeft,
   ListTree,
   Moon,
@@ -49,6 +50,14 @@ async function importMarkdown(store: StoreState) {
   const md = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
   const filename = filePath.split(/[/\\]/).pop() ?? 'Untitled.md';
   await store.importDocumentFromMarkdown(filename, md);
+}
+
+/** Triggers the directory import picker and imports all Markdown files. */
+async function importMarkdownDirectory(store: StoreState) {
+  const { open } = await import('@tauri-apps/plugin-dialog');
+  const dirPath = await open({ directory: true, multiple: false });
+  if (!dirPath || typeof dirPath !== 'string') return;
+  await store.importMarkdownDirectory(dirPath);
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -127,6 +136,17 @@ export function buildCommands(): PaletteCommand[] {
       keywordsZh: ['导入', 'markdown', 'md'],
       keywordsEn: ['import', 'md', 'markdown'],
       perform: importMarkdown,
+    },
+    {
+      id: 'doc.importDirectory',
+      icon: FolderDown,
+      titleZh: '导入目录',
+      titleEn: 'Import Directory',
+      categoryZh: '文档',
+      categoryEn: 'Document',
+      keywordsZh: ['导入', '目录', '文件夹', '批量'],
+      keywordsEn: ['import', 'directory', 'folder', 'batch'],
+      perform: importMarkdownDirectory,
     },
 
     // ── View ──

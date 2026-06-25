@@ -61,4 +61,5 @@ allow:
 - Shell(rm /Users/lingojack/dev_custom/jcli/apps/jstudio/src/lib/tiptapExtensions.tsx:*)
 - Glob
 - Shell(find /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
+- Shell(cargo check:*)
 deny: []
