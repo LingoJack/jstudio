@@ -7,6 +7,7 @@ import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
 import { markdownToBlocks } from '../lib/markdownImport';
 import { migrateDocAssets } from '../lib/migrateAssets';
+import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
@@ -51,6 +52,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
+      let globalShortcuts: GlobalShortcutConfig[] | undefined;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
@@ -129,6 +131,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         // Load user-customized keyboard shortcuts
         if (settings.keyboardShortcuts && typeof settings.keyboardShortcuts === 'object') {
           keyboardShortcuts = settings.keyboardShortcuts as Record<string, string>;
+        }
+        // Load OS-level global shortcuts
+        if (Array.isArray(settings.globalShortcuts)) {
+          globalShortcuts = settings.globalShortcuts;
         }
       } catch {
         // ignore
@@ -224,6 +230,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
         ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
+        ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
         isLoading: false,
       });
 

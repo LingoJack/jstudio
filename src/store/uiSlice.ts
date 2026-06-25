@@ -1,5 +1,6 @@
 import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts';
+import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
 import type { SliceCreator } from './storeHelpers';
 import {
   DEFAULT_LATIN_FONT_ID,
@@ -76,7 +77,7 @@ export function applyLineHeight(lineHeight: number) {
 export type SidebarView = 'documents' | 'terminal';
 
 /** Which settings section is currently displayed. Driven by store so palette can navigate. */
-export type SettingsSectionId = 'general' | 'agent' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about';
+export type SettingsSectionId = 'general' | 'agent' | 'editor' | 'terminal' | 'shortcuts' | 'globalShortcuts' | 'help' | 'about';
 
 /** UI slice — panel visibility, theme, font, and loading state. */
 export const createUiSlice: SliceCreator = (set, get) => ({
@@ -105,6 +106,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
   terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
   keyboardShortcuts: {} as ShortcutOverrides,
+  globalShortcuts: [] as GlobalShortcutConfig[],
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -236,5 +238,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   resetAllKeyboardShortcuts: () => {
     set({ keyboardShortcuts: {} });
     storage.saveSettings({ keyboardShortcuts: {} }).catch(console.error);
+  },
+
+  setGlobalShortcuts: (configs) => {
+    set({ globalShortcuts: configs });
+    storage.saveSettings({ globalShortcuts: configs }).catch(console.error);
   },
 });

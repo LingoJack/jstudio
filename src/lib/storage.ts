@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Document } from '../types';
+import type { GlobalShortcutConfig } from './globalShortcuts';
 
 /**
  * Theme preference — `system` follows the OS color scheme.
@@ -124,6 +125,8 @@ export interface AppSettings {
   terminalCursorStyle?: TerminalCursorStyle;
   /** User-customized keyboard shortcut overrides — see lib/shortcuts.ts */
   keyboardShortcuts?: Record<string, string>;
+  /** OS-level global shortcut configs — see lib/globalShortcuts.ts */
+  globalShortcuts?: GlobalShortcutConfig[];
   [key: string]: unknown;
 }
 

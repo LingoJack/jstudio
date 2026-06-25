@@ -6,6 +6,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::storage::ensure_studio_dir,
             commands::storage::read_index,
@@ -51,6 +52,10 @@ pub fn run() {
             commands::detach::set_terminal_detach_payload,
             commands::detach::get_terminal_detach_payload,
             commands::detach::clear_terminal_detach_payload,
+            // ── global OS shortcuts ──
+            commands::global_shortcut::register_global_shortcut,
+            commands::global_shortcut::unregister_global_shortcut,
+            commands::global_shortcut::unregister_all_global_shortcuts,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

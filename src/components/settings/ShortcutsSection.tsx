@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { RotateCcw, Keyboard, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import { RotateCcw, Keyboard, AlertTriangle, ChevronDown, ChevronRight, Globe } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../../lib/i18n';
 import { useStore } from '../../store/useStore';
 import {
@@ -276,6 +276,22 @@ export default function ShortcutsSection() {
         <p className="text-sm text-[var(--vscode-descriptionForeground)] mt-1">
           {t('shortcut.description')}
         </p>
+      </div>
+
+      {/* ── Global shortcuts link ── */}
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)]">
+        <Globe className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
+        <span className="text-sm text-[var(--vscode-descriptionForeground)] flex-1">
+          {t('globalShortcut.linkHint')}
+        </span>
+        <button
+          onClick={() => {
+            useStore.getState().setSettingsActiveSection('globalShortcuts');
+          }}
+          className="text-sm text-[var(--vscode-textLink-activeForeground)] hover:underline shrink-0"
+        >
+          {t('globalShortcut.linkAction')} →
+        </button>
       </div>
 
       {/* ── Conflict warning banner ── */}

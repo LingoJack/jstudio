@@ -1,4 +1,5 @@
 pub mod detach;
+pub mod global_shortcut;
 pub mod jcli;
 pub mod link;
 pub mod storage;

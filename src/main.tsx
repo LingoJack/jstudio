@@ -4,6 +4,7 @@ import App from './App.tsx';
 import PreviewWindowApp from './components/PreviewWindowApp';
 import DiagramWindowApp from './components/DiagramWindowApp';
 import TerminalWindowApp from './components/terminal/TerminalWindowApp';
+import CommandPaletteWindow from './components/CommandPaletteWindow';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';
@@ -29,12 +30,15 @@ const windowType = params.get('window');
 const isPreviewWindow = windowType === 'preview';
 const isDiagramWindow = windowType === 'diagram';
 const isTerminalWindow = windowType === 'terminal';
+const isCommandPaletteWindow = windowType === 'command-palette';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       {isTerminalWindow ? (
         <TerminalWindowApp />
+      ) : isCommandPaletteWindow ? (
+        <CommandPaletteWindow />
       ) : isPreviewWindow ? (
         <PreviewWindowApp />
       ) : isDiagramWindow ? (

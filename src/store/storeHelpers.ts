@@ -1,6 +1,7 @@
 import type { Document, Block, BlockType, RichText } from '../types';
 import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig } from '../lib/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts';
+import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
 import type {
   TerminalSession,
   TerminalTemplate,
@@ -84,6 +85,7 @@ export interface StoreState {
   terminalFontId: string;
   terminalCursorStyle: TerminalCursorStyle;
   keyboardShortcuts: ShortcutOverrides;
+  globalShortcuts: GlobalShortcutConfig[];
 
   // — terminal state (terminal slice) —
   templates: TerminalTemplate[];
@@ -161,6 +163,7 @@ export interface StoreState {
   setKeyboardShortcut: (id: string, binding: string) => void;
   resetKeyboardShortcut: (id: string) => void;
   resetAllKeyboardShortcuts: () => void;
+  setGlobalShortcuts: (configs: GlobalShortcutConfig[]) => void;
 
   // — terminal ops (terminal slice) —
   initTemplates: (raw: unknown) => void;

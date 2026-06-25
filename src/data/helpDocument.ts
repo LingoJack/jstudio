@@ -15,8 +15,8 @@ import type { Block, RichText, TableData } from '../types';
 const t = (text: string): RichText => ({ text, annotations: {} });
 /** Bold text segment. */
 const b = (text: string): RichText => ({ text, annotations: { bold: true } });
-/** Inline code segment (rendered with backticks since the data model has no code annotation). */
-const code = (text: string): RichText => ({ text: `\`${text}\``, annotations: {} });
+/** Inline code segment (rendered as `<code>` via the code annotation). */
+const code = (text: string): RichText => ({ text, annotations: { code: true } });
 
 // ── Platform-aware shortcut text ────────────────────────────────────────
 

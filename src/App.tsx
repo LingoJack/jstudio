@@ -1,8 +1,14 @@
 import { useEffect, useMemo } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
 import { eventToBinding, resolveBinding } from './lib/shortcuts';
 import { buildCommands } from './lib/commandRegistry';
+import { storage } from './lib/storage';
+import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/globalShortcuts';
+// Side-effect import: registers built-in action handlers into the registry.
+import './lib/globalShortcutActions';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
@@ -83,6 +89,67 @@ export default function App() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [shortcutCommandMap]);
+
+  // ── OS-level global shortcuts: register on startup, listen for triggers ──
+  // The configs are already loaded into the store during initApp().
+  // We register them with the OS and listen for triggers here.
+  const globalShortcutsConfigs = useStore((s) => s.globalShortcuts);
+
+  useEffect(() => {
+    let unlistenTrigger: (() => void) | null = null;
+    let unlistenSelect: (() => void) | null = null;
+
+    (async () => {
+      // 1. Register enabled shortcuts with the OS.
+      const enabled = globalShortcutsConfigs.filter((c) => c.enabled);
+      try {
+        await syncGlobalShortcuts(enabled);
+      } catch (err) {
+        console.error('[App] Failed to sync global shortcuts:', err);
+      }
+
+      // 2. Listen for OS-level shortcut trigger events.
+      unlistenTrigger = await listen<GlobalShortcutConfig>(
+        'global-shortcut-triggered',
+        (event) => {
+          const config = event.payload;
+          executeAction(config, {
+            emit: async (eventName, payload) => {
+              const { emit } = await import('@tauri-apps/api/event');
+              await emit(eventName, payload);
+            },
+          });
+        },
+      );
+
+      // 3. Listen for CommandPaletteWindow selection events.
+      unlistenSelect = await listen<{
+        kind: 'document' | 'session' | 'settings';
+        id: string;
+      }>('command-palette-select', async (event) => {
+        const { kind, id } = event.payload;
+        const win = getCurrentWindow();
+        await win.show();
+        await win.setFocus();
+        const store = useStore.getState();
+        if (kind === 'document') {
+          store.openDocument(id);
+          store.setSearchQuery('');
+        } else if (kind === 'session') {
+          store.setActiveSession(id);
+        } else if (kind === 'settings') {
+          store.setSettingsOpen(true);
+          store.setSettingsActiveSection(id as 'general');
+        }
+      });
+    })();
+
+    return () => {
+      unlistenTrigger?.();
+      unlistenSelect?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isLoading) {
     return (
