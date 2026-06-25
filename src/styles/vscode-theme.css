@@ -2037,13 +2037,15 @@ button {
 
 /* ============================================
    Table Styles (TipTap Table extension)
+   — Lightweight grid: thin lines, no hover flicker.
    ============================================ */
 
-/* Wrapper around the table — horizontal scroll for wide tables */
+/* Wrapper around the table — horizontal scroll for wide tables.
+   Only a bottom border + subtle shadow for depth, no heavy frame. */
 .ProseMirror .tableWrapper {
   margin: 16px 0;
-  border-radius: 8px;
-  border: 2px solid var(--vscode-panel-border, var(--vscode-widget-border));
+  border-radius: 6px;
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
   overflow-x: auto;
 }
 
@@ -2055,55 +2057,58 @@ button {
   overflow: hidden;
 }
 
-/* Header row */
+/* Header row — faint tint, no hard background block.
+   A slim bottom border separates header from body. */
 .ProseMirror .tableWrapper th {
-  background: var(--vscode-editor-inactiveSelectionBackground);
+  background: color-mix(in srgb, var(--vscode-editor-foreground, #cccccc) 4%, transparent);
   font-weight: 600;
   text-align: left;
   vertical-align: top;
   box-sizing: border-box;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
 }
 
-/* Body cells */
+/* Body cells — hairline grid lines only */
 .ProseMirror .tableWrapper th,
 .ProseMirror .tableWrapper td {
-  border: 1.5px solid var(--vscode-panel-border, var(--vscode-widget-border));
-  padding: 6px 12px;
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  border-top: none;  /* header's own border-bottom handles the header/body seam */
+  padding: 7px 12px;
   min-width: 80px;
   vertical-align: top;
   box-sizing: border-box;
   position: relative;
-  transition: background-color 0.1s;
+  transition: background-color 0.12s;
 }
 
-/* Hover effect on cells for better interactivity feedback */
-.ProseMirror .tableWrapper td:hover {
-  background: var(--vscode-list-hoverBackground);
+/* Header cells: skip the per-cell border, rely on th bottom-border for a
+   continuous seam; still keep right border for grid structure. */
+.ProseMirror .tableWrapper th {
+  border-top: 1px solid transparent; /* align with wrapper's top edge */
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
 }
 
-/* Header hover — slightly different shade */
-.ProseMirror .tableWrapper th:hover {
-  background: var(--vscode-list-hoverBackground);
-}
+/* No per-cell hover flicker — only the selected cell gets a highlight.
+   This keeps the table visually calm during mouse movement. */
 
-/* Empty cells: show a faint dot so the cursor target is visible */
+/* Paragraphs inside cells */
 .ProseMirror .tableWrapper td > p,
 .ProseMirror .tableWrapper th > p {
   margin: 0;
   line-height: 1.6;
 }
 
-/* Selected cell highlight (TipTap toggles .selectedCell on cells) */
+/* Selected cell highlight (TipTap toggles .selectedCell on cells)
+   — soft, translucent tint instead of the heavy editor-selection blue. */
 .ProseMirror .tableWrapper .selectedCell:after {
   z-index: 2;
   position: absolute;
   content: "";
   left: 0; right: 0; top: 0; bottom: 0;
-  background: var(--vscode-editor-selectionBackground);
+  background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 18%, transparent);
   pointer-events: none;
 }
 
-/* Make table cells inside the editor focusable-looking on hover */
 .ProseMirror .tableWrapper td:focus,
 .ProseMirror .tableWrapper th:focus {
   outline: none;
