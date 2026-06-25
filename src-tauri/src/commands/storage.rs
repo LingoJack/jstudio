@@ -242,11 +242,35 @@ pub fn read_settings() -> Result<Value, String> {
     serde_json::from_str(&data).map_err(|e| e.to_string())
 }
 
-/// Write user settings.
+/// Write user settings (partial merge).
+///
+/// The frontend sends **partial** objects (e.g. `{ "theme": "dark" }`),
+/// so we must read the existing file first, merge the new keys on top,
+/// and then write back — otherwise unrelated fields are silently lost.
 #[tauri::command]
 pub fn write_settings(settings: Value) -> Result<(), String> {
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    fs::write(settings_path(), json).map_err(|e| e.to_string())
+    let path = settings_path();
+    let mut existing = if path.exists() {
+        fs::read_to_string(&path)
+            .ok()
+            .and_then(|data| serde_json::from_str::<Value>(&data).ok())
+            .unwrap_or_else(|| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    // Shallow-merge: new keys overwrite, existing keys are preserved.
+    if let (Some(existing_obj), Some(new_obj)) = (existing.as_object_mut(), settings.as_object()) {
+        for (key, value) in new_obj {
+            existing_obj.insert(key.clone(), value.clone());
+        }
+    } else {
+        // If existing is not an object (corrupted), just use the new value.
+        existing = settings;
+    }
+
+    let json = serde_json::to_string_pretty(&existing).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())
 }
 
 // ────────────────────────────────────────────────
