@@ -175,37 +175,44 @@ export function useTerminalManager(
       term.loadAddon(unicode11);
       term.unicode.activeVersion = '11';
 
-      // Intercept paste shortcut (Cmd+V on macOS, Ctrl+V elsewhere).
+      // ── Paste + macOS IME Shift Support ────────────────────────────────
       //
-      // In Tauri's WKWebView the browser's native paste event is unreliable
-      // when the terminal (contentEditable helper textarea) has focus — the
-      // event often never fires, so Cmd+V does nothing.  We work around this
-      // by reading the system clipboard via Tauri's clipboard-manager plugin
-      // and feeding the text to the terminal manually.
+      // macOS Chinese IMEs (Pinyin, Wubi, Sogou, etc.) rely on Shift:
       //
-      // term.paste() automatically wraps the content in bracketed-paste
-      // escape sequences (ESC[200~ … ESC[201~) when the TUI app has enabled
-      // that mode (DECSET 2004), so jcli / shells receive the paste correctly.
+      // 1. **Shift toggle**: A quick tap of Shift switches Chinese↔English
+      //    mode.  Returning `false` for pure-Shift keydown/keyup prevents
+      //    xterm from calling `preventDefault()`, which would block the IME's
+      //    native toggle detection at the TSM/IMK level.
       //
-      // ── Modifier-only key pass-through ──
-      // On macOS, Chinese IMEs (Pinyin, Wubi, etc.) use the Shift key to
-      // toggle between Chinese and English input mode. The IME listens for
-      // the Shift keydown → keyup cycle to perform the toggle. If xterm.js
-      // processes the Shift event (which may involve preventDefault()), the
-      // IME's toggle mechanism breaks, forcing users to press Shift+<key>
-      // twice to type characters like @ (Shift+2 on US layout).
-      //
-      // Returning false for modifier-only keys tells xterm.js "don't touch
-      // this event", so it propagates naturally to the IME.
-      const MODIFIER_ONLY_KEYS = new Set([
-        'Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'CapsLock',
-      ]);
+      // 2. **Shift+symbol input**: In Chinese mode, Shift+2 → @, Shift+' → ",
+      //    etc.  On WKWebView some of these arrive via the textarea's
+      //    `beforeinput` event instead of xterm's normal key path, causing the
+      //    first press to be silently swallowed.  A `beforeinput` bridge
+      //    (attached after term.open()) catches these and forwards them via
+      //    `term.input()`.  Adapted from hanshuaikang/nezha PR #97.
+
       term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-        // Let modifier-only keys pass through for ALL event types (keydown,
-        // keyup, keypress) so the IME receives the complete key cycle.
-        if (MODIFIER_ONLY_KEYS.has(event.key)) return false;
+        // During IME composition, let the browser/IME handle everything.
+        if (event.isComposing || event.keyCode === 229) return false;
+
+        // Pure Shift (no other modifiers): let the IME handle the toggle.
+        // Returning false prevents xterm from calling preventDefault() on
+        // the Shift keydown→keyup cycle.
+        if (
+          event.key === 'Shift' &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
+          return false;
+        }
 
         if (event.type !== 'keydown') return true;
+
+        // Paste interception (Cmd+V on macOS, Ctrl+V elsewhere).
+        // In Tauri's WKWebView the browser's native paste event is unreliable
+        // when the terminal textarea has focus — we read the clipboard via
+        // Tauri's clipboard-manager plugin and feed it manually.
         const isMac = navigator.platform.toLowerCase().includes('mac');
         const isPaste = isMac ? event.metaKey : event.ctrlKey;
         if (isPaste && (event.key === 'v' || event.key === 'V')) {
@@ -214,10 +221,88 @@ export function useTerminalManager(
               if (text) term.paste(text);
             })
             .catch(console.error);
-          return false; // suppress default (don't send raw Ctrl+V / 0x02)
+          return false;
         }
-        return true; // let xterm handle everything else normally
+
+        return true;
       });
+
+      // ── macOS WKWebView Shift+symbol beforeinput bridge ───────────────
+      //
+      // On macOS WKWebView, some Shift+symbol key presses (Shift+2 → @,
+      // Shift+' → ") are delivered via the textarea's `beforeinput` event
+      // instead of xterm's normal keypress/input path, causing the first
+      // symbol press in Chinese IME mode to be swallowed.
+      //
+      // Strategy (nezha PR #97):
+      //   1. `bridgeKeyDown` (bubble phase, runs after xterm) records the
+      //      last Shift+symbol that xterm already processed.
+      //   2. `bridgeBeforeInput` forwards the symbol via `term.input()` ONLY
+      //      if xterm did NOT already handle it — preventing double-sends.
+
+      const isMacPlatform =
+        typeof navigator !== 'undefined' &&
+        navigator.platform.toLowerCase().includes('mac');
+
+      /** True if data is a short punctuation/symbol-only string. */
+      const isPrintableSymbol = (data: string | null): boolean => {
+        if (!data || data.length === 0 || data.length > 8) return false;
+        return /^[\p{P}\p{S}]+$/u.test(data);
+      };
+
+      const isSymbolInputType = (inputType: string): boolean =>
+        inputType === 'insertText' || inputType === 'insertCompositionText';
+
+      let keydownHandledByXterm: string | null = null;
+
+      const bridgeKeyDown = (event: KeyboardEvent) => {
+        keydownHandledByXterm = null;
+        if (
+          event.keyCode !== 229 &&
+          event.shiftKey &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          !event.metaKey &&
+          isPrintableSymbol(event.key)
+        ) {
+          keydownHandledByXterm = event.key;
+        }
+      };
+
+      const bridgeBeforeInput = (event: InputEvent) => {
+        const symbol = isPrintableSymbol(event.data) ? event.data : null;
+        if (!isSymbolInputType(event.inputType) || symbol === null) return;
+        // xterm already handled this symbol via its normal keydown path.
+        if (keydownHandledByXterm === symbol) {
+          keydownHandledByXterm = null;
+          return;
+        }
+        // xterm missed it (WKWebView quirk) — forward to PTY manually.
+        term.input(symbol);
+        event.preventDefault();
+      };
+
+      // Attach bridge listeners after term.open() creates the textarea.
+      // term.open() is called by the parent component after setupTerminal
+      // returns, so we retry on the next animation frame if not ready.
+      // We cap retries at a few frames to avoid an infinite loop if the
+      // terminal is disposed before term.open() is called.
+      let disposed = false;
+      let bridgeCleanup: (() => void) | null = null;
+      const attachInputBridge = (retries = 10) => {
+        if (disposed || !isMacPlatform) return;
+        if (term.textarea) {
+          term.textarea.addEventListener('keydown', bridgeKeyDown);
+          term.textarea.addEventListener('beforeinput', bridgeBeforeInput);
+          bridgeCleanup = () => {
+            term.textarea?.removeEventListener('keydown', bridgeKeyDown);
+            term.textarea?.removeEventListener('beforeinput', bridgeBeforeInput);
+          };
+        } else if (retries > 0) {
+          requestAnimationFrame(() => attachInputBridge(retries - 1));
+        }
+      };
+      queueMicrotask(() => attachInputBridge());
 
       // Keyboard input → PTY
       term.onData((data) => {
@@ -249,7 +334,16 @@ export function useTerminalManager(
 
       unlistenRef.current.set(sessionId, [unlistenData, unlistenExit]);
 
-      const entry: SessionTerminal = { term, fit, serialize, container };
+      const entry: SessionTerminal = {
+        term,
+        fit,
+        serialize,
+        container,
+        disposeInputBridge: () => {
+          disposed = true;
+          bridgeCleanup?.();
+        },
+      };
       terminalsRef.current.set(sessionId, entry);
       registerTerminal(sessionId, entry);
 
@@ -294,6 +388,7 @@ export function useTerminalManager(
       const obs = (entry.container as unknown as { _resizeObserver?: ResizeObserver })
         ._resizeObserver;
       obs?.disconnect();
+      entry.disposeInputBridge?.();
       entry.term.dispose();
       terminalsRef.current.delete(sessionId);
       unregisterTerminal(sessionId);

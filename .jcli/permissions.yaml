@@ -60,4 +60,5 @@ allow:
 - Shell(cat /Users/lingojack/dev_custom/jcli/apps/jstudio/node_modules/@tiptap/starter-kit/dist/index.js:*)
 - Shell(rm /Users/lingojack/dev_custom/jcli/apps/jstudio/src/lib/tiptapExtensions.tsx:*)
 - Glob
+- Shell(find /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
 deny: []

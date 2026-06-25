@@ -21,6 +21,8 @@ export interface SessionTerminal {
   fit: FitAddon;
   serialize: SerializeAddon;
   container: HTMLDivElement;
+  /** Cleanup for IME input-bridge listeners attached after term.open(). */
+  disposeInputBridge?: () => void;
 }
 
 /**
