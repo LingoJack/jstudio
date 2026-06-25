@@ -247,7 +247,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   // ================================================================
   // document operations
   // ================================================================
-  createDocument: async () => {
+  createDocument: async (folderId?: string) => {
     const newDoc: Document = {
       id: `doc-${Date.now()}`,
       title: '',
@@ -266,7 +266,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     await storage.saveDocument(newDoc);
 
-    const meta = toMeta(newDoc);
+    const meta = { ...toMeta(newDoc), folderId: folderId ?? null };
     const newDocList = [meta, ...get().docList];
     const newDocuments = [newDoc, ...get().documents];
 

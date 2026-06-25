@@ -24,7 +24,7 @@ export default function EmptyState() {
         </p>
       </div>
       <button
-        onClick={createDocument}
+        onClick={() => createDocument()}
         className="cursor-pointer bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors duration-150 mt-1"
       >
         <Plus className="w-4 h-4" />

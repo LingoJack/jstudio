@@ -100,7 +100,7 @@ export interface StoreState {
   init: () => Promise<void>;
 
   // — document ops (documents slice) —
-  createDocument: () => Promise<void>;
+  createDocument: (folderId?: string) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   renameDocument: (id: string, title: string) => void;
   openDocument: (id: string) => Promise<void>;

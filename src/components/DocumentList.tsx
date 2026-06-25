@@ -658,7 +658,7 @@ export default function DocumentList() {
             )}
           </div>
           <button
-            onClick={createDocument}
+            onClick={() => createDocument()}
             className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
             title={t('doclist.newDocument')}
           >
@@ -719,6 +719,16 @@ export default function DocumentList() {
           y={folderMenu.y}
           onClick={(e) => e.stopPropagation()}
         >
+          <MenuItem
+            icon={<FileText />}
+            onClick={() => {
+              createDocument(folderMenu.folderId);
+              setFolderMenu(null);
+            }}
+          >
+            {t('doclist.newDocument')}
+          </MenuItem>
+          <MenuDivider />
           <MenuItem
             icon={<FolderPlus />}
             onClick={() => handleCreateSubfolder(folderMenu.folderId)}
