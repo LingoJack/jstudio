@@ -481,6 +481,11 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       if (target.closest('.ProseMirror')) return;
       // Skip if clicking the title input
       if (target.tagName === 'INPUT') return;
+      // Skip if the user has an active text selection (e.g. they dragged
+      // from inside the editor out to the padding area).  Re-focusing would
+      // collapse the selection and jump the caret to the end.
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return;
       // Focus to end of document (works even if last block is an empty paragraph)
       editor.chain().focus('end').run();
     },
