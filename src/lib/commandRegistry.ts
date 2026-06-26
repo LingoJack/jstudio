@@ -9,6 +9,10 @@ import {
   Sun,
   Monitor,
   SunMoon,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  SquareTerminal,
 } from 'lucide-react';
 import type { StoreState } from '../store/storeHelpers';
 import { storage } from '../lib/storage';
@@ -110,6 +114,58 @@ export function buildCommands(): PaletteCommand[] {
       keywordsZh: ['设置', '配置', '首选项'],
       keywordsEn: ['settings', 'preferences', 'config'],
       perform: (store) => store.setSettingsOpen(true),
+    },
+
+    // ── Workspace Tabs ──
+    {
+      id: 'workspace.cycleTabLeft',
+      icon: ChevronLeft,
+      titleZh: '上一个标签页',
+      titleEn: 'Previous Tab',
+      categoryZh: '标签页',
+      categoryEn: 'Tabs',
+      shortcutId: 'app.cycleTabLeft',
+      keywordsZh: ['标签', '上一个', '切换', '左'],
+      keywordsEn: ['tab', 'previous', 'switch', 'left'],
+      perform: (store) => store.cycleTab(-1),
+    },
+    {
+      id: 'workspace.cycleTabRight',
+      icon: ChevronRight,
+      titleZh: '下一个标签页',
+      titleEn: 'Next Tab',
+      categoryZh: '标签页',
+      categoryEn: 'Tabs',
+      shortcutId: 'app.cycleTabRight',
+      keywordsZh: ['标签', '下一个', '切换', '右'],
+      keywordsEn: ['tab', 'next', 'switch', 'right'],
+      perform: (store) => store.cycleTab(1),
+    },
+    {
+      id: 'workspace.closeTab',
+      icon: X,
+      titleZh: '关闭当前标签页',
+      titleEn: 'Close Current Tab',
+      categoryZh: '标签页',
+      categoryEn: 'Tabs',
+      shortcutId: 'app.closeTab',
+      keywordsZh: ['标签', '关闭'],
+      keywordsEn: ['tab', 'close'],
+      perform: (store) => {
+        if (store.activeTabId) store.closeTab(store.activeTabId);
+      },
+    },
+    {
+      id: 'workspace.newTerminalTab',
+      icon: SquareTerminal,
+      titleZh: '新建终端标签页',
+      titleEn: 'New Terminal Tab',
+      categoryZh: '标签页',
+      categoryEn: 'Tabs',
+      shortcutId: 'terminal.newTab',
+      keywordsZh: ['终端', '标签', '新建'],
+      keywordsEn: ['terminal', 'tab', 'new'],
+      perform: (store) => store.createSession(),
     },
 
     // ── Document ──

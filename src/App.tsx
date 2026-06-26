@@ -12,6 +12,7 @@ import './lib/globalShortcutActions';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
 import DocumentList from './components/DocumentList';
+import DocumentTabs from './components/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import BlockEditor from './components/BlockEditor';
 import Settings from './components/Settings';
@@ -86,8 +87,8 @@ export default function App() {
         return;
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [shortcutCommandMap]);
 
   // ── OS-level global shortcuts: register on startup, listen for triggers ──
@@ -166,6 +167,12 @@ export default function App() {
   const isTerminalView =
     !isSettingsOpen && activeSidebarView === 'terminal';
 
+  // Check whether there is any terminal tab in the workspace — if so,
+  // we need to keep the TerminalPanel mounted (CSS-hidden when inactive)
+  // to preserve xterm instances + PTY listeners + scrollback.
+  const tabs = useStore((s) => s.tabs);
+  const hasTerminalTab = tabs.some((tab) => tab.kind === 'terminal');
+
   return (
     <div className="h-screen w-full flex flex-col bg-[var(--vscode-activityBar-background)] text-[var(--vscode-editor-foreground)] font-sans tracking-tight overflow-hidden">
       {/* ==============================
@@ -180,23 +187,31 @@ export default function App() {
         {/* Activity Bar (left-most) */}
         <ActivityBar />
 
-        {/* Secondary sidebar: only shown in documents view */}
+        {/* Secondary sidebar: hidden in terminal view and settings */}
         {isSidebarOpen && !isSettingsOpen && !isTerminalView && (
           <DocumentList />
         )}
 
         {/* Main content area (right) */}
         <div className="flex-1 min-w-0 h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden">
+          {/* Document Tab Bar — only shown in documents view, not in
+              terminal view (terminal has its own tab bar) or settings. */}
+          {!isSettingsOpen && !isTerminalView && <DocumentTabs />}
+
           <div className="flex-1 min-h-0 overflow-hidden relative">
-            {/* Terminal panel stays mounted (CSS-hidden when inactive) to
+            {/* Terminal panel: mount when there are terminal tabs OR we're
+                in terminal view (so it can auto-create the first session).
+                Stays mounted (CSS-hidden) when switching to documents to
                 preserve xterm instances + PTY listeners + scrollback. */}
-            <div
-              className={`absolute inset-0 ${
-                isTerminalView && !isSettingsOpen ? '' : 'hidden'
-              }`}
-            >
-              <TerminalPanel hidden={isSettingsOpen || !isTerminalView} />
-            </div>
+            {(hasTerminalTab || isTerminalView) && (
+              <div
+                className={`absolute inset-0 ${
+                  isTerminalView ? '' : 'hidden'
+                }`}
+              >
+                <TerminalPanel hidden={!isTerminalView} />
+              </div>
+            )}
 
             {/* Settings / Editor / EmptyState overlaid on top */}
             {isSettingsOpen ? (

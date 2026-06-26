@@ -127,6 +127,35 @@ export const SHORTCUTS: ShortcutDef[] = [
     descKey: 'shortcut.app.goToTerminal.desc',
   },
 
+  // ── Workspace · Tabs ──
+  {
+    id: 'app.cycleTabLeft',
+    category: 'navigation',
+    scope: 'global',
+    defaultBinding: 'mod+alt+arrowleft',
+    customizable: true,
+    labelKey: 'shortcut.app.cycleTabLeft',
+    descKey: 'shortcut.app.cycleTabLeft.desc',
+  },
+  {
+    id: 'app.cycleTabRight',
+    category: 'navigation',
+    scope: 'global',
+    defaultBinding: 'mod+alt+arrowright',
+    customizable: true,
+    labelKey: 'shortcut.app.cycleTabRight',
+    descKey: 'shortcut.app.cycleTabRight.desc',
+  },
+  {
+    id: 'app.closeTab',
+    category: 'navigation',
+    scope: 'global',
+    defaultBinding: 'mod+w',
+    customizable: true,
+    labelKey: 'shortcut.app.closeTab',
+    descKey: 'shortcut.app.closeTab.desc',
+  },
+
   // ── Document ──
   {
     id: 'app.importMarkdown',
@@ -177,37 +206,15 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
 
   // ── Terminal · Tabs ──
+  // (cycleTabLeft/Right and closeTab are now global workspace shortcuts:
+  //  app.cycleTabLeft, app.cycleTabRight, app.closeTab)
   {
     id: 'terminal.newTab',
     category: 'terminal-tabs',
-    scope: 'terminal',
+    scope: 'global',
     defaultBinding: 'mod+t',
     customizable: true,
     labelKey: 'shortcut.terminal.newTab',
-  },
-  {
-    id: 'terminal.closeTab',
-    category: 'terminal-tabs',
-    scope: 'terminal',
-    defaultBinding: 'mod+w',
-    customizable: true,
-    labelKey: 'shortcut.terminal.closeTab',
-  },
-  {
-    id: 'terminal.cycleTabLeft',
-    category: 'terminal-tabs',
-    scope: 'terminal',
-    defaultBinding: 'mod+shift+arrowleft',
-    customizable: true,
-    labelKey: 'shortcut.terminal.cycleTabLeft',
-  },
-  {
-    id: 'terminal.cycleTabRight',
-    category: 'terminal-tabs',
-    scope: 'terminal',
-    defaultBinding: 'mod+shift+arrowright',
-    customizable: true,
-    labelKey: 'shortcut.terminal.cycleTabRight',
   },
   {
     id: 'terminal.detachTab',

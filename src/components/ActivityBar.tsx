@@ -27,6 +27,8 @@ export default function ActivityBar() {
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
+  const tabs = useStore((s) => s.tabs);
+  const setActiveTab = useStore((s) => s.setActiveTab);
 
   const activeClass = activityBarBorder
     ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
@@ -57,19 +59,25 @@ export default function ActivityBar() {
   function handleClick(id: ActivityItemId) {
     if (id === 'documents') {
       setSettingsOpen(false);
-      if (activeSidebarView !== 'documents') {
-        // Switching back from another view (e.g. terminal): just restore
-        // the documents view WITHOUT forcing the sidebar open. This preserves
-        // the user's previous collapse/expand choice (memory behavior).
+      // If there are document tabs, focus the most recent one.
+      const lastDocTab = [...tabs].reverse().find((t) => t.kind === 'document');
+      if (lastDocTab) {
+        setActiveTab(lastDocTab.id);
+      } else {
+        // No document tabs — just switch the view.
         setActiveSidebarView('documents');
-      } else if (!isSidebarOpen) {
-        // Already in documents view but sidebar is collapsed — clicking
-        // the documents icon re-expands it (VSCode-style toggle).
-        toggleSidebar();
       }
     } else if (id === 'terminal') {
       setSettingsOpen(false);
-      setActiveSidebarView('terminal');
+      // If there are terminal tabs, focus the most recent one.
+      const lastTermTab = [...tabs].reverse().find((t) => t.kind === 'terminal');
+      if (lastTermTab) {
+        setActiveTab(lastTermTab.id);
+      } else {
+        // No terminal tabs — switch to terminal view; TerminalPanel
+        // will auto-create the first session.
+        setActiveSidebarView('terminal');
+      }
     } else if (id === 'settings') {
       setSettingsOpen(true);
     }

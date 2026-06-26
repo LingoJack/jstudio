@@ -11,6 +11,7 @@ import type {
 } from './terminalSlice';
 import type { ToastItem, ToastType } from './toastSlice';
 import type { SettingsSectionId } from './uiSlice';
+import type { UnifiedTab } from './workspaceSlice';
 import { storage } from '../lib/storage';
 
 /**
@@ -99,6 +100,10 @@ export interface StoreState {
 
   // — toast state (toast slice) —
   toasts: ToastItem[];
+
+  // — workspace state (workspace slice) —
+  tabs: UnifiedTab[];
+  activeTabId: string | null;
 
   // — init (documents slice) —
   init: () => Promise<void>;
@@ -215,6 +220,18 @@ export interface StoreState {
   addToast: (type: ToastType, message: string, duration?: number) => void;
   removeToast: (id: string) => void;
   clearToasts: () => void;
+
+  // — workspace ops (workspace slice) —
+  openDocumentTab: (docId: string) => void;
+  openTerminalTab: (groupId: string) => void;
+  closeTab: (tabId: string) => void;
+  closeOtherTabs: (keepTabId: string) => void;
+  setActiveTab: (tabId: string) => void;
+  cycleTab: (direction: 1 | -1) => void;
+  /** Called by terminalSlice: remove a terminal tab without killing PTYs. */
+  removeTerminalTabByGroupId: (groupId: string) => void;
+  /** Called by documentsSlice: remove a document tab without deleting the doc. */
+  removeDocumentTabByDocId: (docId: string) => void;
 }
 
 /**

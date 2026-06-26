@@ -4,6 +4,7 @@ import App from './App.tsx';
 import PreviewWindowApp from './components/PreviewWindowApp';
 import DiagramWindowApp from './components/DiagramWindowApp';
 import TerminalWindowApp from './components/terminal/TerminalWindowApp';
+import DocumentWindowApp from './components/DocumentWindowApp';
 import CommandPaletteWindow from './components/CommandPaletteWindow';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
@@ -23,13 +24,14 @@ window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
 });
 
-// Detect if this is a preview/diagram/terminal window via URL query param.
+// Detect if this is a preview/diagram/terminal/document window via URL query param.
 // These windows render their own root component instead of the main App.
 const params = new URLSearchParams(window.location.search);
 const windowType = params.get('window');
 const isPreviewWindow = windowType === 'preview';
 const isDiagramWindow = windowType === 'diagram';
 const isTerminalWindow = windowType === 'terminal';
+const isDocumentWindow = windowType === 'document';
 const isCommandPaletteWindow = windowType === 'command-palette';
 
 createRoot(document.getElementById('root')!).render(
@@ -37,6 +39,8 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       {isTerminalWindow ? (
         <TerminalWindowApp />
+      ) : isDocumentWindow ? (
+        <DocumentWindowApp />
       ) : isCommandPaletteWindow ? (
         <CommandPaletteWindow />
       ) : isPreviewWindow ? (

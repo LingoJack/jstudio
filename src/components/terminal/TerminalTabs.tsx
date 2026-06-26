@@ -94,6 +94,27 @@ export default function TerminalTabs() {
   const closeSession = useStore((s) => s.closeSession);
   const createSession = useStore((s) => s.createSession);
   const renameSession = useStore((s) => s.renameSession);
+  // Workspace: sync activeTabId when switching terminal groups.
+  const wsTabs = useStore((s) => s.tabs);
+  const wsSetActiveTab = useStore((s) => s.setActiveTab);
+
+  /**
+   * Switch to a terminal session AND sync the workspace active tab.
+   * This keeps DocumentTabs and TerminalTabs in agreement about which
+   * tab is focused, so the global cycle shortcut (Cmd+Option+←/→)
+   * knows the correct anchor point.
+   */
+  const switchSession = (sessionId: string) => {
+    setActiveSession(sessionId);
+    // Find the workspace tab for the group that owns this session.
+    const group = groups.find((g) => g.activeSessionId === sessionId);
+    if (group) {
+      const wsTab = wsTabs.find(
+        (t) => t.kind === 'terminal' && t.groupId === group.id,
+      );
+      if (wsTab) wsSetActiveTab(wsTab.id);
+    }
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLDivElement>(null);
@@ -147,9 +168,10 @@ export default function TerminalTabs() {
         return;
       }
 
-      // cycleTabLeft / cycleTabRight
+      // cycleTabLeft / cycleTabRight — now use the global workspace
+      // shortcut IDs (app.cycleTabLeft / app.cycleTabRight).
       if (
-        binding === resolveBinding('terminal.cycleTabLeft', ov) ||
+        binding === resolveBinding('app.cycleTabLeft', ov) ||
         (e.altKey && e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey))
       ) {
         if (groups.length < 2) return;
@@ -160,11 +182,11 @@ export default function TerminalTabs() {
         if (idx === -1) return;
 
         const next = (idx - 1 + groups.length) % groups.length;
-        setActiveSession(groups[next].activeSessionId);
+        switchSession(groups[next].activeSessionId);
         return;
       }
       if (
-        binding === resolveBinding('terminal.cycleTabRight', ov) ||
+        binding === resolveBinding('app.cycleTabRight', ov) ||
         (e.altKey && e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey))
       ) {
         if (groups.length < 2) return;
@@ -175,7 +197,7 @@ export default function TerminalTabs() {
         if (idx === -1) return;
 
         const next = (idx + 1) % groups.length;
-        setActiveSession(groups[next].activeSessionId);
+        switchSession(groups[next].activeSessionId);
         return;
       }
 
@@ -192,7 +214,7 @@ export default function TerminalTabs() {
 
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [groups, activeGroupId, setActiveSession, createSession]);
+  }, [groups, activeGroupId, setActiveSession, createSession, wsTabs, wsSetActiveTab]);
 
   // ── Scroll active tab into view ──────────────────────────────────
   useEffect(() => {
@@ -378,7 +400,7 @@ export default function TerminalTabs() {
                 onDragStart={(e) => handleTabDragStart(e, group.id)}
                 onDrag={(e) => handleTabDrag(e, title)}
                 onDragEnd={handleTabDragEnd}
-                onClick={() => setActiveSession(group.activeSessionId)}
+                onClick={() => switchSession(group.activeSessionId)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

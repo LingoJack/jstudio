@@ -249,6 +249,11 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
       activeGroupId: group.id,
       activeSessionId: info.id,
     }));
+
+    // Register a workspace tab for this terminal group.
+    get().openTerminalTab(group.id);
+    // Switch to terminal view so the sidebar hides.
+    set({ activeSidebarView: 'terminal' });
   },
 
   /**
@@ -423,6 +428,9 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
 
       return { sessions, groups, activeGroupId, activeSessionId };
     });
+
+    // Clean up the corresponding workspace tab.
+    get().removeTerminalTabByGroupId(groupId);
   },
 
   /**

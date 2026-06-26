@@ -94,6 +94,13 @@ export const translations = {
     'doclist.deletedDate': '删除于 {date}',
     'doclist.deleteFolderToTrashConfirm': '确定将文件夹「{name}」移入回收站吗？文件夹内的文档将一并移入回收站。',
 
+    // ── Workspace tabs ──
+    'workspace.newTab': '新建标签页',
+    'workspace.closeTab': '关闭标签页',
+    'workspace.closeOthers': '关闭其他标签页',
+    'workspace.detachToWindow': '分离到新窗口',
+    'workspace.releaseToDetach': '松开以分离到新窗口',
+
     // ── Terminal ──
     'terminal.sessions': '终端会话',
     'terminal.newSession': '新建终端',
@@ -417,6 +424,12 @@ export const translations = {
     'shortcut.app.goToDocuments.desc': '切换到文档列表视图',
     'shortcut.app.goToTerminal': '转到终端',
     'shortcut.app.goToTerminal.desc': '切换到终端视图',
+    'shortcut.app.cycleTabLeft': '上一个标签页',
+    'shortcut.app.cycleTabLeft.desc': '切换到左边的标签页',
+    'shortcut.app.cycleTabRight': '下一个标签页',
+    'shortcut.app.cycleTabRight.desc': '切换到右边的标签页',
+    'shortcut.app.closeTab': '关闭标签页',
+    'shortcut.app.closeTab.desc': '关闭当前标签页',
     'shortcut.app.toggleDarkMode': '切换深色模式',
     'shortcut.app.toggleDarkMode.desc': '在深色和浅色模式之间切换',
     'shortcut.app.setDarkTheme': '切换到深色主题',
@@ -538,6 +551,13 @@ export const translations = {
     'doclist.trashEmpty': 'Trash is empty',
     'doclist.deletedDate': 'Deleted {date}',
     'doclist.deleteFolderToTrashConfirm': 'Move folder "{name}" to trash? All documents inside will be moved to trash as well.',
+
+    // ── Workspace tabs ──
+    'workspace.newTab': 'New Tab',
+    'workspace.closeTab': 'Close Tab',
+    'workspace.closeOthers': 'Close Others',
+    'workspace.detachToWindow': 'Detach to New Window',
+    'workspace.releaseToDetach': 'Release to detach to new window',
 
     // ── Terminal ──
     'terminal.sessions': 'Terminal Sessions',
@@ -862,6 +882,12 @@ export const translations = {
     'shortcut.app.goToDocuments.desc': 'Switch to the document list view',
     'shortcut.app.goToTerminal': 'Go to terminal',
     'shortcut.app.goToTerminal.desc': 'Switch to the terminal view',
+    'shortcut.app.cycleTabLeft': 'Previous Tab',
+    'shortcut.app.cycleTabLeft.desc': 'Switch to the previous tab',
+    'shortcut.app.cycleTabRight': 'Next Tab',
+    'shortcut.app.cycleTabRight.desc': 'Switch to the next tab',
+    'shortcut.app.closeTab': 'Close Tab',
+    'shortcut.app.closeTab.desc': 'Close the current tab',
     'shortcut.app.toggleDarkMode': 'Toggle dark mode',
     'shortcut.app.toggleDarkMode.desc': 'Switch between dark and light mode',
     'shortcut.app.setDarkTheme': 'Set dark theme',

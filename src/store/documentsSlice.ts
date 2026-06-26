@@ -291,6 +291,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       activeDoc: newDoc,
       activeDocId: newDoc.id,
     });
+
+    // Open a workspace tab for the new document + switch to documents view.
+    get().openDocumentTab(newDoc.id);
+    set({ activeSidebarView: 'documents' });
   },
 
   deleteDocument: async (id) => {
@@ -314,6 +318,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
 
     set(stateUpdate as StoreState);
+
+    // Remove the workspace tab for this document (if any).
+    get().removeDocumentTabByDocId(id);
 
     // Now persist to disk — failures are logged but don't crash the app.
     try {
@@ -350,6 +357,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
 
     set(stateUpdate as StoreState);
+
+    // Remove workspace tabs for all deleted documents.
+    ids.forEach((id) => get().removeDocumentTabByDocId(id));
 
     // Persist: delete document files from disk (best-effort, parallel)
     await Promise.allSettled(
@@ -390,6 +400,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     set(stateUpdate as StoreState);
 
+    // Remove the workspace tab for this document (if any).
+    get().removeDocumentTabByDocId(id);
+
     try {
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
@@ -421,6 +434,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
 
     set(stateUpdate as StoreState);
+
+    // Remove workspace tabs for all trashed documents.
+    ids.forEach((id) => get().removeDocumentTabByDocId(id));
 
     try {
       await storage.saveIndex([...newDocList, ...newTrashed]);
@@ -598,6 +614,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       activeDoc: newDoc,
       activeDocId: newDoc.id,
     });
+
+    // Open a workspace tab for the imported document.
+    get().openDocumentTab(newDoc.id);
+    set({ activeSidebarView: 'documents' });
   },
 
   /**

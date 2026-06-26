@@ -9,25 +9,7 @@ import '@xterm/xterm/css/xterm.css';
 /**
  * TerminalPanel — top-level container for the terminal view.
  *
- * Layout:
- *   ┌──────────────────────────────────────┐
- *   │  TerminalTabs (group tab bar)         │
- *   ├──────────────────────────────────────┤
- *   │                                      │
- *   │  PaneLayoutView (active group)       │
- *   │  ┌──────────┬──────────┐             │
- *   │  │  Pane A  │  Pane B  │             │
- *   │  │ (active) ├──────────┤             │
- *   │  │          │  Pane C  │             │
- *   │  └──────────┴──────────┘             │
- *   │                                      │
- *   └──────────────────────────────────────┘
- *
- * The heavy lifting (Terminal lifecycle, PTY wiring, WebGL/trail setup,
- * pane rendering) lives in `PaneLayoutView`.  This component handles:
- *   - Rendering the tab bar + pane area
- *   - Activating pane split keyboard shortcuts
- *   - Empty state (no sessions)
+ * Always renders its own `<TerminalTabs />` tab bar.
  */
 export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   const groups = useStore((s) => s.groups);
@@ -57,8 +39,7 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
     }
   }, [hasSessions, createSession]);
 
-  // While the first session is being created, show a minimal loading shell
-  // so the tab bar is visible immediately.
+  // While the first session is being created, show a minimal loading shell.
   if (!hasSessions) {
     return (
       <div

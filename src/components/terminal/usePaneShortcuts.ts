@@ -11,10 +11,10 @@ import { eventToBinding, resolveBinding } from '../../lib/shortcuts';
  *   Cmd/Ctrl + Shift + L  → cyclePaneLayout
  *   Cmd/Ctrl + Shift + F  → moveActivePane (swap position)
  *   Cmd/Ctrl + ← / →      → focusPrevPane / focusNextPane
- *   Cmd/Ctrl + W          → closeSession (close entire group/tab)
  *   Cmd/Ctrl + Shift + W  → closePane (close just the active pane)
  *
- * Tab-level shortcuts (Cmd+T, Cmd+Shift+← / →) live in TerminalTabs.
+ * Tab-level shortcuts (Cmd+W, Cmd+Shift+←/→, Cmd+T) are now handled
+ * globally by the workspace layer (commandRegistry + App.tsx).
  */
 export function usePaneShortcuts() {
   const splitPane = useStore((s) => s.splitPane);
@@ -23,9 +23,7 @@ export function usePaneShortcuts() {
   const focusNextPane = useStore((s) => s.focusNextPane);
   const focusPrevPane = useStore((s) => s.focusPrevPane);
   const closePane = useStore((s) => s.closePane);
-  const closeSession = useStore((s) => s.closeSession);
   const activeSessionId = useStore((s) => s.activeSessionId);
-  const groups = useStore((s) => s.groups);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -72,16 +70,8 @@ export function usePaneShortcuts() {
         return;
       }
 
-      // closeTab (Cmd/Ctrl+W) / closePane (Cmd/Ctrl+Shift+W)
-      if (binding === resolveBinding('terminal.closeTab', ov)) {
-        if (!activeSessionId) return;
-        // Guard: never close the last remaining tab.
-        if (groups.length <= 1) return;
-        e.preventDefault();
-        e.stopPropagation();
-        closeSession(activeSessionId);
-        return;
-      }
+      // closeTab is now handled globally by app.closeTab (workspace layer).
+      // We only handle closePane here (Cmd/Ctrl+Shift+W).
       if (binding === resolveBinding('terminal.closePane', ov)) {
         if (!activeSessionId) return;
         e.preventDefault();
@@ -100,8 +90,6 @@ export function usePaneShortcuts() {
     focusNextPane,
     focusPrevPane,
     closePane,
-    closeSession,
     activeSessionId,
-    groups,
   ]);
 }

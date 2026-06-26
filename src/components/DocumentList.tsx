@@ -41,7 +41,7 @@ export default function DocumentList() {
   const documents = useStore((s) => s.documents);
   const docList = useStore((s) => s.docList);
   const activeDocId = useStore((s) => s.activeDocId);
-  const openDocument = useStore((s) => s.openDocument);
+  const openDocumentTab = useStore((s) => s.openDocumentTab);
   const createDocument = useStore((s) => s.createDocument);
   const trashDocument = useStore((s) => s.trashDocument);
   const trashDocuments = useStore((s) => s.trashDocuments);
@@ -337,9 +337,9 @@ export default function DocumentList() {
       }
       setSelectedIds(new Set());
       setLastClickedId(docId);
-      openDocument(docId);
+      openDocumentTab(docId);
     }
-  }, [lastClickedId, visibleItemIds, selectedIds, openDocument]);
+  }, [lastClickedId, visibleItemIds, selectedIds, openDocumentTab]);
 
   // ── Handlers: folder actions ──────────────────────────────
   const handleToggleFolder = useCallback(

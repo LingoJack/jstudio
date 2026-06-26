@@ -221,6 +221,9 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
+      // Cmd+Option+Arrow is the workspace tab-cycle shortcut — let it
+      // pass through to the global handler in App.tsx.
+      if (e.altKey) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       if (!editor) return;
 
