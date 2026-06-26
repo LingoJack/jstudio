@@ -257,16 +257,17 @@ export default function CommandPaletteWindow() {
 
   return (
     <div
-      className="w-screen h-screen flex flex-col overflow-hidden rounded-xl"
+      className="w-screen h-screen flex flex-col overflow-hidden"
       style={{
         background: 'var(--vscode-quickInput-background)',
-        border: '1px solid var(--vscode-input-border)',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+        border: '1px solid var(--vscode-widget-border)',
+        borderRadius: '10px',
+        boxShadow: '0 24px 80px -12px rgba(0,0,0,0.5), 0 8px 24px -8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04)',
         animation: 'cpwIn 120ms ease-out',
       }}
     >
       {/* ── Scope tabs ── */}
-      <div className="flex items-center gap-0.5 px-1.5 pt-1.5 border-b border-[var(--vscode-input-border)]">
+      <div className="flex items-center gap-1 px-2 pt-2 border-b border-[var(--vscode-widget-border)]">
         {(['documents', 'terminal', 'settings'] as const).map((s) => {
           const label =
             s === 'documents'
@@ -279,10 +280,10 @@ export default function CommandPaletteWindow() {
             <button
               key={s}
               onClick={() => setScope(s)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors duration-100 mb-[-1px] border-b-2 ${
+              className={`px-3 py-1.5 text-xs font-medium mb-[-1px] border-b-2 transition-colors duration-100 ${
                 active
                   ? 'text-[var(--vscode-foreground)] border-[var(--vscode-focusBorder)]'
-                  : 'text-[var(--vscode-descriptionForeground)] border-transparent hover:text-[var(--vscode-foreground)]'
+                  : 'text-[var(--vscode-descriptionForeground)] border-transparent opacity-60 hover:text-[var(--vscode-foreground)] hover:opacity-100'
               }`}
             >
               {label}
@@ -293,8 +294,8 @@ export default function CommandPaletteWindow() {
       </div>
 
       {/* ── Search input ── */}
-      <div className="flex items-center gap-2 px-3 h-12 border-b border-[var(--vscode-input-border)]">
-        <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
+      <div className="flex items-center gap-2.5 px-3.5 h-12 border-b border-[var(--vscode-widget-border)]">
+        <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-60" />
         <input
           ref={inputRef}
           value={query}
@@ -308,13 +309,13 @@ export default function CommandPaletteWindow() {
       </div>
 
       {/* ── Results ── */}
-      <div ref={listRef} className="flex-1 overflow-y-auto p-1.5 min-h-0">
+      <div ref={listRef} className="flex-1 overflow-y-auto py-1.5 min-h-0">
         {loading ? (
-          <div className="px-3 py-8 text-center text-sm text-[var(--vscode-descriptionForeground)]">
+          <div className="px-3 py-8 text-center text-sm text-[var(--vscode-descriptionForeground)] opacity-60">
             {lang === 'zh' ? '加载中…' : 'Loading…'}
           </div>
         ) : items.length === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-[var(--vscode-descriptionForeground)]">
+          <div className="px-3 py-8 text-center text-sm text-[var(--vscode-descriptionForeground)] opacity-60">
             {t('palette.noResults')}
           </div>
         ) : (
@@ -339,22 +340,22 @@ export default function CommandPaletteWindow() {
       </div>
 
       {/* ── Footer hint ── */}
-      <div className="flex items-center gap-4 px-3 py-1.5 border-t border-[var(--vscode-input-border)] text-[11px] text-[var(--vscode-descriptionForeground)] bg-[var(--vscode-input-background)]">
-        <span className="flex items-center gap-1">
+      <div className="flex items-center gap-4 px-3.5 py-2 border-t border-[var(--vscode-widget-border)] text-[11px] text-[var(--vscode-descriptionForeground)] opacity-60">
+        <span className="flex items-center gap-1.5">
           <ArrowUp className="w-3 h-3" />
           <ArrowDown className="w-3 h-3" />
-          <span className="opacity-80">{lang === 'zh' ? '导航' : 'Navigate'}</span>
+          <span>{lang === 'zh' ? '导航' : 'Navigate'}</span>
         </span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1.5">
           <CornerDownLeft className="w-3 h-3" />
-          <span className="opacity-80">{lang === 'zh' ? '执行' : 'Select'}</span>
+          <span>{lang === 'zh' ? '执行' : 'Select'}</span>
         </span>
-        <span className="flex items-center gap-1">
-          <kbd className="px-1 rounded border border-[var(--vscode-input-border)]">Tab</kbd>
-          <span className="opacity-80">{lang === 'zh' ? '切换范围' : 'Switch'}</span>
+        <span className="flex items-center gap-1.5">
+          <kbd className="px-1 py-0.5 rounded text-[10px] bg-[var(--vscode-list-hoverBackground)]">Tab</kbd>
+          <span>{lang === 'zh' ? '切换范围' : 'Switch'}</span>
         </span>
         <span className="flex-1" />
-        <kbd className="px-1 rounded border border-[var(--vscode-input-border)]">Esc</kbd>
+        <kbd className="px-1 py-0.5 rounded text-[10px] bg-[var(--vscode-list-hoverBackground)]">Esc</kbd>
       </div>
 
       <style>{`
@@ -386,18 +387,18 @@ function PaletteRow({
   onClick: () => void;
   onMouseEnter: () => void;
 }) {
-  const baseClass = `flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-sm rounded-md transition-colors duration-75 ${
+  const baseClass = `flex items-center gap-2.5 px-3 py-2 cursor-pointer text-sm transition-colors duration-75 ${
     isSelected
       ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
       : 'text-[var(--vscode-foreground)]'
   }`;
-  const descClass = isSelected ? 'opacity-70' : 'text-[var(--vscode-descriptionForeground)]';
+  const descClass = isSelected ? 'opacity-60' : 'text-[var(--vscode-descriptionForeground)] opacity-60';
 
   if (item.kind === 'document') {
     const { doc, titleMatch } = item;
     return (
       <div data-palette-index={index} onClick={onClick} onMouseEnter={onMouseEnter} className={baseClass}>
-        <FileText className="w-4 h-4 shrink-0 opacity-60" />
+        <FileText className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-40'}`} />
         <span className="flex-1 truncate">
           {doc.title ? (
             <HighlightedText text={doc.title} match={titleMatch} />
@@ -417,7 +418,7 @@ function PaletteRow({
     const title = getSessionTitle(session);
     return (
       <div data-palette-index={index} onClick={onClick} onMouseEnter={onMouseEnter} className={baseClass}>
-        <TerminalSquare className="w-4 h-4 shrink-0 opacity-60" />
+        <TerminalSquare className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-40'}`} />
         <span className="flex-1 truncate">
           <HighlightedText text={title} match={titleMatch} />
         </span>
@@ -430,7 +431,7 @@ function PaletteRow({
   const Icon = secMeta.icon;
   return (
     <div data-palette-index={index} onClick={onClick} onMouseEnter={onMouseEnter} className={baseClass}>
-      <Icon className="w-4 h-4 shrink-0 opacity-60" />
+      <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-40'}`} />
       <span className="flex-1 truncate">
         <HighlightedText text={t(secMeta.labelKey)} match={item.titleMatch} />
       </span>
