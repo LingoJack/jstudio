@@ -665,13 +665,20 @@ export default function DocumentList() {
     const isRenaming = renamingFolderId === f.id;
 
     return (
-      <div key={f.id}>
-        {/* Folder row — also a drop target */}
+      <div
+        key={f.id}
+        data-drop-target={f.id}
+        className={`${
+          isDropTarget || isFlashing
+            ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
+            : ''
+        }`}
+      >
+        {/* Folder row */}
         <NavRow
           level="primary"
-          highlighted={isDropTarget || isFlashing}
+          highlighted={false}
           selected={selectedIds.has(f.id)}
-          data-drop-target={f.id}
           onClick={(e) => {
             if (e.metaKey || e.ctrlKey) {
               // Toggle selection
@@ -781,15 +788,12 @@ export default function DocumentList() {
 
   return (
     <div
-      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col py-5 select-none z-10 relative"
+      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col pb-5 select-none z-10 relative"
       style={{ width: sidebarWidth }}
     >
-      {/* Header — aligned with Settings.tsx */}
-      <div className="flex items-center justify-between px-5 mb-5 shrink-0">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-          {t('doclist.allDocuments')}
-        </h2>
-        <div className="flex items-center gap-0.5 -mr-1.5">
+      {/* Header — aligned with the tab bar height (h-9) */}
+      <div className="h-9 shrink-0 flex items-center justify-end px-3">
+        <div className="flex items-center gap-0.5">
           <div
             className="relative"
             onMouseEnter={openMoreMenu}
@@ -860,53 +864,11 @@ export default function DocumentList() {
         </div>
       </div>
 
-      {/* Batch selection action bar (shown when documents are selected) */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-1.5 mx-5 mb-2 px-3 py-2 rounded-md bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] shrink-0">
-          <span className="text-xs text-[var(--vscode-foreground)] flex-1 truncate font-medium">
-            {t('doclist.batchSelected', { count: selectedIds.size })}
-          </span>
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                setBatchMoveMenu({ x: rect.left, y: rect.bottom + 4 });
-              }}
-              className="flex items-center justify-center w-7 h-7 rounded text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors"
-              title={t('doclist.batchMove')}
-            >
-              <FolderInput className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              batchDelete();
-            }}
-            className="flex items-center justify-center w-7 h-7 rounded text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors"
-            title={t('doclist.batchDelete')}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedIds(new Set());
-            }}
-            className="flex items-center justify-center w-7 h-7 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors"
-            title={t('doclist.batchClear')}
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* Documents + folders list (root drop zone) */}
       <div
         data-drop-target={ROOT_DROP_ID}
         className={`flex-1 overflow-y-auto px-3 space-y-0.5 transition-colors duration-150 ${
-          isRootDropTarget ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)] rounded-md' : ''
+          isRootDropTarget ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)]' : ''
         }`}
       >
         {isSearching ? (

@@ -92,15 +92,14 @@ export function NavRow({
   let primaryState: string;
   if (highlighted) {
     primaryState =
-      'rounded-md bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)]';
+      'bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-inset ring-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)]';
   } else if (active) {
-    primaryState = plainActive
-      ? 'rounded-md text-[var(--vscode-foreground)] font-medium'
-      : 'rounded-md bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
+    primaryState =
+      'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
   } else if (selected) {
     primaryState = 'bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
-    primaryState = 'rounded-md text-[var(--vscode-sideBar-foreground)]';
+    primaryState = 'text-[var(--vscode-sideBar-foreground)]';
   }
 
   // Secondary active/inactive
