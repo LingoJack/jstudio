@@ -58,6 +58,7 @@ export default function DocumentList() {
   const toggleFolderCollapsed = useStore((s) => s.toggleFolderCollapsed);
   const moveDocumentToFolder = useStore((s) => s.moveDocumentToFolder);
   const deleteDocuments = useStore((s) => s.deleteDocuments);
+  const deleteFolders = useStore((s) => s.deleteFolders);
   const moveDocumentsToFolder = useStore((s) => s.moveDocumentsToFolder);
 
   const { onResizeStart } = useSidebarResize();
@@ -71,8 +72,9 @@ export default function DocumentList() {
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Batch selection state ─────────────────────────────────
-  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
-  const [lastClickedDocId, setLastClickedDocId] = useState<string | null>(null);
+  /** Unified selection set — contains both document ids and folder ids. */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
   const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -129,11 +131,12 @@ export default function DocumentList() {
   );
   const rootDocCount = tree.documents.length;
 
-  // ── Derived: ordered visible document ids (for shift+click range) ──
-  const visibleDocIds = useMemo(() => {
+  // ── Derived: ordered visible item ids (docs + folders, for shift+click range) ──
+  const visibleItemIds = useMemo(() => {
     const ids: string[] = [];
     const collect = (nodes: FolderTreeNode[]) => {
       for (const node of nodes) {
+        if (node.folder) ids.push(node.folder.id);
         for (const doc of node.documents) ids.push(doc.id);
         if (node.folder && !node.folder.collapsed) collect(node.subFolders);
       }
@@ -147,22 +150,38 @@ export default function DocumentList() {
   }, [tree, isSearching, filteredDocs]);
 
   // ── Batch operations ──────────────────────────────────────
+
+  /** Split the unified selection into document ids and folder ids. */
+  const splitSelection = useCallback(() => {
+    const folderIdSet = new Set(folders.map((f) => f.id));
+    const selectedDocs: string[] = [];
+    const selectedFolders: string[] = [];
+    for (const id of selectedIds) {
+      if (folderIdSet.has(id)) selectedFolders.push(id);
+      else selectedDocs.push(id);
+    }
+    return { selectedDocs, selectedFolders };
+  }, [selectedIds, folders]);
+
   const batchDelete = useCallback(() => {
-    if (selectedDocIds.size === 0) return;
-    const msg = t('doclist.batchDeleteConfirm', { count: selectedDocIds.size });
+    if (selectedIds.size === 0) return;
+    const msg = t('doclist.batchDeleteConfirm', { count: selectedIds.size });
     if (!window.confirm(msg)) return;
-    deleteDocuments([...selectedDocIds]);
-    setSelectedDocIds(new Set());
+    const { selectedDocs, selectedFolders } = splitSelection();
+    if (selectedDocs.length > 0) deleteDocuments(selectedDocs);
+    if (selectedFolders.length > 0) deleteFolders(selectedFolders);
+    setSelectedIds(new Set());
     setBatchMenu(null);
-  }, [selectedDocIds, deleteDocuments, t]);
+  }, [selectedIds, splitSelection, deleteDocuments, deleteFolders, t]);
 
   const batchMove = useCallback((folderId: string | null) => {
-    if (selectedDocIds.size === 0) return;
-    moveDocumentsToFolder([...selectedDocIds], folderId);
-    setSelectedDocIds(new Set());
+    if (selectedIds.size === 0) return;
+    const { selectedDocs } = splitSelection();
+    if (selectedDocs.length > 0) moveDocumentsToFolder(selectedDocs, folderId);
+    setSelectedIds(new Set());
     setBatchMoveMenu(null);
     setBatchMenu(null);
-  }, [selectedDocIds, moveDocumentsToFolder]);
+  }, [selectedIds, splitSelection, moveDocumentsToFolder]);
 
   // ── Effects: auto-close menus ─────────────────────────────
   useEffect(() => {
@@ -203,13 +222,13 @@ export default function DocumentList() {
 
   // ── Effect: Escape clears batch selection ─────────────────
   useEffect(() => {
-    if (selectedDocIds.size === 0) return;
+    if (selectedIds.size === 0) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedDocIds(new Set());
+      if (e.key === 'Escape') setSelectedIds(new Set());
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedDocIds]);
+  }, [selectedIds]);
 
   // ── Effect: auto-close batch menus ────────────────────────
   useEffect(() => {
@@ -831,7 +850,9 @@ export default function DocumentList() {
       {/* Documents + folders list (root drop zone) */}
       <div
         data-drop-target={ROOT_DROP_ID}
-        className="flex-1 overflow-y-auto px-3 space-y-0.5"
+        className={`flex-1 overflow-y-auto px-3 space-y-0.5 transition-colors duration-150 ${
+          isRootDropTarget ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)] rounded-md' : ''
+        }`}
       >
         {isSearching ? (
           renderSearchResults()

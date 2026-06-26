@@ -82,7 +82,7 @@ export function NavRow({
 
   // Base layout — primary row
   const primaryBase =
-    'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors duration-150 cursor-pointer';
+    'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer';
 
   // Base layout — secondary row
   const secondaryBase =
@@ -90,19 +90,25 @@ export function NavRow({
 
   // Primary active/inactive
   let primaryState: string;
-  if (active) {
+  if (highlighted) {
+    primaryState =
+      'rounded-md bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)]';
+  } else if (active) {
     primaryState = plainActive
-      ? 'text-[var(--vscode-foreground)] font-medium'
-      : 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
+      ? 'rounded-md text-[var(--vscode-foreground)] font-medium'
+      : 'rounded-md bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
   } else if (selected) {
     primaryState = 'bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
-    primaryState = 'text-[var(--vscode-sideBar-foreground)]';
+    primaryState = 'rounded-md text-[var(--vscode-sideBar-foreground)]';
   }
 
   // Secondary active/inactive
   let secondaryState: string;
-  if (showLine) {
+  if (highlighted) {
+    secondaryState =
+      'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
+  } else if (showLine) {
     secondaryState =
       'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium';
   } else if (selected) {

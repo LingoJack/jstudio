@@ -116,6 +116,7 @@ export interface StoreState {
   createFolder: (name: string, parentId: string | null) => string;
   renameFolder: (id: string, name: string) => void;
   deleteFolder: (id: string) => void;
+  deleteFolders: (ids: string[]) => void;
   toggleFolderCollapsed: (id: string) => void;
   moveDocumentToFolder: (docId: string, folderId: string | null) => void;
   moveDocumentsToFolder: (docIds: string[], folderId: string | null) => void;

@@ -93,6 +93,63 @@ export function createFoldersSlice(set: SetState, get: GetState) {
       }
     },
 
+    // ── delete (batch) ─────────────────────────────────────
+    /**
+     * Delete multiple folders (cascade).  Documents inside the deleted
+     * folders are also deleted from disk.  Overlapping descendant folders
+     * are de-duplicated so that a parent + child selection doesn't double-
+     * process.
+     */
+    deleteFolders: (ids) => {
+      const { folders, docList, documents, activeDocId } = get();
+
+      // Collect ALL affected folder ids (each id + its descendants), then
+      // de-duplicate into a single set.
+      const toRemove = new Set<string>();
+      for (const id of ids) {
+        for (const desc of collectDescendantFolderIds(folders, id)) {
+          toRemove.add(desc);
+        }
+      }
+
+      // 1. Remove folders
+      const nextFolders = folders.filter((f) => !toRemove.has(f.id));
+      set({ folders: nextFolders });
+      scheduleFoldersSave(nextFolders);
+
+      // 2. Find documents inside the deleted folders
+      const docIdsToRemove = new Set(
+        docList
+          .filter((d) => d.folderId && toRemove.has(d.folderId))
+          .map((d) => d.id),
+      );
+
+      // 3. Remove those documents from in-memory state
+      const nextDocList = docList.filter((d) => !docIdsToRemove.has(d.id));
+      const nextDocuments = documents.filter((d) => !docIdsToRemove.has(d.id));
+
+      const stateUpdate: Partial<StoreState> = {
+        docList: nextDocList,
+        documents: nextDocuments,
+      };
+
+      if (activeDocId && docIdsToRemove.has(activeDocId)) {
+        const nextDoc = nextDocuments[0] ?? null;
+        stateUpdate.activeDoc = nextDoc;
+        stateUpdate.activeDocId = nextDoc?.id ?? '';
+      }
+
+      set(stateUpdate);
+      scheduleIndexSave(nextDocList);
+
+      // 4. Persist: delete document files from disk (best-effort)
+      for (const docId of docIdsToRemove) {
+        storage.deleteDocument(docId).catch((e) => {
+          console.error(`Failed to delete document ${docId} from disk:`, e);
+        });
+      }
+    },
+
     // ── toggle collapsed ──────────────────────────────────
     toggleFolderCollapsed: (id: string) => {
       const next = get().folders.map((f) =>
