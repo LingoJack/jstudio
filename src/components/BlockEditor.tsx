@@ -472,20 +472,40 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
   // ------------------------------------------------------------------
   // Click on blank area below editor content — focus end of document
+  //
+  // We must distinguish a genuine CLICK from a drag-selection that ends
+  // outside the .ProseMirror boundary.  We do this by recording the mouse
+  // position on mousedown; if the mouse moved more than a few pixels before
+  // mouseup→click, we treat it as a drag and do NOT refocus.
   // ------------------------------------------------------------------
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+    },
+    [],
+  );
+
   const handleBlankAreaClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!editor) return;
+
+      // If the mouse moved between mousedown and click, it was a drag-
+      // selection, not a click — do not steal focus.
+      const down = mouseDownPosRef.current;
+      if (down) {
+        const dx = Math.abs(e.clientX - down.x);
+        const dy = Math.abs(e.clientY - down.y);
+        if (dx > 3 || dy > 3) return; // dragged more than 3px → selection
+      }
+      mouseDownPosRef.current = null;
+
       const target = e.target as HTMLElement;
       // Skip if clicking inside ProseMirror (editor handles its own clicks)
       if (target.closest('.ProseMirror')) return;
       // Skip if clicking the title input
       if (target.tagName === 'INPUT') return;
-      // Skip if the user has an active text selection (e.g. they dragged
-      // from inside the editor out to the padding area).  Re-focusing would
-      // collapse the selection and jump the caret to the end.
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed) return;
       // Focus to end of document (works even if last block is an empty paragraph)
       editor.chain().focus('end').run();
     },
@@ -538,6 +558,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     <div className="flex h-full bg-transparent overflow-hidden relative">
       <div
         className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+        onMouseDown={handleMouseDown}
         onClick={handleBlankAreaClick}
       >
         {/* Document Title */}
