@@ -1,12 +1,12 @@
 /**
- * GlobalShortcutsSection — Settings page for OS-level global shortcuts.
+ * GlobalShortcutsSection — OS-level global shortcuts settings page.
  *
- * Features:
- *   - List of configured shortcuts (enable/disable toggle, edit, delete)
- *   - Add new shortcut → action type dropdown → dynamic param form
- *   - Key recording (click → press combo → captured)
- *   - Conflict detection within global shortcuts
- *   - Auto-syncs to OS on every change
+ * Card-based UI following the AgentModelSection pattern:
+ *   - Each shortcut is a card in a list (icon + kbd pill + label + actions)
+ *   - Edit mode: card expands inline into a ShortcutEditForm
+ *   - Add mode: dashed "+" button at bottom expands into a ShortcutEditForm
+ *   - Delete: inline ✓/✗ confirmation (no modal)
+ *   - Enable/disable toggle: AgentModelSection-style ToggleRow inside card
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -16,14 +16,16 @@ import {
   Trash2,
   AlertTriangle,
   Play,
-  X,
+  Pencil,
   Check,
+  X,
   Folder,
 } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useI18n, type TranslationKey } from '../../lib/i18n';
 import { useStore } from '../../store/useStore';
-import { eventToBinding } from '../../lib/shortcuts';
+import { eventToBinding, bindingToDisplay } from '../../lib/shortcuts';
+import { toast } from '../../lib/toast';
 import {
   getAllActionDefs,
   getActionDef,
@@ -34,23 +36,26 @@ import {
   type ActionParamField,
 } from '../../lib/globalShortcuts';
 
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
 // Helpers
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
 
 function genId(): string {
   return `gs-${Date.now()}`;
 }
 
-function getActionLabel(config: GlobalShortcutConfig, t: (k: TranslationKey) => string): string {
+function getActionDisplayLabel(
+  config: GlobalShortcutConfig,
+  t: (k: TranslationKey) => string,
+): string {
   const def = getActionDef(config.actionType);
   if (def) return t(def.labelKey as TranslationKey);
   return config.actionLabel || config.actionType;
 }
 
-// ──────────────────────────────────────────────────────────────────
-// KbdPill — reused style from ShortcutsSection
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// KbdPill — styled key caps
+// ════════════════════════════════════════════════════════════════════
 
 function KbdPill({
   binding,
@@ -62,6 +67,7 @@ function KbdPill({
   conflicted: boolean;
 }) {
   const { t } = useI18n();
+
   if (recording) {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] text-xs font-mono animate-pulse">
@@ -69,6 +75,7 @@ function KbdPill({
       </span>
     );
   }
+
   if (!binding) {
     return (
       <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md border border-dashed border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] bg-transparent text-xs italic transition-colors hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] cursor-pointer">
@@ -76,6 +83,7 @@ function KbdPill({
       </span>
     );
   }
+
   return (
     <span
       className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-md border text-xs font-mono transition-colors cursor-pointer ${
@@ -89,9 +97,61 @@ function KbdPill({
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// ToggleRow — reused from AgentModelSection
+// ════════════════════════════════════════════════════════════════════
+
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative w-8 h-5 rounded-full transition-colors flex-shrink-0 cursor-pointer ${
+          checked
+            ? 'bg-[var(--vscode-button-background)]'
+            : 'bg-[var(--vscode-input-border)]'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
+            checked
+              ? 'translate-x-3 bg-[var(--vscode-button-foreground)]'
+              : 'bg-[var(--vscode-descriptionForeground)]'
+          }`}
+        />
+      </button>
+      <span className="text-xs text-[var(--vscode-descriptionForeground)]">{label}</span>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// FormField — reused from AgentModelSection
+// ════════════════════════════════════════════════════════════════════
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-[var(--vscode-foreground)] mb-1.5">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
 // ParamFieldEditor — renders a form field based on ActionParamField schema
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
 
 function ParamFieldEditor({
   field,
@@ -103,17 +163,16 @@ function ParamFieldEditor({
   onChange: (v: unknown) => void;
 }) {
   const { t } = useI18n();
+  const inputClass =
+    'w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors';
 
   if (field.type === 'select') {
     return (
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-[var(--vscode-descriptionForeground)]">
-          {t(field.labelKey as TranslationKey)}
-        </label>
+      <FormField label={t(field.labelKey as TranslationKey)}>
         <select
           value={String((value as string) ?? field.defaultValue ?? '')}
           onChange={(e) => onChange(e.target.value)}
-          className="px-2.5 py-1.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] text-sm outline-none focus:border-[var(--vscode-focusBorder)]"
+          className={`${inputClass} cursor-pointer`}
         >
           {field.options?.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -121,158 +180,197 @@ function ParamFieldEditor({
             </option>
           ))}
         </select>
-      </div>
+      </FormField>
     );
   }
 
   if (field.type === 'directory') {
     const currentValue = (value as string) ?? (field.defaultValue as string) ?? '';
     return (
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-[var(--vscode-descriptionForeground)]">
-          {t(field.labelKey as TranslationKey)}
-        </label>
+      <FormField label={t(field.labelKey as TranslationKey)}>
         <div className="flex gap-1.5">
           <input
             type="text"
             value={currentValue}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholderKey ? t(field.placeholderKey as TranslationKey) : ''}
-            className="flex-1 px-2.5 py-1.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] text-sm outline-none focus:border-[var(--vscode-focusBorder)]"
+            className={inputClass}
           />
           <button
+            type="button"
             onClick={async () => {
               const selected = await open({ directory: true });
               if (selected) onChange(selected);
             }}
-            className="shrink-0 px-2.5 py-1.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-button-secondaryBackground)] text-[var(--vscode-button-secondaryForeground)] text-sm hover:bg-[var(--vscode-list-hoverBackground)] flex items-center gap-1.5"
+            className="shrink-0 px-3 py-2 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-button-secondaryBackground)] text-[var(--vscode-button-secondaryForeground)] text-sm hover:bg-[var(--vscode-list-hoverBackground)] flex items-center cursor-pointer transition-colors"
           >
             <Folder className="w-3.5 h-3.5" />
           </button>
         </div>
-      </div>
+      </FormField>
     );
   }
 
   // text
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs text-[var(--vscode-descriptionForeground)]">
-        {t(field.labelKey as TranslationKey)}
-      </label>
+    <FormField label={t(field.labelKey as TranslationKey)}>
       <input
         type="text"
         value={(value as string) ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholderKey ? t(field.placeholderKey as TranslationKey) : ''}
-        className="px-2.5 py-1.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] text-sm outline-none focus:border-[var(--vscode-focusBorder)]"
+        className={inputClass}
       />
-    </div>
+    </FormField>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// ConfigRow — a single existing shortcut entry
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// ShortcutCard — a single shortcut entry (non-editing state)
+// ════════════════════════════════════════════════════════════════════
 
-function ConfigRow({
+function ShortcutCard({
   config,
   configs,
   onToggle,
   onEdit,
   onDelete,
+  isConfirmingDelete,
+  onConfirmDelete,
+  onCancelDelete,
 }: {
   config: GlobalShortcutConfig;
   configs: GlobalShortcutConfig[];
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  isConfirmingDelete: boolean;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
 }) {
   const { t } = useI18n();
   const conflict = findShortcutConflict(config.shortcut, configs, config.id);
-
-  const handleTest = async () => {
-    await executeAction(config, {
-      emit: async (event, payload) => {
-        const { emit } = await import('@tauri-apps/api/event');
-        await emit(event, payload);
-      },
-    });
-  };
-
   const def = getActionDef(config.actionType);
   const Icon = def?.icon ?? Globe;
+  const display = config.shortcut ? bindingToDisplay(config.shortcut) : '';
+
+  const handleTest = async () => {
+    try {
+      await executeAction(config, {
+        emit: async (event, payload) => {
+          const { emit } = await import('@tauri-apps/api/event');
+          await emit(event, payload);
+        },
+      });
+    } catch {
+      toast.error(t('globalShortcut.testFailed'));
+    }
+  };
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] hover:border-[var(--vscode-input-border)] transition-colors">
+    <div
+      className={`relative flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
+        conflict
+          ? 'border-[var(--vscode-errorForeground)] bg-[var(--vscode-inputValidation-errorBackground)]'
+          : config.enabled
+            ? 'border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)]'
+            : 'border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] opacity-60'
+      }`}
+    >
       {/* Icon */}
-      <div className="w-8 h-8 rounded-md bg-[var(--vscode-list-hoverBackground)] flex items-center justify-center shrink-0">
-        <Icon className="w-4 h-4 text-[var(--vscode-descriptionForeground)]" />
+      <div className="w-9 h-9 rounded-lg bg-[var(--vscode-badge-background)] flex items-center justify-center flex-shrink-0">
+        <Icon className="w-4 h-4 text-[var(--vscode-badge-foreground)]" />
       </div>
 
-      {/* Shortcut + action info */}
-      <div className="flex-1 min-w-0 flex items-center gap-3">
-        <KbdPill binding={config.shortcut} recording={false} conflicted={!!conflict} />
-        <div className="min-w-0 flex flex-col">
-          <span className="text-sm text-[var(--vscode-foreground)] truncate">
-            {getActionLabel(config, t)}
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        {/* Row 1: kbd pill + name + badges */}
+        <div className="flex items-center gap-2">
+          <KbdPill binding={display} recording={false} conflicted={!!conflict} />
+          <span className="text-sm font-medium text-[var(--vscode-foreground)] truncate">
+            {getActionDisplayLabel(config, t)}
           </span>
-          {conflict && (
-            <span className="text-[11px] text-[var(--vscode-errorForeground)] flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              {t('globalShortcut.conflict')}
+          {config.enabled && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0 leading-tight">
+              {t('globalShortcut.badgeGlobal')}
             </span>
           )}
         </div>
+        {/* Row 2: description / conflict */}
+        {conflict ? (
+          <div className="flex items-center gap-1 mt-0.5 text-xs text-[var(--vscode-errorForeground)]">
+            <AlertTriangle className="w-3 h-3 shrink-0" />
+            <span>{t('globalShortcut.conflict')}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--vscode-descriptionForeground)]">
+            {def?.descriptionKey && <span className="truncate">{t(def.descriptionKey as TranslationKey)}</span>}
+          </div>
+        )}
       </div>
 
-      {/* Toggle */}
-      <button
-        onClick={onToggle}
-        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${
-          config.enabled
-            ? 'bg-[var(--vscode-button-background)]'
-            : 'bg-[var(--vscode-widget-border)]'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-            config.enabled ? 'translate-x-4' : 'translate-x-0.5'
-          }`}
+      {/* Enable toggle */}
+      <div className="flex-shrink-0">
+        <ToggleRow
+          label={t('globalShortcut.enabled')}
+          checked={config.enabled}
+          onChange={onToggle}
         />
-      </button>
+      </div>
 
       {/* Actions */}
-      <button
-        onClick={handleTest}
-        title={t('globalShortcut.test')}
-        className="shrink-0 p-1.5 rounded-md text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] transition-colors"
-      >
-        <Play className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={onEdit}
-        title={t('globalShortcut.edit')}
-        className="shrink-0 px-2 py-1 rounded-md text-xs text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] transition-colors"
-      >
-        {t('globalShortcut.editBtn')}
-      </button>
-      <button
-        onClick={onDelete}
-        title={t('globalShortcut.delete')}
-        className="shrink-0 p-1.5 rounded-md text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)] transition-colors"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      <div className="flex items-center gap-0.5 flex-shrink-0">
+        {isConfirmingDelete ? (
+          <div className="flex items-center gap-1 px-1">
+            <button
+              onClick={onConfirmDelete}
+              className="p-1.5 rounded text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              title={t('globalShortcut.delete')}
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onCancelDelete}
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={handleTest}
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              title={t('globalShortcut.test')}
+            >
+              <Play className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onEdit}
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              title={t('globalShortcut.edit')}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              title={t('globalShortcut.delete')}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// EditPanel — add/edit form
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// ShortcutEditForm — inline add/edit form (ProviderEditForm pattern)
+// ════════════════════════════════════════════════════════════════════
 
-function EditPanel({
+function ShortcutEditForm({
   initial,
   configs,
   onSave,
@@ -291,6 +389,7 @@ function EditPanel({
   const [actionParams, setActionParams] = useState<Record<string, unknown>>(
     initial?.actionParams ?? {},
   );
+  const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   const [recording, setRecording] = useState(false);
   const recordingRef = useRef(false);
 
@@ -298,27 +397,26 @@ function EditPanel({
   const conflict = findShortcutConflict(shortcut, configs, initial?.id ?? '');
 
   // ── Key recording ──
-  const handleRecordKey = useCallback(
-    (e: KeyboardEvent) => {
-      if (!recordingRef.current) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.key === 'Escape') {
-        recordingRef.current = false;
-        setRecording(false);
-        return;
-      }
-      // Ignore lone modifier presses
-      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
-      const binding = eventToBinding(e);
-      if (binding) {
-        setShortcut(binding);
-        recordingRef.current = false;
-        setRecording(false);
-      }
-    },
-    [],
-  );
+  const handleRecordKey = useCallback((e: KeyboardEvent) => {
+    if (!recordingRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      recordingRef.current = false;
+      setRecording(false);
+      return;
+    }
+    // Ignore lone modifier presses
+    if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+
+    const binding = eventToBinding(e);
+    if (binding) {
+      setShortcut(binding);
+      recordingRef.current = false;
+      setRecording(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (recording) {
@@ -326,7 +424,6 @@ function EditPanel({
       window.addEventListener('keydown', handleRecordKey, true);
     } else {
       recordingRef.current = false;
-      window.removeEventListener('keydown', handleRecordKey, true);
     }
     return () => window.removeEventListener('keydown', handleRecordKey, true);
   }, [recording, handleRecordKey]);
@@ -343,9 +440,17 @@ function EditPanel({
   };
 
   const handleSave = () => {
+    if (!shortcut) {
+      toast.warning(t('globalShortcut.noShortcut'));
+      return;
+    }
+    if (conflict) {
+      toast.warning(t('globalShortcut.conflict'));
+      return;
+    }
     const config: GlobalShortcutConfig = {
       id: initial?.id ?? genId(),
-      enabled: initial?.enabled ?? true,
+      enabled,
       shortcut,
       actionType,
       actionLabel: currentDef ? t(currentDef.labelKey as TranslationKey) : actionType,
@@ -354,35 +459,37 @@ function EditPanel({
     onSave(config);
   };
 
-  const canSave = shortcut && actionType && !conflict;
+  const display = shortcut ? bindingToDisplay(shortcut) : '';
+  const inputClass =
+    'w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors';
 
   return (
-    <div className="rounded-xl border border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] p-5 space-y-4">
+    <div className="p-5 rounded-lg border border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] space-y-4">
       {/* Shortcut recording */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-[var(--vscode-descriptionForeground)]">
-          {t('globalShortcut.shortcutKey')}
-        </label>
-        <div onClick={() => setRecording(true)}>
-          <KbdPill binding={shortcut} recording={recording} conflicted={!!conflict} />
+      <FormField label={t('globalShortcut.shortcutKey')}>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setRecording(true)}
+            className="cursor-pointer"
+          >
+            <KbdPill binding={display} recording={recording} conflicted={!!conflict} />
+          </button>
+          {conflict && (
+            <span className="text-[11px] text-[var(--vscode-errorForeground)] flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              {t('globalShortcut.conflict')}
+            </span>
+          )}
         </div>
-        {conflict && (
-          <span className="text-[11px] text-[var(--vscode-errorForeground)] flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" />
-            {t('globalShortcut.conflict')}
-          </span>
-        )}
-      </div>
+      </FormField>
 
       {/* Action type selector */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-[var(--vscode-descriptionForeground)]">
-          {t('globalShortcut.action')}
-        </label>
+      <FormField label={t('globalShortcut.action')}>
         <select
           value={actionType}
           onChange={(e) => handleActionTypeChange(e.target.value)}
-          className="px-2.5 py-1.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] text-sm outline-none focus:border-[var(--vscode-focusBorder)]"
+          className={`${inputClass} cursor-pointer`}
         >
           {actionDefs.map((def) => (
             <option key={def.type} value={def.type}>
@@ -391,11 +498,11 @@ function EditPanel({
           ))}
         </select>
         {currentDef?.descriptionKey && (
-          <span className="text-[11px] text-[var(--vscode-descriptionForeground)]">
+          <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5 opacity-70 leading-tight">
             {t(currentDef.descriptionKey as TranslationKey)}
-          </span>
+          </p>
         )}
-      </div>
+      </FormField>
 
       {/* Dynamic param fields */}
       {currentDef?.paramFields && currentDef.paramFields.length > 0 && (
@@ -405,139 +512,148 @@ function EditPanel({
               key={field.key}
               field={field}
               value={actionParams[field.key]}
-              onChange={(v) =>
-                setActionParams((prev) => ({ ...prev, [field.key]: v }))
-              }
+              onChange={(v) => setActionParams((prev) => ({ ...prev, [field.key]: v }))}
             />
           ))}
         </div>
       )}
 
-      {/* Buttons */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-[var(--vscode-widget-border)]">
+      {/* Enable toggle */}
+      <ToggleRow
+        label={t('globalShortcut.enabledDesc')}
+        checked={enabled}
+        onChange={setEnabled}
+      />
+
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--vscode-widget-border)]">
         <button
           onClick={onCancel}
-          className="px-3 py-1.5 rounded-md text-sm text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors flex items-center gap-1.5"
+          className="px-4 py-1.5 text-sm rounded-md border border-[var(--vscode-input-border)] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
         >
-          <X className="w-3.5 h-3.5" />
           {t('globalShortcut.cancel')}
         </button>
         <button
           onClick={handleSave}
-          disabled={!canSave}
-          className="px-3 py-1.5 rounded-md text-sm bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+          className="jstudio-btn-primary"
         >
-          <Check className="w-3.5 h-3.5" />
-          {t('globalShortcut.save')}
+          <span>{t('globalShortcut.save')}</span>
         </button>
       </div>
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
 // Main component
-// ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
 
 export default function GlobalShortcutsSection() {
   const { t } = useI18n();
   const configs = useStore((s) => s.globalShortcuts);
   const setGlobalShortcuts = useStore((s) => s.setGlobalShortcuts);
-  const [editing, setEditing] = useState<GlobalShortcutConfig | null>(null);
-  const [showAddPanel, setShowAddPanel] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // ── Persist + sync to OS whenever configs change ──
-  const persistAndSync = useCallback(async (newConfigs: GlobalShortcutConfig[]) => {
-    setGlobalShortcuts(newConfigs);
-    try {
-      await syncGlobalShortcuts(newConfigs.filter((c) => c.enabled));
-    } catch (err) {
-      console.error('[GlobalShortcutsSection] Failed to sync:', err);
+  // ── Persist + sync to OS ──
+  const persistAndSync = useCallback(
+    async (newConfigs: GlobalShortcutConfig[]) => {
+      setGlobalShortcuts(newConfigs);
+      try {
+        await syncGlobalShortcuts(newConfigs.filter((c) => c.enabled));
+      } catch (err) {
+        console.error('[GlobalShortcutsSection] Failed to sync:', err);
+      }
+    },
+    [setGlobalShortcuts],
+  );
+
+  const handleSave = (config: GlobalShortcutConfig) => {
+    const exists = configs.some((c) => c.id === config.id);
+    if (exists) {
+      persistAndSync(configs.map((c) => (c.id === config.id ? config : c)));
+    } else {
+      persistAndSync([...configs, config]);
     }
-  }, [setGlobalShortcuts]);
-
-  const handleAdd = (config: GlobalShortcutConfig) => {
-    persistAndSync([...configs, config]);
-    setShowAddPanel(false);
-  };
-
-  const handleUpdate = (config: GlobalShortcutConfig) => {
-    persistAndSync(configs.map((c) => (c.id === config.id ? config : c)));
-    setEditing(null);
+    setEditingId(null);
+    setIsAdding(false);
   };
 
   const handleToggle = (id: string) => {
-    persistAndSync(
-      configs.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)),
-    );
+    persistAndSync(configs.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)));
   };
 
   const handleDelete = (id: string) => {
     persistAndSync(configs.filter((c) => c.id !== id));
+    setConfirmDeleteId(null);
   };
 
   return (
     <div id="settings-globalShortcuts" className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-2.5">
-        <Globe className="w-5 h-5 text-[var(--vscode-descriptionForeground)]" />
-        <h2 className="text-lg font-semibold text-[var(--vscode-foreground)]">
+      <div id="settings-globalShortcuts-header">
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('globalShortcut.title')}
-        </h2>
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('globalShortcut.description')}
+        </p>
       </div>
 
-      <p className="text-sm text-[var(--vscode-descriptionForeground)] leading-relaxed">
-        {t('globalShortcut.description')}
-      </p>
-
-      {/* Add button */}
-      {!showAddPanel && !editing && (
-        <button
-          onClick={() => setShowAddPanel(true)}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[var(--vscode-input-border)] bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] text-sm font-medium hover:bg-[var(--vscode-button-hoverBackground)] transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          {t('globalShortcut.add')}
-        </button>
-      )}
-
-      {/* Add / Edit panel */}
-      {showAddPanel && (
-        <EditPanel
-          initial={null}
-          configs={configs}
-          onSave={handleAdd}
-          onCancel={() => setShowAddPanel(false)}
-        />
-      )}
-      {editing && (
-        <EditPanel
-          initial={editing}
-          configs={configs}
-          onSave={handleUpdate}
-          onCancel={() => setEditing(null)}
-        />
-      )}
-
-      {/* Config list */}
+      {/* Shortcut cards */}
       <div className="space-y-2">
-        {configs.length === 0 && !showAddPanel ? (
-          <div className="text-center py-12 text-sm text-[var(--vscode-descriptionForeground)]">
-            {t('globalShortcut.empty')}
-          </div>
-        ) : (
-          configs.map((config) => (
-            <ConfigRow
+        {configs.map((config) => {
+          const isEditing = editingId === config.id;
+
+          if (isEditing) {
+            return (
+              <ShortcutEditForm
+                key={`edit-${config.id}`}
+                initial={config}
+                configs={configs}
+                onSave={handleSave}
+                onCancel={() => setEditingId(null)}
+              />
+            );
+          }
+
+          return (
+            <ShortcutCard
               key={config.id}
               config={config}
               configs={configs}
               onToggle={() => handleToggle(config.id)}
-              onEdit={() => setEditing(config)}
-              onDelete={() => handleDelete(config.id)}
+              onEdit={() => setEditingId(config.id)}
+              onDelete={() => setConfirmDeleteId(config.id)}
+              isConfirmingDelete={confirmDeleteId === config.id}
+              onConfirmDelete={() => handleDelete(config.id)}
+              onCancelDelete={() => setConfirmDeleteId(null)}
             />
-          ))
+          );
+        })}
+
+        {/* Add form */}
+        {isAdding && (
+          <ShortcutEditForm
+            initial={null}
+            configs={configs}
+            onSave={handleSave}
+            onCancel={() => setIsAdding(false)}
+          />
         )}
       </div>
+
+      {/* Add button — dashed full-width row */}
+      {!isAdding && editingId === null && (
+        <button
+          onClick={() => setIsAdding(true)}
+          className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm rounded-lg border border-dashed border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>{t('globalShortcut.add')}</span>
+        </button>
+      )}
     </div>
   );
 }

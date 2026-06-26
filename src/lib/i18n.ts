@@ -363,6 +363,11 @@ export const translations = {
     'globalShortcut.param.workingDirectoryPlaceholder': '~ 或绝对路径',
     'globalShortcut.param.command': '命令',
     'globalShortcut.param.commandPlaceholder': '可选：要执行的命令',
+    'globalShortcut.badgeGlobal': '全局',
+    'globalShortcut.enabled': '启用',
+    'globalShortcut.enabledDesc': '启用此快捷键（注册到系统）',
+    'globalShortcut.testFailed': '测试执行失败',
+    'globalShortcut.noShortcut': '请先录制快捷键',
 
     // Shortcut categories
     'shortcut.category.general': '通用',
@@ -781,6 +786,11 @@ export const translations = {
     'globalShortcut.param.workingDirectoryPlaceholder': '~ or absolute path',
     'globalShortcut.param.command': 'Command',
     'globalShortcut.param.commandPlaceholder': 'Optional: command to execute',
+    'globalShortcut.badgeGlobal': 'Global',
+    'globalShortcut.enabled': 'Enabled',
+    'globalShortcut.enabledDesc': 'Register this shortcut with the OS',
+    'globalShortcut.testFailed': 'Test execution failed',
+    'globalShortcut.noShortcut': 'Please record a shortcut key first',
 
     // Shortcut categories
     'shortcut.category.general': 'General',
