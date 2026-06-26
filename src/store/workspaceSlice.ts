@@ -325,7 +325,6 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     const tab = tabs.find(
       (t) => t.kind === 'document' && t.docId === docId,
     );
-    console.log('[removeDocumentTabByDocId] docId:', docId, 'found tab:', tab, 'all tabs:', tabs.map(t => ({id: t.id, kind: t.kind, docId: t.docId})));
     if (!tab) return;
 
     const idx = tabs.findIndex((t) => t.id === tab.id);
@@ -336,8 +335,14 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       if (remaining.length === 0) {
         newActiveTabId = null;
       } else {
-        const nextIdx = Math.min(idx, remaining.length - 1);
-        newActiveTabId = remaining[nextIdx].id;
+        const docRemaining = remaining.filter((t) => t.kind === 'document');
+        if (docRemaining.length > 0) {
+          const nextIdx = Math.min(idx, docRemaining.length - 1);
+          newActiveTabId = docRemaining[nextIdx].id;
+        } else {
+          // No document tabs left — stay in documents view (EmptyState).
+          newActiveTabId = null;
+        }
       }
     }
 
@@ -356,6 +361,9 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
         }
         set({ activeSidebarView: 'terminal' });
       }
+    } else {
+      // No active tab — clear the active document so the EmptyState shows.
+      set({ activeDoc: null, activeDocId: null });
     }
   },
 });

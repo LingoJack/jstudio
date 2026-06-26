@@ -320,9 +320,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     set(stateUpdate as StoreState);
 
     // Remove the workspace tab for this document (if any).
-    console.log('[deleteDocument] removing tab for doc:', id, 'current tabs:', get().tabs);
     get().removeDocumentTabByDocId(id);
-    console.log('[deleteDocument] tabs after removal:', get().tabs);
 
     // Now persist to disk — failures are logged but don't crash the app.
     try {
@@ -403,9 +401,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     set(stateUpdate as StoreState);
 
     // Remove the workspace tab for this document (if any).
-    console.log('[trashDocument] removing tab for doc:', id, 'current tabs:', get().tabs);
     get().removeDocumentTabByDocId(id);
-    console.log('[trashDocument] tabs after removal:', get().tabs);
 
     try {
       await storage.saveIndex([...newDocList, ...newTrashed]);
