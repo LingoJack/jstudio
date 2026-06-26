@@ -87,30 +87,15 @@ fn doc_assets_dir(doc_id: &str) -> PathBuf {
     doc_dir(doc_id).join("assets")
 }
 
-fn index_path() -> PathBuf {
-    studio_dir().join("index.json")
-}
-
-fn settings_path() -> PathBuf {
-    studio_dir().join("settings.json")
-}
-
-/// `~/.jdata/studio/folders.json`
-fn folders_path() -> PathBuf {
-    studio_dir().join("folders.json")
-}
-
-/// Create the studio directory structure. Returns the root path.
+/// Create the studio directory structure and initialise the SQLite database.
+/// Returns the root path.
 #[tauri::command]
 pub fn ensure_studio_dir() -> Result<String, String> {
     let base = studio_dir();
     fs::create_dir_all(documents_dir()).map_err(|e| e.to_string())?;
 
-    // Seed index.json with an empty array if it doesn't exist.
-    let idx = index_path();
-    if !idx.exists() {
-        fs::write(&idx, "[]").map_err(|e| e.to_string())?;
-    }
+    // Initialise SQLite database (creates tables + runs JSON migration).
+    crate::db::init_db()?;
 
     Ok(base.to_string_lossy().into_owned())
 }
@@ -166,19 +151,96 @@ fn open_path_in_file_manager(path: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
-/// Read the document metadata index.
+/// Read all document metadata from the database, ordered by `updated_at` DESC.
 #[tauri::command]
 pub fn read_index() -> Result<Value, String> {
-    let data =
-        fs::read_to_string(index_path()).map_err(|e| format!("failed to read index: {e}"))?;
-    serde_json::from_str(&data).map_err(|e| format!("failed to parse index: {e}"))
+    let conn = crate::db::db()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, title, emoji, folder_id, is_favorite, created_at, updated_at \
+             FROM documents ORDER BY updated_at DESC",
+        )
+        .map_err(|e| format!("failed to prepare index query: {e}"))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            let id: String = row.get(0)?;
+            let title: String = row.get(1)?;
+            let emoji: String = row.get(2)?;
+            let folder_id: Option<String> = row.get(3)?;
+            let is_favorite: i64 = row.get(4)?;
+            let created_at: String = row.get(5)?;
+            let updated_at: String = row.get(6)?;
+
+            let mut obj = serde_json::json!({
+                "id": id,
+                "title": title,
+                "emoji": emoji,
+                "createdAt": created_at,
+                "updatedAt": updated_at,
+                "isFavorite": is_favorite != 0,
+            });
+            if let Some(fid) = folder_id {
+                obj["folderId"] = Value::String(fid);
+            }
+            Ok(obj)
+        })
+        .map_err(|e| format!("failed to query index: {e}"))?;
+
+    let mut entries = Vec::new();
+    for row in rows {
+        entries.push(row.map_err(|e| format!("index row error: {e}"))?);
+    }
+    Ok(Value::Array(entries))
 }
 
-/// Write the full document metadata index.
+/// Replace the entire document metadata index in a single transaction.
 #[tauri::command]
 pub fn write_index(entries: Value) -> Result<(), String> {
-    let json = serde_json::to_string_pretty(&entries).map_err(|e| e.to_string())?;
-    fs::write(index_path(), json).map_err(|e| e.to_string())
+    let arr = entries
+        .as_array()
+        .ok_or("write_index: expected JSON array")?;
+
+    let mut conn = crate::db::db()?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("failed to begin index tx: {e}"))?;
+
+    tx.execute("DELETE FROM documents", [])
+        .map_err(|e| format!("failed to clear documents: {e}"))?;
+
+    for entry in arr {
+        let id = entry["id"].as_str().ok_or("write_index: missing id")?;
+        let title = entry["title"].as_str().unwrap_or("");
+        let emoji = entry["emoji"].as_str().unwrap_or("");
+        let folder_id = entry["folderId"].as_str();
+        let is_favorite = if entry["isFavorite"].as_bool() == Some(true) {
+            1
+        } else {
+            0
+        };
+        let created_at = entry["createdAt"].as_str().unwrap_or("");
+        let updated_at = entry["updatedAt"].as_str().unwrap_or("");
+
+        tx.execute(
+            "INSERT OR REPLACE INTO documents \
+             (id, title, emoji, folder_id, is_favorite, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                id,
+                title,
+                emoji,
+                folder_id,
+                is_favorite,
+                created_at,
+                updated_at
+            ],
+        )
+        .map_err(|e| format!("failed to insert document {id}: {e}"))?;
+    }
+
+    tx.commit()
+        .map_err(|e| format!("failed to commit index tx: {e}"))
 }
 
 /// Read a single document by id.
@@ -231,46 +293,62 @@ pub fn delete_document(doc_id: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Read user settings.
+/// Read all settings from the database, assembled into a single JSON object.
+///
+/// Each row in the `settings` table stores one key with a JSON-encoded value;
+/// this function rehydrates them into `{ key1: value1, key2: value2, ... }`.
 #[tauri::command]
 pub fn read_settings() -> Result<Value, String> {
-    let path = settings_path();
-    if !path.exists() {
-        return Ok(serde_json::json!({}));
+    let conn = crate::db::db()?;
+    let mut stmt = conn
+        .prepare("SELECT key, value FROM settings")
+        .map_err(|e| format!("failed to prepare settings query: {e}"))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            let key: String = row.get(0)?;
+            let value_str: String = row.get(1)?;
+            Ok((key, value_str))
+        })
+        .map_err(|e| format!("failed to query settings: {e}"))?;
+
+    let mut obj = serde_json::Map::new();
+    for row in rows {
+        let (key, value_str) = row.map_err(|e| format!("settings row error: {e}"))?;
+        let val: Value = serde_json::from_str(&value_str).unwrap_or(Value::Null);
+        obj.insert(key, val);
     }
-    let data = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&data).map_err(|e| e.to_string())
+    Ok(Value::Object(obj))
 }
 
-/// Write user settings (partial merge).
+/// Write settings (partial upsert).
 ///
-/// The frontend sends **partial** objects (e.g. `{ "theme": "dark" }`),
-/// so we must read the existing file first, merge the new keys on top,
-/// and then write back — otherwise unrelated fields are silently lost.
+/// The frontend sends **partial** objects (e.g. `{ "theme": "dark" }`).
+/// Each key in the incoming object is upserted into the `settings` table;
+/// keys not present in the incoming object are left untouched — this
+/// preserves the existing shallow-merge semantics.
 #[tauri::command]
 pub fn write_settings(settings: Value) -> Result<(), String> {
-    let path = settings_path();
-    let mut existing = if path.exists() {
-        fs::read_to_string(&path)
-            .ok()
-            .and_then(|data| serde_json::from_str::<Value>(&data).ok())
-            .unwrap_or_else(|| serde_json::json!({}))
-    } else {
-        serde_json::json!({})
-    };
+    let obj = settings
+        .as_object()
+        .ok_or("write_settings: expected JSON object")?;
 
-    // Shallow-merge: new keys overwrite, existing keys are preserved.
-    if let (Some(existing_obj), Some(new_obj)) = (existing.as_object_mut(), settings.as_object()) {
-        for (key, value) in new_obj {
-            existing_obj.insert(key.clone(), value.clone());
-        }
-    } else {
-        // If existing is not an object (corrupted), just use the new value.
-        existing = settings;
+    let mut conn = crate::db::db()?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("failed to begin settings tx: {e}"))?;
+
+    for (key, val) in obj {
+        let value_str = serde_json::to_string(val).unwrap_or_else(|_| "null".into());
+        tx.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            rusqlite::params![key, value_str],
+        )
+        .map_err(|e| format!("failed to upsert setting '{key}': {e}"))?;
     }
 
-    let json = serde_json::to_string_pretty(&existing).map_err(|e| e.to_string())?;
-    fs::write(path, json).map_err(|e| e.to_string())
+    tx.commit()
+        .map_err(|e| format!("failed to commit settings tx: {e}"))
 }
 
 // ────────────────────────────────────────────────
@@ -311,23 +389,82 @@ pub fn write_agent_config(config: Value) -> Result<(), String> {
     fs::write(&path, json).map_err(|e| e.to_string())
 }
 
-/// Read the folder index (`folders.json`).
-/// Returns an empty array if the file does not exist yet.
+/// Read all folders from the database, ordered by `sort_order`.
 #[tauri::command]
 pub fn read_folders() -> Result<Value, String> {
-    let path = folders_path();
-    if !path.exists() {
-        return Ok(serde_json::Value::Array(vec![]));
+    let conn = crate::db::db()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, parent_id, sort_order, collapsed \
+             FROM folders ORDER BY sort_order ASC",
+        )
+        .map_err(|e| format!("failed to prepare folders query: {e}"))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            let id: String = row.get(0)?;
+            let name: String = row.get(1)?;
+            let parent_id: Option<String> = row.get(2)?;
+            let sort_order: i64 = row.get(3)?;
+            let collapsed: i64 = row.get(4)?;
+
+            let mut obj = serde_json::json!({
+                "id": id,
+                "name": name,
+                "sortOrder": sort_order,
+                "collapsed": collapsed != 0,
+            });
+            if let Some(pid) = parent_id {
+                obj["parentId"] = Value::String(pid);
+            }
+            Ok(obj)
+        })
+        .map_err(|e| format!("failed to query folders: {e}"))?;
+
+    let mut entries = Vec::new();
+    for row in rows {
+        entries.push(row.map_err(|e| format!("folders row error: {e}"))?);
     }
-    let data = fs::read_to_string(&path).map_err(|e| format!("failed to read folders: {e}"))?;
-    serde_json::from_str(&data).map_err(|e| format!("failed to parse folders: {e}"))
+    Ok(Value::Array(entries))
 }
 
-/// Write the full folder index (`folders.json`).
+/// Replace the entire folder tree in a single transaction.
 #[tauri::command]
 pub fn write_folders(entries: Value) -> Result<(), String> {
-    let json = serde_json::to_string_pretty(&entries).map_err(|e| e.to_string())?;
-    fs::write(folders_path(), json).map_err(|e| e.to_string())
+    let arr = entries
+        .as_array()
+        .ok_or("write_folders: expected JSON array")?;
+
+    let mut conn = crate::db::db()?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("failed to begin folders tx: {e}"))?;
+
+    tx.execute("DELETE FROM folders", [])
+        .map_err(|e| format!("failed to clear folders: {e}"))?;
+
+    for entry in arr {
+        let id = entry["id"].as_str().ok_or("write_folders: missing id")?;
+        let name = entry["name"].as_str().unwrap_or("");
+        let parent_id = entry["parentId"].as_str();
+        let sort_order = entry["sortOrder"].as_i64().unwrap_or(0);
+        let collapsed = if entry["collapsed"].as_bool() == Some(true) {
+            1
+        } else {
+            0
+        };
+
+        tx.execute(
+            "INSERT OR REPLACE INTO folders \
+             (id, name, parent_id, sort_order, collapsed) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![id, name, parent_id, sort_order, collapsed],
+        )
+        .map_err(|e| format!("failed to insert folder {id}: {e}"))?;
+    }
+
+    tx.commit()
+        .map_err(|e| format!("failed to commit folders tx: {e}"))
 }
 
 /// Save a binary asset into a document's own assets folder.
