@@ -366,6 +366,23 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     trail.start();
     trailRef.current = trail;
 
+    // ── Event-driven caret re-measurement ──
+    // The trail animation runs every frame, but the caret GEOMETRY only
+    // changes on these events.  We mark the trail "dirty" so it re-measures
+    // exactly once per change instead of probing the DOM 60×/second.
+    const markDirty = () => trail.markDirty();
+    editor.on('selectionUpdate', markDirty);
+    editor.on('update', markDirty);
+    editor.on('focus', markDirty);
+    editor.on('blur', markDirty);
+    // Scrolling shifts the caret within the canvas-local coordinate space.
+    scrollContainer.addEventListener('scroll', markDirty, { passive: true });
+
+    // Safety net: some reflows raise none of the above events (e.g. an
+    // async-loaded image pushing content down, web-font swap).  A low-
+    // frequency poll catches those without reintroducing per-frame cost.
+    const safetyTick = window.setInterval(markDirty, 400);
+
     // Resize observer to keep canvas in sync with container size
     const resizeObserver = new ResizeObserver(() => {
       trail.resize();
@@ -373,6 +390,12 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     resizeObserver.observe(scrollContainer);
 
     return () => {
+      window.clearInterval(safetyTick);
+      scrollContainer.removeEventListener('scroll', markDirty);
+      editor.off('selectionUpdate', markDirty);
+      editor.off('update', markDirty);
+      editor.off('focus', markDirty);
+      editor.off('blur', markDirty);
       resizeObserver.disconnect();
       trail.dispose();
       trailRef.current = null;

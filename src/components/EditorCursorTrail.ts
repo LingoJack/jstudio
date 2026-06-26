@@ -60,6 +60,22 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private prevCaretKey = '';
 
   /**
+   * Whether the caret geometry needs to be re-measured from the DOM.
+   *
+   * Measuring (getClientRects + getComputedStyle + the <pre> line-counting
+   * fallback) forces a layout/style recalc and is the single most expensive
+   * thing this class does.  The rAF loop runs at 60fps for the blink/trail
+   * animation, but the caret geometry only changes on selection moves, edits,
+   * focus changes, scrolls or resizes.  So instead of measuring every frame
+   * we measure only when this flag is set (toggled via {@link markDirty}),
+   * and reuse {@link cachedRect} on all other frames.  The animation itself
+   * (corner easing, blink, GL render) is untouched and still runs every frame.
+   */
+  private dirty = true;
+  /** Last measured caret rect (canvas-local), reused while not dirty. */
+  private cachedRect: { left: number; right: number; top: number; bottom: number } | null = null;
+
+  /**
    * DOM overlay that re-draws the glyph covered by a block cursor in the
    * editor's *background* colour, so the character stays legible on top of
    * the opaque block (terminal-style colour inversion).  Lazily created.
@@ -121,6 +137,27 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
   setCursorStyle(style: EditorCursorStyle) {
     this.cursorStyle = style;
+    // Shape changed → geometry (e.g. covered glyph, block vs bar) must be
+    // recomputed on the next frame.
+    this.dirty = true;
+  }
+
+  /**
+   * Mark the caret geometry as stale so the next animation frame re-measures
+   * it from the DOM.  Cheap (just sets a flag) — call it on any event that
+   * can move the caret or reflow the editor: selection changes, edits, focus
+   * changes, scroll, resize.  Between dirty marks the loop reuses the cached
+   * rect and performs NO DOM reads, while the trail/blink animation keeps
+   * running every frame exactly as before.
+   */
+  markDirty() {
+    this.dirty = true;
+  }
+
+  /** Re-measure on resize: the canvas-local mapping depends on canvas size. */
+  resize() {
+    super.resize();
+    this.dirty = true;
   }
 
   stop() {
@@ -137,11 +174,24 @@ export class EditorCursorTrail extends BaseCursorTrail {
   // ── BaseCursorTrail implementation ──
 
   /**
-   * Read caret position from the Selection API and set cursorEdgeX/Y.
-   * Handles first-frame snap and blink timer reset.
+   * Per-frame target update.
+   *
+   * Event-driven measurement: the expensive DOM read (`measureCaretRect`)
+   * runs ONLY when {@link dirty} is set — i.e. right after a selection move,
+   * edit, focus change, scroll or resize raised it via {@link markDirty}.
+   * On every other frame we reuse {@link cachedRect}, so a static (merely
+   * blinking) caret performs zero layout/style work.  The trail easing, blink
+   * and GL render below/around this still run every frame, so the animation
+   * is byte-for-byte identical to before — only the measurement cadence drops
+   * from 60fps to "once per actual change".
    */
   protected updateTarget() {
-    const caretRect = this.measureCaretRect();
+    if (this.dirty) {
+      this.cachedRect = this.measureCaretRect();
+      this.dirty = false;
+    }
+
+    const caretRect = this.cachedRect;
 
     if (caretRect) {
       // Detect if the caret position changed — reset blink timer so the
@@ -166,7 +216,9 @@ export class EditorCursorTrail extends BaseCursorTrail {
       this.firstFrame = false;
     }
 
-    // Sync the inverted-glyph overlay (block cursor only).
+    // Sync the inverted-glyph overlay (block cursor only).  Cheap: it only
+    // touches DOM styles on the single overlay element and reads the cached
+    // `coveredGlyph` — its per-frame opacity tracks the blink animation.
     this.syncGlyphOverlay();
   }
 
