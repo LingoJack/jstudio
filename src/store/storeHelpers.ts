@@ -104,6 +104,7 @@ export interface StoreState {
   // — document ops (documents slice) —
   createDocument: (folderId?: string) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
+  deleteDocuments: (ids: string[]) => Promise<void>;
   renameDocument: (id: string, title: string) => void;
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
@@ -117,6 +118,7 @@ export interface StoreState {
   deleteFolder: (id: string) => void;
   toggleFolderCollapsed: (id: string) => void;
   moveDocumentToFolder: (docId: string, folderId: string | null) => void;
+  moveDocumentsToFolder: (docIds: string[], folderId: string | null) => void;
 
   // — block ops (editor slice) —
   updateBlock: (blockId: string, fields: Partial<Block>) => void;

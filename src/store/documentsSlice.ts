@@ -323,6 +323,40 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
   },
 
+  deleteDocuments: async (ids) => {
+    const { documents, docList, activeDocId } = get();
+    const idSet = new Set(ids);
+    if (idSet.size === 0) return;
+
+    // Update in-memory state FIRST so the UI reacts immediately.
+    const newDocuments = documents.filter((d) => !idSet.has(d.id));
+    const newDocList = docList.filter((d) => !idSet.has(d.id));
+
+    const stateUpdate: Partial<StoreState> = {
+      documents: newDocuments,
+      docList: newDocList,
+    };
+
+    if (activeDocId && idSet.has(activeDocId)) {
+      const nextDoc = newDocuments[0] ?? null;
+      stateUpdate.activeDoc = nextDoc;
+      stateUpdate.activeDocId = nextDoc?.id ?? '';
+    }
+
+    set(stateUpdate as StoreState);
+
+    // Persist: delete document files from disk (best-effort, parallel)
+    await Promise.allSettled(
+      ids.map((id) => storage.deleteDocument(id)),
+    );
+
+    try {
+      await storage.saveIndex(newDocList);
+    } catch (e) {
+      console.error('Failed to save index after batch delete:', e);
+    }
+  },
+
   openDocument: async (id) => {
     const { documents, activeDocId } = get();
     if (id === activeDocId) return;

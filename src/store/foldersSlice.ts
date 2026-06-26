@@ -114,5 +114,19 @@ export function createFoldersSlice(set: SetState, get: GetState) {
       set({ docList: nextDocList });
       scheduleIndexSave(nextDocList);
     },
+
+    // ── move documents (batch) ────────────────────────────
+    /**
+     * Move multiple documents to a different folder (or root if `folderId` is null).
+     */
+    moveDocumentsToFolder: (docIds: string[], folderId: string | null) => {
+      const idSet = new Set(docIds);
+      if (idSet.size === 0) return;
+      const nextDocList = get().docList.map((d) =>
+        idSet.has(d.id) ? { ...d, folderId } : d,
+      );
+      set({ docList: nextDocList });
+      scheduleIndexSave(nextDocList);
+    },
   };
 }

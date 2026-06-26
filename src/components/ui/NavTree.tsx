@@ -42,6 +42,8 @@ interface NavRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'classN
   active?: boolean;
   highlighted?: boolean;
   plainActive?: boolean;
+  /** Batch-selection highlight (distinct from active/current document). */
+  selected?: boolean;
   icon?: React.ReactNode;
   expandable?: boolean;
   expanded?: boolean;
@@ -65,6 +67,7 @@ export function NavRow({
   active = false,
   highlighted = false,
   plainActive = false,
+  selected = false,
   icon,
   expandable = false,
   expanded = false,
@@ -91,6 +94,8 @@ export function NavRow({
     primaryState = plainActive
       ? 'text-[var(--vscode-foreground)] font-medium'
       : 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
+  } else if (selected) {
+    primaryState = 'bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
     primaryState = 'text-[var(--vscode-sideBar-foreground)]';
   }
@@ -100,6 +105,9 @@ export function NavRow({
   if (showLine) {
     secondaryState =
       'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium';
+  } else if (selected) {
+    secondaryState =
+      'border-transparent bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
     secondaryState =
       'border-transparent text-[var(--vscode-descriptionForeground)]';

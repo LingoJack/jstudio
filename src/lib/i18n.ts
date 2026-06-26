@@ -72,6 +72,13 @@ export const translations = {
     'doclist.folderNamePlaceholder': '文件夹名称',
     'doclist.deleteFolderConfirm': '确定删除文件夹「{name}」吗？文件夹内的文档将移至根目录。',
 
+    // ── DocumentList batch operations ──
+    'doclist.batchSelected': '已选 {count} 篇',
+    'doclist.batchDelete': '删除选中',
+    'doclist.batchMove': '移动选中',
+    'doclist.batchDeleteConfirm': '确定删除选中的 {count} 篇文档吗？此操作不可撤销。',
+    'doclist.batchClear': '取消选择',
+
     // ── Terminal ──
     'terminal.sessions': '终端会话',
     'terminal.newSession': '新建终端',
@@ -494,6 +501,13 @@ export const translations = {
     'doclist.rootLevel': 'Root',
     'doclist.folderNamePlaceholder': 'Folder name',
     'doclist.deleteFolderConfirm': 'Delete folder "{name}"? All documents inside this folder and its sub-folders will be permanently deleted.',
+
+    // ── DocumentList batch operations ──
+    'doclist.batchSelected': '{count} selected',
+    'doclist.batchDelete': 'Delete Selected',
+    'doclist.batchMove': 'Move Selected',
+    'doclist.batchDeleteConfirm': 'Delete {count} selected documents? This action cannot be undone.',
+    'doclist.batchClear': 'Clear Selection',
 
     // ── Terminal ──
     'terminal.sessions': 'Terminal Sessions',

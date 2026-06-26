@@ -7,6 +7,7 @@ import { buildFolderTree, type FolderTreeNode } from '../lib/folderTree';
 import {
   FileText, Plus, MoreHorizontal, FileDown,
   FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
+  X,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
@@ -56,6 +57,8 @@ export default function DocumentList() {
   const deleteFolder = useStore((s) => s.deleteFolder);
   const toggleFolderCollapsed = useStore((s) => s.toggleFolderCollapsed);
   const moveDocumentToFolder = useStore((s) => s.moveDocumentToFolder);
+  const deleteDocuments = useStore((s) => s.deleteDocuments);
+  const moveDocumentsToFolder = useStore((s) => s.moveDocumentsToFolder);
 
   const { onResizeStart } = useSidebarResize();
 
@@ -66,6 +69,12 @@ export default function DocumentList() {
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Batch selection state ─────────────────────────────────
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [lastClickedDocId, setLastClickedDocId] = useState<string | null>(null);
+  const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
+  const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
 
   const [folderMenu, setFolderMenu] = useState<FolderMenuState | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
@@ -120,6 +129,41 @@ export default function DocumentList() {
   );
   const rootDocCount = tree.documents.length;
 
+  // ── Derived: ordered visible document ids (for shift+click range) ──
+  const visibleDocIds = useMemo(() => {
+    const ids: string[] = [];
+    const collect = (nodes: FolderTreeNode[]) => {
+      for (const node of nodes) {
+        for (const doc of node.documents) ids.push(doc.id);
+        if (node.folder && !node.folder.collapsed) collect(node.subFolders);
+      }
+    };
+    if (isSearching) {
+      return filteredDocs.map((d) => d.id);
+    }
+    collect(tree.subFolders);
+    for (const doc of tree.documents) ids.push(doc.id);
+    return ids;
+  }, [tree, isSearching, filteredDocs]);
+
+  // ── Batch operations ──────────────────────────────────────
+  const batchDelete = useCallback(() => {
+    if (selectedDocIds.size === 0) return;
+    const msg = t('doclist.batchDeleteConfirm', { count: selectedDocIds.size });
+    if (!window.confirm(msg)) return;
+    deleteDocuments([...selectedDocIds]);
+    setSelectedDocIds(new Set());
+    setBatchMenu(null);
+  }, [selectedDocIds, deleteDocuments, t]);
+
+  const batchMove = useCallback((folderId: string | null) => {
+    if (selectedDocIds.size === 0) return;
+    moveDocumentsToFolder([...selectedDocIds], folderId);
+    setSelectedDocIds(new Set());
+    setBatchMoveMenu(null);
+    setBatchMenu(null);
+  }, [selectedDocIds, moveDocumentsToFolder]);
+
   // ── Effects: auto-close menus ─────────────────────────────
   useEffect(() => {
     if (!contextMenu) return;
@@ -157,6 +201,39 @@ export default function DocumentList() {
     }
   }, [renamingFolderId]);
 
+  // ── Effect: Escape clears batch selection ─────────────────
+  useEffect(() => {
+    if (selectedDocIds.size === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedDocIds(new Set());
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedDocIds]);
+
+  // ── Effect: auto-close batch menus ────────────────────────
+  useEffect(() => {
+    if (!batchMenu) return;
+    const close = () => setBatchMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('blur', close);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('blur', close);
+    };
+  }, [batchMenu]);
+
+  useEffect(() => {
+    if (!batchMoveMenu) return;
+    const close = () => setBatchMoveMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('blur', close);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('blur', close);
+    };
+  }, [batchMoveMenu]);
+
   // ── Handlers: more menu / rename ──────────────────────────
   const openMoreMenu = useCallback(() => {
     if (moreMenuCloseTimer.current) {
@@ -187,8 +264,50 @@ export default function DocumentList() {
   const handleContextMenu = (e: React.MouseEvent, docId: string) => {
     e.preventDefault();
     e.stopPropagation();
+    // If right-clicking on a doc that's already in a multi-selection,
+    // show the batch menu. Otherwise, clear selection and show single menu.
+    if (selectedDocIds.size > 1 && selectedDocIds.has(docId)) {
+      setBatchMenu({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    setSelectedDocIds(new Set());
     setContextMenu({ x: e.clientX, y: e.clientY, docId });
   };
+
+  /**
+   * Unified document click handler supporting multi-select:
+   * - Cmd/Ctrl+Click: toggle selection
+   * - Shift+Click: range select from last clicked doc
+   * - Plain click: open doc, clear selection
+   */
+  const handleDocClick = useCallback((e: React.MouseEvent, docId: string) => {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) {
+      setSelectedDocIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(docId)) next.delete(docId);
+        else next.add(docId);
+        return next;
+      });
+      setLastClickedDocId(docId);
+    } else if (e.shiftKey && lastClickedDocId) {
+      const start = visibleDocIds.indexOf(lastClickedDocId);
+      const end = visibleDocIds.indexOf(docId);
+      if (start !== -1 && end !== -1) {
+        const lo = Math.min(start, end);
+        const hi = Math.max(start, end);
+        setSelectedDocIds(new Set(visibleDocIds.slice(lo, hi + 1)));
+      }
+      setLastClickedDocId(docId);
+    } else {
+      setSelectedDocIds(new Set());
+      setLastClickedDocId(docId);
+      openDocument(docId);
+    }
+  }, [lastClickedDocId, visibleDocIds, openDocument]);
 
   // ── Handlers: folder actions ──────────────────────────────
   const handleToggleFolder = useCallback(
@@ -398,14 +517,23 @@ export default function DocumentList() {
         const target = findDropTarget(e.clientX, e.clientY);
         if (target) {
           const folderId = target === ROOT_DROP_ID ? null : target;
-          const doc = docList.find((x) => x.id === d.docId);
-          const currentFolder = doc?.folderId ?? null;
-          if (currentFolder !== folderId) {
-            moveDocumentToFolder(d.docId, folderId);
-            if (folderId) {
-              setFlashFolderId(folderId);
-              setTimeout(() => setFlashFolderId(null), 600);
+
+          // If the dragged doc is part of a multi-selection, move all
+          // selected docs. Otherwise move just the one (and clear selection).
+          if (selectedDocIds.size > 1 && selectedDocIds.has(d.docId)) {
+            moveDocumentsToFolder([...selectedDocIds], folderId);
+            setSelectedDocIds(new Set());
+          } else {
+            const doc = docList.find((x) => x.id === d.docId);
+            const currentFolder = doc?.folderId ?? null;
+            if (currentFolder !== folderId) {
+              moveDocumentToFolder(d.docId, folderId);
             }
+            setSelectedDocIds(new Set());
+          }
+          if (folderId) {
+            setFlashFolderId(folderId);
+            setTimeout(() => setFlashFolderId(null), 600);
           }
         }
         // Suppress the click that follows pointerup so we don't
@@ -435,7 +563,7 @@ export default function DocumentList() {
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
     };
-  }, [dragArmed, docList, moveDocumentToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dragArmed, docList, moveDocumentToFolder, selectedDocIds, moveDocumentsToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render helpers ────────────────────────────────────────
 
@@ -447,21 +575,17 @@ export default function DocumentList() {
     const isActive = doc.id === activeDocId;
     const isDragging = draggingDocId === doc.id;
     const isRenaming = renamingId === doc.id;
+    const isSelected = selectedDocIds.has(doc.id);
 
     return (
       <NavRow
         key={doc.id}
         level="secondary"
         active={isActive}
+        selected={isSelected}
         icon={<FileText className="w-4 h-4 opacity-50 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-        onClick={(e) => {
-          if (suppressClick.current) {
-            suppressClick.current = false;
-            return;
-          }
-          openDocument(doc.id);
-        }}
+        onClick={(e) => handleDocClick(e, doc.id)}
         onContextMenu={(e) => handleContextMenu(e, doc.id)}
         onDoubleClick={(e) => {
           e.stopPropagation();
@@ -575,15 +699,10 @@ export default function DocumentList() {
         level="primary"
         plainActive
         active={doc.id === activeDocId}
+        selected={selectedDocIds.has(doc.id)}
         icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-        onClick={(e) => {
-          if (suppressClick.current) {
-            suppressClick.current = false;
-            return;
-          }
-          openDocument(doc.id);
-        }}
+        onClick={(e) => handleDocClick(e, doc.id)}
         onContextMenu={(e) => handleContextMenu(e, doc.id)}
         onDoubleClick={(e) => {
           e.stopPropagation();
@@ -667,6 +786,48 @@ export default function DocumentList() {
         </div>
       </div>
 
+      {/* Batch selection action bar (shown when documents are selected) */}
+      {selectedDocIds.size > 0 && (
+        <div className="flex items-center gap-1.5 mx-5 mb-2 px-3 py-2 rounded-md bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] shrink-0">
+          <span className="text-xs text-[var(--vscode-foreground)] flex-1 truncate font-medium">
+            {t('doclist.batchSelected', { count: selectedDocIds.size })}
+          </span>
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setBatchMoveMenu({ x: rect.left, y: rect.bottom + 4 });
+              }}
+              className="flex items-center justify-center w-7 h-7 rounded text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors"
+              title={t('doclist.batchMove')}
+            >
+              <FolderInput className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              batchDelete();
+            }}
+            className="flex items-center justify-center w-7 h-7 rounded text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors"
+            title={t('doclist.batchDelete')}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedDocIds(new Set());
+            }}
+            className="flex items-center justify-center w-7 h-7 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors"
+            title={t('doclist.batchClear')}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Documents + folders list (root drop zone) */}
       <div
         data-drop-target={ROOT_DROP_ID}
@@ -688,15 +849,10 @@ export default function DocumentList() {
                   level="primary"
                   plainActive
                   active={doc.id === activeDocId}
+                  selected={selectedDocIds.has(doc.id)}
                   icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
                   onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-                  onClick={(e) => {
-                    if (suppressClick.current) {
-                      suppressClick.current = false;
-                      return;
-                    }
-                    openDocument(doc.id);
-                  }}
+                  onClick={(e) => handleDocClick(e, doc.id)}
                   onContextMenu={(e) => handleContextMenu(e, doc.id)}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
@@ -791,6 +947,60 @@ export default function DocumentList() {
           onCopyPath={() => handleCopyPath(contextMenu.docId)}
           onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
         />
+      )}
+
+      {/* Batch context menu (right-click on multi-selection) */}
+      {batchMenu && (
+        <MenuList
+          x={batchMenu.x}
+          y={batchMenu.y}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MenuItem
+            icon={<FolderInput />}
+            onClick={() => {
+              setBatchMoveMenu({ x: batchMenu.x, y: batchMenu.y });
+              setBatchMenu(null);
+            }}
+          >
+            {t('doclist.batchMove')}
+          </MenuItem>
+          <MenuDivider />
+          <MenuItem
+            variant="danger"
+            icon={<Trash2 />}
+            onClick={batchDelete}
+          >
+            {t('doclist.batchDelete')}
+          </MenuItem>
+        </MenuList>
+      )}
+
+      {/* Batch move-to-folder menu (drops down from the action bar) */}
+      {batchMoveMenu && (
+        <MenuList
+          x={batchMoveMenu.x}
+          y={batchMoveMenu.y}
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-64 overflow-y-auto"
+        >
+          <MenuItem
+            icon={<FileText className="w-4 h-4" />}
+            onClick={() => batchMove(null)}
+          >
+            {t('doclist.rootLevel')}
+          </MenuItem>
+          {folders.length > 0 && <MenuDivider />}
+          {folders.map((f) => (
+            <MenuItem
+              key={f.id}
+              icon={<Folder className="w-4 h-4" />}
+              onClick={() => batchMove(f.id)}
+            >
+              {f.name}
+            </MenuItem>
+          ))}
+        </MenuList>
       )}
 
       {/* Resize handle */}
