@@ -280,17 +280,21 @@ export default function DocumentList() {
     }
   }, [renamingId, renameValue, renameDocument]);
 
-  const handleContextMenu = (e: React.MouseEvent, docId: string) => {
+  const handleContextMenu = (e: React.MouseEvent, id: string, kind: 'doc' | 'folder' = 'doc') => {
     e.preventDefault();
     e.stopPropagation();
-    // If right-clicking on a doc that's already in a multi-selection,
+    // If right-clicking on an item that's already in a multi-selection,
     // show the batch menu. Otherwise, clear selection and show single menu.
-    if (selectedDocIds.size > 1 && selectedDocIds.has(docId)) {
+    if (selectedIds.size > 1 && selectedIds.has(id)) {
       setBatchMenu({ x: e.clientX, y: e.clientY });
       return;
     }
-    setSelectedDocIds(new Set());
-    setContextMenu({ x: e.clientX, y: e.clientY, docId });
+    setSelectedIds(new Set());
+    if (kind === 'folder') {
+      setFolderMenu({ x: e.clientX, y: e.clientY, folderId: id });
+    } else {
+      setContextMenu({ x: e.clientX, y: e.clientY, docId: id });
+    }
   };
 
   /**
@@ -305,28 +309,34 @@ export default function DocumentList() {
       return;
     }
     if (e.metaKey || e.ctrlKey) {
-      setSelectedDocIds((prev) => {
+      setSelectedIds((prev) => {
         const next = new Set(prev);
         if (next.has(docId)) next.delete(docId);
         else next.add(docId);
         return next;
       });
-      setLastClickedDocId(docId);
-    } else if (e.shiftKey && lastClickedDocId) {
-      const start = visibleDocIds.indexOf(lastClickedDocId);
-      const end = visibleDocIds.indexOf(docId);
+      setLastClickedId(docId);
+    } else if (e.shiftKey && lastClickedId) {
+      const start = visibleItemIds.indexOf(lastClickedId);
+      const end = visibleItemIds.indexOf(docId);
       if (start !== -1 && end !== -1) {
         const lo = Math.min(start, end);
         const hi = Math.max(start, end);
-        setSelectedDocIds(new Set(visibleDocIds.slice(lo, hi + 1)));
+        setSelectedIds(new Set(visibleItemIds.slice(lo, hi + 1)));
       }
-      setLastClickedDocId(docId);
+      setLastClickedId(docId);
     } else {
-      setSelectedDocIds(new Set());
-      setLastClickedDocId(docId);
+      // If there's an existing multi-selection, a plain click clears it
+      // without opening the document (so user can "click away" to deselect).
+      if (selectedIds.size > 0) {
+        setSelectedIds(new Set());
+        return;
+      }
+      setSelectedIds(new Set());
+      setLastClickedId(docId);
       openDocument(docId);
     }
-  }, [lastClickedDocId, visibleDocIds, openDocument]);
+  }, [lastClickedId, visibleItemIds, selectedIds, openDocument]);
 
   // ── Handlers: folder actions ──────────────────────────────
   const handleToggleFolder = useCallback(
@@ -539,16 +549,16 @@ export default function DocumentList() {
 
           // If the dragged doc is part of a multi-selection, move all
           // selected docs. Otherwise move just the one (and clear selection).
-          if (selectedDocIds.size > 1 && selectedDocIds.has(d.docId)) {
-            moveDocumentsToFolder([...selectedDocIds], folderId);
-            setSelectedDocIds(new Set());
+          if (selectedIds.size > 1 && selectedIds.has(d.docId)) {
+            moveDocumentsToFolder([...selectedIds], folderId);
+            setSelectedIds(new Set());
           } else {
             const doc = docList.find((x) => x.id === d.docId);
             const currentFolder = doc?.folderId ?? null;
             if (currentFolder !== folderId) {
               moveDocumentToFolder(d.docId, folderId);
             }
-            setSelectedDocIds(new Set());
+            setSelectedIds(new Set());
           }
           if (folderId) {
             setFlashFolderId(folderId);
@@ -582,7 +592,7 @@ export default function DocumentList() {
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
     };
-  }, [dragArmed, docList, moveDocumentToFolder, selectedDocIds, moveDocumentsToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dragArmed, docList, moveDocumentToFolder, selectedIds, moveDocumentsToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render helpers ────────────────────────────────────────
 
@@ -594,7 +604,7 @@ export default function DocumentList() {
     const isActive = doc.id === activeDocId;
     const isDragging = draggingDocId === doc.id;
     const isRenaming = renamingId === doc.id;
-    const isSelected = selectedDocIds.has(doc.id);
+    const isSelected = selectedIds.has(doc.id);
 
     return (
       <NavRow
@@ -657,9 +667,38 @@ export default function DocumentList() {
         <NavRow
           level="primary"
           highlighted={isDropTarget || isFlashing}
+          selected={selectedIds.has(f.id)}
           data-drop-target={f.id}
-          onClick={() => handleToggleFolder(f.id)}
-          onContextMenu={(e) => handleFolderContextMenu(e, f.id)}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey) {
+              // Toggle selection
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(f.id)) next.delete(f.id);
+                else next.add(f.id);
+                return next;
+              });
+              setLastClickedId(f.id);
+            } else if (e.shiftKey && lastClickedId) {
+              const start = visibleItemIds.indexOf(lastClickedId);
+              const end = visibleItemIds.indexOf(f.id);
+              if (start !== -1 && end !== -1) {
+                const lo = Math.min(start, end);
+                const hi = Math.max(start, end);
+                setSelectedIds(new Set(visibleItemIds.slice(lo, hi + 1)));
+              }
+              setLastClickedId(f.id);
+            } else {
+              // Plain click: if there's a selection, clear it (don't toggle)
+              if (selectedIds.size > 0) {
+                setSelectedIds(new Set());
+              } else {
+                handleToggleFolder(f.id);
+              }
+              setLastClickedId(f.id);
+            }
+          }}
+          onContextMenu={(e) => handleContextMenu(e, f.id, 'folder')}
           onDoubleClick={(e) => {
             e.stopPropagation();
             startFolderRename(f.id, f.name);
@@ -718,7 +757,7 @@ export default function DocumentList() {
         level="primary"
         plainActive
         active={doc.id === activeDocId}
-        selected={selectedDocIds.has(doc.id)}
+        selected={selectedIds.has(doc.id)}
         icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => handleDocClick(e, doc.id)}
@@ -806,10 +845,10 @@ export default function DocumentList() {
       </div>
 
       {/* Batch selection action bar (shown when documents are selected) */}
-      {selectedDocIds.size > 0 && (
+      {selectedIds.size > 0 && (
         <div className="flex items-center gap-1.5 mx-5 mb-2 px-3 py-2 rounded-md bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)] shrink-0">
           <span className="text-xs text-[var(--vscode-foreground)] flex-1 truncate font-medium">
-            {t('doclist.batchSelected', { count: selectedDocIds.size })}
+            {t('doclist.batchSelected', { count: selectedIds.size })}
           </span>
           <div className="relative">
             <button
@@ -837,7 +876,7 @@ export default function DocumentList() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setSelectedDocIds(new Set());
+              setSelectedIds(new Set());
             }}
             className="flex items-center justify-center w-7 h-7 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors"
             title={t('doclist.batchClear')}
@@ -870,7 +909,7 @@ export default function DocumentList() {
                   level="primary"
                   plainActive
                   active={doc.id === activeDocId}
-                  selected={selectedDocIds.has(doc.id)}
+                  selected={selectedIds.has(doc.id)}
                   icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
                   onPointerDown={(e) => onDocPointerDown(e, doc.id)}
                   onClick={(e) => handleDocClick(e, doc.id)}
