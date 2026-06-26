@@ -173,7 +173,12 @@ export default function LinkView({
       maxWidth: () => {
         const el = figureRefInternal.current;
         const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
-        return (editorSurface?.clientWidth ?? window.innerWidth) - 24;
+        if (editorSurface) {
+          const style = getComputedStyle(editorSurface);
+          const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+          return editorSurface.clientWidth - padX - 24;
+        }
+        return window.innerWidth - 24;
       },
       onCommit: (finalWidth) => {
         const pct =

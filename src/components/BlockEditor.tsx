@@ -195,7 +195,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     onUpdate: readOnly ? undefined : handleChange,
     editorProps: {
       attributes: {
-        class: 'max-w-none focus:outline-none',
+        class: 'max-w-none focus:outline-none px-4 md:px-12 lg:px-20',
       },
       handlePaste: readOnly ? undefined : createPasteHandler(editorRef),
       handleDrop: readOnly ? undefined : createDropHandler(editorRef),
@@ -520,9 +520,9 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   if (isStatic && doc) {
     return (
       <div className="flex h-full bg-transparent overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text">
+        <div className="flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text">
           {/* Document Title (static text, not editable) */}
-          <div className="pb-4">
+          <div className="px-4 md:px-12 lg:px-20 pb-4">
             <h1 className="text-4xl font-bold text-[var(--vscode-editor-foreground)] pb-1">
               {doc.title}
             </h1>
@@ -556,13 +556,12 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
   return (
     <div className="flex h-full bg-transparent overflow-hidden relative">
-      <div
-        className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+      <div className="flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
         onMouseDown={handleMouseDown}
         onClick={handleBlankAreaClick}
       >
         {/* Document Title */}
-        <div className="pb-4">
+        <div className="px-4 md:px-12 lg:px-20 pb-4">
           <input
             ref={titleInputRef}
             type="text"
