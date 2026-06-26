@@ -22,9 +22,6 @@ import {
   TerminalSquare,
   Settings2,
   ChevronRight,
-  CornerDownLeft,
-  ArrowUp,
-  ArrowDown,
   BookOpen,
   Info,
   Keyboard,
@@ -339,23 +336,6 @@ export default function CommandPaletteWindow() {
         )}
       </div>
 
-      {/* ── Footer hint ── */}
-      <div className="flex items-center gap-4 px-3.5 py-2 border-t border-[var(--vscode-widget-border)] text-[11px] text-[var(--vscode-descriptionForeground)] opacity-60">
-        <span className="flex items-center gap-1.5">
-          <ArrowUp className="w-3 h-3" />
-          <ArrowDown className="w-3 h-3" />
-          <span>{lang === 'zh' ? '导航' : 'Navigate'}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <CornerDownLeft className="w-3 h-3" />
-          <span>{lang === 'zh' ? '执行' : 'Select'}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1 py-0.5 rounded text-[10px] bg-[var(--vscode-list-hoverBackground)]">Tab</kbd>
-          <span>{lang === 'zh' ? '切换范围' : 'Switch'}</span>
-        </span>
-        <span className="flex-1" />
-        <kbd className="px-1 py-0.5 rounded text-[10px] bg-[var(--vscode-list-hoverBackground)]">Esc</kbd>
       </div>
 
       <style>{`
