@@ -325,6 +325,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     const tab = tabs.find(
       (t) => t.kind === 'document' && t.docId === docId,
     );
+    console.log('[removeDocumentTabByDocId] docId:', docId, 'found tab:', tab, 'all tabs:', tabs.map(t => ({id: t.id, kind: t.kind, docId: t.docId})));
     if (!tab) return;
 
     const idx = tabs.findIndex((t) => t.id === tab.id);
