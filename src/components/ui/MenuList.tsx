@@ -1,4 +1,5 @@
 import React from 'react';
+import { useEffect, useRef, useState } from 'react';
  
 /**
  * Reusable VS Code-style menu primitives.
@@ -80,12 +81,50 @@ interface MenuListProps {
 }
 
 /**
+ * Compute the clamped position so the menu never overflows the viewport.
+ *
+ * After the menu DOM is mounted we measure its actual width/height, then
+ * shift it left/up as needed so it always fits within the window.
+ */
+function useClampedPosition(x: number, y: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: x, top: y });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const reposition = () => {
+      const { width, height } = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      setPos({
+        left: Math.min(x, vw - width - 8),
+        top: Math.min(y, vh - height - 8),
+      });
+    };
+
+    // Measure right after mount (one tick for layout).
+    reposition();
+
+    // Keep the menu on-screen whenever the viewport changes.
+    window.addEventListener('resize', reposition);
+    return () => window.removeEventListener('resize', reposition);
+  }, [x, y]);
+
+  return { ref, pos };
+}
+
+/**
  * The floating / dropdown container that wraps MenuItem / MenuDivider.
  *
  * When `x` / `y` are provided the menu is `position: fixed` at those
- * coordinates (right-click context menu).  When omitted it flows inline
- * (dropdown triggered by a button) — the caller positions it via the
- * surrounding relative wrapper.
+ * coordinates (right-click context menu). The position is automatically
+ * clamped so the menu never overflows the window edge, and re-clamped
+ * on `resize` so it stays fully visible at any window size.
+ *
+ * When `x` / `y` are omitted it flows inline (dropdown triggered by a
+ * button) — the caller positions it via the surrounding relative wrapper.
  */
 export function MenuList({
   x,
@@ -95,10 +134,13 @@ export function MenuList({
   children,
 }: MenuListProps) {
   const isFixed = x !== undefined && y !== undefined;
+  const { ref, pos } = useClampedPosition(x ?? 0, y ?? 0);
+
   return (
     <div
+      ref={ref}
       className={`z-50 min-w-[160px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${isFixed ? 'fixed' : ''} ${className}`}
-      style={isFixed ? { left: x, top: y } : undefined}
+      style={isFixed ? { left: pos.left, top: pos.top } : undefined}
       onClick={onClick}
     >
       {children}
