@@ -479,9 +479,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   importMarkdownDirectory: async (dirPath, targetFolderId) => {
     const entries = await storage.listMarkdownFiles(dirPath);
 
-    /** relative-path → folder-id lookup. Root maps to targetFolderId (or null). */
-    const folderMap = new Map<string, string | null>();
-    folderMap.set('', targetFolderId ?? null);
+    // Extract the directory name (e.g. "/path/to/MyNotes" → "MyNotes")
+    const dirName = dirPath.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || 'Imported';
 
     const { folders } = get();
     const newFolders: FolderMeta[] = [];
@@ -489,6 +488,21 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     const newMetas: DocumentMeta[] = [];
     let folderSeq = 0;
     let docCount = 0;
+
+    // Create a top-level folder mirroring the imported directory name,
+    // so the directory itself (not just its contents) appears in the sidebar.
+    const rootFolderId = `folder-${Date.now()}-${folderSeq++}`;
+    newFolders.push({
+      id: rootFolderId,
+      name: dirName,
+      parentId: targetFolderId ?? null,
+      sortOrder: 0,
+      collapsed: false,
+    });
+
+    /** relative-path → folder-id lookup. Root maps to the new top-level folder. */
+    const folderMap = new Map<string, string | null>();
+    folderMap.set('', rootFolderId);
 
     for (const entry of entries) {
       if (entry.isDir) continue; // directories are created lazily below
@@ -503,7 +517,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // Remove the file name; remaining parts are directory segments.
       const dirParts = parts.slice(0, -1);
       let currentRel = '';
-      let parentId: string | null = targetFolderId ?? null;
+      let parentId: string | null = rootFolderId;
       for (const seg of dirParts) {
         const childRel = currentRel ? `${currentRel}/${seg}` : seg;
         if (folderMap.has(childRel)) {
