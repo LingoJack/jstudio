@@ -79,6 +79,21 @@ export const translations = {
     'doclist.batchDeleteConfirm': '确定删除选中的 {count} 篇文档吗？此操作不可撤销。',
     'doclist.batchClear': '取消选择',
 
+    // ── Document List: Trash ──
+    'doclist.trash': '回收站',
+    'doclist.moveToTrash': '移入回收站',
+    'doclist.moveToTrashConfirm': '确定将「{name}」移入回收站吗？',
+    'doclist.batchMoveToTrash': '移入回收站',
+    'doclist.batchMoveToTrashConfirm': '确定将选中的 {count} 项移入回收站吗？',
+    'doclist.restore': '恢复',
+    'doclist.permanentlyDelete': '永久删除',
+    'doclist.permanentlyDeleteConfirm': '确定永久删除「{name}」吗？此操作不可撤销。',
+    'doclist.emptyTrash': '清空回收站',
+    'doclist.emptyTrashConfirm': '确定永久删除回收站中的所有项目吗？此操作不可撤销。',
+    'doclist.trashEmpty': '回收站为空',
+    'doclist.deletedDate': '删除于 {date}',
+    'doclist.deleteFolderToTrashConfirm': '确定将文件夹「{name}」移入回收站吗？文件夹内的文档将一并移入回收站。',
+
     // ── Terminal ──
     'terminal.sessions': '终端会话',
     'terminal.newSession': '新建终端',
@@ -508,6 +523,21 @@ export const translations = {
     'doclist.batchMove': 'Move Selected',
     'doclist.batchDeleteConfirm': 'Delete {count} selected documents? This action cannot be undone.',
     'doclist.batchClear': 'Clear Selection',
+
+    // ── Document List: Trash ──
+    'doclist.trash': 'Trash',
+    'doclist.moveToTrash': 'Move to Trash',
+    'doclist.moveToTrashConfirm': 'Move "{name}" to trash?',
+    'doclist.batchMoveToTrash': 'Move to Trash',
+    'doclist.batchMoveToTrashConfirm': 'Move {count} selected items to trash?',
+    'doclist.restore': 'Restore',
+    'doclist.permanentlyDelete': 'Delete Permanently',
+    'doclist.permanentlyDeleteConfirm': 'Permanently delete "{name}"? This action cannot be undone.',
+    'doclist.emptyTrash': 'Empty Trash',
+    'doclist.emptyTrashConfirm': 'Permanently delete all items in trash? This action cannot be undone.',
+    'doclist.trashEmpty': 'Trash is empty',
+    'doclist.deletedDate': 'Deleted {date}',
+    'doclist.deleteFolderToTrashConfirm': 'Move folder "{name}" to trash? All documents inside will be moved to trash as well.',
 
     // ── Terminal ──
     'terminal.sessions': 'Terminal Sessions',

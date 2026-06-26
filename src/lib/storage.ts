@@ -26,6 +26,8 @@ export interface DocumentMeta {
   isFavorite?: boolean;
   /** Folder this document belongs to; `null`/`undefined` = root level */
   folderId?: string | null;
+  /** ISO timestamp when moved to trash; `null`/`undefined` = active document */
+  trashedAt?: string | null;
 }
 
 /**
@@ -42,6 +44,8 @@ export interface FolderMeta {
   sortOrder: number;
   /** Whether the folder is collapsed in the sidebar UI */
   collapsed: boolean;
+  /** ISO timestamp when moved to trash; `null`/`undefined` = active folder */
+  trashedAt?: string | null;
 }
 
 /**

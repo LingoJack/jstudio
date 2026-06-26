@@ -50,6 +50,7 @@ export function scheduleFoldersSave(folders: FolderMeta[]) {
 export interface StoreState {
   // — data (documents slice) —
   docList: DocumentMeta[];
+  trashedDocList: DocumentMeta[];
   activeDoc: Document | null;
   activeDocId: string;
   documents: Document[];
@@ -58,6 +59,7 @@ export interface StoreState {
 
   // — data (folders slice) —
   folders: FolderMeta[];
+  trashedFolders: FolderMeta[];
 
   // — ui state (ui slice) —
   themeMode: ThemeMode;
@@ -105,6 +107,11 @@ export interface StoreState {
   createDocument: (folderId?: string) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   deleteDocuments: (ids: string[]) => Promise<void>;
+  trashDocument: (id: string) => Promise<void>;
+  trashDocuments: (ids: string[]) => Promise<void>;
+  restoreDocument: (id: string) => Promise<void>;
+  restoreDocuments: (ids: string[]) => Promise<void>;
+  emptyTrash: () => Promise<void>;
   renameDocument: (id: string, title: string) => void;
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
@@ -117,6 +124,9 @@ export interface StoreState {
   renameFolder: (id: string, name: string) => void;
   deleteFolder: (id: string) => void;
   deleteFolders: (ids: string[]) => void;
+  trashFolder: (id: string) => void;
+  restoreFolder: (id: string) => void;
+  emptyTrashFolders: () => void;
   toggleFolderCollapsed: (id: string) => void;
   moveDocumentToFolder: (docId: string, folderId: string | null) => void;
   moveDocumentsToFolder: (docIds: string[], folderId: string | null) => void;

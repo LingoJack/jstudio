@@ -6,10 +6,14 @@ import { collectDescendantFolderIds } from '../lib/folderTree';
 export function createFoldersSlice(set: SetState, get: GetState) {
   return {
     folders: [] as FolderMeta[],
+    trashedFolders: [] as FolderMeta[],
 
     // ── init ──────────────────────────────────────────────
     initFolders: (raw: FolderMeta[]) => {
-      set({ folders: raw ?? [] });
+      const all = raw ?? [];
+      const active = all.filter((f) => !f.trashedAt);
+      const trashed = all.filter((f) => f.trashedAt);
+      set({ folders: active, trashedFolders: trashed });
     },
 
     // ── create ────────────────────────────────────────────
@@ -148,6 +152,97 @@ export function createFoldersSlice(set: SetState, get: GetState) {
           console.error(`Failed to delete document ${docId} from disk:`, e);
         });
       }
+    },
+
+    // ── trash / restore (soft delete) ──────────────────────
+    /**
+     * Soft-delete a folder and all its sub-folders.  Documents inside
+     * are also marked as trashed (but NOT deleted from disk).
+     */
+    trashFolder: (id: string) => {
+      const { folders, docList, trashedDocList } = get();
+      const now = new Date().toISOString();
+      const toTrash = new Set(collectDescendantFolderIds(folders, id));
+
+      // 1. Move folders to trashed list
+      const movedFolders = folders
+        .filter((f) => toTrash.has(f.id))
+        .map((f) => ({ ...f, trashedAt: now }));
+      const nextFolders = folders.filter((f) => !toTrash.has(f.id));
+      const nextTrashedFolders = [...movedFolders, ...get().trashedFolders];
+
+      // 2. Move documents inside those folders to trashed list
+      const movedDocs = docList
+        .filter((d) => d.folderId && toTrash.has(d.folderId))
+        .map((d) => ({ ...d, trashedAt: now }));
+      const movedDocIds = new Set(movedDocs.map((d) => d.id));
+      const nextDocList = docList.filter((d) => !movedDocIds.has(d.id));
+      const nextTrashedDocs = [...movedDocs, ...trashedDocList];
+
+      set({
+        folders: nextFolders,
+        trashedFolders: nextTrashedFolders,
+        docList: nextDocList,
+        trashedDocList: nextTrashedDocs,
+      });
+
+      scheduleFoldersSave([...nextFolders, ...nextTrashedFolders]);
+      scheduleIndexSave([...nextDocList, ...nextTrashedDocs]);
+    },
+
+    /**
+     * Restore a trashed folder (and its sub-folders + documents) back
+     * to active state.
+     */
+    restoreFolder: (id: string) => {
+      const { trashedFolders, trashedDocList } = get();
+      const toRestore = new Set(
+        collectDescendantFolderIds(trashedFolders, id),
+      );
+
+      // 1. Restore folders
+      const restoredFolders = trashedFolders
+        .filter((f) => toRestore.has(f.id))
+        .map((f) => ({ ...f, trashedAt: null }));
+      const remainingTrashedFolders = trashedFolders.filter(
+        (f) => !toRestore.has(f.id),
+      );
+
+      // 2. Restore documents inside those folders
+      const restoredDocs = trashedDocList
+        .filter((d) => d.folderId && toRestore.has(d.folderId))
+        .map((d) => ({ ...d, trashedAt: null }));
+      const restoredDocIds = new Set(restoredDocs.map((d) => d.id));
+      const remainingTrashedDocs = trashedDocList.filter(
+        (d) => !restoredDocIds.has(d.id),
+      );
+
+      const { folders, docList } = get();
+      const nextFolders = [...restoredFolders, ...folders];
+      const nextDocList = [...restoredDocs, ...docList];
+
+      set({
+        folders: nextFolders,
+        trashedFolders: remainingTrashedFolders,
+        docList: nextDocList,
+        trashedDocList: remainingTrashedDocs,
+      });
+
+      scheduleFoldersSave([...nextFolders, ...remainingTrashedFolders]);
+      scheduleIndexSave([...nextDocList, ...remainingTrashedDocs]);
+    },
+
+    /**
+     * Permanently delete all trashed folders (from folders.json only).
+     * Document files on disk are cleaned by emptyTrash().
+     */
+    emptyTrashFolders: () => {
+      const { trashedFolders } = get();
+      if (trashedFolders.length === 0) return;
+      set({ trashedFolders: [] });
+
+      const { folders } = get();
+      scheduleFoldersSave(folders);
     },
 
     // ── toggle collapsed ──────────────────────────────────

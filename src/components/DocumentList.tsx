@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
+import TrashDialog from './TrashDialog';
 import { MenuList, MenuItem, MenuDivider } from './ui/MenuList';
 import { NavBranch, NavRow } from './ui/NavTree';
 
@@ -41,8 +42,9 @@ export default function DocumentList() {
   const docList = useStore((s) => s.docList);
   const activeDocId = useStore((s) => s.activeDocId);
   const openDocument = useStore((s) => s.openDocument);
-  const deleteDocument = useStore((s) => s.deleteDocument);
   const createDocument = useStore((s) => s.createDocument);
+  const trashDocument = useStore((s) => s.trashDocument);
+  const trashDocuments = useStore((s) => s.trashDocuments);
   const importDocumentFromMarkdown = useStore((s) => s.importDocumentFromMarkdown);
   const importMarkdownDirectory = useStore((s) => s.importMarkdownDirectory);
   const addToast = useStore((s) => s.addToast);
@@ -54,11 +56,9 @@ export default function DocumentList() {
   const folders = useStore((s) => s.folders);
   const createFolder = useStore((s) => s.createFolder);
   const renameFolder = useStore((s) => s.renameFolder);
-  const deleteFolder = useStore((s) => s.deleteFolder);
+  const trashFolder = useStore((s) => s.trashFolder);
   const toggleFolderCollapsed = useStore((s) => s.toggleFolderCollapsed);
   const moveDocumentToFolder = useStore((s) => s.moveDocumentToFolder);
-  const deleteDocuments = useStore((s) => s.deleteDocuments);
-  const deleteFolders = useStore((s) => s.deleteFolders);
   const moveDocumentsToFolder = useStore((s) => s.moveDocumentsToFolder);
 
   const { onResizeStart } = useSidebarResize();
@@ -82,6 +82,9 @@ export default function DocumentList() {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [folderRenameValue, setFolderRenameValue] = useState('');
   const folderRenameRef = useRef<HTMLInputElement>(null);
+
+  // ── Trash dialog state ────────────────────────────────────
+  const [trashDialogOpen, setTrashDialogOpen] = useState(false);
 
   // ── Pointer-drag state ────────────────────────────────────
   /**
@@ -165,14 +168,14 @@ export default function DocumentList() {
 
   const batchDelete = useCallback(() => {
     if (selectedIds.size === 0) return;
-    const msg = t('doclist.batchDeleteConfirm', { count: selectedIds.size });
+    const msg = t('doclist.batchMoveToTrashConfirm', { count: selectedIds.size });
     if (!window.confirm(msg)) return;
     const { selectedDocs, selectedFolders } = splitSelection();
-    if (selectedDocs.length > 0) deleteDocuments(selectedDocs);
-    if (selectedFolders.length > 0) deleteFolders(selectedFolders);
+    if (selectedDocs.length > 0) trashDocuments(selectedDocs);
+    if (selectedFolders.length > 0) selectedFolders.forEach((id) => trashFolder(id));
     setSelectedIds(new Set());
     setBatchMenu(null);
-  }, [selectedIds, splitSelection, deleteDocuments, deleteFolders, t]);
+  }, [selectedIds, splitSelection, trashDocuments, trashFolder, t]);
 
   const batchMove = useCallback((folderId: string | null) => {
     if (selectedIds.size === 0) return;
@@ -381,13 +384,13 @@ export default function DocumentList() {
     (folderId: string) => {
       const folder = folders.find((f) => f.id === folderId);
       if (!folder) return;
-      const msg = t('doclist.deleteFolderConfirm').replace('{name}', folder.name);
+      const msg = t('doclist.deleteFolderToTrashConfirm').replace('{name}', folder.name);
       if (window.confirm(msg)) {
-        deleteFolder(folderId);
+        trashFolder(folderId);
       }
       setFolderMenu(null);
     },
-    [folders, deleteFolder, t],
+    [folders, trashFolder, t],
   );
 
   // ── Handlers: path / import ───────────────────────────────
@@ -805,6 +808,15 @@ export default function DocumentList() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <MenuItem
+                  icon={<Plus />}
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    createDocument();
+                  }}
+                >
+                  {t('doclist.newDocument')}
+                </MenuItem>
+                <MenuItem
                   icon={<FolderPlus />}
                   onClick={() => {
                     setMoreMenuOpen(false);
@@ -813,6 +825,7 @@ export default function DocumentList() {
                 >
                   {t('doclist.newFolder')}
                 </MenuItem>
+                <MenuDivider />
                 <MenuItem
                   icon={<FileDown />}
                   onClick={() => {
@@ -831,16 +844,19 @@ export default function DocumentList() {
                 >
                   {t('doclist.importDirectory')}
                 </MenuItem>
+                <MenuDivider />
+                <MenuItem
+                  icon={<Trash2 />}
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    setTrashDialogOpen(true);
+                  }}
+                >
+                  {t('doclist.trash')}
+                </MenuItem>
               </MenuList>
             )}
           </div>
-          <button
-            onClick={() => createDocument()}
-            className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
-            title={t('doclist.newDocument')}
-          >
-            <Plus className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
@@ -928,6 +944,8 @@ export default function DocumentList() {
         )}
       </div>
 
+      <TrashDialog open={trashDialogOpen} onClose={() => setTrashDialogOpen(false)} />
+
       {/* Folder context menu */}
       {folderMenu && (
         <MenuList
@@ -985,7 +1003,7 @@ export default function DocumentList() {
             icon={<Trash2 />}
             onClick={() => handleDeleteFolder(folderMenu.folderId)}
           >
-            {t('doclist.deleteFolder')}
+            {t('doclist.moveToTrash')}
           </MenuItem>
         </MenuList>
       )}
@@ -1000,7 +1018,7 @@ export default function DocumentList() {
             if (doc) startRename(doc.id, doc.title || '');
           }}
           onDelete={() => {
-            deleteDocument(contextMenu.docId);
+            trashDocument(contextMenu.docId);
             setContextMenu(null);
           }}
           onOpenInFinder={() => handleOpenInFinder(contextMenu.docId)}
@@ -1031,7 +1049,7 @@ export default function DocumentList() {
             icon={<Trash2 />}
             onClick={batchDelete}
           >
-            {t('doclist.batchDelete')}
+            {t('doclist.batchMoveToTrash')}
           </MenuItem>
         </MenuList>
       )}

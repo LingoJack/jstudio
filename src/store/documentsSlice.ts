@@ -12,6 +12,7 @@ import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
   docList: [],
+  trashedDocList: [],
   activeDoc: null,
   activeDocId: '',
   documents: [],
@@ -203,8 +204,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
       const firstId = docs.length > 0 ? docs[0].id : '';
 
+      // Separate active documents from trashed ones for the sidebar lists.
+      const activeDocList = index.filter((m) => !m.trashedAt);
+      const trashedDocList = index.filter((m) => m.trashedAt);
+
       set({
-        docList: index,
+        docList: activeDocList,
+        trashedDocList,
         documents: docs,
         studioRoot,
         activeDoc: docs[0] ?? null,
@@ -354,6 +360,136 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.saveIndex(newDocList);
     } catch (e) {
       console.error('Failed to save index after batch delete:', e);
+    }
+  },
+
+  // ================================================================
+  // trash / restore (soft delete)
+  // ================================================================
+  trashDocument: async (id) => {
+    const { docList, activeDocId, documents } = get();
+    const now = new Date().toISOString();
+
+    const moved = docList.find((m) => m.id === id);
+    if (!moved) return;
+
+    const marked = { ...moved, trashedAt: now };
+    const newDocList = docList.filter((m) => m.id !== id);
+    const newTrashed = [marked, ...get().trashedDocList];
+
+    const stateUpdate: Partial<StoreState> = {
+      docList: newDocList,
+      trashedDocList: newTrashed,
+    };
+
+    if (activeDocId === id) {
+      const nextDoc = documents.find((d) => d.id !== id) ?? null;
+      stateUpdate.activeDoc = nextDoc;
+      stateUpdate.activeDocId = nextDoc?.id ?? '';
+    }
+
+    set(stateUpdate as StoreState);
+
+    try {
+      await storage.saveIndex([...newDocList, ...newTrashed]);
+    } catch (e) {
+      console.error('Failed to save index after trash:', e);
+    }
+  },
+
+  trashDocuments: async (ids) => {
+    const { docList, activeDocId, documents } = get();
+    const idSet = new Set(ids);
+    if (idSet.size === 0) return;
+    const now = new Date().toISOString();
+
+    const moved = docList
+      .filter((m) => idSet.has(m.id))
+      .map((m) => ({ ...m, trashedAt: now }));
+    const newDocList = docList.filter((m) => !idSet.has(m.id));
+    const newTrashed = [...moved, ...get().trashedDocList];
+
+    const stateUpdate: Partial<StoreState> = {
+      docList: newDocList,
+      trashedDocList: newTrashed,
+    };
+
+    if (activeDocId && idSet.has(activeDocId)) {
+      const nextDoc = documents.find((d) => !idSet.has(d.id)) ?? null;
+      stateUpdate.activeDoc = nextDoc;
+      stateUpdate.activeDocId = nextDoc?.id ?? '';
+    }
+
+    set(stateUpdate as StoreState);
+
+    try {
+      await storage.saveIndex([...newDocList, ...newTrashed]);
+    } catch (e) {
+      console.error('Failed to save index after batch trash:', e);
+    }
+  },
+
+  restoreDocument: async (id) => {
+    const { trashedDocList } = get();
+    const target = trashedDocList.find((m) => m.id === id);
+    if (!target) return;
+
+    const restored = { ...target, trashedAt: null };
+    const newTrashed = trashedDocList.filter((m) => m.id !== id);
+    const newDocList = [restored, ...get().docList];
+
+    set({ docList: newDocList, trashedDocList: newTrashed });
+
+    try {
+      await storage.saveIndex([...newDocList, ...newTrashed]);
+    } catch (e) {
+      console.error('Failed to save index after restore:', e);
+    }
+  },
+
+  restoreDocuments: async (ids) => {
+    const { trashedDocList } = get();
+    const idSet = new Set(ids);
+    if (idSet.size === 0) return;
+
+    const restored = trashedDocList
+      .filter((m) => idSet.has(m.id))
+      .map((m) => ({ ...m, trashedAt: null }));
+    const newTrashed = trashedDocList.filter((m) => !idSet.has(m.id));
+    const newDocList = [...restored, ...get().docList];
+
+    set({ docList: newDocList, trashedDocList: newTrashed });
+
+    try {
+      await storage.saveIndex([...newDocList, ...newTrashed]);
+    } catch (e) {
+      console.error('Failed to save index after batch restore:', e);
+    }
+  },
+
+  emptyTrash: async () => {
+    const { trashedDocList, documents } = get();
+    if (trashedDocList.length === 0) return;
+
+    const trashedIds = trashedDocList.map((m) => m.id);
+    const idSet = new Set(trashedIds);
+    const newDocuments = documents.filter((d) => !idSet.has(d.id));
+
+    set({
+      trashedDocList: [],
+      documents: newDocuments,
+    });
+
+    // Persist: delete files from disk (best-effort)
+    await Promise.allSettled(
+      trashedIds.map((id) => storage.deleteDocument(id)),
+    );
+
+    try {
+      const { docList } = get();
+      await storage.saveIndex(docList);
+    } catch (e) {
+      console.error('Failed to save index after empty trash:', e);
     }
   },
 

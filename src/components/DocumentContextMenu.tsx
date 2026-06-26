@@ -57,7 +57,7 @@ export default function DocumentContextMenu({
       <MenuDivider />
 
       <MenuItem variant="danger" icon={<Trash2 />} onClick={onDelete}>
-        {t('doclist.delete')}
+        {t('doclist.moveToTrash')}
       </MenuItem>
     </MenuList>
   );
