@@ -77,7 +77,7 @@ export function applyLineHeight(lineHeight: number) {
 export type SidebarView = 'documents' | 'terminal';
 
 /** Which settings section is currently displayed. Driven by store so palette can navigate. */
-export type SettingsSectionId = 'general' | 'agent' | 'editor' | 'terminal' | 'shortcuts' | 'globalShortcuts' | 'help' | 'about';
+export type SettingsSectionId = 'general' | 'agent' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about';
 
 /** UI slice — panel visibility, theme, font, and loading state. */
 export const createUiSlice: SliceCreator = (set, get) => ({

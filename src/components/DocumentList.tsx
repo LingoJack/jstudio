@@ -277,7 +277,7 @@ export default function DocumentList() {
     setContextMenu(null);
   }, []);
 
-  const handleImportMarkdown = useCallback(async () => {
+  const handleImportMarkdown = useCallback(async (folderId?: string) => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const filePath = await open({
@@ -288,18 +288,18 @@ export default function DocumentList() {
       const bytes = await storage.readFileBytes(filePath);
       const md = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
       const filename = filePath.split(/[/\\]/).pop() ?? 'Untitled.md';
-      await importDocumentFromMarkdown(filename, md);
+      await importDocumentFromMarkdown(filename, md, folderId);
     } catch (e) {
       console.error('Failed to import Markdown:', e);
     }
   }, [importDocumentFromMarkdown]);
 
-  const handleImportMarkdownDirectory = useCallback(async () => {
+  const handleImportMarkdownDirectory = useCallback(async (folderId?: string) => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const dirPath = await open({ directory: true, multiple: false });
       if (!dirPath || typeof dirPath !== 'string') return;
-      const count = await importMarkdownDirectory(dirPath);
+      const count = await importMarkdownDirectory(dirPath, folderId);
       if (count === 0) {
         addToast('info', t('doclist.importDirEmpty'));
       } else {
@@ -743,6 +743,25 @@ export default function DocumentList() {
             }}
           >
             {t('doclist.renameFolder')}
+          </MenuItem>
+          <MenuDivider />
+          <MenuItem
+            icon={<FileDown />}
+            onClick={() => {
+              handleImportMarkdown(folderMenu.folderId);
+              setFolderMenu(null);
+            }}
+          >
+            {t('doclist.importMarkdown')}
+          </MenuItem>
+          <MenuItem
+            icon={<FolderDown />}
+            onClick={() => {
+              handleImportMarkdownDirectory(folderMenu.folderId);
+              setFolderMenu(null);
+            }}
+          >
+            {t('doclist.importDirectory')}
           </MenuItem>
           <MenuDivider />
           <MenuItem

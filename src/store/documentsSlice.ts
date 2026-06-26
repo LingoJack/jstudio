@@ -435,16 +435,19 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
    * hierarchy.  Sub-directories become folders; `.md` / `.markdown` /
    * `.mdown` files become documents placed in the corresponding folder.
    *
-   * @param dirPath absolute path of the directory to import (from the
-   *                native directory picker).
+   * When `targetFolderId` is provided, the entire tree is imported *inside*
+   * that existing folder (used by the folder context-menu "Import Directory").
+   *
+   * @param dirPath         absolute path of the directory to import.
+   * @param targetFolderId  optional parent folder to import into.
    * @returns the number of documents that were imported.
    */
-  importMarkdownDirectory: async (dirPath) => {
+  importMarkdownDirectory: async (dirPath, targetFolderId) => {
     const entries = await storage.listMarkdownFiles(dirPath);
 
-    /** relative-path → folder-id lookup (root maps to `null`). */
+    /** relative-path → folder-id lookup. Root maps to targetFolderId (or null). */
     const folderMap = new Map<string, string | null>();
-    folderMap.set('', null);
+    folderMap.set('', targetFolderId ?? null);
 
     const { folders } = get();
     const newFolders: FolderMeta[] = [];
@@ -466,7 +469,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // Remove the file name; remaining parts are directory segments.
       const dirParts = parts.slice(0, -1);
       let currentRel = '';
-      let parentId: string | null = null;
+      let parentId: string | null = targetFolderId ?? null;
       for (const seg of dirParts) {
         const childRel = currentRel ? `${currentRel}/${seg}` : seg;
         if (folderMap.has(childRel)) {

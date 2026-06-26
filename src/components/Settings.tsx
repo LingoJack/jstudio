@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Globe, Bot, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
@@ -11,7 +11,6 @@ import AgentModelSection from './settings/AgentModelSection';
 import EditorSection from './settings/EditorSection';
 import TerminalSection from './settings/TerminalSection';
 import ShortcutsSection from './settings/ShortcutsSection';
-import GlobalShortcutsSection from './settings/GlobalShortcutsSection';
 import AboutSection from './settings/AboutSection';
 import HelpSection from './settings/HelpSection';
 
@@ -95,13 +94,9 @@ const NAV_ITEMS: NavItem[] = [
         ],
       },
       { anchorId: 'settings-shortcuts-editor-blocks', labelKey: 'shortcut.category.editorBlocks' },
+      { anchorId: 'settings-shortcuts-global', labelKey: 'settings.globalShortcuts' },
       { anchorId: 'settings-shortcuts-reference', labelKey: 'shortcut.reference' },
     ],
-  },
-  {
-    id: 'globalShortcuts',
-    labelKey: 'settings.globalShortcuts',
-    icon: Globe,
   },
   {
     id: 'help',
@@ -117,7 +112,6 @@ const SECTIONS: Record<SectionId, () => React.ReactElement> = {
   editor: EditorSection,
   terminal: TerminalSection,
   shortcuts: ShortcutsSection,
-  globalShortcuts: GlobalShortcutsSection,
   help: HelpSection,
   about: AboutSection,
 };

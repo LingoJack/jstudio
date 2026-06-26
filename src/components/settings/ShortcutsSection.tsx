@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { RotateCcw, Keyboard, AlertTriangle, ChevronDown, ChevronRight, Globe } from 'lucide-react';
+import { RotateCcw, Keyboard, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../../lib/i18n';
 import { useStore } from '../../store/useStore';
 import {
@@ -18,6 +18,7 @@ import {
   type ShortcutOverrides,
   type ReferenceShortcut,
 } from '../../lib/shortcuts';
+import { GlobalShortcutsContent } from './GlobalShortcutsSection';
 
 // ─────────────────────────────────────────────────────────────
 // kbd pill — displays a binding string as styled key caps
@@ -278,22 +279,6 @@ export default function ShortcutsSection() {
         </p>
       </div>
 
-      {/* ── Global shortcuts link ── */}
-      <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)]">
-        <Globe className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0" />
-        <span className="text-sm text-[var(--vscode-descriptionForeground)] flex-1">
-          {t('globalShortcut.linkHint')}
-        </span>
-        <button
-          onClick={() => {
-            useStore.getState().setSettingsActiveSection('globalShortcuts');
-          }}
-          className="text-sm text-[var(--vscode-textLink-activeForeground)] hover:underline shrink-0"
-        >
-          {t('globalShortcut.linkAction')} →
-        </button>
-      </div>
-
       {/* ── Conflict warning banner ── */}
       {conflictWarning && recordingId && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--vscode-inputValidation-errorBackground)] border border-[var(--vscode-errorForeground)] text-sm text-[var(--vscode-errorForeground)]">
@@ -329,6 +314,12 @@ export default function ShortcutsSection() {
           </div>
         );
       })}
+
+      {/* ── Divider ── */}
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ── Global shortcuts (inline sub-section) ── */}
+      <GlobalShortcutsContent />
 
       {/* ── Divider ── */}
       <div className="border-t border-[var(--vscode-widget-border)]" />

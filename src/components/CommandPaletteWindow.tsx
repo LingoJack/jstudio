@@ -55,7 +55,6 @@ const SETTINGS_SECTIONS: { id: SettingsSectionId; icon: LucideIcon; labelKey: Tr
   { id: 'editor', icon: PenLine, labelKey: 'settings.editor' },
   { id: 'terminal', icon: TerminalSquare, labelKey: 'settings.terminal' },
   { id: 'shortcuts', icon: Keyboard, labelKey: 'settings.shortcuts' },
-  { id: 'globalShortcuts', icon: Keyboard, labelKey: 'settings.globalShortcuts' },
   { id: 'help', icon: BookOpen, labelKey: 'settings.help' },
   { id: 'about', icon: Info, labelKey: 'settings.about' },
 ];

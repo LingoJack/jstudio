@@ -26,6 +26,7 @@ import { useI18n, type TranslationKey } from '../../lib/i18n';
 import { useStore } from '../../store/useStore';
 import { eventToBinding, bindingToDisplay } from '../../lib/shortcuts';
 import { toast } from '../../lib/toast';
+import { SelectDropdown } from '../ui/SelectDropdown';
 import {
   getAllActionDefs,
   getActionDef,
@@ -169,17 +170,14 @@ function ParamFieldEditor({
   if (field.type === 'select') {
     return (
       <FormField label={t(field.labelKey as TranslationKey)}>
-        <select
+        <SelectDropdown
           value={String((value as string) ?? field.defaultValue ?? '')}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${inputClass} cursor-pointer`}
-        >
-          {field.options?.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {t(opt.labelKey as TranslationKey)}
-            </option>
-          ))}
-        </select>
+          options={(field.options ?? []).map((opt) => ({
+            value: opt.value,
+            label: t(opt.labelKey as TranslationKey),
+          }))}
+          onChange={(v) => onChange(v)}
+        />
       </FormField>
     );
   }
@@ -486,17 +484,14 @@ function ShortcutEditForm({
 
       {/* Action type selector */}
       <FormField label={t('globalShortcut.action')}>
-        <select
+        <SelectDropdown
           value={actionType}
-          onChange={(e) => handleActionTypeChange(e.target.value)}
-          className={`${inputClass} cursor-pointer`}
-        >
-          {actionDefs.map((def) => (
-            <option key={def.type} value={def.type}>
-              {t(def.labelKey as TranslationKey)}
-            </option>
-          ))}
-        </select>
+          options={actionDefs.map((def) => ({
+            value: def.type,
+            label: t(def.labelKey as TranslationKey),
+          }))}
+          onChange={(v) => handleActionTypeChange(v)}
+        />
         {currentDef?.descriptionKey && (
           <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5 opacity-70 leading-tight">
             {t(currentDef.descriptionKey as TranslationKey)}
@@ -548,7 +543,7 @@ function ShortcutEditForm({
 // Main component
 // ════════════════════════════════════════════════════════════════════
 
-export default function GlobalShortcutsSection() {
+export function GlobalShortcutsContent() {
   const { t } = useI18n();
   const configs = useStore((s) => s.globalShortcuts);
   const setGlobalShortcuts = useStore((s) => s.setGlobalShortcuts);
@@ -590,13 +585,13 @@ export default function GlobalShortcutsSection() {
   };
 
   return (
-    <div id="settings-globalShortcuts" className="space-y-6">
+    <div id="settings-shortcuts-global" className="space-y-4">
       {/* Header */}
-      <div id="settings-globalShortcuts-header">
+      <div>
         <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
           {t('globalShortcut.title')}
         </label>
-        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+        <p className="text-sm text-[var(--vscode-descriptionForeground)]">
           {t('globalShortcut.description')}
         </p>
       </div>

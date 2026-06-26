@@ -1,5 +1,5 @@
-import type { FolderMeta } from '../lib/storage';
-import type { SetState, GetState } from './storeHelpers';
+import { storage, type FolderMeta } from '../lib/storage';
+import type { SetState, GetState, StoreState } from './storeHelpers';
 import { scheduleFoldersSave, scheduleIndexSave } from './storeHelpers';
 import { collectDescendantFolderIds } from '../lib/folderTree';
 
@@ -48,11 +48,10 @@ export function createFoldersSlice(set: SetState, get: GetState) {
     // ── delete ────────────────────────────────────────────
     /**
      * Delete a folder and all its sub-folders (cascade).
-     * Documents inside the deleted folders are moved to root level
-     * (their `folderId` is set to `null`).
+     * Documents inside the deleted folders are also deleted from disk.
      */
     deleteFolder: (id: string) => {
-      const folders = get().folders;
+      const { folders, docList, documents, activeDocId } = get();
       const toRemove = new Set(collectDescendantFolderIds(folders, id));
 
       // 1. Remove folders
@@ -60,14 +59,38 @@ export function createFoldersSlice(set: SetState, get: GetState) {
       set({ folders: nextFolders });
       scheduleFoldersSave(nextFolders);
 
-      // 2. Move affected documents to root
-      const nextDocList = get().docList.map((d) =>
-        d.folderId && toRemove.has(d.folderId)
-          ? { ...d, folderId: null }
-          : d,
+      // 2. Find documents inside the deleted folders
+      const docIdsToRemove = new Set(
+        docList
+          .filter((d) => d.folderId && toRemove.has(d.folderId))
+          .map((d) => d.id),
       );
-      set({ docList: nextDocList });
+
+      // 3. Remove those documents from in-memory state
+      const nextDocList = docList.filter((d) => !docIdsToRemove.has(d.id));
+      const nextDocuments = documents.filter((d) => !docIdsToRemove.has(d.id));
+
+      const stateUpdate: Partial<StoreState> = {
+        docList: nextDocList,
+        documents: nextDocuments,
+      };
+
+      // If the active document is among the deleted, switch to the first remaining.
+      if (activeDocId && docIdsToRemove.has(activeDocId)) {
+        const nextDoc = nextDocuments[0] ?? null;
+        stateUpdate.activeDoc = nextDoc;
+        stateUpdate.activeDocId = nextDoc?.id ?? '';
+      }
+
+      set(stateUpdate);
       scheduleIndexSave(nextDocList);
+
+      // 4. Persist: delete document files from disk (best-effort)
+      for (const docId of docIdsToRemove) {
+        storage.deleteDocument(docId).catch((e) => {
+          console.error(`Failed to delete document ${docId} from disk:`, e);
+        });
+      }
     },
 
     // ── toggle collapsed ──────────────────────────────────

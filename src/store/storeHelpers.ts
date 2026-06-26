@@ -108,7 +108,7 @@ export interface StoreState {
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
   importDocumentFromMarkdown: (filename: string, md: string, folderId?: string) => Promise<void>;
-  importMarkdownDirectory: (dirPath: string) => Promise<number>;
+  importMarkdownDirectory: (dirPath: string, targetFolderId?: string) => Promise<number>;
 
   // — folder ops (folders slice) —
   initFolders: (raw: FolderMeta[]) => void;

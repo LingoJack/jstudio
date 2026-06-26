@@ -493,7 +493,7 @@ export const translations = {
     'doclist.untitledFolder': 'Untitled Folder',
     'doclist.rootLevel': 'Root',
     'doclist.folderNamePlaceholder': 'Folder name',
-    'doclist.deleteFolderConfirm': 'Delete folder "{name}"? Documents inside will be moved to root.',
+    'doclist.deleteFolderConfirm': 'Delete folder "{name}"? All documents inside this folder and its sub-folders will be permanently deleted.',
 
     // ── Terminal ──
     'terminal.sessions': 'Terminal Sessions',
