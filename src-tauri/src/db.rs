@@ -121,7 +121,8 @@ fn create_tables(conn: &Connection) {
             folder_id   TEXT,
             is_favorite INTEGER NOT NULL DEFAULT 0,
             created_at  TEXT NOT NULL,
-            updated_at  TEXT NOT NULL
+            updated_at  TEXT NOT NULL,
+            trashed_at  TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents(folder_id);
         CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
@@ -132,7 +133,8 @@ fn create_tables(conn: &Connection) {
             name       TEXT NOT NULL,
             parent_id  TEXT,
             sort_order INTEGER NOT NULL DEFAULT 0,
-            collapsed  INTEGER NOT NULL DEFAULT 0
+            collapsed  INTEGER NOT NULL DEFAULT 0,
+            trashed_at TEXT
         );
 
         -- Application settings (replaces settings.json)
@@ -141,9 +143,58 @@ fn create_tables(conn: &Connection) {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        -- Tombstones for permanently deleted documents (replaces index.json)
+        -- When a document is deleted via delete_document, its id is recorded here.
+        -- reconcile_orphan_documents checks this table to avoid resurrecting
+        -- documents the user already deleted.
+        CREATE TABLE IF NOT EXISTS deleted_documents (
+            id        TEXT PRIMARY KEY,
+            deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
         "#,
     )
     .unwrap_or_else(|e| panic!("failed to create studio.db tables: {e}"));
+
+    // ── Incremental schema migrations ──
+    // Add the `trashed_at` column if it doesn't exist (upgrade existing DBs).
+    let has_trashed_at: bool = conn
+        .prepare("PRAGMA table_info(documents)")
+        .and_then(|mut stmt| {
+            let rows = stmt.query_map([], |row| {
+                let name: String = row.get(1)?;
+                Ok(name)
+            })?;
+            for row in rows {
+                if row? == "trashed_at" {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        })
+        .unwrap_or(false);
+    if !has_trashed_at {
+        let _ = conn.execute("ALTER TABLE documents ADD COLUMN trashed_at TEXT", []);
+    }
+
+    let folders_has_trashed_at: bool = conn
+        .prepare("PRAGMA table_info(folders)")
+        .and_then(|mut stmt| {
+            let rows = stmt.query_map([], |row| {
+                let name: String = row.get(1)?;
+                Ok(name)
+            })?;
+            for row in rows {
+                if row? == "trashed_at" {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        })
+        .unwrap_or(false);
+    if !folders_has_trashed_at {
+        let _ = conn.execute("ALTER TABLE folders ADD COLUMN trashed_at TEXT", []);
+    }
 }
 
 // ────────────────────────────────────────────────
@@ -343,6 +394,23 @@ fn reconcile_orphan_documents(conn: &mut Connection) {
     let mut dir_entries: Vec<PathBuf> = read.flatten().map(|e| e.path()).collect();
     dir_entries.sort();
 
+    // Load the full set of deleted-document tombstones so we never resurrect
+    // a document the user already permanently deleted.
+    let tombstones: std::collections::HashSet<String> = {
+        let mut set = std::collections::HashSet::new();
+        if let Ok(mut stmt) = conn.prepare("SELECT id FROM deleted_documents") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                Ok(id)
+            }) {
+                for row in rows.flatten() {
+                    set.insert(row);
+                }
+            }
+        }
+        set
+    };
+
     // Collect orphan rows first so we don't hold the read_dir iterator across
     // the transaction.
     let mut orphans: Vec<(String, String, String, String, String)> = Vec::new();
@@ -375,6 +443,13 @@ fn reconcile_orphan_documents(conn: &mut Connection) {
             continue;
         }
 
+        // User explicitly deleted this document before. Do NOT resurrect it.
+        // Instead, clean up its leftover files on disk.
+        if tombstones.contains(&doc_id) {
+            let _ = fs::remove_dir_all(&path);
+            continue;
+        }
+
         // Read the document body.
         let doc_json = path.join("document.json");
         let Ok(data) = fs::read_to_string(&doc_json) else {
@@ -388,7 +463,9 @@ fn reconcile_orphan_documents(conn: &mut Connection) {
         let preview = block_text_preview(&doc["blocks"]);
 
         // Skip completely blank documents (no title and no content).
+        // Also clean up their leftover folder to prevent accumulation.
         if title.is_empty() && preview.is_empty() {
+            let _ = fs::remove_dir_all(&path);
             continue;
         }
 

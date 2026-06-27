@@ -157,7 +157,8 @@ pub fn read_index() -> Result<Value, String> {
     let conn = crate::db::db()?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, title, emoji, folder_id, is_favorite, created_at, updated_at \
+            "SELECT id, title, emoji, folder_id, is_favorite, created_at, updated_at, \
+             trashed_at \
              FROM documents ORDER BY updated_at DESC",
         )
         .map_err(|e| format!("failed to prepare index query: {e}"))?;
@@ -171,6 +172,7 @@ pub fn read_index() -> Result<Value, String> {
             let is_favorite: i64 = row.get(4)?;
             let created_at: String = row.get(5)?;
             let updated_at: String = row.get(6)?;
+            let trashed_at: Option<String> = row.get(7)?;
 
             let mut obj = serde_json::json!({
                 "id": id,
@@ -182,6 +184,9 @@ pub fn read_index() -> Result<Value, String> {
             });
             if let Some(fid) = folder_id {
                 obj["folderId"] = Value::String(fid);
+            }
+            if let Some(ta) = trashed_at {
+                obj["trashedAt"] = Value::String(ta);
             }
             Ok(obj)
         })
@@ -221,11 +226,12 @@ pub fn write_index(entries: Value) -> Result<(), String> {
         };
         let created_at = entry["createdAt"].as_str().unwrap_or("");
         let updated_at = entry["updatedAt"].as_str().unwrap_or("");
+        let trashed_at = entry["trashedAt"].as_str();
 
         tx.execute(
             "INSERT OR REPLACE INTO documents \
-             (id, title, emoji, folder_id, is_favorite, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+             (id, title, emoji, folder_id, is_favorite, created_at, updated_at, trashed_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             rusqlite::params![
                 id,
                 title,
@@ -233,7 +239,8 @@ pub fn write_index(entries: Value) -> Result<(), String> {
                 folder_id,
                 is_favorite,
                 created_at,
-                updated_at
+                updated_at,
+                trashed_at
             ],
         )
         .map_err(|e| format!("failed to insert document {id}: {e}"))?;
@@ -275,7 +282,8 @@ pub fn write_document(doc_id: String, doc: Value) -> Result<(), String> {
     fs::write(&path, json).map_err(|e| format!("failed to write document {doc_id}: {e}"))
 }
 
-/// Delete a document folder and all its assets.
+/// Delete a document folder and all its assets, and record a tombstone so the
+/// orphan-recovery routine never resurrects it.
 #[tauri::command]
 pub fn delete_document(doc_id: String) -> Result<(), String> {
     let dir = doc_dir(&doc_id);
@@ -289,6 +297,15 @@ pub fn delete_document(doc_id: String) -> Result<(), String> {
     if legacy.exists() {
         let _ = fs::remove_file(&legacy);
     }
+
+    // Record a tombstone so reconcile_orphan_documents won't bring this
+    // document back on next startup if the folder deletion partially failed
+    // or if the user manually copied the folder back.
+    let conn = crate::db::db()?;
+    let _ = conn.execute(
+        "INSERT OR IGNORE INTO deleted_documents (id) VALUES (?1)",
+        rusqlite::params![doc_id],
+    );
 
     Ok(())
 }
@@ -395,7 +412,7 @@ pub fn read_folders() -> Result<Value, String> {
     let conn = crate::db::db()?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, parent_id, sort_order, collapsed \
+            "SELECT id, name, parent_id, sort_order, collapsed, trashed_at \
              FROM folders ORDER BY sort_order ASC",
         )
         .map_err(|e| format!("failed to prepare folders query: {e}"))?;
@@ -407,6 +424,7 @@ pub fn read_folders() -> Result<Value, String> {
             let parent_id: Option<String> = row.get(2)?;
             let sort_order: i64 = row.get(3)?;
             let collapsed: i64 = row.get(4)?;
+            let trashed_at: Option<String> = row.get(5)?;
 
             let mut obj = serde_json::json!({
                 "id": id,
@@ -416,6 +434,9 @@ pub fn read_folders() -> Result<Value, String> {
             });
             if let Some(pid) = parent_id {
                 obj["parentId"] = Value::String(pid);
+            }
+            if let Some(ta) = trashed_at {
+                obj["trashedAt"] = Value::String(ta);
             }
             Ok(obj)
         })
@@ -453,12 +474,13 @@ pub fn write_folders(entries: Value) -> Result<(), String> {
         } else {
             0
         };
+        let trashed_at = entry["trashedAt"].as_str();
 
         tx.execute(
             "INSERT OR REPLACE INTO folders \
-             (id, name, parent_id, sort_order, collapsed) \
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params![id, name, parent_id, sort_order, collapsed],
+             (id, name, parent_id, sort_order, collapsed, trashed_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![id, name, parent_id, sort_order, collapsed, trashed_at],
         )
         .map_err(|e| format!("failed to insert folder {id}: {e}"))?;
     }
