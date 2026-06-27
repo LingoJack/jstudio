@@ -33,6 +33,12 @@ export default function App() {
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
 
+  // Subscribe to a boolean only — NOT the tabs array reference.
+  // Must be called BEFORE any early return to satisfy the Rules of Hooks.
+  const hasTerminalTab = useStore(
+    (s) => s.tabs.some((tab) => tab.kind === 'terminal'),
+  );
+
   useEffect(() => {
     init();
   }, [init]);
@@ -167,11 +173,7 @@ export default function App() {
   const isTerminalView =
     !isSettingsOpen && activeSidebarView === 'terminal';
 
-  // Check whether there is any terminal tab in the workspace — if so,
-  // we need to keep the TerminalPanel mounted (CSS-hidden when inactive)
-  // to preserve xterm instances + PTY listeners + scrollback.
-  const tabs = useStore((s) => s.tabs);
-  const hasTerminalTab = tabs.some((tab) => tab.kind === 'terminal');
+  // hasTerminalTab is computed above via useStore, before the early return.
 
   return (
     <div className="h-screen w-full flex flex-col bg-[var(--vscode-activityBar-background)] text-[var(--vscode-editor-foreground)] font-sans tracking-tight overflow-hidden">
