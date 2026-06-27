@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { fetchDetachPayload } from '../../lib/terminalDetach';
+import { fetchDetachPayload } from '../../lib/windows/terminalDetach';
 import type { TerminalSession } from '../../store/terminalSlice';
 import TerminalPanel from './TerminalPanel';
 

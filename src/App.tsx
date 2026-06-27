@@ -11,13 +11,13 @@ import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from '.
 import './lib/globalShortcutActions';
 import TitleBar from './components/TitleBar';
 import ActivityBar from './components/ActivityBar';
-import DocumentList from './components/DocumentList';
-import DocumentTabs from './components/DocumentTabs';
+import DocumentList from './components/documents/DocumentList';
+import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
-import BlockEditor from './components/BlockEditor';
+import BlockEditor from './components/editor/BlockEditor';
 import Settings from './components/Settings';
 import EmptyState from './components/EmptyState';
-import CommandPalette from './components/CommandPalette';
+import CommandPalette from './components/editor/CommandPalette';
 import { ToastContainer } from './components/ui/Toast';
 
 export default function App() {

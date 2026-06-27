@@ -5,7 +5,7 @@ import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
-import { markdownToBlocks } from '../lib/markdownImport';
+import { markdownToBlocks } from '../lib/editor/markdownImport';
 import { migrateDocAssets } from '../lib/migrateAssets';
 import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
 

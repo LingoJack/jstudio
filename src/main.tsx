@@ -1,11 +1,11 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
-import PreviewWindowApp from './components/PreviewWindowApp';
-import DiagramWindowApp from './components/DiagramWindowApp';
+import PreviewWindowApp from './components/windows/PreviewWindowApp';
+import DiagramWindowApp from './components/windows/DiagramWindowApp';
 import TerminalWindowApp from './components/terminal/TerminalWindowApp';
-import DocumentWindowApp from './components/DocumentWindowApp';
-import CommandPaletteWindow from './components/CommandPaletteWindow';
+import DocumentWindowApp from './components/windows/DocumentWindowApp';
+import CommandPaletteWindow from './components/windows/CommandPaletteWindow';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';

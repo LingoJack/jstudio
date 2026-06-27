@@ -11,7 +11,7 @@
  */
 
 import { useMemo } from 'react';
-import BlockEditor from '../BlockEditor';
+import BlockEditor from '../editor/BlockEditor';
 import { getHelpBlocks } from '../../data/helpDocument';
 import { useI18n } from '../../lib/i18n';
 

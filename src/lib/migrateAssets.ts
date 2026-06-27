@@ -12,7 +12,7 @@
  */
 
 import { storage } from './storage';
-import { genStoredName } from './upload';
+import { genStoredName } from './editor/upload';
 import type { Document, Block } from '../types';
 
 /** MIME → file extension, for naming the migrated asset. */
