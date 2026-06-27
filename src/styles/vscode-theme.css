@@ -1828,6 +1828,22 @@ button {
   cursor: text;
 }
 .link-block-placeholder.has-error { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
+
+/* Placeholder hover toolbar — positioned top-right, same style as card */
+.link-block-placeholder { position: relative; }
+.link-block-placeholder-toolbar {
+  position: absolute;
+  top: -36px;
+  right: 0;
+  display: flex;
+  gap: 2px;
+  padding: 3px 4px;
+  background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
 .link-block-placeholder-icon { color: var(--vscode-descriptionForeground, #9d9d9d); flex-shrink: 0; }
 .link-block-input {
   flex: 1; border: none; background: transparent;
@@ -1862,6 +1878,125 @@ button {
 .link-block-card-thumbnail {
   width: 64px; height: 64px; object-fit: cover; border-radius: 4px;
   border: 1px solid var(--vscode-widget-border, #3c3c3c);
+}
+
+/* ── Placeholder card (no URL yet) ───────────────────────────── */
+.link-block-card-placeholder { cursor: default; }
+.link-block-card-url-input {
+  width: 100%; border: none; background: transparent;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: 13px; outline: none;
+  padding: 2px 0;
+}
+.link-block-card-url-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #6b6b6b);
+}
+.link-block-card-loading {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--vscode-descriptionForeground, #9d9d9d);
+  margin-top: 2px;
+}
+.link-block-card-error {
+  display: block; font-size: 11px; margin-top: 2px;
+  color: var(--vscode-inputValidation-errorForeground, #f48771);
+}
+
+/* Hover / selected state — blue border */
+.link-block-figure.is-hovered,
+.link-block-figure.is-active { border-color: var(--vscode-focusBorder, #007fd4); }
+
+/* ── Hover toolbar ─────────────────────────────────────────────
+   Positioned at the top-right of the card, floating above.
+   Toggled by React hover/selected state (not CSS :hover) for reliability
+   inside contentEditable={false} islands in WKWebView. */
+.link-block-hover-toolbar {
+  position: absolute;
+  top: -36px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px;
+  background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
+  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+.link-block-hover-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: none; border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer; transition: background 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+.link-block-hover-btn:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.08));
+}
+.link-block-hover-btn-danger:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.08));
+  color: var(--vscode-errorForeground, #f48771);
+}
+.link-block-hover-divider {
+  width: 1px; height: 18px; margin: 0 2px;
+  background: var(--vscode-widget-border, #3c3c3c);
+  flex-shrink: 0;
+}
+
+/* ── Inline edit form ────────────────────────────────────────── */
+.link-block-edit-form {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px;
+}
+.link-block-edit-row {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.link-block-edit-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  letter-spacing: 0.04em;
+}
+.link-block-edit-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 4px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: 13px; outline: none;
+}
+.link-block-edit-input:focus {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+.link-block-edit-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #6b6b6b);
+}
+.link-block-edit-actions {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 2px;
+}
+.link-block-edit-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--vscode-button-border, #3c3c3c);
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
+  font-size: 12px; cursor: pointer;
+  transition: background 0.12s ease;
+}
+.link-block-edit-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, #4a4d51);
+}
+.link-block-edit-btn:disabled { opacity: 0.5; cursor: default; }
+.link-block-edit-btn-primary {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border-color: transparent;
+}
+.link-block-edit-btn-primary:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
 }
 
 
