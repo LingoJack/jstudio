@@ -16,11 +16,6 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
-  resolve: {
-    alias: {
-      '@': '.',
-    },
-  },
   server: {
     host: '127.0.0.1',
     port: 1420,
@@ -43,8 +38,20 @@ export default defineConfig({
           ) {
             return 'react-vendor'
           }
-          if (id.includes('node_modules/tldraw/')) {
-            return 'whiteboard-vendor'
+          if (id.includes('node_modules/@excalidraw/')) {
+            return 'excalidraw-vendor'
+          }
+          if (id.includes('node_modules/mermaid/') || id.includes('node_modules/@mermaid-js/')) {
+            return 'mermaid-vendor'
+          }
+          if (id.includes('node_modules/cytoscape')) {
+            return 'cytoscape-vendor'
+          }
+          if (id.includes('node_modules/katex')) {
+            return 'katex-vendor'
+          }
+          if (id.includes('node_modules/mammoth')) {
+            return 'mammoth-vendor'
           }
         },
       },

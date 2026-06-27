@@ -1,7 +1,7 @@
 import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts';
 import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
-import type { SliceCreator } from './storeHelpers';
+import { onSaveError, type SliceCreator } from './storeHelpers';
 import {
   DEFAULT_LATIN_FONT_ID,
   DEFAULT_CJK_FONT_ID,
@@ -112,7 +112,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     const isDark = resolveDark(mode);
     applyDark(isDark);
     set({ themeMode: mode, isDarkMode: isDark });
-    storage.saveSettings({ theme: mode }).catch(console.error);
+    storage.saveSettings({ theme: mode }).catch(onSaveError('设置'));
   },
 
   toggleDarkMode: () => {
@@ -121,7 +121,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     const mode: ThemeMode = next ? 'dark' : 'light';
     applyDark(next);
     set({ themeMode: mode, isDarkMode: next });
-    storage.saveSettings({ theme: mode }).catch(console.error);
+    storage.saveSettings({ theme: mode }).catch(onSaveError('设置'));
   },
 
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
@@ -137,31 +137,31 @@ export const createUiSlice: SliceCreator = (set, get) => ({
 
   setLanguage: (lang: Language) => {
     set({ language: lang });
-    storage.saveSettings({ language: lang }).catch(console.error);
+    storage.saveSettings({ language: lang }).catch(onSaveError('设置'));
   },
 
   setActivityBarBorder: (enabled: boolean) => {
     set({ activityBarBorder: enabled });
-    storage.saveSettings({ activityBarBorder: enabled }).catch(console.error);
+    storage.saveSettings({ activityBarBorder: enabled }).catch(onSaveError('设置'));
   },
 
   setActivityBarItems: (items: ActivityBarItemConfig[]) => {
     set({ activityBarItems: items });
-    storage.saveSettings({ activityBarItems: items }).catch(console.error);
+    storage.saveSettings({ activityBarItems: items }).catch(onSaveError('设置'));
   },
 
   setFontId: (id) => {
     const s = get();
     applyFont(id, s.cjkFontId, s.fontSize);
     set({ fontId: id });
-    storage.saveSettings({ fontId: id }).catch(console.error);
+    storage.saveSettings({ fontId: id }).catch(onSaveError('设置'));
   },
 
   setCjkFontId: (id) => {
     const s = get();
     applyFont(s.fontId, id, s.fontSize);
     set({ cjkFontId: id });
-    storage.saveSettings({ cjkFontId: id }).catch(console.error);
+    storage.saveSettings({ cjkFontId: id }).catch(onSaveError('设置'));
   },
 
   setFontSize: (size) => {
@@ -169,19 +169,19 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     const s = get();
     applyFont(s.fontId, s.cjkFontId, clamped);
     set({ fontSize: clamped });
-    storage.saveSettings({ fontSize: clamped }).catch(console.error);
+    storage.saveSettings({ fontSize: clamped }).catch(onSaveError('设置'));
   },
 
   setEditorLineHeight: (lh) => {
     const clamped = Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, lh));
     applyLineHeight(clamped);
     set({ editorLineHeight: clamped });
-    storage.saveSettings({ editorLineHeight: clamped }).catch(console.error);
+    storage.saveSettings({ editorLineHeight: clamped }).catch(onSaveError('设置'));
   },
 
   setEditorCursorStyle: (style) => {
     set({ editorCursorStyle: style });
-    storage.saveSettings({ editorCursorStyle: style }).catch(console.error);
+    storage.saveSettings({ editorCursorStyle: style }).catch(onSaveError('设置'));
   },
 
   setSidebarWidth: (width) => {
@@ -190,17 +190,17 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       Math.max(MIN_SIDEBAR_WIDTH, width),
     );
     set({ sidebarWidth: clamped });
-    storage.saveSettings({ sidebarWidth: clamped }).catch(console.error);
+    storage.saveSettings({ sidebarWidth: clamped }).catch(onSaveError('设置'));
   },
 
   setTerminalThemeIdDark: (id) => {
     set({ terminalThemeIdDark: id });
-    storage.saveSettings({ terminalThemeIdDark: id }).catch(console.error);
+    storage.saveSettings({ terminalThemeIdDark: id }).catch(onSaveError('设置'));
   },
 
   setTerminalThemeIdLight: (id) => {
     set({ terminalThemeIdLight: id });
-    storage.saveSettings({ terminalThemeIdLight: id }).catch(console.error);
+    storage.saveSettings({ terminalThemeIdLight: id }).catch(onSaveError('设置'));
   },
 
   setTerminalFontSize: (size) => {
@@ -209,39 +209,39 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       Math.max(MIN_TERMINAL_FONT_SIZE, size),
     );
     set({ terminalFontSize: clamped });
-    storage.saveSettings({ terminalFontSize: clamped }).catch(console.error);
+    storage.saveSettings({ terminalFontSize: clamped }).catch(onSaveError('设置'));
   },
 
   setTerminalFontId: (id) => {
     set({ terminalFontId: id });
-    storage.saveSettings({ terminalFontId: id }).catch(console.error);
+    storage.saveSettings({ terminalFontId: id }).catch(onSaveError('设置'));
   },
 
   setTerminalCursorStyle: (style) => {
     set({ terminalCursorStyle: style });
-    storage.saveSettings({ terminalCursorStyle: style }).catch(console.error);
+    storage.saveSettings({ terminalCursorStyle: style }).catch(onSaveError('设置'));
   },
 
   setKeyboardShortcut: (id: string, binding: string) => {
     const next = { ...get().keyboardShortcuts, [id]: binding };
     set({ keyboardShortcuts: next });
-    storage.saveSettings({ keyboardShortcuts: next }).catch(console.error);
+    storage.saveSettings({ keyboardShortcuts: next }).catch(onSaveError('设置'));
   },
 
   resetKeyboardShortcut: (id: string) => {
     const next = { ...get().keyboardShortcuts };
     delete next[id];
     set({ keyboardShortcuts: next });
-    storage.saveSettings({ keyboardShortcuts: next }).catch(console.error);
+    storage.saveSettings({ keyboardShortcuts: next }).catch(onSaveError('设置'));
   },
 
   resetAllKeyboardShortcuts: () => {
     set({ keyboardShortcuts: {} });
-    storage.saveSettings({ keyboardShortcuts: {} }).catch(console.error);
+    storage.saveSettings({ keyboardShortcuts: {} }).catch(onSaveError('设置'));
   },
 
   setGlobalShortcuts: (configs) => {
     set({ globalShortcuts: configs });
-    storage.saveSettings({ globalShortcuts: configs }).catch(console.error);
+    storage.saveSettings({ globalShortcuts: configs }).catch(onSaveError('设置'));
   },
 });

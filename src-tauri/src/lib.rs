@@ -9,35 +9,42 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
-            commands::storage::ensure_studio_dir,
-            commands::storage::read_index,
-            commands::storage::write_index,
-            commands::storage::read_document,
-            commands::storage::write_document,
-            commands::storage::delete_document,
-            commands::storage::save_doc_asset,
-            commands::storage::delete_doc_asset,
-            commands::storage::list_doc_assets,
-            commands::storage::clean_global_assets,
-            commands::storage::read_settings,
-            commands::storage::write_settings,
-            commands::storage::read_agent_config,
-            commands::storage::write_agent_config,
-            commands::storage::read_folders,
-            commands::storage::write_folders,
-            commands::storage::read_file_bytes,
-            commands::storage::list_markdown_files,
-            commands::storage::open_studio_dir,
-            commands::storage::open_doc_dir,
-            commands::storage::get_doc_path,
+            // ── storage: paths ──
+            commands::storage::paths::ensure_studio_dir,
+            commands::storage::paths::open_studio_dir,
+            commands::storage::paths::open_doc_dir,
+            commands::storage::paths::get_doc_path,
+            commands::storage::paths::read_file_bytes,
+            // ── storage: documents ──
+            commands::storage::documents::read_index,
+            commands::storage::documents::write_index,
+            commands::storage::documents::read_document,
+            commands::storage::documents::write_document,
+            commands::storage::documents::delete_document,
+            // ── storage: folders ──
+            commands::storage::folders::read_folders,
+            commands::storage::folders::write_folders,
+            // ── storage: settings ──
+            commands::storage::settings::read_settings,
+            commands::storage::settings::write_settings,
+            commands::storage::settings::read_agent_config,
+            commands::storage::settings::write_agent_config,
+            // ── storage: assets ──
+            commands::storage::assets::save_doc_asset,
+            commands::storage::assets::delete_doc_asset,
+            commands::storage::assets::list_doc_assets,
+            commands::storage::assets::clean_global_assets,
+            // ── storage: markdown ──
+            commands::storage::markdown::list_markdown_files,
+            // ── storage: cache ──
+            commands::storage::cache::set_preview_data,
+            commands::storage::cache::get_preview_data,
+            commands::storage::cache::set_diagram_update,
+            commands::storage::cache::get_diagram_update,
+            commands::storage::cache::clear_diagram_update,
             // ── document backup bundles (.jnote) ──
             commands::bundle::export_document_bundle,
             commands::bundle::import_document_bundle,
-            commands::storage::set_preview_data,
-            commands::storage::get_preview_data,
-            commands::storage::set_diagram_update,
-            commands::storage::get_diagram_update,
-            commands::storage::clear_diagram_update,
             // ── terminal (PTY) ──
             commands::terminal::pty_create,
             commands::terminal::pty_write,

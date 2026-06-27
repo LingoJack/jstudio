@@ -12,7 +12,7 @@ import React from 'react';
 
 interface ResizeHandleProps {
   /** Pointer-down handler from `useNodeResize().onResizeStart`. */
-  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
 }
 
 /** Bottom-right circular resize affordance. */

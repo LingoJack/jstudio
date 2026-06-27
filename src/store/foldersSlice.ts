@@ -1,6 +1,5 @@
 import { storage, type FolderMeta } from '../lib/storage';
-import type { SetState, GetState, StoreState } from './storeHelpers';
-import { scheduleFoldersSave, scheduleIndexSave } from './storeHelpers';
+import { onSaveError, type SetState, type GetState, type StoreState, scheduleFoldersSave, scheduleIndexSave } from './storeHelpers';
 import { collectDescendantFolderIds } from '../lib/folderTree';
 
 export function createFoldersSlice(set: SetState, get: GetState) {
@@ -91,9 +90,7 @@ export function createFoldersSlice(set: SetState, get: GetState) {
 
       // 4. Persist: delete document files from disk (best-effort)
       for (const docId of docIdsToRemove) {
-        storage.deleteDocument(docId).catch((e) => {
-          console.error(`Failed to delete document ${docId} from disk:`, e);
-        });
+        storage.deleteDocument(docId).catch(onSaveError(`文档 ${docId}`));
       }
     },
 
@@ -104,7 +101,7 @@ export function createFoldersSlice(set: SetState, get: GetState) {
      * are de-duplicated so that a parent + child selection doesn't double-
      * process.
      */
-    deleteFolders: (ids) => {
+    deleteFolders: (ids: string[]) => {
       const { folders, docList, documents, activeDocId } = get();
 
       // Collect ALL affected folder ids (each id + its descendants), then
@@ -148,9 +145,7 @@ export function createFoldersSlice(set: SetState, get: GetState) {
 
       // 4. Persist: delete document files from disk (best-effort)
       for (const docId of docIdsToRemove) {
-        storage.deleteDocument(docId).catch((e) => {
-          console.error(`Failed to delete document ${docId} from disk:`, e);
-        });
+        storage.deleteDocument(docId).catch(onSaveError(`文档 ${docId}`));
       }
     },
 

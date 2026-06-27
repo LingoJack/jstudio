@@ -154,7 +154,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       }
     } else {
       // No active tab — clear the active document so the EmptyState shows.
-      set({ activeDoc: null, activeDocId: null });
+      set({ activeDoc: null, activeDocId: '' });
     }
 
     // If closing a terminal tab, kill the PTY sessions (fire-and-forget).
@@ -363,7 +363,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       }
     } else {
       // No active tab — clear the active document so the EmptyState shows.
-      set({ activeDoc: null, activeDocId: null });
+      set({ activeDoc: null, activeDocId: '' });
     }
   },
 });

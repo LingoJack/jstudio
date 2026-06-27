@@ -7,6 +7,7 @@ import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
 import { markdownToBlocks } from '../lib/editor/markdownImport';
 import { migrateDocAssets } from '../lib/migrateAssets';
+import { toast } from '../lib/toast';
 import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
 
 /** Documents slice — document CRUD and initialization. */
@@ -199,6 +200,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
           }
         } catch (e) {
           console.error(`Failed to load document ${meta.id}:`, e);
+          toast.error(`加载文档失败: ${meta.title}`);
         }
       }
 
@@ -253,6 +255,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       get().initRecentDirs(terminalRecentDirsRaw);
     } catch (e) {
       console.error('Store init failed:', e);
+      toast.error('应用初始化失败');
       set({ isLoading: false });
     }
   },
@@ -327,12 +330,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.deleteDocument(id);
     } catch (e) {
       console.error('Failed to delete document from disk:', e);
+      toast.error('删除文档失败');
     }
 
     try {
       await storage.saveIndex(newDocList);
     } catch (e) {
       console.error('Failed to save index after delete:', e);
+      toast.error('索引保存失败');
     }
   },
 
@@ -370,6 +375,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.saveIndex(newDocList);
     } catch (e) {
       console.error('Failed to save index after batch delete:', e);
+      toast.error('索引保存失败');
     }
   },
 
@@ -407,6 +413,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error('Failed to save index after trash:', e);
+      toast.error('移入废纸篓失败');
     }
   },
 
@@ -442,6 +449,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error('Failed to save index after batch trash:', e);
+      toast.error('移入废纸篓失败');
     }
   },
 
@@ -460,6 +468,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error('Failed to save index after restore:', e);
+      toast.error('恢复文档失败');
     }
   },
 
@@ -480,6 +489,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error('Failed to save index after batch restore:', e);
+      toast.error('恢复文档失败');
     }
   },
 
@@ -506,6 +516,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.saveIndex(docList);
     } catch (e) {
       console.error('Failed to save index after empty trash:', e);
+      toast.error('清空废纸篓失败');
     }
   },
 

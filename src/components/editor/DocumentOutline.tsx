@@ -134,9 +134,10 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
     const observer = new IntersectionObserver(
       (entries) => {
         // Find the entry with the smallest top that is intersecting
-        let topMost: { id: string; top: number } | null = null;
+        let topMostId: string | null = null;
 
         // Also check all heading positions for a fallback
+        let bestTop = Infinity;
         domHeadings.forEach(({ el, id }) => {
           const rect = el.getBoundingClientRect();
           const containerRect = scrollContainer.getBoundingClientRect();
@@ -144,32 +145,31 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
 
           // Consider headings that are at or below the top margin (within first 120px)
           if (relativeTop >= -10 && relativeTop < 200) {
-            if (!topMost || relativeTop < topMost.top) {
-              topMost = { id, top: relativeTop };
+            if (relativeTop < bestTop) {
+              bestTop = relativeTop;
+              topMostId = id;
             }
           }
         });
 
         // Fallback: if no heading in the "visible" zone, find the last heading above viewport top
-        if (!topMost) {
-          let lastAbove: { id: string; top: number } | null = null;
+        if (!topMostId) {
+          let lastAboveTop = -Infinity;
           domHeadings.forEach(({ el, id }) => {
             const rect = el.getBoundingClientRect();
             const containerRect = scrollContainer.getBoundingClientRect();
             const relativeTop = rect.top - containerRect.top;
             if (relativeTop < 0) {
-              if (!lastAbove || relativeTop > lastAbove.top) {
-                lastAbove = { id, top: relativeTop };
+              if (relativeTop > lastAboveTop) {
+                lastAboveTop = relativeTop;
+                topMostId = id;
               }
             }
           });
-          if (lastAbove) {
-            topMost = lastAbove;
-          }
         }
 
-        if (topMost) {
-          setActiveId(topMost.id);
+        if (topMostId) {
+          setActiveId(topMostId);
         }
 
         // Use entries to avoid unused variable lint
@@ -187,32 +187,34 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
 
     // Also update on scroll for better precision
     const onScroll = () => {
-      let topMost: { id: string; top: number } | null = null;
+      let topMostId: string | null = null;
+      let bestTop = Infinity;
       domHeadings.forEach(({ el, id }) => {
         const rect = el.getBoundingClientRect();
         const containerRect = scrollContainer.getBoundingClientRect();
         const relativeTop = rect.top - containerRect.top;
         if (relativeTop >= -10 && relativeTop < 200) {
-          if (!topMost || relativeTop < topMost.top) {
-            topMost = { id, top: relativeTop };
+          if (relativeTop < bestTop) {
+            bestTop = relativeTop;
+            topMostId = id;
           }
         }
       });
-      if (!topMost) {
-        let lastAbove: { id: string; top: number } | null = null;
+      if (!topMostId) {
+        let lastAboveTop = -Infinity;
         domHeadings.forEach(({ el, id }) => {
           const rect = el.getBoundingClientRect();
           const containerRect = scrollContainer.getBoundingClientRect();
           const relativeTop = rect.top - containerRect.top;
           if (relativeTop < 0) {
-            if (!lastAbove || relativeTop > lastAbove.top) {
-              lastAbove = { id, top: relativeTop };
+            if (relativeTop > lastAboveTop) {
+              lastAboveTop = relativeTop;
+              topMostId = id;
             }
           }
         });
-        if (lastAbove) topMost = lastAbove;
       }
-      if (topMost) setActiveId(topMost.id);
+      if (topMostId) setActiveId(topMostId);
     };
 
     scrollContainer.addEventListener('scroll', onScroll, { passive: true });
@@ -245,7 +247,7 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
       // Find the DOM element for this heading by matching text content + level
       const headingEls = editorDom.querySelectorAll(`h${item.level}`);
       for (const el of headingEls) {
-        if (el.textContent.trim() === item.text) {
+        if (el.textContent?.trim() === item.text) {
           const rect = el.getBoundingClientRect();
           const containerRect = scrollContainer.getBoundingClientRect();
           scrollContainer.scrollTop += rect.top - containerRect.top - 12;

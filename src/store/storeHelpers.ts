@@ -13,6 +13,18 @@ import type { ToastItem, ToastType } from './toastSlice';
 import type { SettingsSectionId } from './uiSlice';
 import type { UnifiedTab } from './workspaceSlice';
 import { storage } from '../lib/storage';
+import { toast } from '../lib/toast';
+
+/**
+ * Unified error handler for fire-and-forget storage saves.
+ * Logs to console AND shows a user-facing toast.
+ */
+export function onSaveError(label: string) {
+  return (e: unknown) => {
+    console.error(`Failed to save ${label}:`, e);
+    toast.error(`${label}保存失败`);
+  };
+}
 
 /**
  * Shared debounce helpers for persisting documents and the document index.
@@ -26,21 +38,21 @@ let foldersTimer: ReturnType<typeof setTimeout> | null = null;
 export function scheduleDocumentSave(doc: Document) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    storage.saveDocument(doc).catch(console.error);
+    storage.saveDocument(doc).catch(onSaveError('文档'));
   }, 500);
 }
 
 export function scheduleIndexSave(metas: DocumentMeta[]) {
   if (indexTimer) clearTimeout(indexTimer);
   indexTimer = setTimeout(() => {
-    storage.saveIndex(metas).catch(console.error);
+    storage.saveIndex(metas).catch(onSaveError('索引'));
   }, 500);
 }
 
 export function scheduleFoldersSave(folders: FolderMeta[]) {
   if (foldersTimer) clearTimeout(foldersTimer);
   foldersTimer = setTimeout(() => {
-    storage.saveFolders(folders).catch(console.error);
+    storage.saveFolders(folders).catch(onSaveError('文件夹'));
   }, 300);
 }
 

@@ -212,7 +212,7 @@ export default function Settings() {
       'shortcuts-shortcut.category.terminal',
     ]),
   );
-  const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
+  const [activeAnchor, setActiveAnchor] = useState<string | undefined>(undefined);
 
   /** Scroll a setting block into view within the content scroll area. */
   const scrollToAnchor = useCallback((anchorId: string) => {
@@ -238,7 +238,7 @@ export default function Settings() {
       } else {
         // Switching to a new section → activate + expand.
         setActiveSection(item.id);
-        setActiveAnchor(null);
+        setActiveAnchor(undefined);
         expand(item.id);
         // Reset scroll to top for a fresh view.
         requestAnimationFrame(() => {
@@ -252,7 +252,7 @@ export default function Settings() {
       // No sub-items — behave like a plain section switch.
       if (!wasActive) {
         setActiveSection(item.id);
-        setActiveAnchor(null);
+        setActiveAnchor(undefined);
       }
     }
   };

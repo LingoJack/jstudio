@@ -1,5 +1,5 @@
 import { storage } from '../lib/storage';
-import type { SliceCreator } from './storeHelpers';
+import { onSaveError, type SliceCreator } from './storeHelpers';
 import type {
   PaneGroup,
   PaneLayoutType,
@@ -82,7 +82,7 @@ const DEFAULT_TEMPLATE: TerminalTemplate = {
 function saveTemplates(templates: TerminalTemplate[]) {
   storage
     .saveSettings({ terminalTemplates: templates })
-    .catch(console.error);
+    .catch(onSaveError('终端'));
 }
 
 // ────────────────────────────────────────────────
@@ -163,7 +163,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     set((s) => {
       const filtered = s.recentDirs.filter((d) => d !== cwd);
       const recentDirs = [cwd, ...filtered].slice(0, 10);
-      storage.saveSettings({ terminalRecentDirs: recentDirs }).catch(console.error);
+      storage.saveSettings({ terminalRecentDirs: recentDirs }).catch(onSaveError('终端'));
       return { recentDirs };
     });
   },
@@ -171,7 +171,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
   /** Clear all recent directories. */
   clearRecentDirs: () => {
     set({ recentDirs: [] });
-    storage.saveSettings({ terminalRecentDirs: [] }).catch(console.error);
+    storage.saveSettings({ terminalRecentDirs: [] }).catch(onSaveError('终端'));
   },
 
   /** Create a new template and persist it. */
@@ -306,7 +306,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
           : sess,
       ),
     }));
-    storage.ptySetTitle(id, trimmed || 'Terminal').catch(console.error);
+    storage.ptySetTitle(id, trimmed || 'Terminal').catch(onSaveError('终端'));
   },
 
   /** Set the auto-detected title from OSC sequences (won't override customTitle). */
