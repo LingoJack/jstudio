@@ -317,6 +317,23 @@ export const storage = {
   /** Return the full filesystem path of a document's `document.json`. */
   getDocPath: (docId: string) => invoke<string>('get_doc_path', { docId }),
 
+  // ---- backup bundles (.jnote) ----
+
+  /**
+   * Export a document into a lossless `.jnote` ZIP archive at `destPath`.
+   * Packages `document.json` + the whole `assets/` folder + a manifest.
+   */
+  exportDocumentBundle: (docId: string, destPath: string) =>
+    invoke<void>('export_document_bundle', { docId, destPath }),
+
+  /**
+   * Import a `.jnote` archive from `srcPath` into a new document folder
+   * `documents/{newDocId}/`. Returns the parsed Document (with its `id`
+   * rewritten to `newDocId`) so the store can register it.
+   */
+  importDocumentBundle: (srcPath: string, newDocId: string) =>
+    invoke<Document>('import_document_bundle', { srcPath, newDocId }),
+
   // ---- settings ----
 
   loadSettings: () => invoke<AppSettings>('read_settings'),

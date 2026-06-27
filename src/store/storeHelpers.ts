@@ -122,6 +122,10 @@ export interface StoreState {
   updateDocumentMeta: (fields: Partial<Document>) => void;
   importDocumentFromMarkdown: (filename: string, md: string, folderId?: string) => Promise<void>;
   importMarkdownDirectory: (dirPath: string, targetFolderId?: string) => Promise<number>;
+  /** Export a document to a lossless `.jnote` ZIP backup. Returns false if cancelled. */
+  exportDocumentBundle: (docId: string) => Promise<boolean>;
+  /** Import a `.jnote` backup as a new document. Returns new doc id, or null if cancelled. */
+  importDocumentBundle: (folderId?: string) => Promise<string | null>;
 
   // — folder ops (folders slice) —
   initFolders: (raw: FolderMeta[]) => void;

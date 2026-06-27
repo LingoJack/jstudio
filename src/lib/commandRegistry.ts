@@ -3,6 +3,8 @@ import {
   FilePlus2,
   FileDown,
   FolderDown,
+  PackageOpen,
+  Package,
   PanelLeft,
   ListTree,
   Moon,
@@ -62,6 +64,26 @@ async function importMarkdownDirectory(store: StoreState) {
   const dirPath = await open({ directory: true, multiple: false });
   if (!dirPath || typeof dirPath !== 'string') return;
   await store.importMarkdownDirectory(dirPath);
+}
+
+/** Export the active document to a lossless `.jnote` backup bundle. */
+async function exportBundle(store: StoreState) {
+  const docId = store.activeDocId;
+  if (!docId) return;
+  try {
+    await store.exportDocumentBundle(docId);
+  } catch (e) {
+    console.error('Failed to export bundle:', e);
+  }
+}
+
+/** Import a `.jnote` backup bundle as a new document. */
+async function importBundle(store: StoreState) {
+  try {
+    await store.importDocumentBundle();
+  } catch (e) {
+    console.error('Failed to import bundle:', e);
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -203,6 +225,28 @@ export function buildCommands(): PaletteCommand[] {
       keywordsZh: ['导入', '目录', '文件夹', '批量'],
       keywordsEn: ['import', 'directory', 'folder', 'batch'],
       perform: importMarkdownDirectory,
+    },
+    {
+      id: 'doc.exportBundle',
+      icon: Package,
+      titleZh: '导出备份 (.jnote)',
+      titleEn: 'Export Backup (.jnote)',
+      categoryZh: '文档',
+      categoryEn: 'Document',
+      keywordsZh: ['导出', '备份', '无损', '打包', 'jnote'],
+      keywordsEn: ['export', 'backup', 'lossless', 'bundle', 'jnote'],
+      perform: exportBundle,
+    },
+    {
+      id: 'doc.importBundle',
+      icon: PackageOpen,
+      titleZh: '导入备份 (.jnote)',
+      titleEn: 'Import Backup (.jnote)',
+      categoryZh: '文档',
+      categoryEn: 'Document',
+      keywordsZh: ['导入', '备份', '无损', 'jnote'],
+      keywordsEn: ['import', 'backup', 'lossless', 'bundle', 'jnote'],
+      perform: importBundle,
     },
 
     // ── View ──

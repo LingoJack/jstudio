@@ -734,4 +734,74 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     return docCount;
   },
+
+  // ================================================================
+  // lossless backup bundles (.jnote)
+  // ================================================================
+
+  /**
+   * Export a document to a lossless `.jnote` ZIP archive.
+   *
+   * Prompts the user for a destination via the native save dialog, then
+   * delegates the actual packaging (document.json + assets/ + manifest) to
+   * the Rust backend. Returns `true` if a file was written, `false` if the
+   * user cancelled the dialog.
+   */
+  exportDocumentBundle: async (docId) => {
+    const doc =
+      get().documents.find((d) => d.id === docId) ??
+      get().docList.find((m) => m.id === docId);
+    const baseName = (doc?.title || 'Untitled').replace(/[/\\:*?"<>|]/g, '_').trim() || 'Untitled';
+
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const destPath = await save({
+      defaultPath: `${baseName}.jnote`,
+      filters: [{ name: 'JStudio Backup', extensions: ['jnote'] }],
+    });
+    if (!destPath || typeof destPath !== 'string') return false;
+
+    await storage.exportDocumentBundle(docId, destPath);
+    return true;
+  },
+
+  /**
+   * Import a `.jnote` backup bundle as a brand-new document.
+   *
+   * Prompts for the file, asks the backend to unpack it into a fresh
+   * `documents/{id}/` folder (assets included), then registers the new
+   * document in the index + in-memory state and opens it. Returns the new
+   * document id, or `null` if the user cancelled.
+   */
+  importDocumentBundle: async (folderId) => {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const srcPath = await open({
+      multiple: false,
+      filters: [{ name: 'JStudio Backup', extensions: ['jnote'] }],
+    });
+    if (!srcPath || typeof srcPath !== 'string') return null;
+
+    const newDocId = `doc-${Date.now()}`;
+    const imported = await storage.importDocumentBundle(srcPath, newDocId);
+
+    // The backend rewrote `id`; trust its returned Document but keep our id.
+    const newDoc: Document = { ...imported, id: newDocId };
+
+    const meta = { ...toMeta(newDoc), folderId: folderId ?? null };
+    const newDocList = [meta, ...get().docList];
+    const newDocuments = [newDoc, ...get().documents];
+
+    await storage.saveIndex(newDocList);
+
+    set({
+      docList: newDocList,
+      documents: newDocuments,
+      activeDoc: newDoc,
+      activeDocId: newDoc.id,
+    });
+
+    get().openDocumentTab(newDoc.id);
+    set({ activeSidebarView: 'documents' });
+
+    return newDoc.id;
+  },
 });

@@ -7,7 +7,7 @@ import { buildFolderTree, type FolderTreeNode } from '../lib/folderTree';
 import {
   FileText, Plus, MoreHorizontal, FileDown,
   FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
-  X,
+  X, PackageOpen,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import TrashDialog from './TrashDialog';
@@ -47,6 +47,8 @@ export default function DocumentList() {
   const trashDocuments = useStore((s) => s.trashDocuments);
   const importDocumentFromMarkdown = useStore((s) => s.importDocumentFromMarkdown);
   const importMarkdownDirectory = useStore((s) => s.importMarkdownDirectory);
+  const exportDocumentBundle = useStore((s) => s.exportDocumentBundle);
+  const importDocumentBundle = useStore((s) => s.importDocumentBundle);
   const addToast = useStore((s) => s.addToast);
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
@@ -462,6 +464,28 @@ export default function DocumentList() {
     }
   }, [importMarkdownDirectory, addToast, t]);
 
+  // ── Handlers: lossless backup bundle (.jnote) ─────────────
+  const handleExportBundle = useCallback(async (docId: string) => {
+    setContextMenu(null);
+    try {
+      const ok = await exportDocumentBundle(docId);
+      if (ok) addToast('success', t('doclist.exportBundleSuccess'));
+    } catch (e) {
+      console.error('Failed to export bundle:', e);
+      addToast('error', t('doclist.exportBundleFailed'));
+    }
+  }, [exportDocumentBundle, addToast, t]);
+
+  const handleImportBundle = useCallback(async (folderId?: string) => {
+    try {
+      const id = await importDocumentBundle(folderId);
+      if (id) addToast('success', t('doclist.importBundleSuccess'));
+    } catch (e) {
+      console.error('Failed to import bundle:', e);
+      addToast('error', t('doclist.importBundleFailed'));
+    }
+  }, [importDocumentBundle, addToast, t]);
+
   // ── Pointer-based drag-and-drop ───────────────────────────
   //
   // The drag is split into three phases:
@@ -848,6 +872,15 @@ export default function DocumentList() {
                 >
                   {t('doclist.importDirectory')}
                 </MenuItem>
+                <MenuItem
+                  icon={<PackageOpen />}
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    handleImportBundle();
+                  }}
+                >
+                  {t('doclist.importBundle')}
+                </MenuItem>
                 <MenuDivider />
                 <MenuItem
                   icon={<Trash2 />}
@@ -986,6 +1019,7 @@ export default function DocumentList() {
           onOpenInFinder={() => handleOpenInFinder(contextMenu.docId)}
           onCopyPath={() => handleCopyPath(contextMenu.docId)}
           onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
+          onExportBundle={() => handleExportBundle(contextMenu.docId)}
         />
       )}
 

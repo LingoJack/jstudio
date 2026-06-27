@@ -30,6 +30,9 @@ pub fn run() {
             commands::storage::open_studio_dir,
             commands::storage::open_doc_dir,
             commands::storage::get_doc_path,
+            // ── document backup bundles (.jnote) ──
+            commands::bundle::export_document_bundle,
+            commands::bundle::import_document_bundle,
             commands::storage::set_preview_data,
             commands::storage::get_preview_data,
             commands::storage::set_diagram_update,

@@ -1,3 +1,4 @@
+pub mod bundle;
 pub mod detach;
 pub mod global_shortcut;
 pub mod jcli;
