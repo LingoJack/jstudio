@@ -202,32 +202,16 @@ export default function LinkView({
     });
 
   /**
-   * Combined ref: attaches the resize ref AND wires up the capture-phase
-   * event shield that prevents ProseMirror from stealing focus on inputs.
+   * Combined ref: useNodeResize returns a RefObject (not a callback ref),
+   * so we assign .current manually and also keep our internal ref synced.
    */
-  const shieldRef = useCallback(
+  const setFigureRef = useCallback(
     (el: HTMLDivElement | null) => {
-      // useNodeResize returns a RefObject — assign .current manually.
       (figureRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
       figureRefInternal.current = el;
-      if (!el) return;
-
-      const shield = (e: Event) => {
-        const t = e.target as HTMLElement;
-        if (SHIELD_TAGS.has(t.tagName) || t.closest('button')) {
-          e.stopPropagation();
-        }
-      };
-
-      // Capture phase: fires BEFORE ProseMirror's own event handlers.
-      el.addEventListener('mousedown', shield, true);
-      el.addEventListener('keydown', shield, true);
-      el.addEventListener('beforeinput', shield, true);
-      el.addEventListener('paste', shield, true);
     },
-    [figureRef],
+    [],
   );
-
 
   const figureStyle: React.CSSProperties = {};
   figureStyle.width = displayWidth ? `${displayWidth}px` : '480px';
@@ -392,7 +376,7 @@ export default function LinkView({
         {/* ── Placeholder state (no URL) — card style with URL input ── */}
         {!url ? (
           <div
-            ref={shieldRef}
+            ref={setFigureRef}
             className={`link-block-figure is-card is-placeholder ${activeClass}`}
             style={figureStyle}
             contentEditable={false}
@@ -446,7 +430,7 @@ export default function LinkView({
         ) : editing ? (
           /* ── Inline edit form ── */
           <div
-            ref={shieldRef}
+            ref={setFigureRef}
             className="link-block-figure is-card is-editing"
             style={figureStyle}
             contentEditable={false}
@@ -517,7 +501,7 @@ export default function LinkView({
         ) : (
           /* ── Loaded card state ── */
           <div
-            ref={shieldRef}
+            ref={setFigureRef}
             className={`link-block-figure is-card ${activeClass}`}
             style={figureStyle}
             contentEditable={false}
