@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2, RotateCcw, X, Folder, FileText } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
@@ -62,13 +63,13 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
     emptyTrashFolders();
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50"
       onClick={onClose}
     >
       <div
-        className="w-[480px] max-h-[70vh] flex flex-col rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorBackground)] shadow-2xl"
+        className="w-[480px] max-h-[70vh] flex flex-col rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -158,6 +159,7 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
