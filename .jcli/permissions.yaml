@@ -63,4 +63,5 @@ allow:
 - Shell(find /Users/lingojack/dev_custom/jcli/apps/jstudio:*)
 - Shell(cargo check:*)
 - Shell(rm /Users/lingojack/dev_custom/jcli/apps/jstudio/src/components/UnifiedTabs.tsx:*)
+- Shell(lsof -i:*)
 deny: []

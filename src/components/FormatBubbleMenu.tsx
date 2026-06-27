@@ -26,7 +26,7 @@
  * Code extensions). This component only renders the BubbleMenu UI.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { NodeSelection } from '@tiptap/pm/state';
@@ -164,99 +164,138 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     };
   }, [menuVisible, editor, toggleMark]);
 
+  // ------------------------------------------------------------------
+  //  Resolve the actual scroll container so the toolbar repositions
+  //  when the editor content scrolls (the default scrollTarget is
+  //  `window`, but our editor scrolls inside a div.overflow-y-auto).
+  // ------------------------------------------------------------------
+  const [scrollTarget, setScrollTarget] = useState<HTMLElement | Window>(window);
+  useEffect(() => {
+    const scrollEl = editor.view.dom.closest('.overflow-y-auto') as HTMLElement | null;
+    if (scrollEl) setScrollTarget(scrollEl);
+  }, [editor]);
+
+  // ------------------------------------------------------------------
+  //  Stable callbacks — memoised so the BubbleMenu plugin doesn't
+  //  receive new function references on every React re-render (which
+  //  would trigger unnecessary option-update transactions).
+  // ------------------------------------------------------------------
+
+  // Pure visibility check — NO setState calls here.  The onShow / onHide
+  // callbacks in `options` handle React state updates on actual show/hide
+  // transitions, which is both cleaner and avoids re-render storms.
+  const shouldShow = useCallback(({ state }: { state: typeof editor.state }) => {
+    const { empty, from, to } = state.selection;
+    if (empty || from === to) return false;
+
+    // Don't show the text-formatting toolbar when a whole block node is
+    // selected (e.g. clicking on an image / file / linkBlock atom node).
+    if (state.selection instanceof NodeSelection) return false;
+
+    // Walk every node covered by the selection.  If the range includes
+    // any non-text block node (image / file / link-block / code-block),
+    // suppress the menu.  Text inside paragraphs, headings, and table
+    // cells is fine.
+    const blockedTypes = new Set(['image', 'fileBlock', 'codeBlock', 'linkBlock']);
+    let hasNonText = false;
+    state.doc.nodesBetween(from, to, (node) => {
+      if (blockedTypes.has(node.type.name)) {
+        hasNonText = true;
+        return false;
+      }
+      return true;
+    });
+    return !hasNonText;
+  }, []);
+
+  // Build the virtual element for floating-ui positioning.
+  //
+  // KEY FIX: pass the correct `side` argument to coordsAtPos based on
+  // selection direction.  ProseMirror's coordsAtPos(pos, side) defaults
+  // to side = -1 (character *before* pos).  For a backward selection
+  // (head === from) the default returns the character *outside* the
+  // selection, which at a line-start boundary lands on the previous
+  // visual line — causing the toolbar to appear on the wrong line.
+  const getReferencedVirtualElement = useCallback(():
+    | VirtualElementLike
+    | null => {
+    const { selection } = editor.state;
+
+    // side =  1  →  rect of the character *after* pos  (use when head is
+    //               the left/start edge, i.e. backward selection)
+    // side = -1  →  rect of the character *before* pos (use when head is
+    //               the right/end edge, i.e. forward selection)
+    const headSide = selection.head === selection.from ? 1 : -1;
+    const headCoords = editor.view.coordsAtPos(selection.head, headSide);
+
+    // Create a zero-width rect at the cursor head so floating-ui
+    // positions the toolbar directly above (or below, via flip) the
+    // character the user is currently at.
+    const rect = {
+      width: 0,
+      height: 0,
+      top: headCoords.top,
+      bottom: headCoords.bottom,
+      left: headCoords.left,
+      right: headCoords.left,
+      x: headCoords.left,
+      y: headCoords.top,
+      toJSON() {
+        return {
+          width: 0,
+          height: 0,
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+          x: rect.x,
+          y: rect.y,
+        };
+      },
+    };
+
+    return {
+      getBoundingClientRect: () => rect,
+      getClientRects: () => [rect],
+    };
+  }, [editor]);
+
+  // onShow / onHide are called by the plugin only on actual visibility
+  // transitions (hidden→visible, visible→hidden), so React state is
+  // updated exactly when needed — not on every selection-change tick.
+  const handleShow = useCallback(() => setMenuVisible(true), []);
+  const handleHide = useCallback(() => {
+    setMenuVisible(false);
+    setActiveIndex(-1);
+  }, []);
+
+  // Memoise the options object so it only changes when scrollTarget
+  // changes, preventing unnecessary plugin re-updates.
+  const options = useMemo(
+    () => ({
+      placement: 'top' as const,
+      strategy: 'fixed' as const,
+      offset: 8,
+      flip: {
+        mainAxis: true,
+        crossAxis: false,
+      },
+      shift: {
+        padding: 8,
+      },
+      scrollTarget,
+      onShow: handleShow,
+      onHide: handleHide,
+    }),
+    [scrollTarget, handleShow, handleHide],
+  );
+
   return (
     <BubbleMenu
       editor={editor}
-      shouldShow={({ state }) => {
-        const { empty, from, to } = state.selection;
-        const nonEmpty = !empty && from !== to;
-        if (!nonEmpty) {
-          setMenuVisible(false);
-          return false;
-        }
-
-        // Don't show the text-formatting toolbar when a whole block node is
-        // selected (e.g. clicking on an image / file / linkBlock atom node).
-        // A NodeSelection means the user picked the entire node, not text.
-        if (state.selection instanceof NodeSelection) {
-          setMenuVisible(false);
-          return false;
-        }
-
-        // Walk every node covered by the selection.  If the range includes
-        // any non-text block node (image / file / link-block / code-block),
-        // suppress the menu.  Text inside paragraphs, headings, and table
-        // cells is fine.
-        const blockedTypes = new Set(['image', 'fileBlock', 'codeBlock', 'linkBlock']);
-        let hasNonText = false;
-
-        state.doc.nodesBetween(from, to, (node) => {
-          if (blockedTypes.has(node.type.name)) {
-            hasNonText = true;
-            return false;
-          }
-          return true;
-        });
-
-        const shouldShow = !hasNonText;
-
-        // Sync visibility state + reset navigation when hiding
-        setMenuVisible(shouldShow);
-        if (!shouldShow) {
-          setActiveIndex(-1);
-        }
-
-        return shouldShow;
-      }}
-      getReferencedVirtualElement={(): VirtualElementLike | null => {
-        // ── Follow the cursor head, not the selection bounding box ──
-        // This keeps the toolbar glued to the active edge of the selection.
-        const { selection } = editor.state;
-        const headCoords = editor.view.coordsAtPos(selection.head);
-
-        // Create a zero-width rect at the cursor head so floating-ui
-        // positions the toolbar directly above (or below, via flip) the
-        // character the user is currently at.
-        const rect = {
-          width: 0,
-          height: 0,
-          top: headCoords.top,
-          bottom: headCoords.bottom,
-          left: headCoords.left,
-          right: headCoords.left,
-          x: headCoords.left,
-          y: headCoords.top,
-          toJSON() {
-            return {
-              width: 0,
-              height: 0,
-              top: rect.top,
-              bottom: rect.bottom,
-              left: rect.left,
-              right: rect.right,
-              x: rect.x,
-              y: rect.y,
-            };
-          },
-        };
-
-        return {
-          getBoundingClientRect: () => rect,
-          getClientRects: () => [rect],
-        };
-      }}
-      options={{
-        placement: 'top',
-        strategy: 'fixed',
-        offset: 8,
-        flip: {
-          mainAxis: true,
-          crossAxis: false,
-        },
-        shift: {
-          padding: 8,
-        },
-      }}
+      shouldShow={shouldShow}
+      getReferencedVirtualElement={getReferencedVirtualElement}
+      options={options}
       // Wait for the DOM (and any scrollIntoView animation) to settle
       // before repositioning the toolbar. Without this, coordsAtPos
       // may read stale coordinates mid-scroll, causing the toolbar to
