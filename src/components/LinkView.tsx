@@ -100,6 +100,27 @@ export default function LinkView({
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editUrl, setEditUrl] = useState('');
+  const editTitleRef = useRef<HTMLInputElement>(null);
+  const placeholderInputRef = useRef<HTMLInputElement>(null);
+
+  /* -------------------------------------------------------------- */
+  /* Focus management                                                */
+  /* -------------------------------------------------------------- */
+
+  // Focus the title input when entering edit mode.
+  useEffect(() => {
+    if (editing) {
+      requestAnimationFrame(() => editTitleRef.current?.focus());
+    }
+  }, [editing]);
+
+  // Focus the placeholder input on mount.
+  useEffect(() => {
+    if (!url) {
+      requestAnimationFrame(() => placeholderInputRef.current?.focus());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* -------------------------------------------------------------- */
   /* Deselect when clicking outside                                 */
@@ -393,11 +414,11 @@ export default function LinkView({
                 <Link2 size={16} className="link-block-card-favicon-fallback" />
                 <div className="link-block-card-info">
                   <input
+                    ref={placeholderInputRef}
                     type="url"
                     className="link-block-card-url-input"
                     placeholder="Paste a URL (e.g. https://github.com)"
                     value={inputUrl}
-                    autoFocus
                     onChange={(e) => setInputUrl(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -437,14 +458,17 @@ export default function LinkView({
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
           >
-            <div className="link-block-edit-form">
+            <div
+              className="link-block-edit-form"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               <div className="link-block-edit-row">
                 <label className="link-block-edit-label">Name</label>
                 <input
+                  ref={editTitleRef}
                   type="text"
                   className="link-block-edit-input"
                   value={editTitle}
-                  autoFocus
                   placeholder={hostname}
                   onChange={(e) => setEditTitle(e.target.value)}
                   onKeyDown={(e) => {

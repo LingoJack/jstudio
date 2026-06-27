@@ -196,13 +196,7 @@ export const LinkExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(LinkView, {
-      // Tell ProseMirror to NOT handle ANY events on this node.
-      // Default stopEvent() intercepts mousedown on selectable atom nodes
-      // to create a NodeSelection — this prevents inner inputs/buttons
-      // from receiving focus. We handle selection ourselves (local state).
-      stopEvent: () => true,
-    });
+    return ReactNodeViewRenderer(LinkView);
   },
 });
 
