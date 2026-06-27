@@ -59,6 +59,7 @@ import { BlockIdExtension } from '../lib/blockIdExtension';
 import { lowlight } from '../lib/extensions/lowlight';
 import { SelectAllText } from '../lib/extensions/selectAllText';
 import { ImeCapsLockFix } from '../lib/extensions/imeCapsLockFix';
+import { TaskListMarkdown } from '../lib/extensions/taskListMarkdown';
 import { createPasteHandler, createDropHandler } from '../lib/editorPasteDrop';
 import TableControls from './TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
@@ -177,6 +178,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       TableCell,
       TaskList,
       TaskItem.configure({ nested: true }),
+      TaskListMarkdown,
       TextAlign.configure({
         types: ['paragraph', 'heading', 'blockquote'],
       }),
