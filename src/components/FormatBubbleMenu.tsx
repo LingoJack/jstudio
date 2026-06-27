@@ -176,6 +176,28 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   }, [editor]);
 
   // ------------------------------------------------------------------
+  //  Attach the menu element to <body> instead of the editor's parent.
+  //
+  //  Why: by default BubbleMenu appends its DOM element to
+  //  `view.dom.parentElement`, which sits *inside* the editor's
+  //  `overflow-y-auto` scroll container.  This causes two problems in
+  //  Tauri's WKWebView:
+  //
+  //    1. There is a one-frame gap between `show()` (sets
+  //       visibility:visible + appendChild at default position) and the
+  //       async `computePosition()` call — the menu briefly appears at
+  //       its previous/default coordinate, which can be far from the
+  //       selection (e.g. over the sidebar).
+  //
+  //    2. Ancestors with `overflow: auto/hidden` create a containing
+  //       block that can interfere with `position: fixed` coordinates
+  //       in WKWebView, making the menu drift to wrong regions.
+  //
+  //  Appending to <body> escapes both issues entirely.
+  // ------------------------------------------------------------------
+  const appendTo = useCallback(() => document.body, []);
+
+  // ------------------------------------------------------------------
   //  Stable callbacks — memoised so the BubbleMenu plugin doesn't
   //  receive new function references on every React re-render (which
   //  would trigger unnecessary option-update transactions).
@@ -296,6 +318,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       shouldShow={shouldShow}
       getReferencedVirtualElement={getReferencedVirtualElement}
       options={options}
+      appendTo={appendTo}
       // Wait for the DOM (and any scrollIntoView animation) to settle
       // before repositioning the toolbar. Without this, coordsAtPos
       // may read stale coordinates mid-scroll, causing the toolbar to
