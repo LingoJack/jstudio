@@ -144,7 +144,7 @@ export const translations = {
     // ── Settings nav ──
     'settings.title': '设置',
     'settings.general': '通用',
-    'settings.agent': 'AI Agent',
+    'settings.agent': '模型能力',
     'settings.editor': '编辑器',
     'settings.terminal': '终端',
     'settings.about': '关于',

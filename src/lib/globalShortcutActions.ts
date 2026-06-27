@@ -61,22 +61,28 @@ registerActionDef({
     panelWindowCounter += 1;
 
     if (panelId === 'command-palette') {
+      // Spotlight-style: the window starts as just an input bar.
+      // The webview itself is transparent & frameless — the inner React
+      // panel draws ALL visible chrome (rounded corners, shadow, border).
+      // We must NOT set Tauri's `shadow: true` because that adds a native
+      // OS-level rectangular shadow underneath, producing a visible
+      // square frame around our rounded panel.
       const w = new WebviewWindow(label, {
         url: `index.html?window=command-palette&label=${encodeURIComponent(label)}`,
         title: 'Command Palette',
         width: 680,
-        height: 500,
+        height: 600,
         maxWidth: 680,
-        maxHeight: 500,
+        maxHeight: 600,
         minWidth: 480,
-        minHeight: 200,
+        minHeight: 56,
         resizable: false,
         decorations: false,
         transparent: true,
         alwaysOnTop: true,
         center: true,
         focus: true,
-        shadow: true,
+        shadow: false,
         // skipTaskbar: true, // Not available in all platforms
       });
 

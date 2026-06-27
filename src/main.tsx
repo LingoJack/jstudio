@@ -34,6 +34,25 @@ const isTerminalWindow = windowType === 'terminal';
 const isDocumentWindow = windowType === 'document';
 const isCommandPaletteWindow = windowType === 'command-palette';
 
+// Command palette window is transparent & frameless — the body must not
+// paint an opaque background, otherwise it fills the whole window rect
+// and hides the rounded corners / shadow of the inner panel.
+//
+// We inject a <style> with !important to override vscode-theme.css's
+// `body { background-color: var(--vscode-editor-background) }` rule.
+// This must happen BEFORE React renders, so there's no white flash.
+if (isCommandPaletteWindow) {
+  const s = document.createElement('style');
+  s.id = 'cpw-transparent';
+  s.textContent = `
+    html, body, #root {
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

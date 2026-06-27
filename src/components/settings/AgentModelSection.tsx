@@ -18,7 +18,7 @@ import { useI18n } from '../../lib/i18n';
 import { toast } from '../../lib/toast';
 
 /**
- * AgentModelSection — manage jcli agent model providers.
+ * AgentModelSection — manage model capability providers.
  *
  * Reads from / writes to `~/.jdata/agent/data/agent_config.json`.
  * Only touches `providers` + `active_index`; all other config fields
