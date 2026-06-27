@@ -833,9 +833,34 @@ export class EditorCursorTrail extends BaseCursorTrail {
     // remaining content area.  Using an oversized `lineHeight` here would
     // vertically centre the em-box far below the actual text line,
     // causing the cursor to overlap the code block's bottom border.
+    // ── Vertical positioning ──
+    //
+    // Centre the em-box within the ACTUAL caret rect, not within the CSS
+    // line-height.  On WebKit/WKWebView the collapsed caret rect from
+    // getClientRects() covers only the typographic text area (ascent +
+    // descent ≈ fontSize × 1.2), whose top is already below the line-box
+    // top by half the leading.  Centring within the CSS line-height on top
+    // of that adds the half-leading offset a SECOND time, pushing the
+    // cursor visibly below the text glyphs.
+    //
+    // Using rect.height instead is correct in every case:
+    //   • Normal text on WebKit  — rect spans the text area (ascent+descent).
+    //   • Normal text on Chromium — rect spans the full line box.
+    //   • <pre> code blocks       — refinePreCaretRect() already set rect
+    //                               height to lineHeight.
+    // In all cases (top, height) defines where the text actually is, so
+    // centring within it puts the cursor exactly on the glyphs.
+    //
+    // Safety cap: if rect.height is absurdly large (a residual WebKit
+    // multi-line bug that slipped past refinePreCaretRect), fall back to
+    // the CSS line-height.
     const safeLineHeight = Math.max(lineHeight, 1);
-    const emHeight = Math.min(fontSize * GLYPH_HEIGHT_RATIO, safeLineHeight);
-    const emTop = top + (safeLineHeight - emHeight) / 2;
+    const boxHeight =
+      rect.height > 0 && rect.height <= safeLineHeight * 1.5
+        ? rect.height
+        : safeLineHeight;
+    const emHeight = Math.min(fontSize * GLYPH_HEIGHT_RATIO, boxHeight);
+    const emTop = top + (boxHeight - emHeight) / 2;
     const emBottom = emTop + emHeight;
 
     // Only the block cursor sits ON TOP of a glyph and hides it.  Capture
