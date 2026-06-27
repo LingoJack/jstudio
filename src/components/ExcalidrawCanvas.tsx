@@ -279,27 +279,11 @@ export function ExcalidrawCanvas({
   // Excalidraw's internal `restore()` silently strips those fields during
   // initialization. Instead, viewport is restored imperatively in the
   // excalidrawAPI callback after the scene is ready.
-  const initialData = useMemo<
-    ExcalidrawInitialDataState | Promise<ExcalidrawInitialDataState | null> | null
-  >(() => {
-    if (!initialSnapshot) return null;
-    try {
-      const parsed = JSON.parse(initialSnapshot);
-      return {
-        elements: prefixElements(parsed?.elements ?? [], instPrefix),
-        appState: {
-          theme: darkMode ? 'dark' : 'light',
-        },
-        scrollToContent: true,
-      };
-    } catch {
-      return null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  //
   // Extract viewport from the initial snapshot so it can be restored
   // imperatively once the Excalidraw API is ready.
+  // MUST be defined before `initialData` because the latter references it
+  // to decide whether to disable scrollToContent.
   const initialViewport = useMemo(() => {
     if (!initialSnapshot) return null;
     try {
@@ -312,6 +296,30 @@ export function ExcalidrawCanvas({
       /* ignore */
     }
     return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const initialData = useMemo<
+    ExcalidrawInitialDataState | Promise<ExcalidrawInitialDataState | null> | null
+  >(() => {
+    if (!initialSnapshot) return null;
+    try {
+      const parsed = JSON.parse(initialSnapshot);
+      return {
+        elements: prefixElements(parsed?.elements ?? [], instPrefix),
+        appState: {
+          theme: darkMode ? 'dark' : 'light',
+        },
+        // When we have a saved viewport, disable scrollToContent so Excalidraw
+        // doesn't auto-center/zoom the canvas during init. If left enabled,
+        // it changes scrollX/scrollY/zoom between the excalidrawAPI callback
+        // and the double-rAF restore, which used to cause the restore to be
+        // silently skipped (the guard saw a "changed" viewport and bailed).
+        scrollToContent: !initialViewport,
+      };
+    } catch {
+      return null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -488,45 +496,46 @@ export function ExcalidrawCanvas({
       <Excalidraw
         excalidrawAPI={(api) => {
           apiRef.current = api;
-          const appState = api.getAppState();
-          viewportRef.current = {
-            scrollX: appState.scrollX,
-            scrollY: appState.scrollY,
-            zoom: appState.zoom,
-          };
 
           // Restore viewport AFTER Excalidraw finishes its async init.
           // Excalidraw's `restore()` strips scrollX/scrollY/zoom from
           // initialData.appState, so we must apply them imperatively
           // once the scene is loaded. The double-rAF ensures we run
           // after Excalidraw's componentDidMount → initializeScene cycle.
+          //
+          // We unconditionally restore (no guard) because:
+          //   1. The double-rAF fires within ~32ms of mount — far too fast
+          //      for any user interaction to have changed the viewport.
+          //   2. Excalidraw's async init may alter scrollX/scrollY/zoom
+          //      between the excalidrawAPI callback and this rAF, which
+          //      previously caused a strict equality guard to bail and
+          //      skip the restore entirely (the root cause of viewport
+          //      not being persisted).
           if (initialViewport) {
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
-                const current = api.getAppState();
-                // Only restore if Excalidraw hasn't already applied a
-                // user-initiated change since mount.
-                if (
-                  current.scrollX === appState.scrollX &&
-                  current.scrollY === appState.scrollY &&
-                  current.zoom.value === appState.zoom.value
-                ) {
-                  restoringViewportRef.current = true;
-                  api.updateScene({
-                    appState: {
-                      scrollX: initialViewport.scrollX,
-                      scrollY: initialViewport.scrollY,
-                      zoom: { value: initialViewport.zoom } as Zoom,
-                    },
-                  });
-                  viewportRef.current = {
+                restoringViewportRef.current = true;
+                api.updateScene({
+                  appState: {
                     scrollX: initialViewport.scrollX,
                     scrollY: initialViewport.scrollY,
                     zoom: { value: initialViewport.zoom } as Zoom,
-                  };
-                }
+                  },
+                });
+                viewportRef.current = {
+                  scrollX: initialViewport.scrollX,
+                  scrollY: initialViewport.scrollY,
+                  zoom: { value: initialViewport.zoom } as Zoom,
+                };
               });
             });
+          } else {
+            const appState = api.getAppState();
+            viewportRef.current = {
+              scrollX: appState.scrollX,
+              scrollY: appState.scrollY,
+              zoom: appState.zoom,
+            };
           }
         }}
         initialData={initialData}
