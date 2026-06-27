@@ -28,12 +28,19 @@ pub fn read_folders() -> Result<Value, String> {
                 "sortOrder": sort_order,
                 "collapsed": collapsed != 0,
             });
-            if let Some(pid) = parent_id {
-                obj["parentId"] = Value::String(pid);
-            }
-            if let Some(ta) = trashed_at {
-                obj["trashedAt"] = Value::String(ta);
-            }
+            // Always emit `parentId` / `trashedAt` explicitly (null when absent).
+            // If we skip the key entirely, JS receives `undefined` instead of
+            // `null`, which breaks strict-equality filters like
+            // `f.parentId === null` in buildFolderTree and makes top-level
+            // folders invisible after reload.
+            obj["parentId"] = match parent_id {
+                Some(pid) => Value::String(pid),
+                None => Value::Null,
+            };
+            obj["trashedAt"] = match trashed_at {
+                Some(ta) => Value::String(ta),
+                None => Value::Null,
+            };
             Ok(obj)
         })
         .map_err(|e| format!("failed to query folders: {e}"))?;

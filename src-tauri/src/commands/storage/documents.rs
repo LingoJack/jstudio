@@ -36,12 +36,18 @@ pub fn read_index() -> Result<Value, String> {
                 "updatedAt": updated_at,
                 "isFavorite": is_favorite != 0,
             });
-            if let Some(fid) = folder_id {
-                obj["folderId"] = Value::String(fid);
-            }
-            if let Some(ta) = trashed_at {
-                obj["trashedAt"] = Value::String(ta);
-            }
+            // Always emit `folderId` / `trashedAt` explicitly (null when absent).
+            // Skipping the key yields `undefined` on the JS side, which violates
+            // the `DocumentMeta` contract (`folderId: string | null`) and would
+            // break any future strict-equality check.
+            obj["folderId"] = match folder_id {
+                Some(fid) => Value::String(fid),
+                None => Value::Null,
+            };
+            obj["trashedAt"] = match trashed_at {
+                Some(ta) => Value::String(ta),
+                None => Value::Null,
+            };
             Ok(obj)
         })
         .map_err(|e| format!("failed to query index: {e}"))?;
