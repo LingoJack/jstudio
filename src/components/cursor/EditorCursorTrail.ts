@@ -76,6 +76,25 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private cachedRect: { left: number; right: number; top: number; bottom: number } | null = null;
 
   /**
+   * Monotonic version tag for {@link metricsCache}.  Bumped by {@link resize}
+   * and {@link invalidateMetrics} so a font-size / line-height / font-family
+   * change invalidates every cached entry without walking the map.
+   */
+  private metricsVersion = 0;
+  /**
+   * Per-element cache of computed font metrics (fontSize + lineHeight).
+   *
+   * `getComputedStyle()` forces a style recalc, and the old code called it
+   * 2–3× per caret measurement (font-size, line-height, and again inside
+   * measureCodePoint).  These values change ONLY when the editor font
+   * settings / zoom change — never while typing — so we cache them per
+   * element and invalidate via {@link metricsVersion}.  This is purely an
+   * input-gathering optimization: the trail easing / blink / GL render are
+   * untouched, so the animation is byte-for-byte identical to before.
+   */
+  private metricsCache = new WeakMap<Element, { v: number; fontSize: number; lineHeight: number }>();
+
+  /**
    * DOM overlay that re-draws the glyph covered by a block cursor in the
    * editor's *background* colour, so the character stays legible on top of
    * the opaque block (terminal-style colour inversion).  Lazily created.
@@ -162,6 +181,24 @@ export class EditorCursorTrail extends BaseCursorTrail {
   /** Re-measure on resize: the canvas-local mapping depends on canvas size. */
   resize() {
     super.resize();
+    this.dirty = true;
+    // A resize often accompanies a zoom / layout change that can shift
+    // computed font metrics, so drop the cache too.
+    this.metricsVersion++;
+    this.wake();
+  }
+
+  /**
+   * Invalidate the cached per-element font metrics (font-size / line-height)
+   * and the inverted-glyph background colour.  Call this when the editor font
+   * settings change (font family, font size, line height, theme) — the values
+   * are otherwise assumed stable while typing.  Cheap: just bumps a version
+   * counter and re-reads one CSS variable; the next measured frame refreshes
+   * everything lazily.  Does NOT touch the animation state.
+   */
+  invalidateMetrics() {
+    this.metricsVersion++;
+    this.invertColor = this.resolveInvertColor();
     this.dirty = true;
     this.wake();
   }
@@ -392,8 +429,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
       rawRect = range.getBoundingClientRect();
     }
 
-    const fontSize = this.fontSizeAt(range.startContainer);
-    const lineHeight = this.lineHeightAt(range.startContainer, fontSize);
+    const { fontSize, lineHeight } = this.metricsAt(range.startContainer);
 
     // ── Refine the rect for <pre> code blocks ──
     //
@@ -536,23 +572,41 @@ export class EditorCursorTrail extends BaseCursorTrail {
         node.nodeType === Node.ELEMENT_NODE
           ? (node as Element)
           : node.parentElement;
-      const cs = parent ? getComputedStyle(parent) : null;
-      const fs = cs ? parseFloat(cs.fontSize) : 16;
+      // Use the cached metrics for the cap — no fresh getComputedStyle().
+      const fs = this.metricsAt(parent).fontSize;
       const maxGlyphWidth = Math.max(fs * 2, 32); // never less than 32px floor
       if (rect.width > maxGlyphWidth) return null;
       if (rect.width <= 0.5) return null;
 
-      // Capture longhand font properties — NOT the `font` shorthand.  The
-      // shorthand is invalid (and silently ignored, falling back to the
-      // browser default 16px) whenever font-variant is something CSS won't
-      // accept in the shorthand, which made the inverted glyph shrink.
-      const fontStyle: GlyphFont = {
-        fontStyle: cs?.fontStyle ?? 'normal',
-        fontWeight: cs?.fontWeight ?? 'normal',
-        fontSize: cs?.fontSize ?? '16px',
-        fontFamily: cs?.fontFamily ?? 'inherit',
-        letterSpacing: cs?.letterSpacing ?? 'normal',
-      };
+      // The longhand font properties are ONLY consumed when a `block` cursor
+      // re-draws the covered glyph (see toCanvasLocal → syncGlyphOverlay).
+      // For `bar` / `underline` the `cover` field is never read, so we skip
+      // the expensive getComputedStyle() entirely and return a placeholder
+      // font.  This keeps per-keystroke measurement cheap in the common case
+      // while leaving the block-cursor inversion pixel-identical.
+      let fontStyle: GlyphFont;
+      if (this.cursorStyle === 'block') {
+        // Capture longhand font properties — NOT the `font` shorthand.  The
+        // shorthand is invalid (and silently ignored, falling back to the
+        // browser default 16px) whenever font-variant is something CSS won't
+        // accept in the shorthand, which made the inverted glyph shrink.
+        const cs = parent ? getComputedStyle(parent) : null;
+        fontStyle = {
+          fontStyle: cs?.fontStyle ?? 'normal',
+          fontWeight: cs?.fontWeight ?? 'normal',
+          fontSize: cs?.fontSize ?? '16px',
+          fontFamily: cs?.fontFamily ?? 'inherit',
+          letterSpacing: cs?.letterSpacing ?? 'normal',
+        };
+      } else {
+        fontStyle = {
+          fontStyle: 'normal',
+          fontWeight: 'normal',
+          fontSize: `${fs}px`,
+          fontFamily: 'inherit',
+          letterSpacing: 'normal',
+        };
+      }
 
       return { text: text.slice(start, end), rect, font: fontStyle };
     } catch {
@@ -687,55 +741,52 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   /**
-   * Read the actual computed font-size (px) of the element containing the
-   * caret.  This is essential because headings, code blocks, etc. each have
-   * their own font-size and line-height — deriving the glyph size from a
-   * single global line-spacing constant mis-sizes the cursor on those lines
-   * (block too small / underline floating above the baseline).
+   * Resolve the computed font-size (px) AND line-height (px) of the element
+   * containing the caret, in a single `getComputedStyle()` call, cached per
+   * element (see {@link metricsCache}).
+   *
+   * Reading the real metrics from CSS — rather than from
+   * `range.getBoundingClientRect()` — is essential because:
+   *   • Headings / code blocks each have their own font-size & line-height;
+   *     a single global constant mis-sizes the cursor on those lines.
+   *   • The collapsed-caret rect height is unreliable on WebKit/WKWebView,
+   *     especially inside `<pre>` with `white-space: pre`, where it can span
+   *     the entire content area and push the cursor below the text line.
+   *
+   * The cache makes a static caret (merely blinking on the same element)
+   * perform ZERO `getComputedStyle()` calls after the first measurement,
+   * while producing identical values — so the animation is unchanged.
    */
-  private fontSizeAt(node: Node | null): number {
+  private metricsAt(node: Node | null): { fontSize: number; lineHeight: number } {
     let el: Element | null =
       node && node.nodeType === Node.ELEMENT_NODE
         ? (node as Element)
         : node?.parentElement ?? null;
     if (!el || !(el instanceof HTMLElement)) el = this.editorEl;
-    if (!el) return 16;
-    const fs = parseFloat(getComputedStyle(el).fontSize);
-    return Number.isFinite(fs) && fs > 0 ? fs : 16;
-  }
+    if (!el) return { fontSize: 16, lineHeight: 16 * 1.6 };
 
-  /**
-   * Read the computed CSS line-height (px) of the element containing the
-   * caret.
-   *
-   * We MUST read the real line-height from CSS rather than relying on
-   * `range.getBoundingClientRect().height`, because the latter is
-   * unreliable for collapsed caret ranges — especially inside `<pre>` blocks
-   * with `white-space: pre` on WebKit/WKWebView, where it can return the
-   * height of the entire content area instead of a single line box.  This
-   * causes the cursor's em-box to be vertically centred within an
-   * oversized rectangle, pushing it far below the actual text line (e.g.
-   * overlapping the code block's bottom border).
-   *
-   * @param fontSize  The font-size already resolved by `fontSizeAt()`,
-   *                  used as a fallback for the `"normal"` keyword.
-   */
-  private lineHeightAt(node: Node | null, fontSize: number): number {
-    let el: Element | null =
-      node && node.nodeType === Node.ELEMENT_NODE
-        ? (node as Element)
-        : node?.parentElement ?? null;
-    if (!el || !(el instanceof HTMLElement)) el = this.editorEl;
-    if (!el) return fontSize * 1.6;
-    const lh = getComputedStyle(el).lineHeight;
+    const cached = this.metricsCache.get(el);
+    if (cached && cached.v === this.metricsVersion) {
+      return { fontSize: cached.fontSize, lineHeight: cached.lineHeight };
+    }
+
+    const cs = getComputedStyle(el);
+
+    const fsRaw = parseFloat(cs.fontSize);
+    const fontSize = Number.isFinite(fsRaw) && fsRaw > 0 ? fsRaw : 16;
+
+    let lineHeight: number;
+    const lh = cs.lineHeight;
     if (lh === 'normal' || lh === '') {
       // "normal" ≈ 1.2 × font-size (CSS specification default).
-      return fontSize * 1.2;
+      lineHeight = fontSize * 1.2;
+    } else {
+      const px = parseFloat(lh);
+      lineHeight = Number.isFinite(px) && px > 0 ? px : fontSize * 1.6;
     }
-    const px = parseFloat(lh);
-    if (Number.isFinite(px) && px > 0) return px;
-    // Final fallback: assume 1.6 × font-size (matches the app's body text).
-    return fontSize * 1.6;
+
+    this.metricsCache.set(el, { v: this.metricsVersion, fontSize, lineHeight });
+    return { fontSize, lineHeight };
   }
 
   /**
@@ -759,7 +810,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     const rawRect = span.getBoundingClientRect();
     const parent = span.parentNode;
-    const fontSize = this.fontSizeAt(parent);
+    const fontSize = this.metricsAt(parent).fontSize;
     if (parent) parent.removeChild(span);
 
     sel.removeAllRanges();
@@ -791,7 +842,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * the caret's left edge, which is the glyph's left edge.
    *
    * @param lineHeight  Computed CSS line-height (px).  MUST be passed in
-   *                    from the caller (via `lineHeightAt()`) rather than
+   *                    from the caller (via `metricsAt()`) rather than
    *                    derived from `rect.height`, because
    *                    `range.getBoundingClientRect().height` is unreliable
    *                    for collapsed caret ranges — especially inside `<pre>`

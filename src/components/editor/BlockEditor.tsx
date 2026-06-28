@@ -93,6 +93,14 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
   const toggleOutline = useStore((s) => s.toggleOutline);
   const editorCursorStyle = useStore((s) => s.editorCursorStyle);
+  // Font settings — subscribed only to invalidate the cursor trail's cached
+  // font metrics when any of them change (the trail caches font-size /
+  // line-height per element for performance; these are the events that make
+  // those values stale).
+  const fontId = useStore((s) => s.fontId);
+  const cjkFontId = useStore((s) => s.cjkFontId);
+  const fontSize = useStore((s) => s.fontSize);
+  const editorLineHeight = useStore((s) => s.editorLineHeight);
   const { t } = useI18n();
 
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -545,6 +553,24 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       editorDom.style.caretColor = '';
     };
   }, [editorCursorStyle, editor, readOnly]);
+
+  // ------------------------------------------------------------------
+  // Invalidate the cursor trail's cached font metrics when any editor font
+  // setting changes.  The trail caches per-element font-size / line-height
+  // (read via getComputedStyle, which forces a style recalc) and assumes
+  // they are stable while typing.  These four settings are the only things
+  // that change them, so we flush the cache here — cheap, and keeps the
+  // measured caret geometry correct after a font/size/line-height change.
+  // The actual CSS application lives elsewhere; we wait a frame so the new
+  // styles are computed before the trail re-measures.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (readOnly) return;
+    const id = requestAnimationFrame(() => {
+      trailRef.current?.invalidateMetrics();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [fontId, cjkFontId, fontSize, editorLineHeight, readOnly]);
 
   // ------------------------------------------------------------------
   // Title keydown — Enter / Arrow navigation
