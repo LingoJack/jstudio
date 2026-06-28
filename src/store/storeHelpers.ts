@@ -31,15 +31,46 @@ export function onSaveError(label: string) {
  * Used across multiple store slices.
  */
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
+/**
+ * Per-document save timers, keyed by document id.
+ *
+ * A single shared timer is wrong: scheduling a save for document B would
+ * `clearTimeout` document A's still-pending save, dropping A's edits when the
+ * user switches documents within the debounce window. Keying by id makes each
+ * document's pending save independent.
+ */
+const docSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+/** The latest document snapshot pending a flush, keyed by id. */
+const pendingDocs = new Map<string, Document>();
 let indexTimer: ReturnType<typeof setTimeout> | null = null;
 let foldersTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function scheduleDocumentSave(doc: Document) {
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  const existing = docSaveTimers.get(doc.id);
+  if (existing) clearTimeout(existing);
+  pendingDocs.set(doc.id, doc);
+  const timer = setTimeout(() => {
+    docSaveTimers.delete(doc.id);
+    pendingDocs.delete(doc.id);
     storage.saveDocument(doc).catch(onSaveError('文档'));
   }, 500);
+  docSaveTimers.set(doc.id, timer);
+}
+
+/**
+ * Synchronously flush every pending document save right now (fire-and-forget
+ * IPC). Call this before a risky transition where the debounce might never
+ * fire — e.g. app close / window hide. Each save is keyed by id so no pending
+ * edit is lost.
+ */
+export function flushDocumentSaves() {
+  for (const [id, timer] of docSaveTimers) {
+    clearTimeout(timer);
+    const doc = pendingDocs.get(id);
+    if (doc) storage.saveDocument(doc).catch(onSaveError('文档'));
+  }
+  docSaveTimers.clear();
+  pendingDocs.clear();
 }
 
 export function scheduleIndexSave(metas: DocumentMeta[]) {
@@ -162,7 +193,15 @@ export interface StoreState {
   // — batch ops (editor slice) —
   // Replaces all blocks of the active document in one shot. Used by the
   // TipTap editor to sync content changes without per-block dispatch.
-  setActiveDocBlocks: (blocks: Block[]) => void;
+  // `docId` (optional) guards against applying edits to the wrong document
+  // when the active doc changed during the debounce window.
+  setActiveDocBlocks: (blocks: Block[], docId?: string) => void;
+  /**
+   * Persist `blocks` to a specific document by id, even if it is no longer the
+   * active document. Used to flush the outgoing document's pending edits when
+   * switching documents.
+   */
+  flushBlocksToDoc: (docId: string, blocks: Block[]) => void;
 
   // — asset ops (editor slice) —
   saveImageToDoc: (blob: Blob, afterBlockId?: string) => Promise<string | null>;

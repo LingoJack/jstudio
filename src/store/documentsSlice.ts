@@ -498,25 +498,37 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     if (trashedDocList.length === 0) return;
 
     const trashedIds = trashedDocList.map((m) => m.id);
-    const idSet = new Set(trashedIds);
-    const newDocuments = documents.filter((d) => !idSet.has(d.id));
+
+    // Delete files from disk FIRST (each successful delete writes a tombstone
+    // in the DB, preventing orphan-recovery from resurrecting it on next
+    // launch). Only the ids that were actually deleted are removed from the
+    // UI/index; failed ones stay in trash so the user can retry.
+    const results = await Promise.allSettled(
+      trashedIds.map((id) => storage.deleteDocument(id)),
+    );
+    const deletedIds = new Set(
+      trashedIds.filter((_, i) => results[i].status === 'fulfilled'),
+    );
+    const failedCount = trashedIds.length - deletedIds.size;
+
+    const newTrashed = trashedDocList.filter((m) => !deletedIds.has(m.id));
+    const newDocuments = documents.filter((d) => !deletedIds.has(d.id));
 
     set({
-      trashedDocList: [],
+      trashedDocList: newTrashed,
       documents: newDocuments,
     });
 
-    // Persist: delete files from disk (best-effort)
-    await Promise.allSettled(
-      trashedIds.map((id) => storage.deleteDocument(id)),
-    );
-
     try {
       const { docList } = get();
-      await storage.saveIndex(docList);
+      await storage.saveIndex([...docList, ...newTrashed]);
     } catch (e) {
       console.error('Failed to save index after empty trash:', e);
       toast.error('清空废纸篓失败');
+    }
+
+    if (failedCount > 0) {
+      toast.error(`${failedCount} 个文档删除失败`);
     }
   },
 

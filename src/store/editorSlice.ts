@@ -158,9 +158,15 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
   // ================================================================
   // batch replace — used by TipTap editor to sync all blocks at once
   // ================================================================
-  setActiveDocBlocks: (blocks: Block[]) => {
+  setActiveDocBlocks: (blocks: Block[], docId?: string) => {
     const { activeDoc, documents } = get();
     if (!activeDoc) return;
+
+    // Ownership guard: these blocks were serialized from the editor for a
+    // specific document. If the active document changed since (the user
+    // switched docs within the debounce/idle window), applying them now would
+    // write one document's edits into another. Drop them in that case.
+    if (docId && docId !== activeDoc.id) return;
 
     const now = new Date().toISOString();
     const updatedDoc = { ...activeDoc, blocks, updatedAt: now };
@@ -169,6 +175,30 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
     );
 
     set({ activeDoc: updatedDoc, documents: newDocuments });
+    scheduleDocumentSave(updatedDoc);
+  },
+
+  // ================================================================
+  // flush blocks to a specific (possibly non-active) document
+  //
+  // Used when switching documents: the outgoing document's pending edits
+  // must be saved against ITS id, even though `activeDoc` has already moved
+  // to the incoming document. Updates the `documents` array entry (and
+  // `activeDoc` too if it happens to still match) and schedules a save.
+  // ================================================================
+  flushBlocksToDoc: (docId: string, blocks: Block[]) => {
+    const { documents, activeDoc } = get();
+    const target = documents.find((d) => d.id === docId);
+    if (!target) return;
+
+    const now = new Date().toISOString();
+    const updatedDoc = { ...target, blocks, updatedAt: now };
+    const newDocuments = documents.map((d) => (d.id === docId ? updatedDoc : d));
+
+    set({
+      documents: newDocuments,
+      ...(activeDoc?.id === docId ? { activeDoc: updatedDoc } : {}),
+    });
     scheduleDocumentSave(updatedDoc);
   },
 

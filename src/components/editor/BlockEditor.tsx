@@ -47,6 +47,7 @@ import { Markdown } from '@tiptap/markdown';
 import Color from '@tiptap/extension-color';
 
 import { useStore } from '../../store/useStore';
+import { flushDocumentSaves } from '../../store/storeHelpers';
 import { useI18n } from '../../lib/i18n';
 import {
   ourBlocksToTiptapJSON,
@@ -150,7 +151,9 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         idleHandleRef.current = null;
         const json = editor.getJSON();
         const blocks: Block[] = tiptapJSONToOurBlocks(json.content ?? []);
-        useStore.getState().setActiveDocBlocks(blocks);
+        // Tag the edits with the document they were serialized from, so the
+        // store can drop them if the active document changed meanwhile.
+        useStore.getState().setActiveDocBlocks(blocks, loadedDocIdRef.current ?? undefined);
       };
 
       if (typeof requestIdleCallback !== 'undefined') {
@@ -161,6 +164,46 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       }
     }, 300);
   }, []);
+
+  // ------------------------------------------------------------------
+  // Flush any pending (debounced/idle) edits SYNCHRONOUSLY to a given
+  // document id. Cancels the outstanding timers, serializes the current
+  // editor content, and persists it against `docId` (which may no longer be
+  // the active document — e.g. when switching docs). Returns true if it ran.
+  // ------------------------------------------------------------------
+  const flushPendingEdits = useCallback((docId: string | null): boolean => {
+    const pendingDebounce = saveTimeoutRef.current !== null;
+    const pendingIdle = idleHandleRef.current !== null;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    if (idleHandleRef.current !== null) {
+      if (typeof cancelIdleCallback !== 'undefined') {
+        cancelIdleCallback(idleHandleRef.current);
+      } else {
+        clearTimeout(idleHandleRef.current);
+      }
+      idleHandleRef.current = null;
+    }
+
+    const ed = editorRef.current;
+    if (
+      !ed ||
+      readOnly ||
+      isReplacingRef.current ||
+      !docId ||
+      !(pendingDebounce || pendingIdle)
+    ) {
+      return false;
+    }
+
+    const json = ed.getJSON();
+    const blocks: Block[] = tiptapJSONToOurBlocks(json.content ?? []);
+    useStore.getState().flushBlocksToDoc(docId, blocks);
+    return true;
+  }, [readOnly]);
 
   // ------------------------------------------------------------------
   // Focus the title input at end (used by BlockNavigation extension)
@@ -325,6 +368,12 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
     // Only reload if the document actually changed
     if (loadedDocIdRef.current === activeDocId) return;
+
+    // Before swapping content, flush the OUTGOING document's pending edits
+    // against its own id, so switching docs within the debounce window does
+    // not drop or misattribute the last edits.
+    flushPendingEdits(loadedDocIdRef.current);
+
     loadedDocIdRef.current = activeDocId;
 
     // Read blocks from the store directly (not via subscription) so
@@ -342,40 +391,41 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   }, [activeDocId, editor, isStatic, doc]);
 
   // ------------------------------------------------------------------
-  // Cleanup on unmount (e.g. switching documents)
+  // Cleanup on unmount (e.g. leaving the editor entirely)
   //
   // Flush any pending conversion SYNCHRONOUSLY so the last edits made in
   // the final debounce/idle window are not lost when the editor unmounts.
   // ------------------------------------------------------------------
   useEffect(() => {
     return () => {
-      const pendingDebounce = saveTimeoutRef.current !== null;
-      const pendingIdle = idleHandleRef.current !== null;
-
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
-      if (idleHandleRef.current !== null) {
-        if (typeof cancelIdleCallback !== 'undefined') {
-          cancelIdleCallback(idleHandleRef.current);
-        } else {
-          clearTimeout(idleHandleRef.current);
-        }
-        idleHandleRef.current = null;
-      }
-
-      // If a sync was queued (debounced) or deferred (idle) but hasn't run
-      // yet, run it now against the live editor so no edit is dropped.
-      // Skip in read-only/static mode (no onUpdate, nothing to flush).
-      const ed = editorRef.current;
-      if (ed && !readOnly && !isReplacingRef.current && (pendingDebounce || pendingIdle)) {
-        const json = ed.getJSON();
-        const blocks: Block[] = tiptapJSONToOurBlocks(json.content ?? []);
-        useStore.getState().setActiveDocBlocks(blocks);
-      }
+      flushPendingEdits(loadedDocIdRef.current);
     };
-  }, [readOnly]);
+  }, [flushPendingEdits]);
+
+  // ------------------------------------------------------------------
+  // App-close / window-hide safety net
+  //
+  // The editor→store sync (300ms) and store→disk save (500ms) are both
+  // debounced, leaving up to an ~800ms window where the latest edits live
+  // only in the editor. If the window closes in that window the edits are
+  // lost. On pagehide/beforeunload we synchronously (a) push the editor's
+  // pending content into the store, then (b) fire every pending document
+  // save immediately. Fire-and-forget — a WebView can't await async IPC
+  // here, but the synchronous invoke dispatch is enough in practice.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (readOnly) return;
+    const handleClose = () => {
+      flushPendingEdits(loadedDocIdRef.current);
+      flushDocumentSaves();
+    };
+    window.addEventListener('pagehide', handleClose);
+    window.addEventListener('beforeunload', handleClose);
+    return () => {
+      window.removeEventListener('pagehide', handleClose);
+      window.removeEventListener('beforeunload', handleClose);
+    };
+  }, [readOnly, flushPendingEdits]);
 
   // ------------------------------------------------------------------
   // GPU cursor trail — kitty-style comet-tail animation
