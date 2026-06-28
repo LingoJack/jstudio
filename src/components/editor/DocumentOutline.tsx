@@ -185,14 +185,21 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
     domHeadings.forEach(({ el }) => observer.observe(el));
     observerRef.current = observer;
 
-    // Also update on scroll for better precision
-    const onScroll = () => {
+    // Also update on scroll for better precision.
+    //
+    // rAF-throttle: a scroll event can fire 60–120×/s, and the handler reads
+    // getBoundingClientRect() on EVERY heading (49 in a large doc) — doing
+    // that synchronously per event causes layout thrashing and janky scroll.
+    // Coalescing to one measurement per frame keeps scrolling smooth while
+    // the active-heading highlight stays accurate.
+    let scrollRaf: number | null = null;
+    const measureActive = () => {
+      scrollRaf = null;
+      const containerRect = scrollContainer.getBoundingClientRect();
       let topMostId: string | null = null;
       let bestTop = Infinity;
       domHeadings.forEach(({ el, id }) => {
-        const rect = el.getBoundingClientRect();
-        const containerRect = scrollContainer.getBoundingClientRect();
-        const relativeTop = rect.top - containerRect.top;
+        const relativeTop = el.getBoundingClientRect().top - containerRect.top;
         if (relativeTop >= -10 && relativeTop < 200) {
           if (relativeTop < bestTop) {
             bestTop = relativeTop;
@@ -203,9 +210,7 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
       if (!topMostId) {
         let lastAboveTop = -Infinity;
         domHeadings.forEach(({ el, id }) => {
-          const rect = el.getBoundingClientRect();
-          const containerRect = scrollContainer.getBoundingClientRect();
-          const relativeTop = rect.top - containerRect.top;
+          const relativeTop = el.getBoundingClientRect().top - containerRect.top;
           if (relativeTop < 0) {
             if (relativeTop > lastAboveTop) {
               lastAboveTop = relativeTop;
@@ -216,12 +221,17 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
       }
       if (topMostId) setActiveId(topMostId);
     };
+    const onScroll = () => {
+      if (scrollRaf !== null) return;
+      scrollRaf = requestAnimationFrame(measureActive);
+    };
 
     scrollContainer.addEventListener('scroll', onScroll, { passive: true });
 
     return () => {
       observer.disconnect();
       scrollContainer.removeEventListener('scroll', onScroll);
+      if (scrollRaf !== null) cancelAnimationFrame(scrollRaf);
       observerRef.current = null;
     };
   }, [editor, headings]);

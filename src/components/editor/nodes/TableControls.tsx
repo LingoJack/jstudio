@@ -41,9 +41,17 @@ export default function TableControls({ editor }: TableControlsProps) {
   const [open, setOpen] = useState<DropdownKey>(null);
   const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
   const interactingRef = useRef(false);
+  /** rAF handle so the transaction listener coalesces to one update/frame. */
+  const rafRef = useRef<number | null>(null);
 
   // -------------------------------------------------------------------------
   // Core: detect table + update toolbar position + alignment
+  //
+  // Cheap early-out FIRST: walking the selection's ancestors to see whether
+  // we're inside a table is O(depth) and touches no DOM, so it runs on every
+  // keystroke essentially for free.  Only when we ARE in a table do we hit
+  // the DOM (querySelector + getBoundingClientRect + isActive).  This keeps
+  // the common case (typing outside any table) from doing layout work.
   // -------------------------------------------------------------------------
   const updateAll = useCallback(() => {
     const { $from } = editor.state.selection;
@@ -56,14 +64,17 @@ export default function TableControls({ editor }: TableControlsProps) {
     }
 
     if (!inTable) {
-      setToolbar(null);
+      // Avoid a pointless state update (which would re-render) when the
+      // toolbar is already hidden — the overwhelmingly common case while
+      // typing in a large doc full of non-table blocks.
+      setToolbar((prev) => (prev === null ? prev : null));
       return;
     }
 
     const editorDom = editor.view.dom as HTMLElement;
     const tableEl = editorDom.querySelector('table');
     if (!tableEl) {
-      setToolbar(null);
+      setToolbar((prev) => (prev === null ? prev : null));
       return;
     }
 
@@ -75,11 +86,25 @@ export default function TableControls({ editor }: TableControlsProps) {
     else setAlign('left');
   }, [editor]);
 
+  /**
+   * rAF-throttled wrapper for the `transaction` listener: ProseMirror can
+   * fire many transactions per frame (e.g. composing IME, multi-step
+   * commands).  Coalescing them to a single update per animation frame keeps
+   * the per-keystroke cost flat regardless of transaction volume.
+   */
+  const scheduleUpdate = useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      updateAll();
+    });
+  }, [updateAll]);
+
   // -------------------------------------------------------------------------
   // Listen to editor state changes
   // -------------------------------------------------------------------------
   useEffect(() => {
-    editor.on('transaction', updateAll);
+    editor.on('transaction', scheduleUpdate);
     editor.on('focus', updateAll);
 
     const handleBlur = () => {
@@ -92,7 +117,7 @@ export default function TableControls({ editor }: TableControlsProps) {
     };
     editor.on('blur', handleBlur);
 
-    const handleScroll = () => updateAll();
+    const handleScroll = () => scheduleUpdate();
     const scrollContainer = editor.view.dom.closest(
       '[class*="scroll"], [class*="overflow"]',
     ) as HTMLElement | null;
@@ -102,13 +127,17 @@ export default function TableControls({ editor }: TableControlsProps) {
     updateAll();
 
     return () => {
-      editor.off('transaction', updateAll);
+      editor.off('transaction', scheduleUpdate);
       editor.off('focus', updateAll);
       editor.off('blur', handleBlur);
       scrollContainer?.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleScroll);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
-  }, [editor, updateAll]);
+  }, [editor, updateAll, scheduleUpdate]);
 
   // -------------------------------------------------------------------------
   // Command runner
