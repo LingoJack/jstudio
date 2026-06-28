@@ -25,7 +25,7 @@ import {
   filterCommands,
   type ScoredCommand,
 } from '../../lib/commandRegistry';
-import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts';
+import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 import type { DocumentMeta } from '../../lib/storage';
 import type { TerminalSession } from '../../store/terminalSlice';
 import type { SettingsSectionId } from '../../store/uiSlice';

@@ -39,13 +39,13 @@ import {
   ensureUtf8Charset,
   FILE_EXTENSIONS,
   type PreviewCategory,
-} from '../../../lib/fileUtils';
-import { docxToHtml } from '../../../lib/docxPreview';
+} from '../../../lib/editor/fileUtils';
+import { docxToHtml } from '../../../lib/editor/docxPreview';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
 import { toDisplaySrc } from '../../../lib/content/assetUrl';
-import { useNodeResize } from '../../../hooks/useNodeResize';
-import { useEditorWidth } from '../../../hooks/useEditorWidth';
-import { useNodeToolbarNav } from '../../../hooks/useNodeToolbarNav';
+import { useNodeResize } from '../hooks/useNodeResize';
+import { useEditorWidth } from '../hooks/useEditorWidth';
+import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { UploadIcon } from '../../shared/icons';
 import {
   BlockToolbar,

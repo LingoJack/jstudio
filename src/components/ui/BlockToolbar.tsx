@@ -21,7 +21,7 @@
 
 import React from 'react';
 import { AlignLeftIcon, AlignCenterIcon } from '../shared/icons';
-import type { NodeToolbarNav } from '../../hooks/useNodeToolbarNav';
+import type { NodeToolbarNav } from '../editor/hooks/useNodeToolbarNav';
 
 // ── BlockToolbar (container) ──────────────────────────────
 

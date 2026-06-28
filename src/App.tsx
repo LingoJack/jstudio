@@ -3,20 +3,20 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
-import { eventToBinding, resolveBinding, type ShortcutBinding } from './lib/shortcuts';
+import { eventToBinding, resolveBinding, type ShortcutBinding } from './lib/shortcuts/keyboardShortcuts';
 import { buildCommands } from './lib/commandRegistry';
 import { storage } from './lib/storage';
-import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/globalShortcuts';
+import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 // Side-effect import: registers built-in action handlers into the registry.
-import './lib/globalShortcutActions';
-import TitleBar from './components/TitleBar';
-import ActivityBar from './components/ActivityBar';
+import './lib/shortcuts/globalShortcutActions';
+import TitleBar from './components/layout/TitleBar';
+import ActivityBar from './components/layout/ActivityBar';
 import DocumentList from './components/documents/DocumentList';
 import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import BlockEditor from './components/editor/BlockEditor';
-import Settings from './components/Settings';
-import EmptyState from './components/EmptyState';
+import Settings from './components/settings/Settings';
+import EmptyState from './components/ui/EmptyState';
 import CommandPalette from './components/editor/CommandPalette';
 import { ToastContainer } from './components/ui/Toast';
 

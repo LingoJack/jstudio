@@ -11,9 +11,9 @@
  * render time via the asset protocol). One-time cost per document.
  */
 
-import { storage } from './storage';
-import { genStoredName } from './editor/upload';
-import type { Document, Block } from '../types';
+import { storage } from '../storage';
+import { genStoredName } from '../editor/upload';
+import type { Document, Block } from '../../types';
 
 /** MIME → file extension, for naming the migrated asset. */
 function mimeToExt(mime: string): string {

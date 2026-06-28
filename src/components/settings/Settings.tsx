@@ -1,18 +1,18 @@
 import { useState, useCallback } from 'react';
 import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, type LucideIcon } from 'lucide-react';
-import { useI18n } from '../lib/i18n';
-import type { TranslationKey } from '../lib/i18n';
-import { useStore } from '../store/useStore';
-import type { SettingsSectionId } from '../store/uiSlice';
-import { useCollapsibleTree } from './ui/useCollapsibleTree';
-import { NavBranch, NavRow } from './ui/NavTree';
-import GeneralSection from './settings/GeneralSection';
-import AgentModelSection from './settings/AgentModelSection';
-import EditorSection from './settings/EditorSection';
-import TerminalSection from './settings/TerminalSection';
-import ShortcutsSection from './settings/ShortcutsSection';
-import AboutSection from './settings/AboutSection';
-import HelpSection from './settings/HelpSection';
+import { useI18n } from '../../lib/i18n';
+import type { TranslationKey } from '../../lib/i18n';
+import { useStore } from '../../store/useStore';
+import type { SettingsSectionId } from '../../store/uiSlice';
+import { useCollapsibleTree } from '../ui/useCollapsibleTree';
+import { NavBranch, NavRow } from '../ui/NavTree';
+import GeneralSection from './GeneralSection';
+import AgentModelSection from './AgentModelSection';
+import EditorSection from './EditorSection';
+import TerminalSection from './TerminalSection';
+import ShortcutsSection from './ShortcutsSection';
+import AboutSection from './AboutSection';
+import HelpSection from './HelpSection';
 
 // ────────────────────────────────────────────────
 // Settings sections

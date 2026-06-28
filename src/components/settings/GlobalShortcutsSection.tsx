@@ -24,7 +24,7 @@ import {
 import { open } from '@tauri-apps/plugin-dialog';
 import { useI18n, type TranslationKey } from '../../lib/i18n';
 import { useStore } from '../../store/useStore';
-import { eventToBinding, bindingToDisplay } from '../../lib/shortcuts';
+import { eventToBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 import { toast } from '../../lib/toast';
 import { SelectDropdown } from '../ui/SelectDropdown';
 import {
@@ -35,7 +35,7 @@ import {
   executeAction,
   type GlobalShortcutConfig,
   type ActionParamField,
-} from '../../lib/globalShortcuts';
+} from '../../lib/shortcuts/globalShortcuts';
 
 // ════════════════════════════════════════════════════════════════════
 // Helpers

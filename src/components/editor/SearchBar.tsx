@@ -1,7 +1,7 @@
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { Search } from 'lucide-react';
-import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts';
+import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 
 /**
  * Command palette trigger button.

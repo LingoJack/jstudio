@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { eventToBinding, resolveBinding } from '../../lib/shortcuts';
+import { eventToBinding, resolveBinding } from '../../lib/shortcuts/keyboardShortcuts';
 
 /**
  * usePaneShortcuts — global keyboard shortcuts for Kitty-style pane

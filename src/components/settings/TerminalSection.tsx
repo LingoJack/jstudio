@@ -1,11 +1,11 @@
 import { Minus, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n, type TranslationKey } from '../../lib/i18n';
-import { MONOSPACE_FONTS } from '../../lib/fonts';
+import { MONOSPACE_FONTS } from '../../lib/editor/fonts';
 import {
   TERMINAL_THEMES,
   getSemanticTerminalCursor,
-} from '../../lib/terminalThemes';
+} from '../../lib/terminal/themes';
 import type { TerminalCursorStyle } from '../../lib/storage';
 
 /** Cursor style options shown in the settings picker. */

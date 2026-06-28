@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { useI18n } from '../../lib/i18n';
-import type { FontPreset } from '../../lib/fonts';
+import type { FontPreset } from '../../lib/editor/fonts';
 
 export interface FontDropdownProps {
   /** Available font presets to show in the list. */

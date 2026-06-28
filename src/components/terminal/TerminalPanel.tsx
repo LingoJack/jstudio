@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
-import { getTerminalTheme } from '../../lib/terminalThemes';
+import { getTerminalTheme } from '../../lib/terminal/themes';
 import TerminalTabs from './TerminalTabs';
 import PaneLayoutView from './PaneLayoutView';
 import { usePaneShortcuts } from './usePaneShortcuts';

@@ -1,6 +1,6 @@
 import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
-import type { ShortcutOverrides } from '../lib/shortcuts';
-import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
+import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
+import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 import { onSaveError, type SliceCreator } from './storeHelpers';
 import {
   DEFAULT_LATIN_FONT_ID,
@@ -13,8 +13,8 @@ import {
   DEFAULT_LINE_HEIGHT,
   resolveFontFamily,
   DEFAULT_MONOSPACE_FONT_ID,
-} from '../lib/fonts';
-import { DEFAULT_TERMINAL_THEME_ID_DARK, DEFAULT_TERMINAL_THEME_ID_LIGHT } from '../lib/terminalThemes';
+} from '../lib/editor/fonts';
+import { DEFAULT_TERMINAL_THEME_ID_DARK, DEFAULT_TERMINAL_THEME_ID_LIGHT } from '../lib/terminal/themes';
 
 /** Sidebar width constraints (px). */
 const MIN_SIDEBAR_WIDTH = 180;

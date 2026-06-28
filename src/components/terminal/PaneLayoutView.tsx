@@ -11,7 +11,7 @@ import { storage } from '../../lib/storage';
 import {
   getTerminalTheme,
   withSemanticTerminalCursor,
-} from '../../lib/terminalThemes';
+} from '../../lib/terminal/themes';
 import { useTerminalManager } from './useTerminalManager';
 import CursorTrail from './CursorTrail';
 import type { PaneLayoutType, PaneResizeState } from './types';

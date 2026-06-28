@@ -9,8 +9,8 @@ import { readText } from '@tauri-apps/plugin-clipboard-manager';
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/storage';
 import type { TerminalCursorStyle } from '../../lib/storage';
-import { resolveMonospaceFont } from '../../lib/fonts';
-import type { TerminalTheme } from '../../lib/terminalThemes';
+import { resolveMonospaceFont } from '../../lib/editor/fonts';
+import type { TerminalTheme } from '../../lib/terminal/themes';
 import type { SessionTerminal } from './types';
 import { registerTerminal, unregisterTerminal } from './terminalRegistry';
 
