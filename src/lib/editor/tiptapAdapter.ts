@@ -38,7 +38,7 @@
 
 import type { JSONContent } from '@tiptap/react';
 
-import type { Block, BlockType, TableData, TableCellData, TableRowData, TodoItemData } from '../../types/document';
+import type { Block, BlockType, TableData, TableCellData, TableRowData, TodoItemData, ListItemData } from '../../types/document';
 import type { RichText, RichTextAnnotations } from '../../types/richText';
 import { isAssetPath } from '../content/assetUrl';
 
@@ -97,10 +97,15 @@ export function richTextToTiptapInline(rich: RichText[]): JSONContent[] {
 
   for (const seg of rich) {
     if (!seg.text) continue;
-    result.push({
-      type: 'text',
-      text: seg.text,
-      marks: annotationsToMarks(seg.annotations ?? {}),
+    const marks = annotationsToMarks(seg.annotations ?? {});
+    // A segment may contain soft line breaks (`\n`, from Shift+Enter). TipTap
+    // represents these as `hardBreak` atom nodes, not as `\n` inside a text
+    // node. Split on `\n` and interleave hardBreak nodes so the break
+    // survives the round-trip instead of being silently dropped.
+    const parts = seg.text.split('\n');
+    parts.forEach((part, i) => {
+      if (i > 0) result.push({ type: 'hardBreak' });
+      if (part) result.push({ type: 'text', text: part, marks });
     });
   }
 
@@ -122,8 +127,12 @@ export function tiptapInlineToRichText(nodes: JSONContent[]): RichText[] {
     if (node.type === 'text') {
       const marks = (node.marks ?? []) as TiptapMark[];
       result.push({ text: node.text ?? '', annotations: marksToAnnotations(marks) });
+    } else if (node.type === 'hardBreak') {
+      // Soft line break (Shift+Enter). Encode as a `\n` segment so it
+      // round-trips back to a hardBreak on the next load.
+      result.push({ text: '\n', annotations: {} });
     }
-    // Other inline types (e.g. hardBreak) are ignored for now.
+    // Other inline types are ignored for now.
   }
 
   return result;
@@ -357,6 +366,124 @@ function tiptapToTableData(node: JSONContent): TableData {
   return { rows };
 }
 
+// ---------------------------------------------------------------------------
+// List helpers  (ListItemData[]  ⟷  TipTap bulletList/orderedList JSON)
+//
+// TipTap nests lists as:  listItem > [paragraph, (bulletList|orderedList)?]
+// where the trailing sub-list holds the indented children. Our model mirrors
+// this with `ListItemData { content, children }`. The nested sub-list kind
+// follows the parent block type (we don't store a per-level kind).
+// ---------------------------------------------------------------------------
+
+/** Convert one `ListItemData` (and its descendants) to a TipTap `listItem`. */
+function listItemToTiptap(
+  item: ListItemData,
+  listType: 'bulletList' | 'orderedList',
+): JSONContent {
+  const inline = richTextToTiptapInline(item.content ?? []);
+  const content: JSONContent[] = [
+    {
+      type: 'paragraph',
+      ...(inline.length > 0 ? { content: inline } : {}),
+    },
+  ];
+  if (item.children && item.children.length > 0) {
+    content.push({
+      type: listType,
+      content: item.children.map((child) => listItemToTiptap(child, listType)),
+    });
+  }
+  return { type: 'listItem', content };
+}
+
+/** Read the children of a TipTap bulletList/orderedList node into our model. */
+function tiptapToListItems(node: JSONContent): ListItemData[] {
+  const items: ListItemData[] = [];
+  for (const listItem of node.content ?? []) {
+    if (listItem.type !== 'listItem') continue;
+
+    const paragraphs: RichText[] = [];
+    let children: ListItemData[] = [];
+    for (const child of listItem.content ?? []) {
+      if (child.type === 'paragraph') {
+        // Merge multiple paragraphs in one item with a soft break so no text
+        // is lost (rare, but possible after some edits / markdown imports).
+        if (paragraphs.length > 0) paragraphs.push({ text: '\n', annotations: {} });
+        paragraphs.push(...tiptapInlineToRichText(child.content ?? []));
+      } else if (child.type === 'bulletList' || child.type === 'orderedList') {
+        children = children.concat(tiptapToListItems(child));
+      }
+    }
+    items.push({ content: paragraphs, children });
+  }
+  return items;
+}
+
+/**
+ * Read flat legacy list content (`RichText[][]`) into the nested model.
+ * Used when a document predates `properties.listItems`.
+ */
+function legacyFlatListToItems(flat: RichText[][]): ListItemData[] {
+  return flat.map((content) => ({ content }));
+}
+
+/** Flatten the nested model back to legacy `RichText[][]` (top level only). */
+function listItemsToFlat(items: ListItemData[]): RichText[][] {
+  return items.map((item) => item.content ?? []);
+}
+
+// ---------------------------------------------------------------------------
+// Todo helpers  (TodoItemData[]  ⟷  TipTap taskList JSON)
+//
+// TaskItem is configured `nested: true`, so TipTap nests as:
+//   taskItem > [paragraph, taskList > taskItem...]
+// We mirror that with `TodoItemData.children`.
+// ---------------------------------------------------------------------------
+
+/** Convert one `TodoItemData` (and descendants) to a TipTap `taskItem`. */
+function todoItemToTiptap(item: TodoItemData): JSONContent {
+  // Backward compat: old documents stored `text: string` instead of richText.
+  const legacyText = (item as { text?: string }).text;
+  const rich =
+    item.richText ??
+    (legacyText ? [{ text: legacyText, annotations: {} }] : []);
+  const inline = richTextToTiptapInline(rich);
+  const content: JSONContent[] = [
+    {
+      type: 'paragraph',
+      ...(inline.length > 0 ? { content: inline } : {}),
+    },
+  ];
+  if (item.children && item.children.length > 0) {
+    content.push({
+      type: 'taskList',
+      content: item.children.map(todoItemToTiptap),
+    });
+  }
+  return { type: 'taskItem', attrs: { checked: item.checked }, content };
+}
+
+/** Read the children of a TipTap taskList node into our model. */
+function tiptapToTodoItems(node: JSONContent): TodoItemData[] {
+  const items: TodoItemData[] = [];
+  for (const taskItem of node.content ?? []) {
+    if (taskItem.type !== 'taskItem') continue;
+    const checked = taskItem.attrs?.checked === true;
+    let richText: RichText[] = [];
+    let children: TodoItemData[] = [];
+    for (const child of taskItem.content ?? []) {
+      if (child.type === 'paragraph') {
+        if (richText.length > 0) richText.push({ text: '\n', annotations: {} });
+        richText = richText.concat(tiptapInlineToRichText(child.content ?? []));
+      } else if (child.type === 'taskList') {
+        children = children.concat(tiptapToTodoItems(child));
+      }
+    }
+    items.push({ checked, richText, children });
+  }
+  return items;
+}
+
 /**
  * Convert one of our `Block`s to a TipTap `JSONContent` node.
  *
@@ -486,45 +613,20 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     }
     case 'bullet-list':
     case 'ordered-list': {
-      // content is RichText[][] — each element is one list item (paragraph).
-      const items = block.content as unknown as RichText[][];
-      json.content = items.map((item) => ({
-        type: 'listItem',
-        content: [
-          {
-            type: 'paragraph',
-            ...(item.length > 0
-              ? { content: richTextToTiptapInline(item) }
-              : {}),
-          },
-        ],
-      }));
+      const listType = block.type === 'bullet-list' ? 'bulletList' : 'orderedList';
+      // Prefer the nested `listItems` model (source of truth). Fall back to
+      // the flat `RichText[][]` in `content` for legacy documents that have
+      // no `listItems` yet.
+      const items =
+        block.properties?.listItems ??
+        legacyFlatListToItems(block.content as unknown as RichText[][]);
+      json.content = items.map((item) => listItemToTiptap(item, listType));
       break;
     }
     case 'todo-list': {
-      // Each todo item becomes a taskItem with checked attr > paragraph.
+      // Each todo item becomes a taskItem (with nested taskLists for children).
       const items = block.properties?.todoItems ?? [];
-      json.content = items.map((item) => {
-        // Backward compat: old documents stored `text: string`.
-        const legacyText = (item as { text?: string }).text;
-        const rich =
-          item.richText ??
-          (legacyText
-            ? [{ text: legacyText, annotations: {} }]
-            : []);
-        return {
-          type: 'taskItem',
-          attrs: { checked: item.checked },
-          content: [
-            {
-              type: 'paragraph',
-              ...(rich.length > 0
-                ? { content: richTextToTiptapInline(rich) }
-                : {}),
-            },
-          ],
-        };
-      });
+      json.content = items.map(todoItemToTiptap);
       break;
     }
     case 'divider': {
@@ -590,10 +692,12 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     case 'quote': {
       // TipTap blockquote contains paragraph nodes. We flatten all
       // paragraphs into a single RichText[] (our model stores one
-      // paragraph per quote block).
+      // paragraph per quote block), separating them with a line break so
+      // multi-paragraph quotes don't get their text run together.
       const allInline: RichText[] = [];
       for (const child of node.content ?? []) {
         if (child.type === 'paragraph') {
+          if (allInline.length > 0) allInline.push({ text: '\n', annotations: {} });
           const seg = tiptapInlineToRichText(child.content ?? []);
           allInline.push(...seg);
         }
@@ -711,45 +815,19 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     }
     case 'bullet-list':
     case 'ordered-list': {
-      // TipTap: bulletList/orderedList > listItem > paragraph > inline text
-      // Our model: RichText[][] — each item is one paragraph.
-      const items: RichText[][] = [];
-      for (const listItem of node.content ?? []) {
-        if (listItem.type !== 'listItem') continue;
-        for (const child of listItem.content ?? []) {
-          if (child.type === 'paragraph') {
-            items.push(tiptapInlineToRichText(child.content ?? []));
-          }
-        }
-        // Ensure empty list items still get an entry
-        if ((listItem.content ?? []).length === 0) {
-          items.push([]);
-        }
-      }
-      block.content = items as unknown as RichText[] | string;
+      // Read the full nested tree into `listItems` (source of truth), and
+      // keep a flat `content` (top-level paragraphs) for backward compat with
+      // legacy consumers that still read `Block.content`.
+      const listItems = tiptapToListItems(node);
+      block.properties = { listItems };
+      block.content = listItemsToFlat(listItems) as unknown as RichText[] | string;
       break;
     }
     case 'todo-list': {
-      // TipTap: taskList > taskItem(attrs.checked) > paragraph > text
-      // Our model: todoItems: { checked, richText: RichText[] }[]
-      const todoItems: TodoItemData[] = [];
-      for (const taskItem of node.content ?? []) {
-        if (taskItem.type !== 'taskItem') continue;
-        const checked = taskItem.attrs?.checked === true;
-        // Collect rich text from nested paragraphs (one item = one paragraph
-        // in the common case, but we merge if multiple).
-        let richText: RichText[] = [];
-        for (const child of taskItem.content ?? []) {
-          if (child.type === 'paragraph') {
-            richText = richText.concat(
-              tiptapInlineToRichText(child.content ?? []),
-            );
-          }
-        }
-        todoItems.push({ checked, richText });
-      }
+      // TipTap: taskList > taskItem(attrs.checked) > [paragraph, taskList?]
+      // Our model: todoItems: { checked, richText, children }[]
       block.content = [];
-      block.properties = { todoItems };
+      block.properties = { todoItems: tiptapToTodoItems(node) };
       break;
     }
     case 'divider': {

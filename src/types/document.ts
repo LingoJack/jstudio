@@ -60,6 +60,15 @@ export interface BlockProperties {
   collapsibleSummary?: string;
   /** Collapsible block: serialized TipTap JSONContent[] of child nodes. */
   collapsibleChildren?: unknown[];
+  /**
+   * Bullet / ordered list block: nested item tree.
+   *
+   * Preferred over the flat `RichText[][]` stored in `Block.content`, which
+   * cannot represent nested (indented) sub-lists. When present, this is the
+   * source of truth; `content` is kept only as a flat fallback for legacy
+   * documents and non-editor consumers.
+   */
+  listItems?: ListItemData[];
   /** Todo list block: items array, each with checked state and text content. */
   todoItems?: TodoItemData[];
   /** Link block: target URL. */
@@ -174,4 +183,24 @@ export interface TodoItemData {
    * `text: string`, loaders should detect `item.text` and wrap it.
    */
   richText: RichText[];
+  /**
+   * Nested sub-items (indented todos). Empty / undefined means a leaf item.
+   * TaskItem is configured with `nested: true`, so the editor lets users
+   * indent todos; this field is what makes that nesting survive a save.
+   */
+  children?: TodoItemData[];
+}
+
+/**
+ * A single bullet / ordered list item, stored in `BlockProperties.listItems`.
+ *
+ * `content` is the item's own paragraph text; `children` are nested sub-list
+ * items (indented). The nested list's ordered/bullet kind follows the parent
+ * block type — we don't store a per-level kind because TipTap re-derives it.
+ */
+export interface ListItemData {
+  /** The item's own inline text (one paragraph). */
+  content: RichText[];
+  /** Nested sub-items (indented). Empty / undefined means a leaf item. */
+  children?: ListItemData[];
 }
