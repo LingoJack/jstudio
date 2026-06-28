@@ -178,6 +178,36 @@ export class EditorCursorTrail extends BaseCursorTrail {
     this.wake();
   }
 
+  /**
+   * Make this trail appear INSTANTLY at the current caret, fully opaque and
+   * snapped to position — skipping both the opacity fade-in and the comet
+   * fly-in from the corners' previous resting place.
+   *
+   * Why: in the sectioned editor each section owns its own trail. When focus
+   * moves between sections (click, arrow keys crossing a boundary, Cmd+↑/↓),
+   * the newly-focused section's trail would otherwise start from opacity 0
+   * and ease in over ~0.4s, and its corners would fly from wherever they were
+   * left — reading as "cursor disappears, then slowly reappears". Calling this
+   * on focus makes the hand-off look like one continuous caret.
+   */
+  activate() {
+    // Re-measure now so the corners snap to the real caret, not a stale rect.
+    this.dirty = true;
+    this.cachedRect = this.measureCaretRect();
+    if (this.cachedRect) {
+      this.cursorVisible = true;
+      this.cursorEdgeX[0] = this.cachedRect.left;
+      this.cursorEdgeX[1] = this.cachedRect.right;
+      this.cursorEdgeY[0] = this.cachedRect.top;
+      this.cursorEdgeY[1] = this.cachedRect.bottom;
+      this.snapCorners();
+      this.opacity = 1;
+      this.cursorVisibleStartTime = performance.now(); // solid, not mid-blink
+      this.dirty = false;
+    }
+    this.wake();
+  }
+
   /** Re-measure on resize: the canvas-local mapping depends on canvas size. */
   resize() {
     super.resize();

@@ -15,6 +15,7 @@ import DocumentList from './components/documents/DocumentList';
 import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import BlockEditor from './components/editor/BlockEditor';
+import SectionedBlockEditor from './components/editor/sectionEditor/SectionedBlockEditor';
 import Settings from './components/settings/Settings';
 import EmptyState from './components/ui/EmptyState';
 import CommandPalette from './components/editor/CommandPalette';
@@ -249,7 +250,14 @@ export default function App() {
               <Settings />
             ) : !isTerminalView ? (
               hasActiveDoc ? (
-                <BlockEditor />
+                // POC toggle: set localStorage 'jstudio.sectioned' = '1' and
+                // reload to use the sectioned multi-editor (large-doc perf
+                // experiment). Defaults to the existing monolithic editor.
+                localStorage.getItem('jstudio.sectioned') === '1' ? (
+                  <SectionedBlockEditor />
+                ) : (
+                  <BlockEditor />
+                )
               ) : (
                 <EmptyState />
               )
