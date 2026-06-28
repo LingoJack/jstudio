@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/i18n';
-import { eventToBinding, resolveBinding } from './lib/shortcuts';
+import { eventToBinding, resolveBinding, type ShortcutBinding } from './lib/shortcuts';
 import { buildCommands } from './lib/commandRegistry';
 import { storage } from './lib/storage';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/globalShortcuts';
@@ -19,6 +19,16 @@ import Settings from './components/Settings';
 import EmptyState from './components/EmptyState';
 import CommandPalette from './components/editor/CommandPalette';
 import { ToastContainer } from './components/ui/Toast';
+
+/**
+ * Formatting shortcuts the editor owns.  When focus is inside a
+ * contenteditable surface we must NOT hijack these — TipTap handles them.
+ * Module-scope constant so the keydown handler doesn't rebuild the Set on
+ * every keypress.
+ */
+const EDITOR_RESERVED = new Set([
+  'mod+b', 'mod+i', 'mod+u', 'mod+e', 'mod+shift+s',
+]);
 
 export default function App() {
   const { t } = useI18n();
@@ -55,47 +65,66 @@ export default function App() {
     return map;
   }, []);
 
+  // User-customized bindings. Subscribed so the reverse lookup map below
+  // rebuilds ONLY when the user changes a binding — not on every keypress.
+  const keyboardShortcuts = useStore((s) => s.keyboardShortcuts);
+
+  // Reverse index: effective binding string → action.  Built once per
+  // override change (≈ never at runtime).  This replaces the previous
+  // per-keystroke scan that ran resolveBinding() — an O(SHORTCUTS) find() —
+  // ~20 times for EVERY key (including plain typing), just to discover that
+  // a printable character matches nothing.  Now a keypress is a single
+  // Map.get().  `null` perform marks the command-palette meta shortcut.
+  const bindingActionMap = useMemo(() => {
+    const map = new Map<
+      ShortcutBinding,
+      (store: ReturnType<typeof useStore.getState>) => void
+    >();
+
+    // Command palette (meta shortcut, not in buildCommands).
+    const cpBinding = resolveBinding('app.commandPalette', keyboardShortcuts);
+    if (cpBinding) {
+      map.set(cpBinding, (store) => store.setCommandPaletteOpen(true));
+    }
+
+    // All other shortcutId-mapped commands.  If a user override collides with
+    // the command palette binding, the palette wins (set first, not
+    // overwritten) — matching the previous handler's early-return order.
+    for (const [shortcutId, perform] of shortcutCommandMap) {
+      const binding = resolveBinding(shortcutId, keyboardShortcuts);
+      if (!binding || map.has(binding)) continue;
+      map.set(binding, perform);
+    }
+
+    return map;
+  }, [shortcutCommandMap, keyboardShortcuts]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const binding = eventToBinding(e);
       if (!binding) return;
 
-      const overrides = useStore.getState().keyboardShortcuts;
+      const perform = bindingActionMap.get(binding);
+      if (!perform) return; // not a registered shortcut — fast path for typing
 
-      // ── Command palette (meta shortcut, not in buildCommands) ──
-      const cpTarget = resolveBinding('app.commandPalette', overrides);
-      if (cpTarget && binding === cpTarget) {
-        e.preventDefault();
-        useStore.getState().setCommandPaletteOpen(true);
-        return;
-      }
-
-      // ── All other shortcutId-mapped commands ──
-      for (const [shortcutId, perform] of shortcutCommandMap) {
-        const target = resolveBinding(shortcutId, overrides);
-        if (!target || binding !== target) continue;
-
-        // Editor conflict protection: when the focus is inside a contenteditable
-        // element, let the editor handle known formatting shortcuts (bold,
-        // italic, underline, strikethrough, inline code) to avoid hijacking.
+      // Editor conflict protection: when the focus is inside a contenteditable
+      // element, let the editor handle known formatting shortcuts (bold,
+      // italic, underline, strikethrough, inline code) to avoid hijacking.
+      if (EDITOR_RESERVED.has(binding)) {
         const active = document.activeElement;
         const inEditor =
           active instanceof HTMLElement &&
           (active.isContentEditable ||
             active.closest('[contenteditable="true"], [data-editor-surface]'));
-        const EDITOR_RESERVED = new Set([
-          'mod+b', 'mod+i', 'mod+u', 'mod+e', 'mod+shift+s',
-        ]);
-        if (inEditor && EDITOR_RESERVED.has(binding)) return;
-
-        e.preventDefault();
-        perform(useStore.getState());
-        return;
+        if (inEditor) return;
       }
+
+      e.preventDefault();
+      perform(useStore.getState());
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [shortcutCommandMap]);
+  }, [bindingActionMap]);
 
   // ── OS-level global shortcuts: register on startup, listen for triggers ──
   // The configs are already loaded into the store during initApp().

@@ -140,6 +140,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     // Shape changed → geometry (e.g. covered glyph, block vs bar) must be
     // recomputed on the next frame.
     this.dirty = true;
+    this.wake();
   }
 
   /**
@@ -149,15 +150,20 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * changes, scroll, resize.  Between dirty marks the loop reuses the cached
    * rect and performs NO DOM reads, while the trail/blink animation keeps
    * running every frame exactly as before.
+   *
+   * Also wakes the rAF loop if it has parked itself due to inactivity (the
+   * loop stops when the trail is fully idle — see BaseCursorTrail.loop).
    */
   markDirty() {
     this.dirty = true;
+    this.wake();
   }
 
   /** Re-measure on resize: the canvas-local mapping depends on canvas size. */
   resize() {
     super.resize();
     this.dirty = true;
+    this.wake();
   }
 
   stop() {

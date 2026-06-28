@@ -100,6 +100,8 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   const loadedDocIdRef = useRef<string | null>(null);
   /** Debounce timer for store sync. */
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the idle callback that runs the heavy serialize/convert. */
+  const idleHandleRef = useRef<number | null>(null);
   /** Guard: skip onUpdate when we programmatically replace content. */
   const isReplacingRef = useRef(false);
   /** Stable ref to the editor for use in callbacks without re-creating editor. */
@@ -111,6 +113,18 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
   // ------------------------------------------------------------------
   // Debounced content sync: editor → store
+  //
+  // The heavy part — editor.getJSON() (serializes the WHOLE ProseMirror
+  // doc) + tiptapJSONToOurBlocks() (an O(blocks) deep conversion) — is
+  // proportional to document size.  For large documents (thousands of
+  // blocks) running it synchronously can drop a frame.  We therefore:
+  //
+  //   1. Debounce 300ms so it runs once per typing pause, not per keypress.
+  //   2. Run the conversion in an IDLE callback so it yields to input/paint
+  //      instead of blocking the keystroke that ended the debounce window.
+  //
+  // requestIdleCallback is only available in WKWebView since Safari 16.4,
+  // so we feature-detect and fall back to a microtask-ish setTimeout(0).
   // ------------------------------------------------------------------
   const handleChange = useCallback(({ editor }: { editor: Editor }) => {
     // Skip if this change was triggered by our own setContent
@@ -121,9 +135,30 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     }
 
     saveTimeoutRef.current = setTimeout(() => {
-      const json = editor.getJSON();
-      const blocks: Block[] = tiptapJSONToOurBlocks(json.content ?? []);
-      useStore.getState().setActiveDocBlocks(blocks);
+      // Cancel any idle conversion still queued from a previous pause so we
+      // never run two overlapping full conversions.
+      if (idleHandleRef.current !== null) {
+        if (typeof cancelIdleCallback !== 'undefined') {
+          cancelIdleCallback(idleHandleRef.current);
+        } else {
+          clearTimeout(idleHandleRef.current);
+        }
+        idleHandleRef.current = null;
+      }
+
+      const runConvert = () => {
+        idleHandleRef.current = null;
+        const json = editor.getJSON();
+        const blocks: Block[] = tiptapJSONToOurBlocks(json.content ?? []);
+        useStore.getState().setActiveDocBlocks(blocks);
+      };
+
+      if (typeof requestIdleCallback !== 'undefined') {
+        // Cap the wait so a busy main thread can't starve the save forever.
+        idleHandleRef.current = requestIdleCallback(runConvert, { timeout: 1000 });
+      } else {
+        idleHandleRef.current = window.setTimeout(runConvert, 0);
+      }
     }, 300);
   }, []);
 
@@ -307,15 +342,40 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   }, [activeDocId, editor, isStatic, doc]);
 
   // ------------------------------------------------------------------
-  // Cleanup debounce timer on unmount
+  // Cleanup on unmount (e.g. switching documents)
+  //
+  // Flush any pending conversion SYNCHRONOUSLY so the last edits made in
+  // the final debounce/idle window are not lost when the editor unmounts.
   // ------------------------------------------------------------------
   useEffect(() => {
     return () => {
+      const pendingDebounce = saveTimeoutRef.current !== null;
+      const pendingIdle = idleHandleRef.current !== null;
+
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      if (idleHandleRef.current !== null) {
+        if (typeof cancelIdleCallback !== 'undefined') {
+          cancelIdleCallback(idleHandleRef.current);
+        } else {
+          clearTimeout(idleHandleRef.current);
+        }
+        idleHandleRef.current = null;
+      }
+
+      // If a sync was queued (debounced) or deferred (idle) but hasn't run
+      // yet, run it now against the live editor so no edit is dropped.
+      // Skip in read-only/static mode (no onUpdate, nothing to flush).
+      const ed = editorRef.current;
+      if (ed && !readOnly && !isReplacingRef.current && (pendingDebounce || pendingIdle)) {
+        const json = ed.getJSON();
+        const blocks: Block[] = tiptapJSONToOurBlocks(json.content ?? []);
+        useStore.getState().setActiveDocBlocks(blocks);
       }
     };
-  }, []);
+  }, [readOnly]);
 
   // ------------------------------------------------------------------
   // GPU cursor trail — kitty-style comet-tail animation
@@ -386,7 +446,16 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     // Safety net: some reflows raise none of the above events (e.g. an
     // async-loaded image pushing content down, web-font swap).  A low-
     // frequency poll catches those without reintroducing per-frame cost.
-    const safetyTick = window.setInterval(markDirty, 400);
+    //
+    // Gate it on focus: a blurred editor has no caret, so nothing can
+    // reflow *under the cursor* — and markDirty() now wakes the parked rAF
+    // loop (see EditorCursorTrail.markDirty → BaseCursorTrail.wake).  Polling
+    // unconditionally would therefore resurrect the loop every 400ms even
+    // when the editor is unfocused and the trail has correctly parked,
+    // defeating the idle-parking optimization.  Only poll while focused.
+    const safetyTick = window.setInterval(() => {
+      if (editor.isFocused) markDirty();
+    }, 400);
 
     // Resize observer to keep canvas in sync with container size
     const resizeObserver = new ResizeObserver(() => {

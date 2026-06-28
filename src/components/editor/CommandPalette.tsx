@@ -121,6 +121,17 @@ export default function CommandPalette() {
     ? trimmedQuery.slice(1).trimStart()
     : trimmedQuery.trim();
 
+  // Debounced copy of the search text that actually drives the (potentially
+  // expensive) filtering below.  The <input> stays bound to `query` so typing
+  // is always responsive, but filterCommands() / the document & session scans
+  // only re-run after the user pauses ~120ms — instead of on every keystroke.
+  // This matters when there are many commands/documents/sessions.
+  const [debouncedQuery, setDebouncedQuery] = useState(effectiveQuery);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(effectiveQuery), 120);
+    return () => clearTimeout(id);
+  }, [effectiveQuery]);
+
   // ── Reset when opened ──
   useEffect(() => {
     if (isOpen) {
@@ -144,14 +155,14 @@ export default function CommandPalette() {
 
   const items = useMemo<PaletteItem[]>(() => {
     if (isCommandMode) {
-      return filterCommands(commands, effectiveQuery, lang).map((scored) => ({
+      return filterCommands(commands, debouncedQuery, lang).map((scored) => ({
         kind: 'command',
         scored,
       }));
     }
 
     if (searchScope === 'documents') {
-      const q = effectiveQuery.toLowerCase();
+      const q = debouncedQuery.toLowerCase();
       return documents
         .map((doc): { doc: DocumentMeta; titleMatch: [number, number] | null } | null => {
           const title = (doc.title || '').toLowerCase();
@@ -166,7 +177,7 @@ export default function CommandPalette() {
     }
 
     if (searchScope === 'terminal') {
-      const q = effectiveQuery.toLowerCase();
+      const q = debouncedQuery.toLowerCase();
       return sessions
         .map((s): { session: TerminalSession; titleMatch: [number, number] | null } | null => {
           const title = getSessionTitle(s).toLowerCase();
@@ -181,7 +192,7 @@ export default function CommandPalette() {
     }
 
     // settings
-    const q = effectiveQuery.toLowerCase();
+    const q = debouncedQuery.toLowerCase();
     return SETTINGS_SECTIONS.map((sec): { sectionId: SettingsSectionId; titleMatch: [number, number] | null } | null => {
       const label = t(sec.labelKey).toLowerCase();
       if (!q) return { sectionId: sec.id, titleMatch: null };
@@ -192,7 +203,7 @@ export default function CommandPalette() {
     })
       .filter((x): x is { sectionId: SettingsSectionId; titleMatch: [number, number] | null } => x !== null)
       .map((x) => ({ kind: 'settings' as const, ...x }));
-  }, [isCommandMode, effectiveQuery, commands, documents, sessions, searchScope, lang, t]);
+  }, [isCommandMode, debouncedQuery, commands, documents, sessions, searchScope, lang, t]);
 
   // ── Reset selection when items change ──
   useEffect(() => {

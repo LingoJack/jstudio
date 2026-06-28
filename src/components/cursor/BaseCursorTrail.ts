@@ -95,6 +95,8 @@ export abstract class BaseCursorTrail {
 
   private rafId: number | null = null;
   private running = false;
+  /** Set once dispose() runs so a late wake() can't resurrect a dead trail. */
+  private disposed = false;
 
   // GL resources
   private program: WebGLProgram;
@@ -121,6 +123,21 @@ export abstract class BaseCursorTrail {
    */
   protected getRenderOptions(): RenderOptions {
     return {};
+  }
+
+  /**
+   * Whether the trail has nothing left to animate this frame and the rAF
+   * loop may park itself ({@link loop}).  When this returns true the loop
+   * stops and only resumes when {@link wake} is called.
+   *
+   * Default: idle once the trail has fully faded out AND the cursor is not
+   * visible (used by the editor trail, whose `cursorVisible` flips false on
+   * blur / range-selection).  Subclasses whose cursor is "always visible"
+   * (e.g. the terminal) override this to park once the comet corners have
+   * converged on a stationary cursor.
+   */
+  protected isIdle(): boolean {
+    return !this.cursorVisible && this.opacity < 0.001;
   }
 
   // ── Constructor ──
@@ -175,10 +192,24 @@ export abstract class BaseCursorTrail {
   // ── Lifecycle ──
 
   start() {
-    if (this.running) return;
+    if (this.running || this.disposed) return;
     this.running = true;
     this.lastTime = performance.now();
     this.loop();
+  }
+
+  /**
+   * Wake the loop if it has parked itself due to inactivity.
+   *
+   * The rAF loop stops itself once the trail is fully idle (faded out AND
+   * the cursor is not visible) so a static editor performs zero per-frame
+   * GPU work — see {@link loop}.  Any event that can change the caret
+   * (selection move, edit, focus, scroll, resize) calls this to resume the
+   * animation.  Subclasses route their markDirty() through here.
+   */
+  protected wake() {
+    if (this.running || this.disposed) return;
+    this.start();
   }
 
   stop() {
@@ -195,6 +226,7 @@ export abstract class BaseCursorTrail {
 
   dispose() {
     this.running = false;
+    this.disposed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     const gl = this.gl;
     gl.deleteBuffer(this.vbo);
@@ -213,6 +245,9 @@ export abstract class BaseCursorTrail {
     this.cssH = rect.height;
     this.canvas.width = Math.max(1, Math.round(rect.width * dpr));
     this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    // A resize clears the GL drawing buffer and changes the coordinate
+    // mapping — always needs a redraw, so resume the loop if parked.
+    this.wake();
   }
 
   // ── Protected helpers for subclasses ──
@@ -375,6 +410,22 @@ export abstract class BaseCursorTrail {
     this.updateCorners(dt);
     this.updateOpacity(dt);
     this.render();
+
+    // ── Idle parking ──
+    // When there is no animation left to run, park the loop so a static
+    // editor/terminal performs ZERO per-frame GPU work — the previous
+    // unconditional rAF kept the WebView compositor recompositing this
+    // layer 60×/second, which is the cause of the high idle GPU/heat.
+    //
+    // render() above has already cleared the canvas (opacity < 0.001
+    // returns early after the clear), so parking here leaves nothing
+    // stale on screen.  wake() resumes the loop on the next caret event.
+    // The exact idle predicate is supplied by isIdle() (overridable).
+    if (this.isIdle()) {
+      this.running = false;
+      this.rafId = null;
+      return;
+    }
 
     this.rafId = requestAnimationFrame(this.loop);
   };

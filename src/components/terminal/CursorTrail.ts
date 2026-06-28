@@ -1,4 +1,4 @@
-import type { Terminal } from '@xterm/xterm';
+import type { Terminal, IDisposable } from '@xterm/xterm';
 import type { TerminalCursorStyle } from '../../lib/storage';
 import {
   BaseCursorTrail,
@@ -28,6 +28,8 @@ export default class CursorTrail extends BaseCursorTrail {
   private term: Terminal | null = null;
   /** The DOM container of the tracked terminal (for measuring grid). */
   private termContainer: HTMLElement | null = null;
+  /** xterm onCursorMove subscription for the tracked term (wakes the loop). */
+  private cursorMoveSub: IDisposable | null = null;
 
   /** Current cursor style — drives the trail quad shape. */
   private cursorStyle: TerminalCursorStyle = 'underline';
@@ -83,15 +85,32 @@ export default class CursorTrail extends BaseCursorTrail {
     this.term = term;
     this.termContainer = container;
 
+    // Re-subscribe cursor-move tracking to the newly attached term so the
+    // parked loop wakes whenever this terminal's cursor moves (typing,
+    // program output, navigation).  Dispose the previous term's listener
+    // first to avoid leaks across pane switches.
+    this.cursorMoveSub?.dispose();
+    this.cursorMoveSub = term.onCursorMove(() => this.wake());
+
     // Force a poke so the trail animates from the old position.
     this.measureGrid();
     this._poked = true;
     this._pokeFromX = fromScreenX ?? null;
     this._pokeFromY = fromScreenY ?? null;
+    // A fresh poke is an animation — resume the loop if it had parked.
+    this.wake();
   }
 
   setCursorStyle(style: TerminalCursorStyle) {
     this.cursorStyle = style;
+    // Shape changed → re-render even if currently parked.
+    this.wake();
+  }
+
+  dispose() {
+    this.cursorMoveSub?.dispose();
+    this.cursorMoveSub = null;
+    super.dispose();
   }
 
   /** Check whether the trail is currently tracking this terminal. */
@@ -263,5 +282,25 @@ export default class CursorTrail extends BaseCursorTrail {
 
     this.lastCursorX = cx;
     this.lastCursorY = cy;
+  }
+
+  /**
+   * The terminal cursor is "always visible" (xterm draws its own blinking
+   * cursor through the trail's cutout), so the base `!cursorVisible` idle
+   * test never fires.  Instead we park once the comet has nothing left to
+   * animate: all 4 corners have converged onto their target cursor edges
+   * (within a sub-pixel epsilon) and no poke is pending.  A subsequent
+   * cursor move fires xterm's onCursorMove → wake() to resume chasing.
+   */
+  protected isIdle(): boolean {
+    if (this._poked) return false;
+    const EPS = 0.05; // sub-pixel: below this the motion is invisible
+    for (let i = 0; i < 4; i++) {
+      const tx = this.cursorEdgeX[CORNER_IDX_X[i]];
+      const ty = this.cursorEdgeY[CORNER_IDX_Y[i]];
+      if (Math.abs(tx - this.cornerX[i]) > EPS) return false;
+      if (Math.abs(ty - this.cornerY[i]) > EPS) return false;
+    }
+    return true;
   }
 }
