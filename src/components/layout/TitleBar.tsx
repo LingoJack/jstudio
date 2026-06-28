@@ -1,6 +1,6 @@
-import SearchBar from './editor/SearchBar';
-import { useStore } from '../store/useStore';
-import { useI18n } from '../lib/i18n';
+import SearchBar from '../editor/SearchBar';
+import { useStore } from '../../store/useStore';
+import { useI18n } from '../../lib/i18n';
 import { PanelLeft } from 'lucide-react';
 
 /**

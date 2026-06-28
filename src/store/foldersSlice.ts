@@ -1,6 +1,6 @@
 import { storage, type FolderMeta } from '../lib/storage';
 import { onSaveError, type SetState, type GetState, type StoreState, scheduleFoldersSave, scheduleIndexSave } from './storeHelpers';
-import { collectDescendantFolderIds } from '../lib/folderTree';
+import { collectDescendantFolderIds } from '../lib/documents/folderTree';
 
 export function createFoldersSlice(set: SetState, get: GetState) {
   return {

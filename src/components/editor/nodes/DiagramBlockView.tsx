@@ -20,9 +20,9 @@ import {
 } from '@tiptap/react';
 import { Maximize2, Pencil, Check } from 'lucide-react';
 
-import { useNodeResize } from '../../../hooks/useNodeResize';
-import { useEditorWidth } from '../../../hooks/useEditorWidth';
-import { useNodeToolbarNav } from '../../../hooks/useNodeToolbarNav';
+import { useNodeResize } from '../hooks/useNodeResize';
+import { useEditorWidth } from '../hooks/useEditorWidth';
+import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import {
   BlockToolbar,
   AlignButtonGroup,

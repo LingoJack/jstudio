@@ -1,14 +1,14 @@
 import { storage, toMeta, DocumentMeta, type FolderMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
-import { migrateFromLocalStorage } from '../lib/migrate';
+import { migrateFromLocalStorage } from '../lib/documents/migrate';
 import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
-import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/fonts';
+import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/editor/fonts';
 import type { Document } from '../types';
 import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
 import { markdownToBlocks } from '../lib/editor/markdownImport';
-import { migrateDocAssets } from '../lib/migrateAssets';
+import { migrateDocAssets } from '../lib/documents/migrateAssets';
 import { toast } from '../lib/toast';
-import type { GlobalShortcutConfig } from '../lib/globalShortcuts';
+import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
-import { eventToBinding, resolveBinding } from '../../lib/shortcuts';
+import { eventToBinding, resolveBinding } from '../../lib/shortcuts/keyboardShortcuts';
 import { createTerminalWindow } from '../../lib/windows/terminalDetach';
 import { Plus, X, Clock, FolderOpen, Trash2 } from 'lucide-react';
 import type { TerminalSession } from '../../store/terminalSlice';

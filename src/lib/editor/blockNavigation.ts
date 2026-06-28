@@ -25,7 +25,7 @@ import { Extension, type KeyboardShortcutCommand } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 
 import { slashMenuPluginKey } from './slashMenu';
-import { resolveBinding, toTiptapBinding } from '../shortcuts';
+import { resolveBinding, toTiptapBinding } from '../shortcuts/keyboardShortcuts';
 import { useStore } from '../../store/useStore';
 
 export interface BlockNavigationOptions {

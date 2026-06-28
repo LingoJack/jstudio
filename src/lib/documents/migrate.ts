@@ -1,5 +1,5 @@
-import { storage, toMeta, DocumentMeta } from './storage';
-import type { Document } from '../types';
+import { storage, toMeta, DocumentMeta } from '../storage';
+import type { Document } from '../../types';
 
 /**
  * One-time migration from localStorage to the Tauri file system.

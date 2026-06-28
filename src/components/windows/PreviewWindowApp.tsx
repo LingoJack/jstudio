@@ -12,8 +12,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
 
 import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../../lib/windows/previewWindow';
-import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../../lib/fileUtils';
-import { docxToHtml } from '../../lib/docxPreview';
+import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../../lib/editor/fileUtils';
+import { docxToHtml } from '../../lib/editor/docxPreview';
 import { storage, type ThemeMode } from '../../lib/storage';
 import PdfPreview from '../editor/nodes/PdfPreview';
 

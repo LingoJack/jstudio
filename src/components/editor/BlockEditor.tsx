@@ -64,7 +64,7 @@ import { createPasteHandler, createDropHandler } from '../../lib/editor/editorPa
 import TableControls from './nodes/TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
 import DocumentOutline from './DocumentOutline';
-import { EditorCursorTrail } from '../EditorCursorTrail';
+import { EditorCursorTrail } from '../cursor/EditorCursorTrail';
 import type { Block } from '../../types';
 import { ListTree } from 'lucide-react';
 

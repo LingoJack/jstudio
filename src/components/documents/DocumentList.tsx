@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { storage } from '../../lib/storage';
-import { useSidebarResize } from '../../hooks/useSidebarResize';
-import { buildFolderTree, type FolderTreeNode } from '../../lib/folderTree';
+import { useSidebarResize } from './hooks/useSidebarResize';
+import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folderTree';
 import {
   FileText, Plus, MoreHorizontal, FileDown,
   FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,

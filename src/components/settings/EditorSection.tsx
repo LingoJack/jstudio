@@ -9,7 +9,7 @@ import {
   MAX_FONT_SIZE,
   MIN_LINE_HEIGHT,
   MAX_LINE_HEIGHT,
-} from '../../lib/fonts';
+} from '../../lib/editor/fonts';
 import FontDropdown from '../ui/FontDropdown';
 import type { EditorCursorStyle } from '../../lib/storage';
 

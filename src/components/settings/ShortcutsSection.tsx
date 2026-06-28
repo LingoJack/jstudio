@@ -17,7 +17,7 @@ import {
   type ShortcutCategory,
   type ShortcutOverrides,
   type ReferenceShortcut,
-} from '../../lib/shortcuts';
+} from '../../lib/shortcuts/keyboardShortcuts';
 import { GlobalShortcutsContent } from './GlobalShortcutsSection';
 
 // ─────────────────────────────────────────────────────────────
