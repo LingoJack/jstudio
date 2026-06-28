@@ -127,25 +127,29 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler, true);
   }, [bindingActionMap]);
 
-  // ── OS-level global shortcuts: register on startup, listen for triggers ──
-  // The configs are already loaded into the store during initApp().
-  // We register them with the OS and listen for triggers here.
+  // ── OS-level global shortcuts: register on config load, listen for triggers ──
+  // The configs are loaded asynchronously into the store during initApp().
   const globalShortcutsConfigs = useStore((s) => s.globalShortcuts);
+
+  // Register enabled shortcuts with the OS whenever the configs change.
+  // IMPORTANT: configs are loaded asynchronously in initApp(), so on first
+  // mount the store still holds the empty default `[]`. We must re-run sync
+  // when `globalShortcutsConfigs` actually arrives — otherwise shortcuts are
+  // never registered after a restart (they only worked because editing them
+  // in Settings triggered a manual re-sync).
+  useEffect(() => {
+    const enabled = globalShortcutsConfigs.filter((c) => c.enabled);
+    syncGlobalShortcuts(enabled).catch((err) => {
+      console.error('[App] Failed to sync global shortcuts:', err);
+    });
+  }, [globalShortcutsConfigs]);
 
   useEffect(() => {
     let unlistenTrigger: (() => void) | null = null;
     let unlistenSelect: (() => void) | null = null;
 
     (async () => {
-      // 1. Register enabled shortcuts with the OS.
-      const enabled = globalShortcutsConfigs.filter((c) => c.enabled);
-      try {
-        await syncGlobalShortcuts(enabled);
-      } catch (err) {
-        console.error('[App] Failed to sync global shortcuts:', err);
-      }
-
-      // 2. Listen for OS-level shortcut trigger events.
+      // Listen for OS-level shortcut trigger events.
       unlistenTrigger = await listen<GlobalShortcutConfig>(
         'global-shortcut-triggered',
         (event) => {
@@ -159,7 +163,7 @@ export default function App() {
         },
       );
 
-      // 3. Listen for CommandPaletteWindow selection events.
+      // Listen for CommandPaletteWindow selection events.
       unlistenSelect = await listen<{
         kind: 'document' | 'session' | 'settings';
         id: string;
