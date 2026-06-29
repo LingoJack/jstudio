@@ -19,6 +19,12 @@
  *      paragraph (Notion-style "delete block"). Only fires when the block has
  *      no text content, so normal text editing inside a code block is
  *      unaffected.
+ *   6. Tab / Shift+Tab — context-aware indentation:
+ *        • Inside a list / task item → delegate to the list extension, which
+ *          sinks (indent) / lifts (outdent) the item one hierarchy level.
+ *        • Inside a table cell → delegate to the Table extension (cell jump).
+ *        • Everywhere else (paragraph / heading / code block) → insert or
+ *          remove TAB_SPACES worth of literal spaces at the cursor.
  */
 
 import { Extension, type KeyboardShortcutCommand } from '@tiptap/core';
@@ -32,6 +38,16 @@ export interface BlockNavigationOptions {
   /** Called when the cursor should leave the editor upward to the title. */
   onExitToTitle?: () => void;
 }
+
+/**
+ * Literal whitespace inserted by a Tab press inside a plain text / heading /
+ * code block (i.e. anywhere indentation is NOT a structural list level).
+ * Four spaces keeps paragraphs and code blocks tidy without over-indenting.
+ */
+const TAB_SPACES = '    ';
+
+/** Node type names whose Tab handling is owned by another extension. */
+const STRUCTURAL_TAB_TYPES = ['listItem', 'taskItem', 'tableCell', 'tableHeader'];
 
 export const BlockNavigation = Extension.create<BlockNavigationOptions>({
   name: 'blockNavigation',
@@ -198,6 +214,69 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       return true;
     };
 
+    // -----------------------------------------------------------------
+    // Tab / Shift+Tab — context-aware indentation.
+    //
+    // When the cursor sits inside a structural container (list item, task
+    // item, table cell) we return false so the owning extension's keymap
+    // runs: lists sink/lift one hierarchy level, tables jump cells. Anywhere
+    // else we treat Tab as "insert N spaces" and Shift+Tab as "remove up to
+    // N leading spaces", and always swallow the key so focus never escapes
+    // the editor.
+    // -----------------------------------------------------------------
+    const isInStructuralContainer = (
+      $pos: typeof editor.state.selection.$head,
+    ) => {
+      for (let d = $pos.depth; d > 0; d--) {
+        if (STRUCTURAL_TAB_TYPES.includes($pos.node(d).type.name)) return true;
+      }
+      return false;
+    };
+
+    const onTab = () => {
+      if (isSuggestionActive()) return false;
+      const { state, view } = editor;
+      const { selection } = state;
+      const $head = selection.$head;
+      if ($head.depth < 1) return false;
+      // Lists / tables own Tab in their context — let their keymaps run.
+      if (isInStructuralContainer($head)) return false;
+
+      const tr = state.tr;
+      if (!selection.empty) tr.deleteSelection();
+      tr.insertText(TAB_SPACES);
+      view.dispatch(tr);
+      return true;
+    };
+
+    const onShiftTab = () => {
+      if (isSuggestionActive()) return false;
+      const { state, view } = editor;
+      const { selection } = state;
+      const $head = selection.$head;
+      if ($head.depth < 1) return false;
+      if (isInStructuralContainer($head)) return false;
+
+      // Outdent: remove up to TAB_SPACES.length space chars immediately
+      // before the cursor (within the current text block).
+      const pos = selection.from;
+      const blockStart = $head.start();
+      const textBefore = state.doc.textBetween(blockStart, pos, '\n', '\n');
+      let remove = 0;
+      for (
+        let i = textBefore.length - 1;
+        i >= 0 && remove < TAB_SPACES.length && textBefore[i] === ' ';
+        i--
+      ) {
+        remove++;
+      }
+      if (remove > 0) {
+        view.dispatch(state.tr.delete(pos - remove, pos));
+      }
+      // Swallow the key regardless, so Shift+Tab never moves focus out.
+      return true;
+    };
+
     // Resolve user-customizable bindings from the shortcut registry.
     const ov = useStore.getState().keyboardShortcuts;
     const modEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockBelow', ov));
@@ -208,6 +287,8 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       ArrowLeft: onArrowLeft,
       ArrowDown: onArrowDown,
       Backspace: onBackspace,
+      Tab: onTab,
+      'Shift-Tab': onShiftTab,
     };
     keymap[modEnterBinding] = onModEnter;
     keymap[modShiftEnterBinding] = onModShiftEnter;
