@@ -14,6 +14,7 @@
 
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { ReactNodeViewRenderer } from '@tiptap/react';
+import { Plugin, NodeSelection } from '@tiptap/pm/state';
 import CodeBlockView from '../../components/editor/nodes/CodeBlockView';
 
 export interface CodeBlockNodeAttributes {
@@ -104,5 +105,39 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
 
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockView);
+  },
+
+  /**
+   * Triple-click anywhere inside a code block selects the WHOLE block as a
+   * ProseMirror `NodeSelection` (shows the `.is-selected` ring). Once the node
+   * itself is selected, the built-in `Backspace` / `Delete` keymap removes the
+   * entire block in one keystroke — no extra handler needed.
+   *
+   * This is scoped to code blocks only: the handler bails out (returns false)
+   * for any other node type, so other blocks keep their own behavior. We use
+   * ProseMirror's `handleTripleClickOn` editor prop rather than counting DOM
+   * `mousedown` events, so there is no mouseup race and no text-selection flash
+   * (returning `true` consumes the event before the default text selection).
+   *
+   * NOTE: CodeBlockLowlight registers its own plugins (syntax highlighting),
+   * so we MUST spread `this.parent?.()` to keep highlighting working.
+   */
+  addProseMirrorPlugins() {
+    const nodeName = this.name;
+    return [
+      ...(this.parent?.() ?? []),
+      new Plugin({
+        props: {
+          handleTripleClickOn(view, _pos, node, nodePos) {
+            if (node.type.name !== nodeName) return false;
+            const { state } = view;
+            view.dispatch(
+              state.tr.setSelection(NodeSelection.create(state.doc, nodePos)),
+            );
+            return true;
+          },
+        },
+      }),
+    ];
   },
 });

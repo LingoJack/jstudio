@@ -46,6 +46,7 @@ import { toDisplaySrc } from '../../../lib/content/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
+import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
 import { UploadIcon } from '../../shared/icons';
 import {
   BlockToolbar,
@@ -67,6 +68,7 @@ export default function FileView({
   selected,
   updateAttributes,
   editor,
+  getPos,
 }: NodeViewProps) {
   const { src, fileName, fileSize, fileType, displayMode, width, widthPct, height, heightPct, align } =
     node.attrs as FileNodeAttributes;
@@ -317,6 +319,16 @@ export default function FileView({
     previewStyle.height = `${displayHeight}px`;
   }
 
+  // Reliable click-to-select fallback. When NOT selected, a click anywhere on
+  // the figure (card body, or the transparent overlay above an iframe preview)
+  // selects the node — covering WKWebView's flaky native node-selection. When
+  // already selected we skip it so the user can interact with the live preview
+  // (PDF/media controls) without re-selecting and stealing focus.
+  const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
+    selected,
+    skipWhenSelected: true,
+  });
+
   /* -------------------------------------------------------------- */
   /* Render                                                         */
   /* -------------------------------------------------------------- */
@@ -352,6 +364,7 @@ export default function FileView({
               editing ? 'is-editing' : ''
             } ${isPreviewMode ? 'is-preview' : 'is-card'}`}
             style={figureStyle}
+            onMouseDown={handleSelectMouseDown}
             {...interactiveProps}
           >
             {/* Floating toolbar (top-right) — visible when selected */}

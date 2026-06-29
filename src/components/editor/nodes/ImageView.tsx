@@ -19,6 +19,7 @@ import { toDisplaySrc } from '../../../lib/content/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
+import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
 import { UploadIcon } from '../../shared/icons';
 import { BlockToolbar, AlignButtonGroup } from '../../ui/BlockToolbar';
 import { ResizeHandle } from '../../ui/ResizeHandle';
@@ -38,7 +39,7 @@ interface ImageNodeAttrs {
   align: 'left' | 'center';
 }
 
-export default function ImageView({ node, selected, updateAttributes, editor }: NodeViewProps) {
+export default function ImageView({ node, selected, updateAttributes, editor, getPos }: NodeViewProps) {
   const { src, alt, title, width, widthPct, height, heightPct, align } = node.attrs as ImageNodeAttrs;
 
   // Resolve doc-relative asset paths (`assets/…`) to a loadable URL via the
@@ -158,6 +159,10 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
   // Render
   // -----------------------------------------------------------------------
 
+  // Reliable click-to-select fallback (WKWebView occasionally fails to turn a
+  // click on the <img> into a NodeSelection — see useNodeSelectionClick).
+  const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, { selected });
+
   const effectiveAlign = align ?? 'center';
   const imgStyle: React.CSSProperties = {};
   if (displayWidth) {
@@ -195,7 +200,10 @@ export default function ImageView({ node, selected, updateAttributes, editor }: 
           </button>
         ) : (
           /* Loaded state */
-          <div className={`image-node-figure ${selected ? 'is-selected' : ''}`}>
+          <div
+            className={`image-node-figure ${selected ? 'is-selected' : ''}`}
+            onMouseDown={handleSelectMouseDown}
+          >
             {/* Floating toolbar when selected */}
             <BlockToolbar selected={selected}>
               <AlignButtonGroup
