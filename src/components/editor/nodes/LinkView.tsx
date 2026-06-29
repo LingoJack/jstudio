@@ -11,14 +11,21 @@
  *   - Click card body → local "selected" state (blue border).
  *   - Click input → focus input for typing.
  *
- * Critical WKWebView fix:
- *   ProseMirror's default stopEvent() intercepts mousedown on selectable atom
- *   nodes to create a NodeSelection — this fires BEFORE React's onMouseDown
- *   (bubble phase), so inputs inside the NodeView never receive focus.
+ * Critical WKWebView caret fix:
+ *   ProseMirror registers its mousedown handler on `view.dom`, which is an
+ *   ANCESTOR of this NodeView. React's synthetic onMouseDown is delegated at
+ *   the React root — also above view.dom — so a React-level stopPropagation
+ *   runs *after* ProseMirror has already handled the event and called
+ *   preventDefault() (to make a NodeSelection on this atom node). That cancels
+ *   the browser's native "drop the caret where you clicked" action, so clicking
+ *   inside an input no longer moves the caret.
  *
- *   We solve this with a capture-phase listener on the figure element that
- *   calls stopPropagation() when the event target is a form control. Capture
- *   fires before ProseMirror's handler, so the input keeps focus.
+ *   The fix is a NATIVE, bubble-phase listener on the figure element (which
+ *   sits *below* view.dom): it fires before the event bubbles up to
+ *   ProseMirror. For clicks on form controls / buttons we stopPropagation, so
+ *   ProseMirror never sees the mousedown and never calls preventDefault — the
+ *   browser then runs its default action and places the caret exactly where
+ *   the user clicked.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -233,6 +240,33 @@ export default function LinkView({
     },
     [],
   );
+
+  /* -------------------------------------------------------------- */
+  /* Caret shield (see file header)                                  */
+  /* -------------------------------------------------------------- */
+
+  /**
+   * Native bubble-phase mousedown listener on the figure. Runs before the
+   * event bubbles up to ProseMirror (on view.dom). When the click lands on a
+   * form control, we stopPropagation so ProseMirror never preventDefault()s
+   * it — letting the browser place the caret where the user clicked.
+   */
+  useEffect(() => {
+    const el = figureRefInternal.current;
+    if (!el) return;
+
+    const shield = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (SHIELD_TAGS.has(target.tagName) || target.closest('input, textarea, select, button')) {
+        e.stopPropagation();
+      }
+    };
+
+    el.addEventListener('mousedown', shield);
+    return () => el.removeEventListener('mousedown', shield);
+    // Re-bind whenever the figure element is (re)created across states.
+  }, [url, editing]);
 
   const figureStyle: React.CSSProperties = {};
   figureStyle.width = displayWidth ? `${displayWidth}px` : '480px';

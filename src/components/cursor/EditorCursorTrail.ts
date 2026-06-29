@@ -44,6 +44,13 @@ const GLYPH_HEIGHT_RATIO = 1.15;
 const BLINK_SOLID_MS = 530;
 /** Full blink cycle (fade out + back in) once blinking begins. */
 const BLINK_PERIOD_MS = 1060;
+/**
+ * Frame rate the loop drops to once the caret is stationary and only the
+ * (slow, 1060ms-period) blink remains to animate.  20fps is smooth enough
+ * for a sine-fade blink yet cuts the WebView compositor cost to ~1/3 of the
+ * 60fps spent during comet motion.  See {@link EditorCursorTrail.shouldThrottle}.
+ */
+const THROTTLE_FPS = 20;
 
 export class EditorCursorTrail extends BaseCursorTrail {
   /** The ProseMirror editor DOM element (for focus detection). */
@@ -245,6 +252,38 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   // ── BaseCursorTrail implementation ──
+
+  /**
+   * Throttle predicate — when to drop from full 60fps rAF to a low-frequency
+   * blink loop instead of parking entirely.
+   *
+   * The base default parks the loop only when the cursor is INVISIBLE (blur /
+   * range selection).  But the overwhelmingly common state is "editor
+   * focused, caret sitting still" — there `cursorVisible` stays true forever,
+   * so without throttling the full-editor WebGL overlay gets recomposited
+   * 60×/second by the WebView compositor (the high idle GPU / heat this
+   * targets).
+   *
+   * We can't simply PARK a stationary visible caret the way kitty's terminal
+   * does, because we keep the blink animation (kitty blinks too) — a parked
+   * loop would freeze the caret mid-fade.  Instead, once the comet corners
+   * have converged and the caret has faded in, the only thing left to animate
+   * is the blink, which is slow (1060ms period) and needs nowhere near 60fps.
+   * So we keep the loop alive but throttled to {@link THROTTLE_FPS}, cutting
+   * the compositor cost to ~1/3 while the caret keeps blinking smoothly.
+   *
+   * Any caret motion / edit / scroll calls markDirty()→wake() and the loop
+   * returns to full 60fps for the comet animation (shouldThrottle goes false
+   * the moment the corners are no longer settled).
+   */
+  protected shouldThrottle(): boolean {
+    return this.cursorVisible && this.opacity >= 0.999 && this.cornersSettled();
+  }
+
+  /** Blink-only throttle rate (see {@link THROTTLE_FPS}). */
+  protected throttleFps(): number {
+    return THROTTLE_FPS;
+  }
 
   /**
    * Per-frame target update.

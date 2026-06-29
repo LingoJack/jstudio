@@ -94,6 +94,8 @@ export abstract class BaseCursorTrail {
   protected cssH = 0;
 
   private rafId: number | null = null;
+  /** Timer handle for the throttled (low-fps) loop path. */
+  private throttleTimer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   /** Set once dispose() runs so a late wake() can't resurrect a dead trail. */
   private disposed = false;
@@ -138,6 +140,25 @@ export abstract class BaseCursorTrail {
    */
   protected isIdle(): boolean {
     return !this.cursorVisible && this.opacity < 0.001;
+  }
+
+  /**
+   * Whether the loop should keep running but at a REDUCED frame rate
+   * ({@link throttleFps}) rather than at full 60fps — used when the only
+   * thing left to animate is a slow effect (e.g. a stationary caret's
+   * blink) that does not need 60fps, but must not stop entirely.
+   *
+   * Checked only when {@link isIdle} is false.  Default: never throttle
+   * (full 60fps until idle).  Subclasses that keep a low-frequency idle
+   * animation override this.
+   */
+  protected shouldThrottle(): boolean {
+    return false;
+  }
+
+  /** Frame rate to use while {@link shouldThrottle} holds.  Default 20fps. */
+  protected throttleFps(): number {
+    return 20;
   }
 
   // ── Constructor ──
@@ -206,18 +227,31 @@ export abstract class BaseCursorTrail {
    * GPU work — see {@link loop}.  Any event that can change the caret
    * (selection move, edit, focus, scroll, resize) calls this to resume the
    * animation.  Subclasses route their markDirty() through here.
+   *
+   * If the loop is merely THROTTLED (alive, but stepping at the reduced
+   * blink rate via setTimeout), we promote it back to an immediate rAF frame
+   * so caret motion animates at full 60fps without waiting up to a throttle
+   * interval — the throttled step would otherwise add ~50ms of lag to the
+   * start of every comet trail.
    */
   protected wake() {
-    if (this.running || this.disposed) return;
+    if (this.disposed) return;
+    if (this.running) {
+      // Throttled? Promote the pending slow step to an immediate frame.
+      if (this.throttleTimer !== null) {
+        clearTimeout(this.throttleTimer);
+        this.throttleTimer = null;
+        this.lastTime = performance.now();
+        this.rafId = requestAnimationFrame(this.loop);
+      }
+      return;
+    }
     this.start();
   }
 
   stop() {
     this.running = false;
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
+    this.cancelScheduled();
     const gl = this.gl;
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -227,11 +261,23 @@ export abstract class BaseCursorTrail {
   dispose() {
     this.running = false;
     this.disposed = true;
-    if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.cancelScheduled();
     const gl = this.gl;
     gl.deleteBuffer(this.vbo);
     gl.deleteVertexArray(this.vao);
     gl.deleteProgram(this.program);
+  }
+
+  /** Cancel whichever next-frame is scheduled (rAF or throttle timer). */
+  private cancelScheduled() {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    if (this.throttleTimer !== null) {
+      clearTimeout(this.throttleTimer);
+      this.throttleTimer = null;
+    }
   }
 
   setColor(color: string) {
@@ -258,6 +304,25 @@ export abstract class BaseCursorTrail {
       this.cornerX[i] = this.cursorEdgeX[CORNER_IDX_X[i]];
       this.cornerY[i] = this.cursorEdgeY[CORNER_IDX_Y[i]];
     }
+  }
+
+  /**
+   * Whether all 4 comet corners have essentially caught up to their target
+   * cursor edges — i.e. the trailing animation has finished and nothing is
+   * moving.  Used by {@link isIdle} overrides to park the loop once a
+   * stationary caret has stopped animating.
+   *
+   * @param eps  Per-axis tolerance in pixels (sub-pixel residue is invisible).
+   */
+  protected cornersSettled(eps = 0.5): boolean {
+    for (let i = 0; i < 4; i++) {
+      const tx = this.cursorEdgeX[CORNER_IDX_X[i]];
+      const ty = this.cursorEdgeY[CORNER_IDX_Y[i]];
+      if (Math.abs(tx - this.cornerX[i]) > eps || Math.abs(ty - this.cornerY[i]) > eps) {
+        return false;
+      }
+    }
+    return true;
   }
 
   // ── Private: GL helpers ──
@@ -412,8 +477,8 @@ export abstract class BaseCursorTrail {
     this.render();
 
     // ── Idle parking ──
-    // When there is no animation left to run, park the loop so a static
-    // editor/terminal performs ZERO per-frame GPU work — the previous
+    // When there is no animation left to run at all, park the loop so a
+    // static editor/terminal performs ZERO per-frame GPU work — the previous
     // unconditional rAF kept the WebView compositor recompositing this
     // layer 60×/second, which is the cause of the high idle GPU/heat.
     //
@@ -424,9 +489,28 @@ export abstract class BaseCursorTrail {
     if (this.isIdle()) {
       this.running = false;
       this.rafId = null;
+      this.throttleTimer = null;
       return;
     }
 
+    // ── Throttled blink path ──
+    // When the only thing left to animate is a slow effect (e.g. a
+    // stationary caret's blink), keep the loop alive but step it at the
+    // reduced throttleFps() via setTimeout instead of every vsync.  This
+    // keeps the blink running (kitty blinks too) while cutting the
+    // compositor cost to ~1/3.  Any caret motion makes shouldThrottle()
+    // false again on the next step and we return to full-rate rAF.
+    this.rafId = null;
+    if (this.shouldThrottle()) {
+      const interval = 1000 / Math.max(1, this.throttleFps());
+      this.throttleTimer = setTimeout(() => {
+        this.throttleTimer = null;
+        if (this.running) this.rafId = requestAnimationFrame(this.loop);
+      }, interval);
+      return;
+    }
+
+    this.throttleTimer = null;
     this.rafId = requestAnimationFrame(this.loop);
   };
 }
