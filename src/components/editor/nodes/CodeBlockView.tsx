@@ -4,24 +4,33 @@
  * Layout (multi-line, default):
  *   ┌──────────────────────────────┐
  *   │                  [lang ▾]    │  ← language badge (top-right)
- *   │  const x = 1;                │
- *   │  console.log(x);             │
- *   │                      [copy]  │  ← copy icon (below badge, hover)
+ *   │  const x = 1;  [preview][copy]│  ← action buttons (horizontal, below badge)
+ *   │  console.log(x);          ◯  │  ← corner resize handle (bottom-right)
  *   └──────────────────────────────┘
  *
  * Layout (single line / too short):
- *   ┌──────────────────────────────┐
- *   │  const x = 1;      [copy][lang ▾] │  ← both in top-right toolbar
- *   └──────────────────────────────┘
+ *   ┌──────────────────────────────────────┐
+ *   │  const x = 1;  [preview][copy][lang ▾] │  ← all in top-right toolbar
+ *   └──────────────────────────────────────┘
  *
- * A ResizeObserver watches the code body height. When it's too short to
- * fit the copy button below the badge (< 60px), the button moves inline
- * next to the badge to avoid overflowing the wrapper.
+ * A ResizeObserver watches the code body height. The HTML-preview toggle and
+ * the copy button always travel together (horizontally) so their positions
+ * stay consistent: when the body is tall enough (>= 60px) they sit below the
+ * badge; when it's too short they fold inline into the toolbar next to it.
+ *
+ * Selection / resize chrome is aligned with FileView:
+ *   - The wrapper shows a focusBorder when the node is selected (NodeSelection)
+ *     or the cursor is inside the code (focus-within).
+ *   - A shared bottom-right circular ResizeHandle (same look as File/Image
+ *     blocks) adjusts the max-height; revealed on hover / focus / selection.
+ *   - In HTML-preview mode a transparent overlay (when not selected) lets a
+ *     click select the node, mirroring FileView's iframe preview box.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
-import { Copy, Check, ChevronDown, Search } from 'lucide-react';
+import { Copy, Check, ChevronDown, Search, Eye, Code2 } from 'lucide-react';
+import { ResizeHandle } from '../../ui/ResizeHandle';
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
@@ -69,7 +78,7 @@ function getLanguageLabel(value: string): string {
   return found ? found.label : value || 'Plain Text';
 }
 
-export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
+export default function CodeBlockView({ node, selected, updateAttributes, editor, getPos }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
   // Maximum body height as percentage of viewport height (default 60).
   const maxHeightPct = (node.attrs?.maxHeightPct as number | null | undefined) ?? 60;
@@ -78,6 +87,20 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
   // Whether the code block has non-empty content (controls copy-button visibility)
   const hasContent = node.textContent.trim().length > 0;
+
+  // ---- HTML live preview ----
+  // For HTML code blocks we offer a toggle that renders the source in a
+  // sandboxed iframe so users can see the result without leaving the editor.
+  const isHtml = language === 'html';
+  const [showPreview, setShowPreview] = useState(false);
+  // The current code text, used as the iframe `srcDoc`. Reading
+  // `node.textContent` on every render keeps the preview in sync with edits.
+  const htmlSource = node.textContent;
+
+  // Auto-disable preview when the language changes away from HTML.
+  useEffect(() => {
+    if (!isHtml && showPreview) setShowPreview(false);
+  }, [isHtml, showPreview]);
 
   // Whether the code body is tall enough to host the copy button below the
   // language badge (badge bottom ~30px + copy button 26px + margin ≈ 60px).
@@ -125,6 +148,19 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const onHeightReset = useCallback(() => {
     updateAttributes({ maxHeightPct: 60 });
   }, [updateAttributes]);
+
+  // Select this code block as a node (mirrors FileView): clicking the preview
+  // overlay turns the block into a NodeSelection so the selection border shows
+  // and the iframe becomes interactive afterwards.
+  const selectNode = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const pos = typeof getPos === 'function' ? getPos() : null;
+      if (pos == null) return;
+      editor.commands.setNodeSelection(pos);
+    },
+    [editor, getPos],
+  );
 
   // ---- Language dropdown state ----
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -249,23 +285,49 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     }
   }, [highlightedIndex, dropdownOpen]);
 
+  // ---- Action buttons (HTML preview toggle + copy) ----
+  // These two always travel together so their positions stay consistent.
+  // When the code body is tall enough (`canFitBelow`) they sit stacked below
+  // the language badge; when it's too short they fold inline into the toolbar
+  // to the left of the badge.
+  const previewBtn =
+    isHtml && hasContent ? (
+      <button
+        type="button"
+        onClick={() => setShowPreview((p) => !p)}
+        className={`code-copy-btn code-toggle-btn ${showPreview ? 'is-active' : ''}`}
+        title={showPreview ? '显示代码' : '预览 HTML'}
+        aria-label={showPreview ? 'Show code' : 'Preview HTML'}
+      >
+        {showPreview ? <Code2 size={14} /> : <Eye size={14} />}
+      </button>
+    ) : null;
+
+  const copyBtn = hasContent ? (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="code-copy-btn"
+      title="复制代码"
+      aria-label="Copy code"
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  ) : null;
+
   return (
-    <NodeViewWrapper as="div" className="code-block-wrapper">
+    <NodeViewWrapper
+      as="div"
+      className={`code-block-wrapper ${selected ? 'is-selected' : ''} ${
+        showPreview ? 'is-preview' : ''
+      }`}
+    >
       {/* Top-right toolbar: always holds the language badge.
-          When the code body is too short (single line), the copy button
-          also lives here, to the left of the badge. */}
+          When the code body is too short (single line), the action buttons
+          (preview + copy) also live here, to the left of the badge. */}
       <div className="code-toolbar" contentEditable={false}>
-        {hasContent && !canFitBelow && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="code-copy-btn"
-            title="复制代码"
-            aria-label="Copy code"
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
-        )}
+        {!canFitBelow && previewBtn}
+        {!canFitBelow && copyBtn}
         <div
           ref={badgeRef}
           className="code-lang-badge"
@@ -278,18 +340,13 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         </div>
       </div>
 
-      {/* Copy button — only when content exists AND there is room below the badge */}
-      {hasContent && canFitBelow && (
-        <button
-          type="button"
-          onClick={handleCopy}
-          contentEditable={false}
-          className="code-copy-btn"
-          title="复制代码"
-          aria-label="Copy code"
-        >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-        </button>
+      {/* Action buttons below the badge — only when there is room below it.
+          Preview toggle and copy stay grouped so they line up consistently. */}
+      {canFitBelow && (previewBtn || copyBtn) && (
+        <div className="code-actions" contentEditable={false}>
+          {previewBtn}
+          {copyBtn}
+        </div>
       )}
 
       {/* Custom dropdown panel */}
@@ -347,21 +404,51 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
       {/* Code content — highlighted by lowlight.
           max-height is driven by maxHeightPct (percentage of viewport).
-          When content exceeds the limit, a scrollbar appears. */}
+          When content exceeds the limit, a scrollbar appears.
+          NodeViewContent must stay mounted for ProseMirror, so in preview
+          mode we hide the <pre> instead of unmounting it. */}
       <pre
         ref={codeRef}
         className="code-block-body"
-        style={{ maxHeight: `${maxHeightPct}vh`, overflow: 'auto' }}
+        style={{
+          maxHeight: `${maxHeightPct}vh`,
+          overflow: 'auto',
+          ...(showPreview ? { display: 'none' } : null),
+        }}
       >
         <NodeViewContent as="div" className={`hljs language-${language || 'plaintext'}`} />
       </pre>
 
-      {/* Height resize handle — drag to adjust max-height percentage */}
-      <div
-        className="code-block-resize-handle"
+      {/* HTML live preview — sandboxed iframe rendering the source.
+          Wrapped in a relative container that mirrors FileView's preview box:
+          when NOT selected a transparent overlay sits above the iframe so a
+          click selects the node; once selected the overlay disappears and the
+          iframe becomes interactive.
+          `sandbox` without `allow-same-origin` isolates it from the app. */}
+      {isHtml && showPreview && (
+        <div
+          className="code-block-preview"
+          contentEditable={false}
+          style={{ height: `${maxHeightPct}vh` }}
+        >
+          {!selected && (
+            <div className="code-block-preview-overlay" onMouseDown={selectNode} />
+          )}
+          <iframe
+            className="code-html-preview"
+            title="HTML preview"
+            sandbox="allow-scripts allow-forms allow-popups allow-modals"
+            srcDoc={htmlSource}
+          />
+        </div>
+      )}
+
+      {/* Height resize handle — bottom-right circular handle, matching FileView.
+          Drag to adjust max-height percentage, double-click to reset. */}
+      <ResizeHandle
         onPointerDown={onHeightResizeStart}
         onDoubleClick={onHeightReset}
-        contentEditable={false}
+        className="code-block-resize-handle"
         title="拖拽调节高度，双击重置"
       />
     </NodeViewWrapper>

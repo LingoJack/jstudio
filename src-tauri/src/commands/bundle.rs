@@ -19,6 +19,7 @@
 //! and never embed the document id, so import only needs to extract the files
 //! and rewrite the top-level `id` — nothing inside `blocks` changes.
 
+use rusqlite::OptionalExtension;
 use serde_json::Value;
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -54,13 +55,33 @@ fn doc_dir(doc_id: &str) -> PathBuf {
 #[tauri::command]
 pub fn export_document_bundle(doc_id: String, dest_path: String) -> Result<(), String> {
     let dir = doc_dir(&doc_id);
-    let doc_json_path = dir.join("document.json");
-    if !doc_json_path.exists() {
-        return Err(format!("document not found: {doc_id}"));
-    }
 
-    let doc_bytes =
-        fs::read(&doc_json_path).map_err(|e| format!("failed to read document.json: {e}"))?;
+    // Read the body from the database (canonical store), falling back to a
+    // legacy on-disk `document.json` for content not yet migrated.
+    let doc_bytes: Vec<u8> = {
+        let body: Option<String> = {
+            let conn = crate::db::db()?;
+            conn.query_row(
+                "SELECT body FROM documents WHERE id = ?1",
+                rusqlite::params![doc_id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map_err(|e| format!("read document body {doc_id}: {e}"))?
+            .flatten()
+        };
+
+        match body {
+            Some(s) if !s.trim().is_empty() => s.into_bytes(),
+            _ => {
+                let doc_json_path = dir.join("document.json");
+                if !doc_json_path.exists() {
+                    return Err(format!("document not found: {doc_id}"));
+                }
+                fs::read(&doc_json_path).map_err(|e| format!("failed to read document.json: {e}"))?
+            }
+        }
+    };
 
     // Parse the title (best-effort) purely to enrich the manifest.
     let title = serde_json::from_slice::<Value>(&doc_bytes)
@@ -196,12 +217,9 @@ pub fn import_document_bundle(src_path: String, new_doc_id: String) -> Result<Va
         serde_json::from_slice(&document_raw).map_err(|e| format!("parse document.json: {e}"))?;
     doc["id"] = Value::String(new_doc_id.clone());
 
-    // ── Write to disk: documents/{new_doc_id}/ ──
-    let dir = doc_dir(&new_doc_id);
-    fs::create_dir_all(&dir).map_err(|e| format!("create doc dir: {e}"))?;
-
+    // ── Write assets to disk: documents/{new_doc_id}/assets/ ──
     if !assets.is_empty() {
-        let assets_dir = dir.join("assets");
+        let assets_dir = doc_dir(&new_doc_id).join("assets");
         fs::create_dir_all(&assets_dir).map_err(|e| format!("create assets dir: {e}"))?;
         for (name, data) in &assets {
             fs::write(assets_dir.join(name), data)
@@ -209,9 +227,27 @@ pub fn import_document_bundle(src_path: String, new_doc_id: String) -> Result<Va
         }
     }
 
-    let pretty = serde_json::to_string_pretty(&doc).map_err(|e| format!("serialize doc: {e}"))?;
-    fs::write(dir.join("document.json"), pretty)
-        .map_err(|e| format!("write document.json: {e}"))?;
+    // ── Write the body + metadata into the database ──
+    // The frontend follows up with a `write_index` (metadata UPSERT); we still
+    // seed the metadata columns here so the row is complete immediately.
+    let body = serde_json::to_string(&doc).map_err(|e| format!("serialize doc: {e}"))?;
+    let title = doc["title"].as_str().unwrap_or("");
+    let emoji = doc["emoji"].as_str().unwrap_or("");
+    let created_at = doc["createdAt"].as_str().unwrap_or("");
+    let updated_at = doc["updatedAt"].as_str().unwrap_or("");
+
+    let conn = crate::db::db()?;
+    conn.execute(
+        "INSERT INTO documents (id, title, emoji, created_at, updated_at, body) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
+         ON CONFLICT(id) DO UPDATE SET \
+           body = excluded.body, \
+           title = excluded.title, \
+           emoji = excluded.emoji, \
+           updated_at = excluded.updated_at",
+        rusqlite::params![new_doc_id, title, emoji, created_at, updated_at, body],
+    )
+    .map_err(|e| format!("write document to db: {e}"))?;
 
     Ok(doc)
 }

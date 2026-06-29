@@ -83,6 +83,10 @@ fn open_and_init() -> Connection {
     // index (orphans). See [`reconcile_orphan_documents`].
     reconcile_orphan_documents(&mut conn);
 
+    // Backfill the `body` column from legacy on-disk document files for any
+    // rows not yet migrated (including the orphans just recovered above).
+    migrate_document_bodies(&mut conn);
+
     conn
 }
 
@@ -122,7 +126,8 @@ fn create_tables(conn: &Connection) {
             is_favorite INTEGER NOT NULL DEFAULT 0,
             created_at  TEXT NOT NULL,
             updated_at  TEXT NOT NULL,
-            trashed_at  TEXT
+            trashed_at  TEXT,
+            body        TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents(folder_id);
         CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
@@ -175,6 +180,28 @@ fn create_tables(conn: &Connection) {
         .unwrap_or(false);
     if !has_trashed_at {
         let _ = conn.execute("ALTER TABLE documents ADD COLUMN trashed_at TEXT", []);
+    }
+
+    // Add the `body` column if it doesn't exist (upgrade existing DBs).
+    // The document content now lives here; without it every body read/write
+    // fails with "no such column: body".
+    let has_body: bool = conn
+        .prepare("PRAGMA table_info(documents)")
+        .and_then(|mut stmt| {
+            let rows = stmt.query_map([], |row| {
+                let name: String = row.get(1)?;
+                Ok(name)
+            })?;
+            for row in rows {
+                if row? == "body" {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        })
+        .unwrap_or(false);
+    if !has_body {
+        let _ = conn.execute("ALTER TABLE documents ADD COLUMN body TEXT", []);
     }
 
     let folders_has_trashed_at: bool = conn
@@ -496,6 +523,81 @@ fn reconcile_orphan_documents(conn: &mut Connection) {
              (id, title, emoji, folder_id, is_favorite, created_at, updated_at) \
              VALUES (?1, ?2, ?3, NULL, 0, ?4, ?5)",
             rusqlite::params![id, title, emoji, created_at, updated_at],
+        );
+    }
+    let _ = tx.commit();
+}
+
+// ────────────────────────────────────────────────
+// Legacy document-body migration (filesystem → SQLite)
+// ────────────────────────────────────────────────
+
+/// Backfill the `documents.body` column from legacy on-disk document files.
+///
+/// Historically a document's full content lived in
+/// `documents/{id}/document.json` (or the older flat `documents/{id}.json`).
+/// Content now lives in the `body` column. On startup we copy any not-yet-
+/// migrated body into the database.
+///
+/// Idempotent: only rows whose `body` is NULL or empty are touched, so this
+/// is a no-op once every document has been migrated. The original
+/// `document.json` files are deliberately **left untouched** — they serve as
+/// a recovery backup and as the fallback path in [`read_document`].
+fn migrate_document_bodies(conn: &mut Connection) {
+    // Collect the ids whose body still needs to be filled.
+    let ids: Vec<String> = {
+        let Ok(mut stmt) =
+            conn.prepare("SELECT id FROM documents WHERE body IS NULL OR body = ''")
+        else {
+            return;
+        };
+        let Ok(rows) = stmt.query_map([], |row| {
+            let id: String = row.get(0)?;
+            Ok(id)
+        }) else {
+            return;
+        };
+        rows.flatten().collect()
+    };
+
+    if ids.is_empty() {
+        return;
+    }
+
+    let docs = documents_dir();
+
+    // Read each body off disk first so we don't hold file handles across the
+    // transaction. Pair (id, body-json-string).
+    let mut bodies: Vec<(String, String)> = Vec::new();
+    for id in &ids {
+        let new_path = docs.join(id).join("document.json");
+        let legacy_path = docs.join(format!("{id}.json"));
+        let path = if new_path.exists() {
+            new_path
+        } else if legacy_path.exists() {
+            legacy_path
+        } else {
+            continue;
+        };
+        if let Ok(data) = fs::read_to_string(&path) {
+            // Validate it parses as JSON before storing; skip corrupt files.
+            if serde_json::from_str::<Value>(&data).is_ok() {
+                bodies.push((id.clone(), data));
+            }
+        }
+    }
+
+    if bodies.is_empty() {
+        return;
+    }
+
+    let tx = conn
+        .transaction()
+        .unwrap_or_else(|e| panic!("body migration tx: {e}"));
+    for (id, body) in &bodies {
+        let _ = tx.execute(
+            "UPDATE documents SET body = ?2 WHERE id = ?1 AND (body IS NULL OR body = '')",
+            rusqlite::params![id, body],
         );
     }
     let _ = tx.commit();

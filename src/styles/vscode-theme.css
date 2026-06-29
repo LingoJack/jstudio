@@ -1314,13 +1314,29 @@ button {
    Code Block NodeView (Chrome) Styles
    ============================================ */
 
-/* 整个代码块外层容器 */
+/* 整个代码块外层容器
+   常态: 2px widget-border（与 file-block-figure 对齐）
+   选中 / 编辑中: 2px focusBorder 高亮 */
 .code-block-wrapper {
   position: relative;
   border-radius: 8px;
-  border: 1px solid var(--vscode-widget-border);
+  border: 2px solid var(--vscode-widget-border);
   background: var(--vscode-textCodeBlock-background);
   margin: 0.75em 0;
+  transition: border-color 0.15s;
+}
+
+/* 选中（NodeSelection）或光标位于代码块内时，高亮边框 */
+.code-block-wrapper.is-selected,
+.code-block-wrapper:focus-within {
+  border-color: var(--vscode-focusBorder);
+}
+
+/* 选中代码块节点时隐藏 ProseMirror 默认的 block 级外框，
+   只保留 code-block-wrapper 自身的 focusBorder 边框即可。
+   与 image / file 节点同理，用 :has() 匹配。 */
+.ProseMirror-selectednode:has(> .code-block-wrapper) {
+  outline: none;
 }
 
 /* 代码内容区 */
@@ -1333,32 +1349,22 @@ button {
   overflow-x: auto;
 }
 
-/* Height resize handle — centered at the bottom edge of the code block.
-   Drag vertically to adjust the max-height percentage (persistent). */
-.code-block-resize-handle {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translate(-50%, 50%);
-  width: 36px;
-  height: 7px;
-  border-radius: 4px;
-  background: var(--vscode-editorWidget-background, #2d2d2d);
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
-  cursor: ns-resize;
-  z-index: 10;
+/* Height resize handle — reuses the shared bottom-right circular
+   `block-resize-handle` (same look as File / Image / Diagram blocks).
+   Positioned just inside the bottom-right corner so it never overflows the
+   full-width code block. Hidden by default; revealed on hover / focus /
+   selection. Vertical drag adjusts the max-height percentage. */
+.code-block-wrapper .block-resize-handle.code-block-resize-handle {
+  bottom: 8px;
+  right: 8px;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
+  transition: opacity 0.15s ease;
 }
 
 .code-block-wrapper:hover .code-block-resize-handle,
-.code-block-resize-handle:active {
+.code-block-wrapper:focus-within .code-block-resize-handle,
+.code-block-wrapper.is-selected .code-block-resize-handle {
   opacity: 1;
-}
-
-.code-block-resize-handle:hover,
-.code-block-resize-handle:active {
-  background: var(--vscode-focusBorder, #007fd4);
 }
 
 /* NodeViewContent 渲染的 div.hljs — 代码高亮由 hljs-* token 规则着色 */
@@ -1558,9 +1564,83 @@ button {
   opacity: 1;
 }
 
+/* ---- 徽章下方的动作按钮组 (预览切换 + 复制) ---- */
+/* 多行时，预览与复制按钮成组横向排列在语言徽章正下方，保证两者位置一致 */
+.code-block-wrapper .code-actions {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+.code-block-wrapper .code-actions .code-copy-btn {
+  position: static;
+}
+
+/* 复制按钮仍是 hover 才显示；预览切换按钮常驻可见 */
+.code-block-wrapper:hover .code-actions .code-copy-btn,
+.code-block-wrapper .code-actions .code-toggle-btn {
+  opacity: 1;
+}
+
 .code-block-wrapper .code-copy-btn:hover {
   color: var(--vscode-editor-foreground);
   background: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Toolbar buttons that act as toggles (e.g. HTML preview) live inline in the
+   toolbar and stay statically positioned. */
+.code-block-wrapper .code-toolbar .code-copy-btn {
+  opacity: 1;
+}
+
+.code-block-wrapper .code-toolbar .code-copy-btn.is-active {
+  color: var(--vscode-list-activeSelectionForeground, #fff);
+  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
+}
+
+/* 预览切换按钮处于激活态（正在预览）时的高亮，徽章下方布局同样适用 */
+.code-block-wrapper .code-actions .code-toggle-btn.is-active {
+  color: var(--vscode-list-activeSelectionForeground, #fff);
+  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
+}
+
+/* HTML live preview — box + selection + interaction mirror FileView's
+   preview frame. The wrapper provides the (focusBorder when selected) border;
+   this container clips the iframe to rounded corners. */
+.code-block-wrapper .code-block-preview {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Transparent overlay — only when NOT selected. Sits above the <iframe>
+   (which eats mouse events) so a click selects the code block node. Removed
+   once selected so the rendered page becomes interactive. */
+.code-block-wrapper .code-block-preview-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: pointer;
+  background: transparent;
+}
+
+/* HTML live preview iframe */
+.code-block-wrapper .code-html-preview {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 120px;
+  border: none;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: auto;
 }
 
 /* ============================================

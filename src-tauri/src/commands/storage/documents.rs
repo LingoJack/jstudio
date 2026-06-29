@@ -1,5 +1,6 @@
-//! Document metadata (SQLite) + document body (filesystem).
+//! Document metadata + body (SQLite). Document-private assets stay on disk.
 
+use rusqlite::OptionalExtension;
 use serde_json::Value;
 use std::fs;
 
@@ -59,7 +60,19 @@ pub fn read_index() -> Result<Value, String> {
     Ok(Value::Array(entries))
 }
 
-/// Replace the entire document metadata index in a single transaction.
+/// Upsert document metadata from the sidebar index.
+///
+/// IMPORTANT: this is a metadata-only UPSERT — it deliberately does **not**
+/// touch the `body` column, and it does **not** delete rows that are absent
+/// from `entries`. Two reasons:
+///
+///   1. The `body` column holds the document content; clearing it here (the
+///      old `DELETE FROM documents` + re-INSERT did exactly that) would wipe
+///      every document's text on the next index save.
+///   2. The frontend's frequent `scheduleIndexSave` only passes the *active*
+///      document list (trashed docs excluded), so deleting "missing" rows
+///      would destroy trashed documents. Deletion is the sole responsibility
+///      of `delete_document`.
 #[tauri::command]
 pub fn write_index(entries: Value) -> Result<(), String> {
     let arr = entries
@@ -70,9 +83,6 @@ pub fn write_index(entries: Value) -> Result<(), String> {
     let tx = conn
         .transaction()
         .map_err(|e| format!("failed to begin index tx: {e}"))?;
-
-    tx.execute("DELETE FROM documents", [])
-        .map_err(|e| format!("failed to clear documents: {e}"))?;
 
     for entry in arr {
         let id = entry["id"].as_str().ok_or("write_index: missing id")?;
@@ -89,9 +99,17 @@ pub fn write_index(entries: Value) -> Result<(), String> {
         let trashed_at = entry["trashedAt"].as_str();
 
         tx.execute(
-            "INSERT OR REPLACE INTO documents \
+            "INSERT INTO documents \
              (id, title, emoji, folder_id, is_favorite, created_at, updated_at, trashed_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
+             ON CONFLICT(id) DO UPDATE SET \
+               title = excluded.title, \
+               emoji = excluded.emoji, \
+               folder_id = excluded.folder_id, \
+               is_favorite = excluded.is_favorite, \
+               created_at = excluded.created_at, \
+               updated_at = excluded.updated_at, \
+               trashed_at = excluded.trashed_at",
             rusqlite::params![
                 id,
                 title,
@@ -103,7 +121,7 @@ pub fn write_index(entries: Value) -> Result<(), String> {
                 trashed_at
             ],
         )
-        .map_err(|e| format!("failed to insert document {id}: {e}"))?;
+        .map_err(|e| format!("failed to upsert document {id}: {e}"))?;
     }
 
     tx.commit()
@@ -111,13 +129,39 @@ pub fn write_index(entries: Value) -> Result<(), String> {
 }
 
 /// Read a single document by id.
-/// Tries `documents/{doc_id}/document.json` first (new layout),
-/// falls back to `documents/{doc_id}.json` (legacy layout).
+///
+/// Resolution order:
+///   1. `documents.body` in SQLite (the canonical store).
+///   2. Legacy filesystem fallback — `documents/{doc_id}/document.json` then
+///      `documents/{doc_id}.json` — for content not yet migrated. When found
+///      this way, the body is backfilled into the database so subsequent
+///      reads hit the fast path.
 #[tauri::command]
 pub fn read_document(doc_id: String) -> Result<Value, String> {
+    // ── 1. Database body ──
+    {
+        let conn = crate::db::db()?;
+        let body: Option<String> = conn
+            .query_row(
+                "SELECT body FROM documents WHERE id = ?1",
+                rusqlite::params![doc_id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map_err(|e| format!("failed to read document body {doc_id}: {e}"))?
+            .flatten();
+
+        if let Some(s) = body {
+            if !s.trim().is_empty() {
+                return serde_json::from_str(&s)
+                    .map_err(|e| format!("failed to parse document {doc_id}: {e}"));
+            }
+        }
+    }
+
+    // ── 2. Legacy filesystem fallback ──
     let new_path = doc_path(&doc_id);
     let legacy_path = documents_dir().join(format!("{doc_id}.json"));
-
     let path = if new_path.exists() {
         new_path
     } else if legacy_path.exists() {
@@ -128,22 +172,59 @@ pub fn read_document(doc_id: String) -> Result<Value, String> {
 
     let data =
         fs::read_to_string(&path).map_err(|e| format!("failed to read document {doc_id}: {e}"))?;
-    serde_json::from_str(&data).map_err(|e| format!("failed to parse document {doc_id}: {e}"))
+    let parsed: Value =
+        serde_json::from_str(&data).map_err(|e| format!("failed to parse document {doc_id}: {e}"))?;
+
+    // Backfill into the DB so the next read hits the fast path.
+    if let Ok(conn) = crate::db::db() {
+        let _ = conn.execute(
+            "UPDATE documents SET body = ?2 WHERE id = ?1 AND (body IS NULL OR body = '')",
+            rusqlite::params![doc_id, data],
+        );
+    }
+
+    Ok(parsed)
 }
 
-/// Write a single document to `documents/{doc_id}/document.json`.
+/// Persist a single document's full content into `documents.body`.
+///
+/// Uses an UPSERT so a brand-new document (created via `createDocument`,
+/// which calls this before `write_index`) inserts a complete row, while an
+/// existing document only has its content-related columns refreshed.
+///
+/// The `ON CONFLICT` branch updates `body` plus `title` / `emoji` /
+/// `updated_at` — because block edits go through here only (they bump
+/// `updatedAt` but do NOT trigger an index save), so the sidebar's
+/// `ORDER BY updated_at DESC` would otherwise go stale. It deliberately
+/// leaves `folder_id` / `is_favorite` / `trashed_at` / `created_at` alone,
+/// since those are owned by `write_index`.
 #[tauri::command]
 pub fn write_document(doc_id: String, doc: Value) -> Result<(), String> {
-    let dir = doc_dir(&doc_id);
-    fs::create_dir_all(&dir).map_err(|e| format!("failed to create doc dir: {e}"))?;
+    let body = serde_json::to_string(&doc).map_err(|e| e.to_string())?;
+    let title = doc["title"].as_str().unwrap_or("");
+    let emoji = doc["emoji"].as_str().unwrap_or("");
+    let created_at = doc["createdAt"].as_str().unwrap_or("");
+    let updated_at = doc["updatedAt"].as_str().unwrap_or("");
 
-    let path = doc_path(&doc_id);
-    let json = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
-    fs::write(&path, json).map_err(|e| format!("failed to write document {doc_id}: {e}"))
+    let conn = crate::db::db()?;
+    conn.execute(
+        "INSERT INTO documents (id, title, emoji, created_at, updated_at, body) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
+         ON CONFLICT(id) DO UPDATE SET \
+           body = excluded.body, \
+           title = excluded.title, \
+           emoji = excluded.emoji, \
+           updated_at = excluded.updated_at",
+        rusqlite::params![doc_id, title, emoji, created_at, updated_at, body],
+    )
+    .map_err(|e| format!("failed to write document {doc_id}: {e}"))?;
+
+    Ok(())
 }
 
-/// Delete a document folder and all its assets, and record a tombstone so the
-/// orphan-recovery routine never resurrects it.
+/// Delete a document: its metadata + body row, its on-disk folder (assets),
+/// any legacy flat file, and record a tombstone so orphan-recovery never
+/// resurrects it.
 #[tauri::command]
 pub fn delete_document(doc_id: String) -> Result<(), String> {
     let dir = doc_dir(&doc_id);
@@ -158,10 +239,14 @@ pub fn delete_document(doc_id: String) -> Result<(), String> {
         let _ = fs::remove_file(&legacy);
     }
 
-    // Record a tombstone so reconcile_orphan_documents won't bring this
-    // document back on next startup if the folder deletion partially failed
-    // or if the user manually copied the folder back.
+    // Remove the metadata + body row, then record a tombstone so
+    // reconcile_orphan_documents won't bring this document back on next
+    // startup if a leftover folder/file reappears.
     let conn = crate::db::db()?;
+    let _ = conn.execute(
+        "DELETE FROM documents WHERE id = ?1",
+        rusqlite::params![doc_id],
+    );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO deleted_documents (id) VALUES (?1)",
         rusqlite::params![doc_id],

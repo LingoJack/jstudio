@@ -13,15 +13,28 @@ import React from 'react';
 interface ResizeHandleProps {
   /** Pointer-down handler from `useNodeResize().onResizeStart`. */
   onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
+  /** Optional double-click handler (e.g. reset to default size). */
+  onDoubleClick?: () => void;
+  /** Optional extra class names (e.g. for a context-specific position override). */
+  className?: string;
+  /** Optional tooltip text. */
+  title?: string;
 }
 
 /** Bottom-right circular resize affordance. */
-export function ResizeHandle({ onPointerDown }: ResizeHandleProps) {
+export function ResizeHandle({
+  onPointerDown,
+  onDoubleClick,
+  className,
+  title,
+}: ResizeHandleProps) {
   return (
     <div
-      className="block-resize-handle"
+      className={['block-resize-handle', className].filter(Boolean).join(' ')}
       onPointerDown={onPointerDown}
+      onDoubleClick={onDoubleClick}
       contentEditable={false}
+      title={title}
     />
   );
 }

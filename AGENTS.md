@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-**JStudio** 是一个基于 **Tauri v2 + React 19 + TypeScript** 的本地笔记应用，定位为"离线优先的 Notion 风格块编辑器"。所有数据存储在用户本地（SQLite 元数据 + 文件系统正文/资源），无云端依赖。
+**JStudio** 是一个基于 **Tauri v2 + React 19 + TypeScript** 的本地笔记应用，定位为"离线优先的 Notion 风格块编辑器"。所有数据存储在用户本地（SQLite 存元数据与正文 + 文件系统存二进制资源），无云端依赖。
 
 ## 技术栈
 
