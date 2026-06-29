@@ -67,6 +67,13 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private prevCaretKey = '';
 
   /**
+   * TEMP DEBUG: diagnostic snapshot captured by refinePreCaretRect when the
+   * caret is inside a <pre> code block, merged with canvas-local values and
+   * logged by toCanvasLocal. Remove once the code-block caret bug is fixed.
+   */
+  private __dbgPreInfo: Record<string, unknown> | null = null;
+
+  /**
    * Whether the caret geometry needs to be re-measured from the DOM.
    *
    * Measuring (getClientRects + getComputedStyle + the <pre> line-counting
@@ -449,16 +456,60 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * range selection is active).
    */
   private measureCaretRect(): { left: number; right: number; top: number; bottom: number } | null {
-    if (!this.editorEl || !this.scrollContainer) return null;
+    const sel = window.getSelection();
+    const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+
+    // TEMP DEBUG — detect whether the caret sits inside a <pre> so we only log
+    // for code blocks (normal text would spam). Logs the reason at every early
+    // return so we can see exactly where measurement bails out.
+    let inPre = false;
+    if (range) {
+      let n: Node | null =
+        range.startContainer.nodeType === Node.ELEMENT_NODE
+          ? range.startContainer
+          : range.startContainer.parentElement;
+      while (n) {
+        if (n.nodeName === 'PRE') {
+          inPre = true;
+          break;
+        }
+        n = (n as HTMLElement).parentElement;
+      }
+    }
+    const dbgBail = (reason: string) => {
+      if (!inPre) return;
+      const ae = document.activeElement as HTMLElement | null;
+      // eslint-disable-next-line no-console
+      console.log('[caret-dbg] BAIL:', reason, {
+        hasEditor: !!this.editorEl,
+        hasScroll: !!this.scrollContainer,
+        editorHasActive: this.editorEl?.contains(ae) ?? false,
+        activeEl: ae ? `${ae.nodeName}.${ae.className}` : null,
+        rangeCount: sel?.rangeCount ?? 0,
+        collapsed: range?.collapsed ?? null,
+      });
+    };
+
+    if (!this.editorEl || !this.scrollContainer) {
+      dbgBail('no editorEl/scrollContainer');
+      return null;
+    }
 
     // The editor must contain the active element (focused).
-    if (!this.editorEl.contains(document.activeElement)) return null;
+    if (!this.editorEl.contains(document.activeElement)) {
+      dbgBail('editor NOT focused (activeElement outside editor)');
+      return null;
+    }
 
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
+    if (!sel || !range) {
+      dbgBail('no selection/range');
+      return null;
+    }
 
-    const range = sel.getRangeAt(0);
-    if (!range.collapsed) return null;
+    if (!range.collapsed) {
+      dbgBail('range not collapsed');
+      return null;
+    }
 
     // ── Workaround: WebKit getBoundingClientRect() on collapsed ranges ──
     //
@@ -508,6 +559,13 @@ export class EditorCursorTrail extends BaseCursorTrail {
     // <pre> geometry + line number, eliminating both the vertical overlap
     // bug and the width inflation bug at their source.
     const rect = this.refinePreCaretRect(rawRect, range, lineHeight);
+
+    // null = the caret is inside a code block but scrolled out of its visible
+    // band → hide the cursor (don't draw it floating over other content).
+    if (!rect) {
+      this.coveredGlyph = null;
+      return null;
+    }
 
     const glyph = this.measureGlyphAt(range, fontSize);
 
@@ -718,7 +776,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     rect: DOMRect,
     range: Range,
     lineHeight: number,
-  ): DOMRect {
+  ): DOMRect | null {
     // Walk up from the caret's container to find a <pre> ancestor.
     const startContainer = range.startContainer;
     let node: Node | null =
@@ -735,78 +793,142 @@ export class EditorCursorTrail extends BaseCursorTrail {
     }
     if (!preEl) return rect;
 
-    // ── Deterministic vertical computation ──
     const preRect = preEl.getBoundingClientRect();
     const preStyle = getComputedStyle(preEl);
     const paddingTop = parseFloat(preStyle.paddingTop) || 0;
     const paddingLeft = parseFloat(preStyle.paddingLeft) || 0;
+    const scrollTop = preEl.scrollTop;
+    const scrollLeft = preEl.scrollLeft;
 
-    // Determine which line the caret is on by counting `\n` characters in
-    // ALL text from the <pre> start to the caret position — not just within
-    // the current text node.
-    //
-    // With syntax highlighting (lowlight / highlight.js), the code inside
-    // <pre> is split across many child <span> elements, each with its own
-    // text node.  The `\n` characters that delimit visual lines are spread
-    // across these different text nodes.  Counting `\n` only within the
-    // caret's own text node (the old approach) gave lineIndex = 0 whenever
-    // the caret was inside a <span> whose text node didn't contain any `\n`,
-    // making the cursor always jump back to the first line.
-    //
-    // Using a Range from <pre> start to the caret and counting `\n` in its
-    // serialised text content correctly accounts for all preceding lines,
-    // regardless of how the DOM splits the text.
-    let lineIndex = 0;
-    try {
-      const preRange = document.createRange();
-      preRange.setStart(preEl, 0);
-      preRange.setEnd(range.startContainer, range.startOffset);
-      const textBeforeCaret = preRange.toString();
-      for (let i = 0; i < textBeforeCaret.length; i++) {
-        if (textBeforeCaret[i] === '\n') lineIndex++;
+    // ── Reliable vertical anchor via an adjacent real character ──
+    // WebKit/WKWebView returns bogus geometry for a COLLAPSED caret range
+    // inside `<pre white-space:pre>` (the rect spans multiple line boxes, so
+    // its top/height/width are all wrong). But a NON-collapsed range around a
+    // single real character is reliable AND already reflects the code block's
+    // own scroll + clipping (it's plain viewport coordinates). So we anchor the
+    // caret's vertical band to the glyph next to it, and only fall back to a
+    // deterministic line-count computation on a truly empty line.
+    let caretTop: number;
+    let caretHeight: number;
+    let caretLeft: number;
+
+    const adj = this.adjacentCharRect(range);
+    if (adj) {
+      caretTop = adj.rect.top;
+      caretHeight =
+        adj.rect.height > 0 && adj.rect.height <= lineHeight * 1.6
+          ? adj.rect.height
+          : lineHeight;
+      // The caret sits on the near edge of that glyph: the glyph's LEFT edge
+      // when the glyph is after the caret, its RIGHT edge when it is before.
+      caretLeft = adj.after ? adj.rect.left : adj.rect.right;
+    } else {
+      // Empty line — no adjacent glyph to anchor to. Count `\n` from the <pre>
+      // start to the caret to get the line index, then derive the line-box top.
+      // Subtract scrollTop because preRect is the element's own (unscrolled)
+      // edge while lineIndex*lineHeight is measured from the content top.
+      //
+      // (Highlighting splits the code across many <span>s, so we count `\n`
+      // over the serialised range text, not just the caret's own text node.)
+      let lineIndex = 0;
+      try {
+        const preRange = document.createRange();
+        preRange.setStart(preEl, 0);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const textBeforeCaret = preRange.toString();
+        for (let i = 0; i < textBeforeCaret.length; i++) {
+          if (textBeforeCaret[i] === '\n') lineIndex++;
+        }
+      } catch {
+        /* keep lineIndex = 0 */
       }
-    } catch {
-      // Fallback: if the range fails (edge cases with element boundaries),
-      // keep lineIndex = 0.
+      caretTop = preRect.top + paddingTop + lineIndex * lineHeight - scrollTop;
+      caretHeight = lineHeight;
+      const contentLeft = preRect.left + paddingLeft - scrollLeft;
+      caretLeft =
+        rect.left >= contentLeft - 2 && rect.left <= preRect.right ? rect.left : contentLeft;
     }
 
-    const caretTop = preRect.top + paddingTop + lineIndex * lineHeight;
+    // ── Clip to the code block's visible band ──
+    // The trail is a WebGL overlay that is NOT clipped by the <pre>'s
+    // `overflow`. When the caret's line scrolls out of the code block's
+    // viewport, drawing it would float the cursor over neighbouring content;
+    // hide it instead (mirroring how the native caret is clipped with the
+    // text). Kept visible while any part of the line box intersects the
+    // <pre>'s padding box.
 
-    // If the raw rect's vertical position already matches the deterministic
-    // computation (within tolerance) AND the width is sane, trust it — no
-    // need to create a synthetic rect.  This avoids discarding a correct
-    // horizontal position from getClientRects().
-    const topOk = rect.height > 0 && Math.abs(rect.top - caretTop) <= lineHeight * 0.5;
-    const widthOk = rect.width <= lineHeight; // collapsed caret should be ~0
-    if (topOk && widthOk && Math.abs(rect.height - lineHeight) <= 2) {
-      return rect;
+    // TEMP DEBUG — snapshot of the viewport-space computation.
+    this.__dbgPreInfo = {
+      preTop: +preRect.top.toFixed(1),
+      preBottom: +preRect.bottom.toFixed(1),
+      preClientH: preEl.clientHeight,
+      preScrollTop: +scrollTop.toFixed(1),
+      preScrollH: preEl.scrollHeight,
+      paddingTop,
+      lineHeight: +lineHeight.toFixed(1),
+      anchor: adj ? 'char' : 'empty-line',
+      adjAfter: adj ? adj.after : null,
+      adjTop: adj ? +adj.rect.top.toFixed(1) : null,
+      adjHeight: adj ? +adj.rect.height.toFixed(1) : null,
+      adjLeft: adj ? +adj.rect.left.toFixed(1) : null,
+      adjRight: adj ? +adj.rect.right.toFixed(1) : null,
+      rawTop: +rect.top.toFixed(1),
+      rawHeight: +rect.height.toFixed(1),
+      rawLeft: +rect.left.toFixed(1),
+      rawWidth: +rect.width.toFixed(1),
+      caretTop: +caretTop.toFixed(1),
+      caretHeight: +caretHeight.toFixed(1),
+      caretLeft: +caretLeft.toFixed(1),
+    };
+
+    if (caretTop + caretHeight <= preRect.top || caretTop >= preRect.bottom) {
+      // eslint-disable-next-line no-console
+      console.log('[caret-dbg] CLIPPED → hidden', this.__dbgPreInfo);
+      this.__dbgPreInfo = null;
+      return null;
     }
 
-    // ── Horizontal position ──
-    // If the raw rect's left is inside the <pre> horizontally and looks
-    // reasonable, keep it.  Otherwise (WebKit reported a bogus left),
-    // fall back to the <pre>'s left padding edge.
-    let caretLeft = rect.left;
-    if (
-      rect.left < preRect.left + paddingLeft - 2 ||
-      rect.left > preRect.right
-    ) {
-      caretLeft = preRect.left + paddingLeft;
-    }
-
-    // Create a synthetic DOMRect-like object with the corrected geometry.
-    // Width is always 0 for a collapsed caret.
     return {
       left: caretLeft,
       top: caretTop,
       width: 0,
-      height: lineHeight,
+      height: caretHeight,
       right: caretLeft,
-      bottom: caretTop + lineHeight,
+      bottom: caretTop + caretHeight,
       x: caretLeft,
       y: caretTop,
       toJSON: () => ({}),
     } as DOMRect;
+  }
+
+  /**
+   * Measure the rect of the real character immediately adjacent to a caret,
+   * preferring the one AFTER it (the glyph you'd overtype) and falling back to
+   * the one BEFORE. Returns `null` at empty positions (line breaks on both
+   * sides, or a non-text container).
+   *
+   * Unlike a collapsed caret range, a range wrapping a single character has a
+   * reliable bounding box on WebKit/WKWebView — even inside `<pre>` — so its
+   * `top`/`height` give the caret's true line box, and the box already
+   * reflects any scroll/clipping of the code block.
+   */
+  private adjacentCharRect(range: Range): { rect: DOMRect; after: boolean } | null {
+    const sc = range.startContainer;
+    if (sc.nodeType !== Node.TEXT_NODE) return null;
+    const text = sc.textContent ?? '';
+    const off = range.startOffset;
+
+    // Character AFTER the caret (skip line breaks — they have no glyph box).
+    if (off < text.length && text[off] !== '\n' && text[off] !== '\r') {
+      const m = this.measureCodePoint(sc, off, text, +1);
+      if (m) return { rect: m.rect, after: true };
+    }
+    // Character BEFORE the caret.
+    if (off > 0 && text[off - 1] !== '\n' && text[off - 1] !== '\r') {
+      const m = this.measureCodePoint(sc, off, text, -1);
+      if (m) return { rect: m.rect, after: false };
+    }
+    return null;
   }
 
   /**
@@ -889,6 +1011,8 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     // Refine for <pre> code blocks (same reason as measureCaretRect()).
     const rect = this.refinePreCaretRect(rawRect, range, lineHeight);
+    // null = caret scrolled out of a code block's visible band → hide.
+    if (!rect) return null;
 
     // The temp-span path only triggers at empty positions (no glyph),
     // so there is no character under the caret → half-width fallback.
@@ -1048,7 +1172,31 @@ export class EditorCursorTrail extends BaseCursorTrail {
       }
     }
 
-    if (trailRight < 0 || trailLeft > this.cssW || trailBottom < 0 || trailTop > this.cssH) return null;
+    const culled =
+      trailRight < 0 || trailLeft > this.cssW || trailBottom < 0 || trailTop > this.cssH;
+
+    // TEMP DEBUG — merge canvas-local values and log the full picture.
+    if (this.__dbgPreInfo) {
+      // eslint-disable-next-line no-console
+      console.log('[caret-dbg]', {
+        ...this.__dbgPreInfo,
+        canvasTop: +canvasRect.top.toFixed(1),
+        canvasLeft: +canvasRect.left.toFixed(1),
+        cssW: +this.cssW.toFixed(1),
+        cssH: +this.cssH.toFixed(1),
+        localTop: +top.toFixed(1),
+        localLeft: +caretLeft.toFixed(1),
+        boxHeight: +boxHeight.toFixed(1),
+        emTop: +emTop.toFixed(1),
+        emBottom: +emBottom.toFixed(1),
+        trailTop: +trailTop.toFixed(1),
+        trailBottom: +trailBottom.toFixed(1),
+        culled,
+      });
+      this.__dbgPreInfo = null;
+    }
+
+    if (culled) return null;
 
     return { left: trailLeft, right: trailRight, top: trailTop, bottom: trailBottom };
   }

@@ -251,7 +251,17 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       LinkExtension,
       CollapsibleExtension,
       DiagramExtension,
-      Link.configure({
+      // The upstream Link extension defines `inclusive() { return this.options.autolink }`,
+      // so with autolink on the link mark becomes *inclusive* — typing right
+      // before/after a link (e.g. after pasting a URL) extends the link mark
+      // onto the newly typed text. Force it non-inclusive so the link only
+      // covers its own text; autolink detection still works because it re-scans
+      // text via an appendTransaction plugin, independent of `inclusive`.
+      Link.extend({
+        inclusive() {
+          return false;
+        },
+      }).configure({
         openOnClick: readOnly, // allow link clicks in read-only mode
         autolink: true,
       }),
@@ -450,10 +460,24 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     const overlay = trailOverlayRef.current;
     if (!overlay) return;
 
-    // Wait for the ProseMirror DOM to be mounted
-    const editorEl = overlay.parentElement?.querySelector('.ProseMirror') as HTMLElement | null;
-    const scrollContainer = overlay.parentElement;
-    if (!editorEl || !scrollContainer) return;
+    // The overlay now lives on the non-scrolling root (so the canvas stays
+    // viewport-sized). Find the editor DOM within that root, and the editor's
+    // nearest scrollable ancestor — that is the element whose `scroll` we must
+    // watch to re-measure the caret (the overlay's parent does NOT scroll).
+    const root = overlay.parentElement;
+    const editorEl = root?.querySelector('.ProseMirror') as HTMLElement | null;
+    if (!editorEl || !root) return;
+
+    const getScrollParent = (el: HTMLElement | null): HTMLElement => {
+      let n: HTMLElement | null = el?.parentElement ?? null;
+      while (n) {
+        const oy = getComputedStyle(n).overflowY;
+        if (oy === 'auto' || oy === 'scroll' || oy === 'overlay') return n;
+        n = n.parentElement;
+      }
+      return root;
+    };
+    const scrollContainer = getScrollParent(editorEl);
 
     // Resolve trail color from CSS variables, with fallbacks
     const cssColor =
@@ -499,7 +523,14 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     editor.on('focus', markDirty);
     editor.on('blur', markDirty);
     // Scrolling shifts the caret within the canvas-local coordinate space.
-    scrollContainer.addEventListener('scroll', markDirty, { passive: true });
+    // Use the CAPTURE phase: `scroll` does NOT bubble, so a listener on the
+    // outer scrollContainer would miss inner scroll containers (e.g. a code
+    // block's `<pre overflow:auto>`). The capture phase runs on ancestors on
+    // the way down to the target, so it still catches descendant scrolls.
+    scrollContainer.addEventListener('scroll', markDirty, {
+      passive: true,
+      capture: true,
+    });
 
     // Safety net: some reflows raise none of the above events (e.g. an
     // async-loaded image pushing content down, web-font swap).  A low-
@@ -515,15 +546,51 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       if (editor.isFocused) markDirty();
     }, 400);
 
-    // Resize observer to keep canvas in sync with container size
+    // Resize observer to keep canvas in sync with the viewport-sized overlay.
     const resizeObserver = new ResizeObserver(() => {
       trail.resize();
     });
-    resizeObserver.observe(scrollContainer);
+    resizeObserver.observe(overlay);
+
+    // TEMP DEBUG — log what a click resolves to (even when the caret does NOT
+    // land in a code block), so we can see where the caret goes when clicking
+    // a scrolled code block. Runs after the browser sets the selection.
+    const dbgClick = (e: MouseEvent) => {
+      setTimeout(() => {
+        const sel = window.getSelection();
+        const r = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+        let node: Node | null =
+          r?.startContainer?.nodeType === Node.ELEMENT_NODE
+            ? r.startContainer
+            : r?.startContainer?.parentElement ?? null;
+        let inPre = false;
+        let chain: string[] = [];
+        while (node && chain.length < 8) {
+          const el = node as HTMLElement;
+          chain.push(`${el.nodeName}.${el.className ?? ''}`.trim());
+          if (el.nodeName === 'PRE') inPre = true;
+          node = el.parentElement;
+        }
+        const hit = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+        // eslint-disable-next-line no-console
+        console.log('[caret-dbg] CLICK', {
+          inPre,
+          collapsed: r?.collapsed ?? null,
+          activeEl: document.activeElement
+            ? `${document.activeElement.nodeName}.${(document.activeElement as HTMLElement).className}`
+            : null,
+          editorFocused: editor.isFocused,
+          hitEl: hit ? `${hit.nodeName}.${hit.className}` : null,
+          chain,
+        });
+      }, 0);
+    };
+    document.addEventListener('mousedown', dbgClick, true);
 
     return () => {
       window.clearInterval(safetyTick);
-      scrollContainer.removeEventListener('scroll', markDirty);
+      document.removeEventListener('mousedown', dbgClick, true);
+      scrollContainer.removeEventListener('scroll', markDirty, { capture: true });
       editor.off('selectionUpdate', markDirty);
       editor.off('update', markDirty);
       editor.off('focus', markDirty);
@@ -726,13 +793,6 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         {/* TipTap Editor */}
         <div className="tiptap-editor-container min-h-[50vh] relative">
           <EditorContent editor={editor} />
-
-          {/* GPU cursor trail overlay */}
-          <div
-            ref={trailOverlayRef}
-            className="absolute inset-0"
-            style={{ pointerEvents: 'none', zIndex: 5 }}
-          />
         </div>
 
         {/* Selection-triggered formatting toolbar (Bold/Italic/Strike/Code) */}
@@ -741,6 +801,20 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         {/* Table hover controls + context menu */}
         {editor && <TableControls editor={editor} />}
       </div>
+
+      {/* GPU cursor trail overlay.
+          IMPORTANT: it lives here, on the non-scrolling `relative` root, NOT
+          inside the scrolling content. That keeps the WebGL canvas sized to
+          the VIEWPORT (one screen) instead of the full document height —
+          otherwise a long document makes the canvas exceed the browser's max
+          canvas/GL dimensions, and the cursor vanishes once scrolled past
+          that limit. The caret's viewport coordinates map straight into this
+          fixed-size overlay; scrolling just re-measures the caret. */}
+      <div
+        ref={trailOverlayRef}
+        className="absolute inset-0"
+        style={{ pointerEvents: 'none', zIndex: 5 }}
+      />
 
       {/* Outline panel (conditional) */}
       {editor && isOutlineOpen && <DocumentOutline editor={editor} />}
