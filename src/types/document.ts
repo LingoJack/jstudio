@@ -23,6 +23,8 @@ export type BlockType =
 export interface BlockProperties {
   /** Code block: syntax language. */
   language?: string;
+  /** Code block (HTML): whether the rendered preview is shown instead of the source. */
+  codeHtmlPreview?: boolean;
   /** Code block: maximum body height as percentage of viewport height (0-100). Legacy, parsed for backward-compat only. */
   codeMaxHeightPct?: number;
   /** Code block: display width in px (legacy). */

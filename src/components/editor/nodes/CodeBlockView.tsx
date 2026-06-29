@@ -99,16 +99,17 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
   // ---- HTML live preview ----
   // For HTML code blocks we offer a toggle that renders the source in a
   // sandboxed iframe so users can see the result without leaving the editor.
+  // The choice (source vs rendered) is persisted via the `htmlPreview` attr.
   const isHtml = language === 'html';
-  const [showPreview, setShowPreview] = useState(false);
+  const showPreview = isHtml && (node.attrs?.htmlPreview as boolean | undefined) === true;
   // The current code text, used as the iframe `srcDoc`. Reading
   // `node.textContent` on every render keeps the preview in sync with edits.
   const htmlSource = node.textContent;
 
-  // Auto-disable preview when the language changes away from HTML.
+  // Clear the persisted preview flag when the language changes away from HTML.
   useEffect(() => {
-    if (!isHtml && showPreview) setShowPreview(false);
-  }, [isHtml, showPreview]);
+    if (!isHtml && node.attrs?.htmlPreview) updateAttributes({ htmlPreview: false });
+  }, [isHtml, node.attrs?.htmlPreview, updateAttributes]);
 
   // Whether the code body is tall enough to host the copy button below the
   // language badge (badge bottom ~30px + copy button 26px + margin ≈ 60px).
@@ -338,7 +339,7 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
     isHtml && hasContent ? (
       <button
         type="button"
-        onClick={() => setShowPreview((p) => !p)}
+        onClick={() => updateAttributes({ htmlPreview: !showPreview })}
         className={`code-copy-btn code-toggle-btn ${showPreview ? 'is-active' : ''}`}
         title={showPreview ? '显示代码' : '预览 HTML'}
         aria-label={showPreview ? 'Show code' : 'Preview HTML'}
