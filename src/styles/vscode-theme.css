@@ -1001,7 +1001,12 @@ button {
 .ProseMirror ul[data-type="taskList"] li > label {
   flex-shrink: 0;
   user-select: none;
-  margin-top: 0.3em;
+  /* Match the height of the first text line box so the checkbox is centred
+     on the first line REGARDLESS of the configured line-height. A fixed
+     `margin-top` only aligns at one specific line-height (the old 0.3em was
+     tuned for 1.7); changing the line spacing made the checkbox drift up or
+     down. Tying the label height to --jstudio-line-height keeps it aligned. */
+  height: calc(1em * var(--jstudio-line-height, 1.7));
   display: inline-flex;
   align-items: center;
 }

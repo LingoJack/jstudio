@@ -21,6 +21,7 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
+import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { Markdown } from '@tiptap/markdown';
 import { tiptapJSONToOurBlocks } from './tiptapAdapter';
 import type { Block } from '../../types';
@@ -51,6 +52,11 @@ function getHeadlessEditor(): Editor {
       TableRow,
       TableHeader,
       TableCell,
+      // Register TaskList/TaskItem so Markdown task lists (`- [ ] item`) parse
+      // into `taskList` nodes instead of being dropped/downgraded to plain
+      // bullet lists. Must mirror BlockEditor's config (`nested: true`).
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Markdown.configure({
         markedOptions: { gfm: true, breaks: true },
       }),
