@@ -78,7 +78,8 @@ pub fn export_document_bundle(doc_id: String, dest_path: String) -> Result<(), S
                 if !doc_json_path.exists() {
                     return Err(format!("document not found: {doc_id}"));
                 }
-                fs::read(&doc_json_path).map_err(|e| format!("failed to read document.json: {e}"))?
+                fs::read(&doc_json_path)
+                    .map_err(|e| format!("failed to read document.json: {e}"))?
             }
         }
     };

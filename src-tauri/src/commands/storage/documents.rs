@@ -172,8 +172,8 @@ pub fn read_document(doc_id: String) -> Result<Value, String> {
 
     let data =
         fs::read_to_string(&path).map_err(|e| format!("failed to read document {doc_id}: {e}"))?;
-    let parsed: Value =
-        serde_json::from_str(&data).map_err(|e| format!("failed to parse document {doc_id}: {e}"))?;
+    let parsed: Value = serde_json::from_str(&data)
+        .map_err(|e| format!("failed to parse document {doc_id}: {e}"))?;
 
     // Backfill into the DB so the next read hits the fast path.
     if let Ok(conn) = crate::db::db() {

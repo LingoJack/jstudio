@@ -1314,26 +1314,33 @@ button {
    Code Block NodeView (Chrome) Styles
    ============================================ */
 
-/* 整个代码块外层容器
-   常态: 2px widget-border（与 file-block-figure 对齐）
-   选中 / 编辑中: 2px focusBorder 高亮 */
+/* 代码块外层容器 — 仅负责外边距；边框/背景/定位移到 .code-block-figure，
+   以便像 file-block-figure 一样作为可缩放、可选中的方框。 */
 .code-block-wrapper {
+  margin: 0.75em 0;
+}
+
+/* 可缩放方框本体（对齐 file-block-figure）
+   常态: 2px widget-border
+   选中(NodeSelection) / 光标在代码内(focus-within): 2px focusBorder 高亮 */
+.code-block-figure {
   position: relative;
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: 8px;
   border: 2px solid var(--vscode-widget-border);
   background: var(--vscode-textCodeBlock-background);
-  margin: 0.75em 0;
   transition: border-color 0.15s;
 }
 
-/* 选中（NodeSelection）或光标位于代码块内时，高亮边框 */
-.code-block-wrapper.is-selected,
-.code-block-wrapper:focus-within {
+.code-block-figure.is-selected,
+.code-block-figure:focus-within {
   border-color: var(--vscode-focusBorder);
 }
 
 /* 选中代码块节点时隐藏 ProseMirror 默认的 block 级外框，
-   只保留 code-block-wrapper 自身的 focusBorder 边框即可。
+   只保留 code-block-figure 自身的 focusBorder 边框即可。
    与 image / file 节点同理，用 :has() 匹配。 */
 .ProseMirror-selectednode:has(> .code-block-wrapper) {
   outline: none;
@@ -1349,21 +1356,18 @@ button {
   overflow-x: auto;
 }
 
-/* Height resize handle — reuses the shared bottom-right circular
-   `block-resize-handle` (same look as File / Image / Diagram blocks).
-   Positioned just inside the bottom-right corner so it never overflows the
-   full-width code block. Hidden by default; revealed on hover / focus /
-   selection. Vertical drag adjusts the max-height percentage. */
-.code-block-wrapper .block-resize-handle.code-block-resize-handle {
-  bottom: 8px;
-  right: 8px;
+/* Resize handle — reuses the shared bottom-right circular `block-resize-handle`
+   at the corner edge (identical position & look to File / Image / Diagram).
+   Hidden by default; revealed on hover / focus / selection. Drag resizes
+   width + height (via the shared useNodeResize hook). */
+.code-block-figure .block-resize-handle {
   opacity: 0;
   transition: opacity 0.15s ease;
 }
 
-.code-block-wrapper:hover .code-block-resize-handle,
-.code-block-wrapper:focus-within .code-block-resize-handle,
-.code-block-wrapper.is-selected .code-block-resize-handle {
+.code-block-figure:hover .block-resize-handle,
+.code-block-figure:focus-within .block-resize-handle,
+.code-block-figure.is-selected .block-resize-handle {
   opacity: 1;
 }
 

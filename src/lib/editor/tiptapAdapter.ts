@@ -540,7 +540,11 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       json.attrs = {
         ...json.attrs,
         language: block.properties?.language ?? 'plaintext',
-        maxHeightPct: block.properties?.codeMaxHeightPct ?? 60,
+        maxHeightPct: block.properties?.codeMaxHeightPct ?? null,
+        width: block.properties?.codeWidth ?? null,
+        widthPct: block.properties?.codeWidthPct ?? null,
+        height: block.properties?.codeHeight ?? null,
+        heightPct: block.properties?.codeHeightPct ?? null,
       };
       break;
     }
@@ -716,6 +720,11 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         language: (attrs.language as string) ?? 'plaintext',
         codeMaxHeightPct:
           typeof attrs.maxHeightPct === 'number' ? attrs.maxHeightPct : undefined,
+        codeWidth: typeof attrs.width === 'number' ? attrs.width : undefined,
+        codeWidthPct: typeof attrs.widthPct === 'number' ? attrs.widthPct : undefined,
+        codeHeight: typeof attrs.height === 'number' ? attrs.height : undefined,
+        codeHeightPct:
+          typeof attrs.heightPct === 'number' ? attrs.heightPct : undefined,
       };
       break;
     }

@@ -23,8 +23,16 @@ export type BlockType =
 export interface BlockProperties {
   /** Code block: syntax language. */
   language?: string;
-  /** Code block: maximum body height as percentage of viewport height (0-100). null = auto (no scroll). */
+  /** Code block: maximum body height as percentage of viewport height (0-100). Legacy, parsed for backward-compat only. */
   codeMaxHeightPct?: number;
+  /** Code block: display width in px (legacy). */
+  codeWidth?: number;
+  /** Code block: width as percentage of editor surface (0-100). Preferred. */
+  codeWidthPct?: number;
+  /** Code block: body/preview height in px (legacy). */
+  codeHeight?: number;
+  /** Code block: height as percentage of editor surface (0-100). Preferred. */
+  codeHeightPct?: number;
   caption?: string; // image block caption
   imageType?: 'url' | 'base64' | 'asset';
   width?: number; // image display width (px, legacy)

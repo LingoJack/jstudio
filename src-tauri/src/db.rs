@@ -546,8 +546,7 @@ fn reconcile_orphan_documents(conn: &mut Connection) {
 fn migrate_document_bodies(conn: &mut Connection) {
     // Collect the ids whose body still needs to be filled.
     let ids: Vec<String> = {
-        let Ok(mut stmt) =
-            conn.prepare("SELECT id FROM documents WHERE body IS NULL OR body = ''")
+        let Ok(mut stmt) = conn.prepare("SELECT id FROM documents WHERE body IS NULL OR body = ''")
         else {
             return;
         };

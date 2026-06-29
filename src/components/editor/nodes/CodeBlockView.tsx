@@ -18,11 +18,13 @@
  * stay consistent: when the body is tall enough (>= 60px) they sit below the
  * badge; when it's too short they fold inline into the toolbar next to it.
  *
- * Selection / resize chrome is aligned with FileView:
- *   - The wrapper shows a focusBorder when the node is selected (NodeSelection)
+ * Selection / resize chrome is unified with FileView:
+ *   - The figure shows a focusBorder when the node is selected (NodeSelection)
  *     or the cursor is inside the code (focus-within).
- *   - A shared bottom-right circular ResizeHandle (same look as File/Image
- *     blocks) adjusts the max-height; revealed on hover / focus / selection.
+ *   - A shared bottom-right circular ResizeHandle (the same `block-resize-handle`
+ *     used by File / Image / Diagram blocks, positioned at the corner edge)
+ *     resizes width + height in pixels via the shared `useNodeResize` hook,
+ *     persisted as `widthPct` / `heightPct` (percentage of editor width).
  *   - In HTML-preview mode a transparent overlay (when not selected) lets a
  *     click select the node, mirroring FileView's iframe preview box.
  */
@@ -31,6 +33,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import { Copy, Check, ChevronDown, Search, Eye, Code2 } from 'lucide-react';
 import { ResizeHandle } from '../../ui/ResizeHandle';
+import { useNodeResize } from '../hooks/useNodeResize';
+import { useEditorWidth } from '../hooks/useEditorWidth';
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
@@ -80,8 +84,12 @@ function getLanguageLabel(value: string): string {
 
 export default function CodeBlockView({ node, selected, updateAttributes, editor, getPos }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
-  // Maximum body height as percentage of viewport height (default 60).
-  const maxHeightPct = (node.attrs?.maxHeightPct as number | null | undefined) ?? 60;
+  // Resize attributes (unified with FileView): width/height stored as a
+  // percentage of the editor content width, with legacy px fallbacks.
+  const widthPct = node.attrs?.widthPct as number | null | undefined;
+  const heightPct = node.attrs?.heightPct as number | null | undefined;
+  const widthAttr = node.attrs?.width as number | null | undefined;
+  const heightAttr = node.attrs?.height as number | null | undefined;
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
 
@@ -117,36 +125,72 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
     return () => ro.disconnect();
   }, []);
 
-  // ---- Height resize handle ----
-  // The user drags the bottom handle to set a max-height percentage of the
-  // viewport. The value persists via the node's `maxHeightPct` attribute.
-  const onHeightResizeStart = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const startY = e.clientY;
-      const startPct = maxHeightPct;
+  /* -------------------------------------------------------------- */
+  /* Resize: drag the bottom-right handle (shared useNodeResize)     */
+  /* identical mechanism to FileView — width + height in pixels,     */
+  /* committed back as percentages of the editor content width.      */
+  /* -------------------------------------------------------------- */
 
-      const onMove = (ev: PointerEvent) => {
-        const deltaY = ev.clientY - startY;
-        // Convert delta px to percentage of viewport height.
-        const deltaPct = (deltaY / window.innerHeight) * 100;
-        const newPct = Math.min(95, Math.max(10, Math.round(startPct + deltaPct)));
-        updateAttributes({ maxHeightPct: newPct });
-      };
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
+  const editorWidth = useEditorWidth();
+
+  // Pixel width/height from the preferred pct attrs (fallback to legacy px).
+  const widthPx =
+    widthPct != null ? Math.round((widthPct * editorWidth) / 100) : widthAttr ?? null;
+  const heightPx =
+    heightPct != null ? Math.round((heightPct * editorWidth) / 100) : heightAttr ?? null;
+
+  // Separate ref for reading the DOM inside maxWidth (before the hook call).
+  const figureRefInternal = useRef<HTMLDivElement>(null);
+
+  const { ref: figureRef, displayWidth, displayHeight, onResizeStart } =
+    useNodeResize<HTMLDivElement>({
+      width: widthPx,
+      height: heightPx,
+      updateAttributes,
+      minWidth: 240,
+      minHeight: 80,
+      fallbackWidth: editorWidth,
+      fallbackHeight: 200,
+      maxWidth: () => {
+        const el = figureRefInternal.current;
+        const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
+        if (editorSurface) {
+          const style = getComputedStyle(editorSurface);
+          const padX =
+            (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+          return editorSurface.clientWidth - padX;
+        }
+        return window.innerWidth - 24;
+      },
+      onCommit: (finalWidth, finalHeight) => {
+        const pct =
+          editorWidth > 0
+            ? Math.min(100, Math.max(1, Math.round((finalWidth / editorWidth) * 100)))
+            : 100;
+        const attrs: Record<string, number | null> = { widthPct: pct, width: null };
+        if (finalHeight !== null) {
+          attrs.heightPct =
+            editorWidth > 0
+              ? Math.min(200, Math.max(1, Math.round((finalHeight / editorWidth) * 100)))
+              : null;
+          attrs.height = null;
+        }
+        return attrs;
+      },
+    });
+
+  // Merge the hook's ref + internal ref onto the same DOM element.
+  const setFigureRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      figureRef.current = el;
+      figureRefInternal.current = el;
     },
-    [maxHeightPct, updateAttributes],
+    [figureRef],
   );
 
-  // Double-click the handle to reset to default 60%.
-  const onHeightReset = useCallback(() => {
-    updateAttributes({ maxHeightPct: 60 });
+  // Double-click the handle to reset to the default (full width, auto height).
+  const onSizeReset = useCallback(() => {
+    updateAttributes({ width: null, widthPct: null, height: null, heightPct: null });
   }, [updateAttributes]);
 
   // Select this code block as a node (mirrors FileView): clicking the preview
@@ -315,142 +359,148 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
     </button>
   ) : null;
 
+  // ---- Inline styles driven by displayWidth / displayHeight ----
+  // Default: full editor width, content-driven height (scroll past 60vh).
+  // After a resize: fixed pixel width / height.
+  const figureStyle: React.CSSProperties = {
+    width: displayWidth ? `${displayWidth}px` : '100%',
+  };
+  const bodyStyle: React.CSSProperties = {
+    overflow: 'auto',
+    ...(displayHeight != null ? { height: `${displayHeight}px` } : { maxHeight: '60vh' }),
+    ...(showPreview ? { display: 'none' } : null),
+  };
+  const previewStyle: React.CSSProperties = {
+    height: displayHeight != null ? `${displayHeight}px` : '320px',
+  };
+
   return (
-    <NodeViewWrapper
-      as="div"
-      className={`code-block-wrapper ${selected ? 'is-selected' : ''} ${
-        showPreview ? 'is-preview' : ''
-      }`}
-    >
-      {/* Top-right toolbar: always holds the language badge.
-          When the code body is too short (single line), the action buttons
-          (preview + copy) also live here, to the left of the badge. */}
-      <div className="code-toolbar" contentEditable={false}>
-        {!canFitBelow && previewBtn}
-        {!canFitBelow && copyBtn}
-        <div
-          ref={badgeRef}
-          className="code-lang-badge"
-          onClick={toggleDropdown}
-          role="button"
-          tabIndex={0}
-        >
-          <span className="code-lang-label">{getLanguageLabel(language)}</span>
-          <ChevronDown size={12} className="code-lang-chevron" />
+    <NodeViewWrapper as="div" className="code-block-wrapper">
+      <div
+        ref={setFigureRef}
+        className={`code-block-figure ${selected ? 'is-selected' : ''} ${
+          showPreview ? 'is-preview' : ''
+        }`}
+        style={figureStyle}
+      >
+        {/* Top-right toolbar: always holds the language badge.
+            When the code body is too short (single line), the action buttons
+            (preview + copy) also live here, to the left of the badge. */}
+        <div className="code-toolbar" contentEditable={false}>
+          {!canFitBelow && previewBtn}
+          {!canFitBelow && copyBtn}
+          <div
+            ref={badgeRef}
+            className="code-lang-badge"
+            onClick={toggleDropdown}
+            role="button"
+            tabIndex={0}
+          >
+            <span className="code-lang-label">{getLanguageLabel(language)}</span>
+            <ChevronDown size={12} className="code-lang-chevron" />
+          </div>
         </div>
-      </div>
 
-      {/* Action buttons below the badge — only when there is room below it.
-          Preview toggle and copy stay grouped so they line up consistently. */}
-      {canFitBelow && (previewBtn || copyBtn) && (
-        <div className="code-actions" contentEditable={false}>
-          {previewBtn}
-          {copyBtn}
-        </div>
-      )}
+        {/* Action buttons below the badge — only when there is room below it.
+            Preview toggle and copy stay grouped so they line up consistently. */}
+        {canFitBelow && (previewBtn || copyBtn) && (
+          <div className="code-actions" contentEditable={false}>
+            {previewBtn}
+            {copyBtn}
+          </div>
+        )}
 
-      {/* Custom dropdown panel */}
-      {dropdownOpen && (
-        <div ref={dropdownRef} className="code-lang-dropdown" contentEditable={false}>
-          <div className="code-lang-search">
-            <Search size={13} className="code-lang-search-icon" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  if (filteredLanguages.length === 0) return;
-                  setHighlightedIndex((prev) =>
-                    prev >= filteredLanguages.length - 1 ? 0 : prev + 1,
-                  );
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  if (filteredLanguages.length === 0) return;
-                  setHighlightedIndex((prev) =>
-                    prev <= 0 ? filteredLanguages.length - 1 : prev - 1,
-                  );
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const item = filteredLanguages[highlightedIndex] ?? filteredLanguages[0];
-                  if (item) selectLanguage(item.value);
-                }
-              }}
-              placeholder="搜索语言…"
-              className="code-lang-search-input"
+        {/* Custom dropdown panel */}
+        {dropdownOpen && (
+          <div ref={dropdownRef} className="code-lang-dropdown" contentEditable={false}>
+            <div className="code-lang-search">
+              <Search size={13} className="code-lang-search-icon" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (filteredLanguages.length === 0) return;
+                    setHighlightedIndex((prev) =>
+                      prev >= filteredLanguages.length - 1 ? 0 : prev + 1,
+                    );
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (filteredLanguages.length === 0) return;
+                    setHighlightedIndex((prev) =>
+                      prev <= 0 ? filteredLanguages.length - 1 : prev - 1,
+                    );
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const item = filteredLanguages[highlightedIndex] ?? filteredLanguages[0];
+                    if (item) selectLanguage(item.value);
+                  }
+                }}
+                placeholder="搜索语言…"
+                className="code-lang-search-input"
+              />
+            </div>
+            <div ref={listRef} className="code-lang-list">
+              {filteredLanguages.length === 0 ? (
+                <div className="code-lang-empty">无匹配语言</div>
+              ) : (
+                filteredLanguages.map(({ value, label }, index) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => selectLanguage(value)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    className={`code-lang-option ${value === language ? 'is-active' : ''} ${index === highlightedIndex ? 'is-highlighted' : ''}`}
+                  >
+                    {label}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Code content — highlighted by lowlight.
+            Height is driven by the resize handle (displayHeight); when unset the
+            body is content-driven and scrolls past 60vh.
+            NodeViewContent must stay mounted for ProseMirror, so in preview
+            mode we hide the <pre> instead of unmounting it. */}
+        <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
+          <NodeViewContent as="div" className={`hljs language-${language || 'plaintext'}`} />
+        </pre>
+
+        {/* HTML live preview — sandboxed iframe rendering the source.
+            Wrapped in a relative container that mirrors FileView's preview box:
+            when NOT selected a transparent overlay sits above the iframe so a
+            click selects the node; once selected the overlay disappears and the
+            iframe becomes interactive.
+            `sandbox` without `allow-same-origin` isolates it from the app. */}
+        {isHtml && showPreview && (
+          <div className="code-block-preview" contentEditable={false} style={previewStyle}>
+            {!selected && (
+              <div className="code-block-preview-overlay" onMouseDown={selectNode} />
+            )}
+            <iframe
+              className="code-html-preview"
+              title="HTML preview"
+              sandbox="allow-scripts allow-forms allow-popups allow-modals"
+              srcDoc={htmlSource}
             />
           </div>
-          <div ref={listRef} className="code-lang-list">
-            {filteredLanguages.length === 0 ? (
-              <div className="code-lang-empty">无匹配语言</div>
-            ) : (
-              filteredLanguages.map(({ value, label }, index) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => selectLanguage(value)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                  className={`code-lang-option ${value === language ? 'is-active' : ''} ${index === highlightedIndex ? 'is-highlighted' : ''}`}
-                >
-                  {label}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Code content — highlighted by lowlight.
-          max-height is driven by maxHeightPct (percentage of viewport).
-          When content exceeds the limit, a scrollbar appears.
-          NodeViewContent must stay mounted for ProseMirror, so in preview
-          mode we hide the <pre> instead of unmounting it. */}
-      <pre
-        ref={codeRef}
-        className="code-block-body"
-        style={{
-          maxHeight: `${maxHeightPct}vh`,
-          overflow: 'auto',
-          ...(showPreview ? { display: 'none' } : null),
-        }}
-      >
-        <NodeViewContent as="div" className={`hljs language-${language || 'plaintext'}`} />
-      </pre>
-
-      {/* HTML live preview — sandboxed iframe rendering the source.
-          Wrapped in a relative container that mirrors FileView's preview box:
-          when NOT selected a transparent overlay sits above the iframe so a
-          click selects the node; once selected the overlay disappears and the
-          iframe becomes interactive.
-          `sandbox` without `allow-same-origin` isolates it from the app. */}
-      {isHtml && showPreview && (
-        <div
-          className="code-block-preview"
-          contentEditable={false}
-          style={{ height: `${maxHeightPct}vh` }}
-        >
-          {!selected && (
-            <div className="code-block-preview-overlay" onMouseDown={selectNode} />
-          )}
-          <iframe
-            className="code-html-preview"
-            title="HTML preview"
-            sandbox="allow-scripts allow-forms allow-popups allow-modals"
-            srcDoc={htmlSource}
-          />
-        </div>
-      )}
-
-      {/* Height resize handle — bottom-right circular handle, matching FileView.
-          Drag to adjust max-height percentage, double-click to reset. */}
-      <ResizeHandle
-        onPointerDown={onHeightResizeStart}
-        onDoubleClick={onHeightReset}
-        className="code-block-resize-handle"
-        title="拖拽调节高度，双击重置"
-      />
+        {/* Resize handle — shared bottom-right circular handle (same as File /
+            Image / Diagram). Drag to resize width + height, double-click to
+            reset. Revealed on hover / focus / selection (see CSS). */}
+        <ResizeHandle
+          onPointerDown={onResizeStart}
+          onDoubleClick={onSizeReset}
+          title="拖拽调节大小，双击重置"
+        />
+      </div>
     </NodeViewWrapper>
   );
 }
