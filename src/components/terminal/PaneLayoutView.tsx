@@ -588,6 +588,7 @@ export default function PaneLayoutView({
         cursor: theme.cursor,
         cursorAccent: theme.cursorAccent,
         selectionBackground: theme.selectionBackground,
+        selectionInactiveBackground: theme.selectionInactiveBackground,
         selectionForeground: theme.selectionForeground,
         black: theme.black,
         red: theme.red,

@@ -20,6 +20,11 @@ export interface TerminalTheme {
   cursor: string;
   cursorAccent: string;
   selectionBackground: string;
+  /** Selection color when the terminal is NOT focused. Kept equal to
+   *  `selectionBackground` so the selection stays a solid, clearly visible
+   *  block (VSCode-like) even after focus leaves the terminal — otherwise
+   *  xterm falls back to a faint translucent default. */
+  selectionInactiveBackground: string;
   selectionForeground: string;
   black: string;
   red: string;
@@ -81,6 +86,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     cursor: '#00aaff',
     cursorAccent: '#222436',
     selectionBackground: '#2d3f76',
+    selectionInactiveBackground: '#2d3f76',
     selectionForeground: '#c8d3f5',
     black: '#1b1d2b',
     red: '#ff757f',
@@ -116,6 +122,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     cursor: '#00aaff',
     cursorAccent: '#e1e2e7',
     selectionBackground: '#b6bfe2',
+    selectionInactiveBackground: '#b6bfe2',
     selectionForeground: '#373641',
     black: '#e9e9ed',
     red: '#f52a4e',
@@ -153,6 +160,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     cursor: '#0078D4',
     cursorAccent: '#181818',
     selectionBackground: '#264F78',
+    selectionInactiveBackground: '#264F78',
     selectionForeground: '#FFFFFF',
     black: '#000000',
     red: '#F44747',
@@ -190,6 +198,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     cursor: '#005FB8',
     cursorAccent: '#F8F8F8',
     selectionBackground: '#ADD6FF',
+    selectionInactiveBackground: '#ADD6FF',
     selectionForeground: '#1E1E1E',
     black: '#000000',
     red: '#CD3131',

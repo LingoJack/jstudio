@@ -22,7 +22,7 @@
  * help document.
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
@@ -77,6 +77,33 @@ export interface BlockEditorProps {
   readOnly?: boolean;
 }
 
+/**
+ * Placeholder shown while a document's body is being committed into the
+ * editor (or after a failed load). It is an OPAQUE overlay sitting on top of
+ * the still-mounted editor, so the user never glimpses the outgoing
+ * document's content under the incoming document's title. Its horizontal
+ * padding mirrors the editor so the bars line up with where real text lands.
+ */
+function EditorSkeleton() {
+  return (
+    <div
+      className="absolute inset-0 z-10 overflow-hidden px-4 md:px-12 lg:px-20 pt-2 bg-[var(--vscode-editor-background)]"
+      aria-hidden="true"
+    >
+      <div className="space-y-3 animate-pulse">
+        <div className="h-4 w-3/4 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-11/12 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-2/3 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-5/6 rounded bg-[var(--vscode-input-background)]" />
+        <div className="mt-8 h-24 w-full rounded bg-[var(--vscode-input-background)]" />
+        <div className="mt-8 h-4 w-1/2 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-4/5 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-3/5 rounded bg-[var(--vscode-input-background)]" />
+      </div>
+    </div>
+  );
+}
+
 export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // ── Read-only / static-document mode ──────────────────────────────
   const isStatic = !!doc;
@@ -119,6 +146,16 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   const trailOverlayRef = useRef<HTMLDivElement | null>(null);
   /** The EditorCursorTrail instance. */
   const trailRef = useRef<EditorCursorTrail | null>(null);
+  /**
+   * The document id whose content is actually committed inside the editor.
+   * The TITLE renders synchronously from `activeDoc.title` on every render,
+   * but the BODY is set into ProseMirror from a `useEffect` (after paint) and
+   * can lag — or, on a failed `setContent`, never catch up. Whenever this
+   * lags behind `activeDocId` we render a skeleton instead of the previous
+   * document's body, so the user never sees content that doesn't match the
+   * title.
+   */
+  const [renderedDocId, setRenderedDocId] = useState<string | null>(null);
 
   // ------------------------------------------------------------------
   // Debounced content sync: editor → store
@@ -364,15 +401,16 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
     // Static document mode — load once
     if (isStatic && doc) {
-      loadedDocIdRef.current = '__static__';
       isReplacingRef.current = true;
       const tiptapContent = ourBlocksToTiptapJSON(doc.blocks);
       try {
-        editor.commands.setContent(tiptapContent);
+        editor.commands.setContent(tiptapContent, { emitUpdate: false });
       } catch (e) {
         console.error('[BlockEditor] setContent failed for static doc:', e);
         console.error('[BlockEditor] tiptapContent that failed:', JSON.stringify(tiptapContent, null, 2));
       }
+      loadedDocIdRef.current = '__static__';
+      setRenderedDocId('__static__');
       requestAnimationFrame(() => {
         isReplacingRef.current = false;
       });
@@ -381,18 +419,25 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
     if (!hasActiveDoc) {
       loadedDocIdRef.current = null;
+      setRenderedDocId(null);
       return;
     }
 
-    // Only reload if the document actually changed
-    if (loadedDocIdRef.current === activeDocId) return;
+    // Only reload if the document actually changed.
+    if (loadedDocIdRef.current === activeDocId) {
+      // Content is already the active doc's — just make sure the skeleton is
+      // cleared (e.g. after a re-render where renderedDocId fell behind).
+      if (renderedDocId !== activeDocId) setRenderedDocId(activeDocId);
+      return;
+    }
 
     // Before swapping content, flush the OUTGOING document's pending edits
     // against its own id, so switching docs within the debounce window does
     // not drop or misattribute the last edits.
     flushPendingEdits(loadedDocIdRef.current);
 
-    loadedDocIdRef.current = activeDocId;
+    // Capture the target id locally; it must not change under us mid-load.
+    const targetDocId = activeDocId;
 
     // Read blocks from the store directly (not via subscription) so
     // re-renders triggered by setActiveDocBlocks don't cause reload loops.
@@ -400,7 +445,38 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
     isReplacingRef.current = true;
     const tiptapContent = ourBlocksToTiptapJSON(blocks);
-    editor.commands.setContent(tiptapContent);
+    try {
+      // emitUpdate:false is CRITICAL. In TipTap v3 `setContent` defaults
+      // emitUpdate to TRUE, so loading a document would fire onUpdate
+      // (handleChange) and could serialize transitional/empty content back
+      // into the store — i.e. one document's body leaking into another.
+      // Loading content into the editor must never trigger the save path.
+      editor.commands.setContent(tiptapContent, { emitUpdate: false });
+      // Only advance the "loaded" markers AFTER setContent succeeds. If it
+      // throws (e.g. a RangeError from an invalid mark/node combination, see
+      // the Code-mark note above), advancing loadedDocIdRef would strand the
+      // editor showing the PREVIOUS document's body under the NEW title, and
+      // the guard above would skip every future re-switch — a permanent
+      // title⇄content mismatch. So we only commit on success.
+      loadedDocIdRef.current = targetDocId;
+      setRenderedDocId(targetDocId);
+    } catch (e) {
+      console.error('[BlockEditor] setContent failed for doc', targetDocId, e);
+      // Recover to an empty body rather than displaying another document's
+      // content. The title belongs to targetDocId, so a blank body is the
+      // only non-misleading fallback. The user's data on disk is untouched.
+      try {
+        editor.commands.setContent(
+          { type: 'doc', content: [{ type: 'paragraph' }] },
+          { emitUpdate: false },
+        );
+      } catch {
+        // ignore — nothing more we can do
+      }
+      loadedDocIdRef.current = targetDocId;
+      setRenderedDocId(targetDocId);
+    }
+
     // Reset the guard after ProseMirror has processed the transaction
     requestAnimationFrame(() => {
       isReplacingRef.current = false;
@@ -771,6 +847,11 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // ── Normal editing mode ──
   if (!hasActiveDoc) return null;
 
+  // Show the skeleton whenever the editor body has not yet caught up with the
+  // active document (during a tab switch, or after a failed load). This is
+  // what guarantees the user never sees a body that doesn't match the title.
+  const showSkeleton = renderedDocId !== activeDocId;
+
   return (
     <div className="flex h-full bg-transparent overflow-hidden relative">
       <div className="flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
@@ -793,6 +874,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         {/* TipTap Editor */}
         <div className="tiptap-editor-container min-h-[50vh] relative">
           <EditorContent editor={editor} />
+          {showSkeleton && <EditorSkeleton />}
         </div>
 
         {/* Selection-triggered formatting toolbar (Bold/Italic/Strike/Code) */}
