@@ -58,6 +58,14 @@ export class EditorCursorTrail extends BaseCursorTrail {
   /** The scroll container that wraps the editor (for coordinate mapping). */
   private scrollContainer: HTMLElement | null = null;
 
+  /** Optional document-title <input> that lives OUTSIDE ProseMirror. When it
+   *  holds focus we measure its caret via a hidden mirror, because the
+   *  Selection / Range API cannot read a native input's caret. */
+  private titleEl: HTMLInputElement | null = null;
+  /** Hidden mirror element replicating the title input's text + font metrics,
+   *  used to measure the title caret's pixel position. Lazily created. */
+  private titleMirror: HTMLDivElement | null = null;
+
   /** Current cursor shape — controls the trail geometry. */
   private cursorStyle: EditorCursorStyle = 'bar';
 
@@ -177,6 +185,16 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   /**
+   * Register (or clear) the document-title <input> as an alternate caret
+   * host.  While this input holds focus, {@link measureCaretRect} measures
+   * its caret via a hidden mirror instead of the editor's Selection/Range,
+   * so the title gets the same animated trail cursor as the body.
+   */
+  setTitleEl(el: HTMLInputElement | null) {
+    this.titleEl = el;
+  }
+
+  /**
    * Mark the caret geometry as stale so the next animation frame re-measures
    * it from the DOM.  Cheap (just sets a flag) — call it on any event that
    * can move the caret or reflow the editor: selection changes, edits, focus
@@ -256,6 +274,8 @@ export class EditorCursorTrail extends BaseCursorTrail {
     super.dispose();
     if (this.glyphEl?.parentNode) this.glyphEl.parentNode.removeChild(this.glyphEl);
     this.glyphEl = null;
+    if (this.titleMirror?.parentNode) this.titleMirror.parentNode.removeChild(this.titleMirror);
+    this.titleMirror = null;
   }
 
   // ── BaseCursorTrail implementation ──
@@ -456,6 +476,16 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * range selection is active).
    */
   private measureCaretRect(): { left: number; right: number; top: number; bottom: number } | null {
+    // ── Title <input> branch ──
+    // The document title is a native <input> sitting ABOVE the ProseMirror
+    // surface. A native input exposes no DOM Range for its internal text, so
+    // the Selection / Range API below cannot read its caret. When the title
+    // holds focus we measure it via a hidden mirror element instead; every
+    // other case falls through to the editor (contentEditable) path.
+    if (this.titleEl && document.activeElement === this.titleEl) {
+      return this.measureTitleCaretRect(this.titleEl);
+    }
+
     const sel = window.getSelection();
     const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
 
@@ -1199,5 +1229,205 @@ export class EditorCursorTrail extends BaseCursorTrail {
     if (culled) return null;
 
     return { left: trailLeft, right: trailRight, top: trailTop, bottom: trailBottom };
+  }
+
+  // ── Private: Title <input> caret measurement ──
+
+  /**
+   * Measure the document-title <input>'s caret in canvas-local coordinates,
+   * shaped to the active cursor style (bar / block / underline).
+   *
+   * A native <input> exposes no DOM Range for its internal text, so we mirror
+   * its value + font into a hidden block element, wrap the caret position and
+   * the adjacent glyph(s) in measurable <span>s, and reuse {@link toCanvasLocal}
+   * — the same shaping the body caret uses — so the title caret is visually
+   * identical to the editor caret.
+   *
+   * HORIZONTAL position comes from the mirror (exact glyph advance, including
+   * the input's own horizontal scroll for long titles). The VERTICAL band is
+   * recomputed from the input's box geometry: a native input centres its
+   * single text line within its content box, whereas a block-level mirror lays
+   * text at the top — so taking the mirror's y would misplace the caret.
+   */
+  private measureTitleCaretRect(
+    input: HTMLInputElement,
+  ): { left: number; right: number; top: number; bottom: number } | null {
+    const selStart = input.selectionStart;
+    const selEnd = input.selectionEnd;
+    // Hide on a range selection (mirrors the editor's collapsed-caret-only rule).
+    if (selStart == null || selEnd == null || selStart !== selEnd) {
+      this.coveredGlyph = null;
+      return null;
+    }
+
+    const caret = selStart;
+    const value = input.value;
+    const cs = getComputedStyle(input);
+    const { fontSize, lineHeight } = this.metricsAt(input);
+
+    // Isolate the code points immediately before / after the caret so we can
+    // measure their advance widths (needed for block / underline shaping).
+    const before = value.slice(0, caret);
+    const after = value.slice(caret);
+    const afterCp = this.firstCodePoint(after);
+    const beforeCp = this.lastCodePoint(before);
+    const beforeHead = before.slice(0, before.length - beforeCp.length);
+    const afterTail = after.slice(afterCp.length);
+
+    // Build the mirror: [beforeHead][beforeSpan][marker][afterSpan][afterTail].
+    const mirror = this.syncTitleMirror(input, cs);
+    mirror.textContent = '';
+    if (beforeHead) mirror.appendChild(document.createTextNode(beforeHead));
+    const beforeSpan = beforeCp ? this.appendSpan(mirror, beforeCp) : null;
+    const marker = this.appendSpan(mirror, '\u200b');
+    const afterSpan = afterCp ? this.appendSpan(mirror, afterCp) : null;
+    if (afterTail) mirror.appendChild(document.createTextNode(afterTail));
+
+    const markerRect = marker.getBoundingClientRect();
+
+    // Vertical line box, derived from the input's own geometry (its single
+    // text line is vertically centred within the content box).
+    const borderTop = parseFloat(cs.borderTopWidth) || 0;
+    const paddingTop = parseFloat(cs.paddingTop) || 0;
+    const paddingBottom = parseFloat(cs.paddingBottom) || 0;
+    const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
+    const r = input.getBoundingClientRect();
+    const contentTop = r.top + borderTop + paddingTop;
+    const contentH = r.height - borderTop - paddingTop - paddingBottom - borderBottom;
+    const lineTop = contentTop + Math.max(0, (contentH - lineHeight) / 2);
+
+    // Build a DOMRect-like with the mirror's X but the recomputed Y band.
+    const mkRect = (left: number, width: number): DOMRect =>
+      ({
+        left,
+        right: left + width,
+        top: lineTop,
+        bottom: lineTop + lineHeight,
+        width,
+        height: lineHeight,
+        x: left,
+        y: lineTop,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const caretRect = mkRect(markerRect.left, 0);
+
+    const font: GlyphFont = {
+      fontStyle: cs.fontStyle,
+      fontWeight: cs.fontWeight,
+      fontSize: cs.fontSize,
+      fontFamily: cs.fontFamily,
+      letterSpacing: cs.letterSpacing,
+    };
+
+    let glyph: {
+      width: number;
+      onChar: boolean;
+      before: boolean;
+      cover: { text: string; rect: DOMRect; font: GlyphFont } | null;
+    };
+    if (afterSpan) {
+      // Caret sits ON the character after it (overtype target).
+      const cr = afterSpan.getBoundingClientRect();
+      glyph = {
+        width: cr.width,
+        onChar: true,
+        before: false,
+        cover: { text: afterCp, rect: mkRect(cr.left, cr.width), font },
+      };
+    } else if (beforeSpan) {
+      // End of text — anchor to the character before the caret.
+      const cr = beforeSpan.getBoundingClientRect();
+      glyph = {
+        width: cr.width,
+        onChar: true,
+        before: true,
+        cover: { text: beforeCp, rect: mkRect(cr.left, cr.width), font },
+      };
+    } else {
+      // Empty title — half-width fallback, no covered glyph.
+      glyph = {
+        width: fontSize * CHAR_WIDTH_RATIO,
+        onChar: false,
+        before: false,
+        cover: null,
+      };
+    }
+
+    return this.toCanvasLocal(caretRect, fontSize, lineHeight, glyph);
+  }
+
+  /**
+   * Create / update the hidden mirror that replicates the title input's text
+   * box, so a DOM Range inside it measures glyph positions identical to the
+   * input's rendered caret.  We copy font + spacing + the left inset and
+   * compensate for the input's horizontal scroll; vertical alignment is
+   * handled by the caller (see {@link measureTitleCaretRect}).
+   */
+  private syncTitleMirror(
+    input: HTMLInputElement,
+    cs: CSSStyleDeclaration,
+  ): HTMLDivElement {
+    let m = this.titleMirror;
+    if (!m) {
+      m = document.createElement('div');
+      m.setAttribute('aria-hidden', 'true');
+      Object.assign(m.style, {
+        position: 'fixed',
+        visibility: 'hidden',
+        whiteSpace: 'pre',
+        pointerEvents: 'none',
+        margin: '0',
+        boxSizing: 'content-box',
+        zIndex: '-1',
+        top: '0',
+        left: '0',
+      } as Partial<CSSStyleDeclaration>);
+      document.body.appendChild(m);
+      this.titleMirror = m;
+    }
+    const r = input.getBoundingClientRect();
+    // Font + spacing must match exactly for glyph advances to line up.
+    m.style.fontStyle = cs.fontStyle;
+    m.style.fontWeight = cs.fontWeight;
+    m.style.fontSize = cs.fontSize;
+    m.style.fontFamily = cs.fontFamily;
+    m.style.lineHeight = cs.lineHeight;
+    m.style.letterSpacing = cs.letterSpacing;
+    m.style.textTransform = cs.textTransform;
+    m.style.fontVariant = cs.fontVariant;
+    // Replicate the left inset so text starts at the input's content edge.
+    m.style.paddingLeft = cs.paddingLeft;
+    m.style.borderLeftWidth = cs.borderLeftWidth;
+    m.style.borderLeftStyle = 'solid';
+    // Position over the input and compensate for its horizontal scroll (long
+    // titles scroll the caret to keep it in view).
+    m.style.top = `${r.top}px`;
+    m.style.left = `${r.left}px`;
+    m.style.transform = `translateX(${-input.scrollLeft}px)`;
+    return m;
+  }
+
+  private appendSpan(parent: HTMLElement, text: string): HTMLSpanElement {
+    const s = document.createElement('span');
+    s.textContent = text;
+    parent.appendChild(s);
+    return s;
+  }
+
+  /** First Unicode code point of a string (surrogate-pair aware), or ''. */
+  private firstCodePoint(s: string): string {
+    if (!s) return '';
+    const cp = s.codePointAt(0);
+    return cp === undefined ? '' : String.fromCodePoint(cp);
+  }
+
+  /** Last Unicode code point of a string (surrogate-pair aware), or ''. */
+  private lastCodePoint(s: string): string {
+    const len = s.length;
+    if (len === 0) return '';
+    const last = s.charCodeAt(len - 1);
+    if (len >= 2 && last >= 0xdc00 && last <= 0xdfff) return s.slice(len - 2);
+    return s.slice(len - 1);
   }
 }

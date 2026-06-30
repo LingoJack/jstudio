@@ -598,6 +598,17 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     editor.on('update', markDirty);
     editor.on('focus', markDirty);
     editor.on('blur', markDirty);
+
+    // The document title is a native <input> OUTSIDE ProseMirror, so its
+    // caret changes raise none of the editor events above. Register it with
+    // the trail (so it can measure the title caret via its mirror) and wire
+    // its own caret-moving events to the same markDirty.
+    const titleInput = titleInputRef.current;
+    trail.setTitleEl(titleInput);
+    const titleEvents = ['input', 'keyup', 'click', 'focus', 'blur', 'select', 'scroll'] as const;
+    if (titleInput) {
+      for (const ev of titleEvents) titleInput.addEventListener(ev, markDirty);
+    }
     // Scrolling shifts the caret within the canvas-local coordinate space.
     // Use the CAPTURE phase: `scroll` does NOT bubble, so a listener on the
     // outer scrollContainer would miss inner scroll containers (e.g. a code
@@ -671,6 +682,9 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       editor.off('update', markDirty);
       editor.off('focus', markDirty);
       editor.off('blur', markDirty);
+      if (titleInput) {
+        for (const ev of titleEvents) titleInput.removeEventListener(ev, markDirty);
+      }
       resizeObserver.disconnect();
       trail.dispose();
       trailRef.current = null;
@@ -689,11 +703,15 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     if (readOnly) return;
     trailRef.current?.setCursorStyle(editorCursorStyle);
     const editorDom = editor?.view?.dom as HTMLElement | undefined;
-    if (!editorDom) return;
-
-    editorDom.style.caretColor = 'transparent';
+    const titleInput = titleInputRef.current;
+    // The trail draws the caret SHAPE; hide the native caret on BOTH the
+    // editor surface and the title input so a thin native bar doesn't show
+    // through under the trail.
+    if (editorDom) editorDom.style.caretColor = 'transparent';
+    if (titleInput) titleInput.style.caretColor = 'transparent';
     return () => {
-      editorDom.style.caretColor = '';
+      if (editorDom) editorDom.style.caretColor = '';
+      if (titleInput) titleInput.style.caretColor = '';
     };
   }, [editorCursorStyle, editor, readOnly]);
 
