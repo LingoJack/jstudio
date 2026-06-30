@@ -426,6 +426,15 @@ export default function PaneLayoutView({
           tryEnableWebgl(entry.term);
           didMountNew = true;
         }
+
+        // Hide xterm's own cursor whenever the WebGL trail is active — the
+        // trail renders the (single) cursor in FILL mode, so leaving the
+        // native cursor on would stack a second identical underline/bar/block
+        // beneath it.  If the trail failed to initialise (no WebGL2) we leave
+        // the native cursor visible as a fallback.
+        if (trailRef.current) {
+          (entry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = true;
+        }
       }
 
       // Refit all terminals to their new container sizes.
@@ -533,7 +542,10 @@ export default function PaneLayoutView({
     // Attach to new pane.
     const newEntry = terminalsRef.current.get(activeSessionId);
     if (newEntry) {
-      (newEntry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = false;
+      // Keep the native cursor hidden when the trail is active (it renders the
+      // cursor itself); only un-hide as a no-WebGL fallback.
+      (newEntry.term.options as TerminalOptionsWithCursorHidden).cursorHidden =
+        !!trail;
       newEntry.term.focus();
       trail?.attach(newEntry.term, newEntry.container, fromX, fromY);
       trail?.setColor(theme.cursor);
@@ -546,7 +558,8 @@ export default function PaneLayoutView({
         requestAnimationFrame(() => {
           const entry = terminalsRef.current.get(activeSessionId);
           if (entry) {
-            (entry.term.options as TerminalOptionsWithCursorHidden).cursorHidden = false;
+            (entry.term.options as TerminalOptionsWithCursorHidden).cursorHidden =
+              !!trail;
             entry.term.focus();
             trail?.attach(entry.term, entry.container, fromX, fromY);
             trail?.setColor(theme.cursor);

@@ -2,8 +2,7 @@ import type { Terminal, IDisposable } from '@xterm/xterm';
 import type { TerminalCursorStyle } from '../../lib/storage';
 import {
   BaseCursorTrail,
-  CORNER_IDX_X,
-  CORNER_IDX_Y,
+  type RenderOptions,
 } from '../cursor/BaseCursorTrail';
 
 /**
@@ -15,6 +14,12 @@ import {
  *   - Cross-pane attach() with a "poke" fly animation.
  *   - Shaping the trail quad by cursor style (block / underline / bar).
  *
+ * Rendering model: the trail runs in FILL mode — the solid quad (shaped per
+ * cursor style) IS the cursor.  xterm's own native cursor is hidden by the
+ * parent (cursorHidden = true) so the two never stack into a "double
+ * underline".  This mirrors EditorCursorTrail and keeps the editor and
+ * terminal cursors visually identical.
+ *
  * All GL pipeline, kitty physics, and rendering are inherited from
  * BaseCursorTrail — no duplication.
  */
@@ -22,6 +27,14 @@ import {
 /** Thickness ratios — define the trail quad shape for non-block cursors. */
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 const BAR_THICKNESS_RATIO = 0.12;
+
+// ── Blink animation timing (ms) — kept in sync with EditorCursorTrail. ──
+/** Stay fully solid for this long after the cursor moves/appears. */
+const BLINK_SOLID_MS = 530;
+/** Full blink cycle (fade out + back in) once blinking begins. */
+const BLINK_PERIOD_MS = 1060;
+/** Reduced frame rate once the cursor is stationary and only blink remains. */
+const THROTTLE_FPS = 20;
 
 export default class CursorTrail extends BaseCursorTrail {
   /** The terminal currently being tracked. */
@@ -37,6 +50,9 @@ export default class CursorTrail extends BaseCursorTrail {
   private lastCursorX = -1;
   private lastCursorY = -1;
   private needsRender = false;
+
+  /** When the cursor last moved/appeared (ms epoch) — drives blink phase. */
+  private cursorVisibleStartTime = 0;
 
   // ── Grid metrics (re-measured each frame) ──
   private cellW = 8;
@@ -256,6 +272,13 @@ export default class CursorTrail extends BaseCursorTrail {
 
     this.cursorVisible = true;
 
+    // Reset the blink timer the moment the cursor jumps to a new cell so it
+    // appears solid immediately after typing / navigation (then resumes
+    // blinking once it sits still), exactly like EditorCursorTrail.
+    if (cx !== this.lastCursorX || cy !== this.lastCursorY) {
+      this.cursorVisibleStartTime = performance.now();
+    }
+
     if (this._poked) {
       let flyFromX: number;
       let flyFromY: number;
@@ -285,22 +308,43 @@ export default class CursorTrail extends BaseCursorTrail {
   }
 
   /**
-   * The terminal cursor is "always visible" (xterm draws its own blinking
-   * cursor through the trail's cutout), so the base `!cursorVisible` idle
-   * test never fires.  Instead we park once the comet has nothing left to
-   * animate: all 4 corners have converged onto their target cursor edges
-   * (within a sub-pixel epsilon) and no poke is pending.  A subsequent
-   * cursor move fires xterm's onCursorMove → wake() to resume chasing.
+   * Render options: FILL mode — the solid quad shaped in {@link updateTarget}
+   * IS the cursor (xterm's native cursor is hidden by the parent), so it is
+   * always visible and pulses via the blink multiplier.  This is what lets a
+   * stationary terminal show a single cursor instead of stacking the native
+   * underline under the trail's underline.
    */
-  protected isIdle(): boolean {
-    if (this._poked) return false;
-    const EPS = 0.05; // sub-pixel: below this the motion is invisible
-    for (let i = 0; i < 4; i++) {
-      const tx = this.cursorEdgeX[CORNER_IDX_X[i]];
-      const ty = this.cursorEdgeY[CORNER_IDX_Y[i]];
-      if (Math.abs(tx - this.cornerX[i]) > EPS) return false;
-      if (Math.abs(ty - this.cornerY[i]) > EPS) return false;
-    }
-    return true;
+  protected getRenderOptions(): RenderOptions {
+    return { fillCursor: true, blink: this.computeBlink() };
+  }
+
+  /**
+   * Smooth blink phase in 0..1.  Solid for {@link BLINK_SOLID_MS} after any
+   * move, then a gentle sine fade so the cursor pulses without ever fully
+   * vanishing (matches the bar / underline blink in EditorCursorTrail).
+   */
+  private computeBlink(): number {
+    const elapsed = performance.now() - this.cursorVisibleStartTime;
+    if (elapsed < BLINK_SOLID_MS) return 1.0;
+
+    const phase = ((elapsed - BLINK_SOLID_MS) % BLINK_PERIOD_MS) / BLINK_PERIOD_MS;
+    const wave = (Math.cos(phase * Math.PI * 2) + 1) * 0.5; // 1..0..1
+    const floor = 0.15;
+    return floor + (1 - floor) * wave;
+  }
+
+  /**
+   * Keep the loop alive but throttled once the comet has converged and the
+   * only thing left to animate is the slow blink.  We can't fully park (as
+   * the old isIdle override did) because a parked loop would freeze the
+   * cursor mid-fade now that the fill IS the cursor.  Any cursor move fires
+   * xterm's onCursorMove → wake() → full-rate rAF for the comet.
+   */
+  protected shouldThrottle(): boolean {
+    return !this._poked && this.opacity >= 0.999 && this.cornersSettled();
+  }
+
+  protected throttleFps(): number {
+    return THROTTLE_FPS;
   }
 }
