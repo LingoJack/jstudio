@@ -99,7 +99,7 @@ export default function PreviewWindowApp() {
 
       {/* Content */}
       <div className="preview-window-body">
-        <PreviewContent src={safeSrc} category={category} fileName={data.fileName} />
+        <PreviewContent src={safeSrc} category={category} fileName={data.fileName} html={data.html} />
       </div>
     </div>
   );
@@ -113,16 +113,19 @@ function PreviewContent({
   src,
   category,
   fileName,
+  html,
 }: {
   src: string;
   category: PreviewCategory;
   fileName: string;
+  /** Inline HTML source — when present, the html preview uses `srcDoc`. */
+  html?: string;
 }) {
   switch (category) {
     case 'html':
       return (
         <iframe
-          src={src}
+          {...(html != null ? { srcDoc: html } : { src })}
           className="preview-window-frame"
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
           title={fileName}

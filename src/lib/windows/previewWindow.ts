@@ -22,6 +22,12 @@ export interface PreviewPayload {
   fileName: string;
   fileSize: number;
   category: string;
+  /**
+   * Inline HTML source. When present (e.g. previewing an HTML code block),
+   * the preview window renders it via an iframe `srcDoc` instead of loading
+   * `src` as a URL.
+   */
+  html?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -77,6 +83,28 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
 
   webviewWindow.once('tauri://error', (e) => {
     console.error('[PreviewWindow] Failed to create window:', e);
+  });
+}
+
+/**
+ * Preview a snippet of inline HTML source in a new OS window (used by the
+ * HTML code block's "preview in new window" action).
+ *
+ * Reuses the same window + Rust-memory transport as file preview, but passes
+ * the source via the `html` field so the preview window renders it with an
+ * iframe `srcDoc` rather than loading a URL.
+ */
+export async function openHtmlPreviewWindow(
+  html: string,
+  title = 'HTML',
+): Promise<void> {
+  const fileSize = new Blob([html]).size;
+  await openPreviewWindow({
+    src: '',
+    html,
+    fileName: title,
+    fileSize,
+    category: 'html',
   });
 }
 
