@@ -1552,10 +1552,11 @@ button {
   border-radius: 4px;
 }
 
-/* 复制按钮 hover 才显现；语言徽章与预览切换按钮常驻。
-   工具条右对齐 (right: 8px)，按钮显隐向左延展，徽章位置不变。 */
+/* 复制按钮常驻低调可见，hover / 选中时加亮；不再依赖 :hover 才出现，
+   规避 WKWebView 中 contentEditable 区域内 :hover 偶发不触发的问题。
+   工具条右对齐 (right: 8px)，按钮始终在徽章左侧，位置稳定。 */
 .code-block-wrapper .code-toolbar-reveal {
-  opacity: 0;
+  opacity: 0.55;
   transition: opacity 0.15s ease, color 0.12s ease, background 0.12s ease;
 }
 
