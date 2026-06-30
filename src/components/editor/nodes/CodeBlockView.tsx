@@ -1,22 +1,19 @@
 /**
  * CodeBlockView — React NodeView for the code block node.
  *
- * Layout (multi-line, default):
- *   ┌──────────────────────────────┐
- *   │                  [lang ▾]    │  ← language badge (top-right)
- *   │  const x = 1;  [preview][copy]│  ← action buttons (horizontal, below badge)
- *   │  console.log(x);          ◯  │  ← corner resize handle (bottom-right)
- *   └──────────────────────────────┘
+ * Layout — single horizontal toolbar pinned to the top-right corner, the
+ * same "one row of buttons" shape as the shared BlockToolbar:
+ *   ┌────────────────────────────────────────┐
+ *   │              [preview] [copy] [lang ▾]  │  ← top-right toolbar
+ *   │  const x = 1;                           │
+ *   │  console.log(x);                     ◯  │  ← corner resize handle
+ *   └────────────────────────────────────────┘
  *
- * Layout (single line / too short):
- *   ┌──────────────────────────────────────┐
- *   │  const x = 1;  [preview][copy][lang ▾] │  ← all in top-right toolbar
- *   └──────────────────────────────────────┘
- *
- * A ResizeObserver watches the code body height. The HTML-preview toggle and
- * the copy button always travel together (horizontally) so their positions
- * stay consistent: when the body is tall enough (>= 60px) they sit below the
- * badge; when it's too short they fold inline into the toolbar next to it.
+ * The language badge is pinned to the right and stays put; the preview /
+ * copy action buttons sit to its left.  Because the toolbar is right-aligned
+ * (right: 8px), buttons appearing / disappearing (copy reveals on hover)
+ * grow leftward and never shift the badge.  The action buttons reuse the
+ * shared `block-toolbar-btn` skin so they match Image / File / Diagram blocks.
  *
  * Selection / resize chrome is unified with FileView:
  *   - The figure shows a focusBorder when the node is selected (NodeSelection)
@@ -110,21 +107,6 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
   useEffect(() => {
     if (!isHtml && node.attrs?.htmlPreview) updateAttributes({ htmlPreview: false });
   }, [isHtml, node.attrs?.htmlPreview, updateAttributes]);
-
-  // Whether the code body is tall enough to host the copy button below the
-  // language badge (badge bottom ~30px + copy button 26px + margin ≈ 60px).
-  // When too short (single line), we render the copy button inline next to
-  // the language badge instead of absolutely below it.
-  const [canFitBelow, setCanFitBelow] = useState(true);
-  useEffect(() => {
-    const el = codeRef.current;
-    if (!el) return;
-    const update = () => setCanFitBelow(el.scrollHeight >= 60);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   /* -------------------------------------------------------------- */
   /* Resize: drag the bottom-right handle (shared useNodeResize)     */
@@ -331,16 +313,17 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
   }, [highlightedIndex, dropdownOpen]);
 
   // ---- Action buttons (HTML preview toggle + copy) ----
-  // These two always travel together so their positions stay consistent.
-  // When the code body is tall enough (`canFitBelow`) they sit stacked below
-  // the language badge; when it's too short they fold inline into the toolbar
-  // to the left of the badge.
+  // Both reuse the shared `block-toolbar-btn` skin (--sm size variant) so the
+  // code block matches Image / File / Diagram toolbars. They live in the
+  // top-right toolbar, to the left of the language badge. Copy reveals on
+  // hover (`code-toolbar-reveal`); the preview toggle is always visible and
+  // gets `is-active` while previewing.
   const previewBtn =
     isHtml && hasContent ? (
       <button
         type="button"
         onClick={() => updateAttributes({ htmlPreview: !showPreview })}
-        className={`code-copy-btn code-toggle-btn ${showPreview ? 'is-active' : ''}`}
+        className={`block-toolbar-btn block-toolbar-btn--sm ${showPreview ? 'is-active' : ''}`}
         title={showPreview ? '显示代码' : '预览 HTML'}
         aria-label={showPreview ? 'Show code' : 'Preview HTML'}
       >
@@ -352,7 +335,7 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
     <button
       type="button"
       onClick={handleCopy}
-      className="code-copy-btn"
+      className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
       title="复制代码"
       aria-label="Copy code"
     >
@@ -384,12 +367,13 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
         }`}
         style={figureStyle}
       >
-        {/* Top-right toolbar: always holds the language badge.
-            When the code body is too short (single line), the action buttons
-            (preview + copy) also live here, to the left of the badge. */}
+        {/* Top-right toolbar — a single horizontal row: the preview toggle
+            and copy button sit to the left of the language badge. The badge
+            is pinned right (the toolbar is right-aligned) so revealing the
+            copy button on hover grows leftward without shifting the badge. */}
         <div className="code-toolbar" contentEditable={false}>
-          {!canFitBelow && previewBtn}
-          {!canFitBelow && copyBtn}
+          {previewBtn}
+          {copyBtn}
           <div
             ref={badgeRef}
             className="code-lang-badge"
@@ -401,15 +385,6 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
             <ChevronDown size={12} className="code-lang-chevron" />
           </div>
         </div>
-
-        {/* Action buttons below the badge — only when there is room below it.
-            Preview toggle and copy stay grouped so they line up consistently. */}
-        {canFitBelow && (previewBtn || copyBtn) && (
-          <div className="code-actions" contentEditable={false}>
-            {previewBtn}
-            {copyBtn}
-          </div>
-        )}
 
         {/* Custom dropdown panel */}
         {dropdownOpen && (

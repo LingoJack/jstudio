@@ -1542,80 +1542,26 @@ button {
   text-align: center;
 }
 
-/* ---- 复制按钮 (hover-only) ---- */
+/* ---- 工具条内动作按钮 (复用 block-toolbar-btn 皮肤) ---- */
 
-/* 默认：多行时位于语言徽章正下方 */
-.code-block-wrapper .code-copy-btn {
-  position: absolute;
-  top: 34px;
-  right: 8px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* 紧凑尺寸修饰符：代码块工具条空间有限，按钮收窄到 26px。
+   block-toolbar-btn 的视觉（hover / is-active / is-focused）全部沿用。 */
+.block-toolbar-btn--sm {
   width: 26px;
   height: 26px;
   border-radius: 4px;
-  background: transparent;
-  border: none;
-  color: var(--vscode-descriptionForeground);
-  cursor: pointer;
+}
+
+/* 复制按钮 hover 才显现；语言徽章与预览切换按钮常驻。
+   工具条右对齐 (right: 8px)，按钮显隐向左延展，徽章位置不变。 */
+.code-block-wrapper .code-toolbar-reveal {
   opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+  transition: opacity 0.15s ease, color 0.12s ease, background 0.12s ease;
 }
 
-/* 单行时：跟随工具条 flex 布局，排在语言徽章左侧 */
-.code-block-wrapper .code-toolbar .code-copy-btn {
-  position: static;
-}
-
-.code-block-wrapper:hover .code-copy-btn {
+.code-block-wrapper:hover .code-toolbar-reveal,
+.code-block-figure.is-selected .code-toolbar-reveal {
   opacity: 1;
-}
-
-/* ---- 徽章下方的动作按钮组 (预览切换 + 复制) ---- */
-/* 多行时，预览与复制按钮成组横向排列在语言徽章正下方，保证两者位置一致 */
-.code-block-wrapper .code-actions {
-  position: absolute;
-  top: 34px;
-  right: 8px;
-  z-index: 2;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 2px;
-}
-
-.code-block-wrapper .code-actions .code-copy-btn {
-  position: static;
-}
-
-/* 复制按钮仍是 hover 才显示；预览切换按钮常驻可见 */
-.code-block-wrapper:hover .code-actions .code-copy-btn,
-.code-block-wrapper .code-actions .code-toggle-btn {
-  opacity: 1;
-}
-
-.code-block-wrapper .code-copy-btn:hover {
-  color: var(--vscode-editor-foreground);
-  background: var(--vscode-toolbar-hoverBackground);
-}
-
-/* Toolbar buttons that act as toggles (e.g. HTML preview) live inline in the
-   toolbar and stay statically positioned. */
-.code-block-wrapper .code-toolbar .code-copy-btn {
-  opacity: 1;
-}
-
-.code-block-wrapper .code-toolbar .code-copy-btn.is-active {
-  color: var(--vscode-list-activeSelectionForeground, #fff);
-  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
-}
-
-/* 预览切换按钮处于激活态（正在预览）时的高亮，徽章下方布局同样适用 */
-.code-block-wrapper .code-actions .code-toggle-btn.is-active {
-  color: var(--vscode-list-activeSelectionForeground, #fff);
-  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
 }
 
 /* HTML live preview — box + selection + interaction mirror FileView's
