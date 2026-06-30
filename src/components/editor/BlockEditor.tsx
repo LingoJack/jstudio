@@ -360,6 +360,42 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       // pass through to the global handler in App.tsx.
       if (e.altKey) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+
+      // ── Title <input> branch ──
+      // When the title input is focused, Cmd/Ctrl+Arrow should jump to the
+      // start / end of the title text (it is a single line), optionally
+      // extending the selection with Shift — NOT move the editor below.
+      // WKWebView intercepts Cmd+Arrow natively (see AGENTS.md trap #1), so
+      // we must drive the input's selection ourselves here at the window
+      // capture phase. preventDefault/stopPropagation keep the event from
+      // reaching the input's own onKeyDown (which would treat a bare
+      // ArrowRight at end-of-text as "enter the editor").
+      const titleEl = titleInputRef.current;
+      if (titleEl && document.activeElement === titleEl) {
+        const toStart = e.key === 'ArrowLeft';
+        const len = titleEl.value.length;
+        const target = toStart ? 0 : len;
+        if (e.shiftKey) {
+          // Keep the fixed (anchor) end and move the caret end to the edge.
+          const s = titleEl.selectionStart ?? 0;
+          const en = titleEl.selectionEnd ?? 0;
+          const anchor = titleEl.selectionDirection === 'backward' ? en : s;
+          titleEl.setSelectionRange(
+            Math.min(anchor, target),
+            Math.max(anchor, target),
+            target < anchor ? 'backward' : 'forward',
+          );
+        } else {
+          titleEl.setSelectionRange(target, target);
+        }
+        // The trail re-measures on the input's 'select' event; nudge it too
+        // in case the selection didn't actually change (already at the edge).
+        trailRef.current?.markDirty();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       if (!editor) return;
 
       const view = editor.view;

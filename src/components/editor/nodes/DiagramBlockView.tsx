@@ -18,6 +18,7 @@ import {
   NodeViewWrapper,
   type Editor,
 } from '@tiptap/react';
+import { NodeSelection } from '@tiptap/pm/state';
 import { Maximize2, Pencil, Check } from 'lucide-react';
 
 import { useNodeResize } from '../hooks/useNodeResize';
@@ -40,15 +41,43 @@ import type { DiagramNodeAttributes } from '../../../lib/extensions/diagramExten
 
 export default function DiagramBlockView({
   node,
-  selected,
   updateAttributes,
   editor,
+  getPos,
 }: NodeViewProps) {
   const { snapshot, width, widthPct, height, heightPct, align } =
     node.attrs as DiagramNodeAttributes;
   const blockId = (node.attrs as DiagramNodeAttributes).id ?? undefined;
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
+
+  /* -------------------------------------------------------------- */
+  /* "Real" selection check                                          */
+  /*                                                                 */
+  /* TipTap's built-in `selected` prop turns true whenever the       */
+  /* editor selection RANGE merely *contains* this node — e.g. a     */
+  /* Cmd+Shift+Arrow (or click-drag) text selection that sweeps      */
+  /* across the block. We only want the selected chrome (toolbar /   */
+  /* ring / resize handle) when the user has genuinely selected THIS */
+  /* node — i.e. a NodeSelection pointing exactly at it — not when a */
+  /* text selection happens to pass over it.                         */
+  /* -------------------------------------------------------------- */
+  const [selected, setSelected] = useState(false);
+  useEffect(() => {
+    if (!editor) return;
+    const compute = () => {
+      const pos = typeof getPos === 'function' ? getPos() : null;
+      const sel = editor.state.selection;
+      setSelected(
+        pos != null && sel instanceof NodeSelection && sel.from === pos,
+      );
+    };
+    compute();
+    editor.on('selectionUpdate', compute);
+    return () => {
+      editor.off('selectionUpdate', compute);
+    };
+  }, [editor, getPos]);
 
   /* -------------------------------------------------------------- */
   /* Keyboard navigation for the floating toolbar                    */
