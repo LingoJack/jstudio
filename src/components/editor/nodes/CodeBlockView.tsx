@@ -28,10 +28,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
-import { Copy, Check, ChevronDown, Search, Eye, Code2 } from 'lucide-react';
+import { Copy, Check, ChevronDown, Search, Eye, Code2, ExternalLink } from 'lucide-react';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
+import { openHtmlPreviewWindow } from '../../../lib/windows/previewWindow';
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
@@ -331,6 +332,21 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
       </button>
     ) : null;
 
+  // Open the HTML source in a separate OS window for an enlarged preview.
+  // Reuses the same Rust-memory transport as file preview (see previewWindow.ts).
+  const openWindowBtn =
+    isHtml && hasContent ? (
+      <button
+        type="button"
+        onClick={() => openHtmlPreviewWindow(htmlSource)}
+        className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+        title="在新窗口预览"
+        aria-label="Preview HTML in new window"
+      >
+        <ExternalLink size={14} />
+      </button>
+    ) : null;
+
   const copyBtn = hasContent ? (
     <button
       type="button"
@@ -373,6 +389,7 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
             copy button on hover grows leftward without shifting the badge. */}
         <div className="code-toolbar" contentEditable={false}>
           {previewBtn}
+          {openWindowBtn}
           {copyBtn}
           <div
             ref={badgeRef}
