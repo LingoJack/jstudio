@@ -99,6 +99,7 @@ export const translations = {
     'doclist.trashEmpty': '回收站为空',
     'doclist.deletedDate': '删除于 {date}',
     'doclist.deleteFolderToTrashConfirm': '确定将文件夹「{name}」移入回收站吗？文件夹内的文档将一并移入回收站。',
+    'doclist.trashedAssetFrom': '来自 {name}',
 
     // ── Workspace tabs ──
     'workspace.newTab': '新建标签页',
@@ -563,6 +564,7 @@ export const translations = {
     'doclist.trashEmpty': 'Trash is empty',
     'doclist.deletedDate': 'Deleted {date}',
     'doclist.deleteFolderToTrashConfirm': 'Move folder "{name}" to trash? All documents inside will be moved to trash as well.',
+    'doclist.trashedAssetFrom': 'From {name}',
 
     // ── Workspace tabs ──
     'workspace.newTab': 'New Tab',

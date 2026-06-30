@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig } from '../lib/storage';
+import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig, TrashedAsset } from '../lib/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 import type {
@@ -95,6 +95,8 @@ export interface StoreState {
   // — data (documents slice) —
   docList: DocumentMeta[];
   trashedDocList: DocumentMeta[];
+  /** Document-private assets currently in the recycle bin (all documents). */
+  trashedAssets: TrashedAsset[];
   activeDoc: Document | null;
   activeDocId: string;
   documents: Document[];
@@ -160,6 +162,16 @@ export interface StoreState {
   restoreDocument: (id: string) => Promise<void>;
   restoreDocuments: (ids: string[]) => Promise<void>;
   emptyTrash: () => Promise<void>;
+  /** Reload the asset recycle-bin list from the backend. */
+  loadTrashedAssets: () => Promise<void>;
+  /** Move a document's unreferenced assets into the recycle bin (undo-safe). */
+  gcDocAssets: (doc: Document) => Promise<void>;
+  /** Restore a trashed asset back into its document's assets folder. */
+  restoreTrashedAsset: (id: number) => Promise<void>;
+  /** Permanently delete a single trashed asset. */
+  deleteTrashedAsset: (id: number) => Promise<void>;
+  /** Permanently delete every trashed asset (used by "empty trash"). */
+  emptyTrashAssets: () => Promise<void>;
   renameDocument: (id: string, title: string) => void;
   openDocument: (id: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;

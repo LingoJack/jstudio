@@ -247,6 +247,12 @@ pub fn delete_document(doc_id: String) -> Result<(), String> {
         "DELETE FROM documents WHERE id = ?1",
         rusqlite::params![doc_id],
     );
+    // Drop any recycle-bin records for this document — its `.trash/` folder
+    // was just removed along with the document folder above.
+    let _ = conn.execute(
+        "DELETE FROM trashed_assets WHERE doc_id = ?1",
+        rusqlite::params![doc_id],
+    );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO deleted_documents (id) VALUES (?1)",
         rusqlite::params![doc_id],

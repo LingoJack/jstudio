@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2, RotateCcw, X, Folder, FileText } from 'lucide-react';
+import { Trash2, RotateCcw, X, Folder, FileText, Paperclip } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { IconButton } from '../ui/IconButton';
+import { formatFileSize } from '../../lib/editor/fileUtils';
 
 interface TrashDialogProps {
   open: boolean;
@@ -15,12 +16,17 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
 
   const trashedDocList = useStore((s) => s.trashedDocList);
   const trashedFolders = useStore((s) => s.trashedFolders);
+  const trashedAssets = useStore((s) => s.trashedAssets);
+  const docList = useStore((s) => s.docList);
   const restoreDocument = useStore((s) => s.restoreDocument);
   const restoreFolder = useStore((s) => s.restoreFolder);
   const deleteDocument = useStore((s) => s.deleteDocument);
   const deleteFolder = useStore((s) => s.deleteFolder);
+  const restoreTrashedAsset = useStore((s) => s.restoreTrashedAsset);
+  const deleteTrashedAsset = useStore((s) => s.deleteTrashedAsset);
   const emptyTrash = useStore((s) => s.emptyTrash);
   const emptyTrashFolders = useStore((s) => s.emptyTrashFolders);
+  const emptyTrashAssets = useStore((s) => s.emptyTrashAssets);
 
   // ── Esc to close ──────────────────────────────────────────
   useEffect(() => {
@@ -34,7 +40,16 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
 
   if (!open) return null;
 
-  const totalCount = trashedDocList.length + trashedFolders.length;
+  const totalCount =
+    trashedDocList.length + trashedFolders.length + trashedAssets.length;
+
+  /** Resolve a document title for an asset's source doc (may be active or trashed). */
+  const docTitleFor = (docId: string): string => {
+    const meta =
+      docList.find((d) => d.id === docId) ??
+      trashedDocList.find((d) => d.id === docId);
+    return meta?.title || t('doclist.untitled');
+  };
 
   const handleRestoreDoc = (id: string) => {
     restoreDocument(id);
@@ -56,11 +71,18 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
     deleteFolder(id);
   };
 
+  const handleDeleteAsset = (id: number, name: string) => {
+    const msg = t('doclist.permanentlyDeleteConfirm').replace('{name}', name);
+    if (!window.confirm(msg)) return;
+    deleteTrashedAsset(id);
+  };
+
   const handleEmptyTrash = () => {
     if (totalCount === 0) return;
     if (!window.confirm(t('doclist.emptyTrashConfirm'))) return;
     emptyTrash();
     emptyTrashFolders();
+    emptyTrashAssets();
   };
 
   return createPortal(
@@ -148,6 +170,44 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
                   </button>
                   <button
                     onClick={() => handleDeleteDoc(doc.id, doc.title || t('doclist.untitled'))}
+                    className="p-1 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
+                    title={t('doclist.permanentlyDelete')}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              {/* Trashed assets (document-private attachments) */}
+              {trashedAssets.map((asset) => (
+                <div
+                  key={asset.id}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150"
+                >
+                  <Paperclip className="w-4 h-4 opacity-50 shrink-0 text-[var(--vscode-icon-foreground)]" />
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <span className="truncate text-sm text-[var(--vscode-foreground)] opacity-70">
+                      {asset.originalName}
+                    </span>
+                    <span className="truncate text-xs text-[var(--vscode-descriptionForeground)]">
+                      {t('doclist.trashedAssetFrom').replace(
+                        '{name}',
+                        docTitleFor(asset.docId),
+                      )}
+                      {asset.sizeBytes > 0
+                        ? ` · ${formatFileSize(asset.sizeBytes)}`
+                        : ''}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => restoreTrashedAsset(asset.id)}
+                    className="p-1 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
+                    title={t('doclist.restore')}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAsset(asset.id, asset.originalName)}
                     className="p-1 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
                     title={t('doclist.permanentlyDelete')}
                   >

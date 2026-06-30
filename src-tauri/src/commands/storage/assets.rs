@@ -2,12 +2,13 @@
 //!
 //! Path convention: `documents/{doc_id}/assets/{file_name}`
 
+use rusqlite::OptionalExtension;
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
 
-use super::paths::{doc_assets_dir, studio_dir};
+use super::paths::{doc_assets_dir, doc_trash_dir, studio_dir};
 
 /// Save a binary asset into a document's own assets folder.
 /// Path: `documents/{doc_id}/assets/{file_name}`
@@ -96,6 +97,159 @@ pub fn clean_global_assets() -> Result<(), String> {
     if dir.exists() {
         fs::remove_dir_all(&dir).map_err(|e| format!("failed to clean global assets dir: {e}"))?;
     }
+    Ok(())
+}
+
+// ────────────────────────────────────────────────
+// Asset recycle bin (per-document `.trash/`)
+// ────────────────────────────────────────────────
+
+/// Move a single asset from a document's `assets/` folder into its `.trash/`
+/// folder and record it in the `trashed_assets` table.
+///
+/// Used by the frontend asset garbage-collector when a block referencing the
+/// asset is removed: instead of permanently deleting the file, it is parked
+/// in the recycle bin so the user can restore or permanently delete it later.
+///
+/// No-op success when the source file doesn't exist (already gone).
+#[tauri::command]
+pub fn trash_doc_asset(doc_id: String, file_name: String) -> Result<(), String> {
+    let src = doc_assets_dir(&doc_id).join(&file_name);
+    if !src.exists() {
+        return Ok(());
+    }
+
+    let size_bytes = src.metadata().map(|m| m.len()).unwrap_or(0);
+    let ext = match file_name.rsplit_once('.') {
+        Some((_, e)) => e.to_lowercase(),
+        None => String::new(),
+    };
+    let mime = guess_mime(&ext).to_string();
+
+    let trash_dir = doc_trash_dir(&doc_id);
+    fs::create_dir_all(&trash_dir).map_err(|e| format!("failed to create trash dir: {e}"))?;
+
+    // Pick a free name inside `.trash/` (a same-named asset may already have
+    // been trashed before). We keep the original name separately for restore.
+    let trash_name = resolve_unique_name(&trash_dir, &file_name);
+    let dest = trash_dir.join(&trash_name);
+    fs::rename(&src, &dest).map_err(|e| format!("failed to move asset to trash: {e}"))?;
+
+    let conn = crate::db::db()?;
+    conn.execute(
+        "INSERT INTO trashed_assets \
+         (doc_id, trash_name, original_name, mime, size_bytes, trashed_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, strftime('%Y-%m-%dT%H:%M:%fZ','now'))",
+        rusqlite::params![doc_id, trash_name, file_name, mime, size_bytes as i64],
+    )
+    .map_err(|e| format!("failed to record trashed asset: {e}"))?;
+
+    Ok(())
+}
+
+/// List every trashed asset across all documents, newest first.
+#[tauri::command]
+pub fn list_trashed_assets() -> Result<Value, String> {
+    let conn = crate::db::db()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, doc_id, trash_name, original_name, mime, size_bytes, trashed_at \
+             FROM trashed_assets ORDER BY trashed_at DESC",
+        )
+        .map_err(|e| format!("failed to prepare trashed assets query: {e}"))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let doc_id: String = row.get(1)?;
+            let trash_name: String = row.get(2)?;
+            let original_name: String = row.get(3)?;
+            let mime: String = row.get(4)?;
+            let size_bytes: i64 = row.get(5)?;
+            let trashed_at: String = row.get(6)?;
+            Ok(serde_json::json!({
+                "id": id,
+                "docId": doc_id,
+                "trashName": trash_name,
+                "originalName": original_name,
+                "type": mime,
+                "sizeBytes": size_bytes,
+                "trashedAt": trashed_at,
+            }))
+        })
+        .map_err(|e| format!("failed to query trashed assets: {e}"))?;
+
+    let mut entries = Vec::new();
+    for row in rows {
+        entries.push(row.map_err(|e| format!("trashed asset row error: {e}"))?);
+    }
+    Ok(Value::Array(entries))
+}
+
+/// Restore a trashed asset back into its document's `assets/` folder.
+///
+/// The file is moved out of `.trash/` and the recycle-bin record is removed.
+/// If the original name now collides in `assets/`, a numeric suffix is added.
+#[tauri::command]
+pub fn restore_trashed_asset(id: i64) -> Result<(), String> {
+    let conn = crate::db::db()?;
+    let row: Option<(String, String, String)> = conn
+        .query_row(
+            "SELECT doc_id, trash_name, original_name FROM trashed_assets WHERE id = ?1",
+            rusqlite::params![id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()
+        .map_err(|e| format!("failed to read trashed asset {id}: {e}"))?;
+
+    let Some((doc_id, trash_name, original_name)) = row else {
+        return Ok(());
+    };
+
+    let src = doc_trash_dir(&doc_id).join(&trash_name);
+    if src.exists() {
+        let assets_dir = doc_assets_dir(&doc_id);
+        fs::create_dir_all(&assets_dir).map_err(|e| format!("failed to create assets dir: {e}"))?;
+        let final_name = resolve_unique_name(&assets_dir, &original_name);
+        let dest = assets_dir.join(&final_name);
+        fs::rename(&src, &dest).map_err(|e| format!("failed to restore asset: {e}"))?;
+    }
+
+    conn.execute(
+        "DELETE FROM trashed_assets WHERE id = ?1",
+        rusqlite::params![id],
+    )
+    .map_err(|e| format!("failed to remove trashed asset record {id}: {e}"))?;
+
+    Ok(())
+}
+
+/// Permanently delete a trashed asset (removes the `.trash/` file + record).
+#[tauri::command]
+pub fn delete_trashed_asset(id: i64) -> Result<(), String> {
+    let conn = crate::db::db()?;
+    let row: Option<(String, String)> = conn
+        .query_row(
+            "SELECT doc_id, trash_name FROM trashed_assets WHERE id = ?1",
+            rusqlite::params![id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()
+        .map_err(|e| format!("failed to read trashed asset {id}: {e}"))?;
+
+    if let Some((doc_id, trash_name)) = row {
+        let path = doc_trash_dir(&doc_id).join(&trash_name);
+        if path.exists() {
+            let _ = fs::remove_file(&path);
+        }
+    }
+
+    conn.execute(
+        "DELETE FROM trashed_assets WHERE id = ?1",
+        rusqlite::params![id],
+    )
+    .map_err(|e| format!("failed to remove trashed asset record {id}: {e}"))?;
+
     Ok(())
 }
 

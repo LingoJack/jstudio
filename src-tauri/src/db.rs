@@ -157,6 +157,23 @@ fn create_tables(conn: &Connection) {
             id        TEXT PRIMARY KEY,
             deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
+
+        -- Trashed document-private assets (per-document recycle bin).
+        -- When an asset is no longer referenced by its document, it is moved
+        -- from `documents/{doc_id}/assets/` into `documents/{doc_id}/.trash/`
+        -- and recorded here so the UI can list / restore / permanently delete
+        -- it. `trash_name` is the file's name inside `.trash/`; `original_name`
+        -- is the name to restore back into `assets/`.
+        CREATE TABLE IF NOT EXISTS trashed_assets (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            doc_id        TEXT NOT NULL,
+            trash_name    TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            mime          TEXT NOT NULL DEFAULT '',
+            size_bytes    INTEGER NOT NULL DEFAULT 0,
+            trashed_at    TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_trashed_assets_doc ON trashed_assets(doc_id);
         "#,
     )
     .unwrap_or_else(|e| panic!("failed to create studio.db tables: {e}"));

@@ -143,6 +143,27 @@ export interface AssetInfo {
   createdAt: number;
 }
 
+/**
+ * A document-private asset that has been moved to the recycle bin.
+ * Mirrors the row shape returned by `list_trashed_assets`.
+ */
+export interface TrashedAsset {
+  /** Auto-increment primary key — used to restore / delete the entry. */
+  id: number;
+  /** The document this asset belonged to. */
+  docId: string;
+  /** File name inside the document's `.trash/` folder. */
+  trashName: string;
+  /** Name to restore the file back into `assets/` as. */
+  originalName: string;
+  /** Guessed MIME type. */
+  type: string;
+  /** File size in bytes. */
+  sizeBytes: number;
+  /** ISO timestamp when the asset was trashed. */
+  trashedAt: string;
+}
+
 // ────────────────────────────────────────────────
 // Agent config (jcli agent model providers)
 // ────────────────────────────────────────────────
@@ -290,6 +311,20 @@ export const storage = {
     invoke<void>('delete_doc_asset', { docId, fileName }),
   listDocAssets: (docId: string) =>
     invoke<AssetInfo[]>('list_doc_assets', { docId }),
+
+  // ---- asset recycle bin (per-doc `.trash/` + DB record) ----
+
+  /** Move an unreferenced asset into its document's recycle bin. */
+  trashDocAsset: (docId: string, fileName: string) =>
+    invoke<void>('trash_doc_asset', { docId, fileName }),
+  /** List every trashed asset across all documents (newest first). */
+  listTrashedAssets: () => invoke<TrashedAsset[]>('list_trashed_assets'),
+  /** Restore a trashed asset back into its document's `assets/` folder. */
+  restoreTrashedAsset: (id: number) =>
+    invoke<void>('restore_trashed_asset', { id }),
+  /** Permanently delete a trashed asset (file + record). */
+  deleteTrashedAsset: (id: number) =>
+    invoke<void>('delete_trashed_asset', { id }),
 
   // ---- maintenance ----
 

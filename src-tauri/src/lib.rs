@@ -34,6 +34,10 @@ pub fn run() {
             commands::storage::assets::delete_doc_asset,
             commands::storage::assets::list_doc_assets,
             commands::storage::assets::clean_global_assets,
+            commands::storage::assets::trash_doc_asset,
+            commands::storage::assets::list_trashed_assets,
+            commands::storage::assets::restore_trashed_asset,
+            commands::storage::assets::delete_trashed_asset,
             // ── storage: markdown ──
             commands::storage::markdown::list_markdown_files,
             // ── storage: cache ──

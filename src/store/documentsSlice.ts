@@ -7,6 +7,7 @@ import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
 import type { StoreState, SliceCreator } from './storeHelpers';
 import { markdownToBlocks } from '../lib/editor/markdownImport';
 import { migrateDocAssets } from '../lib/documents/migrateAssets';
+import { gcDocumentAssets } from '../lib/documents/assetGc';
 import { toast } from '../lib/toast';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 
@@ -14,6 +15,7 @@ import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
   docList: [],
   trashedDocList: [],
+  trashedAssets: [],
   activeDoc: null,
   activeDocId: '',
   documents: [],
@@ -253,6 +255,17 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // Initialize terminal templates from settings.
       get().initTemplates(terminalTemplatesRaw);
       get().initRecentDirs(terminalRecentDirsRaw);
+
+      // Load the asset recycle bin so the trash dialog reflects existing
+      // entries, then run a background GC pass over every loaded document.
+      // App startup has no live editor undo history, so moving orphaned asset
+      // files into the recycle bin here can never break an in-session undo.
+      void get().loadTrashedAssets();
+      void (async () => {
+        for (const d of docs) {
+          await get().gcDocAssets(d);
+        }
+      })();
     } catch (e) {
       console.error('Store init failed:', e);
       toast.error('应用初始化失败');
@@ -532,11 +545,69 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
   },
 
+  // ================================================================
+  // asset recycle bin
+  // ================================================================
+  loadTrashedAssets: async () => {
+    try {
+      const list = await storage.listTrashedAssets();
+      set({ trashedAssets: list });
+    } catch (e) {
+      console.error('Failed to load trashed assets:', e);
+    }
+  },
+
+  gcDocAssets: async (doc) => {
+    const moved = await gcDocumentAssets(doc);
+    if (moved > 0) {
+      await get().loadTrashedAssets();
+    }
+  },
+
+  restoreTrashedAsset: async (id) => {
+    try {
+      await storage.restoreTrashedAsset(id);
+      set({ trashedAssets: get().trashedAssets.filter((a) => a.id !== id) });
+    } catch (e) {
+      console.error('Failed to restore trashed asset:', e);
+      toast.error('恢复附件失败');
+    }
+  },
+
+  deleteTrashedAsset: async (id) => {
+    try {
+      await storage.deleteTrashedAsset(id);
+      set({ trashedAssets: get().trashedAssets.filter((a) => a.id !== id) });
+    } catch (e) {
+      console.error('Failed to delete trashed asset:', e);
+      toast.error('删除附件失败');
+    }
+  },
+
+  emptyTrashAssets: async () => {
+    const { trashedAssets } = get();
+    if (trashedAssets.length === 0) return;
+
+    const results = await Promise.allSettled(
+      trashedAssets.map((a) => storage.deleteTrashedAsset(a.id)),
+    );
+    const deletedIds = new Set(
+      trashedAssets
+        .filter((_, i) => results[i].status === 'fulfilled')
+        .map((a) => a.id),
+    );
+    set({
+      trashedAssets: get().trashedAssets.filter((a) => !deletedIds.has(a.id)),
+    });
+  },
+
   openDocument: async (id) => {
     const { documents, activeDocId } = get();
     if (id === activeDocId) return;
     const doc = documents.find((d) => d.id === id);
     if (doc) {
+      // Snapshot the document we're leaving so we can GC its assets below.
+      const prevDoc = get().activeDoc;
       // CRITICAL: Move focus to <body> and clear selection before switching.
       // React will remove all old block DOM nodes (commitDeletionEffects).
       // If the browser's Selection still references one of those nodes,
@@ -549,6 +620,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         window.getSelection()?.removeAllRanges();
       } catch { /* ignore */ }
       set({ activeDoc: doc, activeDocId: id });
+
+      // GC the document we just navigated away from. Its editor instance is
+      // being torn down, so its undo history is no longer reachable — moving
+      // any now-orphaned assets into the recycle bin is safe here.
+      if (prevDoc && prevDoc.id !== id) {
+        void get().gcDocAssets(prevDoc);
+      }
     }
   },
 

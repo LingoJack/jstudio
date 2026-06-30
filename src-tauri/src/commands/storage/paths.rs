@@ -32,6 +32,15 @@ pub fn doc_assets_dir(doc_id: &str) -> PathBuf {
     doc_dir(doc_id).join("assets")
 }
 
+/// `~/.jdata/studio/documents/{doc_id}/.trash/`
+///
+/// Per-document recycle bin for assets removed from the document. Living
+/// inside the document folder keeps the document self-contained: deleting
+/// the document (which removes the whole folder) also clears its asset trash.
+pub fn doc_trash_dir(doc_id: &str) -> PathBuf {
+    doc_dir(doc_id).join(".trash")
+}
+
 // ---- Tauri commands ----
 
 /// Create the studio directory structure and initialise the SQLite database.
