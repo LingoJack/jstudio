@@ -108,6 +108,72 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
   },
 
   /**
+   * Escape — cancel the code block's "focused / selected" state, mirroring how
+   * Image / File blocks behave (their Escape is handled by useNodeToolbarNav).
+   *
+   * It covers two states (both require ProseMirror to hold focus):
+   *   (a) the caret is editing inside a code block, or
+   *   (b) the whole block is NodeSelection-selected (e.g. after clicking the
+   *       HTML-preview overlay) — this is the "html 渲染时候" case.
+   *
+   * In either case we move the caret to just after the block, so the user
+   * leaves the code/preview. If the code block is the last node (no block to
+   * land in), we append an empty paragraph first.
+   *
+   * NOTE: a cross-origin sandboxed preview <iframe> that has grabbed DOM focus
+   * cannot forward its Escape to us; this handler covers every case where the
+   * editor itself still owns the keyboard.
+   *
+   * We spread `this.parent?.()` so CodeBlockLowlight's own shortcuts (Tab
+   * indent, Backspace-exit, ArrowDown-exit, Mod-Enter, …) keep working.
+   */
+  addKeyboardShortcuts() {
+    return {
+      ...this.parent?.(),
+      Escape: () => {
+        const { editor } = this;
+        const { state } = editor;
+        const nodeName = this.name;
+        const { selection, doc } = state;
+
+        let after: number | null = null;
+
+        if (
+          selection instanceof NodeSelection &&
+          selection.node.type.name === nodeName
+        ) {
+          // (b) The code block node itself is selected.
+          after = selection.to;
+        } else {
+          // (a) The caret is inside a code block — walk up the ancestors.
+          const { $from } = selection;
+          for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type.name === nodeName) {
+              after = $from.after(d);
+              break;
+            }
+          }
+        }
+
+        // Not in / on a code block — let other Escape handlers run.
+        if (after == null) return false;
+
+        // No block after the code block: append an empty paragraph to land in.
+        if (after >= doc.content.size) {
+          return editor
+            .chain()
+            .insertContentAt(after, { type: 'paragraph' })
+            .setTextSelection(after + 1)
+            .focus()
+            .run();
+        }
+
+        return editor.chain().setTextSelection(after).focus().run();
+      },
+    };
+  },
+
+  /**
    * Triple-click anywhere inside a code block selects the WHOLE block as a
    * ProseMirror `NodeSelection` (shows the `.is-selected` ring). Once the node
    * itself is selected, the built-in `Backspace` / `Delete` keymap removes the
