@@ -147,12 +147,18 @@ export default function DocumentTabs() {
     <>
       <div
         ref={tabBarRef}
-        className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] relative"
+        className="shrink-0 flex items-stretch h-9 relative"
       >
+        {/* Divider between tab bar and editor content. Full-width, sitting
+            BEHIND the tabs. The active tab's opaque `editor-background`
+            (identical to the editor area below) covers the divider under
+            itself, so only inactive areas show the line — making content
+            look like it naturally overflows up into the active tab. */}
+        <span className="absolute bottom-0 left-0 right-0 h-px pointer-events-none bg-[var(--vscode-sideBar-border)]" style={{ zIndex: 0 }} />
         <div
           ref={scrollRef}
-          className="flex items-stretch overflow-x-auto flex-1 min-w-0"
-          style={{ scrollbarWidth: 'none' }}
+          className="flex items-stretch overflow-x-auto flex-1 min-w-0 relative"
+          style={{ scrollbarWidth: 'none', zIndex: 1 }}
         >
           {docTabs.map((tab) => {
             const isActive = tab.id === activeTabId;
@@ -175,7 +181,7 @@ export default function DocumentTabs() {
                 className={`group relative flex items-center gap-1.5 pl-3 pr-2 w-[140px] cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
                   isActive
                     ? 'bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
-                    : 'bg-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
+                    : 'bg-[var(--vscode-sideBar-background)] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
                 }`}
               >
                 {isActive && (
