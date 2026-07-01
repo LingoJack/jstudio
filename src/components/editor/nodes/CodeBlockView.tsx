@@ -27,11 +27,12 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
+import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
 import { Copy, Check, ChevronDown, Search, Eye, Code2, ExternalLink } from 'lucide-react';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
+import { useNodeSelected } from '../hooks/useNodeSelected';
 import { openHtmlPreviewWindow } from '../../../lib/windows/previewWindow';
 
 /** Language entries that map to lowlight registered grammars. */
@@ -80,7 +81,7 @@ function getLanguageLabel(value: string): string {
   return found ? found.label : value || 'Plain Text';
 }
 
-export default function CodeBlockView({ node, selected, updateAttributes, editor, getPos }: NodeViewProps) {
+export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
   // Resize attributes (unified with FileView): width/height stored as a
   // percentage of the editor content width, with legacy px fallbacks.
@@ -90,6 +91,15 @@ export default function CodeBlockView({ node, selected, updateAttributes, editor
   const heightAttr = node.attrs?.height as number | null | undefined;
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
+
+  // "Real" selection: only a genuine NodeSelection on THIS node counts as
+  // selected — NOT a text selection that sweeps across the code block.
+  // TipTap's NodeViewProps.selected turns true for the latter, wrongly
+  // showing the is-selected ring and dropping the HTML-preview overlay while
+  // the user just selects neighbouring text. Note the border highlight while
+  // the caret is INSIDE the block (editing) is provided by CSS :focus-within,
+  // so swapping the prop here does NOT lose the "active block" border.
+  const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
   // Whether the code block has non-empty content (controls copy-button visibility)
   const hasContent = node.textContent.trim().length > 0;

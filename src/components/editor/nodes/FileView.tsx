@@ -46,6 +46,7 @@ import { toDisplaySrc } from '../../../lib/content/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
+import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
 import { UploadIcon } from '../../shared/icons';
 import {
@@ -65,7 +66,6 @@ import PdfPreview from './PdfPreview';
 
 export default function FileView({
   node,
-  selected,
   updateAttributes,
   editor,
   getPos,
@@ -78,6 +78,12 @@ export default function FileView({
   const studioRoot = useStore((s) => s.studioRoot);
   const activeDocId = useStore((s) => s.activeDocId);
   const resolvedSrc = toDisplaySrc(src ?? '', studioRoot, activeDocId);
+
+  // "Real" selection: only a genuine NodeSelection on THIS node counts as
+  // selected — NOT a text selection that sweeps across the file block.
+  // TipTap's NodeViewProps.selected turns true for the latter, wrongly
+  // showing the toolbar/ring/handle while the user selects neighbouring text.
+  const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
   const canPreview = getPreviewCategory(fileType, fileName) !== 'other';

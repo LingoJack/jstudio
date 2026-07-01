@@ -19,6 +19,7 @@ import { toDisplaySrc } from '../../../lib/content/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
+import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
 import { UploadIcon } from '../../shared/icons';
 import { BlockToolbar, AlignButtonGroup } from '../../ui/BlockToolbar';
@@ -39,7 +40,7 @@ interface ImageNodeAttrs {
   align: 'left' | 'center';
 }
 
-export default function ImageView({ node, selected, updateAttributes, editor, getPos }: NodeViewProps) {
+export default function ImageView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const { src, alt, title, width, widthPct, height, heightPct, align } = node.attrs as ImageNodeAttrs;
 
   // Resolve doc-relative asset paths (`assets/…`) to a loadable URL via the
@@ -47,6 +48,12 @@ export default function ImageView({ node, selected, updateAttributes, editor, ge
   const studioRoot = useStore((s) => s.studioRoot);
   const activeDocId = useStore((s) => s.activeDocId);
   const displaySrc = toDisplaySrc(src, studioRoot, activeDocId);
+
+  // "Real" selection: only a genuine NodeSelection on THIS node counts as
+  // selected — NOT a text selection that merely sweeps across the image.
+  // TipTap's NodeViewProps.selected would turn true for the latter, wrongly
+  // showing the toolbar/ring/handle while the user selects neighbouring text.
+  const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
   const toolbarBtnCount = 2; // align-left, align-center

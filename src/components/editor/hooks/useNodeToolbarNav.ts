@@ -6,11 +6,13 @@
  *
  *   ┌── selected ──────────────────────────────────────────────────────┐
  *   │  ProseMirror owns the keyboard.                                    │
- *   │    Tab / →        → focus next toolbar button (wraps)              │
- *   │    Shift+Tab / ←  → focus previous toolbar button (wraps)          │
+ *   │    Tab             → focus next toolbar button (wraps)             │
+ *   │    Shift+Tab       → focus previous toolbar button (wraps)         │
  *   │    Enter / Space  → click focused button; or, for an interactive   │
  *   │                     block with no button focused, ENTER editing.   │
  *   │    Escape         → deselect the node (collapse after it).         │
+ *   │    ← / →           → let through to ProseMirror (caret exits the  │
+ *   │                     node selection, moving to adjacent text).      │
  *   │    printable key  → SWALLOWED, so ProseMirror does not replace the │
  *   │                     atom node with the typed character.            │
  *   └────────────────────────────────────────────────────────────────────┘
@@ -166,19 +168,18 @@ export function useNodeToolbarNav(
       const isEnter = key === 'Enter';
       const isSpace = key === ' ';
       const isEscape = key === 'Escape';
-      const isArrowLeft = key === 'ArrowLeft';
-      const isArrowRight = key === 'ArrowRight';
       const printable = isPrintableKey(e);
 
       // Let everything else through: Backspace/Delete (delete the node),
-      // ArrowUp/ArrowDown (block navigation), and command shortcuts.
+      // ArrowUp/ArrowDown (block navigation), ArrowLeft/ArrowRight (ProseMirror
+      // moves the caret out of the NodeSelection), and command shortcuts.
+      // ArrowLeft/ArrowRight are deliberately NOT toolbar-cycle keys: only
+      // Tab/Shift+Tab cycles the toolbar buttons.
       if (
         !isTab &&
         !isEnter &&
         !isSpace &&
         !isEscape &&
-        !isArrowLeft &&
-        !isArrowRight &&
         !printable
       ) {
         return;
@@ -196,7 +197,8 @@ export function useNodeToolbarNav(
         return;
       }
 
-      // Tab / arrows — cycle toolbar buttons.
+      // Tab / Shift+Tab — cycle toolbar buttons (the only toolbar-cycle keys;
+      // arrow keys fall through to ProseMirror above).
       if (isTab && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -204,18 +206,6 @@ export function useNodeToolbarNav(
         return;
       }
       if (isTab && e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (itemCount > 0) setActiveIndex(current <= 0 ? itemCount - 1 : current - 1);
-        return;
-      }
-      if (isArrowRight) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (itemCount > 0) setActiveIndex(current >= itemCount - 1 ? 0 : current + 1);
-        return;
-      }
-      if (isArrowLeft) {
         e.preventDefault();
         e.stopPropagation();
         if (itemCount > 0) setActiveIndex(current <= 0 ? itemCount - 1 : current - 1);

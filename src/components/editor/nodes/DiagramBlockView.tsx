@@ -18,12 +18,12 @@ import {
   NodeViewWrapper,
   type Editor,
 } from '@tiptap/react';
-import { NodeSelection } from '@tiptap/pm/state';
 import { Maximize2, Pencil, Check } from 'lucide-react';
 
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
+import { useNodeSelected } from '../hooks/useNodeSelected';
 import {
   BlockToolbar,
   AlignButtonGroup,
@@ -56,30 +56,12 @@ export default function DiagramBlockView({
   /* -------------------------------------------------------------- */
   /* "Real" selection check                                          */
   /*                                                                 */
-  /* TipTap's built-in `selected` prop turns true whenever the       */
-  /* editor selection RANGE merely *contains* this node — e.g. a     */
-  /* Cmd+Shift+Arrow (or click-drag) text selection that sweeps      */
-  /* across the block. We only want the selected chrome (toolbar /   */
-  /* ring / resize handle) when the user has genuinely selected THIS */
-  /* node — i.e. a NodeSelection pointing exactly at it — not when a */
-  /* text selection happens to pass over it.                         */
+  /* Only a genuine NodeSelection on THIS node counts as selected —   */
+  /* NOT a text selection that sweeps across the block. See            */
+  /* useNodeSelected for the rationale (it replaces the inline logic  */
+  /* that used to live here).                                         */
   /* -------------------------------------------------------------- */
-  const [selected, setSelected] = useState(false);
-  useEffect(() => {
-    if (!editor) return;
-    const compute = () => {
-      const pos = typeof getPos === 'function' ? getPos() : null;
-      const sel = editor.state.selection;
-      setSelected(
-        pos != null && sel instanceof NodeSelection && sel.from === pos,
-      );
-    };
-    compute();
-    editor.on('selectionUpdate', compute);
-    return () => {
-      editor.off('selectionUpdate', compute);
-    };
-  }, [editor, getPos]);
+  const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
   /* -------------------------------------------------------------- */
   /* Keyboard navigation for the floating toolbar                    */
