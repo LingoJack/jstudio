@@ -358,7 +358,11 @@ export function GraphCanvas({
 
     // 拖动时显示与其他图形的对齐参考线（SelectionHandler 内置能力）。
     const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
-    if (selectionHandler) selectionHandler.guidesEnabled = true;
+    if (selectionHandler) {
+      selectionHandler.guidesEnabled = true;
+      // 拖动预览颜色：跟随主题（浅色模式用蓝色，深色模式用浅蓝色）
+      selectionHandler.previewColor = getSelectionColor(dark);
+    }
 
     const defaultPal = paletteFor('rectangle', dark);
     const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
@@ -594,8 +598,10 @@ export function GraphCanvas({
     const graph = graphRef.current;
     if (!graph) return;
 
+    const color = getSelectionColor(darkMode);
+
     // 更新选中框颜色
-    VertexHandlerConfig.selectionColor = getSelectionColor(darkMode);
+    VertexHandlerConfig.selectionColor = color;
     
     // 更新手柄颜色
     HandleConfig.fillColor = getHandleFillColor(darkMode);
@@ -608,6 +614,12 @@ export function GraphCanvas({
       CONNECTION_POINT_SIZE,
     );
     ConstraintHandler.highlightColor = getConnectionPointColor(darkMode);
+
+    // 更新拖动预览颜色（SelectionHandler）
+    const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
+    if (selectionHandler) {
+      selectionHandler.previewColor = color;
+    }
 
     // 更新默认样式（影响新建图形）
     const defaultPal = paletteFor('rectangle', darkMode);
