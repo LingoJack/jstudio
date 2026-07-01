@@ -2796,9 +2796,17 @@ button {
   position: absolute;
   z-index: 4;
   pointer-events: none;
-  border: 1px dashed var(--vscode-focusBorder, #007acc);
-  background: rgba(0, 122, 204, 0.08);
-  border-radius: 2px;
+  border: 2px solid var(--vscode-focusBorder, #3B82F6);
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+/* 暗色模式下的预览框 */
+.jgraph-canvas-root.is-dark .jgraph-draw-preview {
+  border-color: #60A5FA;
+  background: rgba(96, 165, 250, 0.15);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3);
 }
 
 /* maxGraph 渲染面 */

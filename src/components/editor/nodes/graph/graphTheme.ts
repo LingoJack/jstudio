@@ -1,45 +1,115 @@
 /**
  * graphTheme — 自研画板的飞书风格主题（配色常量集中处）。
  *
- * 抽离原因：GraphCanvas（创建节点）与 graphModel（快照灌入）都需要按 shape
- * 给出飞书配色，若各自硬编码会不一致。集中在这里，数据层和 UI 层共用。
+ * 设计原则（参考飞书文档画板）：
+ * - 白板风格：图形默认无填充，只显示边框
+ * - 所有颜色跟随主题：浅色/深色模式下颜色动态变化
+ * - 简洁克制：中性灰描边，而非高饱和彩虹色
+ * - 圆角统一：流程图风格，圆角矩形用 12px 圆角
  */
 
 import type { GraphNodeShape } from './graphSnapshot';
 
 type ShapePalette = { fill: string; stroke: string };
 
-/** 浅色模式：每种形状一组淡彩填充 + 同色系描边。 */
+/**
+ * 浅色模式：白板风格配色。
+ * 图形无填充（透明），使用中性灰描边。
+ */
 export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
-  rectangle: { fill: '#EDF4FF', stroke: '#3370FF' }, // 淡蓝（处理）
-  rounded: { fill: '#E8F7F0', stroke: '#20A66B' }, // 淡绿（起止）
-  ellipse: { fill: '#FFF3E0', stroke: '#F08F4C' }, // 淡橙（节点）
-  diamond: { fill: '#FFF1D6', stroke: '#E0A23A' }, // 淡黄（判定）
+  rectangle: { fill: 'none', stroke: '#374151' }, // 中性灰描边
+  rounded: { fill: 'none', stroke: '#374151' },
+  ellipse: { fill: 'none', stroke: '#374151' },
+  diamond: { fill: 'none', stroke: '#374151' },
   text: { fill: 'none', stroke: 'none' },
 };
 
-/** 暗色模式：同色系降饱和，保证深底上清晰。 */
+/** 暗色模式：同样的白板风格，描边使用浅色以保证可见性。 */
 export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
-  rectangle: { fill: '#1E2F4D', stroke: '#4D80E6' },
-  rounded: { fill: '#1B3528', stroke: '#3CB371' },
-  ellipse: { fill: '#3D2A16', stroke: '#D6904A' },
-  diamond: { fill: '#3A3014', stroke: '#C9952E' },
+  rectangle: { fill: 'none', stroke: '#9CA3AF' },
+  rounded: { fill: 'none', stroke: '#9CA3AF' },
+  ellipse: { fill: 'none', stroke: '#9CA3AF' },
+  diamond: { fill: 'none', stroke: '#9CA3AF' },
   text: { fill: 'none', stroke: 'none' },
 };
 
-export const FONT_LIGHT = '#1F2329';
-export const FONT_DARK = '#E6E8EB';
-export const EDGE_LIGHT = '#8F959E';
-export const EDGE_DARK = '#7A808A';
+export const FONT_LIGHT = '#374151';
+export const FONT_DARK = '#E5E7EB';
+export const EDGE_LIGHT = '#6B7280';
+export const EDGE_DARK = '#9CA3AF';
 
-export const SHAPE_STROKE_WIDTH = 1;
+/** 图形样式 */
+export const SHAPE_STROKE_WIDTH = 1.5;
 export const SHAPE_FONT_SIZE = 13;
-export const SHAPE_ARC_SIZE = 8;
+export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
 
-/** 取当前主题下某形状的飞书配色。 */
-export function paletteFor(
-  shape: GraphNodeShape,
-  dark: boolean,
-): ShapePalette {
+/** 选中框样式 - 跟随主题 */
+export const SELECTION_COLOR_LIGHT = '#3B82F6'; // 蓝色选中框
+export const SELECTION_COLOR_DARK = '#60A5FA';
+export const SELECTION_STROKE_WIDTH = 2;
+export const SELECTION_DASHED = false; // 实线更清晰
+
+/** 调整手柄样式（飞书风格：小圆点）- 跟随主题 */
+export const HANDLE_SIZE = 7;
+export const HANDLE_FILL_COLOR_LIGHT = '#FFFFFF';
+export const HANDLE_FILL_COLOR_DARK = '#1F2937';
+export const HANDLE_STROKE_COLOR_LIGHT = '#3B82F6';
+export const HANDLE_STROKE_COLOR_DARK = '#60A5FA';
+
+/** 连接点样式（悬停边缘时显示的锚点）- 跟随主题 */
+export const CONNECTION_POINT_COLOR_LIGHT = '#3B82F6';
+export const CONNECTION_POINT_COLOR_DARK = '#60A5FA';
+export const CONNECTION_POINT_SIZE = 8;
+
+/** 拖动预览样式 - 跟随主题 */
+export const PREVIEW_FILL_COLOR_LIGHT = 'rgba(59, 130, 246, 0.1)';
+export const PREVIEW_STROKE_COLOR_LIGHT = '#3B82F6';
+export const PREVIEW_FILL_COLOR_DARK = 'rgba(96, 165, 250, 0.15)';
+export const PREVIEW_STROKE_COLOR_DARK = '#60A5FA';
+
+/** 取当前主题下某形状的配色。 */
+export function paletteFor(shape: GraphNodeShape, dark: boolean): ShapePalette {
   return (dark ? SHAPE_PALETTE_DARK : SHAPE_PALETTE_LIGHT)[shape];
+}
+
+/** 获取选中框颜色 */
+export function getSelectionColor(dark: boolean): string {
+  return dark ? SELECTION_COLOR_DARK : SELECTION_COLOR_LIGHT;
+}
+
+/** 获取手柄填充颜色 */
+export function getHandleFillColor(dark: boolean): string {
+  return dark ? HANDLE_FILL_COLOR_DARK : HANDLE_FILL_COLOR_LIGHT;
+}
+
+/** 获取手柄描边颜色 */
+export function getHandleStrokeColor(dark: boolean): string {
+  return dark ? HANDLE_STROKE_COLOR_DARK : HANDLE_STROKE_COLOR_LIGHT;
+}
+
+/** 获取连接点颜色 */
+export function getConnectionPointColor(dark: boolean): string {
+  return dark ? CONNECTION_POINT_COLOR_DARK : CONNECTION_POINT_COLOR_LIGHT;
+}
+
+/** 获取连线颜色 */
+export function getEdgeColor(dark: boolean): string {
+  return dark ? EDGE_DARK : EDGE_LIGHT;
+}
+
+/** 获取字体颜色 */
+export function getFontColor(dark: boolean): string {
+  return dark ? FONT_DARK : FONT_LIGHT;
+}
+
+/** 创建连接点 SVG 图标（跟随主题） */
+export function createConnectionPointSVG(dark: boolean): string {
+  const color = getConnectionPointColor(dark);
+  const fill = getHandleFillColor(dark);
+  return `data:image/svg+xml,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="${CONNECTION_POINT_SIZE}" height="${CONNECTION_POINT_SIZE}">
+      <circle cx="${CONNECTION_POINT_SIZE/2}" cy="${CONNECTION_POINT_SIZE/2}" r="${CONNECTION_POINT_SIZE/2 - 1}" 
+        fill="${fill}" stroke="${color}" stroke-width="2"/>
+    </svg>
+  `)}`;
 }

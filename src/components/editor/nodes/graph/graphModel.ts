@@ -19,10 +19,8 @@ import type {
 } from './graphSnapshot';
 import {
   paletteFor,
-  FONT_LIGHT,
-  FONT_DARK,
-  EDGE_LIGHT,
-  EDGE_DARK,
+  getFontColor,
+  getEdgeColor,
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
@@ -32,13 +30,13 @@ import {
 /* 形状 ↔ CellStyle 映射                                               */
 /* ------------------------------------------------------------------ */
 
-/** 把自研节点形状映射成 maxGraph 的基础 CellStyle（含飞书按形状区分的淡彩配色）。 */
+/** 把自研节点形状映射成 maxGraph 的基础 CellStyle（白板风格配色）。 */
 export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyle {
   const pal = paletteFor(shape, dark);
   const base: CellStyle = {
     fillColor: pal.fill,
     strokeColor: pal.stroke,
-    fontColor: dark ? FONT_DARK : FONT_LIGHT,
+    fontColor: getFontColor(dark),
     strokeWidth: SHAPE_STROKE_WIDTH,
     fontSize: SHAPE_FONT_SIZE,
   };
@@ -50,7 +48,7 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
     case 'diamond':
       return { ...base, shape: 'rhombus' };
     case 'text':
-      return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: dark ? FONT_DARK : FONT_LIGHT, fontSize: SHAPE_FONT_SIZE };
+      return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
@@ -81,14 +79,14 @@ function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
   return base;
 }
 
-/** 构建连线 CellStyle（飞书中性灰细线 + 圆角折线 + 小箭头）。 */
+/** 构建连线 CellStyle（中性灰细线 + 圆角折线 + 小箭头）。 */
 function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   const style: CellStyle = {
     edgeStyle: edge.routing === 'straight' ? undefined : 'orthogonalEdgeStyle',
     rounded: edge.routing !== 'straight',
     endArrow: edge.endArrow ?? 'classic',
     startArrow: edge.startArrow ?? 'none',
-    strokeColor: dark ? EDGE_DARK : EDGE_LIGHT,
+    strokeColor: getEdgeColor(dark),
     strokeWidth: SHAPE_STROKE_WIDTH,
   };
   const s = edge.style;

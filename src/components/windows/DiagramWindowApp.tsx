@@ -4,6 +4,7 @@
  * 1. 从 Rust 内存获取初始快照。
  * 2. 渲染全尺寸 Excalidraw 画板。
  * 3. 用户编辑时通过 Tauri event 实时回传快照到主窗口。
+ * 4. 主题跟随系统设置同步。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,6 +16,54 @@ import {
   sendDiagramUpdate,
   type DiagramPayload,
 } from '../../lib/windows/diagramWindow';
+import { storage, type ThemeMode } from '../../lib/storage';
+
+/**
+ * Resolve a theme preference to actual dark/light.
+ * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
+ */
+function resolveDark(mode: ThemeMode): boolean {
+  if (mode === 'dark') return true;
+  if (mode === 'light') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/**
+ * Sync dark/light theme from settings so the diagram window matches
+ * the main window's appearance.
+ */
+function useThemeSync() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    // Initial load from settings
+    storage.loadSettings().then((settings) => {
+      const dark = resolveDark(settings.theme ?? 'system');
+      setIsDark(dark);
+      document.documentElement.classList.toggle('dark', dark);
+    }).catch(() => {
+      // Fallback: check system preference
+      const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDark(dark);
+      document.documentElement.classList.toggle('dark', dark);
+    });
+
+    // Listen for system preference changes (when theme is 'system')
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      storage.loadSettings().then((settings) => {
+        if (settings.theme === 'system') {
+          setIsDark(e.matches);
+          document.documentElement.classList.toggle('dark', e.matches);
+        }
+      }).catch(() => {});
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  return isDark;
+}
 
 export default function DiagramWindowApp() {
   const [payload, setPayload] = useState<DiagramPayload | null>(null);
@@ -23,6 +72,9 @@ export default function DiagramWindowApp() {
 
   // Keep latest snapshot in a ref so we can send a final update on close.
   const latestSnapshot = useRef('');
+
+  // Sync theme with main window
+  const isDark = useThemeSync();
 
   useEffect(() => {
     let cancelled = false;
@@ -98,13 +150,13 @@ export default function DiagramWindowApp() {
           <ExcalidrawCanvas
             initialSnapshot={payload?.snapshot ?? ''}
             onChange={handleChange}
-            darkMode={payload?.darkMode}
+            darkMode={isDark}
           />
         ) : (
           <GraphCanvas
             initialSnapshot={payload?.snapshot ?? ''}
             onChange={handleChange}
-            darkMode={payload?.darkMode}
+            darkMode={isDark}
           />
         )}
       </div>

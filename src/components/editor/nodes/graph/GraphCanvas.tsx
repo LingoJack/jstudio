@@ -26,12 +26,20 @@ import {
   Point,
   Clipboard,
   getDefaultPlugins,
+  HandleConfig,
+  VertexHandlerConfig,
+  ConstraintHandler,
+  ImageBox,
+  RectangleShape,
+  RhombusShape,
+  EllipseShape,
   type Cell,
   type CellState,
   type EventObject,
   type SelectionHandler,
   type FitPlugin,
   type PanningHandler,
+  type VertexHandler,
 } from '@maxgraph/core';
 import '@maxgraph/core/css/common.css';
 
@@ -58,13 +66,24 @@ import {
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
 import {
   paletteFor,
-  FONT_LIGHT,
-  FONT_DARK,
-  EDGE_LIGHT,
-  EDGE_DARK,
+  getSelectionColor,
+  getHandleFillColor,
+  getHandleStrokeColor,
+  getConnectionPointColor,
+  getEdgeColor,
+  getFontColor,
+  createConnectionPointSVG,
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
+  HANDLE_SIZE,
+  SELECTION_STROKE_WIDTH,
+  SELECTION_DASHED,
+  CONNECTION_POINT_SIZE,
+  PREVIEW_FILL_COLOR_LIGHT,
+  PREVIEW_STROKE_COLOR_LIGHT,
+  PREVIEW_FILL_COLOR_DARK,
+  PREVIEW_STROKE_COLOR_DARK,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -107,7 +126,7 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
 };
 
 /**
- * shape → maxGraph 样式对象（飞书圆角规格 + 按形状区分的淡彩配色）。
+ * shape → maxGraph 样式对象（白板风格：无填充 + 中性灰描边）。
  * 注意：text 形状无填充无边框。
  */
 function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unknown> {
@@ -117,7 +136,7 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     strokeColor: pal.stroke,
     strokeWidth: SHAPE_STROKE_WIDTH,
     fontSize: SHAPE_FONT_SIZE,
-    fontColor: dark ? FONT_DARK : FONT_LIGHT,
+    fontColor: getFontColor(dark),
   };
   switch (shape) {
     case 'rounded':
@@ -127,7 +146,7 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     case 'ellipse':
       return { ...base, shape: 'ellipse' };
     case 'text':
-      return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: dark ? FONT_DARK : FONT_LIGHT, fontSize: SHAPE_FONT_SIZE };
+      return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
@@ -275,6 +294,49 @@ export function GraphCanvas({
     // 默认很小导致轻点边缘就误触发连线。
     graph.setEventTolerance(EVENT_TOLERANCE);
 
+    // 节点默认配色：取矩形（淡蓝）作为兜底默认；具体每种形状在创建时
+    // 由 styleForShape 带上各自配色，覆盖此默认。
+    const dark = darkModeRef.current;
+
+    // 飞书风格选中手柄配置：小巧圆点 + 蓝色选中框（颜色跟随主题）
+    HandleConfig.size = HANDLE_SIZE;
+    HandleConfig.fillColor = getHandleFillColor(dark);
+    HandleConfig.strokeColor = getHandleStrokeColor(dark);
+    VertexHandlerConfig.selectionColor = getSelectionColor(dark);
+    VertexHandlerConfig.selectionStrokeWidth = SELECTION_STROKE_WIDTH;
+    VertexHandlerConfig.selectionDashed = SELECTION_DASHED;
+
+    // 自定义选中框形状：根据图形类型显示对应形状的选中框
+    graph.createSelectionShape = (state: CellState) => {
+      const shapeStyle = state.style?.shape;
+      const currentDark = darkModeRef.current;
+      const color = getSelectionColor(currentDark);
+      
+      // 根据图形类型创建对应的选中框形状
+      let shape: RectangleShape | RhombusShape | EllipseShape;
+      if (shapeStyle === 'rhombus') {
+        shape = new RhombusShape(state.bounds, color, 1, 1);
+      } else if (shapeStyle === 'ellipse') {
+        shape = new EllipseShape(state.bounds, color, 1, 1);
+      } else {
+        // rectangle / rounded 默认用矩形选中框
+        shape = new RectangleShape(state.bounds, color, 1, 1);
+      }
+      shape.strokeWidth = SELECTION_STROKE_WIDTH;
+      shape.dashed = SELECTION_DASHED;
+      shape.fillColor = 'none';
+      shape.strokeColor = color;
+      return shape;
+    };
+
+    // 连接点样式：跟随主题（悬停边缘时显示）
+    ConstraintHandler.pointImage = new ImageBox(
+      createConnectionPointSVG(dark),
+      CONNECTION_POINT_SIZE,
+      CONNECTION_POINT_SIZE,
+    );
+    ConstraintHandler.highlightColor = getConnectionPointColor(dark);
+
     // Alt + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
     // 让 Ctrl/Cmd 空出来给"平移画布"用）。
     graph.isCloneEvent = (evt: MouseEvent) => evt.altKey;
@@ -298,14 +360,11 @@ export function GraphCanvas({
     const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
     if (selectionHandler) selectionHandler.guidesEnabled = true;
 
-    // 节点默认配色：取矩形（淡蓝）作为兜底默认；具体每种形状在创建时
-    // 由 styleForShape 带上各自配色，覆盖此默认。
-    const dark = darkModeRef.current;
     const defaultPal = paletteFor('rectangle', dark);
     const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
     vertexDefault.fillColor = defaultPal.fill;
     vertexDefault.strokeColor = defaultPal.stroke;
-    vertexDefault.fontColor = dark ? FONT_DARK : FONT_LIGHT;
+    vertexDefault.fontColor = getFontColor(dark);
     vertexDefault.strokeWidth = SHAPE_STROKE_WIDTH;
     vertexDefault.fontSize = SHAPE_FONT_SIZE;
 
@@ -314,7 +373,7 @@ export function GraphCanvas({
     edgeDefault.edgeStyle = 'orthogonalEdgeStyle';
     edgeDefault.rounded = true;
     edgeDefault.endArrow = 'classic';
-    edgeDefault.strokeColor = dark ? EDGE_DARK : EDGE_LIGHT;
+    edgeDefault.strokeColor = getEdgeColor(dark);
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
 
     // 为每个节点提供固定连接点（四边中点 + 四角）：悬停边缘时高亮绿色十字，
@@ -529,6 +588,41 @@ export function GraphCanvas({
     graph.setEnabled(editing);
     graph.setCellsLocked(!editing);
   }, [editing]);
+
+  // 暗色模式切换时更新所有跟随主题的颜色
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+
+    // 更新选中框颜色
+    VertexHandlerConfig.selectionColor = getSelectionColor(darkMode);
+    
+    // 更新手柄颜色
+    HandleConfig.fillColor = getHandleFillColor(darkMode);
+    HandleConfig.strokeColor = getHandleStrokeColor(darkMode);
+    
+    // 更新连接点样式
+    ConstraintHandler.pointImage = new ImageBox(
+      createConnectionPointSVG(darkMode),
+      CONNECTION_POINT_SIZE,
+      CONNECTION_POINT_SIZE,
+    );
+    ConstraintHandler.highlightColor = getConnectionPointColor(darkMode);
+
+    // 更新默认样式（影响新建图形）
+    const defaultPal = paletteFor('rectangle', darkMode);
+    const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
+    vertexDefault.fillColor = defaultPal.fill;
+    vertexDefault.strokeColor = defaultPal.stroke;
+    vertexDefault.fontColor = getFontColor(darkMode);
+    
+    const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
+    edgeDefault.strokeColor = getEdgeColor(darkMode);
+
+    // 刷新视图让更改生效
+    graph.getView().validate();
+    graph.refresh();
+  }, [darkMode]);
 
   /* -------------------------------------------------------------- */
   /* 键盘：Del 删除 / Cmd+Z 撤销 / Cmd+C·V·D 复制粘贴克隆 / 方向键微移 */
