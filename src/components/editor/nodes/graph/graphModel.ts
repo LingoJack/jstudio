@@ -126,13 +126,21 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot): void {
     }
   });
 
-  // 恢复视口（缩放 / 平移）。API 差异时静默跳过，不影响图本身。
+  // 恢复视口（缩放 / 平移）。仅当三个值都是有限数时才应用，
+  // 否则 NaN/undefined 会污染 GraphView 导致 "Invalid x supplied"。
   if (snap.viewport) {
-    try {
-      const view = graph.getView();
-      view.scaleAndTranslate(snap.viewport.scale, snap.viewport.dx, snap.viewport.dy);
-    } catch {
-      /* ignore */
+    const { scale, dx, dy } = snap.viewport;
+    if (
+      Number.isFinite(scale) &&
+      scale > 0 &&
+      Number.isFinite(dx) &&
+      Number.isFinite(dy)
+    ) {
+      try {
+        graph.getView().scaleAndTranslate(scale, dx, dy);
+      } catch {
+        /* ignore */
+      }
     }
   }
 

@@ -2773,10 +2773,32 @@ button {
   background: var(--vscode-toolbar-activeBackground, rgba(0, 0, 0, 0.14));
 }
 
+/* 待绘制态：高亮当前选中的模具按钮 */
+.jgraph-tool-btn.is-active {
+  background: var(--vscode-inputOption-activeBackground, rgba(0, 122, 204, 0.16));
+  color: var(--vscode-inputOption-activeForeground, #007acc);
+  box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, #007acc);
+}
+
 .jgraph-tool-sep {
   height: 1px;
   margin: 4px 2px;
   background: var(--vscode-widget-border, rgba(0, 0, 0, 0.1));
+}
+
+/* 待绘制态：画布光标变十字，提示可拖拽划定 */
+.jgraph-canvas-root.is-drawing .jgraph-surface {
+  cursor: crosshair;
+}
+
+/* 拖拽绘制时的预览框（屏幕坐标定位于 surface 内） */
+.jgraph-draw-preview {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  border: 1px dashed var(--vscode-focusBorder, #007acc);
+  background: rgba(0, 122, 204, 0.08);
+  border-radius: 2px;
 }
 
 /* maxGraph 渲染面 */
@@ -2784,10 +2806,10 @@ button {
   width: 100%;
   height: 100%;
   background: var(--vscode-editor-background, #ffffff);
-  /* draw.io 同款点阵/网格背景（10px 步长），随缩放不变的静态底纹 */
+  /* 飞书 / draw.io 同款点阵网格（10px 步长），克制的浅灰细线 */
   background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    linear-gradient(to right, rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
   background-size: 10px 10px;
 }
 

@@ -16,7 +16,7 @@
  * 这是时序图/用例图所必需、而 Excalidraw 不具备的能力。
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Graph,
   InternalEvent,
@@ -31,6 +31,7 @@ import {
   type EventObject,
   type SelectionHandler,
   type FitPlugin,
+  type PanningHandler,
 } from '@maxgraph/core';
 import '@maxgraph/core/css/common.css';
 
@@ -94,6 +95,23 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
   text: '文本',
 };
 
+/** shape → maxGraph 样式对象（飞书圆角规格）。 */
+function styleForShape(shape: GraphNodeShape): Record<string, unknown> {
+  switch (shape) {
+    case 'rounded':
+      return { shape: 'rectangle', rounded: true, absoluteArcSize: true, arcSize: SHAPE_ARC_SIZE };
+    case 'diamond':
+      return { shape: 'rhombus' };
+    case 'ellipse':
+      return { shape: 'ellipse' };
+    case 'text':
+      return { shape: 'text', fillColor: 'none', strokeColor: 'none' };
+    case 'rectangle':
+    default:
+      return { shape: 'rectangle' };
+  }
+}
+
 /** 网格步长（draw.io 同款 10px）。 */
 const GRID_SIZE = 10;
 
@@ -101,14 +119,24 @@ const GRID_SIZE = 10;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
 
+/** 拖拽绘制时的最小尺寸（低于此值视为"点击"，用默认尺寸落点）。 */
+const MIN_DRAW_SIZE = 12;
+
 /**
- * draw.io 出厂配色（浅色）：淡蓝填充 + 蓝色描边 + 深色文字。
- * 暗色模式用一组协调的深蓝，保证节点在深底上仍清晰。
+ * 飞书文档画板风格配色（简洁克制）：
+ *   - 浅色：接近白的极浅填充 + 中性灰细描边 + 深灰文字，弱化重蓝。
+ *   - 暗色：深灰填充 + 柔和浅灰描边，保证深底上清晰又不刺眼。
+ * 连线一律中性灰细线，视觉退让给图形本身。
  */
 const PALETTE = {
-  light: { fill: '#dae8fc', stroke: '#6c8ebf', font: '#1f2328', edge: '#4d6b99' },
-  dark: { fill: '#2b3a55', stroke: '#7aa2d6', font: '#e6edf3', edge: '#9db8e0' },
+  light: { fill: '#ffffff', stroke: '#bfc4cc', font: '#1f2329', edge: '#8f959e' },
+  dark: { fill: '#2a2d31', stroke: '#5a6068', font: '#e6e8eb', edge: '#7a808a' },
 } as const;
+
+/** 描边宽度、字号、圆角——统一走飞书的克制规格。 */
+const SHAPE_STROKE_WIDTH = 1;
+const SHAPE_FONT_SIZE = 13;
+const SHAPE_ARC_SIZE = 6; // 圆角矩形的绝对圆角半径（px）
 
 /**
  * 节点四边中点 + 四角的固定连接点（相对坐标 0~1）。
@@ -142,8 +170,14 @@ export function GraphCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<Graph | null>(null);
   const undoManagerRef = useRef<UndoManager | null>(null);
-  // 连续插入时的递增偏移，避免新图形全堆在视口中心互相遮挡。
-  const insertOffsetRef = useRef(0);
+  // 待绘制的模具：点了工具栏图形按钮后进入该态，下一次在画布上按住拖拽即划出该图形。
+  // 用 ref 供事件回调读取，用 state 驱动光标/高亮 UI。
+  const pendingShapeRef = useRef<GraphNodeShape | null>(null);
+  const [pendingShape, setPendingShape] = useState<GraphNodeShape | null>(null);
+  const setPending = useCallback((shape: GraphNodeShape | null) => {
+    pendingShapeRef.current = shape;
+    setPendingShape(shape);
+  }, []);
   // 暗色模式在初始化时读取一次即可（切换由下方 effect 处理容器底色）。
   const darkModeRef = useRef(darkMode);
   darkModeRef.current = darkMode;
@@ -217,6 +251,22 @@ export function GraphCanvas({
     graph.setCellsEditable(true); // 双击节点 / 连线编辑文本
     graph.setAllowDanglingEdges(false); // 不允许悬空连线（必须连到节点）
     graph.setHtmlLabels(true);
+    // 选中图形后显示八向缩放手柄，可鼠标拖拽改大小（VertexHandler 内置）。
+    graph.setCellsResizable(true);
+    graph.setCellsMovable(true);
+
+    // Alt + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
+    // 让 Ctrl/Cmd 空出来给"平移画布"用）。
+    graph.isCloneEvent = (evt: MouseEvent) => evt.altKey;
+
+    // Cmd/Ctrl + 拖动 = 平移画布（即使按在图形上也平移，而非移动图形）。
+    const panningHandler = graph.getPlugin<PanningHandler>('PanningHandler');
+    if (panningHandler) {
+      panningHandler.isForcePanningEvent = (me) => {
+        const evt = me.getEvent() as MouseEvent;
+        return evt.metaKey || evt.ctrlKey;
+      };
+    }
 
     // 网格 + 吸附（draw.io 同款：拖拽/缩放对齐到 10px 网格）。
     graph.setGridEnabled(true);
@@ -228,19 +278,22 @@ export function GraphCanvas({
     const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
     if (selectionHandler) selectionHandler.guidesEnabled = true;
 
-    // 节点默认配色（对齐 draw.io 淡蓝方案；暗色模式用协调深蓝）。
+    // 节点默认配色（飞书简洁风：极浅填充 + 中性灰细描边 + 深灰文字）。
     const pal = darkModeRef.current ? PALETTE.dark : PALETTE.light;
     const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
     vertexDefault.fillColor = pal.fill;
     vertexDefault.strokeColor = pal.stroke;
     vertexDefault.fontColor = pal.font;
+    vertexDefault.strokeWidth = SHAPE_STROKE_WIDTH;
+    vertexDefault.fontSize = SHAPE_FONT_SIZE;
 
-    // 全局默认走正交连线（与 draw.io 手感一致）。
+    // 全局默认走正交连线（与 draw.io 手感一致），线用中性灰细线。
     const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
     edgeDefault.edgeStyle = 'orthogonalEdgeStyle';
     edgeDefault.rounded = true;
     edgeDefault.endArrow = 'classic';
     edgeDefault.strokeColor = pal.edge;
+    edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
 
     // 为每个节点提供固定连接点（四边中点 + 四角）：悬停边缘时高亮绿色十字，
     // 从精确点位拖出连线，而非只能从整体边缘任意点连。
@@ -289,6 +342,108 @@ export function GraphCanvas({
     // 初始灌入产生的 edit 不应进 undo 历史。
     undoManager.clear();
 
+    /* ------------------------------------------------------------ */
+    /* 拖拽绘制：点了工具栏图形后，在画布上按住拖拽划出位置与大小      */
+    /* （飞书 / draw.io 手感）。只点不拖 → 用默认尺寸落在点击处。      */
+    /* ------------------------------------------------------------ */
+
+    // 绘制预览框（纯视觉，屏幕坐标定位于 container 内）。
+    const preview = document.createElement('div');
+    preview.className = 'jgraph-draw-preview';
+    preview.style.display = 'none';
+    container.appendChild(preview);
+
+    let drawing = false;
+    let startClient = { x: 0, y: 0 }; // 相对 container 的屏幕坐标
+    let startGraph = { x: 0, y: 0 }; // 对应的图坐标
+
+    const clientToContainer = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+    const snap = (v: number) => Math.round(v / GRID_SIZE) * GRID_SIZE;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (!pendingShapeRef.current) return; // 未处于待绘制态，交给引擎正常处理
+      if (e.button !== 0) return;
+      // 拦截，阻止 maxGraph 的框选/平移接管本次拖拽。
+      e.preventDefault();
+      e.stopPropagation();
+      drawing = true;
+      startClient = clientToContainer(e);
+      const p = graph.getPointForEvent(e, false);
+      startGraph = { x: p.x, y: p.y };
+      preview.style.display = 'block';
+      preview.style.left = `${startClient.x}px`;
+      preview.style.top = `${startClient.y}px`;
+      preview.style.width = '0px';
+      preview.style.height = '0px';
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!drawing) return;
+      const cur = clientToContainer(e);
+      const x = Math.min(cur.x, startClient.x);
+      const y = Math.min(cur.y, startClient.y);
+      const w = Math.abs(cur.x - startClient.x);
+      const h = Math.abs(cur.y - startClient.y);
+      preview.style.left = `${x}px`;
+      preview.style.top = `${y}px`;
+      preview.style.width = `${w}px`;
+      preview.style.height = `${h}px`;
+    };
+
+    const finishDraw = (e: MouseEvent) => {
+      if (!drawing) return;
+      drawing = false;
+      preview.style.display = 'none';
+      const shape = pendingShapeRef.current;
+      if (!shape) return;
+
+      const endPoint = graph.getPointForEvent(e, false);
+      const rawW = Math.abs(endPoint.x - startGraph.x);
+      const rawH = Math.abs(endPoint.y - startGraph.y);
+
+      let x: number;
+      let y: number;
+      let w: number;
+      let h: number;
+      if (rawW < MIN_DRAW_SIZE && rawH < MIN_DRAW_SIZE) {
+        // 只点不拖 → 用默认尺寸，以点击处为中心。
+        const size = DEFAULT_SIZE[shape];
+        w = size.w;
+        h = size.h;
+        x = snap(startGraph.x - w / 2);
+        y = snap(startGraph.y - h / 2);
+      } else {
+        // 拖拽划定的实际区域，对齐网格。
+        x = snap(Math.min(startGraph.x, endPoint.x));
+        y = snap(Math.min(startGraph.y, endPoint.y));
+        w = Math.max(GRID_SIZE, snap(rawW));
+        h = Math.max(GRID_SIZE, snap(rawH));
+      }
+
+      const parent = graph.getDefaultParent();
+      const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      graph.batchUpdate(() => {
+        const cell = graph.insertVertex({
+          parent,
+          id,
+          value: SHAPE_LABEL[shape],
+          position: [x, y],
+          size: [w, h],
+          style: styleForShape(shape),
+        });
+        graph.setSelectionCell(cell);
+      });
+      // 绘制完自动退出待绘制态（单次绘制，符合飞书手感）。
+      setPending(null);
+    };
+
+    container.addEventListener('mousedown', onMouseDown, true);
+    container.addEventListener('mousemove', onMouseMove, true);
+    container.addEventListener('mouseup', finishDraw, true);
+
     // Ctrl/Cmd + 滚轮缩放（draw.io 同款）；普通滚轮保留为平移/滚动。
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -304,6 +459,10 @@ export function GraphCanvas({
 
     return () => {
       container.removeEventListener('wheel', onWheel);
+      container.removeEventListener('mousedown', onMouseDown, true);
+      container.removeEventListener('mousemove', onMouseMove, true);
+      container.removeEventListener('mouseup', finishDraw, true);
+      preview.remove();
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         // 卸载前 flush 最后一次编辑，避免丢失。
@@ -367,6 +526,15 @@ export function GraphCanvas({
 
       // 正在内联编辑文本时，交给 CellEditor，不拦截。
       if (graph.isEditing()) return;
+
+      // ESC：退出待绘制态。
+      if (e.key === 'Escape') {
+        if (pendingShapeRef.current) {
+          e.preventDefault();
+          setPending(null);
+        }
+        return;
+      }
 
       if (meta && key === 'z') {
         e.preventDefault();
@@ -434,52 +602,16 @@ export function GraphCanvas({
   }, [editing]);
 
   /* -------------------------------------------------------------- */
-  /* 工具栏：插入一个模具节点（错位落点 + 网格对齐，避免堆叠遮挡）    */
+  /* 工具栏：点图形按钮 → 进入"待绘制"态，随后在画布上拖拽划出         */
+  /* 位置与大小；再点同一按钮 / ESC 取消。                            */
   /* -------------------------------------------------------------- */
 
-  const insertShape = useCallback((shape: GraphNodeShape) => {
-    const graph = graphRef.current;
-    if (!graph) return;
-    const size = DEFAULT_SIZE[shape];
-    const view = graph.getView();
-    // 视口中心对应的画布坐标，叠加递增偏移，避免连续插入时全堆在一起。
-    const container = containerRef.current;
-    const cx = container ? container.clientWidth / 2 : 200;
-    const cy = container ? container.clientHeight / 2 : 160;
-    const offset = insertOffsetRef.current;
-    // 每插一个偏移一格网格，最多循环 8 次后归零（呈阶梯状排开）。
-    insertOffsetRef.current = (offset + 1) % 8;
-    const shift = offset * GRID_SIZE;
-    const rawX = (cx - view.translate.x * view.scale) / view.scale - size.w / 2 + shift;
-    const rawY = (cy - view.translate.y * view.scale) / view.scale - size.h / 2 + shift;
-    // 对齐到网格。
-    const x = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
-    const y = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
-
-    const parent = graph.getDefaultParent();
-    const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    graph.batchUpdate(() => {
-      const cell = graph.insertVertex({
-        parent,
-        id,
-        value: SHAPE_LABEL[shape],
-        position: [x, y],
-        size: [size.w, size.h],
-        style:
-          shape === 'rounded'
-            ? { shape: 'rectangle', rounded: true }
-            : shape === 'diamond'
-              ? { shape: 'rhombus' }
-              : shape === 'ellipse'
-                ? { shape: 'ellipse' }
-                : shape === 'text'
-                  ? { shape: 'text', fillColor: 'none', strokeColor: 'none' }
-                  : { shape: 'rectangle' },
-      });
-      // 新建即选中，方便立刻拖动/输入。
-      graph.setSelectionCell(cell);
-    });
-  }, []);
+  const togglePending = useCallback(
+    (shape: GraphNodeShape) => {
+      setPending(pendingShapeRef.current === shape ? null : shape);
+    },
+    [setPending],
+  );
 
   const handleUndo = useCallback(() => undoManagerRef.current?.undo(), []);
   const handleRedo = useCallback(() => undoManagerRef.current?.redo(), []);
@@ -534,7 +666,7 @@ export function GraphCanvas({
       tabIndex={editing ? 0 : -1}
       className={`jgraph-canvas-root ${className} ${
         editing ? 'is-editing' : 'is-readonly'
-      } ${darkMode ? 'is-dark' : ''}`}
+      } ${darkMode ? 'is-dark' : ''} ${pendingShape ? 'is-drawing' : ''}`}
       style={{
         width: '100%',
         height: '100%',
@@ -551,9 +683,9 @@ export function GraphCanvas({
             <button
               key={shape}
               type="button"
-              className="jgraph-tool-btn"
-              title={title}
-              onClick={() => insertShape(shape)}
+              className={`jgraph-tool-btn ${pendingShape === shape ? 'is-active' : ''}`}
+              title={`${title}｜点击后在画布拖拽划定大小`}
+              onClick={() => togglePending(shape)}
             >
               <Icon size={16} />
             </button>
