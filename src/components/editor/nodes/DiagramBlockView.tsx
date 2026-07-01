@@ -32,6 +32,8 @@ import {
 } from '../../ui/BlockToolbar';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import { ExcalidrawCanvas } from './ExcalidrawCanvas';
+import { GraphCanvas } from './graph/GraphCanvas';
+import { detectSnapshotKind } from './graph/graphSnapshot';
 import { openDiagramWindow } from '../../../lib/windows/diagramWindow';
 import type { DiagramNodeAttributes } from '../../../lib/extensions/diagramExtension';
 
@@ -216,6 +218,18 @@ export default function DiagramBlockView({
   /* Embedded canvas change handler                                  */
   /* -------------------------------------------------------------- */
 
+  /* -------------------------------------------------------------- */
+  /* 内核路由：仅在挂载时按初始快照判定一次                          */
+  /*                                                                 */
+  /* 只有"已存在的 Excalidraw 历史快照"才走旧内核；空白与自研格式都 */
+  /* 走新内核。判定结果用 ref 锁定，避免编辑过程中（快照格式从空    */
+  /* 变成 jgraph）内核被反复切换、导致组件卸载丢状态。              */
+  /* -------------------------------------------------------------- */
+  const useLegacyExcalidrawRef = useRef(
+    detectSnapshotKind(snapshot ?? '') === 'excalidraw',
+  );
+  const useLegacyExcalidraw = useLegacyExcalidrawRef.current;
+
   const handleEmbeddedChange = useCallback(
     (json: string) => {
       updateAttributes({ snapshot: json });
@@ -330,19 +344,31 @@ export default function DiagramBlockView({
             </BlockToolbarButton>
           </BlockToolbar>
 
-          {/* Excalidraw canvas */}
+          {/* 画板内核：按快照格式路由。
+              - 旧 Excalidraw 快照 → 继续用 ExcalidrawCanvas 渲染（向后兼容）
+              - 空白 / 自研 jgraph 格式 → 自研 GraphCanvas 内核 */}
           <div
             className="diagram-block-canvas"
             contentEditable={false}
             style={canvasStyle}
           >
-            <ExcalidrawCanvas
-              initialSnapshot={snapshot ?? ''}
-              onChange={handleEmbeddedChange}
-              darkMode={isDark}
-              rootElRef={handleExcalidrawRoot}
-              editing={editing}
-            />
+            {useLegacyExcalidraw ? (
+              <ExcalidrawCanvas
+                initialSnapshot={snapshot ?? ''}
+                onChange={handleEmbeddedChange}
+                darkMode={isDark}
+                rootElRef={handleExcalidrawRoot}
+                editing={editing}
+              />
+            ) : (
+              <GraphCanvas
+                initialSnapshot={snapshot ?? ''}
+                onChange={handleEmbeddedChange}
+                darkMode={isDark}
+                rootElRef={handleExcalidrawRoot}
+                editing={editing}
+              />
+            )}
           </div>
 
           {/* Transparent overlay when NOT editing — lets the user click to

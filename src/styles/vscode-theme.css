@@ -2723,6 +2723,99 @@ button {
 }
 
 /* ============================================
+   JGraph — 自研画板内核（maxGraph）
+   ============================================ */
+
+.jgraph-canvas-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  background: var(--vscode-editor-background, #ffffff);
+}
+
+/* 左侧竖排模具 / 操作工具栏 */
+.jgraph-toolbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background, #f3f3f3);
+  border: 1px solid var(--vscode-widget-border, rgba(0, 0, 0, 0.1));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.jgraph-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vscode-foreground, #333);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.jgraph-tool-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(0, 0, 0, 0.08));
+}
+
+.jgraph-tool-btn:active {
+  background: var(--vscode-toolbar-activeBackground, rgba(0, 0, 0, 0.14));
+}
+
+.jgraph-tool-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--vscode-widget-border, rgba(0, 0, 0, 0.1));
+}
+
+/* maxGraph 渲染面 */
+.jgraph-surface {
+  width: 100%;
+  height: 100%;
+  background: var(--vscode-editor-background, #ffffff);
+  /* draw.io 同款点阵/网格背景（10px 步长），随缩放不变的静态底纹 */
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
+/* 暗色模式：maxGraph 默认绘制在白底上，整体反相不可取，
+   仅调整容器底色，节点/连线颜色由 snapshot 内的样式控制。 */
+.jgraph-canvas-root.is-dark,
+.jgraph-canvas-root.is-dark .jgraph-surface {
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+
+/* 暗色网格底纹：用浅色细线，避免与深底融为一体 */
+.jgraph-canvas-root.is-dark .jgraph-surface {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
+.jgraph-canvas-root.is-dark .jgraph-toolbar {
+  background: var(--vscode-editorWidget-background, #252526);
+  border-color: var(--vscode-widget-border, rgba(255, 255, 255, 0.12));
+}
+
+.jgraph-canvas-root.is-dark .jgraph-tool-btn {
+  color: var(--vscode-foreground, #ccc);
+}
+
+/* ============================================
    PDF Preview (react-pdf)
    ============================================ */
 

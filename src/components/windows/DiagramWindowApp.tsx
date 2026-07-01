@@ -8,6 +8,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ExcalidrawCanvas } from '../editor/nodes/ExcalidrawCanvas';
+import { GraphCanvas } from '../editor/nodes/graph/GraphCanvas';
+import { detectSnapshotKind } from '../editor/nodes/graph/graphSnapshot';
 import {
   fetchDiagramData,
   sendDiagramUpdate,
@@ -92,11 +94,19 @@ export default function DiagramWindowApp() {
       }}
     >
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <ExcalidrawCanvas
-          initialSnapshot={payload?.snapshot ?? ''}
-          onChange={handleChange}
-          darkMode={payload?.darkMode}
-        />
+        {detectSnapshotKind(payload?.snapshot ?? '') === 'excalidraw' ? (
+          <ExcalidrawCanvas
+            initialSnapshot={payload?.snapshot ?? ''}
+            onChange={handleChange}
+            darkMode={payload?.darkMode}
+          />
+        ) : (
+          <GraphCanvas
+            initialSnapshot={payload?.snapshot ?? ''}
+            onChange={handleChange}
+            darkMode={payload?.darkMode}
+          />
+        )}
       </div>
     </div>
   );
