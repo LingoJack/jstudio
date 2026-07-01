@@ -10,11 +10,35 @@
  *
  * `maxHeightPct` is kept only for backward-compatible parsing of older
  * documents; the NodeView no longer applies it.
+ *
+ * -----------------------------------------------------------------------
+ * INCREMENTAL LOWLIGHT PLUGIN
+ * -----------------------------------------------------------------------
+ * The official @tiptap/extension-code-block-lowlight ships a ProseMirror
+ * plugin whose `apply` re-runs `lowlight.highlight()` synchronously on EVERY
+ * code block in the document whenever the caret is inside one (or a block is
+ * added/removed). Pasting into a document with N code blocks re-highlights
+ * all N of them, even the ones that didn't change — a CPU spike that freezes
+ * the UI for tens to hundreds of ms.
+ *
+ * We override `addProseMirrorPlugins` to drop the official plugin and install
+ * an incremental one instead:
+ *   - `apply` first maps the existing DecorationSet through the transaction
+ *     (cheap, O(changed decorations)).
+ *   - Then it re-highlights ONLY code blocks whose range intersects a
+ *     `transaction.changedRanges()` entry; all other blocks keep their
+ *     existing decorations.
+ *   - Full re-highlight happens only once, on `init`.
+ *
+ * This makes paste / typing O(changed blocks) instead of O(all blocks).
  */
 
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { Plugin, NodeSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import type { Node as PmNode } from '@tiptap/pm/model';
+import { findChildren } from '@tiptap/core';
 import CodeBlockView from '../../components/editor/nodes/CodeBlockView';
 
 export interface CodeBlockNodeAttributes {
@@ -32,6 +56,184 @@ export interface CodeBlockNodeAttributes {
   /** Height as a percentage of the editor surface width (0-100). Preferred. */
   heightPct?: number | null;
 }
+
+/* --------------------------------------------------------------------- */
+/* Incremental Lowlight plugin internals                                  */
+/* --------------------------------------------------------------------- */
+
+/** Structural subset of a lowlight instance we depend on. */
+interface LowlightLike {
+  highlight(language: string, value: string): { value?: HlNode[]; children?: HlNode[] };
+  highlightAuto(value: string): { value?: HlNode[]; children?: HlNode[] };
+  listLanguages(): string[];
+  registered?(language: string): boolean;
+}
+
+/** A node in lowlight / hljs's output tree. */
+interface HlNode {
+  properties?: { className?: string[] };
+  children?: HlNode[];
+  value?: string;
+}
+
+/** A located code block: { node, pos } as returned by findChildren. */
+interface LocatedBlock {
+  node: PmNode;
+  pos: number;
+}
+
+/** Flattens lowlight's nested output tree into a flat list of {text, classes}. */
+function parseHlNodes(
+  nodes: HlNode[],
+  className: string[] = [],
+): { text: string; classes: string[] }[] {
+  return nodes.flatMap((node) => {
+    const classes = [...className, ...(node.properties?.className ?? [])];
+    if (node.children) {
+      return parseHlNodes(node.children, classes);
+    }
+    return { text: node.value ?? '', classes };
+  });
+}
+
+/** Picks the highlighted node list out of a lowlight highlight result. */
+function getHlNodes(result: { value?: HlNode[]; children?: HlNode[] }): HlNode[] {
+  return result.value ?? result.children ?? [];
+}
+
+/**
+ * Build ProseMirror inline decorations for a single code block.
+ * `from` starts at block.pos + 1 to skip past the code block node itself
+ * into its text content.
+ */
+function highlightBlockDecorations(
+  block: LocatedBlock,
+  lowlight: LowlightLike,
+  defaultLanguage: string | null,
+): Decoration[] {
+  const decorations: Decoration[] = [];
+  let from = block.pos + 1;
+  const language = (block.node.attrs?.language as string | undefined) || defaultLanguage;
+
+  let nodes: HlNode[];
+  try {
+    const isRegistered =
+      language &&
+      (lowlight.listLanguages().includes(language) || lowlight.registered?.(language));
+    if (isRegistered) {
+      nodes = getHlNodes(lowlight.highlight(language as string, block.node.textContent));
+    } else {
+      nodes = getHlNodes(lowlight.highlightAuto(block.node.textContent));
+    }
+  } catch {
+    // Defensive: if highlight throws (e.g. bad grammar), fall back to auto.
+    nodes = getHlNodes(lowlight.highlightAuto(block.node.textContent));
+  }
+
+  parseHlNodes(nodes).forEach((node) => {
+    const to = from + node.text.length;
+    if (node.classes.length) {
+      decorations.push(Decoration.inline(from, to, { class: node.classes.join(' ') }));
+    }
+    from = to;
+  });
+  return decorations;
+}
+
+/** Plugin key shared between the plugin and its `decorations` prop. */
+const lowlightPluginKey = new PluginKey<DecorationSet>('lowlight');
+
+/**
+ * Build the incremental Lowlight ProseMirror plugin.
+ *
+ * State (a DecorationSet) is updated incrementally per transaction:
+ *   1. Map the existing set through the transaction (cheap).
+ *   2. If the doc changed, find code blocks whose range intersects any
+ *      `transaction.changedRanges()` entry.
+ *   3. For each affected block: remove its old decorations, re-highlight,
+ *      and add the new decorations back.
+ * Blocks that didn't change keep their decorations untouched — no
+ * `lowlight.highlight()` call for them.
+ */
+function createIncrementalLowlightPlugin(opts: {
+  name: string;
+  lowlight: LowlightLike;
+  defaultLanguage: string | null;
+}): Plugin {
+  const { name, lowlight, defaultLanguage } = opts;
+
+  return new Plugin<DecorationSet>({
+    key: lowlightPluginKey,
+    state: {
+      // Full highlight once on init — unavoidable, but only once.
+      init: (_config, { doc }) => {
+        const decorations: Decoration[] = [];
+        findChildren(doc, (node) => node.type.name === name).forEach((block) => {
+          decorations.push(...highlightBlockDecorations(block, lowlight, defaultLanguage));
+        });
+        return DecorationSet.create(doc, decorations);
+      },
+      apply: (transaction, oldDecoSet, _oldState, newState) => {
+        // 1. Always map the existing decoration set through the transaction.
+        // This keeps decorations aligned with moved/inserted/deleted text and
+        // automatically drops decorations whose positions no longer exist.
+        let decoSet = oldDecoSet.map(transaction.mapping, newState.doc);
+
+        // No document content change → selection-only transaction. Mapping
+        // already handled everything; return as-is.
+        if (!transaction.docChanged) return decoSet;
+
+        // 2. Find which code blocks were actually touched.
+        //
+        // `changedRange()` returns the single (merged) span that covers all
+        // document changes, in the NEW document's coordinate system. For a
+        // paste inside one block this is just that block's range, so only it
+        // gets re-highlighted. For a full-doc replace (e.g. setContent / doc
+        // switch) it expands to cover everything — the correct full re-highlight
+        // fallback. We then walk the new doc only inside that span, which is
+        // far cheaper than scanning the whole document every transaction.
+        const changed = transaction.changedRange();
+        if (!changed) return decoSet;
+        const { from, to } = changed;
+
+        // Collect affected code blocks, keyed by their document position so
+        // a block intersecting multiple changed ranges is only re-highlighted
+        // once.
+        const affected = new Map<number, LocatedBlock>();
+        newState.doc.nodesBetween(from, to, (node, pos) => {
+          if (node.type.name === name) {
+            affected.set(pos, { node, pos });
+          }
+          return true;
+        });
+
+        if (affected.size === 0) return decoSet;
+
+        // 3. For each affected block: drop its old decorations, re-highlight,
+        //    and add the fresh ones back.
+        affected.forEach((block) => {
+          const blockStart = block.pos;
+          const blockEnd = block.pos + block.node.nodeSize;
+          // find() returns decorations whose ranges intersect [start, end].
+          const oldDecos = decoSet.find(blockStart + 1, blockEnd - 1);
+          if (oldDecos.length) decoSet = decoSet.remove(oldDecos);
+
+          const newDecos = highlightBlockDecorations(block, lowlight, defaultLanguage);
+          if (newDecos.length) decoSet = decoSet.add(newState.doc, newDecos);
+        });
+
+        return decoSet;
+      },
+    },
+    props: {
+      decorations(state) {
+        return lowlightPluginKey.getState(state);
+      },
+    },
+  });
+}
+
+/* --------------------------------------------------------------------- */
 
 export const CodeBlockWithChrome = CodeBlockLowlight.extend({
   addAttributes() {
@@ -174,24 +376,41 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
   },
 
   /**
-   * Triple-click anywhere inside a code block selects the WHOLE block as a
-   * ProseMirror `NodeSelection` (shows the `.is-selected` ring). Once the node
-   * itself is selected, the built-in `Backspace` / `Delete` keymap removes the
-   * entire block in one keystroke — no extra handler needed.
+   * ProseMirror plugins.
    *
-   * This is scoped to code blocks only: the handler bails out (returns false)
-   * for any other node type, so other blocks keep their own behavior. We use
-   * ProseMirror's `handleTripleClickOn` editor prop rather than counting DOM
-   * `mousedown` events, so there is no mouseup race and no text-selection flash
-   * (returning `true` consumes the event before the default text selection).
+   * We intentionally do NOT spread `this.parent?.()` here, because the parent
+   * (CodeBlockLowlight) only registers the official full-document Lowlight
+   * plugin, and we are replacing it with our incremental variant above.
+   * (CodeBlockLowlight's base class — `CodeBlock` — registers no ProseMirror
+   * plugins of its own; it uses inputRules / keyboardShortcuts instead, which
+   * are unaffected by this override.)
    *
-   * NOTE: CodeBlockLowlight registers its own plugins (syntax highlighting),
-   * so we MUST spread `this.parent?.()` to keep highlighting working.
+   * The triple-click handler below is preserved unchanged.
    */
   addProseMirrorPlugins() {
     const nodeName = this.name;
+    const lowlight = this.options.lowlight as LowlightLike;
+    const defaultLanguage = (this.options.defaultLanguage as string | null) ?? null;
+
     return [
-      ...(this.parent?.() ?? []),
+      createIncrementalLowlightPlugin({
+        name: nodeName,
+        lowlight,
+        defaultLanguage,
+      }),
+      /**
+       * Triple-click anywhere inside a code block selects the WHOLE block as a
+       * ProseMirror `NodeSelection` (shows the `.is-selected` ring). Once the
+       * node itself is selected, the built-in `Backspace` / `Delete` keymap
+       * removes the entire block in one keystroke — no extra handler needed.
+       *
+       * This is scoped to code blocks only: the handler bails out (returns
+       * false) for any other node type, so other blocks keep their own
+       * behavior. We use ProseMirror's `handleTripleClickOn` editor prop rather
+       * than counting DOM `mousedown` events, so there is no mouseup race and
+       * no text-selection flash (returning `true` consumes the event before
+       * the default text selection).
+       */
       new Plugin({
         props: {
           handleTripleClickOn(view, _pos, node, nodePos) {
