@@ -204,8 +204,8 @@ export const translations = {
     'appearance.terminalThemeDarkDesc': '应用处于深色模式（或跟随系统且系统为深色）时使用此主题',
     'appearance.terminalThemeLight': '浅色终端主题',
     'appearance.terminalThemeLightDesc': '应用处于浅色模式（或跟随系统且系统为浅色）时使用此主题',
-    'appearance.terminalTheme_anthropic-dark': 'Anthropic Dark',
-    'appearance.terminalTheme_anthropic-light': 'Anthropic Light',
+    'appearance.terminalTheme_ink-dark': 'Ink Dark',
+    'appearance.terminalTheme_ink-light': 'Ink Light',
     'appearance.terminalTheme_jstudio-dark': 'JStudio Dark',
     'appearance.terminalTheme_jstudio-light': 'JStudio Light',
 
@@ -669,8 +669,8 @@ export const translations = {
     'appearance.terminalThemeDarkDesc': 'Used when the app is in dark mode (or system mode while OS is dark)',
     'appearance.terminalThemeLight': 'Light Terminal Theme',
     'appearance.terminalThemeLightDesc': 'Used when the app is in light mode (or system mode while OS is light)',
-    'appearance.terminalTheme_anthropic-dark': 'Anthropic Dark',
-    'appearance.terminalTheme_anthropic-light': 'Anthropic Light',
+    'appearance.terminalTheme_ink-dark': 'Ink Dark',
+    'appearance.terminalTheme_ink-light': 'Ink Light',
     'appearance.terminalTheme_jstudio-dark': 'JStudio Dark',
     'appearance.terminalTheme_jstudio-light': 'JStudio Light',
 

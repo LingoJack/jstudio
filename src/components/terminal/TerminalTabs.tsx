@@ -4,6 +4,7 @@ import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/i18n';
 import { eventToBinding, resolveBinding } from '../../lib/shortcuts/keyboardShortcuts';
 import { createTerminalWindow } from '../../lib/windows/terminalDetach';
+import { getTerminalTheme } from '../../lib/terminal/themes';
 import { Plus, X, Clock, FolderOpen, Trash2 } from 'lucide-react';
 import type { TerminalSession } from '../../store/terminalSlice';
 import TerminalTabContextMenu from './TerminalTabContextMenu';
@@ -97,6 +98,18 @@ export default function TerminalTabs() {
   // Workspace: sync activeTabId when switching terminal groups.
   const wsTabs = useStore((s) => s.tabs);
   const wsSetActiveTab = useStore((s) => s.setActiveTab);
+
+  // ── Terminal theme: the tab bar follows the terminal palette so it
+  // feels native to the selected theme (not the editor's VSCode vars).
+  // The active tab uses `panelBg` — identical to the xterm content area
+  // below — so content visually "overflows" up into the active tab with
+  // no divider between them.
+  const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
+  const terminalThemeIdLight = useStore((s) => s.terminalThemeIdLight);
+  const isDarkMode = useStore((s) => s.isDarkMode);
+  const theme = getTerminalTheme(
+    isDarkMode ? terminalThemeIdDark : terminalThemeIdLight,
+  );
 
   /**
    * Switch to a terminal session AND sync the workspace active tab.
@@ -376,12 +389,37 @@ export default function TerminalTabs() {
 
   return (
     <>
-      <div className="shrink-0 flex items-stretch h-9 border-b border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] relative" ref={tabBarRef}>
+      <div
+        className="shrink-0 flex items-stretch h-9 relative"
+        style={{
+          background: theme.ui.barBg,
+          // CSS vars for children — lets Tailwind arbitrary classes pick
+          // up the active terminal-theme palette without inline styles
+          // sprinkled on every tab.
+          ['--term-panel-bg' as string]: theme.ui.panelBg,
+          ['--term-bar-border' as string]: theme.ui.barBorder,
+          ['--term-fg' as string]: theme.foreground,
+          ['--term-tab-hover' as string]: theme.isDark
+            ? 'rgba(255,255,255,0.05)'
+            : 'rgba(0,0,0,0.04)',
+          ['--term-accent' as string]: theme.blue,
+        }}
+        ref={tabBarRef}
+      >
+        {/* Divider line between tab bar and content. Full-width, sitting
+            BEHIND the tabs (z-0). The active tab — whose background is
+            the same opaque `panelBg` as the content area — covers this
+            line under itself, so only inactive areas show the divider.
+            This makes the selected tab look like content overflowing up. */}
+        <span
+          className="absolute bottom-0 left-0 right-0 h-px pointer-events-none"
+          style={{ background: theme.ui.barBorder, zIndex: 0 }}
+        />
         {/* Scrollable tab strip (includes trailing `+` so it follows tabs) */}
         <div
           ref={scrollRef}
-          className="flex items-stretch overflow-x-auto flex-1 min-w-0"
-          style={{ scrollbarWidth: 'none' }}
+          className="flex items-stretch overflow-x-auto flex-1 min-w-0 relative"
+          style={{ zIndex: 1, scrollbarWidth: 'none' }}
         >
           {groups.map((group) => {
             const isActive = group.id === activeGroupId;
@@ -410,14 +448,18 @@ export default function TerminalTabs() {
                     groupId: group.id,
                   });
                 }}
-                className={`group relative flex items-center gap-1.5 pl-3 pr-2 w-[120px] cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
+                className={`group relative flex items-center gap-1.5 pl-3 pr-2 w-[120px] cursor-pointer border-r shrink-0 transition-colors duration-100 ${
                   isActive
-                    ? 'bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
-                    : 'bg-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
+                    ? 'bg-[var(--term-panel-bg)] text-[var(--term-fg)]'
+                    : 'bg-transparent text-[var(--term-fg)] opacity-60 hover:opacity-90 hover:bg-[var(--term-tab-hover)]'
                 }`}
+                style={{ borderRightColor: 'var(--term-bar-border)' }}
               >
                 {isActive && (
-                  <span className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--vscode-focusBorder)]" />
+                  <span
+                    className="absolute top-0 left-0 right-0 h-0.5"
+                    style={{ background: 'var(--term-accent)' }}
+                  />
                 )}
 
                 {isRenaming ? (
@@ -432,7 +474,12 @@ export default function TerminalTabs() {
                     }}
                     onBlur={confirmRename}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs font-medium bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-focusBorder)] rounded px-1 py-0 outline-none w-full text-center"
+                    className="text-xs font-medium border rounded px-1 py-0 outline-none w-full text-center"
+                    style={{
+                      background: theme.background,
+                      color: theme.foreground,
+                      borderColor: 'var(--term-accent)',
+                    }}
                   />
                 ) : (
                   <>
@@ -452,11 +499,12 @@ export default function TerminalTabs() {
                           e.stopPropagation();
                           closeSession(group.activeSessionId);
                         }}
-                        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
+                        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-100 hover:bg-[var(--term-tab-hover)] ${
                           isActive
-                            ? 'opacity-100 hover:bg-[var(--vscode-toolbar-hoverBackground)]'
+                            ? 'opacity-100'
                             : 'opacity-0 group-hover:opacity-100'
                         }`}
+                        style={{ color: 'var(--term-fg)' }}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -470,7 +518,7 @@ export default function TerminalTabs() {
           {/* `+` and Clock — both follow the last tab */}
           <button
             onClick={() => createSession()}
-            className="shrink-0 w-9 flex items-center justify-center text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
+            className="shrink-0 w-9 flex items-center justify-center text-[var(--term-fg)] opacity-60 hover:opacity-100 hover:bg-[var(--term-tab-hover)] transition-colors cursor-pointer"
             title={t('terminal.newSession')}
           >
             <Plus className="w-4 h-4" />
@@ -484,10 +532,8 @@ export default function TerminalTabs() {
           >
             <button
               ref={historyBtnRef}
-              className={`w-9 h-full flex items-center justify-center transition-colors cursor-pointer ${
-                showHistory
-                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-hoverBackground)]'
-                  : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+              className={`w-9 h-full flex items-center justify-center transition-colors cursor-pointer text-[var(--term-fg)] hover:bg-[var(--term-tab-hover)] ${
+                showHistory ? 'opacity-100 bg-[var(--term-tab-hover)]' : 'opacity-60 hover:opacity-100'
               }`}
               title={t('terminal.recentDirs')}
             >

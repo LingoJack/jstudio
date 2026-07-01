@@ -6,8 +6,8 @@
  * border, label color) so the whole panel feels native to the theme.
  *
  * Colors are lifted directly from the kitty .conf files:
- *   ~/.config/kitty/theme-anthropic-dark.conf  →  anthropic-dark
- *   ~/.config/kitty/theme-anthropic-light.conf →  anthropic-light
+ *   ~/.config/kitty/theme-anthropic-dark.conf  →  ink-dark
+ *   ~/.config/kitty/theme-anthropic-light.conf →  ink-light
  */
 
 export interface TerminalTheme {
@@ -76,10 +76,12 @@ export function withSemanticTerminalCursor(
 
 export const TERMINAL_THEMES: TerminalTheme[] = [
   // ──────────────────────────────────────────────
-  // Anthropic Dark  (theme-anthropic-dark.conf)
+  // Ink Dark  (theme-anthropic-dark.conf — Tokyo Night Storm palette)
+  //   Refined: bright ANSI colors are now visibly brighter than their
+  //   normal counterparts (the original kitty file had them identical).
   // ──────────────────────────────────────────────
   {
-    id: 'anthropic-dark',
+    id: 'ink-dark',
     isDark: true,
     background: '#222436',
     foreground: '#c8d3f5',
@@ -96,26 +98,28 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     magenta: '#c099ff',
     cyan: '#86e1fc',
     white: '#828bb8',
-    brightBlack: '#444a73',
-    brightRed: '#ff757f',
-    brightGreen: '#c3e88d',
-    brightYellow: '#ffc777',
-    brightBlue: '#82aaff',
-    brightMagenta: '#c099ff',
-    brightCyan: '#86e1fc',
-    brightWhite: '#c8d3f5',
+    brightBlack: '#586190',
+    brightRed: '#ff9eac',
+    brightGreen: '#d7f0a3',
+    brightYellow: '#ffd99a',
+    brightBlue: '#a3bcff',
+    brightMagenta: '#d4b4ff',
+    brightCyan: '#a9edff',
+    brightWhite: '#e6ecff',
     ui: {
       barBg: '#1e2030',
       barBorder: '#2f334d',
-      barFg: '#82aaff',
+      barFg: '#7f88b0',
       panelBg: '#222436',
     },
   },
   // ──────────────────────────────────────────────
-  // Anthropic Light  (theme-anthropic-light.conf)
+  // Ink Light  (theme-anthropic-light.conf — Tokyo Night Light palette)
+  //   Refined: bright ANSI colors are now visibly brighter than their
+  //   normal counterparts (the original kitty file had them identical).
   // ──────────────────────────────────────────────
   {
-    id: 'anthropic-light',
+    id: 'ink-light',
     isDark: false,
     background: '#e1e2e7',
     foreground: '#373641',
@@ -132,18 +136,18 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     magenta: '#c41de0',
     cyan: '#1c8ed0',
     white: '#373641',
-    brightBlack: '#8b8d97',
-    brightRed: '#f52a4e',
-    brightGreen: '#49ad2c',
-    brightYellow: '#b08800',
-    brightBlue: '#3a64ea',
-    brightMagenta: '#c41de0',
-    brightCyan: '#1c8ed0',
-    brightWhite: '#4f505c',
+    brightBlack: '#a0a2ab',
+    brightRed: '#ff5577',
+    brightGreen: '#5fc940',
+    brightYellow: '#d4a017',
+    brightBlue: '#5a7eff',
+    brightMagenta: '#d44ff0',
+    brightCyan: '#35a3e0',
+    brightWhite: '#6a6b76',
     ui: {
       barBg: '#d4d5db',
       barBorder: '#c0c2cc',
-      barFg: '#3a64ea',
+      barFg: '#6a6b76',
       panelBg: '#e1e2e7',
     },
   },
@@ -234,10 +238,18 @@ export const DEFAULT_TERMINAL_THEME_ID_LIGHT = 'jstudio-light';
 /** @deprecated Use DEFAULT_TERMINAL_THEME_ID_DARK instead. */
 export const DEFAULT_TERMINAL_THEME_ID = DEFAULT_TERMINAL_THEME_ID_DARK;
 
+/** Legacy theme id aliases → current id. Keeps settings stored by older
+ *  builds (e.g. "anthropic-dark") resolving to the renamed theme. */
+const THEME_ID_ALIASES: Record<string, string> = {
+  'anthropic-dark': 'ink-dark',
+  'anthropic-light': 'ink-light',
+};
+
 /** Find a theme by id, falling back to the dark default. */
 export function getTerminalTheme(id: string | undefined): TerminalTheme {
+  const resolved = id ? THEME_ID_ALIASES[id] ?? id : undefined;
   return (
-    TERMINAL_THEMES.find((t) => t.id === id) ??
+    TERMINAL_THEMES.find((t) => t.id === resolved) ??
     TERMINAL_THEMES.find((t) => t.id === DEFAULT_TERMINAL_THEME_ID_DARK)!
   );
 }
