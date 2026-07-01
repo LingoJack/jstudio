@@ -853,6 +853,15 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       if (target.closest('.ProseMirror')) return;
       // Skip if clicking the title input
       if (target.tagName === 'INPUT') return;
+      // Only jump to end if the click lands BELOW the editor's content area.
+      // Without this guard, clicks on the title container's padding (the gap
+      // between the title <input> and the first heading) also satisfy the
+      // "not in ProseMirror / not an INPUT" condition and would jump the
+      // cursor to the very bottom of the document — confusing UX where
+      // clicking empty space near the top sends you to the end.
+      const proseMirrorEl = editor.view.dom as HTMLElement;
+      const pmRect = proseMirrorEl.getBoundingClientRect();
+      if (e.clientY < pmRect.top) return;
       // Focus to end of document (works even if last block is an empty paragraph)
       editor.chain().focus('end').run();
     },
