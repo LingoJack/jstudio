@@ -25,8 +25,16 @@
  *   - if ProseMirror already selected the node, this is a no-op on the same node;
  *   - if ProseMirror missed (the glitch), this reliably selects it.
  *
- * We deliberately do NOT call `preventDefault()` (that would cancel the
- * browser's native caret placement and can break inner inputs — see LinkView).
+ * We deliberately do NOT call `preventDefault()` *globally* — that would
+ * cancel the browser's native caret placement and can break inner inputs
+ * (see LinkView).  However, for `contentEditable={false}` targets (e.g.
+ * FileView's card) we DO preventDefault, because such elements steal DOM
+ * focus on mousedown: the browser moves `document.activeElement` onto the
+ * card, so subsequent keydown events target the card instead of `view.dom`,
+ * and PM's `eventBelongsToView` rejects them (the NodeView's `stopEvent`
+ * returns `true` for non-editable targets) — Backspace / Delete then can't
+ * delete the selected node.  preventDefault stops this focus theft; we then
+ * focus `view.dom` explicitly so keyboard events reach PM.
  *
  * Clicks on interactive chrome (buttons, inputs, the resize handle, …) are
  * ignored via `ignoreSelector` so they keep their own behavior.
@@ -90,7 +98,33 @@ export function useNodeSelectionClick(
       const pos = typeof getPos === 'function' ? getPos() : null;
       if (pos == null) return;
 
+      // For contentEditable={false} targets (e.g. FileView's card,
+      // DiagramBlockView's overlay) preventDefault the mousedown to stop the
+      // browser from moving DOM focus onto the clicked element.  Without this,
+      // clicking the card leaves `document.activeElement` on the card, so
+      // subsequent keydown events target the card and PM's eventBelongsToView
+      // rejects them — Backspace / Delete never reaches PM and the selected
+      // node can't be deleted via keyboard.  preventDefault must run inside
+      // the mousedown handler (before the default focus action), which is why
+      // we do it here rather than in a separate click handler.
+      //
+      // For editable targets (ImageView's <img>, which inherits
+      // isContentEditable=true from view.dom) we skip preventDefault so the
+      // browser's native caret placement is preserved.
+      const isEditableTarget =
+        target instanceof HTMLElement ? target.isContentEditable : false;
+      if (!isEditableTarget) {
+        e.preventDefault();
+      }
+
       editor.commands.setNodeSelection(pos);
+
+      // Ensure view.dom (not the clicked element) holds focus.  The
+      // preventDefault above stopped the browser from stealing focus, so
+      // this call actually takes effect.
+      if (!editor.view.hasFocus()) {
+        editor.view.focus();
+      }
     },
     [editor, getPos, selectorList, skipWhenSelected, selected],
   );
