@@ -17,25 +17,43 @@ import type {
   GraphSnapshot,
   GraphViewport,
 } from './graphSnapshot';
+import {
+  paletteFor,
+  FONT_LIGHT,
+  FONT_DARK,
+  EDGE_LIGHT,
+  EDGE_DARK,
+  SHAPE_STROKE_WIDTH,
+  SHAPE_FONT_SIZE,
+  SHAPE_ARC_SIZE,
+} from './graphTheme';
 
 /* ------------------------------------------------------------------ */
 /* 形状 ↔ CellStyle 映射                                               */
 /* ------------------------------------------------------------------ */
 
-/** 把自研节点形状映射成 maxGraph 的基础 CellStyle。 */
-export function nodeShapeToStyle(shape: GraphNodeShape): CellStyle {
+/** 把自研节点形状映射成 maxGraph 的基础 CellStyle（含飞书按形状区分的淡彩配色）。 */
+export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyle {
+  const pal = paletteFor(shape, dark);
+  const base: CellStyle = {
+    fillColor: pal.fill,
+    strokeColor: pal.stroke,
+    fontColor: dark ? FONT_DARK : FONT_LIGHT,
+    strokeWidth: SHAPE_STROKE_WIDTH,
+    fontSize: SHAPE_FONT_SIZE,
+  };
   switch (shape) {
     case 'rounded':
-      return { shape: 'rectangle', rounded: true };
+      return { ...base, shape: 'rectangle', rounded: true, absoluteArcSize: true, arcSize: SHAPE_ARC_SIZE };
     case 'ellipse':
-      return { shape: 'ellipse' };
+      return { ...base, shape: 'ellipse' };
     case 'diamond':
-      return { shape: 'rhombus' };
+      return { ...base, shape: 'rhombus' };
     case 'text':
-      return { shape: 'text', fillColor: 'none', strokeColor: 'none' };
+      return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: dark ? FONT_DARK : FONT_LIGHT, fontSize: SHAPE_FONT_SIZE };
     case 'rectangle':
     default:
-      return { shape: 'rectangle' };
+      return { ...base, shape: 'rectangle' };
   }
 }
 
@@ -51,8 +69,8 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
 }
 
 /** 合并节点的可选样式覆盖到基础 CellStyle 上。 */
-function buildNodeStyle(node: GraphNode): CellStyle {
-  const base = nodeShapeToStyle(node.shape);
+function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
+  const base = nodeShapeToStyle(node.shape, dark);
   const s = node.style;
   if (!s) return base;
   if (s.fill !== undefined) base.fillColor = s.fill;
@@ -63,13 +81,15 @@ function buildNodeStyle(node: GraphNode): CellStyle {
   return base;
 }
 
-/** 构建连线 CellStyle。 */
-function buildEdgeStyle(edge: GraphEdge): CellStyle {
+/** 构建连线 CellStyle（飞书中性灰细线 + 圆角折线 + 小箭头）。 */
+function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   const style: CellStyle = {
     edgeStyle: edge.routing === 'straight' ? undefined : 'orthogonalEdgeStyle',
     rounded: edge.routing !== 'straight',
     endArrow: edge.endArrow ?? 'classic',
     startArrow: edge.startArrow ?? 'none',
+    strokeColor: dark ? EDGE_DARK : EDGE_LIGHT,
+    strokeWidth: SHAPE_STROKE_WIDTH,
   };
   const s = edge.style;
   if (s) {
@@ -86,9 +106,9 @@ function buildEdgeStyle(edge: GraphEdge): CellStyle {
 
 /**
  * 把一份快照灌入 graph（清空后重建）。在 batchUpdate 内执行，单步可撤销。
- * 返回 id → Cell 的映射，便于后续按 id 操作。
+ * @param dark 是否暗色模式（决定飞书配色的深浅变体）。
  */
-export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot): void {
+export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot, dark = false): void {
   const parent = graph.getDefaultParent();
   const model = graph.getDataModel();
 
@@ -106,7 +126,7 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot): void {
         value: node.label ?? '',
         position: [node.x, node.y],
         size: [node.w, node.h],
-        style: buildNodeStyle(node),
+        style: buildNodeStyle(node, dark),
       });
       idToCell.set(node.id, cell);
     }
@@ -121,7 +141,7 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot): void {
         value: edge.label ?? '',
         source,
         target,
-        style: buildEdgeStyle(edge),
+        style: buildEdgeStyle(edge, dark),
       });
     }
   });

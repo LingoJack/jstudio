@@ -46,6 +46,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize,
+  Grid3x3,
 } from 'lucide-react';
 
 import {
@@ -55,6 +56,16 @@ import {
   type GraphNodeShape,
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
+import {
+  paletteFor,
+  FONT_LIGHT,
+  FONT_DARK,
+  EDGE_LIGHT,
+  EDGE_DARK,
+  SHAPE_STROKE_WIDTH,
+  SHAPE_FONT_SIZE,
+  SHAPE_ARC_SIZE,
+} from './graphTheme';
 
 /* ------------------------------------------------------------------ */
 /* Props — 必须与 ExcalidrawCanvasProps 完全一致                       */
@@ -95,25 +106,40 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
   text: '文本',
 };
 
-/** shape → maxGraph 样式对象（飞书圆角规格）。 */
-function styleForShape(shape: GraphNodeShape): Record<string, unknown> {
+/**
+ * shape → maxGraph 样式对象（飞书圆角规格 + 按形状区分的淡彩配色）。
+ * 注意：text 形状无填充无边框。
+ */
+function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unknown> {
+  const pal = paletteFor(shape, dark);
+  const base: Record<string, unknown> = {
+    fillColor: pal.fill,
+    strokeColor: pal.stroke,
+    strokeWidth: SHAPE_STROKE_WIDTH,
+    fontSize: SHAPE_FONT_SIZE,
+    fontColor: dark ? FONT_DARK : FONT_LIGHT,
+  };
   switch (shape) {
     case 'rounded':
-      return { shape: 'rectangle', rounded: true, absoluteArcSize: true, arcSize: SHAPE_ARC_SIZE };
+      return { ...base, shape: 'rectangle', rounded: true, absoluteArcSize: true, arcSize: SHAPE_ARC_SIZE };
     case 'diamond':
-      return { shape: 'rhombus' };
+      return { ...base, shape: 'rhombus' };
     case 'ellipse':
-      return { shape: 'ellipse' };
+      return { ...base, shape: 'ellipse' };
     case 'text':
-      return { shape: 'text', fillColor: 'none', strokeColor: 'none' };
+      return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: dark ? FONT_DARK : FONT_LIGHT, fontSize: SHAPE_FONT_SIZE };
     case 'rectangle':
     default:
-      return { shape: 'rectangle' };
+      return { ...base, shape: 'rectangle' };
   }
 }
 
 /** 网格步长（draw.io 同款 10px）。 */
 const GRID_SIZE = 10;
+
+/** 事件容差：鼠标按下后移动超过该值才算"拖动"（拉线/拖节点）。
+ *  maxGraph 默认很小导致一碰就触发拉线，调大让按下后小幅抖动不误触。 */
+const EVENT_TOLERANCE = 8;
 
 /** 缩放上下限，防止用户缩到不可用。 */
 const ZOOM_MIN = 0.25;
@@ -123,35 +149,14 @@ const ZOOM_MAX = 4;
 const MIN_DRAW_SIZE = 12;
 
 /**
- * 飞书文档画板风格配色（简洁克制）：
- *   - 浅色：接近白的极浅填充 + 中性灰细描边 + 深灰文字，弱化重蓝。
- *   - 暗色：深灰填充 + 柔和浅灰描边，保证深底上清晰又不刺眼。
- * 连线一律中性灰细线，视觉退让给图形本身。
- */
-const PALETTE = {
-  light: { fill: '#ffffff', stroke: '#bfc4cc', font: '#1f2329', edge: '#8f959e' },
-  dark: { fill: '#2a2d31', stroke: '#5a6068', font: '#e6e8eb', edge: '#7a808a' },
-} as const;
-
-/** 描边宽度、字号、圆角——统一走飞书的克制规格。 */
-const SHAPE_STROKE_WIDTH = 1;
-const SHAPE_FONT_SIZE = 13;
-const SHAPE_ARC_SIZE = 6; // 圆角矩形的绝对圆角半径（px）
-
-/**
- * 节点四边中点 + 四角的固定连接点（相对坐标 0~1）。
- * 悬停节点边缘时 ConnectionHandler 会把这些点渲染成绿色十字，
- * 从任一点拖出即为精确连线（draw.io 手感）。
+ * 连接点：仅保留四边中点（4 个），而非八点。
+ * 点位更稀疏 → 悬停时高亮范围更小、更"定点"，降低误触发拉线。
  */
 const CONNECTION_POINTS: Array<[number, number]> = [
   [0.5, 0],
-  [1, 0],
   [1, 0.5],
-  [1, 1],
   [0.5, 1],
-  [0, 1],
   [0, 0.5],
-  [0, 0],
 ];
 
 /* ------------------------------------------------------------------ */
@@ -177,6 +182,18 @@ export function GraphCanvas({
   const setPending = useCallback((shape: GraphNodeShape | null) => {
     pendingShapeRef.current = shape;
     setPendingShape(shape);
+  }, []);
+  // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
+  const [showGrid, setShowGrid] = useState(true);
+  const toggleGrid = useCallback(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    setShowGrid((prev) => {
+      const next = !prev;
+      // 引擎的网格吸附也随之开关（吸附只在网格显示时有意义）。
+      graph.setGridEnabled(next);
+      return next;
+    });
   }, []);
   // 暗色模式在初始化时读取一次即可（切换由下方 effect 处理容器底色）。
   const darkModeRef = useRef(darkMode);
@@ -254,6 +271,9 @@ export function GraphCanvas({
     // 选中图形后显示八向缩放手柄，可鼠标拖拽改大小（VertexHandler 内置）。
     graph.setCellsResizable(true);
     graph.setCellsMovable(true);
+    // 降低拉线灵敏度：按下后移动超过 tolerance 像素才算"开始拉线/拖动"，
+    // 默认很小导致轻点边缘就误触发连线。
+    graph.setEventTolerance(EVENT_TOLERANCE);
 
     // Alt + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
     // 让 Ctrl/Cmd 空出来给"平移画布"用）。
@@ -278,21 +298,23 @@ export function GraphCanvas({
     const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
     if (selectionHandler) selectionHandler.guidesEnabled = true;
 
-    // 节点默认配色（飞书简洁风：极浅填充 + 中性灰细描边 + 深灰文字）。
-    const pal = darkModeRef.current ? PALETTE.dark : PALETTE.light;
+    // 节点默认配色：取矩形（淡蓝）作为兜底默认；具体每种形状在创建时
+    // 由 styleForShape 带上各自配色，覆盖此默认。
+    const dark = darkModeRef.current;
+    const defaultPal = paletteFor('rectangle', dark);
     const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
-    vertexDefault.fillColor = pal.fill;
-    vertexDefault.strokeColor = pal.stroke;
-    vertexDefault.fontColor = pal.font;
+    vertexDefault.fillColor = defaultPal.fill;
+    vertexDefault.strokeColor = defaultPal.stroke;
+    vertexDefault.fontColor = dark ? FONT_DARK : FONT_LIGHT;
     vertexDefault.strokeWidth = SHAPE_STROKE_WIDTH;
     vertexDefault.fontSize = SHAPE_FONT_SIZE;
 
-    // 全局默认走正交连线（与 draw.io 手感一致），线用中性灰细线。
+    // 全局默认走正交连线（飞书手感：圆角折线 + 小箭头），线用中性灰细线。
     const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
     edgeDefault.edgeStyle = 'orthogonalEdgeStyle';
     edgeDefault.rounded = true;
     edgeDefault.endArrow = 'classic';
-    edgeDefault.strokeColor = pal.edge;
+    edgeDefault.strokeColor = dark ? EDGE_DARK : EDGE_LIGHT;
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
 
     // 为每个节点提供固定连接点（四边中点 + 四角）：悬停边缘时高亮绿色十字，
@@ -334,7 +356,7 @@ export function GraphCanvas({
     applyingRef.current = true;
     try {
       graph.batchUpdate(() => {
-        applySnapshotToGraph(graph, parseGraphSnapshot(initialSnapshotRef.current));
+        applySnapshotToGraph(graph, parseGraphSnapshot(initialSnapshotRef.current), darkModeRef.current);
       });
     } finally {
       applyingRef.current = false;
@@ -432,7 +454,7 @@ export function GraphCanvas({
           value: SHAPE_LABEL[shape],
           position: [x, y],
           size: [w, h],
-          style: styleForShape(shape),
+          style: styleForShape(shape, darkModeRef.current),
         });
         graph.setSelectionCell(cell);
       });
@@ -489,7 +511,7 @@ export function GraphCanvas({
     }
     applyingRef.current = true;
     try {
-      applySnapshotToGraph(graph, parseGraphSnapshot(initialSnapshot));
+      applySnapshotToGraph(graph, parseGraphSnapshot(initialSnapshot), darkMode);
       lastEmittedRef.current = initialSnapshot;
     } finally {
       applyingRef.current = false;
@@ -666,7 +688,9 @@ export function GraphCanvas({
       tabIndex={editing ? 0 : -1}
       className={`jgraph-canvas-root ${className} ${
         editing ? 'is-editing' : 'is-readonly'
-      } ${darkMode ? 'is-dark' : ''} ${pendingShape ? 'is-drawing' : ''}`}
+      } ${darkMode ? 'is-dark' : ''} ${pendingShape ? 'is-drawing' : ''} ${
+        showGrid ? '' : 'is-grid-off'
+      }`}
       style={{
         width: '100%',
         height: '100%',
@@ -739,6 +763,14 @@ export function GraphCanvas({
             onClick={handleFit}
           >
             <Maximize size={16} />
+          </button>
+          <button
+            type="button"
+            className={`jgraph-tool-btn ${showGrid ? 'is-active' : ''}`}
+            title={showGrid ? '隐藏网格' : '显示网格'}
+            onClick={toggleGrid}
+          >
+            <Grid3x3 size={16} />
           </button>
         </div>
       )}

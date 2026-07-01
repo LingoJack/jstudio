@@ -2813,6 +2813,12 @@ button {
   background-size: 10px 10px;
 }
 
+/* 网格关闭：去掉底纹（引擎的网格吸附也一并由 setGridEnabled 关闭） */
+.jgraph-canvas-root.is-grid-off .jgraph-surface,
+.jgraph-canvas-root.is-grid-off.is-dark .jgraph-surface {
+  background-image: none;
+}
+
 /* 暗色模式：maxGraph 默认绘制在白底上，整体反相不可取，
    仅调整容器底色，节点/连线颜色由 snapshot 内的样式控制。 */
 .jgraph-canvas-root.is-dark,
