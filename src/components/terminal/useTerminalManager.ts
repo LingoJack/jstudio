@@ -214,9 +214,18 @@ export function useTerminalManager(
         // In Tauri's WKWebView the browser's native paste event is unreliable
         // when the terminal textarea has focus — we read the clipboard via
         // Tauri's clipboard-manager plugin and feed it manually.
+        //
+        // CRITICAL: attachCustomKeyEventHandler returning `false` only skips
+        // xterm's own keydown handling — it does NOT call
+        // event.preventDefault(). The browser therefore still fires a native
+        // `paste` event on the textarea, and xterm's internal paste listener
+        // reads clipboardData and pastes again on top of our manual
+        // term.paste(), producing duplicate content. We must explicitly
+        // preventDefault() here to suppress the native paste path.
         const isMac = navigator.platform.toLowerCase().includes('mac');
         const isPaste = isMac ? event.metaKey : event.ctrlKey;
         if (isPaste && (event.key === 'v' || event.key === 'V')) {
+          event.preventDefault();
           readText()
             .then((text) => {
               if (text) term.paste(text);
