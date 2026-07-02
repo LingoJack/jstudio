@@ -40,6 +40,16 @@ import SectionOutline from './SectionOutline';
 
 /** Target number of top-level blocks per section. */
 const SECTION_SIZE = 30;
+/** A section is split when it grows beyond this (e.g. after inserting many
+ *  blocks). Splitting keeps each ProseMirror instance small so typing stays
+ *  fast. Set above SECTION_SIZE so a section isn't split the moment it's
+ *  created (sections are created at exactly SECTION_SIZE). */
+const SECTION_MAX = Math.round(SECTION_SIZE * 1.6); // 48
+/** Two adjacent sections are merged when their combined size is at or below
+ *  this (e.g. after deleting many blocks), avoiding a proliferation of tiny
+ *  sections. Kept below SECTION_SIZE so a freshly-split section (~SECTION_SIZE
+ *  each) isn't immediately re-merged. */
+const SECTION_MERGE_BELOW = Math.round(SECTION_SIZE * 0.5); // 15
 
 interface SectionState {
   id: string;
@@ -146,6 +156,18 @@ export default function SectionedBlockEditor() {
     ed.on('focus', () => {
       focusedEditorRef.current = ed;
       setFocusedEditor(ed);
+    });
+    // Clean up the map entry + focused refs when this editor is destroyed
+    // (section unmounted, e.g. after a re-balance remount) so stale instances
+    // don't accumulate or leave a destroyed editor as the "focused" one.
+    ed.on('destroy', () => {
+      if (sectionEditorsRef.current.get(sectionId) === ed) {
+        sectionEditorsRef.current.delete(sectionId);
+      }
+      if (focusedEditorRef.current === ed) {
+        focusedEditorRef.current = null;
+        setFocusedEditor((prev) => (prev === ed ? null : prev));
+      }
     });
   }, []);
 
@@ -328,6 +350,94 @@ export default function SectionedBlockEditor() {
     [],
   );
 
+  // ── Live re-balance ──
+  // When a section loses focus, check whether it has grown too large (needs
+  // splitting) or shrunk too small (should merge with a neighbour). We do this
+  // ONLY on blur so we never remount the section the user is actively editing
+  // (which would clobber the caret). Splitting a large section back into
+  // ~SECTION_SIZE chunks keeps each ProseMirror instance small so typing stays
+  // fast even after heavy local editing.
+  //
+  // A monotonic seq guarantees fresh, unique ids on every re-balance so React
+  // remounts exactly the changed sections (new key → remount → reload content).
+  const rebalanceSeqRef = useRef(0);
+  const handleSectionBlur = useCallback((sectionId: string) => {
+    // Defer to idle time — blur often precedes a focus on another section
+    // (clicking into a neighbour); doing structural work synchronously here
+    // could interrupt that focus transition.
+    const run = () => {
+      const current = sectionsRef.current;
+      const idx = current.findIndex((s) => s.id === sectionId);
+      if (idx === -1) return;
+
+      // Never re-balance a section that currently holds focus (the user may
+      // have clicked back into it during the idle delay).
+      const focusedEd = focusedEditorRef.current;
+      const sec = current[idx];
+
+      let next: SectionState[] | null = null;
+
+      // ── Split: section grew beyond SECTION_MAX ──
+      if (sec.blocks.length > SECTION_MAX) {
+        // Don't split the focused section.
+        const edForSec = sectionEditorsRef.current.get(sectionId);
+        if (edForSec && edForSec === focusedEd && edForSec.isFocused) return;
+
+        const seq = ++rebalanceSeqRef.current;
+        const chunks: SectionState[] = [];
+        for (let i = 0; i < sec.blocks.length; i += SECTION_SIZE) {
+          chunks.push({
+            id: `${sec.id}~s${seq}_${i / SECTION_SIZE}`,
+            blocks: sec.blocks.slice(i, i + SECTION_SIZE),
+          });
+        }
+        next = [...current.slice(0, idx), ...chunks, ...current.slice(idx + 1)];
+      }
+      // ── Merge: section shrank and can combine with the next one ──
+      else if (
+        sec.blocks.length <= SECTION_MERGE_BELOW &&
+        idx + 1 < current.length &&
+        current[idx].blocks.length + current[idx + 1].blocks.length <= SECTION_SIZE
+      ) {
+        const nextSec = current[idx + 1];
+        // Don't merge if EITHER section is focused (both remount on merge).
+        const edA = sectionEditorsRef.current.get(sectionId);
+        const edB = sectionEditorsRef.current.get(nextSec.id);
+        if (
+          (edA && edA === focusedEd && edA.isFocused) ||
+          (edB && edB === focusedEd && edB.isFocused)
+        ) {
+          return;
+        }
+        const seq = ++rebalanceSeqRef.current;
+        const merged: SectionState = {
+          id: `${sec.id}~m${seq}`,
+          blocks: [...sec.blocks, ...nextSec.blocks],
+        };
+        next = [...current.slice(0, idx), merged, ...current.slice(idx + 2)];
+      }
+
+      if (next) {
+        sectionsRef.current = next;
+        setSections(next);
+        // Keep all sections visible after a re-balance (split increases the
+        // count). Re-balance only happens after the doc is fully loaded and
+        // the user is editing, so everything should already be mounted; bump
+        // visibleCount to cover any newly-split sections immediately.
+        setVisibleCount(next.length);
+        // Structure changed → the remounted sections reload content via their
+        // own setTimeout. renderedDocId stays as-is (doc id unchanged), so no
+        // skeleton flash.
+      }
+    };
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(run, { timeout: 500 });
+    } else {
+      setTimeout(run, 50);
+    }
+  }, []);
+
   // Stable section list for rendering — identity preserved across edits.
   const renderSections = useMemo(() => sections, [sections]);
 
@@ -509,6 +619,7 @@ export default function SectionedBlockEditor() {
               onExitToTitle={handleExitToTitle}
               onEditorReady={(ed) => handleEditorReady(s.id, ed)}
               onSectionLoaded={handleSectionLoaded}
+              onSectionBlur={handleSectionBlur}
             />
           ))}
           {/* Skeleton overlay while sections are loading content.

@@ -76,6 +76,10 @@ interface SectionEditorProps {
   /** Called after setContent completes (inside the setTimeout callback), so
    *  the parent knows content is now visible and can hide the Skeleton. */
   onSectionLoaded?: () => void;
+  /** Called when this section loses focus (blur). The parent uses this as a
+   *  safe point to re-balance (split/merge) the section without disrupting an
+   *  in-progress edit — the caret has already left this section. */
+  onSectionBlur?: (sectionId: string) => void;
 }
 
 export default function SectionEditor({
@@ -94,6 +98,7 @@ export default function SectionEditor({
   onExitToTitle,
   onEditorReady,
   onSectionLoaded,
+  onSectionBlur,
 }: SectionEditorProps) {
   const { t } = useI18n();
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,6 +124,8 @@ export default function SectionEditor({
   onEditorReadyRef.current = onEditorReady;
   const onSectionLoadedRef = useRef(onSectionLoaded);
   onSectionLoadedRef.current = onSectionLoaded;
+  const onSectionBlurRef = useRef(onSectionBlur);
+  onSectionBlurRef.current = onSectionBlur;
 
   // Stable editor ref for paste/drop handlers.
   const editorRef = useRef<Editor | null>(null);
@@ -357,15 +364,31 @@ export default function SectionEditor({
   useEffect(() => {
     if (!editor) return;
     const ping = () => notifyCaretRef.current?.();
+    // On blur: flush this section's pending edits synchronously (so a pending
+    // 300ms debounce isn't lost), then notify the parent it's a safe point to
+    // re-balance (split/merge) — the caret has left this section.
+    const onBlur = () => {
+      ping();
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        if (editor && !editor.isDestroyed) {
+          const json = editor.getJSON();
+          const blocks = tiptapJSONToOurBlocks(json.content ?? []);
+          onChangeRef.current(sectionId, blocks);
+        }
+      }
+      onSectionBlurRef.current?.(sectionId);
+    };
     editor.on('selectionUpdate', ping);
     editor.on('update', ping);
     editor.on('focus', ping);
-    editor.on('blur', ping);
+    editor.on('blur', onBlur);
     return () => {
       editor.off('selectionUpdate', ping);
       editor.off('update', ping);
       editor.off('focus', ping);
-      editor.off('blur', ping);
+      editor.off('blur', onBlur);
     };
   }, [editor]);
 
