@@ -570,6 +570,47 @@ export default function SectionedBlockEditor() {
     el.setSelectionRange(len, len);
   }, []);
 
+  // ------------------------------------------------------------------
+  // Click on blank area below editor content — focus end of the last section
+  //
+  // Mirrors BlockEditor's handleBlankAreaClick: distinguish a genuine CLICK
+  // from a drag-selection by recording the mousedown position; if the mouse
+  // moved more than a few pixels, treat it as a drag and do NOT refocus.
+  // ------------------------------------------------------------------
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const handleBlankAreaClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // If the mouse moved between mousedown and click, it was a drag-
+      // selection, not a click — do not steal focus.
+      const down = mouseDownPosRef.current;
+      if (down) {
+        const dx = Math.abs(e.clientX - down.x);
+        const dy = Math.abs(e.clientY - down.y);
+        if (dx > 3 || dy > 3) return; // dragged more than 3px → selection
+      }
+      mouseDownPosRef.current = null;
+
+      // Skip if clicking inside any section editor (it handles its own clicks).
+      // We only want to focus when the click lands on the blank trailing area
+      // below all sections.
+      const target = e.target as HTMLElement;
+      if (target.closest('.tiptap.ProseMirror')) return;
+
+      // Focus to end of the last visible section's editor.
+      const order = sectionOrderRef.current;
+      const lastId = order[order.length - 1];
+      if (!lastId) return;
+      const handle = focusHandlesRef.current.get(lastId);
+      handle?.focusEnd();
+    },
+    [],
+  );
+
   // Show skeleton when the editor body hasn't caught up with the active doc
   // (during a tab switch). renderedDocId is set only after the first batch of
   // visible sections has finished loading their content.
@@ -582,6 +623,8 @@ export default function SectionedBlockEditor() {
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+        onMouseDown={handleMouseDown}
+        onClick={handleBlankAreaClick}
       >
         {/* Document Title */}
         <div className="px-4 md:px-12 lg:px-20 pb-4">
