@@ -22,6 +22,7 @@ import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
 } from '../../../lib/editor/tiptapAdapter';
+import { createPasteHandler, createDropHandler } from '../../../lib/editor/editorPasteDrop';
 import { createSectionExtensions } from './extensions';
 import type { Block } from '../../../types';
 
@@ -65,6 +66,16 @@ interface SectionEditorProps {
   onMergeApplied?: (sectionId: string) => void;
   /** Poke the shared cursor trail to re-measure (caret may have moved). */
   notifyCaret?: () => void;
+  /** Called when the caret exits the top of the first block (ArrowUp/Left at
+   *  doc start). The parent uses this to focus the document title input. */
+  onExitToTitle?: () => void;
+  /** Called once the editor instance is ready (after mount). The parent uses
+   *  this to render FormatBubbleMenu / TableControls against the focused
+   *  section's editor. */
+  onEditorReady?: (editor: Editor) => void;
+  /** Called after setContent completes (inside the setTimeout callback), so
+   *  the parent knows content is now visible and can hide the Skeleton. */
+  onSectionLoaded?: () => void;
 }
 
 export default function SectionEditor({
@@ -80,6 +91,9 @@ export default function SectionEditor({
   pendingMergeBoundary,
   onMergeApplied,
   notifyCaret,
+  onExitToTitle,
+  onEditorReady,
+  onSectionLoaded,
 }: SectionEditorProps) {
   const { t } = useI18n();
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,6 +113,15 @@ export default function SectionEditor({
   onJumpDocEndRef.current = onJumpDocEnd;
   const onMergeUpRef = useRef(onMergeUp);
   onMergeUpRef.current = onMergeUp;
+  const onExitToTitleRef = useRef(onExitToTitle);
+  onExitToTitleRef.current = onExitToTitle;
+  const onEditorReadyRef = useRef(onEditorReady);
+  onEditorReadyRef.current = onEditorReady;
+  const onSectionLoadedRef = useRef(onSectionLoaded);
+  onSectionLoadedRef.current = onSectionLoaded;
+
+  // Stable editor ref for paste/drop handlers.
+  const editorRef = useRef<Editor | null>(null);
 
   const handleChange = useCallback(
     ({ editor }: { editor: Editor }) => {
@@ -114,7 +137,10 @@ export default function SectionEditor({
   );
 
   const editor = useEditor({
-    extensions: createSectionExtensions({ placeholder: t('editor.placeholder') }),
+    extensions: createSectionExtensions({
+      placeholder: t('editor.placeholder'),
+      onExitToTitle: () => onExitToTitleRef.current?.(),
+    }),
     // Initialize with a valid empty doc node (NOT the block array). The real
     // section content is loaded via setContent() once the editor is ready —
     // this mirrors BlockEditor and avoids passing a bare JSONContent[] into
@@ -126,6 +152,8 @@ export default function SectionEditor({
       attributes: {
         class: 'max-w-none focus:outline-none px-4 md:px-12 lg:px-20',
       },
+      handlePaste: createPasteHandler(editorRef),
+      handleDrop: createDropHandler(editorRef),
       // Cross-section caret navigation: when the caret is at the very top of
       // this section and ArrowUp/Left is pressed, hand focus to the previous
       // section's end; at the very bottom with ArrowDown/Right, hand to the
@@ -212,6 +240,14 @@ export default function SectionEditor({
     },
   });
 
+  // Keep editor ref in sync for paste/drop handlers + expose to parent.
+  useEffect(() => {
+    editorRef.current = editor;
+    if (editor && onEditorReady) {
+      onEditorReadyRef.current?.(editor);
+    }
+  }, [editor]);
+
   // Expose imperative focus handles to the parent so a neighbouring section
   // can move the caret into this one at the correct edge.
   useEffect(() => {
@@ -284,6 +320,10 @@ export default function SectionEditor({
       requestAnimationFrame(() => {
         isReplacingRef.current = false;
       });
+
+      // Notify parent that this section's content is loaded so it can
+      // hide the Skeleton overlay once ALL sections are ready.
+      onSectionLoadedRef.current?.();
     }, 0);
 
     // Cancel the deferred load if the effect re-runs before it fires.

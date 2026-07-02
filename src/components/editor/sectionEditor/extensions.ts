@@ -38,9 +38,14 @@ import { SelectAllText } from '../../../lib/extensions/selectAllText';
 import { ImeCapsLockFix } from '../../../lib/extensions/imeCapsLockFix';
 import { TaskListMarkdown } from '../../../lib/extensions/taskListMarkdown';
 import { SlashMenuExtension } from '../../../lib/editor/slashMenu';
+import { BlockNavigation } from '../../../lib/editor/blockNavigation';
 
 export interface SectionExtensionOptions {
   placeholder: string;
+  /** Called when the caret exits the top of the first block in this section
+   *  (ArrowUp/Left at doc start). The parent uses this to focus the document
+   *  title input. */
+  onExitToTitle?: () => void;
 }
 
 export function createSectionExtensions(
@@ -82,6 +87,9 @@ export function createSectionExtensions(
     SelectAllText,
     ImeCapsLockFix,
     SlashMenuExtension,
+    BlockNavigation.configure({
+      onExitToTitle: opts.onExitToTitle,
+    }),
     Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
   ];
 }

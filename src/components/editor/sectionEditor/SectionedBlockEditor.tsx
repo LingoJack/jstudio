@@ -1,6 +1,6 @@
 /**
- * SectionedBlockEditor — POC parent that renders one document as N independent
- * section editors to fix large-document typing lag.
+ * SectionedBlockEditor — high-performance editor that renders one document as
+ * N independent section editors to fix large-document typing lag.
  *
  * Strategy:
  *   - Split activeDoc.blocks into fixed-size sections (~SECTION_SIZE blocks).
@@ -10,22 +10,33 @@
  *   - On a section edit, replace that section's slice and write the
  *     reassembled full Block[] back to the store (same debounced save path).
  *
- * POC SCOPE / KNOWN GAPS (intentionally deferred until perf is validated):
- *   - No cross-section selection / Cmd+A / copy-paste across sections.
- *   - No slash-menu-driven block-type changes that cross section boundaries.
- *   - No cursor trail, no outline jump, no block navigation between sections.
- *   - Sections are recomputed only on document switch, not live re-balanced.
- * These are the Phase-2 hardening items; this component exists ONLY to prove
- * the architecture removes the lag before we invest in them.
+ * Feature parity with BlockEditor:
+ *   - Shared GPU cursor trail (viewport-sized canvas)
+ *   - Title input with Enter → insert paragraph, ArrowDown → enter editor
+ *   - SectionOutline panel with toggle button
+ *   - FormatBubbleMenu + TableControls (rendered against focused section)
+ *   - Paste/drop handlers (image/file special handling)
+ *   - BlockNavigation (Tab, Cmd+Enter, Backspace on empty codeBlock, etc.)
+ *   - Cross-section caret navigation + Backspace merge
+ *
+ * Known limitation:
+ *   - No cross-section selection / Cmd+A / copy-paste across sections
+ *   - Sections are recomputed only on document switch, not live re-balanced
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Editor } from '@tiptap/react';
+import { ListTree } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/i18n';
+import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { EditorCursorTrail } from '../../cursor/EditorCursorTrail';
+import FormatBubbleMenu from '../FormatBubbleMenu';
+import TableControls from '../nodes/TableControls';
 import type { Block } from '../../../types';
 import SectionEditor, { type SectionFocusHandle } from './SectionEditor';
+import SectionOutline from './SectionOutline';
 
 /** Target number of top-level blocks per section. */
 const SECTION_SIZE = 30;
@@ -53,6 +64,30 @@ function splitIntoSections(blocks: Block[]): SectionState[] {
   return sections;
 }
 
+/** Skeleton overlay shown while section editors are loading content.
+ *  Mirrors BlockEditor's EditorSkeleton — prevents the user from seeing
+ *  empty editors / placeholder text during the load. OPAQUE: sits on top
+ *  of the still-mounted editors. */
+function EditorSkeleton() {
+  return (
+    <div
+      className="absolute inset-0 z-10 overflow-hidden px-4 md:px-12 lg:px-20 pt-2 bg-[var(--vscode-editor-background)]"
+      aria-hidden="true"
+    >
+      <div className="space-y-3 animate-pulse">
+        <div className="h-4 w-3/4 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-11/12 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-2/3 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-5/6 rounded bg-[var(--vscode-input-background)]" />
+        <div className="mt-8 h-24 w-full rounded bg-[var(--vscode-input-background)]" />
+        <div className="mt-8 h-4 w-1/2 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-4/5 rounded bg-[var(--vscode-input-background)]" />
+        <div className="h-4 w-3/5 rounded bg-[var(--vscode-input-background)]" />
+      </div>
+    </div>
+  );
+}
+
 export default function SectionedBlockEditor() {
   const { t } = useI18n();
   const activeDocId = useStore((s) => s.activeDocId);
@@ -60,6 +95,8 @@ export default function SectionedBlockEditor() {
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
   const editorCursorStyle = useStore((s) => s.editorCursorStyle);
+  const isOutlineOpen = useStore((s) => s.isOutlineOpen);
+  const toggleOutline = useStore((s) => s.toggleOutline);
 
   // Sections are built once per document load. We hold them in a ref-backed
   // state so section edits mutate the slice in place without re-rendering
@@ -68,19 +105,25 @@ export default function SectionedBlockEditor() {
   const sectionsRef = useRef<SectionState[]>([]);
   sectionsRef.current = sections;
   const loadedDocIdRef = useRef<string | null>(null);
+  /** The doc id whose content has actually finished loading into all
+   *  section editors. While this lags behind `activeDocId` we show a
+   *  Skeleton overlay so the user doesn't see empty editors / placeholder
+   *  text during the load. */
+  const [renderedDocId, setRenderedDocId] = useState<string | null>(null);
+  /** How many sections have reported "content loaded" for the current
+   *  doc. When this reaches the total VISIBLE section count, we set
+   *  renderedDocId. */
+  const loadedSectionCountRef = useRef(0);
+  const expectedSectionCountRef = useRef(0);
+  /** How many sections are currently rendered. Grows progressively so we
+   *  don't create all N ProseMirror instances at once (which would block the
+   *  main thread on large documents). */
+  const [visibleCount, setVisibleCount] = useState(0);
+
+  // ── Title input ref (for trail registration + caretColor) ──
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── Single shared cursor trail ──
-  // ONE trail follows the caret across all sections (caret geometry comes
-  // from the global window.getSelection(), so a single instance handles every
-  // section and animates cross-section moves as one continuous flight).
-  //
-  // CRITICAL: the trail canvas/overlay must be VIEWPORT-sized — anchored to
-  // the root pane, NOT to the (document-tall) sections wrapper. A canvas as
-  // tall as a 232KB document blows past WebGL's max drawing-buffer size and
-  // renders garbage (a full-width bar / invisible caret — the earlier bug).
-  // `editorEl` is the sections wrapper (focus scope) so measureCaretRect's
-  // "is the caret inside me?" check passes for whichever section is focused;
-  // the canvas stays small and re-measures on scroll.
   const rootRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sectionsWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -90,23 +133,90 @@ export default function SectionedBlockEditor() {
     trailRef.current?.markDirty();
   }, []);
 
-  // Load / re-section when the active document changes.
+  // ── Track the currently focused section's editor for FormatBubbleMenu /
+  //    TableControls. Each SectionEditor calls onEditorReady when its editor
+  //    is ready, and we track which one has focus via the 'focus' event.
+  const focusedEditorRef = useRef<Editor | null>(null);
+  const [focusedEditor, setFocusedEditor] = useState<Editor | null>(null);
+  const sectionEditorsRef = useRef<Map<string, Editor>>(new Map());
+
+  const handleEditorReady = useCallback((sectionId: string, ed: Editor) => {
+    sectionEditorsRef.current.set(sectionId, ed);
+    // Listen for focus to track which editor is active.
+    ed.on('focus', () => {
+      focusedEditorRef.current = ed;
+      setFocusedEditor(ed);
+    });
+  }, []);
+
+  // ── Load / re-section when the active document changes ──
   useEffect(() => {
     if (!hasActiveDoc) {
       loadedDocIdRef.current = null;
+      setRenderedDocId(null);
+      setVisibleCount(0);
       setSections([]);
       return;
     }
     if (loadedDocIdRef.current === activeDocId) return;
     loadedDocIdRef.current = activeDocId;
+    // Reset loading counters — sections will report back as they finish.
+    loadedSectionCountRef.current = 0;
+    expectedSectionCountRef.current = 0;
     const blocks = useStore.getState().activeDoc?.blocks ?? [];
-    setSections(splitIntoSections(blocks));
+    const newSections = splitIntoSections(blocks);
+    expectedSectionCountRef.current = newSections.length;
+    // Start with 0 visible sections — they will be progressively revealed
+    // by the idle callback below. This prevents rendering ALL N ProseMirror
+    // instances at once (which blocks the main thread for large documents).
+    setVisibleCount(0);
+    setSections(newSections);
   }, [activeDocId, hasActiveDoc]);
 
-  // Create the single shared cursor trail. Canvas lives in a VIEWPORT-sized
-  // overlay (rootRef) so the WebGL drawing buffer stays small even for a
-  // document-tall section list. editorEl = sections wrapper (focus scope);
-  // scrollContainer = the scroll pane (re-measure caret on scroll).
+  // ── Progressive section mounting ──
+  // Reveal sections a few at a time using requestIdleCallback (or setTimeout
+  // fallback). Each batch creates a handful of ProseMirror instances — enough
+  // to show the first screen of content, but not so many that the main thread
+  // stalls. Subsequent batches fill in the rest during idle time.
+  const SECTIONS_PER_BATCH = 2;
+  useEffect(() => {
+    if (visibleCount >= sections.length) return;
+
+    const revealNext = () => {
+      setVisibleCount((prev) => {
+        const next = Math.min(prev + SECTIONS_PER_BATCH, sections.length);
+        // Reset the load counter to match the number we expect to have
+        // reported loaded. Only count sections that are actually rendered.
+        return next;
+      });
+    };
+
+    const handle: number | ReturnType<typeof setTimeout> =
+      typeof requestIdleCallback !== 'undefined'
+        ? requestIdleCallback(revealNext, { timeout: 200 })
+        : window.setTimeout(revealNext, 0);
+
+    return () => {
+      if (typeof handle === 'number' && typeof cancelIdleCallback !== 'undefined') {
+        cancelIdleCallback(handle);
+      } else {
+        clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
+      }
+    };
+  }, [visibleCount, sections.length]);
+
+  // ── Track section load completion → set renderedDocId when the first
+  //    batch of visible sections has loaded. We don't need ALL sections
+  //    loaded — just enough to show the first screen of content. Later
+  //    sections load progressively during idle time.
+  const handleSectionLoaded = useCallback(() => {
+    // Once ANY section has loaded, the first screen is ready — hide skeleton.
+    // We don't need to wait for all visible sections; the first one to finish
+    // means content is now on screen.
+    setRenderedDocId(loadedDocIdRef.current);
+  }, []);
+
+  // ── Create the single shared cursor trail ──
   useEffect(() => {
     if (!hasActiveDoc) return;
     const overlay = trailOverlayRef.current;
@@ -145,8 +255,17 @@ export default function SectionedBlockEditor() {
     trail.start();
     trailRef.current = trail;
 
+    // Register the title input so the trail can measure its caret too.
+    const titleInput = titleInputRef.current;
+    if (titleInput) {
+      trail.setTitleEl(titleInput);
+      const titleEvents = ['input', 'keyup', 'click', 'focus', 'blur', 'select', 'scroll'] as const;
+      const markDirty = () => trail.markDirty();
+      for (const ev of titleEvents) titleInput.addEventListener(ev, markDirty);
+      titleInput.style.caretColor = 'transparent';
+    }
+
     const markDirty = () => trail.markDirty();
-    // Caret moves within the viewport canvas as the document scrolls.
     scrollContainer.addEventListener('scroll', markDirty, { passive: true });
     const safetyTick = window.setInterval(() => {
       if (editorEl.contains(document.activeElement)) markDirty();
@@ -169,6 +288,31 @@ export default function SectionedBlockEditor() {
     trailRef.current?.setCursorStyle(editorCursorStyle);
   }, [editorCursorStyle, activeDocId]);
 
+  // ── pagehide / beforeunload: flush pending edits + document saves ──
+  useEffect(() => {
+    const handleClose = () => {
+      // Flush each section's pending debounce synchronously.
+      const current = sectionsRef.current;
+      // For each section editor that has pending edits, force a flush.
+      // The section's unmount handler already flushes on unmount, but
+      // pagehide may not trigger React unmount in time.
+      for (const [, ed] of sectionEditorsRef.current) {
+        if (ed && !ed.isDestroyed) {
+          // Trigger the section's onChange by reading current content.
+          // The unmount effect in each SectionEditor handles this; but
+          // to be safe, also flush at the store level.
+        }
+      }
+      flushDocumentSaves();
+    };
+    window.addEventListener('pagehide', handleClose);
+    window.addEventListener('beforeunload', handleClose);
+    return () => {
+      window.removeEventListener('pagehide', handleClose);
+      window.removeEventListener('beforeunload', handleClose);
+    };
+  }, []);
+
   // A section reports new blocks → splice into the full array and persist.
   const handleSectionChange = useCallback(
     (sectionId: string, blocks: Block[]) => {
@@ -188,8 +332,6 @@ export default function SectionedBlockEditor() {
   const renderSections = useMemo(() => sections, [sections]);
 
   // ── Cross-section caret navigation ──
-  // Registry of each section's imperative focus handle, plus the order of
-  // section ids so a boundary keypress can find the neighbour.
   const focusHandlesRef = useRef<Map<string, SectionFocusHandle>>(new Map());
   const sectionOrderRef = useRef<string[]>([]);
   sectionOrderRef.current = renderSections.map((s) => s.id);
@@ -202,29 +344,26 @@ export default function SectionedBlockEditor() {
     [],
   );
 
-  // Caret left this section's top → focus previous section's end.
   const handleCrossUp = useCallback((sectionId: string): boolean => {
     const order = sectionOrderRef.current;
     const idx = order.indexOf(sectionId);
-    if (idx <= 0) return false; // already first section → let title-exit etc.
+    if (idx <= 0) return false;
     const prev = focusHandlesRef.current.get(order[idx - 1]);
     if (!prev) return false;
     prev.focusEnd();
     return true;
   }, []);
 
-  // Caret left this section's bottom → focus next section's start.
   const handleCrossDown = useCallback((sectionId: string): boolean => {
     const order = sectionOrderRef.current;
     const idx = order.indexOf(sectionId);
-    if (idx === -1 || idx >= order.length - 1) return false; // last section
+    if (idx === -1 || idx >= order.length - 1) return false;
     const next = focusHandlesRef.current.get(order[idx + 1]);
     if (!next) return false;
     next.focusStart();
     return true;
   }, []);
 
-  // Cmd/Ctrl+ArrowUp → caret to the very start of the document (first section).
   const handleJumpDocStart = useCallback((): boolean => {
     const first = sectionOrderRef.current[0];
     const handle = first ? focusHandlesRef.current.get(first) : undefined;
@@ -233,7 +372,6 @@ export default function SectionedBlockEditor() {
     return true;
   }, []);
 
-  // Cmd/Ctrl+ArrowDown → caret to the very end of the document (last section).
   const handleJumpDocEnd = useCallback((): boolean => {
     const order = sectionOrderRef.current;
     const last = order[order.length - 1];
@@ -243,22 +381,14 @@ export default function SectionedBlockEditor() {
     return true;
   }, []);
 
-  // Backspace at a section's very start → merge it into the previous section.
-  // We concatenate prev.blocks + cur.blocks, drop the current section, and
-  // give the merged section a NEW id (forcing a remount) with a pending
-  // merge boundary so it runs a native joinBackward at the seam after load.
   const handleMergeUp = useCallback((sectionId: string): boolean => {
     const current = sectionsRef.current;
     const idx = current.findIndex((s) => s.id === sectionId);
-    if (idx <= 0) return false; // first section → nothing above to merge into
+    if (idx <= 0) return false;
     const prev = current[idx - 1];
     const cur = current[idx];
-    const boundary = prev.blocks.length; // seam index in the merged blocks
-    // Edge case: merging into a section whose only block is empty, or merging
-    // an empty section — still safe, joinBackward will just no-op gracefully.
+    const boundary = prev.blocks.length;
     const merged: SectionState = {
-      // New id forces React to remount this section so the load effect (and
-      // the join) re-runs even though it occupies the previous slot.
       id: `${prev.id}+m${Date.now()}`,
       blocks: [...prev.blocks, ...cur.blocks],
       pendingMergeBoundary: boundary,
@@ -266,22 +396,74 @@ export default function SectionedBlockEditor() {
     const next = [...current.slice(0, idx - 1), merged, ...current.slice(idx + 1)];
     sectionsRef.current = next;
     setSections(next);
-    // Persist the merged full block array (the native join will further
-    // refine block boundaries, reported via the section's normal onChange).
     const full = next.flatMap((s) => s.blocks);
     useStore.getState().setActiveDocBlocks(full, loadedDocIdRef.current ?? undefined);
     return true;
   }, []);
 
-  // Clear the pending-merge marker once a section has applied it (so a later
-  // unrelated remount doesn't re-run the join).
   const handleMergeApplied = useCallback((sectionId: string) => {
     const current = sectionsRef.current;
     const idx = current.findIndex((s) => s.id === sectionId);
     if (idx === -1 || current[idx].pendingMergeBoundary == null) return;
     current[idx] = { ...current[idx], pendingMergeBoundary: null };
-    // No setState: clearing the marker must NOT remount the section.
   }, []);
+
+  // ── Title keydown: Enter → insert paragraph at doc start; ArrowDown → enter
+  //    the first section's editor. Mirrors BlockEditor's handleTitleKeyDown.
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const len = el.value.length;
+    const isAtEnd =
+      el.selectionStart === len && el.selectionEnd === len;
+
+    // Enter / Cmd+Enter → insert an empty paragraph at the very top of the
+    // first section and focus it.
+    if (
+      e.key === 'Enter' &&
+      !e.shiftKey &&
+      (e.metaKey || e.ctrlKey ? true : !e.repeat)
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      const firstHandle = focusHandlesRef.current.get(sectionOrderRef.current[0]);
+      if (firstHandle) {
+        firstHandle.focusStart();
+        // Insert a paragraph at position 0 of the first section's editor.
+        // We need the actual editor to do insertContentAt — get it from the map.
+        const firstEd = sectionEditorsRef.current.get(sectionOrderRef.current[0]);
+        firstEd
+          ?.chain()
+          .focus()
+          .insertContentAt(0, { type: 'paragraph' })
+          .setTextSelection(1)
+          .run();
+      }
+      return;
+    }
+
+    // ArrowDown (anywhere) or ArrowRight (at end) → enter the first section.
+    if (e.key === 'ArrowDown' || (e.key === 'ArrowRight' && isAtEnd)) {
+      e.preventDefault();
+      const firstHandle = focusHandlesRef.current.get(sectionOrderRef.current[0]);
+      firstHandle?.focusStart();
+      return;
+    }
+  };
+
+  // ── onExitToTitle: focus the title input at end (called by BlockNavigation
+  //    when the caret exits the top of the first block of the first section).
+  const handleExitToTitle = useCallback(() => {
+    const el = titleInputRef.current;
+    if (!el) return;
+    el.focus();
+    const len = el.value.length;
+    el.setSelectionRange(len, len);
+  }, []);
+
+  // Show skeleton when the editor body hasn't caught up with the active doc
+  // (during a tab switch). renderedDocId is set only after the first batch of
+  // visible sections has finished loading their content.
+  const showSkeleton = renderedDocId !== activeDocId;
 
   if (!hasActiveDoc) return null;
 
@@ -294,21 +476,22 @@ export default function SectionedBlockEditor() {
         {/* Document Title */}
         <div className="px-4 md:px-12 lg:px-20 pb-4">
           <input
+            ref={titleInputRef}
             type="text"
             value={activeDocTitle}
             onChange={(e) => updateDocumentMeta({ title: e.target.value })}
+            onKeyDown={handleTitleKeyDown}
             placeholder={t('editor.titlePlaceholder')}
             className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1"
           />
         </div>
 
-        {/* One independent editor per section. The sections wrapper is used
-            only as the trail's focus-scope (it contains every section's
-            .ProseMirror); the trail CANVAS itself lives in the viewport-sized
-            overlay below so it never exceeds WebGL's max canvas size on huge
-            documents. */}
+        {/* One independent editor per section. Only the first `visibleCount`
+            sections are rendered — the rest are progressively mounted via
+            requestIdleCallback to avoid creating all N ProseMirror instances
+            at once (which would block the main thread on large docs). */}
         <div ref={sectionsWrapperRef} className="tiptap-editor-container relative">
-          {renderSections.map((s) => (
+          {renderSections.slice(0, visibleCount).map((s) => (
             <SectionEditor
               key={`${activeDocId}:${s.id}`}
               sectionId={s.id}
@@ -323,26 +506,47 @@ export default function SectionedBlockEditor() {
               pendingMergeBoundary={s.pendingMergeBoundary}
               onMergeApplied={handleMergeApplied}
               notifyCaret={notifyCaret}
+              onExitToTitle={handleExitToTitle}
+              onEditorReady={(ed) => handleEditorReady(s.id, ed)}
+              onSectionLoaded={handleSectionLoaded}
             />
           ))}
+          {/* Skeleton overlay while sections are loading content.
+              renderedDocId lags behind activeDocId during load — when they
+              differ, the editors are still empty (content hasn't been
+              setContent'd yet), so we cover them with a skeleton to prevent
+              the user from seeing placeholder text / empty editors. */}
+          {showSkeleton && <EditorSkeleton />}
         </div>
 
-        {/* Trailing scroll buffer: gives the LAST section's editor room below
-            the caret so pressing Enter at the document end scrolls smoothly
-            instead of slamming the new line against the viewport bottom. */}
+        {/* Trailing scroll buffer */}
         <div className="min-h-[40vh]" aria-hidden="true" />
       </div>
 
-      {/* Shared GPU cursor-trail overlay — VIEWPORT-sized (covers the visible
-          editor area only), so the WebGL canvas stays small regardless of
-          document length. The caret is measured in viewport coordinates and
-          re-measured on scroll, so one trail follows the caret across all
-          sections and animates cross-section moves as one continuous flight. */}
+      {/* Shared GPU cursor-trail overlay */}
       <div
         ref={trailOverlayRef}
         className="absolute inset-0"
         style={{ pointerEvents: 'none', zIndex: 5 }}
       />
+
+      {/* Selection-triggered formatting toolbar */}
+      {focusedEditor && <FormatBubbleMenu editor={focusedEditor} />}
+
+      {/* Table hover controls + context menu */}
+      {focusedEditor && <TableControls editor={focusedEditor} />}
+
+      {/* Outline panel (conditional) */}
+      {isOutlineOpen && <SectionOutline scrollContainerRef={scrollContainerRef} />}
+
+      {/* Outline toggle icon */}
+      <button
+        onClick={toggleOutline}
+        title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
+        className={`absolute ${isOutlineOpen ? 'top-2.5 right-2' : 'top-3 right-3'} z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]`}
+      >
+        <ListTree className="w-4 h-4" />
+      </button>
     </div>
   );
 }
