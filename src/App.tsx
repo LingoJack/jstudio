@@ -15,9 +15,7 @@ import DocumentList from './components/documents/DocumentList';
 import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import BlockEditor from './components/editor/BlockEditor';
-// SectionedBlockEditor POC disabled — has a flushSync conflict bug.
-// Re-enable the import below when the POC is hardened.
-// import SectionedBlockEditor from './components/editor/sectionEditor/SectionedBlockEditor';
+import SectionedBlockEditor from './components/editor/sectionEditor/SectionedBlockEditor';
 import Settings from './components/settings/Settings';
 import EmptyState from './components/ui/EmptyState';
 import CommandPalette from './components/editor/CommandPalette';
@@ -256,12 +254,14 @@ export default function App() {
               <Settings />
             ) : !isTerminalView ? (
               hasActiveDoc ? (
-                // SectionedBlockEditor POC is disabled — it has a flushSync
-                // conflict bug (setContent inside useEffect → NodeView mount →
-                // flushSync during React commit → "flushSync was called from
-                // inside a lifecycle method" → stale content on doc switch).
-                // Using the main BlockEditor until the POC is hardened.
-                <BlockEditor />
+                // POC toggle: set localStorage 'jstudio.sectioned' = '1' and
+                // reload to use the sectioned multi-editor (large-doc perf
+                // experiment). Defaults to the existing monolithic editor.
+                localStorage.getItem('jstudio.sectioned') === '1' ? (
+                  <SectionedBlockEditor />
+                ) : (
+                  <BlockEditor />
+                )
               ) : (
                 <EmptyState />
               )

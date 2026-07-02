@@ -103,22 +103,6 @@ function EditorSkeleton() {
   );
 }
 
-// ── TEMP DIAGNOSTIC — assign a stable short id to each Editor instance so we
-//    can tell in the console whether a doc-switch setContent landed on the same
-//    editor the user actually sees, or on a stale/destroyed instance. Remove
-//    once the doc-switch render-stale bug is resolved.
-const editorIdMap = new WeakMap<Editor, number>();
-let editorIdSeq = 0;
-function editorId(ed: Editor | null | undefined): string {
-  if (!ed) return 'null';
-  let id = editorIdMap.get(ed);
-  if (id === undefined) {
-    id = ++editorIdSeq;
-    editorIdMap.set(ed, id);
-  }
-  return `#${id}`;
-}
-
 export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // ── Read-only / static-document mode ──────────────────────────────
   const isStatic = !!doc;
@@ -497,37 +481,6 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       return;
     }
 
-    // TEMP DIAGNOSTIC — capture exactly what the load effect sees on every
-    // doc switch, so we can confirm whether setContent lands on the rendered
-    // editor or a stale/destroyed instance. Remove once the bug is resolved.
-    const __dbgBlocks =
-      useStore.getState().documents.find((d) => d.id === activeDocId)?.blocks ??
-      [];
-    console.log('[docswitch] enter', {
-      activeDocId,
-      loadedDocId: loadedDocIdRef.current,
-      renderedDocId,
-      ed: editorId(editor),
-      edDestroyed: editor.isDestroyed,
-      loadedEditor: editorId(loadedEditorRef.current),
-      sameEd: loadedEditorRef.current === editor,
-      storeActiveDocId: useStore.getState().activeDocId,
-      storeActiveDoc: useStore.getState().activeDoc?.id ?? null,
-      blocksCount: __dbgBlocks.length,
-      blocksPreview: __dbgBlocks
-        .map((b) => {
-          const c = b.content;
-          const txt =
-            typeof c === 'string'
-              ? c
-              : Array.isArray(c) && c[0] && typeof c[0] === 'object' && 'text' in c[0]
-                ? String(c[0].text)
-                : '';
-          return `${b.type}(${txt.slice(0, 14)})`;
-        })
-        .join(' | '),
-    });
-
     // Only reload if BOTH the document id AND the editor instance match.
     //
     // The editor-instance check is essential in dev (StrictMode): TipTap's
@@ -536,10 +489,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     // recreated instance has NOT had any content loaded even though
     // loadedDocIdRef still matches the active doc. Without this check the
     // guard would skip the reload and leave a freshly-created (empty / stale)
-    // editor showing the wrong content under the new document's title —
-    // exactly the "switch back to the new doc and see the other doc's body"
-    // symptom, which only appears in dev because production builds don't run
-    // StrictMode's effect re-invocation.
+    // editor showing the wrong content under the new document's title.
     if (
       loadedDocIdRef.current === activeDocId &&
       loadedEditorRef.current === editor
@@ -547,10 +497,6 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
       // Content is already the active doc's — just make sure the skeleton is
       // cleared (e.g. after a re-render where renderedDocId fell behind).
       if (renderedDocId !== activeDocId) setRenderedDocId(activeDocId);
-      console.log('[docswitch] skip (already loaded)', {
-        activeDocId,
-        ed: editorId(editor),
-      });
       return;
     }
 
@@ -598,11 +544,6 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         targetEditor.commands.setContent(tiptapContent, { emitUpdate: false });
         loadedEditorRef.current = targetEditor;
         setRenderedDocId(targetDocId);
-        console.log('[docswitch] setContent ok', {
-          targetDocId,
-          ed: editorId(targetEditor),
-          blocksCount: blocks.length,
-        });
       } catch (e) {
         console.error('[BlockEditor] setContent failed for doc', targetDocId, e);
         // Recover to an empty body rather than displaying another document's
@@ -786,44 +727,8 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     });
     resizeObserver.observe(overlay);
 
-    // TEMP DEBUG — log what a click resolves to (even when the caret does NOT
-    // land in a code block), so we can see where the caret goes when clicking
-    // a scrolled code block. Runs after the browser sets the selection.
-    const dbgClick = (e: MouseEvent) => {
-      setTimeout(() => {
-        const sel = window.getSelection();
-        const r = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
-        let node: Node | null =
-          r?.startContainer?.nodeType === Node.ELEMENT_NODE
-            ? r.startContainer
-            : r?.startContainer?.parentElement ?? null;
-        let inPre = false;
-        let chain: string[] = [];
-        while (node && chain.length < 8) {
-          const el = node as HTMLElement;
-          chain.push(`${el.nodeName}.${el.className ?? ''}`.trim());
-          if (el.nodeName === 'PRE') inPre = true;
-          node = el.parentElement;
-        }
-        const hit = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-        // eslint-disable-next-line no-console
-        console.log('[caret-dbg] CLICK', {
-          inPre,
-          collapsed: r?.collapsed ?? null,
-          activeEl: document.activeElement
-            ? `${document.activeElement.nodeName}.${(document.activeElement as HTMLElement).className}`
-            : null,
-          editorFocused: editor.isFocused,
-          hitEl: hit ? `${hit.nodeName}.${hit.className}` : null,
-          chain,
-        });
-      }, 0);
-    };
-    document.addEventListener('mousedown', dbgClick, true);
-
     return () => {
       window.clearInterval(safetyTick);
-      document.removeEventListener('mousedown', dbgClick, true);
       scrollContainer.removeEventListener('scroll', markDirty, { capture: true });
       editor.off('selectionUpdate', markDirty);
       editor.off('update', markDirty);

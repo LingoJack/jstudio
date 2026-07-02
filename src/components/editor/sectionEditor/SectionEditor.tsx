@@ -224,38 +224,35 @@ export default function SectionEditor({
     return () => registerFocus(sectionId, null);
   }, [editor, sectionId, registerFocus]);
 
-  // Load this section's blocks once the editor instance exists. We track the
-  // EDITOR INSTANCE (not just a boolean) so that if TipTap recreates the editor
-  // (StrictMode's scheduleDestroy race), the new instance still gets its content
-  // loaded — the old boolean guard would skip it, leaving a fresh empty editor
-  // showing under the new section's title.
+  // Load this section's blocks once the editor instance exists.
+  //
+  // Two problems this effect solves:
+  //
+  // 1. flushSync conflict: setContent() inside a useEffect triggers ProseMirror
+  //    to mount React NodeViews → TipTap calls flushSync → but we're in React's
+  //    commit phase → error → stale content. Fix: defer via setTimeout(0) to the
+  //    next macrotask (queueMicrotask is NOT enough — React 19 schedules passive
+  //    effects via microtasks).
+  //
+  // 2. StrictMode double-invoke: React runs mount→cleanup→mount. If we set the
+  //    "loaded" guard ref synchronously, the cleanup cancels the deferred load,
+  //    and the second mount sees the ref already set → skips → content NEVER
+  //    loads. Fix: set the guard ref INSIDE the setTimeout callback, AFTER
+  //    setContent succeeds. The cleanup only cancels the pending timer; the
+  //    second mount re-schedules a fresh timer that actually fires.
   const loadedEditorRef = useRef<Editor | null>(null);
   useEffect(() => {
     if (!editor) return;
-    // Guard: skip only if BOTH the doc id hasn't changed AND the editor instance
-    // is the same one that already loaded. A recreated editor must always reload.
     if (loadedEditorRef.current === editor) return;
-    loadedEditorRef.current = editor;
+    // NOTE: do NOT set loadedEditorRef here — set it inside the callback below.
 
-    // Defer the setContent dispatch OUT of React's commit phase. When setContent
-    // is called synchronously inside a useEffect, ProseMirror's updateChildren
-    // may mount React NodeViews (for code blocks, images, files, links, etc.).
-    // TipTap's ReactNodeViewRenderer.mount() calls flushSync, which throws
-    // "flushSync was called from inside a lifecycle method" because we're
-    // already inside React's passive-effects commit. The error interrupts the
-    // transaction, leaving the editor with stale/partial content — the root
-    // cause of the "switch back to new doc and see old doc's content" bug.
-    //
-    // IMPORTANT: queueMicrotask is NOT sufficient — React 19 runs passive effects
-    // via processRootScheduleInMicrotask, so a queued microtask can still fire
-    // inside React's commit phase. setTimeout(0) defers to the NEXT macrotask,
-    // which is guaranteed to be after React has finished its commit.
     const targetEditor = editor;
     const content = ourBlocksToTiptapJSON(initialBlocks);
     const doPendingMerge = pendingMergeBoundary;
 
     const loadTimer = setTimeout(() => {
       if (targetEditor.isDestroyed) return;
+      loadedEditorRef.current = targetEditor;
       isReplacingRef.current = true;
       try {
         targetEditor.commands.setContent(content, { emitUpdate: false });
@@ -289,8 +286,9 @@ export default function SectionEditor({
       });
     }, 0);
 
-    // Cancel the deferred load if the effect re-runs before it fires (e.g.
-    // editor recreated, or section unmounts during a rapid doc switch).
+    // Cancel the deferred load if the effect re-runs before it fires.
+    // In StrictMode: first mount's timer is cancelled here, second mount
+    // schedules a fresh timer that fires and loads content.
     return () => clearTimeout(loadTimer);
   }, [editor, initialBlocks, pendingMergeBoundary, onMergeApplied, sectionId]);
 
