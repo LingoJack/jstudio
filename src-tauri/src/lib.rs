@@ -71,6 +71,9 @@ pub fn run() {
             commands::global_shortcut::register_global_shortcut,
             commands::global_shortcut::unregister_global_shortcut,
             commands::global_shortcut::unregister_all_global_shortcuts,
+            // ── debug / build info ──
+            commands::debug::get_build_info,
+            commands::debug::open_devtools,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

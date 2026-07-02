@@ -1,9 +1,23 @@
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import appIcon from '../../assets/app-icon.png';
-import { Github, Mail } from 'lucide-react';
+import { Github, Mail, GitCommit } from 'lucide-react';
 import { useI18n } from '../../lib/i18n';
+
+interface BuildInfo {
+  commit: string;
+  is_dev: boolean;
+}
 
 export default function AboutSection() {
   const { t } = useI18n();
+  const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
+
+  useEffect(() => {
+    invoke<BuildInfo>('get_build_info')
+      .then(setBuildInfo)
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -21,6 +35,16 @@ export default function AboutSection() {
           v{__APP_VERSION__}
         </span>
       </div>
+
+      {/* ── Build info ── */}
+      {buildInfo && (
+        <div className="flex items-center justify-center gap-2 text-xs opacity-50">
+          <GitCommit className="w-3.5 h-3.5" />
+          <code className="font-mono">{buildInfo.commit}</code>
+          <span className="mx-1">·</span>
+          <span>{buildInfo.is_dev ? 'dev' : 'release'}</span>
+        </div>
+      )}
 
       {/* ── Links ── */}
       <div className="border-t border-[var(--vscode-sideBar-border)] pt-6 space-y-2">

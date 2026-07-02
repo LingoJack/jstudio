@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, Bug, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../../lib/i18n';
 import type { TranslationKey } from '../../lib/i18n';
 import { useStore } from '../../store/useStore';
@@ -13,6 +13,7 @@ import TerminalSection from './TerminalSection';
 import ShortcutsSection from './ShortcutsSection';
 import AboutSection from './AboutSection';
 import HelpSection from './HelpSection';
+import DebugSection from './DebugSection';
 
 // ────────────────────────────────────────────────
 // Settings sections
@@ -104,6 +105,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: BookOpen,
   },
   { id: 'about', labelKey: 'settings.about', icon: Info },
+  { id: 'debug', labelKey: 'settings.debug', icon: Bug },
 ];
 
 const SECTIONS: Record<SectionId, () => React.ReactElement> = {
@@ -114,6 +116,7 @@ const SECTIONS: Record<SectionId, () => React.ReactElement> = {
   shortcuts: ShortcutsSection,
   help: HelpSection,
   about: AboutSection,
+  debug: DebugSection,
 };
 
 // ──────────────────────────────────────────────────────────────────

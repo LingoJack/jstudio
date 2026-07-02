@@ -157,6 +157,22 @@ export const translations = {
     'settings.about': '关于',
     'settings.help': '帮助',
     'settings.shortcuts': '快捷键',
+    'settings.debug': '调试',
+
+    // ── Debug section ──
+    'debug.openDevtools': '打开开发者工具',
+    'debug.openDevtoolsDesc': '打开 WebView 检查器（Console / Network / Elements）',
+    'debug.buildInfo': '构建信息',
+    'debug.buildCommit': 'Git Commit',
+    'debug.buildMode': '构建模式',
+    'debug.buildModeDev': 'Debug (开发)',
+    'debug.buildModeRelease': 'Release (生产)',
+    'debug.editorInUse': '当前编辑器',
+    'debug.editorMain': 'BlockEditor (主编辑器)',
+    'debug.editorSectioned': 'SectionedBlockEditor (POC)',
+    'debug.sectionedFlag': 'Sectioned 开关',
+    'debug.clearSectioned': '清除并刷新',
+    'debug.clearSectionedDesc': '移除 localStorage 中的 jstudio.sectioned 标记并重载页面',
 
     // ── General section ──
     'general.latinFont': '英文字体',
@@ -622,6 +638,22 @@ export const translations = {
     'settings.about': 'About',
     'settings.help': 'Help',
     'settings.shortcuts': 'Shortcuts',
+    'settings.debug': 'Debug',
+
+    // ── Debug section ──
+    'debug.openDevtools': 'Open DevTools',
+    'debug.openDevtoolsDesc': 'Open the WebView inspector (Console / Network / Elements)',
+    'debug.buildInfo': 'Build Info',
+    'debug.buildCommit': 'Git Commit',
+    'debug.buildMode': 'Build Mode',
+    'debug.buildModeDev': 'Debug (dev)',
+    'debug.buildModeRelease': 'Release (production)',
+    'debug.editorInUse': 'Active Editor',
+    'debug.editorMain': 'BlockEditor (main)',
+    'debug.editorSectioned': 'SectionedBlockEditor (POC)',
+    'debug.sectionedFlag': 'Sectioned Flag',
+    'debug.clearSectioned': 'Clear & Reload',
+    'debug.clearSectionedDesc': 'Remove jstudio.sectioned from localStorage and reload the page',
 
     // ── General section ──
     'general.latinFont': 'Latin Font',

@@ -11,6 +11,11 @@ fn main() {
         println!("cargo:warning=[jcli-bundle] Skipping bundled j: {}", e);
     }
 
+    // Inject the git commit hash at build time so the frontend can display it
+    // (About page + Debug section). `cargo:rustc-env` makes it available as an
+    // env var at compile time via `env!("JSTUDIO_BUILD_COMMIT")`.
+    inject_build_commit();
+
     // Run the standard Tauri build steps (validates resources, config, etc.)
     tauri_build::build();
 
@@ -118,4 +123,28 @@ fn stage_bundled_j() -> Result<(), String> {
         ws_root.join("target").display(),
         dest.display()
     ))
+}
+
+/// Inject the current git commit hash as `JSTUDIO_BUILD_COMMIT` so the Rust
+/// code can read it via `env!("JSTUDIO_BUILD_COMMIT")` at compile time.
+/// Falls back to "unknown" if git is unavailable or not in a repo.
+fn inject_build_commit() {
+    let commit = std::process::Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                String::from_utf8(o.stdout)
+                    .ok()
+                    .map(|s| s.trim().to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+
+    println!("cargo:rustc-env=JSTUDIO_BUILD_COMMIT={}", commit);
+    // Re-run if HEAD changes (best-effort: just re-run on any change in the repo).
+    println!("cargo:rerun-if-changed=../../.git/HEAD");
 }
