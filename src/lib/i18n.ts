@@ -168,11 +168,11 @@ export const translations = {
     'debug.buildModeDev': 'Debug (开发)',
     'debug.buildModeRelease': 'Release (生产)',
     'debug.editorInUse': '当前编辑器',
-    'debug.editorMain': 'BlockEditor (主编辑器)',
-    'debug.editorSectioned': 'SectionedBlockEditor (POC)',
-    'debug.sectionedFlag': 'Sectioned 开关',
-    'debug.clearSectioned': '清除并刷新',
-    'debug.clearSectionedDesc': '移除 localStorage 中的 jstudio.sectioned 标记并重载页面',
+    'debug.editorMain': 'BlockEditor（主编辑器）',
+    'debug.editorMainDesc': '单实例 ProseMirror，功能完整',
+    'debug.editorSectioned': 'SectionedBlockEditor（高性能）',
+    'debug.editorSectionedDesc': '多实例 ProseMirror，大文档打字更流畅',
+    'debug.editorSwitchHint': '切换后自动保存，重新打开文档生效。大文档场景推荐使用高性能模式。',
 
     // ── General section ──
     'general.latinFont': '英文字体',
@@ -650,10 +650,10 @@ export const translations = {
     'debug.buildModeRelease': 'Release (production)',
     'debug.editorInUse': 'Active Editor',
     'debug.editorMain': 'BlockEditor (main)',
-    'debug.editorSectioned': 'SectionedBlockEditor (POC)',
-    'debug.sectionedFlag': 'Sectioned Flag',
-    'debug.clearSectioned': 'Clear & Reload',
-    'debug.clearSectionedDesc': 'Remove jstudio.sectioned from localStorage and reload the page',
+    'debug.editorMainDesc': 'Single ProseMirror instance, full-featured',
+    'debug.editorSectioned': 'SectionedBlockEditor (high-perf)',
+    'debug.editorSectionedDesc': 'Multi-instance ProseMirror, smoother typing on large docs',
+    'debug.editorSwitchHint': 'Auto-saved on toggle. Reopen the document to take effect. High-perf mode recommended for large documents.',
 
     // ── General section ──
     'general.latinFont': 'Latin Font',

@@ -53,6 +53,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalFontId: string | undefined;
       let terminalCursorStyle: TerminalCursorStyle | undefined;
       let editorCursorStyle: EditorCursorStyle | undefined;
+  let useSectionedEditor = false;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
@@ -125,6 +126,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
           settings.editorCursorStyle === 'underline'
         ) {
           editorCursorStyle = settings.editorCursorStyle;
+        }
+        if (typeof settings.useSectionedEditor === 'boolean') {
+          useSectionedEditor = settings.useSectionedEditor;
         }
         if (settings.terminalTemplates !== undefined) {
           terminalTemplatesRaw = settings.terminalTemplates;
@@ -239,6 +243,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
         ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
+        ...(useSectionedEditor ? { useSectionedEditor } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
         isLoading: false,

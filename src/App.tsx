@@ -40,6 +40,7 @@ export default function App() {
   // activeDoc reference, which would re-render App and cascade to BlockEditor,
   // causing ProseMirror cursor lag (especially in code blocks).
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
+  const useSectionedEditor = useStore((s) => s.useSectionedEditor);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
@@ -254,10 +255,10 @@ export default function App() {
               <Settings />
             ) : !isTerminalView ? (
               hasActiveDoc ? (
-                // POC toggle: set localStorage 'jstudio.sectioned' = '1' and
-                // reload to use the sectioned multi-editor (large-doc perf
-                // experiment). Defaults to the existing monolithic editor.
-                localStorage.getItem('jstudio.sectioned') === '1' ? (
+                // The sectioned editor (multi-instance ProseMirror) gives
+                // better large-document typing performance. Toggle it in
+                // Settings → Debug → Active Editor.
+                useSectionedEditor ? (
                   <SectionedBlockEditor />
                 ) : (
                   <BlockEditor />
