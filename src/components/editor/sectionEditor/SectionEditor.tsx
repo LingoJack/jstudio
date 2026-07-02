@@ -224,47 +224,74 @@ export default function SectionEditor({
     return () => registerFocus(sectionId, null);
   }, [editor, sectionId, registerFocus]);
 
-  // Load this section's blocks once the editor instance exists. Guarded by a
-  // ref so re-renders never reload (which would clobber the user's cursor).
-  const loadedRef = useRef(false);
+  // Load this section's blocks once the editor instance exists. We track the
+  // EDITOR INSTANCE (not just a boolean) so that if TipTap recreates the editor
+  // (StrictMode's scheduleDestroy race), the new instance still gets its content
+  // loaded — the old boolean guard would skip it, leaving a fresh empty editor
+  // showing under the new section's title.
+  const loadedEditorRef = useRef<Editor | null>(null);
   useEffect(() => {
-    if (!editor || loadedRef.current) return;
-    loadedRef.current = true;
-    isReplacingRef.current = true;
+    if (!editor) return;
+    // Guard: skip only if BOTH the doc id hasn't changed AND the editor instance
+    // is the same one that already loaded. A recreated editor must always reload.
+    if (loadedEditorRef.current === editor) return;
+    loadedEditorRef.current = editor;
+
+    // Defer the setContent dispatch OUT of React's commit phase. When setContent
+    // is called synchronously inside a useEffect, ProseMirror's updateChildren
+    // may mount React NodeViews (for code blocks, images, files, links, etc.).
+    // TipTap's ReactNodeViewRenderer.mount() calls flushSync, which throws
+    // "flushSync was called from inside a lifecycle method" because we're
+    // already inside React's passive-effects commit. The error interrupts the
+    // transaction, leaving the editor with stale/partial content — the root
+    // cause of the "switch back to new doc and see old doc's content" bug.
+    //
+    // IMPORTANT: queueMicrotask is NOT sufficient — React 19 runs passive effects
+    // via processRootScheduleInMicrotask, so a queued microtask can still fire
+    // inside React's commit phase. setTimeout(0) defers to the NEXT macrotask,
+    // which is guaranteed to be after React has finished its commit.
+    const targetEditor = editor;
     const content = ourBlocksToTiptapJSON(initialBlocks);
-    try {
-      editor.commands.setContent(content);
-    } catch (e) {
-      console.error('[SectionEditor] setContent failed:', e, content);
-    }
+    const doPendingMerge = pendingMergeBoundary;
 
-    // If this load is the result of a cross-section merge, join the boundary
-    // blocks with a NATIVE joinBackward so the two adjacent blocks merge with
-    // real ProseMirror semantics (and the caret lands at the join point).
-    if (
-      pendingMergeBoundary != null &&
-      pendingMergeBoundary > 0 &&
-      pendingMergeBoundary < editor.state.doc.childCount
-    ) {
-      // Compute the document position at the START of the boundary block.
-      let pos = 0;
-      for (let i = 0; i < pendingMergeBoundary; i++) {
-        pos += editor.state.doc.child(i).nodeSize;
+    const loadTimer = setTimeout(() => {
+      if (targetEditor.isDestroyed) return;
+      isReplacingRef.current = true;
+      try {
+        targetEditor.commands.setContent(content, { emitUpdate: false });
+      } catch (e) {
+        console.error('[SectionEditor] setContent failed:', e, content);
       }
-      // +1 to land inside the boundary block's content, then joinBackward
-      // merges it into the preceding block.
-      editor
-        .chain()
-        .setTextSelection(pos + 1)
-        .joinBackward()
-        .focus()
-        .run();
-      onMergeApplied?.(sectionId);
-    }
 
-    requestAnimationFrame(() => {
-      isReplacingRef.current = false;
-    });
+      // If this load is the result of a cross-section merge, join the boundary
+      // blocks with a NATIVE joinBackward so the two adjacent blocks merge with
+      // real ProseMirror semantics (and the caret lands at the join point).
+      if (
+        doPendingMerge != null &&
+        doPendingMerge > 0 &&
+        doPendingMerge < targetEditor.state.doc.childCount
+      ) {
+        let pos = 0;
+        for (let i = 0; i < doPendingMerge; i++) {
+          pos += targetEditor.state.doc.child(i).nodeSize;
+        }
+        targetEditor
+          .chain()
+          .setTextSelection(pos + 1)
+          .joinBackward()
+          .focus()
+          .run();
+        onMergeApplied?.(sectionId);
+      }
+
+      requestAnimationFrame(() => {
+        isReplacingRef.current = false;
+      });
+    }, 0);
+
+    // Cancel the deferred load if the effect re-runs before it fires (e.g.
+    // editor recreated, or section unmounts during a rapid doc switch).
+    return () => clearTimeout(loadTimer);
   }, [editor, initialBlocks, pendingMergeBoundary, onMergeApplied, sectionId]);
 
   // Flush a pending edit synchronously on unmount so the last keystrokes in

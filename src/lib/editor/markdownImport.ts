@@ -14,7 +14,6 @@
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Code from '@tiptap/extension-code';
-import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { Table } from '@tiptap/extension-table';
@@ -40,9 +39,11 @@ function getHeadlessEditor(): Editor {
       StarterKit.configure({
         codeBlock: false,
         code: false, // replaced by custom Code (see comment in BlockEditor.tsx)
+        // StarterKit v3 bundles `Link` + `Underline`; disable StarterKit's
+        // link (we add our own below). Underline is left to StarterKit.
+        link: false,
       }),
       Code.extend({ excludes: '' }),
-      Underline,
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({
         openOnClick: false,

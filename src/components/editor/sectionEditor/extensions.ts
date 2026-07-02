@@ -21,7 +21,6 @@ import { LinkExtension } from '../../../lib/extensions/linkExtension';
 import { CollapsibleExtension } from '../../../lib/extensions/collapsibleExtension';
 import { DiagramExtension } from '../../../lib/extensions/diagramExtension';
 import Link from '@tiptap/extension-link';
-import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
@@ -51,6 +50,9 @@ export function createSectionExtensions(
     StarterKit.configure({
       codeBlock: false,
       code: false,
+      // StarterKit v3 bundles `Link` + `Underline`; disable StarterKit's link
+      // (we configure our own below) and let StarterKit provide Underline.
+      link: false,
     }),
     Code.extend({ excludes: '' }),
     CodeBlockWithChrome.configure({
@@ -65,7 +67,7 @@ export function createSectionExtensions(
     CollapsibleExtension,
     DiagramExtension,
     Link.configure({ openOnClick: false, autolink: true }),
-    Underline,
+    // NOTE: `Underline` comes from StarterKit v3 — do not re-add it.
     TextStyle,
     Color,
     Table.configure({ resizable: false }),

@@ -34,7 +34,6 @@ import { LinkExtension } from '../../lib/extensions/linkExtension';
 import { CollapsibleExtension } from '../../lib/extensions/collapsibleExtension';
 import { DiagramExtension } from '../../lib/extensions/diagramExtension';
 import Link from '@tiptap/extension-link';
-import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
@@ -104,6 +103,22 @@ function EditorSkeleton() {
   );
 }
 
+// ── TEMP DIAGNOSTIC — assign a stable short id to each Editor instance so we
+//    can tell in the console whether a doc-switch setContent landed on the same
+//    editor the user actually sees, or on a stale/destroyed instance. Remove
+//    once the doc-switch render-stale bug is resolved.
+const editorIdMap = new WeakMap<Editor, number>();
+let editorIdSeq = 0;
+function editorId(ed: Editor | null | undefined): string {
+  if (!ed) return 'null';
+  let id = editorIdMap.get(ed);
+  if (id === undefined) {
+    id = ++editorIdSeq;
+    editorIdMap.set(ed, id);
+  }
+  return `#${id}`;
+}
+
 export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // ── Read-only / static-document mode ──────────────────────────────
   const isStatic = !!doc;
@@ -134,6 +149,12 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   /** Tracks the document ID currently loaded into the editor to prevent
    *  reload loops. */
   const loadedDocIdRef = useRef<string | null>(null);
+  /** Tracks WHICH editor instance loaded `loadedDocIdRef`. If the editor is
+   *  recreated (TipTap StrictMode 1ms-destroy race, HMR, etc.) the new instance
+   *  has NOT had the content loaded even though loadedDocIdRef matches — so we
+   *  must force a reload. Without this, a recreated (empty) editor + the guard
+   *  below would skip the reload and leave stale content showing. */
+  const loadedEditorRef = useRef<Editor | null>(null);
   /** Debounce timer for store sync. */
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Handle for the idle callback that runs the heavy serialize/convert. */
@@ -268,6 +289,14 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         codeBlock: false, // replaced by CodeBlockLowlight
         code: false,      // replaced by custom Code below (allows coexistence
                           // with bold/italic for Markdown import compatibility)
+        // TipTap v3 StarterKit now bundles `Link` and `Underline` by default.
+        // We disable StarterKit's `link` here because we configure our own
+        // `Link` below (to force `inclusive() === false`, see the comment
+        // there). Without `link: false` there would be TWO `link` marks
+        // registered → TipTap "Duplicate extension names" warning + schema
+        // ambiguity. (`Underline` we leave enabled in StarterKit and do NOT
+        // re-add it explicitly below, for the same reason.)
+        link: false,
       }),
       // Custom Code mark: the default Code extension sets `excludes: '_'`
       // which makes inline code mutually exclusive with every other mark.
@@ -302,7 +331,9 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         openOnClick: readOnly, // allow link clicks in read-only mode
         autolink: true,
       }),
-      Underline,
+      // NOTE: `Underline` is provided by StarterKit v3 — do NOT add it
+      // explicitly, or you get a "Duplicate extension names" warning + two
+      // underline marks.
       TextStyle,
       Color,
       Table.configure({ resizable: false }),
@@ -437,33 +468,89 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
     // Static document mode — load once
     if (isStatic && doc) {
-      isReplacingRef.current = true;
-      const tiptapContent = ourBlocksToTiptapJSON(doc.blocks);
-      try {
-        editor.commands.setContent(tiptapContent, { emitUpdate: false });
-      } catch (e) {
-        console.error('[BlockEditor] setContent failed for static doc:', e);
-        console.error('[BlockEditor] tiptapContent that failed:', JSON.stringify(tiptapContent, null, 2));
-      }
       loadedDocIdRef.current = '__static__';
+      loadedEditorRef.current = editor;
       setRenderedDocId('__static__');
-      requestAnimationFrame(() => {
-        isReplacingRef.current = false;
-      });
-      return;
+      const targetEditor = editor;
+      const tiptapContent = ourBlocksToTiptapJSON(doc.blocks);
+      // Defer to next macrotask to avoid flushSync-during-commit error.
+      const loadTimer = setTimeout(() => {
+        if (targetEditor.isDestroyed) return;
+        isReplacingRef.current = true;
+        try {
+          targetEditor.commands.setContent(tiptapContent, { emitUpdate: false });
+        } catch (e) {
+          console.error('[BlockEditor] setContent failed for static doc:', e);
+          console.error('[BlockEditor] tiptapContent that failed:', JSON.stringify(tiptapContent, null, 2));
+        }
+        requestAnimationFrame(() => {
+          isReplacingRef.current = false;
+        });
+      }, 0);
+      return () => clearTimeout(loadTimer);
     }
 
     if (!hasActiveDoc) {
       loadedDocIdRef.current = null;
+      loadedEditorRef.current = null;
       setRenderedDocId(null);
       return;
     }
 
-    // Only reload if the document actually changed.
-    if (loadedDocIdRef.current === activeDocId) {
+    // TEMP DIAGNOSTIC — capture exactly what the load effect sees on every
+    // doc switch, so we can confirm whether setContent lands on the rendered
+    // editor or a stale/destroyed instance. Remove once the bug is resolved.
+    const __dbgBlocks =
+      useStore.getState().documents.find((d) => d.id === activeDocId)?.blocks ??
+      [];
+    console.log('[docswitch] enter', {
+      activeDocId,
+      loadedDocId: loadedDocIdRef.current,
+      renderedDocId,
+      ed: editorId(editor),
+      edDestroyed: editor.isDestroyed,
+      loadedEditor: editorId(loadedEditorRef.current),
+      sameEd: loadedEditorRef.current === editor,
+      storeActiveDocId: useStore.getState().activeDocId,
+      storeActiveDoc: useStore.getState().activeDoc?.id ?? null,
+      blocksCount: __dbgBlocks.length,
+      blocksPreview: __dbgBlocks
+        .map((b) => {
+          const c = b.content;
+          const txt =
+            typeof c === 'string'
+              ? c
+              : Array.isArray(c) && c[0] && typeof c[0] === 'object' && 'text' in c[0]
+                ? String(c[0].text)
+                : '';
+          return `${b.type}(${txt.slice(0, 14)})`;
+        })
+        .join(' | '),
+    });
+
+    // Only reload if BOTH the document id AND the editor instance match.
+    //
+    // The editor-instance check is essential in dev (StrictMode): TipTap's
+    // `useEditor` can recreate the editor instance (its `scheduleDestroy`
+    // 1ms timeout can fire before the post-paint effect cancels it), and the
+    // recreated instance has NOT had any content loaded even though
+    // loadedDocIdRef still matches the active doc. Without this check the
+    // guard would skip the reload and leave a freshly-created (empty / stale)
+    // editor showing the wrong content under the new document's title —
+    // exactly the "switch back to the new doc and see the other doc's body"
+    // symptom, which only appears in dev because production builds don't run
+    // StrictMode's effect re-invocation.
+    if (
+      loadedDocIdRef.current === activeDocId &&
+      loadedEditorRef.current === editor
+    ) {
       // Content is already the active doc's — just make sure the skeleton is
       // cleared (e.g. after a re-render where renderedDocId fell behind).
       if (renderedDocId !== activeDocId) setRenderedDocId(activeDocId);
+      console.log('[docswitch] skip (already loaded)', {
+        activeDocId,
+        ed: editorId(editor),
+      });
       return;
     }
 
@@ -475,48 +562,72 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     // Capture the target id locally; it must not change under us mid-load.
     const targetDocId = activeDocId;
 
-    // Read blocks from the store directly (not via subscription) so
-    // re-renders triggered by setActiveDocBlocks don't cause reload loops.
-    const blocks = useStore.getState().activeDoc?.blocks ?? [];
+    // Read blocks from the store, keyed by activeDocId (this effect's dep) for
+    // robustness — guarantees we never read a previous doc's blocks even if
+    // activeDoc were to lag activeDocId by a render. (They are set atomically
+    // by openDocument, but keying by the effect dep removes all doubt.)
+    const blocks =
+      useStore.getState().documents.find((d) => d.id === activeDocId)?.blocks ??
+      [];
 
-    isReplacingRef.current = true;
+    // Mark as "loading in progress" synchronously so a concurrent effect run
+    // doesn't also try to setContent. The actual markers (loadedDocIdRef etc.)
+    // are committed inside the microtask after setContent succeeds.
+    loadedDocIdRef.current = targetDocId;
+
+    // Defer the setContent dispatch OUT of React's commit phase. When called
+    // synchronously inside a useEffect, ProseMirror's updateChildren may mount
+    // React NodeViews (code blocks, images, etc.) → TipTap calls flushSync →
+    // "flushSync was called from inside a lifecycle method" error → transaction
+    // interrupted → stale content.
+    //
+    // IMPORTANT: queueMicrotask is NOT sufficient — React 19 runs passive effects
+    // via processRootScheduleInMicrotask, so a queued microtask can still fire
+    // inside React's commit phase. setTimeout(0) defers to the NEXT macrotask,
+    // guaranteeing React has finished its commit.
+    const targetEditor = editor;
     const tiptapContent = ourBlocksToTiptapJSON(blocks);
-    try {
-      // emitUpdate:false is CRITICAL. In TipTap v3 `setContent` defaults
-      // emitUpdate to TRUE, so loading a document would fire onUpdate
-      // (handleChange) and could serialize transitional/empty content back
-      // into the store — i.e. one document's body leaking into another.
-      // Loading content into the editor must never trigger the save path.
-      editor.commands.setContent(tiptapContent, { emitUpdate: false });
-      // Only advance the "loaded" markers AFTER setContent succeeds. If it
-      // throws (e.g. a RangeError from an invalid mark/node combination, see
-      // the Code-mark note above), advancing loadedDocIdRef would strand the
-      // editor showing the PREVIOUS document's body under the NEW title, and
-      // the guard above would skip every future re-switch — a permanent
-      // title⇄content mismatch. So we only commit on success.
-      loadedDocIdRef.current = targetDocId;
-      setRenderedDocId(targetDocId);
-    } catch (e) {
-      console.error('[BlockEditor] setContent failed for doc', targetDocId, e);
-      // Recover to an empty body rather than displaying another document's
-      // content. The title belongs to targetDocId, so a blank body is the
-      // only non-misleading fallback. The user's data on disk is untouched.
+    const loadTimer = setTimeout(() => {
+      if (targetEditor.isDestroyed) return;
+      isReplacingRef.current = true;
       try {
-        editor.commands.setContent(
-          { type: 'doc', content: [{ type: 'paragraph' }] },
-          { emitUpdate: false },
-        );
-      } catch {
-        // ignore — nothing more we can do
+        // emitUpdate:false is CRITICAL. In TipTap v3 `setContent` defaults
+        // emitUpdate to TRUE, so loading a document would fire onUpdate
+        // (handleChange) and could serialize transitional/empty content back
+        // into the store — i.e. one document's body leaking into another.
+        targetEditor.commands.setContent(tiptapContent, { emitUpdate: false });
+        loadedEditorRef.current = targetEditor;
+        setRenderedDocId(targetDocId);
+        console.log('[docswitch] setContent ok', {
+          targetDocId,
+          ed: editorId(targetEditor),
+          blocksCount: blocks.length,
+        });
+      } catch (e) {
+        console.error('[BlockEditor] setContent failed for doc', targetDocId, e);
+        // Recover to an empty body rather than displaying another document's
+        // content. The title belongs to targetDocId, so a blank body is the
+        // only non-misleading fallback. The user's data on disk is untouched.
+        try {
+          targetEditor.commands.setContent(
+            { type: 'doc', content: [{ type: 'paragraph' }] },
+            { emitUpdate: false },
+          );
+        } catch {
+          // ignore — nothing more we can do
+        }
+        loadedEditorRef.current = targetEditor;
+        setRenderedDocId(targetDocId);
       }
-      loadedDocIdRef.current = targetDocId;
-      setRenderedDocId(targetDocId);
-    }
 
-    // Reset the guard after ProseMirror has processed the transaction
-    requestAnimationFrame(() => {
-      isReplacingRef.current = false;
-    });
+      // Reset the guard after ProseMirror has processed the transaction
+      requestAnimationFrame(() => {
+        isReplacingRef.current = false;
+      });
+    }, 0);
+    // Cancel the deferred load if the effect re-runs before it fires (e.g.
+    // editor recreated, or doc switched again during the 0ms window).
+    return () => clearTimeout(loadTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDocId, editor, isStatic, doc]);
 
