@@ -28,18 +28,19 @@ import {
   getDefaultPlugins,
   HandleConfig,
   VertexHandlerConfig,
-  ConstraintHandler,
   ImageBox,
+  Rectangle,
   RectangleShape,
   RhombusShape,
   EllipseShape,
+  VertexHandler,
   type Cell,
   type CellState,
+  type ConnectionHandler,
   type EventObject,
   type SelectionHandler,
   type FitPlugin,
   type PanningHandler,
-  type VertexHandler,
 } from '@maxgraph/core';
 import '@maxgraph/core/css/common.css';
 
@@ -306,36 +307,42 @@ export function GraphCanvas({
     VertexHandlerConfig.selectionStrokeWidth = SELECTION_STROKE_WIDTH;
     VertexHandlerConfig.selectionDashed = SELECTION_DASHED;
 
-    // 自定义选中框形状：根据图形类型显示对应形状的选中框
-    graph.createSelectionShape = (state: CellState) => {
-      const shapeStyle = state.style?.shape;
-      const currentDark = darkModeRef.current;
-      const color = getSelectionColor(currentDark);
-      
-      // 根据图形类型创建对应的选中框形状
+    // 自定义选中框形状：按节点形状显示对应选中框（菱形→菱形选中框，椭圆→椭圆选中框，其余→矩形）。
+    // maxGraph 中选中框由 VertexHandler.createSelectionShape 创建（不再有 graph.createSelectionShape）。
+    // 覆盖原型方法；颜色/线宽/虚线统一从 VertexHandlerConfig 读取，自动跟随主题。
+    VertexHandler.prototype.createSelectionShape = function (
+      this: VertexHandler,
+      bounds: Rectangle,
+    ): RectangleShape {
+      const shapeStyle = this.state?.style?.shape;
+      const color = this.getSelectionColor();
+      const strokeWidth = this.getSelectionStrokeWidth();
+      const dashed = this.isSelectionDashed();
+
       let shape: RectangleShape | RhombusShape | EllipseShape;
       if (shapeStyle === 'rhombus') {
-        shape = new RhombusShape(state.bounds, color, 1, 1);
+        shape = new RhombusShape(Rectangle.fromRectangle(bounds), 'none', color, strokeWidth);
       } else if (shapeStyle === 'ellipse') {
-        shape = new EllipseShape(state.bounds, color, 1, 1);
+        shape = new EllipseShape(Rectangle.fromRectangle(bounds), 'none', color, strokeWidth);
       } else {
         // rectangle / rounded 默认用矩形选中框
-        shape = new RectangleShape(state.bounds, color, 1, 1);
+        shape = new RectangleShape(Rectangle.fromRectangle(bounds), 'none', color, strokeWidth);
       }
-      shape.strokeWidth = SELECTION_STROKE_WIDTH;
-      shape.dashed = SELECTION_DASHED;
-      shape.fillColor = 'none';
-      shape.strokeColor = color;
-      return shape;
+      shape.isDashed = dashed;
+      return shape as RectangleShape;
     };
 
     // 连接点样式：跟随主题（悬停边缘时显示）
-    ConstraintHandler.pointImage = new ImageBox(
-      createConnectionPointSVG(dark),
-      CONNECTION_POINT_SIZE,
-      CONNECTION_POINT_SIZE,
-    );
-    ConstraintHandler.highlightColor = getConnectionPointColor(dark);
+    // maxGraph 中 pointImage / highlightColor 是 ConstraintHandler 实例属性（非静态），需取实例设置。
+    const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
+    if (connectionHandler?.constraintHandler) {
+      connectionHandler.constraintHandler.pointImage = new ImageBox(
+        createConnectionPointSVG(dark),
+        CONNECTION_POINT_SIZE,
+        CONNECTION_POINT_SIZE,
+      );
+      connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
+    }
 
     // Alt + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
     // 让 Ctrl/Cmd 空出来给"平移画布"用）。
@@ -607,13 +614,16 @@ export function GraphCanvas({
     HandleConfig.fillColor = getHandleFillColor(darkMode);
     HandleConfig.strokeColor = getHandleStrokeColor(darkMode);
     
-    // 更新连接点样式
-    ConstraintHandler.pointImage = new ImageBox(
-      createConnectionPointSVG(darkMode),
-      CONNECTION_POINT_SIZE,
-      CONNECTION_POINT_SIZE,
-    );
-    ConstraintHandler.highlightColor = getConnectionPointColor(darkMode);
+    // 更新连接点样式（maxGraph 中为 ConstraintHandler 实例属性）
+    const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
+    if (connectionHandler?.constraintHandler) {
+      connectionHandler.constraintHandler.pointImage = new ImageBox(
+        createConnectionPointSVG(darkMode),
+        CONNECTION_POINT_SIZE,
+        CONNECTION_POINT_SIZE,
+      );
+      connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(darkMode);
+    }
 
     // 更新拖动预览颜色（SelectionHandler）
     const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
