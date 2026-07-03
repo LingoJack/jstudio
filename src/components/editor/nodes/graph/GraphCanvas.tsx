@@ -451,12 +451,24 @@ export function GraphCanvas({
       };
     }
 
-    // 飞书风格：连线预览颜色改为蓝色（默认是绿色 VALID_COLOR / 红色 INVALID_COLOR）
+    // 飞书风格：连线预览改为蓝色实线（默认是绿色/红色虚线）
     if (connectionHandler) {
+      // 颜色：有效连接时蓝色，无效时红色
       connectionHandler.getEdgeColor = (valid: boolean) => {
-        return valid ? getConnectionPointColor(dark) : '#EF4444'; // 有效时蓝色，无效时红色
+        return valid ? getConnectionPointColor(dark) : '#EF4444';
       };
-      connectionHandler.getEdgeWidth = () => 2; // 略粗一点的线
+      connectionHandler.getEdgeWidth = () => 2;
+      // 覆盖 createShape：初始颜色用蓝色而非红色，虚线改实线
+      const originalCreateShape = connectionHandler.createShape.bind(connectionHandler);
+      connectionHandler.createShape = () => {
+        const shape = originalCreateShape();
+        if (shape) {
+          shape.stroke = getConnectionPointColor(dark); // 初始就是蓝色
+          shape.strokeWidth = 2;
+          shape.isDashed = false; // 实线，飞书风格
+        }
+        return shape;
+      };
     }
 
     // Alt/Option + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
