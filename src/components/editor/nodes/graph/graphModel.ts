@@ -162,6 +162,11 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot, dark = f
     }
   }
 
+  // 恢复网格显隐（UI 状态，跨挂载持久化）。
+  if (typeof snap.showGrid === 'boolean') {
+    graph.setGridEnabled(snap.showGrid);
+  }
+
   void model; // 预留：将来若需直接操作 model。
 }
 
@@ -174,8 +179,12 @@ function colorStr(v: unknown): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
-/** 从 graph 读回一份干净快照（含视口）。 */
-export function readSnapshotFromGraph(graph: Graph): GraphSnapshot {
+/**
+ * 从一个 maxGraph 读回一份干净快照（含视口 + 网格开关）。
+ * @param graph maxGraph 实例。
+ * @param showGrid 当前网格显隐状态（来自组件，写入快照以持久化）。
+ */
+export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSnapshot {
   const parent = graph.getDefaultParent();
   const vertices = graph.getChildVertices(parent);
   const edges = graph.getChildEdges(parent);
@@ -238,5 +247,6 @@ export function readSnapshotFromGraph(graph: Graph): GraphSnapshot {
     nodes,
     edges: outEdges,
     viewport,
+    showGrid,
   };
 }

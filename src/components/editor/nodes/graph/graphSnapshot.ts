@@ -94,6 +94,8 @@ export interface GraphSnapshot {
   nodes: GraphNode[];
   edges: GraphEdge[];
   viewport?: GraphViewport;
+  /** 网格显隐（UI 状态，跨挂载恢复）。缺省视为 true。 */
+  showGrid?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,6 +152,7 @@ export function parseGraphSnapshot(snapshot: string | null | undefined): GraphSn
       nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
       edges: Array.isArray(parsed.edges) ? parsed.edges : [],
       viewport: parsed.viewport,
+      showGrid: typeof parsed.showGrid === 'boolean' ? parsed.showGrid : undefined,
     };
   } catch {
     return empty;
@@ -161,6 +164,7 @@ export function serializeGraphSnapshot(
   nodes: GraphNode[],
   edges: GraphEdge[],
   viewport?: GraphViewport,
+  showGrid?: boolean,
 ): string {
   const snap: GraphSnapshot = {
     kind: JGRAPH_KIND,
@@ -168,6 +172,7 @@ export function serializeGraphSnapshot(
     nodes,
     edges,
     viewport,
+    showGrid,
   };
   return JSON.stringify(snap);
 }

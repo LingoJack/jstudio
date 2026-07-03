@@ -248,13 +248,20 @@ export function GraphCanvas({
   }, []);
   // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
   const [showGrid, setShowGrid] = useState(true);
+  // emit 桥接 ref：toggleGrid 定义早于 scheduleEmit（const TDZ），
+  // 用 ref 间接调用，避免顺序依赖。
+  const emitNowRef = useRef<() => void>(() => {});
   const toggleGrid = useCallback(() => {
     const graph = graphRef.current;
     if (!graph) return;
     setShowGrid((prev) => {
       const next = !prev;
+      // 同步更新 ref，让随后的 scheduleEmit 能读到新值（setShowGrid 是异步的）。
+      showGridRef.current = next;
       // 引擎的网格吸附也随之开关（吸附只在网格显示时有意义）。
       graph.setGridEnabled(next);
+      // 网格开关已持久化进 snapshot，触发 emit 保存。
+      emitNowRef.current();
       return next;
     });
   }, []);
@@ -290,6 +297,9 @@ export function GraphCanvas({
   const lastEmittedRef = useRef(initialSnapshot);
   // 标记"正在以编程方式灌入快照"，避免回灌触发的 model change 又反向 emit 一次。
   const applyingRef = useRef(false);
+  // showGrid 的 ref，供 emitSnapshot 读取最新值（无需进 emit 的依赖数组）。
+  const showGridRef = useRef(showGrid);
+  showGridRef.current = showGrid;
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -312,8 +322,8 @@ export function GraphCanvas({
     const graph = graphRef.current;
     if (!graph) return;
     try {
-      const snap = readSnapshotFromGraph(graph);
-      const json = serializeGraphSnapshot(snap.nodes, snap.edges, snap.viewport);
+      const snap = readSnapshotFromGraph(graph, showGridRef.current);
+      const json = serializeGraphSnapshot(snap.nodes, snap.edges, snap.viewport, snap.showGrid);
       if (json === lastEmittedRef.current) return;
       lastEmittedRef.current = json;
       onChangeRef.current(json);
@@ -327,6 +337,8 @@ export function GraphCanvas({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(emitSnapshot, 400);
   }, [emitSnapshot]);
+  // 桥接：让早定义的 toggleGrid 能调用 scheduleEmit（绕过 const TDZ）。
+  emitNowRef.current = scheduleEmit;
 
   /* -------------------------------------------------------------- */
   /* 初始化 maxGraph（仅一次）                                       */
@@ -410,9 +422,15 @@ export function GraphCanvas({
       connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
     }
 
-    // Alt + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
-    // 让 Ctrl/Cmd 空出来给"平移画布"用）。
-    graph.isCloneEvent = (evt: MouseEvent) => evt.altKey;
+    // Alt/Option + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
+    // 让 Ctrl/Cmd 空出来给"平移画布"用）。Mac 的 Option 即 Alt，altKey 能正确反映。
+    graph.isCloneEvent = (evt: MouseEvent) => {
+      const r = evt.altKey;
+      // 诊断日志：确认 isCloneEvent 是否被调用、返回什么。排查复制不生效问题。
+      // eslint-disable-next-line no-console
+      console.log('[GraphCanvas] isCloneEvent → altKey:', r);
+      return r;
+    };
 
     // Cmd/Ctrl + 拖动 = 平移画布（即使按在图形上也平移，而非移动图形）。
     const panningHandler = graph.getPlugin<PanningHandler>('PanningHandler');
@@ -681,6 +699,19 @@ export function GraphCanvas({
     container.addEventListener('mousemove', onMouseMove, true);
     container.addEventListener('mouseup', finishDraw, true);
 
+    // 诊断：mouseup 时打印 altKey 与选中数，用于排查 Option+拖动复制不生效。
+    // 仅在非绘制态记录（绘制态由 finishDraw 处理）。
+    const onMouseUpDiag = (e: MouseEvent) => {
+      if (pendingShapeRef.current) return;
+      const g = graphRef.current;
+      if (!g) return;
+      const sel = g.getSelectionCells();
+      // eslint-disable-next-line no-console
+      console.log('[GraphCanvas] mouseup | altKey:', e.altKey,
+        '| selCount:', sel.length, '| isCloneEvent:', g.isCloneEvent(e));
+    };
+    container.addEventListener('mouseup', onMouseUpDiag, true);
+
     // Ctrl/Cmd + 滚轮缩放（draw.io 同款）；普通滚轮保留为平移/滚动。
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -699,6 +730,7 @@ export function GraphCanvas({
       container.removeEventListener('mousedown', onMouseDown, true);
       container.removeEventListener('mousemove', onMouseMove, true);
       container.removeEventListener('mouseup', finishDraw, true);
+      container.removeEventListener('mouseup', onMouseUpDiag, true);
       preview.remove();
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
@@ -724,9 +756,14 @@ export function GraphCanvas({
     if (detectSnapshotKind(initialSnapshot) !== 'jgraph' && initialSnapshot.trim() !== '') {
       return; // 非本内核格式，交由上层路由处理，这里不动
     }
+    const parsed = parseGraphSnapshot(initialSnapshot);
     applyingRef.current = true;
     try {
-      applySnapshotToGraph(graph, parseGraphSnapshot(initialSnapshot), darkMode);
+      applySnapshotToGraph(graph, parsed, darkMode);
+      // 恢复网格显隐状态（applySnapshotToGraph 已设引擎 gridEnabled，这里同步组件态）。
+      if (typeof parsed.showGrid === 'boolean') {
+        setShowGrid(parsed.showGrid);
+      }
       lastEmittedRef.current = initialSnapshot;
     } finally {
       applyingRef.current = false;
