@@ -143,6 +143,19 @@ export default function FileView({
     target.focus({ preventScroll: true });
   }, [editing]);
 
+  // Preview category for the current file (html/pdf/image/audio/video/docx/text/other).
+  const category = useMemo(
+    () => getPreviewCategory(fileType, fileName),
+    [fileType, fileName],
+  );
+
+  /**
+   * Patched src: ensures text-based data URLs include `charset=utf-8`
+   * so HTML/SVG/text previews render correctly instead of mojibake.
+   * Operates on the resolved (asset-protocol) URL; a no-op for non-data URLs.
+   */
+  const safeSrc = useMemo(() => ensureUtf8Charset(resolvedSrc), [resolvedSrc]);
+
   // ── Native DOM iframe for HTML/SVG preview (React 19 sandbox workaround) ──
   // Create/update/remove the iframe via native DOM so React never traverses it.
   useEffect(() => {
@@ -193,18 +206,6 @@ export default function FileView({
       category: getPreviewCategory(fileType, fileName),
     });
   }, [src, resolvedSrc, fileName, fileSize, fileType]);
-
-  const category = useMemo(
-    () => getPreviewCategory(fileType, fileName),
-    [fileType, fileName],
-  );
-
-  /**
-   * Patched src: ensures text-based data URLs include `charset=utf-8`
-   * so HTML/SVG/text previews render correctly instead of mojibake.
-   * Operates on the resolved (asset-protocol) URL; a no-op for non-data URLs.
-   */
-  const safeSrc = useMemo(() => ensureUtf8Charset(resolvedSrc), [resolvedSrc]);
 
   /* -------------------------------------------------------------- */
   /* Upload handler                                                 */
