@@ -35,8 +35,8 @@ import {
   EllipseShape,
   ConnectorShape,
   VertexHandler,
+  CellState,
   type Cell,
-  type CellState,
   type ConnectionHandler,
   type EventObject,
   type SelectionHandler,
@@ -452,28 +452,44 @@ export function GraphCanvas({
       };
     }
 
-    // 飞书风格：连线预览改为蓝色虚线 + 箭头（默认是绿色/红色虚线无箭头）
+    // 飞书风格：连线预览改为蓝色虚线 + 箭头，使用实际路由样式（而非直线）
     if (connectionHandler) {
+      // 开启 livePreview，让预览线使用 edgeState 渲染（包含路由样式）
+      connectionHandler.livePreview = true;
+
+      // 覆盖 createEdgeState：返回带有实际 edge 样式的状态，让预览线显示正确的路由
+      // 在 style 中直接设置蓝色 + 虚线 + 箭头
+      const edgeStyleStr = `edgeStyle=orthogonalEdgeStyle;strokeColor=${getConnectionPointColor(dark)};strokeWidth=2;dashed=1;endArrow=classic;endSize=8;`;
+      connectionHandler.createEdgeState = function () {
+        const edge = this.graph.createEdge(
+          null,
+          null,
+          null,
+          null,
+          null,
+          edgeStyleStr,
+        );
+        return new CellState(
+          this.graph.view,
+          edge,
+          this.graph.getCellStyle(edge),
+        );
+      };
+
       // 颜色：有效连接时蓝色，无效时红色
       connectionHandler.getEdgeColor = (valid: boolean) => {
         return valid ? getConnectionPointColor(dark) : '#EF4444';
       };
       connectionHandler.getEdgeWidth = () => 2;
-      // 覆盖 createShape：使用 ConnectorShape（支持箭头）而非 PolylineShape
-      connectionHandler.createShape = function () {
-        // 使用 ConnectorShape，通过 style 设置箭头
-        const shape = new ConnectorShape([], getConnectionPointColor(dark), 2);
-        shape.style = {
-          endArrow: 'classic',
-          endSize: 8,
-        };
-        shape.dialect = 'svg';
-        shape.scale = this.graph.view.scale;
-        shape.pointerEvents = false;
-        shape.isDashed = true;
-        shape.init(this.graph.getView().getOverlayPane());
-        InternalEvent.redirectMouseEvents(shape.node, this.graph, null);
-        return shape;
+
+      // 覆盖 drawPreview：确保预览线样式正确（蓝色虚线）
+      connectionHandler.drawPreview = function () {
+        if (this.shape) {
+          this.shape.stroke = this.getEdgeColor(this.error === null);
+          this.shape.strokeWidth = this.getEdgeWidth();
+          this.shape.isDashed = true;
+          this.shape.redraw();
+        }
       };
     }
 
