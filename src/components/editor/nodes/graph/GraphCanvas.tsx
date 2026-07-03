@@ -42,6 +42,7 @@ import {
   type SelectionHandler,
   type FitPlugin,
   type PanningHandler,
+  type RubberBandHandler as RubberBandHandlerType,
 } from '@maxgraph/core';
 import '@maxgraph/core/css/common.css';
 
@@ -248,7 +249,7 @@ export function GraphCanvas({
     setPendingShape(shape);
   }, []);
   // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
-  const [showGrid, setShowGrid] = useState(true);
+  const [showGrid, setShowGrid] = useState(false); // 默认不显示网格
   // emit 桥接 ref：toggleGrid 定义早于 scheduleEmit（const TDZ），
   // 用 ref 间接调用，避免顺序依赖。
   const emitNowRef = useRef<() => void>(() => {});
@@ -502,6 +503,14 @@ export function GraphCanvas({
       console.log('[GraphCanvas] isCloneEvent → altKey:', r);
       return r;
     };
+    // 必须启用 cellsCloneable，否则 isCloneEvent 返回 true 也不会触发复制
+    graph.setCellsCloneable(true);
+
+    // 禁用 RubberBandHandler 的 Alt 强制框选行为（否则 Alt+拖动图形会变成框选而非克隆）
+    const rubberBandHandler = graph.getPlugin<RubberBandHandlerType>('RubberBandHandler');
+    if (rubberBandHandler) {
+      rubberBandHandler.isForceRubberbandEvent = () => false;
+    }
 
     // Cmd/Ctrl + 拖动 = 平移画布（即使按在图形上也平移，而非移动图形）。
     const panningHandler = graph.getPlugin<PanningHandler>('PanningHandler');
@@ -513,7 +522,7 @@ export function GraphCanvas({
     }
 
     // 网格 + 吸附（draw.io 同款：拖拽/缩放对齐到 10px 网格）。
-    graph.setGridEnabled(true);
+    graph.setGridEnabled(false); // 默认不显示网格
     graph.setGridSize(GRID_SIZE);
     // 缩放以视口中心为锚点（而非左上角），更符合直觉。
     graph.centerZoom = true;
