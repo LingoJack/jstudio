@@ -2818,6 +2818,12 @@ button {
   cursor: crosshair;
 }
 
+/* Alt/Option 按住态：光标变「复制」光标，提示此时拖动会复制（Mac Option 即 Alt）。
+   非画图模式下生效；画图模式优先用十字光标。 */
+.jgraph-canvas-root.is-alt-held:not(.is-drawing) .jgraph-surface {
+  cursor: copy;
+}
+
 /* 拖拽绘制时的预览（SVG 元素，按形状画出真实轮廓） */
 .jgraph-draw-preview {
   position: absolute;

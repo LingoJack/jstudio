@@ -262,6 +262,29 @@ export function GraphCanvas({
   const darkModeRef = useRef(darkMode);
   darkModeRef.current = darkMode;
 
+  // Alt/Option 键按住态：用于切换「复制拖动」光标提示（Mac 的 Option 即 Alt，
+  // event.altKey 能正确反映）。给用户一个可见反馈，确认复制拖动已就绪。
+  const [altHeld, setAltHeld] = useState(false);
+  useEffect(() => {
+    if (!editing) return;
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') setAltHeld(true);
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') setAltHeld(false);
+    };
+    // 监听 window 而非 root：拖动开始后焦点可能在画布子元素上，
+    // window 级监听保证 Option 按下/抬起都能捕获到。
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    window.addEventListener('blur', onUp as EventListener); // 切窗时复位
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+      window.removeEventListener('blur', onUp as EventListener);
+    };
+  }, [editing]);
+
   const onChangeRef = useRef(onChange);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEmittedRef = useRef(initialSnapshot);
@@ -928,7 +951,7 @@ export function GraphCanvas({
         editing ? 'is-editing' : 'is-readonly'
       } ${darkMode ? 'is-dark' : ''} ${pendingShape ? 'is-drawing' : ''} ${
         showGrid ? '' : 'is-grid-off'
-      }`}
+      } ${altHeld ? 'is-alt-held' : ''}`}
       style={{
         width: '100%',
         height: '100%',
