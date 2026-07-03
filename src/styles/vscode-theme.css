@@ -2756,20 +2756,23 @@ button {
   background: var(--vscode-editor-background, #ffffff);
 }
 
-/* 左侧竖排模具 / 操作工具栏 */
+/* 顶部水平模具 / 操作工具栏（浮动居中，飞书 / draw.io 同款手感） */
 .jgraph-toolbar {
   position: absolute;
   top: 8px;
-  left: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 5;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 2px;
   padding: 4px;
   border-radius: 8px;
   background: var(--vscode-editorWidget-background, #f3f3f3);
   border: 1px solid var(--vscode-widget-border, rgba(0, 0, 0, 0.1));
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  max-width: calc(100% - 16px);
 }
 
 .jgraph-tool-btn {
@@ -2803,8 +2806,10 @@ button {
 }
 
 .jgraph-tool-sep {
-  height: 1px;
-  margin: 4px 2px;
+  width: 1px;
+  height: 20px;
+  margin: 2px 4px;
+  flex-shrink: 0;
   background: var(--vscode-widget-border, rgba(0, 0, 0, 0.1));
 }
 
@@ -2813,22 +2818,36 @@ button {
   cursor: crosshair;
 }
 
-/* 拖拽绘制时的预览框（屏幕坐标定位于 surface 内） */
+/* 拖拽绘制时的预览（SVG 元素，按形状画出真实轮廓） */
 .jgraph-draw-preview {
   position: absolute;
   z-index: 4;
   pointer-events: none;
-  border: 2px solid var(--vscode-focusBorder, #3B82F6);
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+  overflow: visible;
 }
 
-/* 暗色模式下的预览框 */
-.jgraph-canvas-root.is-dark .jgraph-draw-preview {
-  border-color: #60A5FA;
-  background: rgba(96, 165, 250, 0.15);
-  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3);
+/* 预览内部的几何形状（跟随主题） */
+.jgraph-draw-preview-shape {
+  fill: rgba(59, 130, 246, 0.1);
+  stroke: var(--vscode-focusBorder, #3B82F6);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+/* text 形状实际无边框，预览用虚线表示"文本区域" */
+.jgraph-draw-preview-shape.is-text-region {
+  stroke-dasharray: 4 3;
+  fill: rgba(59, 130, 246, 0.04);
+}
+
+/* 暗色模式下的预览形状 */
+.jgraph-canvas-root.is-dark .jgraph-draw-preview-shape {
+  stroke: #60A5FA;
+  fill: rgba(96, 165, 250, 0.15);
+}
+
+.jgraph-canvas-root.is-dark .jgraph-draw-preview-shape.is-text-region {
+  fill: rgba(96, 165, 250, 0.06);
 }
 
 /* maxGraph 渲染面 */

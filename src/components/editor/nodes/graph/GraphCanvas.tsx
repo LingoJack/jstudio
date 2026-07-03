@@ -45,10 +45,6 @@ import {
 import '@maxgraph/core/css/common.css';
 
 import {
-  Square,
-  Circle,
-  Diamond,
-  Type as TypeIcon,
   Undo2,
   Redo2,
   Trash2,
@@ -125,6 +121,53 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
   diamond: '判定',
   text: '文本',
 };
+
+/* ------------------------------------------------------------------ */
+/* ShapeGlyph — 工具栏按钮上的真实形状预览                             */
+/*                                                                    */
+/* 直接画出对应形状的样貌（而非 lucide 抽象图标），用 currentColor      */
+/* 描边，自动跟随按钮文字色 → 明暗主题天然适配，与画布上的实际图形一致。*/
+/* 描边宽度对齐 graphTheme.SHAPE_STROKE_WIDTH(1.5)。                    */
+/* ------------------------------------------------------------------ */
+
+function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
+  const sw = 1.5;
+  switch (shape) {
+    case 'rectangle':
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <rect x="2" y="3.5" width="12" height="9" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    case 'rounded':
+      // 圆角明显，与 rectangle 一眼可辨（解决"两个方形"问题）
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <rect x="2" y="3.5" width="12" height="9" rx="2.5" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    case 'ellipse':
+      // 宽椭圆，对齐画布默认比例(120×80)
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <ellipse cx="8" cy="8" rx="6.5" ry="5" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    case 'diamond':
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path d="M8 2 L14 8 L8 14 L2 8 Z" stroke="currentColor" strokeWidth={sw} strokeLinejoin="round" />
+        </svg>
+      );
+    case 'text':
+      // T 字形，对齐文本框样式（无边框，仅字）
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path d="M3.5 4 H12.5 M8 4 V13" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
+        </svg>
+      );
+  }
+}
 
 /**
  * shape → maxGraph 样式对象（白板风格：无填充 + 中性灰描边）。
@@ -439,11 +482,84 @@ export function GraphCanvas({
     /* （飞书 / draw.io 手感）。只点不拖 → 用默认尺寸落在点击处。      */
     /* ------------------------------------------------------------ */
 
-    // 绘制预览框（纯视觉，屏幕坐标定位于 container 内）。
-    const preview = document.createElement('div');
-    preview.className = 'jgraph-draw-preview';
+    // 绘制预览（SVG，跟随当前形状画出真实轮廓，所见即所绘）。
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const preview = document.createElementNS(SVG_NS, 'svg');
+    preview.classList.add('jgraph-draw-preview');
     preview.style.display = 'none';
     container.appendChild(preview);
+
+    // 当前预览内部的形状元素。切换形状时重建，移动时只更新坐标/尺寸。
+    let previewShapeEl: SVGElement | null = null;
+
+    /** 按当前待绘制形状，在预览 SVG 内创建对应几何元素。 */
+    const ensurePreviewShape = (shape: GraphNodeShape) => {
+      if (previewShapeEl && previewShapeEl.dataset.shape === shape) return;
+      preview.innerHTML = '';
+      let el: SVGElement;
+      switch (shape) {
+        case 'ellipse':
+          el = document.createElementNS(SVG_NS, 'ellipse');
+          break;
+        case 'diamond':
+          el = document.createElementNS(SVG_NS, 'polygon');
+          break;
+        case 'rounded':
+        case 'rectangle':
+        case 'text':
+        default:
+          el = document.createElementNS(SVG_NS, 'rect');
+          break;
+      }
+      el.classList.add('jgraph-draw-preview-shape');
+      if (shape === 'text') {
+        // text 形状实际无边框，预览用虚线表示"文本区域"而非真实边框。
+        el.classList.add('is-text-region');
+      }
+      preview.appendChild(el);
+      previewShapeEl = el;
+      previewShapeEl.dataset.shape = shape;
+    };
+
+    /** 把拖拽划定的区域（屏幕像素 w/h）应用到当前预览形状上。 */
+    const applyPreviewSize = (w: number, h: number, shape: GraphNodeShape) => {
+      const el = previewShapeEl;
+      if (!el) return;
+      switch (shape) {
+        case 'ellipse': {
+          const e = el as SVGEllipseElement;
+          e.setAttribute('cx', String(w / 2));
+          e.setAttribute('cy', String(h / 2));
+          e.setAttribute('rx', String(Math.max(0, w / 2)));
+          e.setAttribute('ry', String(Math.max(0, h / 2)));
+          break;
+        }
+        case 'diamond': {
+          const p = el as SVGPolygonElement;
+          const pts = `${w / 2},0 ${w},${h / 2} ${w / 2},${h} 0,${h / 2}`;
+          p.setAttribute('points', pts);
+          break;
+        }
+        case 'rounded': {
+          const r = el as SVGRectElement;
+          r.setAttribute('width', String(w));
+          r.setAttribute('height', String(h));
+          // 圆角随尺寸缩放但封顶，太小则无圆角，避免挤压变形。
+          const arc = Math.min(SHAPE_ARC_SIZE, Math.min(w, h) / 3);
+          r.setAttribute('rx', String(arc));
+          r.setAttribute('ry', String(arc));
+          break;
+        }
+        case 'rectangle':
+        case 'text':
+        default: {
+          const r = el as SVGRectElement;
+          r.setAttribute('width', String(w));
+          r.setAttribute('height', String(h));
+          break;
+        }
+      }
+    };
 
     let drawing = false;
     let startClient = { x: 0, y: 0 }; // 相对 container 的屏幕坐标
@@ -456,7 +572,8 @@ export function GraphCanvas({
     const snap = (v: number) => Math.round(v / GRID_SIZE) * GRID_SIZE;
 
     const onMouseDown = (e: MouseEvent) => {
-      if (!pendingShapeRef.current) return; // 未处于待绘制态，交给引擎正常处理
+      const shape = pendingShapeRef.current;
+      if (!shape) return; // 未处于待绘制态，交给引擎正常处理
       if (e.button !== 0) return;
       // 拦截，阻止 maxGraph 的框选/平移接管本次拖拽。
       e.preventDefault();
@@ -465,15 +582,19 @@ export function GraphCanvas({
       startClient = clientToContainer(e);
       const p = graph.getPointForEvent(e, false);
       startGraph = { x: p.x, y: p.y };
-      preview.style.display = 'block';
+      ensurePreviewShape(shape);
+      applyPreviewSize(0, 0, shape);
       preview.style.left = `${startClient.x}px`;
       preview.style.top = `${startClient.y}px`;
       preview.style.width = '0px';
       preview.style.height = '0px';
+      preview.style.display = 'block';
     };
 
     const onMouseMove = (e: MouseEvent) => {
       if (!drawing) return;
+      const shape = pendingShapeRef.current;
+      if (!shape) return;
       const cur = clientToContainer(e);
       const x = Math.min(cur.x, startClient.x);
       const y = Math.min(cur.y, startClient.y);
@@ -483,6 +604,7 @@ export function GraphCanvas({
       preview.style.top = `${y}px`;
       preview.style.width = `${w}px`;
       preview.style.height = `${h}px`;
+      applyPreviewSize(w, h, shape);
     };
 
     const finishDraw = (e: MouseEvent) => {
@@ -789,12 +911,12 @@ export function GraphCanvas({
   const shapeTools = useMemo(
     () =>
       [
-        { shape: 'rectangle' as const, icon: Square, title: '矩形（处理）' },
-        { shape: 'rounded' as const, icon: Square, title: '圆角矩形（起止）' },
-        { shape: 'ellipse' as const, icon: Circle, title: '椭圆（节点）' },
-        { shape: 'diamond' as const, icon: Diamond, title: '菱形（判定）' },
-        { shape: 'text' as const, icon: TypeIcon, title: '文本' },
-      ] satisfies { shape: GraphNodeShape; icon: typeof Square; title: string }[],
+        { shape: 'rectangle' as const, title: '矩形（处理）' },
+        { shape: 'rounded' as const, title: '圆角矩形（起止）' },
+        { shape: 'ellipse' as const, title: '椭圆（节点）' },
+        { shape: 'diamond' as const, title: '菱形（判定）' },
+        { shape: 'text' as const, title: '文本' },
+      ] satisfies { shape: GraphNodeShape; title: string }[],
     [],
   );
 
@@ -819,7 +941,7 @@ export function GraphCanvas({
       {/* 左侧模具 / 操作工具栏 —— 仅编辑态显示 */}
       {editing && (
         <div className="jgraph-toolbar">
-          {shapeTools.map(({ shape, icon: Icon, title }) => (
+          {shapeTools.map(({ shape, title }) => (
             <button
               key={shape}
               type="button"
@@ -827,7 +949,7 @@ export function GraphCanvas({
               title={`${title}｜点击后在画布拖拽划定大小`}
               onClick={() => togglePending(shape)}
             >
-              <Icon size={16} />
+              <ShapeGlyph shape={shape} />
             </button>
           ))}
           <div className="jgraph-tool-sep" />
