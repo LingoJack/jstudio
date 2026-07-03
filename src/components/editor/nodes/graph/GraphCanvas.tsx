@@ -312,7 +312,8 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     case 'activation':
       return { ...base, shape: 'rectangle', strokeWidth: 1 };
     case 'note':
-      return { ...base, shape: 'note', size: 10 };
+      // 注释框：使用圆角矩形（maxGraph 没有 note 形状）
+      return { ...base, shape: 'rectangle', rounded: true, arcSize: 5 };
     // 连线类型
     case 'edge-line':
       return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
@@ -592,15 +593,22 @@ export function GraphCanvas({
 
       // 覆盖 createEdgeState：返回带有实际 edge 样式的状态，让预览线显示正确的路由
       // 在 style 中直接设置蓝色 + 虚线 + 箭头
-      const edgeStyleStr = `edgeStyle=orthogonalEdgeStyle;strokeColor=${getConnectionPointColor(dark)};strokeWidth=2;dashed=1;endArrow=classic;endSize=8;`;
       connectionHandler.createEdgeState = function () {
+        const edgeStyle: Record<string, unknown> = {
+          edgeStyle: 'orthogonalEdgeStyle',
+          strokeColor: getConnectionPointColor(dark),
+          strokeWidth: 2,
+          dashed: true,
+          endArrow: 'classic',
+          endSize: 8,
+        };
         const edge = this.graph.createEdge(
           undefined,
           undefined,
           undefined,
           undefined,
           undefined,
-          edgeStyleStr,
+          edgeStyle,
         );
         return new CellState(
           this.graph.view,
@@ -889,11 +897,8 @@ export function GraphCanvas({
         if (connectionHandler) {
           // 设置默认连线样式，用户拖拽连线时会使用这个样式
           const edgeStyle = styleForShape(shape, darkModeRef.current);
-          const styleStr = Object.entries(edgeStyle)
-            .map(([k, v]) => `${k}=${v}`)
-            .join(';');
-          graph.connectionHandler.createEdgeState = function () {
-            const edge = this.graph.createEdge(undefined, undefined, undefined, undefined, undefined, styleStr);
+          connectionHandler.createEdgeState = function () {
+            const edge = this.graph.createEdge(undefined, undefined, undefined, undefined, undefined, edgeStyle);
             return new CellState(this.graph.view, edge, this.graph.getCellStyle(edge));
           };
         }

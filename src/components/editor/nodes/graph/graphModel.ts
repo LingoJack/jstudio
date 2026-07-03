@@ -65,8 +65,9 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 时序图激活框：窄矩形
       return { ...base, shape: 'rectangle', strokeWidth: 1 };
     case 'note':
-      // 注释框：折角矩形（使用 note 形状）
-      return { ...base, shape: 'note', size: 10 };
+      // 注释框：使用 rectangle + 圆角模拟折角效果
+      // maxGraph 没有 note 形状，用圆角矩形代替
+      return { ...base, shape: 'rectangle', rounded: true, arcSize: 5 };
     // 连线类型（作为预设连线样式）
     case 'edge-line':
       return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
@@ -94,9 +95,10 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   if (shape === 'swimlane') {
     return style.horizontal === false ? 'swimlane-v' : 'swimlane-h';
   }
-  if (shape === 'note') return 'note';
   if (shape === 'rectangle') {
     if (style.strokeWidth === 1) return 'activation';
+    // note 用 arcSize=5 区分，rounded 用 arcSize=SHAPE_ARC_SIZE(12)
+    if (style.rounded && style.arcSize === 5) return 'note';
     if (style.rounded) return 'rounded';
   }
   return 'rectangle';
