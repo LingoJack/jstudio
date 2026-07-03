@@ -451,21 +451,24 @@ export function GraphCanvas({
       };
     }
 
-    // 飞书风格：连线预览改为蓝色实线（默认是绿色/红色虚线）
+    // 飞书风格：连线预览改为蓝色虚线 + 箭头（默认是绿色/红色虚线无箭头）
     if (connectionHandler) {
       // 颜色：有效连接时蓝色，无效时红色
       connectionHandler.getEdgeColor = (valid: boolean) => {
         return valid ? getConnectionPointColor(dark) : '#EF4444';
       };
       connectionHandler.getEdgeWidth = () => 2;
-      // 覆盖 createShape：初始颜色用蓝色而非红色，虚线改实线
+      // 覆盖 createShape：初始颜色用蓝色，添加箭头
       const originalCreateShape = connectionHandler.createShape.bind(connectionHandler);
       connectionHandler.createShape = () => {
         const shape = originalCreateShape();
         if (shape) {
           shape.stroke = getConnectionPointColor(dark); // 初始就是蓝色
           shape.strokeWidth = 2;
-          shape.isDashed = false; // 实线，飞书风格
+          shape.isDashed = true; // 虚线，飞书风格
+          // 添加箭头（飞书风格预览线带箭头）
+          shape.endArrow = 'classic';
+          shape.endSize = 8;
         }
         return shape;
       };
