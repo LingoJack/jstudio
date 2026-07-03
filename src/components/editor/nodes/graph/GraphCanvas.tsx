@@ -33,6 +33,7 @@ import {
   RectangleShape,
   RhombusShape,
   EllipseShape,
+  ConnectorShape,
   VertexHandler,
   type Cell,
   type CellState,
@@ -458,18 +459,20 @@ export function GraphCanvas({
         return valid ? getConnectionPointColor(dark) : '#EF4444';
       };
       connectionHandler.getEdgeWidth = () => 2;
-      // 覆盖 createShape：初始颜色用蓝色，添加箭头
-      const originalCreateShape = connectionHandler.createShape.bind(connectionHandler);
-      connectionHandler.createShape = () => {
-        const shape = originalCreateShape();
-        if (shape) {
-          shape.stroke = getConnectionPointColor(dark); // 初始就是蓝色
-          shape.strokeWidth = 2;
-          shape.isDashed = true; // 虚线，飞书风格
-          // 添加箭头（飞书风格预览线带箭头）
-          shape.endArrow = 'classic';
-          shape.endSize = 8;
-        }
+      // 覆盖 createShape：使用 ConnectorShape（支持箭头）而非 PolylineShape
+      connectionHandler.createShape = function () {
+        // 使用 ConnectorShape，通过 style 设置箭头
+        const shape = new ConnectorShape([], getConnectionPointColor(dark), 2);
+        shape.style = {
+          endArrow: 'classic',
+          endSize: 8,
+        };
+        shape.dialect = 'svg';
+        shape.scale = this.graph.view.scale;
+        shape.pointerEvents = false;
+        shape.isDashed = true;
+        shape.init(this.graph.getView().getOverlayPane());
+        InternalEvent.redirectMouseEvents(shape.node, this.graph, null);
         return shape;
       };
     }
