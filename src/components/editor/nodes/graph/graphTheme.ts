@@ -56,10 +56,12 @@ export const HANDLE_FILL_COLOR_DARK = '#1F2937';
 export const HANDLE_STROKE_COLOR_LIGHT = '#3B82F6';
 export const HANDLE_STROKE_COLOR_DARK = '#60A5FA';
 
-/** 连接点样式（悬停边缘时显示的锚点）- 跟随主题 */
+/** 连接点样式（悬停边缘时显示的锚点）- 跟随主题
+ * 飞书风格：纯色小圆点，无填充，简洁优雅
+ */
 export const CONNECTION_POINT_COLOR_LIGHT = '#3B82F6';
 export const CONNECTION_POINT_COLOR_DARK = '#60A5FA';
-export const CONNECTION_POINT_SIZE = 8;
+export const CONNECTION_POINT_SIZE = 8; // 飞书风格：更小巧
 
 /** 拖动预览样式 - 跟随主题 */
 export const PREVIEW_FILL_COLOR_LIGHT = 'rgba(59, 130, 246, 0.1)';
@@ -102,14 +104,18 @@ export function getFontColor(dark: boolean): string {
   return dark ? FONT_DARK : FONT_LIGHT;
 }
 
-/** 创建连接点 SVG 图标（跟随主题） */
+/** 创建连接点 SVG 图标（飞书风格）
+ *  设计：纯色实心小圆点，简洁优雅，无多余装饰。
+ *  hover 时显示蓝色实心圆点，与选中手柄风格一致。
+ */
 export function createConnectionPointSVG(dark: boolean): string {
   const color = getConnectionPointColor(dark);
-  const fill = getHandleFillColor(dark);
+  const size = CONNECTION_POINT_SIZE;
+  const r = size / 2 - 1; // 留 1px 边距
   return `data:image/svg+xml,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="${CONNECTION_POINT_SIZE}" height="${CONNECTION_POINT_SIZE}">
-      <circle cx="${CONNECTION_POINT_SIZE/2}" cy="${CONNECTION_POINT_SIZE/2}" r="${CONNECTION_POINT_SIZE/2 - 1}" 
-        fill="${fill}" stroke="${color}" stroke-width="2"/>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}"
+        fill="${color}" stroke="none"/>
     </svg>
   `)}`;
 }

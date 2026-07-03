@@ -385,6 +385,22 @@ export function GraphCanvas({
     VertexHandlerConfig.selectionStrokeWidth = SELECTION_STROKE_WIDTH;
     VertexHandlerConfig.selectionDashed = SELECTION_DASHED;
 
+    // 飞书风格：将缩放手柄从方形改为圆形（覆盖 VertexHandler.createSizerShape）
+    VertexHandler.prototype.createSizerShape = function (
+      this: VertexHandler,
+      bounds: Rectangle,
+      index: number,
+      fillColor: string = HandleConfig.fillColor,
+    ): RectangleShape {
+      const strokeColor = HandleConfig.strokeColor;
+      // 旋转手柄保持椭圆形（更明显）
+      if (index === InternalEvent.ROTATION_HANDLE) {
+        return new EllipseShape(bounds, fillColor, strokeColor, 1.5);
+      }
+      // 所有缩放手柄都用圆形（飞书风格）
+      return new EllipseShape(bounds, fillColor, strokeColor, 1.5) as RectangleShape;
+    };
+
     // 自定义选中框形状：按节点形状显示对应选中框（菱形→菱形选中框，椭圆→椭圆选中框，其余→矩形）。
     // maxGraph 中选中框由 VertexHandler.createSelectionShape 创建（不再有 graph.createSelectionShape）。
     // 覆盖原型方法；颜色/线宽/虚线统一从 VertexHandlerConfig 读取，自动跟随主题。
@@ -420,6 +436,27 @@ export function GraphCanvas({
         CONNECTION_POINT_SIZE,
       );
       connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
+      // 重写 createHighlightShape，将默认的矩形高亮改为圆形（与 pointImage 风格一致）
+      // 这样悬停连接点时不会出现方形边框
+      const ch = connectionHandler.constraintHandler;
+      ch.createHighlightShape = () => {
+        const hl = new EllipseShape(
+          new Rectangle(),
+          'none', // 无填充
+          getConnectionPointColor(dark),
+          1.5, // stroke width
+        );
+        hl.opacity = 0.6;
+        return hl as RectangleShape;
+      };
+    }
+
+    // 飞书风格：连线预览颜色改为蓝色（默认是绿色 VALID_COLOR / 红色 INVALID_COLOR）
+    if (connectionHandler) {
+      connectionHandler.getEdgeColor = (valid: boolean) => {
+        return valid ? getConnectionPointColor(dark) : '#EF4444'; // 有效时蓝色，无效时红色
+      };
+      connectionHandler.getEdgeWidth = () => 2; // 略粗一点的线
     }
 
     // Alt/Option + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
