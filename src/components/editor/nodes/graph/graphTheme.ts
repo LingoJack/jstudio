@@ -22,6 +22,16 @@ export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
   ellipse: { fill: 'none', stroke: '#374151' },
   diamond: { fill: 'none', stroke: '#374151' },
   text: { fill: 'none', stroke: 'none' },
+  actor: { fill: 'none', stroke: '#374151' },
+  'swimlane-v': { fill: 'none', stroke: '#374151' },
+  'swimlane-h': { fill: 'none', stroke: '#374151' },
+  lifeline: { fill: 'none', stroke: '#374151' },
+  activation: { fill: 'none', stroke: '#374151' },
+  note: { fill: 'none', stroke: '#374151' },
+  'edge-line': { fill: 'none', stroke: '#374151' },
+  'edge-ortho': { fill: 'none', stroke: '#374151' },
+  'edge-dashed': { fill: 'none', stroke: '#374151' },
+  'edge-no-arrow': { fill: 'none', stroke: '#374151' },
 };
 
 /** 暗色模式：同样的白板风格，描边使用浅色以保证可见性。 */
@@ -31,6 +41,16 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
   ellipse: { fill: 'none', stroke: '#9CA3AF' },
   diamond: { fill: 'none', stroke: '#9CA3AF' },
   text: { fill: 'none', stroke: 'none' },
+  actor: { fill: 'none', stroke: '#9CA3AF' },
+  'swimlane-v': { fill: 'none', stroke: '#9CA3AF' },
+  'swimlane-h': { fill: 'none', stroke: '#9CA3AF' },
+  lifeline: { fill: 'none', stroke: '#9CA3AF' },
+  activation: { fill: 'none', stroke: '#9CA3AF' },
+  note: { fill: 'none', stroke: '#9CA3AF' },
+  'edge-line': { fill: 'none', stroke: '#9CA3AF' },
+  'edge-ortho': { fill: 'none', stroke: '#9CA3AF' },
+  'edge-dashed': { fill: 'none', stroke: '#9CA3AF' },
+  'edge-no-arrow': { fill: 'none', stroke: '#9CA3AF' },
 };
 
 export const FONT_LIGHT = '#374151';

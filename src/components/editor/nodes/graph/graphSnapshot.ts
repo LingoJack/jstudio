@@ -28,9 +28,19 @@ export const JGRAPH_VERSION = 1 as const;
 export type GraphNodeShape =
   | 'rectangle' // 矩形（流程：处理）
   | 'rounded' // 圆角矩形（流程：起止）
-  | 'ellipse' // 椭圆 / 圆
+  | 'ellipse' // 椭圆 / 圆（用例图：用例）
   | 'diamond' // 菱形（流程：判定）
-  | 'text'; // 纯文本标签（无边框）
+  | 'text' // 纯文本标签（无边框）
+  | 'actor' // 用例图：角色（小人图标）
+  | 'swimlane-v' // 泳道图：垂直泳道
+  | 'swimlane-h' // 泳道图：水平泳道
+  | 'lifeline' // 时序图：生命线（虚线垂直线）
+  | 'activation' // 时序图：激活框（窄矩形）
+  | 'note' // 注释框（折角矩形）
+  | 'edge-line' // 直线箭头连线
+  | 'edge-ortho' // 拐角箭头连线（流程图常用）
+  | 'edge-dashed' // 虚线箭头（时序图返回线）
+  | 'edge-no-arrow'; // 无箭头连线（关联线）
 
 /** 一个节点。 */
 export interface GraphNode {

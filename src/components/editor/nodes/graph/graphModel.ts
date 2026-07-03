@@ -49,6 +49,33 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       return { ...base, shape: 'rhombus' };
     case 'text':
       return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
+    case 'actor':
+      // 用例图角色：使用自定义的 umlActor 形状（小人图标）
+      return { ...base, shape: 'umlActor' };
+    case 'swimlane-v':
+      // 垂直泳道：使用 swimlane 形状，horizontal=false
+      return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: false };
+    case 'swimlane-h':
+      // 水平泳道：使用 swimlane 形状，horizontal=true
+      return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: true };
+    case 'lifeline':
+      // 时序图生命线：使用自定义的 lifeline 形状（矩形头部 + 虚线延伸）
+      return { ...base, shape: 'lifeline' };
+    case 'activation':
+      // 时序图激活框：窄矩形
+      return { ...base, shape: 'rectangle', strokeWidth: 1 };
+    case 'note':
+      // 注释框：折角矩形（使用 note 形状）
+      return { ...base, shape: 'note', size: 10 };
+    // 连线类型（作为预设连线样式）
+    case 'edge-line':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
+    case 'edge-ortho':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
+    case 'edge-dashed':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: '4 4', endArrow: 'classic', endSize: 8 };
+    case 'edge-no-arrow':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'none' };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
@@ -62,7 +89,16 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   if (shape === 'ellipse') return 'ellipse';
   if (shape === 'rhombus') return 'diamond';
   if (shape === 'text') return 'text';
-  if (shape === 'rectangle' && style.rounded) return 'rounded';
+  if (shape === 'umlActor') return 'actor'; // 用例图角色（自定义形状）
+  if (shape === 'lifeline') return 'lifeline'; // 时序图生命线（自定义形状）
+  if (shape === 'swimlane') {
+    return style.horizontal === false ? 'swimlane-v' : 'swimlane-h';
+  }
+  if (shape === 'note') return 'note';
+  if (shape === 'rectangle') {
+    if (style.strokeWidth === 1) return 'activation';
+    if (style.rounded) return 'rounded';
+  }
   return 'rectangle';
 }
 

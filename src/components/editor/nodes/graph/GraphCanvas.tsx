@@ -63,6 +63,7 @@ import {
   type GraphNodeShape,
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
+import { registerCustomShapes } from './customShapes';
 import {
   paletteFor,
   getSelectionColor,
@@ -114,6 +115,16 @@ const DEFAULT_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   ellipse: { w: 120, h: 80 },
   diamond: { w: 80, h: 80 },
   text: { w: 60, h: 30 },
+  actor: { w: 40, h: 60 },
+  'swimlane-v': { w: 200, h: 300 },
+  'swimlane-h': { w: 300, h: 200 },
+  lifeline: { w: 100, h: 200 },
+  activation: { w: 20, h: 60 },
+  note: { w: 100, h: 60 },
+  'edge-line': { w: 100, h: 20 },
+  'edge-ortho': { w: 100, h: 20 },
+  'edge-dashed': { w: 100, h: 20 },
+  'edge-no-arrow': { w: 100, h: 20 },
 };
 
 const SHAPE_LABEL: Record<GraphNodeShape, string> = {
@@ -122,6 +133,16 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
   ellipse: '节点',
   diamond: '判定',
   text: '文本',
+  actor: '',
+  'swimlane-v': '泳道',
+  'swimlane-h': '泳道',
+  lifeline: '',
+  activation: '',
+  note: '注释',
+  'edge-line': '',
+  'edge-ortho': '',
+  'edge-dashed': '',
+  'edge-no-arrow': '',
 };
 
 /* ------------------------------------------------------------------ */
@@ -142,14 +163,12 @@ function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
         </svg>
       );
     case 'rounded':
-      // 圆角明显，与 rectangle 一眼可辨（解决"两个方形"问题）
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
           <rect x="2" y="3.5" width="12" height="9" rx="2.5" stroke="currentColor" strokeWidth={sw} />
         </svg>
       );
     case 'ellipse':
-      // 宽椭圆，对齐画布默认比例(120×80)
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
           <ellipse cx="8" cy="8" rx="6.5" ry="5" stroke="currentColor" strokeWidth={sw} />
@@ -162,12 +181,99 @@ function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
         </svg>
       );
     case 'text':
-      // T 字形，对齐文本框样式（无边框，仅字）
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
           <path d="M3.5 4 H12.5 M8 4 V13" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
         </svg>
       );
+    case 'actor':
+      // 用例图角色：小人图标
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 20" fill="none" aria-hidden>
+          {/* 头 */}
+          <circle cx="8" cy="3" r="2.5" stroke="currentColor" strokeWidth={sw} />
+          {/* 身体 */}
+          <line x1="8" y1="5.5" x2="8" y2="12" stroke="currentColor" strokeWidth={sw} />
+          {/* 手臂 */}
+          <line x1="8" y1="7" x2="3" y2="10" stroke="currentColor" strokeWidth={sw} />
+          <line x1="8" y1="7" x2="13" y2="10" stroke="currentColor" strokeWidth={sw} />
+          {/* 腿 */}
+          <line x1="8" y1="12" x2="4" y2="18" stroke="currentColor" strokeWidth={sw} />
+          <line x1="8" y1="12" x2="12" y2="18" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    case 'swimlane-v':
+      // 垂直泳道：矩形 + 标题栏
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <rect x="2" y="2" width="12" height="12" stroke="currentColor" strokeWidth={sw} />
+          <line x1="6" y1="2" x2="6" y2="14" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    case 'swimlane-h':
+      // 水平泳道：矩形 + 标题栏横线
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <rect x="2" y="2" width="12" height="12" stroke="currentColor" strokeWidth={sw} />
+          <line x1="2" y1="5" x2="14" y2="5" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    case 'lifeline':
+      // 时序图生命线：矩形 + 虚线
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <rect x="3" y="2" width="10" height="4" rx="1" stroke="currentColor" strokeWidth={sw} />
+          <line x1="8" y1="6" x2="8" y2="14" stroke="currentColor" strokeWidth={sw} strokeDasharray="2 2" />
+        </svg>
+      );
+    case 'activation':
+      // 时序图激活框：窄矩形
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <rect x="5" y="2" width="6" height="12" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    case 'note':
+      // 注释框：折角矩形
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path d="M2 2 L12 2 L14 4 L14 14 L2 14 Z" stroke="currentColor" strokeWidth={sw} strokeLinejoin="round" />
+          <path d="M12 2 L12 4 L14 4" stroke="currentColor" strokeWidth={sw} strokeLinejoin="round" />
+        </svg>
+      );
+    case 'edge-line':
+      // 直线箭头连线
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <line x1="2" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth={sw} />
+          <path d="M12 8 L10 6 L10 10 Z" fill="currentColor" />
+        </svg>
+      );
+    case 'edge-ortho':
+      // 拐角箭头连线
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path d="M2 4 L2 8 L14 8" stroke="currentColor" strokeWidth={sw} />
+          <path d="M14 8 L12 6 L12 10 Z" fill="currentColor" />
+        </svg>
+      );
+    case 'edge-dashed':
+      // 虚线箭头连线
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <line x1="2" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth={sw} strokeDasharray="2 2" />
+          <path d="M12 8 L10 6 L10 10 Z" fill="currentColor" />
+        </svg>
+      );
+    case 'edge-no-arrow':
+      // 无箭头连线
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth={sw} />
+        </svg>
+      );
+    default:
+      return null;
   }
 }
 
@@ -193,6 +299,29 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
       return { ...base, shape: 'ellipse' };
     case 'text':
       return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
+    case 'actor':
+      // 用例图角色：使用自定义的 umlActor 形状（小人图标）
+      return { ...base, shape: 'umlActor' };
+    case 'swimlane-v':
+      return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: false };
+    case 'swimlane-h':
+      return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: true };
+    case 'lifeline':
+      // 时序图生命线：使用自定义的 lifeline 形状（矩形头部 + 虚线延伸）
+      return { ...base, shape: 'lifeline' };
+    case 'activation':
+      return { ...base, shape: 'rectangle', strokeWidth: 1 };
+    case 'note':
+      return { ...base, shape: 'note', size: 10 };
+    // 连线类型
+    case 'edge-line':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
+    case 'edge-ortho':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
+    case 'edge-dashed':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: '4 4', endArrow: 'classic', endSize: 8 };
+    case 'edge-no-arrow':
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'none' };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
@@ -362,6 +491,9 @@ export function GraphCanvas({
     ]);
     graphRef.current = graph;
 
+    // 注册自定义形状到全局 ShapeRegistry（UML 图表：用例图角色、时序图生命线等）
+    registerCustomShapes();
+
     // 基本交互能力。
     graph.setPanning(true);
     graph.setConnectable(true); // 允许从节点边缘拖出连线
@@ -463,11 +595,11 @@ export function GraphCanvas({
       const edgeStyleStr = `edgeStyle=orthogonalEdgeStyle;strokeColor=${getConnectionPointColor(dark)};strokeWidth=2;dashed=1;endArrow=classic;endSize=8;`;
       connectionHandler.createEdgeState = function () {
         const edge = this.graph.createEdge(
-          null,
-          null,
-          null,
-          null,
-          null,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
           edgeStyleStr,
         );
         return new CellState(
@@ -478,16 +610,16 @@ export function GraphCanvas({
       };
 
       // 颜色：有效连接时蓝色，无效时红色
-      connectionHandler.getEdgeColor = (valid: boolean) => {
+      // 使用类型断言绕过 maxGraph 的严格类型定义
+      connectionHandler.getEdgeColor = ((valid: boolean) => {
         return valid ? getConnectionPointColor(dark) : '#EF4444';
-      };
-      connectionHandler.getEdgeWidth = () => 2;
+      }) as (valid: boolean) => "#00FF00" | "#FF0000";
 
       // 覆盖 drawPreview：确保预览线样式正确（蓝色虚线）
       connectionHandler.drawPreview = function () {
         if (this.shape) {
           this.shape.stroke = this.getEdgeColor(this.error === null);
-          this.shape.strokeWidth = this.getEdgeWidth();
+          this.shape.strokeWidth = 2;
           this.shape.isDashed = true;
           this.shape.redraw();
         }
@@ -749,6 +881,25 @@ export function GraphCanvas({
       const endPoint = graph.getPointForEvent(e, false);
       const rawW = Math.abs(endPoint.x - startGraph.x);
       const rawH = Math.abs(endPoint.y - startGraph.y);
+
+      // 连线类型：不创建节点，直接退出，让用户手动从节点拖拽连线
+      // 连线工具只是改变 ConnectionHandler 的默认连线样式
+      if (shape.startsWith('edge-')) {
+        const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
+        if (connectionHandler) {
+          // 设置默认连线样式，用户拖拽连线时会使用这个样式
+          const edgeStyle = styleForShape(shape, darkModeRef.current);
+          const styleStr = Object.entries(edgeStyle)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(';');
+          graph.connectionHandler.createEdgeState = function () {
+            const edge = this.graph.createEdge(undefined, undefined, undefined, undefined, undefined, styleStr);
+            return new CellState(this.graph.view, edge, this.graph.getCellStyle(edge));
+          };
+        }
+        setPending(null);
+        return;
+      }
 
       let x: number;
       let y: number;
@@ -1062,11 +1213,26 @@ export function GraphCanvas({
   const shapeTools = useMemo(
     () =>
       [
-        { shape: 'rectangle' as const, title: '矩形（处理）' },
-        { shape: 'rounded' as const, title: '圆角矩形（起止）' },
-        { shape: 'ellipse' as const, title: '椭圆（节点）' },
-        { shape: 'diamond' as const, title: '菱形（判定）' },
+        // 基础图形
+        { shape: 'rectangle' as const, title: '矩形' },
+        { shape: 'rounded' as const, title: '圆角矩形' },
+        { shape: 'ellipse' as const, title: '椭圆' },
+        { shape: 'diamond' as const, title: '菱形' },
         { shape: 'text' as const, title: '文本' },
+        { shape: 'note' as const, title: '注释框' },
+        // 用例图
+        { shape: 'actor' as const, title: '角色（用例图）' },
+        // 泳道图
+        { shape: 'swimlane-v' as const, title: '垂直泳道' },
+        { shape: 'swimlane-h' as const, title: '水平泳道' },
+        // 时序图
+        { shape: 'lifeline' as const, title: '生命线（时序图）' },
+        { shape: 'activation' as const, title: '激活框（时序图）' },
+        // 连线类型
+        { shape: 'edge-line' as const, title: '直线连线' },
+        { shape: 'edge-ortho' as const, title: '拐角连线（流程图）' },
+        { shape: 'edge-dashed' as const, title: '虚线连线（时序图）' },
+        { shape: 'edge-no-arrow' as const, title: '无箭头连线' },
       ] satisfies { shape: GraphNodeShape; title: string }[],
     [],
   );
