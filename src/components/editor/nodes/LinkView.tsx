@@ -455,9 +455,15 @@ export default function LinkView({
                     value={inputUrl}
                     onChange={(e) => setInputUrl(e.target.value)}
                     onKeyDown={(e) => {
+                      // Stop propagation to prevent ProseMirror from handling keyboard events
+                      e.stopPropagation();
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         submitUrl(inputUrl);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        // Cancel and clear
+                        setInputUrl('');
                       }
                     }}
                     onPaste={(e) => {
@@ -506,6 +512,7 @@ export default function LinkView({
                   placeholder={hostname}
                   onChange={(e) => setEditTitle(e.target.value)}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleSaveEdit();
@@ -525,6 +532,7 @@ export default function LinkView({
                   placeholder="https://"
                   onChange={(e) => setEditUrl(e.target.value)}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleSaveEdit();

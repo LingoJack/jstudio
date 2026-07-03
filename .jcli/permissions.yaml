@@ -67,4 +67,5 @@ allow:
 - Shell(find /Users/lingojack/dev_custom/jcli/apps/jstudio/src-tauri/src:*)
 - Shell(grep -r:*)
 - Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/node_modules/@maxgraph/core/dist/:*)
+- Shell(head -c:*)
 deny: []

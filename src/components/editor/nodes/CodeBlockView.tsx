@@ -27,6 +27,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
 import { Copy, Check, ChevronDown, Search, Eye, Code2, ExternalLink } from 'lucide-react';
 import { ResizeHandle } from '../../ui/ResizeHandle';
@@ -237,6 +238,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const badgeRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -324,6 +326,14 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       if (!prev) {
         // Opening — save current editor selection so we can restore it later
         savedSelectionRef.current = editor.state.selection.from;
+        // Calculate position for portal rendering
+        if (badgeRef.current) {
+          const badgeRect = badgeRef.current.getBoundingClientRect();
+          setDropdownPosition({
+            top: badgeRect.bottom + 8,
+            right: window.innerWidth - badgeRect.right,
+          });
+        }
       }
       return !prev;
     });
@@ -446,58 +456,73 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
           </div>
         </div>
 
-        {/* Custom dropdown panel */}
-        {dropdownOpen && (
-          <div ref={dropdownRef} className="code-lang-dropdown" contentEditable={false}>
-            <div className="code-lang-search">
-              <Search size={13} className="code-lang-search-icon" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    if (filteredLanguages.length === 0) return;
-                    setHighlightedIndex((prev) =>
-                      prev >= filteredLanguages.length - 1 ? 0 : prev + 1,
-                    );
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    if (filteredLanguages.length === 0) return;
-                    setHighlightedIndex((prev) =>
-                      prev <= 0 ? filteredLanguages.length - 1 : prev - 1,
-                    );
-                  } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const item = filteredLanguages[highlightedIndex] ?? filteredLanguages[0];
-                    if (item) selectLanguage(item.value);
-                  }
-                }}
-                placeholder="搜索语言…"
-                className="code-lang-search-input"
-              />
-            </div>
-            <div ref={listRef} className="code-lang-list">
-              {filteredLanguages.length === 0 ? (
-                <div className="code-lang-empty">无匹配语言</div>
-              ) : (
-                filteredLanguages.map(({ value, label }, index) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => selectLanguage(value)}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    className={`code-lang-option ${value === language ? 'is-active' : ''} ${index === highlightedIndex ? 'is-highlighted' : ''}`}
-                  >
-                    {label}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+        {/* Custom dropdown panel - rendered via Portal to escape ProseMirror's event handling */}
+        {dropdownOpen &&
+          createPortal(
+            <div
+              ref={dropdownRef}
+              className="code-lang-dropdown code-lang-dropdown-portal"
+              style={{
+                position: 'fixed',
+                top: dropdownPosition.top,
+                right: dropdownPosition.right,
+              }}
+            >
+              <div className="code-lang-search">
+                <Search size={13} className="code-lang-search-icon" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      if (filteredLanguages.length === 0) return;
+                      setHighlightedIndex((prev) =>
+                        prev >= filteredLanguages.length - 1 ? 0 : prev + 1,
+                      );
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      if (filteredLanguages.length === 0) return;
+                      setHighlightedIndex((prev) =>
+                        prev <= 0 ? filteredLanguages.length - 1 : prev - 1,
+                      );
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const item = filteredLanguages[highlightedIndex] ?? filteredLanguages[0];
+                      if (item) selectLanguage(item.value);
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setDropdownOpen(false);
+                      setSearchQuery('');
+                      setHighlightedIndex(0);
+                    }
+                  }}
+                  placeholder="搜索语言…"
+                  className="code-lang-search-input"
+                />
+              </div>
+              <div ref={listRef} className="code-lang-list">
+                {filteredLanguages.length === 0 ? (
+                  <div className="code-lang-empty">无匹配语言</div>
+                ) : (
+                  filteredLanguages.map(({ value, label }, index) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => selectLanguage(value)}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      className={`code-lang-option ${value === language ? 'is-active' : ''} ${index === highlightedIndex ? 'is-highlighted' : ''}`}
+                    >
+                      {label}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>,
+            document.body,
+          )}
 
         {/* Code content — highlighted by lowlight.
             Height is driven by the resize handle (displayHeight); when unset the
