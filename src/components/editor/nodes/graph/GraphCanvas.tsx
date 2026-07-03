@@ -507,13 +507,20 @@ export function GraphCanvas({
     });
 
     // 灌入初始快照。
+    const parsedInit = parseGraphSnapshot(initialSnapshotRef.current);
     applyingRef.current = true;
     try {
       graph.batchUpdate(() => {
-        applySnapshotToGraph(graph, parseGraphSnapshot(initialSnapshotRef.current), darkModeRef.current);
+        applySnapshotToGraph(graph, parsedInit, darkModeRef.current);
       });
     } finally {
       applyingRef.current = false;
+    }
+    // 同步组件 showGrid 态（applySnapshotToGraph 已设引擎 gridEnabled，
+    // 但组件 state 仍是默认 true，需对齐，否则下次 emit 会把 showGrid 写回 true）。
+    if (typeof parsedInit.showGrid === 'boolean') {
+      setShowGrid(parsedInit.showGrid);
+      showGridRef.current = parsedInit.showGrid;
     }
     // 初始灌入产生的 edit 不应进 undo 历史。
     undoManager.clear();
