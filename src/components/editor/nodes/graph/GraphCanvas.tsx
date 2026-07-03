@@ -533,6 +533,10 @@ export function GraphCanvas({
       selectionHandler.guidesEnabled = true;
       // 拖动预览颜色：跟随主题（浅色模式用蓝色，深色模式用浅蓝色）
       selectionHandler.previewColor = getSelectionColor(dark);
+      // 启用 livePreview：移动图形时显示实际图形预览（而非矩形框）
+      // maxLivePreview 默认为 0，需要设置一个较大值才能启用
+      selectionHandler.maxLivePreview = 100;
+      selectionHandler.allowLivePreview = true;
     }
 
     const defaultPal = paletteFor('rectangle', dark);
