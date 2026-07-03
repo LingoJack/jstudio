@@ -91,6 +91,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const heightAttr = node.attrs?.height as number | null | undefined;
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // "Real" selection: only a genuine NodeSelection on THIS node counts as
   // selected — NOT a text selection that sweeps across the code block.
@@ -118,6 +120,37 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   useEffect(() => {
     if (!isHtml && node.attrs?.htmlPreview) updateAttributes({ htmlPreview: false });
   }, [isHtml, node.attrs?.htmlPreview, updateAttributes]);
+
+  // ── Native DOM iframe management (React 19 sandbox workaround) ──
+  // React 19's development-mode reconciliation traverses DOM trees including
+  // sandboxed iframes, triggering SecurityError: Sandbox access violation.
+  // We render the iframe via native DOM so React never sees its internals.
+  useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    // If preview should be shown and iframe doesn't exist yet, create it.
+    if (showPreview && !iframeRef.current) {
+      const iframe = document.createElement('iframe');
+      iframe.className = 'code-html-preview';
+      iframe.title = 'HTML preview';
+      iframe.sandbox.add('allow-scripts', 'allow-forms', 'allow-popups', 'allow-modals');
+      iframe.srcdoc = htmlSource;
+      container.appendChild(iframe);
+      iframeRef.current = iframe;
+    }
+
+    // If preview is hidden, remove the iframe.
+    if (!showPreview && iframeRef.current) {
+      iframeRef.current.remove();
+      iframeRef.current = null;
+    }
+
+    // Update srcdoc when htmlSource changes (only if iframe exists).
+    if (showPreview && iframeRef.current && iframeRef.current.srcdoc !== htmlSource) {
+      iframeRef.current.srcdoc = htmlSource;
+    }
+  }, [showPreview, htmlSource]);
 
   /* -------------------------------------------------------------- */
   /* Resize: drag the bottom-right handle (shared useNodeResize)     */
@@ -480,18 +513,26 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             when NOT selected a transparent overlay sits above the iframe so a
             click selects the node; once selected the overlay disappears and the
             iframe becomes interactive.
-            `sandbox` without `allow-same-origin` isolates it from the app. */}
+            `sandbox` without `allow-same-origin` isolates it from the app.
+            
+            IMPORTANT: The iframe is rendered via native DOM (useEffect below),
+            NOT via React JSX. React 19's development-mode reconciliation traverses
+            the DOM tree including sandboxed iframes, triggering:
+              SecurityError: Sandbox access violation
+            This crashes the entire reconciliation loop and blocks ALL user
+            interactions. By using native DOM, React never sees the iframe's
+            internal structure. */}
         {isHtml && showPreview && (
-          <div className="code-block-preview" contentEditable={false} style={previewStyle}>
+          <div
+            ref={previewContainerRef}
+            className="code-block-preview"
+            contentEditable={false}
+            style={previewStyle}
+          >
             {!selected && (
               <div className="code-block-preview-overlay" onMouseDown={selectNode} />
             )}
-            <iframe
-              className="code-html-preview"
-              title="HTML preview"
-              sandbox="allow-scripts allow-forms allow-popups allow-modals"
-              srcDoc={htmlSource}
-            />
+            {/* iframe inserted by useEffect below, not JSX */}
           </div>
         )}
 

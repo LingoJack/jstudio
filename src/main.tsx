@@ -10,6 +10,15 @@ import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';
 
+// ── React 19 sandbox iframe workaround (development mode) ──────────────
+// React 19's development-mode reconciliation traverses DOM trees including
+// sandboxed iframes, triggering SecurityError: Sandbox access violation.
+// This error cascades and blocks ALL subsequent user interactions.
+// We disable StrictMode in development to prevent double-rendering and
+// the associated DOM traversal that triggers this bug.
+// See: https://github.com/facebook/react/issues/...
+const USE_STRICT_MODE = !import.meta.env.DEV;
+
 // ── Disable the native WebView context menu globally ──────────────
 // Tauri uses the system WebView engine (WebKit on macOS, WebView2 on
 // Windows, WebKitGTK on Linux). By default it shows "Inspect Element",
@@ -53,22 +62,24 @@ if (isCommandPaletteWindow) {
   document.head.appendChild(s);
 }
 
+const rootElement = (
+  <ErrorBoundary>
+    {isTerminalWindow ? (
+      <TerminalWindowApp />
+    ) : isDocumentWindow ? (
+      <DocumentWindowApp />
+    ) : isCommandPaletteWindow ? (
+      <CommandPaletteWindow />
+    ) : isPreviewWindow ? (
+      <PreviewWindowApp />
+    ) : isDiagramWindow ? (
+      <DiagramWindowApp />
+    ) : (
+      <App />
+    )}
+  </ErrorBoundary>
+);
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      {isTerminalWindow ? (
-        <TerminalWindowApp />
-      ) : isDocumentWindow ? (
-        <DocumentWindowApp />
-      ) : isCommandPaletteWindow ? (
-        <CommandPaletteWindow />
-      ) : isPreviewWindow ? (
-        <PreviewWindowApp />
-      ) : isDiagramWindow ? (
-        <DiagramWindowApp />
-      ) : (
-        <App />
-      )}
-    </ErrorBoundary>
-  </StrictMode>,
+  USE_STRICT_MODE ? <StrictMode>{rootElement}</StrictMode> : rootElement,
 );

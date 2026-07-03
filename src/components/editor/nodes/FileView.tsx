@@ -8,8 +8,8 @@
  *   3. Preview mode: inline rendered preview of the file content.
  *
  * Preview support:
- *   - HTML / SVG  → sandboxed <iframe>
- *   - PDF         → <iframe> (browser native PDF viewer)
+ *   - HTML / SVG  → sandboxed <iframe> (native DOM, bypasses React 19 sandbox bug)
+ *   - PDF         → custom pdf.js viewer (PdfPreview component)
  *   - DOCX        → mammoth.js converts to HTML, rendered in a container
  *   - Image       → <img>
  *   - Audio       → <audio> with native controls
@@ -22,6 +22,12 @@
  *   - When selected, the overlay disappears so the user can interact with
  *     the preview content. A floating toolbar (top-right) and resize handle
  *     (bottom-right) appear, matching ImageView's UX.
+ *
+ * React 19 sandbox iframe workaround:
+ *   - HTML/SVG preview uses native DOM to create the iframe (not JSX).
+ *   - React 19 dev mode traverses DOM during reconciliation, including
+ *     sandboxed iframes, which triggers SecurityError: Sandbox access violation.
+ *   - By using native DOM, React never sees the iframe's internals.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -106,6 +112,14 @@ export default function FileView({
 
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
 
+  // ── Native DOM iframe management (React 19 sandbox workaround) ──
+  //
+  // React 19 in dev mode traverses the DOM tree during reconciliation,
+  // including sandboxed iframes, triggering SecurityError: Sandbox access violation.
+  // We render the HTML/SVG iframe via native DOM so React never sees its internals.
+  const htmlIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const htmlIframeContainerRef = useRef<HTMLDivElement | null>(null);
+
   // When entering edit mode, move focus into the inline preview so its native
   // controls (iframe content, <video>/<audio> keyboard shortcuts, PDF viewer)
   // receive keystrokes instead of ProseMirror.
@@ -128,6 +142,42 @@ export default function FileView({
     if (target.tabIndex < 0 && target === container) target.tabIndex = -1;
     target.focus({ preventScroll: true });
   }, [editing]);
+
+  // ── Native DOM iframe for HTML/SVG preview (React 19 sandbox workaround) ──
+  // Create/update/remove the iframe via native DOM so React never traverses it.
+  useEffect(() => {
+    const container = htmlIframeContainerRef.current;
+    if (!container) return;
+
+    // Only create iframe when in preview mode AND category is html
+    const shouldShowIframe = isPreviewMode && category === 'html' && safeSrc;
+
+    if (shouldShowIframe && !htmlIframeRef.current) {
+      // Create iframe via native DOM
+      const iframe = document.createElement('iframe');
+      iframe.className = 'file-block-preview-frame';
+      iframe.title = fileName;
+      iframe.sandbox.add('allow-same-origin');
+      iframe.src = safeSrc;
+      container.appendChild(iframe);
+      htmlIframeRef.current = iframe;
+    }
+
+    // Remove iframe when no longer needed
+    if (!shouldShowIframe && htmlIframeRef.current) {
+      htmlIframeRef.current.remove();
+      htmlIframeRef.current = null;
+    }
+
+    // Update src if it changed (iframe already exists)
+    if (
+      shouldShowIframe &&
+      htmlIframeRef.current &&
+      htmlIframeRef.current.src !== safeSrc
+    ) {
+      htmlIframeRef.current.src = safeSrc;
+    }
+  }, [isPreviewMode, category, safeSrc, fileName]);
 
   const [loading, setLoading] = useState(false);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
@@ -449,14 +499,19 @@ export default function FileView({
                   <div className="file-block-preview-overlay" />
                 )}
 
-                {/* HTML / SVG */}
+                {/* HTML / SVG — native DOM iframe (React 19 sandbox workaround) */}
+                {/* The iframe is created/managed by useEffect above, not JSX.
+                    React 19 dev mode traverses DOM including sandboxed iframes,
+                    triggering SecurityError. Native DOM bypasses this.
+                    contentEditable={false} ensures ProseMirror ignores this container. */}
                 {category === 'html' && (
-                  <iframe
-                    src={safeSrc}
-                    className="file-block-preview-frame"
-                    sandbox="allow-same-origin"
-                    title={fileName}
-                  />
+                  <div
+                    ref={htmlIframeContainerRef}
+                    className="file-block-preview-frame-container"
+                    contentEditable={false}
+                  >
+                    {/* iframe inserted by useEffect, not JSX */}
+                  </div>
                 )}
 
                 {/* PDF — custom pdf.js viewer with zoom / pan controls */}

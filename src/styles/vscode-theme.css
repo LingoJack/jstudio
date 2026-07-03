@@ -1740,6 +1740,28 @@ button {
 }
 
 /* HTML / PDF iframe */
+/* Container for native-DOM iframe (React 19 sandbox workaround) */
+.file-block-preview-frame-container {
+  width: 100%;
+  flex: 1;
+  min-height: 200px;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-block-preview-frame-container > iframe {
+  width: 100%;
+  flex: 1;
+  min-height: 200px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  display: block;
+}
+
+/* Legacy: direct iframe styling (still used by other components) */
 .file-block-preview-frame {
   width: 100%;
   flex: 1;

@@ -121,15 +121,59 @@ function PreviewContent({
   /** Inline HTML source — when present, the html preview uses `srcDoc`. */
   html?: string;
 }) {
+  // ── Native DOM iframe for HTML preview (React 19 sandbox workaround) ──
+  // Even though this is a separate window, we use native DOM for consistency.
+  const htmlIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const htmlContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (category !== 'html') return;
+    const container = htmlContainerRef.current;
+    if (!container) return;
+
+    // Create iframe via native DOM if not already present
+    if (!htmlIframeRef.current) {
+      const iframe = document.createElement('iframe');
+      iframe.className = 'preview-window-frame';
+      iframe.title = fileName;
+      iframe.sandbox.add(
+        'allow-same-origin',
+        'allow-scripts',
+        'allow-popups',
+        'allow-forms',
+      );
+      if (html != null) {
+        iframe.srcdoc = html;
+      } else {
+        iframe.src = src;
+      }
+      container.appendChild(iframe);
+      htmlIframeRef.current = iframe;
+    }
+
+    // Update src/srcdoc if props change
+    const iframe = htmlIframeRef.current;
+    if (iframe) {
+      if (html != null) {
+        iframe.srcdoc = html;
+        iframe.removeAttribute('src');
+      } else {
+        iframe.src = src;
+        iframe.removeAttribute('srcdoc');
+      }
+    }
+  }, [category, src, html, fileName]);
+
   switch (category) {
     case 'html':
       return (
-        <iframe
-          {...(html != null ? { srcDoc: html } : { src })}
-          className="preview-window-frame"
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-          title={fileName}
-        />
+        <div
+          ref={htmlContainerRef}
+          className="preview-window-frame-container"
+          style={{ width: '100%', height: '100%' }}
+        >
+          {/* iframe inserted by useEffect */}
+        </div>
       );
 
     case 'pdf':
