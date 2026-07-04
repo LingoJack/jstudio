@@ -128,7 +128,7 @@ export function SelectDropdown({
       {open && (
         <div
           ref={panelRef}
-          className="absolute left-0 right-0 top-full mt-1 z-50 min-w-[160px] py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm max-h-60 overflow-y-auto"
+          className="absolute left-0 right-0 top-full mt-1 z-dropdown min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm max-h-60 overflow-y-auto"
         >
           {options.map((opt, idx) => (
             <button

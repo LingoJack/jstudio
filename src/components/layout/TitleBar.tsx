@@ -23,7 +23,7 @@ export default function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="h-9 shrink-0 flex items-center bg-[var(--vscode-titleBar-background)] border-b border-[var(--vscode-titleBar-border)] px-3 select-none relative z-50"
+      className="h-9 shrink-0 flex items-center bg-[var(--vscode-titleBar-background)] border-b border-[var(--vscode-titleBar-border)] px-3 select-none relative z-toolbar"
     >
       <SearchBar />
 

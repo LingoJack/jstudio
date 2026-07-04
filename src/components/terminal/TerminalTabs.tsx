@@ -548,7 +548,7 @@ export default function TerminalTabs() {
       {showHistory && (
         <div
           ref={historyRef}
-          className="fixed z-[100] min-w-[240px] max-w-[340px] py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
+          className="fixed z-modal min-w-context max-w-context py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
           style={{ left: historyPos.x, top: historyPos.y }}
           onClick={(e) => e.stopPropagation()}
           onMouseEnter={() => {
@@ -565,7 +565,7 @@ export default function TerminalTabs() {
             </div>
           ) : (
             <>
-              <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+              <div className="px-3 pb-1.5 text-tiny font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
                 {t('terminal.recentDirs')}
               </div>
               <div className="max-h-[300px] overflow-y-auto">
@@ -584,7 +584,7 @@ export default function TerminalTabs() {
                           {basename}
                         </div>
                         {parentPath && parentPath !== dir && (
-                          <div className="text-[10px] text-[var(--vscode-descriptionForeground)] truncate font-mono leading-tight">
+                          <div className="text-tiny text-[var(--vscode-descriptionForeground)] truncate font-mono leading-tight">
                             {parentPath}
                           </div>
                         )}

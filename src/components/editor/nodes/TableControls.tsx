@@ -169,7 +169,7 @@ export default function TableControls({ editor }: TableControlsProps) {
   return (
     <div
       data-table-control
-      className="fixed z-[100] flex items-center rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] py-0.5 shadow-lg"
+      className="fixed z-modal flex items-center rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] py-0.5 shadow-lg"
       style={{
         left: `${toolbar.x}px`,
         top: `${toolbar.y}px`,

@@ -289,7 +289,7 @@ function ShortcutCard({
             {getActionDisplayLabel(config, t)}
           </span>
           {config.enabled && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0 leading-tight">
+            <span className="text-tiny px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0 leading-tight">
               {t('globalShortcut.badgeGlobal')}
             </span>
           )}
@@ -474,7 +474,7 @@ function ShortcutEditForm({
             <KbdPill binding={display} recording={recording} conflicted={!!conflict} />
           </button>
           {conflict && (
-            <span className="text-[11px] text-[var(--vscode-errorForeground)] flex items-center gap-1">
+            <span className="text-small text-[var(--vscode-errorForeground)] flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" />
               {t('globalShortcut.conflict')}
             </span>

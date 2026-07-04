@@ -265,12 +265,12 @@ export default function AgentModelSection() {
                       {provider.name}
                     </span>
                     {provider.supports_vision && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0 leading-tight">
+                      <span className="text-tiny px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0 leading-tight">
                         Vision
                       </span>
                     )}
                     {provider.tool_call_mode === 'disabled' && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vscode-editorWarning-background)] text-[var(--vscode-editorWarning-foreground)] flex-shrink-0 leading-tight">
+                      <span className="text-tiny px-1.5 py-0.5 rounded bg-[var(--vscode-editorWarning-background)] text-[var(--vscode-editorWarning-foreground)] flex-shrink-0 leading-tight">
                         No Tools
                       </span>
                     )}

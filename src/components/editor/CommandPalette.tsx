@@ -331,7 +331,7 @@ export default function CommandPalette() {
 
       {/* Panel */}
       <div
-        className="relative w-[min(640px,90vw)] overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-quickInput-background)] flex flex-col"
+        className="relative w-command-palette max-w-[90vw] overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-quickInput-background)] flex flex-col"
         style={{
           animation: 'paletteIn 150ms ease-out',
           boxShadow: '0 24px 80px -12px rgba(0,0,0,0.5), 0 8px 24px -8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04)',
@@ -352,7 +352,7 @@ export default function CommandPalette() {
             onClick={() => switchMode(true)}
           />
           <div className="flex-1" />
-          <kbd className="text-[10px] px-1.5 py-0.5 text-[var(--vscode-descriptionForeground)] opacity-50 mb-2 mr-1">
+          <kbd className="text-tiny px-1.5 py-0.5 text-[var(--vscode-descriptionForeground)] opacity-50 mb-2 mr-1">
             {bindingToDisplay(resolveBinding('app.commandPalette', overrides))}
           </kbd>
         </div>
@@ -496,7 +496,7 @@ function PaletteRow({
             if (!binding) return null;
             const display = bindingToDisplay(binding);
             return (
-              <kbd className={`text-[10px] px-1.5 py-0.5 shrink-0 ${
+              <kbd className={`text-tiny px-1.5 py-0.5 shrink-0 ${
                 isSelected ? 'opacity-60' : descClass
               }`}>
                 {display}
@@ -541,7 +541,7 @@ function PaletteRow({
           <HighlightedText text={title} match={titleMatch} />
         </span>
         {session.cwd && (
-          <span className={`text-[10px] shrink-0 truncate max-w-[200px] ${descClass}`}>
+          <span className={`text-tiny shrink-0 truncate max-w-[200px] ${descClass}`}>
             {session.cwd}
           </span>
         )}

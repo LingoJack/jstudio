@@ -86,7 +86,7 @@ export function NavRow({
 
   // Base layout — secondary row
   const secondaryBase =
-    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px] transition-colors duration-150 cursor-pointer border-l-2';
+    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-body transition-colors duration-150 cursor-pointer border-l-2';
 
   // Primary active/inactive
   let primaryState: string;

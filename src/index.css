@@ -7,6 +7,108 @@
    与 App.tsx 中在 <html> 上切换 .dark 类的逻辑保持一致 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ── Custom Theme Values (mapping to src/lib/constants/ui.ts) ───────── */
+
+@theme {
+  /* Z-index hierarchy */
+  --z-dropdown: 50;
+  --z-toolbar: 50;
+  --z-popover: 70;
+  --z-modal: 100;
+  --z-toast: 110;
+
+  /* Sidebar widths */
+  --w-sidebar-list: 240px;
+  --w-tab-document: 140px;
+  --w-tab-terminal: 120px;
+
+  /* Modal widths */
+  --w-command-palette: 640px;
+  --w-command-palette-window: 680px;
+  --w-trash-dialog: 480px;
+
+  /* Menu widths */
+  --w-menu-min: 160px;
+  --w-context-min: 140px;
+  --w-context-max: 340px;
+
+  /* Font sizes */
+  --text-tiny: 10px;
+  --text-small: 11px;
+  --text-body: 13px;
+
+  /* Animation durations */
+  --duration-fast: 75ms;
+  --duration-normal: 100ms;
+  --duration-medium: 150ms;
+}
+
+/* ── Utility Classes ────────────────────────────────────────────────── */
+
+/* z-index utilities */
+.z-dropdown { z-index: var(--z-dropdown); }
+.z-toolbar { z-index: var(--z-toolbar); }
+.z-popover { z-index: var(--z-popover); }
+.z-modal { z-index: var(--z-modal); }
+.z-toast { z-index: var(--z-toast); }
+
+/* width utilities */
+.w-sidebar-list { width: var(--w-sidebar-list); }
+.w-tab-document { width: var(--w-tab-document); }
+.w-tab-terminal { width: var(--w-tab-terminal); }
+.w-command-palette { width: var(--w-command-palette); }
+.w-command-palette-window { width: var(--w-command-palette-window); }
+.w-trash-dialog { width: var(--w-trash-dialog); }
+.w-menu-min { width: var(--w-menu-min); }
+.w-context-min { width: var(--w-context-min); }
+.w-context-max { width: var(--w-context-max); }
+
+/* min-width utilities */
+.min-w-menu { min-width: var(--w-menu-min); }
+.min-w-context { min-width: var(--w-context-min); }
+
+/* max-width utilities */
+.max-w-context { max-width: var(--w-context-max); }
+.max-w-trash-dialog { max-width: var(--w-trash-dialog); }
+
+/* font size utilities */
+.text-tiny { font-size: var(--text-tiny); }
+.text-small { font-size: var(--text-small); }
+.text-body { font-size: var(--text-body); }
+
+/* ── Reusable Component Styles ───────────────────────────────────────── */
+
+/* Menu container base style */
+.menu-container {
+  min-width: var(--w-menu-min);
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-menu-border);
+  background-color: var(--vscode-menu-background);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  font-size: 14px;
+}
+
+/* Tab item base style */
+.tab-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 12px;
+  padding-right: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 100ms, background-color 100ms;
+}
+
+/* ── Context menu width (terminal) ───────────────────────────────────── */
+.min-w-terminal-context {
+  min-width: var(--w-context-min);
+  max-width: var(--w-context-max);
+}
+
 /*
  * TipTap / ProseMirror editor styles
  * TipTap is headless — all editor styling is done in vscode-theme.css

@@ -277,7 +277,7 @@ export default function DocumentTabs() {
             >
               <span className="max-w-[200px] truncate">{ghost.title}</span>
               {ghost.outside && (
-                <span className="text-[10px] text-[var(--vscode-focusBorder)]">
+                <span className="text-tiny text-[var(--vscode-focusBorder)]">
                   {t('workspace.releaseToDetach')}
                 </span>
               )}

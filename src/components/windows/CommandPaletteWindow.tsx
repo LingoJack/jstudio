@@ -382,7 +382,7 @@ export default function CommandPaletteWindow() {
               const scopes: ('documents' | 'terminal' | 'settings')[] = ['documents', 'terminal', 'settings'];
               setScope(scopes[(scopes.indexOf(scope) + 1) % scopes.length]);
             }}
-            className="shrink-0 text-[10px] font-medium px-2 py-1 rounded-md border border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] transition-colors duration-75"
+            className="shrink-0 text-tiny font-medium px-2 py-1 rounded-md border border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] transition-colors duration-75"
             style={{ background: 'rgba(255,255,255,0.03)' }}
           >
             {scopeLabel}
@@ -472,7 +472,7 @@ function PaletteRow({
             <span className="opacity-50 italic">Untitled</span>
           )}
         </span>
-        <span className={`text-[10px] shrink-0 ${mutedClass}`}>
+        <span className={`text-tiny shrink-0 ${mutedClass}`}>
           {doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : ''}
         </span>
       </div>

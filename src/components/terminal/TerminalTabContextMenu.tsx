@@ -33,7 +33,7 @@ export default function TerminalTabContextMenu({
   const { t } = useI18n();
 
   return (
-    <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()} className="min-w-[140px]">
+    <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()} className="min-w-context">
       <MenuItem icon={<Pencil />} onClick={onRename}>
         {t('terminal.rename')}
       </MenuItem>

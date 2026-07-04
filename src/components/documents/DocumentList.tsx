@@ -663,7 +663,7 @@ export default function DocumentList() {
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') setRenamingId(null);
             }}
-            className="max-w-full h-6 text-[13px] bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
+            className="max-w-full h-6 text-body bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
             placeholder={t('doclist.renamePlaceholder')}
           />
         ) : (
