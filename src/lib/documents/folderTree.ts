@@ -1,4 +1,4 @@
-import type { FolderMeta, DocumentMeta } from '../storage';
+import type { FolderMeta, DocumentMeta } from '../core/storage';
 
 /**
  * A node in the folder tree.

@@ -1,4 +1,4 @@
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { Pencil, Trash2, FolderOpen, Copy, CopyPlus, PackageOpen } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 

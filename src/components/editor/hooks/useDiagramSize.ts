@@ -10,7 +10,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useNodeResize } from './useNodeResize';
 import { useEditorWidth } from './useEditorWidth';
-import type { DiagramNodeAttributes } from '../../../lib/extensions/diagramExtension';
+import type { DiagramNodeAttributes } from '../../../lib/editor/extensions/diagramExtension';
 
 export interface UseDiagramSizeOptions {
   attrs: DiagramNodeAttributes;

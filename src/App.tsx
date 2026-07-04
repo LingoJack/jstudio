@@ -2,10 +2,10 @@ import { useEffect, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from './store/useStore';
-import { useI18n } from './lib/i18n';
+import { useI18n } from './lib/core/i18n';
 import { eventToBinding, resolveBinding, type ShortcutBinding } from './lib/shortcuts/keyboardShortcuts';
-import { buildCommands } from './lib/commandRegistry';
-import { storage } from './lib/storage';
+import { buildCommands } from './lib/core/commandRegistry';
+import { storage } from './lib/core/storage';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 // Side-effect import: registers built-in action handlers into the registry.
 import './lib/shortcuts/globalShortcutActions';

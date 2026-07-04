@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { RotateCcw, Keyboard, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
-import { useI18n, type TranslationKey } from '../../lib/i18n';
+import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
 import {
   SHORTCUTS,

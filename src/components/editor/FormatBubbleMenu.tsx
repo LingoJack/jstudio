@@ -31,8 +31,8 @@ import { type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { NodeSelection } from '@tiptap/pm/state';
 import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
-import { useI18n } from '../../lib/i18n';
-import type { TranslationKey } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
+import type { TranslationKey } from '../../lib/core/i18n';
 
 /**
  * Minimal VirtualElement-compatible type (mirrors @floating-ui/dom).

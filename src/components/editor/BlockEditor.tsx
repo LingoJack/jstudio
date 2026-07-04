@@ -28,11 +28,11 @@ import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Code from '@tiptap/extension-code';
 import Placeholder from '@tiptap/extension-placeholder';
-import Image from '../../lib/extensions/imageExtension';
-import { FileExtension } from '../../lib/extensions/fileExtension';
-import { LinkExtension } from '../../lib/extensions/linkExtension';
-import { CollapsibleExtension } from '../../lib/extensions/collapsibleExtension';
-import { DiagramExtension } from '../../lib/extensions/diagramExtension';
+import Image from '../../lib/editor/extensions/imageExtension';
+import { FileExtension } from '../../lib/editor/extensions/fileExtension';
+import { LinkExtension } from '../../lib/editor/extensions/linkExtension';
+import { CollapsibleExtension } from '../../lib/editor/extensions/collapsibleExtension';
+import { DiagramExtension } from '../../lib/editor/extensions/diagramExtension';
 import Link from '@tiptap/extension-link';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Table } from '@tiptap/extension-table';
@@ -47,24 +47,24 @@ import Color from '@tiptap/extension-color';
 
 import { useStore } from '../../store/useStore';
 import { flushDocumentSaves } from '../../store/storeHelpers';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
 } from '../../lib/editor/tiptapAdapter';
 import { SlashMenuExtension } from '../../lib/editor/slashMenu';
-import { CodeBlockWithChrome } from '../../lib/extensions/codeBlockExtension';
+import { CodeBlockWithChrome } from '../../lib/editor/extensions/codeBlockExtension';
 import { BlockNavigation } from '../../lib/editor/blockNavigation';
-import { BlockIdExtension } from '../../lib/extensions/blockIdExtension';
-import { lowlight } from '../../lib/extensions/lowlight';
-import { SelectAllText } from '../../lib/extensions/selectAllText';
-import { ImeCapsLockFix } from '../../lib/extensions/imeCapsLockFix';
-import { TaskListMarkdown } from '../../lib/extensions/taskListMarkdown';
+import { BlockIdExtension } from '../../lib/editor/extensions/blockIdExtension';
+import { lowlight } from '../../lib/editor/extensions/lowlight';
+import { SelectAllText } from '../../lib/editor/extensions/selectAllText';
+import { ImeCapsLockFix } from '../../lib/editor/extensions/imeCapsLockFix';
+import { TaskListMarkdown } from '../../lib/editor/extensions/taskListMarkdown';
 import { createPasteHandler, createDropHandler } from '../../lib/editor/editorPasteDrop';
 import TableControls from './nodes/TableControls';
 import FormatBubbleMenu from './FormatBubbleMenu';
 import DocumentOutline from './DocumentOutline';
-import { EditorCursorTrail } from '../cursor/EditorCursorTrail';
+import { EditorCursorTrail } from '../ui/cursor/EditorCursorTrail';
 import type { Block } from '../../types';
 import { ListTree } from 'lucide-react';
 

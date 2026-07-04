@@ -18,15 +18,15 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { useI18n, type Language } from '../../lib/i18n';
-import type { TranslationKey } from '../../lib/i18n';
+import { useI18n, type Language } from '../../lib/core/i18n';
+import type { TranslationKey } from '../../lib/core/i18n';
 import {
   buildCommands,
   filterCommands,
   type ScoredCommand,
-} from '../../lib/commandRegistry';
+} from '../../lib/core/commandRegistry';
 import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
-import type { DocumentMeta } from '../../lib/storage';
+import type { DocumentMeta } from '../../lib/core/storage';
 import type { TerminalSession } from '../../store/terminalSlice';
 import type { SettingsSectionId } from '../../store/uiSlice';
 

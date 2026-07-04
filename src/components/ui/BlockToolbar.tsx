@@ -20,7 +20,7 @@
  */
 
 import React from 'react';
-import { AlignLeftIcon, AlignCenterIcon } from '../shared/icons';
+import { AlignLeftIcon, AlignCenterIcon } from './icons';
 import type { NodeToolbarNav } from '../editor/hooks/useNodeToolbarNav';
 
 // ── BlockToolbar (container) ──────────────────────────────

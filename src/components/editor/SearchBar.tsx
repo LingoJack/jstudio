@@ -1,5 +1,5 @@
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { Search } from 'lucide-react';
 import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 

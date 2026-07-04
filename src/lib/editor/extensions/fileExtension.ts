@@ -1,45 +1,53 @@
 /**
- * DiagramExtension — custom block node for excalidraw diagrams.
+ * FileExtension — custom block node for file attachments.
  *
- * Stores a serialized excalidraw scene (JSON string) as a node attribute so the
- * drawing data is self-contained and travels with the document. The visual
- * rendering and window editing are handled by DiagramBlockView.
+ * Supports uploading any file type. The React NodeView (`FileView`) renders
+ * either a compact card (file name / size / type) or an inline preview
+ * (HTML, PDF, DOCX, plain text, images).
  *
  * Supported attributes:
- *   snapshot — serialized excalidraw scene JSON (empty string = blank canvas)
- *   width    — display width in px (null = auto, defaults to ~520px)
- *   height   — canvas height in px (null = auto, defaults to ~320px)
- *   align    — 'left' | 'center' (default 'center')
+ *   src         — data URL or asset path of the file content
+ *   fileName    — original file name
+ *   fileSize    — file size in bytes
+ *   fileType    — MIME type
+ *   displayMode — 'card' | 'preview'
+ *   width       — display width in px (null = auto)
+ *   height      — preview area height in px (null = auto)
+ *   align       — 'left' | 'center' (default 'center')
  */
 
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import DiagramBlockView from '../../components/editor/nodes/DiagramBlockView';
+import FileView from '../../../components/editor/nodes/FileView';
 
-export interface DiagramNodeAttributes {
-  id?: string | null;
-  snapshot: string;
+export interface FileNodeAttributes {
+  src: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  displayMode: 'card' | 'preview';
   /** Legacy pixel width (kept for backward-compat migration). */
   width: number | null;
   /** Width as a percentage of the editor surface width (0-100). Preferred. */
   widthPct?: number | null;
+  /** Legacy pixel height (kept for backward-compat migration). */
   height: number | null;
   /** Height as a percentage of the editor surface width (0-100). Preferred. */
   heightPct?: number | null;
-  align: 'left' | 'center';
+  align?: 'left' | 'center' | null;
 }
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    diagramBlock: {
-      /** Insert a diagram (excalidraw) block. */
-      setDiagram: (attrs?: Partial<DiagramNodeAttributes>) => ReturnType;
+    fileBlock: {
+      /** Insert a file attachment block. */
+      setFile: (attrs?: Partial<FileNodeAttributes>) => ReturnType;
     };
   }
 }
 
-export const DiagramExtension = Node.create({
-  name: 'diagramBlock',
+export const FileExtension = Node.create({
+  name: 'fileBlock',
 
   group: 'block',
 
@@ -49,13 +57,50 @@ export const DiagramExtension = Node.create({
 
   addAttributes() {
     return {
-      snapshot: {
+      src: {
         default: '',
-        parseHTML: (el) => el.getAttribute('data-snapshot') || '',
+        parseHTML: (el) => el.getAttribute('data-src') || '',
         renderHTML: (attrs) => {
-          if (!attrs.snapshot) return {};
-          return { 'data-snapshot': attrs.snapshot };
+          if (!attrs.src) return {};
+          return { 'data-src': attrs.src };
         },
+      },
+      fileName: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-file-name') || '',
+        renderHTML: (attrs) => {
+          if (!attrs.fileName) return {};
+          return { 'data-file-name': attrs.fileName };
+        },
+      },
+      fileSize: {
+        default: 0,
+        parseHTML: (el) => {
+          const s = el.getAttribute('data-file-size');
+          return s ? Number(s) : 0;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.fileSize) return {};
+          return { 'data-file-size': attrs.fileSize };
+        },
+      },
+      fileType: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-file-type') || '',
+        renderHTML: (attrs) => {
+          if (!attrs.fileType) return {};
+          return { 'data-file-type': attrs.fileType };
+        },
+      },
+      displayMode: {
+        default: 'card' as const,
+        parseHTML: (el) => {
+          const m = el.getAttribute('data-display-mode');
+          return m === 'preview' ? 'preview' : 'card';
+        },
+        renderHTML: (attrs) => ({
+          'data-display-mode': attrs.displayMode ?? 'card',
+        }),
       },
       width: {
         default: null,
@@ -119,7 +164,7 @@ export const DiagramExtension = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="diagram-block"]',
+        tag: 'div[data-type="file-block"]',
       },
     ];
   },
@@ -127,20 +172,24 @@ export const DiagramExtension = Node.create({
   renderHTML({ HTMLAttributes }) {
     return [
       'div',
-      { 'data-type': 'diagram-block', ...HTMLAttributes },
+      { 'data-type': 'file-block', ...HTMLAttributes },
     ];
   },
 
   addCommands() {
     return {
-      setDiagram:
+      setFile:
         (attrs) =>
         ({ commands }) => {
           return commands.insertContent([
             {
-              type: 'diagramBlock',
+              type: 'fileBlock',
               attrs: {
-                snapshot: '',
+                src: '',
+                fileName: '',
+                fileSize: 0,
+                fileType: '',
+                displayMode: 'card',
                 width: null,
                 height: null,
                 align: 'center',
@@ -156,8 +205,8 @@ export const DiagramExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(DiagramBlockView);
+    return ReactNodeViewRenderer(FileView);
   },
 });
 
-export default DiagramExtension;
+export default FileExtension;

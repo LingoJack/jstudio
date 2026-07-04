@@ -22,7 +22,7 @@ import {
   Folder,
 } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useI18n, type TranslationKey } from '../../lib/i18n';
+import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
 import { eventToBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 import { toast } from '../../lib/toast';

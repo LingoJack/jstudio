@@ -17,7 +17,7 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LayoutGrid, TerminalSquare, Eye } from 'lucide-react';
-import { storage } from '../storage';
+import { storage } from '../core/storage';
 import { registerActionDef } from './globalShortcuts';
 
 // ──────────────────────────────────────────────────────────────────────────

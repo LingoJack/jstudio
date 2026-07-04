@@ -17,7 +17,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '../../../lib/core/i18n';
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,

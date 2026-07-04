@@ -39,7 +39,7 @@ import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import { findChildren } from '@tiptap/core';
-import CodeBlockView from '../../components/editor/nodes/CodeBlockView';
+import CodeBlockView from '../../../components/editor/nodes/CodeBlockView';
 
 export interface CodeBlockNodeAttributes {
   language?: string;

@@ -7,7 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useStore } from '../../store/useStore';
-import { storage } from '../../lib/storage';
+import { storage } from '../../lib/core/storage';
 import {
   getTerminalTheme,
   withSemanticTerminalCursor,

@@ -11,7 +11,7 @@
  * render time via the asset protocol). One-time cost per document.
  */
 
-import { storage } from '../storage';
+import { storage } from '../core/storage';
 import { genStoredName } from '../editor/upload';
 import type { Document, Block } from '../../types';
 

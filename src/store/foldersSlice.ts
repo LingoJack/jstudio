@@ -1,4 +1,4 @@
-import { storage, type FolderMeta } from '../lib/storage';
+import { storage, type FolderMeta } from '../lib/core/storage';
 import { onSaveError, type SetState, type GetState, type StoreState, scheduleFoldersSave, scheduleIndexSave } from './storeHelpers';
 import { collectDescendantFolderIds } from '../lib/documents/folderTree';
 

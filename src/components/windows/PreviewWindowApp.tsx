@@ -14,7 +14,7 @@ import { X, Loader2 } from 'lucide-react';
 import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../../lib/windows/previewWindow';
 import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../../lib/editor/fileUtils';
 import { docxToHtml } from '../../lib/editor/docxPreview';
-import { storage, type ThemeMode } from '../../lib/storage';
+import { storage, type ThemeMode } from '../../lib/core/storage';
 import PdfPreview from '../editor/nodes/PdfPreview';
 
 /**

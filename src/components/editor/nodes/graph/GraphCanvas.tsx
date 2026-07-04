@@ -36,7 +36,6 @@ import {
   ConnectorShape,
   VertexHandler,
   CellState,
-  ConstraintHandler,
   type Cell,
   type ConnectionHandler,
   type EventObject,
@@ -44,6 +43,7 @@ import {
   type FitPlugin,
   type PanningHandler,
   type RubberBandHandler as RubberBandHandlerType,
+  type GraphPluginConstructor,
 } from '@maxgraph/core';
 import '@maxgraph/core/css/common.css';
 
@@ -490,11 +490,11 @@ export function GraphCanvas({
 
     InternalEvent.disableContextMenu(container);
 
-    // 用默认插件 + 框选 + 连接点约束显示。传入 plugins 会替换默认列表，故需展开默认再追加。
-    // ConstraintHandler 用于显示悬停时的连接点（绿色十字），是时序图生命线连接的关键。
+    // 用默认插件 + 框选。传入 plugins 会替换默认列表，故需展开默认再追加。
+    // 注：ConstraintHandler 不是插件，它是 ConnectionHandler 内部使用的 handler，
+    // ConnectionHandler 已包含在 getDefaultPlugins() 中，会自动创建 ConstraintHandler。
     const graph = new Graph(container, undefined, [
       ...getDefaultPlugins(),
-      ConstraintHandler,
       RubberBandHandler,
     ]);
     graphRef.current = graph;

@@ -1,6 +1,6 @@
 import { Minus, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import {
   LATIN_FONTS,
   CJK_FONTS,
@@ -11,7 +11,7 @@ import {
   MAX_LINE_HEIGHT,
 } from '../../lib/editor/fonts';
 import FontDropdown from '../ui/FontDropdown';
-import type { EditorCursorStyle } from '../../lib/storage';
+import type { EditorCursorStyle } from '../../lib/core/storage';
 
 /** Cursor style options shown in the settings picker. */
 const CURSOR_STYLES: { id: EditorCursorStyle; glyph: string }[] = [

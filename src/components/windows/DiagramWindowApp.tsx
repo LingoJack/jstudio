@@ -16,7 +16,7 @@ import {
   sendDiagramUpdate,
   type DiagramPayload,
 } from '../../lib/windows/diagramWindow';
-import { storage, type ThemeMode } from '../../lib/storage';
+import { storage, type ThemeMode } from '../../lib/core/storage';
 
 /**
  * Resolve a theme preference to actual dark/light.

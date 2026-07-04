@@ -6,7 +6,7 @@ import DiagramWindowApp from './components/windows/DiagramWindowApp';
 import TerminalWindowApp from './components/terminal/TerminalWindowApp';
 import DocumentWindowApp from './components/windows/DocumentWindowApp';
 import CommandPaletteWindow from './components/windows/CommandPaletteWindow';
-import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary from './components/layout/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';
 

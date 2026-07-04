@@ -1,6 +1,6 @@
 import { PenLine, Terminal, Settings, type LucideIcon } from 'lucide-react';
-import type { ActivityItemId } from './storage';
-import type { TranslationKey } from './i18n';
+import type { ActivityItemId } from './core/storage';
+import type { TranslationKey } from './core/i18n';
 
 /**
  * Activity Bar item metadata — single source of truth.
@@ -11,7 +11,7 @@ import type { TranslationKey } from './i18n';
  * 当前消费方：
  * - `components/ActivityBar.tsx`     — 活动栏主体，渲染图标 + tooltip
  * - `components/settings/GeneralSection.tsx` — 设置页「活动栏顺序与可见性」拖拽列表
- * - `lib/commandRegistry.ts`         — 命令面板「转到文档 / 终端 / 设置」命令的图标
+ * - `lib/core/commandRegistry.ts`         — 命令面板「转到文档 / 终端 / 设置」命令的图标
  *
  * 字段说明：
  * - `icon`     — lucide-react 图标组件，用于活动栏图标、设置列表预览、命令面板图标

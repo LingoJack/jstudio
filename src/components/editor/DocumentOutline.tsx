@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { NavBranch, NavRow } from '../ui/NavTree';
 
 interface HeadingItem {

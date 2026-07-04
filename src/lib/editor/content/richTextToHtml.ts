@@ -8,7 +8,7 @@
  * CSS classes / inline styles derived from its annotations.
  */
 
-import type { RichText, RichTextAnnotations } from '../../types/richText';
+import type { RichText, RichTextAnnotations } from '../../../types/richText';
 
 /** Escape HTML special characters in text content. */
 function escapeHtml(text: string): string {

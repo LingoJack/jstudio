@@ -1,5 +1,5 @@
 import type { Block, BlockType, RichText } from '../types';
-import { storage } from '../lib/storage';
+import { storage } from '../lib/core/storage';
 import { scheduleDocumentSave } from './storeHelpers';
 import type { SliceCreator } from './storeHelpers';
 

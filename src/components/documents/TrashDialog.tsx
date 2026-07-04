@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, RotateCcw, X, Folder, FileText, Paperclip } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { IconButton } from '../ui/IconButton';
 import { formatFileSize } from '../../lib/editor/fileUtils';
 

@@ -16,7 +16,7 @@ import {
   BaseCursorTrail,
   type RenderOptions,
 } from './BaseCursorTrail';
-import type { EditorCursorStyle } from '../../lib/storage';
+import type { EditorCursorStyle } from '../../../lib/core/storage';
 
 /** Longhand font properties of a glyph, used to re-draw it identically. */
 interface GlyphFont {

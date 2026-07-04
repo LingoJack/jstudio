@@ -1,4 +1,4 @@
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { Pencil, X, ExternalLink } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 

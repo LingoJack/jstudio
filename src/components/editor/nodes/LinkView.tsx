@@ -43,11 +43,11 @@ import {
   X,
 } from 'lucide-react';
 
-import { storage, type LinkMetadata } from '../../../lib/storage';
+import { storage, type LinkMetadata } from '../../../lib/core/storage';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { ResizeHandle } from '../../ui/ResizeHandle';
-import type { LinkNodeAttributes } from '../../../lib/extensions/linkExtension';
+import type { LinkNodeAttributes } from '../../../lib/editor/extensions/linkExtension';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */

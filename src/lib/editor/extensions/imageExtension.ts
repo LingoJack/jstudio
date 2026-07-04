@@ -9,7 +9,7 @@
 
 import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import ImageView from '../../components/editor/nodes/ImageView';
+import ImageView from '../../../components/editor/nodes/ImageView';
 
 export interface ImageNodeAttributes {
   src: string;

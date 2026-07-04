@@ -69,4 +69,6 @@ allow:
 - Shell(ls /Users/jacklingo/dev_custom/jcli/apps/jstudio/node_modules/@maxgraph/core/dist/:*)
 - Shell(head -c:*)
 - Shell(cat node_modules/@maxgraph/core/lib/esm/view/handler/ConstraintHandler.js:*)
+- Shell(find .:*)
+- Shell(find src:*)
 deny: []

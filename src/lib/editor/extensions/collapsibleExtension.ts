@@ -19,7 +19,7 @@
 
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import CollapsibleView from '../../components/editor/nodes/CollapsibleView';
+import CollapsibleView from '../../../components/editor/nodes/CollapsibleView';
 
 export interface CollapsibleNodeAttributes {
   open: boolean;

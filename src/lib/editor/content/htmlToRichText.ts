@@ -6,7 +6,7 @@
  * links, etc.) without storing any HTML.
  */
 
-import type { RichText, RichTextAnnotations } from '../../types/richText';
+import type { RichText, RichTextAnnotations } from '../../../types/richText';
 
 /** A set of block-level tags whose children should be joined with a newline. */
 const LINE_BREAK_TAGS = new Set(['BR']);

@@ -40,7 +40,7 @@ import type { JSONContent } from '@tiptap/react';
 
 import type { Block, BlockType, TableData, TableCellData, TableRowData, TodoItemData, ListItemData } from '../../types/document';
 import type { RichText, RichTextAnnotations } from '../../types/richText';
-import { isAssetPath } from '../content/assetUrl';
+import { isAssetPath } from './content/assetUrl';
 
 // ---------------------------------------------------------------------------
 // Types (local helpers)

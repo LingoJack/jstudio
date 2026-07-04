@@ -13,7 +13,7 @@
 import { useMemo } from 'react';
 import BlockEditor from '../editor/BlockEditor';
 import { getHelpBlocks } from '../../data/helpDocument';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 
 export default function HelpSection() {
   const { t } = useI18n();

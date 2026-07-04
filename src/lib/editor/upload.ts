@@ -7,7 +7,7 @@
  * protocol (see `lib/assetUrl.ts`) — no base64 round-trip.
  */
 
-import { storage } from '../storage';
+import { storage } from '../core/storage';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */

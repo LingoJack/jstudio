@@ -40,7 +40,7 @@ import {
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import { ExcalidrawCanvas } from './ExcalidrawCanvas';
 import { GraphCanvas } from './graph/GraphCanvas';
-import type { DiagramNodeAttributes } from '../../../lib/extensions/diagramExtension';
+import type { DiagramNodeAttributes } from '../../../lib/editor/extensions/diagramExtension';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */

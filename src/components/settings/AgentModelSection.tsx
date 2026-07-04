@@ -12,9 +12,9 @@ import {
   AlertCircle,
   Circle,
 } from 'lucide-react';
-import { storage } from '../../lib/storage';
-import type { ModelProvider, AgentConfigFile, ToolCallMode } from '../../lib/storage';
-import { useI18n } from '../../lib/i18n';
+import { storage } from '../../lib/core/storage';
+import type { ModelProvider, AgentConfigFile, ToolCallMode } from '../../lib/core/storage';
+import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/toast';
 
 /**

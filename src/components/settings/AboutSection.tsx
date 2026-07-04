@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import appIcon from '../../assets/app-icon.png';
 import { Github, Mail, GitCommit } from 'lucide-react';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 
 interface BuildInfo {
   commit: string;

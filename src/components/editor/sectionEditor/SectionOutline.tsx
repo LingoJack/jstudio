@@ -14,8 +14,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useStore } from '../../../store/useStore';
-import { useI18n } from '../../../lib/i18n';
-import { contentToString } from '../../../lib/content/blockContent';
+import { useI18n } from '../../../lib/core/i18n';
+import { contentToString } from '../../../lib/editor/content/blockContent';
 import { NavBranch, NavRow } from '../../ui/NavTree';
 import type { Block } from '../../../types';
 

@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig, TrashedAsset } from '../lib/storage';
+import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig, TrashedAsset } from '../lib/core/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 import type {
@@ -12,7 +12,7 @@ import type {
 import type { ToastItem, ToastType } from './toastSlice';
 import type { SettingsSectionId } from './uiSlice';
 import type { UnifiedTab } from './workspaceSlice';
-import { storage } from '../lib/storage';
+import { storage } from '../lib/core/storage';
 import { toast } from '../lib/toast';
 
 /**

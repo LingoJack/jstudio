@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Document } from '../types';
-import type { GlobalShortcutConfig } from './shortcuts/globalShortcuts';
+import type { Document } from '../../types';
+import type { GlobalShortcutConfig } from '../shortcuts/globalShortcuts';
 
 /**
  * Theme preference — `system` follows the OS color scheme.

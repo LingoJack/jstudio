@@ -13,15 +13,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react';
 
 import { useStore } from '../../../store/useStore';
-import { storage } from '../../../lib/storage';
+import { storage } from '../../../lib/core/storage';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
-import { toDisplaySrc } from '../../../lib/content/assetUrl';
+import { toDisplaySrc } from '../../../lib/editor/content/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
-import { UploadIcon } from '../../shared/icons';
+import { UploadIcon } from '../../ui/icons';
 import { BlockToolbar, AlignButtonGroup } from '../../ui/BlockToolbar';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 

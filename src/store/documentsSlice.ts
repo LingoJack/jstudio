@@ -1,4 +1,4 @@
-import { storage, toMeta, DocumentMeta, type FolderMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/storage';
+import { storage, toMeta, DocumentMeta, type FolderMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/core/storage';
 import { migrateFromLocalStorage } from '../lib/documents/migrate';
 import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
 import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/editor/fonts';

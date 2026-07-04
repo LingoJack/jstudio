@@ -35,7 +35,7 @@ import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react'
 import { File as FileIcon, Eye, PanelsTopLeft, Loader2, Maximize2 } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
-import { storage } from '../../../lib/storage';
+import { storage } from '../../../lib/core/storage';
 import {
   formatFileSize,
   getExtension,
@@ -48,13 +48,13 @@ import {
 } from '../../../lib/editor/fileUtils';
 import { docxToHtml } from '../../../lib/editor/docxPreview';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
-import { toDisplaySrc } from '../../../lib/content/assetUrl';
+import { toDisplaySrc } from '../../../lib/editor/content/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
-import { UploadIcon } from '../../shared/icons';
+import { UploadIcon } from '../../ui/icons';
 import {
   BlockToolbar,
   AlignButtonGroup,
@@ -62,7 +62,7 @@ import {
   BlockToolbarDivider,
 } from '../../ui/BlockToolbar';
 import { ResizeHandle } from '../../ui/ResizeHandle';
-import type { FileNodeAttributes } from '../../../lib/extensions/fileExtension';
+import type { FileNodeAttributes } from '../../../lib/editor/extensions/fileExtension';
 import { openPreviewWindow } from '../../../lib/windows/previewWindow';
 import PdfPreview from './PdfPreview';
 

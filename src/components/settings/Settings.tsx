@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, Bug, type LucideIcon } from 'lucide-react';
-import { useI18n } from '../../lib/i18n';
-import type { TranslationKey } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
+import type { TranslationKey } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
 import type { SettingsSectionId } from '../../store/uiSlice';
 import { useCollapsibleTree } from '../ui/useCollapsibleTree';

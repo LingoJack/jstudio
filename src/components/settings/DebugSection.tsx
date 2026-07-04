@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Bug, Terminal, GitCommit, CheckCircle2, Zap } from 'lucide-react';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
 
 interface BuildInfo {

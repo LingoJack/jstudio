@@ -26,23 +26,45 @@ jstudio/
 │   ├── App.tsx                 # 根组件（三栏布局）
 │   ├── main.tsx                # React 入口
 │   ├── index.css               # Tailwind v4 入口
-│   ├── types.ts                # 类型 re-export → types/index.ts
 │   │
-│   ├── types/
+│   ├── types/                  # 类型定义
 │   │   ├── index.ts            # Barrel export
 │   │   ├── document.ts         # Document, Block, BlockType, BlockProperties
-│   │   └── editor.ts           # 编辑器/插件/同步相关类型
+│   │   ├── editor.ts           # 编辑器/插件/同步相关类型
+│   │   └── richText.ts         # RichText, RichTextAnnotations
 │   │
-│   ├── lib/
-│   │   ├── storage.ts          # 存储抽象层（封装所有 Tauri invoke 调用）
-│   │   └── migrate.ts          # localStorage → 文件系统迁移
+│   ├── lib/                    # 工具库
+│   │   ├── core/               # 核心基础设施
+│   │   │   ├── storage.ts      # 存储抽象层（封装所有 Tauri invoke 调用）
+│   │   │   ├── i18n.ts         # 国际化
+│   │   │   ├── commandRegistry.ts # 命令面板注册
+│   │   │   └── index.ts        # Barrel export
+│   │   │
+│   │   ├── editor/             # 编辑器相关
+│   │   │   ├── extensions/     # TipTap 扩展
+│   │   │   ├── content/        # 内容转换（richText ↔ HTML）
+│   │   │   ├── slashMenu/      # 斜杠菜单
+│   │   │   ├── tiptapAdapter.ts # TipTap ↔ Block 转换
+│   │   │   ├── fonts.ts        # 字体配置
+│   │   │   └── upload.ts       # 文件上传
+│   │   │
+│   │   ├── shortcuts/          # 快捷键
+│   │   ├── documents/          # 文档工具
+│   │   ├── terminal/           # 终端相关
+│   │   ├── windows/            # 窗口管理
+│   │   └── activityMeta.ts     # Activity Bar 元数据
 │   │
-│   ├── store/
-│   │   ├── useStore.ts         # Zustand store 组合入口
+│   ├── store/                  # Zustand 状态管理
+│   │   ├── index.ts            # Barrel export
+│   │   ├── useStore.ts         # Store 组合入口
 │   │   ├── storeHelpers.ts     # StoreState 接口 + debounce 辅助
 │   │   ├── documentsSlice.ts   # 文档 CRUD + init
 │   │   ├── editorSlice.ts      # Block 操作 + 图片粘贴
-│   │   └── uiSlice.ts          # 主题 + 面板可见性
+│   │   ├── uiSlice.ts          # 主题 + 面板可见性
+│   │   ├── foldersSlice.ts     # 文件夹管理
+│   │   ├── workspaceSlice.ts   # 工作区/标签页
+│   │   ├── terminalSlice.ts    # 终端状态
+│   │   └── toastSlice.ts       # 轻提示状态
 │   │
 │   ├── data/
 │   │   └── defaultData.ts      # 预设文档（仅 legacy，新用户为空）
@@ -51,28 +73,41 @@ jstudio/
 │   │   └── vscode-theme.css    # VSCode 风格主题变量 + 全局样式
 │   │
 │   └── components/
-│       ├── TitleBar.tsx         # 窗口标题栏（搜索 + 侧边栏切换）
-│       ├── BlockEditor.tsx     # 编辑器主体（单一 contentEditable surface）
-│       ├── DocumentList.tsx    # 侧边栏文档列表（含「新建文档」入口）
-│       ├── LocalFolder.tsx     # 本地资源面板
-│       ├── ui/                 # ── 公共 UI 组件（浮层、按钮等），新增浮层 UI 必须先查此处
-│       │   ├── IconButton.tsx   # 通用图标按钮
-│       │   ├── MenuList.tsx     # 菜单容器 + MenuItem + MenuDivider（所有菜单/下拉统一用此）
-│       │   ├── FontDropdown.tsx
-│       │   └── Toast.tsx
-│       └── blocks/
-│           ├── BlockRouter.tsx     # 块类型路由
-│           ├── BlockLine.tsx       # surface 内的文本行
-│           ├── BlockHandle.tsx     # hover 控件 ([+] [⋮⋮])
-│           ├── BlockContextMenu.tsx
-│           ├── SlashMenu.tsx       # / 命令菜单
-│           ├── useSurfaceEditor.ts # 容器级编辑器 hook（核心）
-│           ├── shared.tsx          # SLASH_COMMANDS, getDefaultProperties
-│           ├── types.ts            # BaseBlockProps, BlockRouterProps
-│           ├── TextBlock / HeadingBlock / CalloutBlock / ToggleBlock
-│           ├── ImageBlock / TableBlock / CodeBlockWrapper
-│           ├── CanvasBlock / WhiteboardBlock
-│           └── WebEmbedBlock / AttachmentBlock
+│       ├── layout/             # 布局组件
+│       │   ├── TitleBar.tsx    # 窗口标题栏
+│       │   ├── ActivityBar.tsx # 左侧活动栏
+│       │   └── ErrorBoundary.tsx # 错误边界
+│       │
+│       ├── editor/             # 编辑器组件
+│       │   ├── BlockEditor.tsx # 编辑器主体
+│       │   ├── CommandPalette.tsx # 命令面板
+│       │   ├── nodes/          # 块节点视图
+│       │   └── hooks/          # 编辑器 hooks
+│       │
+│       ├── documents/          # 文档相关组件
+│       │   ├── DocumentList.tsx # 侧边栏文档列表
+│       │   ├── DocumentTabs.tsx # 文档标签页
+│       │   └── DocumentContextMenu.tsx # 文档右键菜单
+│       │
+│       ├── settings/           # 设置组件
+│       │   ├── Settings.tsx    # 设置页框架
+│       │   ├── GeneralSection.tsx # 通用设置
+│       │   ├── EditorSection.tsx  # 编辑器设置
+│       │   └── TerminalSection.tsx # 终端设置
+│       │
+│       ├── terminal/           # 终端组件
+│       │
+│       ├── windows/            # 窗口组件
+│       │
+│       └── ui/                 # 公共 UI 组件
+│           ├── IconButton.tsx  # 通用图标按钮
+│           ├── MenuList.tsx    # 菜单容器
+│           ├── Toast.tsx       # 轻提示
+│           ├── icons.tsx       # SVG 图标组件
+│           └── cursor/         # 光标特效
+│               ├── BaseCursorTrail.ts
+│               ├── EditorCursorTrail.ts
+│               └── shaders.ts
 │
 └── src-tauri/                  # Rust 后端
     ├── Cargo.toml
@@ -269,8 +304,9 @@ jstudio/
 |------|------|
 | `IconButton` | 通用图标按钮（hover 态、active 态统一） |
 | `MenuList` + `MenuItem` + `MenuDivider` | 所有菜单、下拉、上下文菜单的容器和子项（样式统一） |
-| `FontDropdown` | 字体下拉 |
 | `Toast` | 轻提示 |
+| `icons.tsx` | SVG 图标组件（UploadIcon、AlignLeftIcon、AlignCenterIcon） |
+| `cursor/` | 光标特效组件（BaseCursorTrail、EditorCursorTrail、shaders） |
 
 **为什么这条规范很重要**：
 

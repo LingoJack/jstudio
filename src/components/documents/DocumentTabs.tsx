@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { createDocumentWindow } from '../../lib/windows/documentDetach';
 import { Plus, X, FileText, ExternalLink } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';

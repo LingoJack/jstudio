@@ -1,4 +1,4 @@
-import { storage } from '../lib/storage';
+import { storage } from '../lib/core/storage';
 import { onSaveError, type SliceCreator } from './storeHelpers';
 import type {
   PaneGroup,

@@ -32,8 +32,8 @@ import {
 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { storage, type DocumentMeta, type TerminalSessionInfo, type ThemeMode } from '../../lib/storage';
-import { useI18n, type Language, type TranslationKey } from '../../lib/i18n';
+import { storage, type DocumentMeta, type TerminalSessionInfo, type ThemeMode } from '../../lib/core/storage';
+import { useI18n, type Language, type TranslationKey } from '../../lib/core/i18n';
 import type { SettingsSectionId } from '../../store/uiSlice';
 
 // ──────────────────────────────────────────────────────────────────

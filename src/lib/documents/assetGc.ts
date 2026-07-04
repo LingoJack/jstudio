@@ -12,7 +12,7 @@
  */
 
 import type { Document } from '../../types';
-import { storage } from '../storage';
+import { storage } from '../core/storage';
 
 /**
  * Collect every `assets/{fileName}` reference anywhere in a document.

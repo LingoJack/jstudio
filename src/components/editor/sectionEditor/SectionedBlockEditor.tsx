@@ -29,9 +29,9 @@ import type { Editor } from '@tiptap/react';
 import { ListTree } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '../../../lib/core/i18n';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
-import { EditorCursorTrail } from '../../cursor/EditorCursorTrail';
+import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
 import type { Block } from '../../../types';

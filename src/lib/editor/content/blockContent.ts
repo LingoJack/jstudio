@@ -2,7 +2,7 @@
  * Helper functions for working with the `Block.content` union type.
  */
 
-import type { RichText } from '../../types/richText';
+import type { RichText } from '../../../types/richText';
 
 /**
  * Extract a plain string from a block's `content` field.

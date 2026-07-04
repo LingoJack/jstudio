@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, type LucideIcon } from 'lucide-react';
-import { storage } from '../../lib/storage';
-import type { JcliStatus, ActivityItemId } from '../../lib/storage';
+import { storage } from '../../lib/core/storage';
+import type { JcliStatus, ActivityItemId } from '../../lib/core/storage';
 import { ACTIVITY_ITEM_META } from '../../lib/activityMeta';
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/toast';
-import type { Language, ThemeMode } from '../../lib/storage';
+import type { Language, ThemeMode } from '../../lib/core/storage';
 
 /**
  * GeneralSection — app-wide settings.

@@ -1,9 +1,9 @@
 import type { Terminal, IDisposable } from '@xterm/xterm';
-import type { TerminalCursorStyle } from '../../lib/storage';
+import type { TerminalCursorStyle } from '../../lib/core/storage';
 import {
   BaseCursorTrail,
   type RenderOptions,
-} from '../cursor/BaseCursorTrail';
+} from '../ui/cursor/BaseCursorTrail';
 
 /**
  * CursorTrail — terminal cursor trail (xterm), built on BaseCursorTrail.
