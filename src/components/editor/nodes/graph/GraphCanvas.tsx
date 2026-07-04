@@ -333,8 +333,9 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
 const GRID_SIZE = 10;
 
 /** 事件容差：鼠标按下后移动超过该值才算"拖动"（拉线/拖节点）。
- *  maxGraph 默认很小导致一碰就触发拉线，调大让按下后小幅抖动不误触。 */
-const EVENT_TOLERANCE = 8;
+ *  maxGraph 默认很小导致一碰就触发拉线，调大让按下后小幅抖动不误触。
+ *  值越大，越不容易误触发连线；建议 15-20 像素。 */
+const EVENT_TOLERANCE = 18;
 
 /** 缩放上下限，防止用户缩到不可用。 */
 const ZOOM_MIN = 0.25;
