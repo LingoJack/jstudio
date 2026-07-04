@@ -5,14 +5,58 @@
  * 这里自定义：
  * - `umlActor` - 用例图角色（小人图标）
  * - `lifeline` - 时序图生命线（矩形头部 + 底部虚线延伸）
+ * - `LifelinePerimeter` - 生命线连接点计算（只在中心虚线上）
  */
 
-import { Shape, ShapeRegistry, type AbstractCanvas2D } from '@maxgraph/core';
+import {
+  Shape,
+  ShapeRegistry,
+  PerimeterRegistry,
+  Point,
+  type AbstractCanvas2D,
+  type Rectangle,
+  type CellState,
+  type Point,
+} from '@maxgraph/core';
 
 /** 头部固定高度 —— 与 lifeline 协调一致
  *  50px 足够容纳小人图标（头+身体+手臂+腿）
  */
-const HEAD_HEIGHT = 50;
+export const HEAD_HEIGHT = 50;
+
+/**
+ * 生命线连接点计算函数
+ *
+ * 与普通矩形不同，生命线的连接点只落在中心虚线上（一条垂直线）。
+ * 这样时序图的消息线会水平连接到生命线的中心，符合 UML 规范。
+ *
+ * 原理：
+ * - 连接点的 x 坐标始终是中心线位置
+ * - 连接点的 y 坐标根据连线方向动态计算，落在 [headHeight, bounds.height] 范围内
+ * - 通过 getAllConnectionConstraints 提供多个等间距连接点（每 20px 一个），
+ *   用户可以从生命线上的任意位置拉线连接到其他生命线
+ */
+export const LifelinePerimeter = (bounds: Rectangle, _vertex: CellState, next: Point, _orthogonal = false) => {
+  // 中心线 x 坐标
+  const cx = bounds.getCenterX();
+  
+  // 生命线有效范围：从头部底部到节点底部
+  const lineTop = bounds.y + HEAD_HEIGHT;
+  const lineBottom = bounds.y + bounds.height;
+  
+  // y 坐标根据 next 点（连线方向参考）计算，限制在生命线范围内
+  let y = next.y;
+  if (y < lineTop) {
+    y = lineTop;
+  } else if (y > lineBottom) {
+    y = lineBottom;
+  }
+  
+  // 正交模式下，如果 next.x 在节点范围内，使用 next.x 作为 x 坐标
+  // 但生命线的连接点始终在中心线上，所以这里忽略 orthogonal 的 x 调整
+  
+  return new Point(cx, y);
+};
 
 /**
  * 用例图角色形状（小人图标 + 底部生命线）
@@ -80,11 +124,11 @@ class UMLActorShape extends Shape {
  * 时序图生命线形状
  * 绘制：矩形头部框 + 底部延伸的虚线（表示对象存在时间）
  * 
- * 头部高度固定 30px，用户调整高度只影响生命线长度。
+ * 头部高度固定 50px，用户调整高度只影响生命线长度。
  */
 class LifelineShape extends Shape {
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
-    // 头部矩形（圆角），高度固定 30px
+    // 头部矩形（圆角），高度固定 50px
     const headH = HEAD_HEIGHT;
     const arc = 8;
 
@@ -92,7 +136,7 @@ class LifelineShape extends Shape {
     c.roundrect(x, y, w, headH, arc, arc);
     c.fillAndStroke();
 
-    // 底部虚线延伸
+    // 底部虚线延伸（生命线）
     c.setDashed(true);
     const lineX = x + w / 2;
     const lineTop = y + headH;
@@ -112,7 +156,7 @@ class LifelineShape extends Shape {
  * 形状轮廓：
  *   左上角 → 顶边 → 折角起点 → 折角顶点 → 折角终点 → 右边 → 底边 → 左边 → 闭合
  * 
- * 折角大小约为宽度的 15%，高度固定约 12px（或按比例）
+ * 折角大小约为宽度的 15%，高度按比例但最小 8px
  */
 class NoteShape extends Shape {
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
@@ -147,12 +191,16 @@ class NoteShape extends Shape {
 }
 
 /**
- * 注册自定义形状到全局 ShapeRegistry
+ * 注册自定义形状和连接点到全局 Registry
  */
 export function registerCustomShapes(): void {
+  // 注册形状
   ShapeRegistry.add('umlActor', UMLActorShape);
   ShapeRegistry.add('lifeline', LifelineShape);
   ShapeRegistry.add('note', NoteShape);
+
+  // 注册生命线连接点计算函数
+  PerimeterRegistry.add('lifelinePerimeter', LifelinePerimeter);
 }
 
 export { UMLActorShape, LifelineShape, NoteShape };

@@ -50,9 +50,9 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
     case 'text':
       return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
     case 'actor':
-      // 用例图角色：使用自定义的 umlActor 形状（小人图标）
-      // 使用椭圆边界作为连接点计算，连线会连接到小人周围的边界框
-      return { ...base, shape: 'umlActor', perimeter: 'ellipsePerimeter' };
+      // 用例图角色：使用自定义的 umlActor 形状（小人图标 + 生命线）
+      // 使用 lifelinePerimeter，连接点只落在中心虚线上
+      return { ...base, shape: 'umlActor', perimeter: 'lifelinePerimeter' };
     case 'swimlane-v':
       // 垂直泳道：使用 swimlane 形状，horizontal=false
       return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: false };
@@ -61,10 +61,11 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: true };
     case 'lifeline':
       // 时序图生命线：使用自定义的 lifeline 形状（矩形头部 + 虚线延伸）
-      return { ...base, shape: 'lifeline' };
+      // 使用 lifelinePerimeter，连接点只落在中心虚线上
+      return { ...base, shape: 'lifeline', perimeter: 'lifelinePerimeter' };
     case 'activation':
-      // 时序图激活框：窄矩形
-      return { ...base, shape: 'rectangle', strokeWidth: 1 };
+      // 时序图激活框：窄矩形，整条边都可以连接消息线
+      return { ...base, shape: 'rectangle', strokeWidth: 1, perimeter: 'rectanglePerimeter' };
     case 'note':
       // 注释框：使用 rectangle + 圆角模拟折角效果
       // maxGraph 没有 note 形状，用圆角矩形代替

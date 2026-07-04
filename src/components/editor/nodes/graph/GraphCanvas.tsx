@@ -36,6 +36,7 @@ import {
   ConnectorShape,
   VertexHandler,
   CellState,
+  ConstraintHandler,
   type Cell,
   type ConnectionHandler,
   type EventObject,
@@ -63,7 +64,7 @@ import {
   type GraphNodeShape,
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
-import { registerCustomShapes } from './customShapes';
+import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
 import {
   paletteFor,
   getSelectionColor,
@@ -300,18 +301,19 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     case 'text':
       return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
     case 'actor':
-      // 用例图角色：使用自定义的 umlActor 形状（小人图标）
-      // 使用椭圆边界作为连接点计算，连线会连接到小人周围的边界框
-      return { ...base, shape: 'umlActor', perimeter: 'ellipsePerimeter' };
+      // 用例图角色：使用自定义的 umlActor 形状（小人图标 + 生命线）
+      // 使用 lifelinePerimeter，连接点只落在中心虚线上
+      return { ...base, shape: 'umlActor', perimeter: 'lifelinePerimeter' };
     case 'swimlane-v':
       return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: false };
     case 'swimlane-h':
       return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: true };
     case 'lifeline':
       // 时序图生命线：使用自定义的 lifeline 形状（矩形头部 + 虚线延伸）
-      return { ...base, shape: 'lifeline' };
+      // 使用 lifelinePerimeter，连接点只落在中心虚线上
+      return { ...base, shape: 'lifeline', perimeter: 'lifelinePerimeter' };
     case 'activation':
-      return { ...base, shape: 'rectangle', strokeWidth: 1 };
+      return { ...base, shape: 'rectangle', strokeWidth: 1, perimeter: 'rectanglePerimeter' };
     case 'note':
       // 注释框：使用自定义 note 形状（右上角折角的便利贴风格）
       return { ...base, shape: 'note' };
@@ -487,9 +489,11 @@ export function GraphCanvas({
 
     InternalEvent.disableContextMenu(container);
 
-    // 用默认插件 + 框选。传入 plugins 会替换默认列表，故需展开默认再追加。
+    // 用默认插件 + 框选 + 连接点约束显示。传入 plugins 会替换默认列表，故需展开默认再追加。
+    // ConstraintHandler 用于显示悬停时的连接点（绿色十字），是时序图生命线连接的关键。
     const graph = new Graph(container, undefined, [
       ...getDefaultPlugins(),
+      ConstraintHandler,
       RubberBandHandler,
     ]);
     graphRef.current = graph;
@@ -697,10 +701,30 @@ export function GraphCanvas({
     edgeDefault.strokeColor = getEdgeColor(dark);
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
 
-    // 为每个节点提供固定连接点（四边中点 + 四角）：悬停边缘时高亮绿色十字，
+    // 为每个节点提供固定连接点（四边中点）：悬停边缘时高亮绿色十字，
     // 从精确点位拖出连线，而非只能从整体边缘任意点连。
+    // 对于 lifeline 形状，提供多条垂直等距连接点（时序图消息需要在任意时间位置发出）。
     graph.getAllConnectionConstraints = (terminal: CellState | null) => {
       if (terminal?.cell?.isVertex()) {
+        // 通过 graph.getCellStyle 获取节点的完整样式
+        const cellStyle = graph.getCellStyle(terminal.cell);
+        const shapeStyle = cellStyle?.shape;
+        // 时序图生命线：在中心垂直线上生成多个连接点
+        // 连接点数量基于节点高度，每 20px 一个点（最少 5 个）
+        if (shapeStyle === 'lifeline' || shapeStyle === 'umlActor') {
+          const nodeHeight = terminal.height ?? 150;
+          const lifelineHeight = nodeHeight - HEAD_HEIGHT;
+          const pointCount = Math.max(5, Math.floor(lifelineHeight / 20));
+          const constraints: ConnectionConstraint[] = [];
+          for (let i = 0; i <= pointCount; i++) {
+            // y 坐标从 HEAD_HEIGHT 开始，沿中心线均匀分布
+            // 使用相对坐标（0~1），所以 y = (HEAD_HEIGHT + offset) / totalHeight
+            const yOffset = (HEAD_HEIGHT + (lifelineHeight * i / pointCount)) / nodeHeight;
+            constraints.push(new ConnectionConstraint(new Point(0.5, yOffset), true));
+          }
+          return constraints;
+        }
+        // 普通节点：四边中点连接点
         return CONNECTION_POINTS.map(
           ([x, y]) => new ConnectionConstraint(new Point(x, y), true),
         );
