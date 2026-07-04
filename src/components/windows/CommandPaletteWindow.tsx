@@ -24,17 +24,19 @@ import {
   TerminalSquare,
   Settings2,
   ChevronRight,
-  BookOpen,
-  Info,
-  Keyboard,
-  PenLine,
-  type LucideIcon,
 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { storage, type DocumentMeta, type TerminalSessionInfo, type ThemeMode } from '../../lib/core/storage';
-import { useI18n, type Language, type TranslationKey } from '../../lib/core/i18n';
+import { useI18n, type Language } from '../../lib/core/i18n';
 import type { SettingsSectionId } from '../../store/uiSlice';
+import type { TranslationKey } from '../../lib/core/i18n';
+import {
+  SETTINGS_SECTIONS,
+  HighlightedText,
+  getSessionTitle,
+  formatDateOr,
+} from '../../lib/commandPalette/shared.tsx';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -44,41 +46,6 @@ type PaletteItem =
   | { kind: 'document'; doc: DocumentMeta; titleMatch: [number, number] | null }
   | { kind: 'session'; session: TerminalSessionInfo; titleMatch: [number, number] | null }
   | { kind: 'settings'; sectionId: SettingsSectionId; titleMatch: [number, number] | null };
-
-// ──────────────────────────────────────────────────────────────────
-// Settings sections
-// ──────────────────────────────────────────────────────────────────
-
-const SETTINGS_SECTIONS: { id: SettingsSectionId; icon: LucideIcon; labelKey: TranslationKey }[] = [
-  { id: 'general', icon: Settings2, labelKey: 'settings.general' },
-  { id: 'editor', icon: PenLine, labelKey: 'settings.editor' },
-  { id: 'terminal', icon: TerminalSquare, labelKey: 'settings.terminal' },
-  { id: 'shortcuts', icon: Keyboard, labelKey: 'settings.shortcuts' },
-  { id: 'help', icon: BookOpen, labelKey: 'settings.help' },
-  { id: 'about', icon: Info, labelKey: 'settings.about' },
-];
-
-// ──────────────────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────────────────
-
-function getSessionTitle(s: TerminalSessionInfo): string {
-  return s.title || s.id;
-}
-
-function HighlightedText({ text, match }: { text: string; match: [number, number] | null }) {
-  if (!match) return <>{text}</>;
-  const [start, end] = match;
-  return (
-    <>
-      {text.slice(0, start)}
-      <span className="font-semibold text-[var(--vscode-textLink-activeForeground)]">
-        {text.slice(start, end)}
-      </span>
-      {text.slice(end)}
-    </>
-  );
-}
 
 function resolveDark(mode: ThemeMode): boolean {
   if (mode === 'dark') return true;
@@ -414,6 +381,7 @@ export default function CommandPaletteWindow() {
                   index={index}
                   isSelected={index === selectedIndex}
                   t={t}
+                  language={lang}
                   onClick={() => executeItem(item)}
                   onMouseEnter={() => setSelectedIndex(index)}
                 />
@@ -442,6 +410,7 @@ function PaletteRow({
   index,
   isSelected,
   t,
+  language,
   onClick,
   onMouseEnter,
 }: {
@@ -449,6 +418,7 @@ function PaletteRow({
   index: number;
   isSelected: boolean;
   t: (key: TranslationKey) => string;
+  language: Language;
   onClick: () => void;
   onMouseEnter: () => void;
 }) {
@@ -473,7 +443,7 @@ function PaletteRow({
           )}
         </span>
         <span className={`text-tiny shrink-0 ${mutedClass}`}>
-          {doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : ''}
+          {formatDateOr(doc.updatedAt, language)}
         </span>
       </div>
     );

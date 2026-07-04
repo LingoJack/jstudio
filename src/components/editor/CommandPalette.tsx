@@ -11,10 +11,6 @@ import {
   TerminalSquare,
   Settings2,
   ChevronRight,
-  BookOpen,
-  Info,
-  Keyboard,
-  PenLine,
   type LucideIcon,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
@@ -29,6 +25,12 @@ import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardSh
 import type { DocumentMeta } from '../../lib/core/storage';
 import type { TerminalSession } from '../../store/terminalSlice';
 import type { SettingsSectionId } from '../../store/uiSlice';
+import {
+  SETTINGS_SECTIONS,
+  HighlightedText,
+  getSessionTitle,
+  formatDateOr,
+} from '../../lib/commandPalette/shared.tsx';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -41,48 +43,6 @@ type PaletteItem =
   | { kind: 'settings'; sectionId: SettingsSectionId; titleMatch: [number, number] | null };
 
 type SearchScope = 'documents' | 'terminal' | 'settings';
-
-// ──────────────────────────────────────────────────────────────────
-// Highlight helper
-// ──────────────────────────────────────────────────────────────────
-
-function HighlightedText({
-  text,
-  match,
-}: {
-  text: string;
-  match: [number, number] | null;
-}) {
-  if (!match) return <>{text}</>;
-  const [start, end] = match;
-  return (
-    <>
-      {text.slice(0, start)}
-      <span className="font-semibold text-[var(--vscode-textLink-activeForeground)]">
-        {text.slice(start, end)}
-      </span>
-      {text.slice(end)}
-    </>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────
-// Settings section metadata
-// ──────────────────────────────────────────────────────────────────
-
-const SETTINGS_SECTIONS: { id: SettingsSectionId; icon: LucideIcon; labelKey: TranslationKey }[] = [
-  { id: 'general', icon: Settings2, labelKey: 'settings.general' },
-  { id: 'editor', icon: PenLine, labelKey: 'settings.editor' },
-  { id: 'terminal', icon: TerminalSquare, labelKey: 'settings.terminal' },
-  { id: 'shortcuts', icon: Keyboard, labelKey: 'settings.shortcuts' },
-  { id: 'help', icon: BookOpen, labelKey: 'settings.help' },
-  { id: 'about', icon: Info, labelKey: 'settings.about' },
-];
-
-/** Get the display title of a terminal session. */
-function getSessionTitle(s: TerminalSession): string {
-  return s.customTitle || s.autoTitle || s.title || s.cwd || 'Session';
-}
 
 // ──────────────────────────────────────────────────────────────────
 // Component
@@ -521,10 +481,8 @@ function PaletteRow({
             <span className="opacity-50 italic">Untitled</span>
           )}
         </span>
-        <span className={`text-[10px] shrink-0 ${descClass}`}>
-          {doc.updatedAt
-            ? new Date(doc.updatedAt).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US')
-            : ''}
+        <span className={`text-tiny shrink-0 ${descClass}`}>
+          {formatDateOr(doc.updatedAt, language)}
         </span>
       </div>
     );
