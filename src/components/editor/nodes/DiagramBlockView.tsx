@@ -2,17 +2,21 @@
  * DiagramBlockView — React NodeView for the diagram (excalidraw) block.
  *
  * Interaction model matches FileView:
- *   - When NOT selected: a transparent overlay sits above the Excalidraw canvas
- *     so the user can click to select the node (Excalidraw eats mouse events).
+ *   - When NOT selected: a transparent overlay sits above the canvas
+ *     so the user can click to select the node (canvas eats mouse events).
  *   - When selected: the overlay disappears, a floating toolbar (top-right) and
  *     resize handle (bottom-right) appear — same as ImageView / FileView.
+ *
+ * Architecture:
+ *   - Logic split into custom hooks (see ../hooks/useDiagram*)
+ *   - Component focuses on coordination and rendering
  *
  * Data flow:
  *   - Embedded canvas edits → updateAttributes({ snapshot })
  *   - New window edits → Rust relay (set/get_diagram_update) → poll → updateAttributes({ snapshot })
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import {
   type NodeViewProps,
   NodeViewWrapper,
@@ -20,10 +24,13 @@ import {
 } from '@tiptap/react';
 import { Maximize2, Pencil, Check } from 'lucide-react';
 
-import { useNodeResize } from '../hooks/useNodeResize';
-import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
+import { useDiagramSize } from '../hooks/useDiagramSize';
+import { useDiagramEditMode } from '../hooks/useDiagramEditMode';
+import { useDiagramWindow } from '../hooks/useDiagramWindow';
+import { useDiagramRenderer } from '../hooks/useDiagramRenderer';
+import { useDarkMode } from '../hooks/useDarkMode';
 import {
   BlockToolbar,
   AlignButtonGroup,
@@ -33,8 +40,6 @@ import {
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import { ExcalidrawCanvas } from './ExcalidrawCanvas';
 import { GraphCanvas } from './graph/GraphCanvas';
-import { detectSnapshotKind } from './graph/graphSnapshot';
-import { openDiagramWindow } from '../../../lib/windows/diagramWindow';
 import type { DiagramNodeAttributes } from '../../../lib/extensions/diagramExtension';
 
 /* ------------------------------------------------------------------ */
@@ -47,27 +52,16 @@ export default function DiagramBlockView({
   editor,
   getPos,
 }: NodeViewProps) {
-  const { snapshot, width, widthPct, height, heightPct, align } =
-    node.attrs as DiagramNodeAttributes;
-  const blockId = (node.attrs as DiagramNodeAttributes).id ?? undefined;
-
+  const attrs = node.attrs as DiagramNodeAttributes;
+  const { snapshot, align } = attrs;
+  const blockId = attrs.id ?? undefined;
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
 
   /* -------------------------------------------------------------- */
-  /* "Real" selection check                                          */
-  /*                                                                 */
-  /* Only a genuine NodeSelection on THIS node counts as selected —   */
-  /* NOT a text selection that sweeps across the block. See            */
-  /* useNodeSelected for the rationale (it replaces the inline logic  */
-  /* that used to live here).                                         */
+  /* Selection & toolbar navigation                                  */
   /* -------------------------------------------------------------- */
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
-  /* -------------------------------------------------------------- */
-  /* Keyboard navigation for the floating toolbar                    */
-  /* -------------------------------------------------------------- */
-
-  // Buttons: align-left, align-center, [edit/done], maximize
   const toolbarBtnCount = 4;
   const {
     activeIndex,
@@ -81,111 +75,27 @@ export default function DiagramBlockView({
     selected,
     (editor as Editor | null) ?? null,
     toolbarBtnCount,
-    true, // interactive: the Excalidraw canvas can take over the keyboard
+    true,
   );
 
-  // The Excalidraw root element, exposed by ExcalidrawCanvas so we can move
-  // DOM focus into it when entering edit mode (makes 1/2/3 tool shortcuts,
-  // space-pan, etc. work).
-  const excalidrawRootRef = useRef<HTMLDivElement | null>(null);
-  const handleExcalidrawRoot = useCallback((el: HTMLDivElement | null) => {
-    excalidrawRootRef.current = el;
-  }, []);
-
-  // When entering edit mode, focus the Excalidraw surface so it receives keys.
-  useEffect(() => {
-    if (!editing) return;
-    const root = excalidrawRootRef.current;
-    if (!root) return;
-    const surface =
-      (root.querySelector('.excalidraw') as HTMLElement | null) ?? root;
-    if (surface.tabIndex < 0) surface.tabIndex = -1;
-    surface.focus({ preventScroll: true });
-  }, [editing]);
-
   /* -------------------------------------------------------------- */
-  /* Dark mode detection                                             */
+  /* Size management (resize + legacy migration)                     */
   /* -------------------------------------------------------------- */
+  const {
+    setFigureRef,
+    displayWidth,
+    displayHeight,
+    onResizeStart,
+  } = useDiagramSize({
+    attrs,
+    updateAttributes,
+  });
 
-  const isDark =
-    typeof document !== 'undefined'
-      ? document.documentElement.classList.contains('dark')
-      : false;
-
-  /* -------------------------------------------------------------- */
-  /* 2D resize (width + height) — same as FileView                   */
-  /* -------------------------------------------------------------- */
-
-  const editorWidth = useEditorWidth();
-
-  // Lazy migration: if legacy pixel `width` exists but `widthPct` is null,
-  // compute the percentage from the current editor width and persist it.
-  useEffect(() => {
-    if (width != null && widthPct == null && editorWidth > 0) {
-      const pct = Math.min(100, Math.max(1, Math.round((width / editorWidth) * 100)));
-      updateAttributes({ widthPct: pct, width: null });
-    }
-  }, [width, widthPct, editorWidth, updateAttributes]);
-
-  // Lazy migration: if legacy pixel `height` exists but `heightPct` is null,
-  // compute the percentage from the current editor width and persist it.
-  useEffect(() => {
-    if (height != null && heightPct == null && editorWidth > 0) {
-      const pct = Math.min(100, Math.max(1, Math.round((height / editorWidth) * 100)));
-      updateAttributes({ heightPct: pct, height: null });
-    }
-  }, [height, heightPct, editorWidth, updateAttributes]);
-
-  // Compute the pixel width from widthPct (preferred) or fall back to legacy px.
-  const widthPx = widthPct != null ? Math.round((widthPct * editorWidth) / 100) : width;
-
-  // Compute the pixel height from heightPct (preferred) or fall back to legacy px.
-  const heightPx = heightPct != null ? Math.round((heightPct * editorWidth) / 100) : height;
-
-  const figureRefInternal = useRef<HTMLDivElement>(null);
-
-  const { ref: figureRef, displayWidth, displayHeight, onResizeStart } =
-    useNodeResize<HTMLDivElement>({
-      width: widthPx,
-      height: heightPx,
-      updateAttributes,
-      minWidth: 300,
-      minHeight: 200,
-      fallbackWidth: 520,
-      fallbackHeight: 400,
-      maxWidth: () => {
-        const el = figureRefInternal.current;
-        const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
-        if (editorSurface) {
-          const style = getComputedStyle(editorSurface);
-          const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-          return editorSurface.clientWidth - padX - 24;
-        }
-        return window.innerWidth - 24;
-      },
-      onCommit: (finalWidth, finalHeight) => {
-        const pct =
-          editorWidth > 0
-            ? Math.min(100, Math.max(1, Math.round((finalWidth / editorWidth) * 100)))
-            : 50;
-        const attrs: Record<string, number | null> = { widthPct: pct, width: null };
-        if (finalHeight !== null) {
-          const hPct =
-            editorWidth > 0
-              ? Math.min(100, Math.max(1, Math.round((finalHeight / editorWidth) * 100)))
-              : null;
-          attrs.heightPct = hPct;
-          attrs.height = null;
-        }
-        return attrs;
-      },
-    });
-
-  const setFigureRef = useCallback((el: HTMLDivElement | null) => {
-    (figureRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    figureRefInternal.current = el;
+  // Combine refs: size hook's internal ref + toolbar nav's interactive ref
+  const combinedFigureRef = useCallback((el: HTMLDivElement | null) => {
+    setFigureRef(el);
     interactiveRef(el);
-  }, [interactiveRef]);
+  }, [setFigureRef, interactiveRef]);
 
   const figureStyle: React.CSSProperties = {};
   if (displayWidth) {
@@ -197,20 +107,19 @@ export default function DiagramBlockView({
   };
 
   /* -------------------------------------------------------------- */
-  /* Embedded canvas change handler                                  */
+  /* Edit mode (focus management)                                    */
   /* -------------------------------------------------------------- */
+  const { handleExcalidrawRoot } = useDiagramEditMode(editing);
 
   /* -------------------------------------------------------------- */
-  /* 内核路由：仅在挂载时按初始快照判定一次                          */
-  /*                                                                 */
-  /* 只有"已存在的 Excalidraw 历史快照"才走旧内核；空白与自研格式都 */
-  /* 走新内核。判定结果用 ref 锁定，避免编辑过程中（快照格式从空    */
-  /* 变成 jgraph）内核被反复切换、导致组件卸载丢状态。              */
+  /* Dark mode detection                                             */
   /* -------------------------------------------------------------- */
-  const useLegacyExcalidrawRef = useRef(
-    detectSnapshotKind(snapshot ?? '') === 'excalidraw',
-  );
-  const useLegacyExcalidraw = useLegacyExcalidrawRef.current;
+  const isDark = useDarkMode();
+
+  /* -------------------------------------------------------------- */
+  /* Rendering kernel (excalidraw vs graph)                          */
+  /* -------------------------------------------------------------- */
+  const { useLegacyExcalidraw } = useDiagramRenderer(snapshot);
 
   const handleEmbeddedChange = useCallback(
     (json: string) => {
@@ -220,62 +129,14 @@ export default function DiagramBlockView({
   );
 
   /* -------------------------------------------------------------- */
-  /* Open new window for full-screen editing                         */
+  /* Window editing (maximize)                                       */
   /* -------------------------------------------------------------- */
-
-  const unlistenRef = useRef<(() => void) | null>(null);
-  const [windowOpen, setWindowOpen] = useState(false);
-
-  // Keep a ref to the latest snapshot so handleMaximize doesn't need
-  // `snapshot` in its dependency array — this prevents the callback from
-  // being recreated on every content change, which would cause React to
-  // tear down and re-run the poll loop.
-  const snapshotRef = useRef(snapshot);
-  const blockIdRef = useRef(blockId);
-  useEffect(() => {
-    snapshotRef.current = snapshot;
-    blockIdRef.current = blockId;
-  }, [snapshot, blockId]);
-
-  // Stable callback for updates from the diagram window.
-  const handleWindowUpdate = useCallback(
-    (updatedSnapshot: string) => {
-      if (blockIdRef.current && blockId && blockIdRef.current !== blockId) return;
-      updateAttributes({ snapshot: updatedSnapshot });
-    },
-    [blockId, updateAttributes],
-  );
-
-  const handleMaximize = useCallback(() => {
-    if (windowOpen) return;
-    setWindowOpen(true);
-
-    openDiagramWindow(
-      snapshotRef.current ?? '',
-      handleWindowUpdate,
-      isDark,
-      blockId,
-      () => {
-        setWindowOpen(false);
-        unlistenRef.current?.();
-        unlistenRef.current = null;
-      },
-    )
-      .then((unlisten) => {
-        unlistenRef.current = unlisten;
-      })
-      .catch((e) => {
-        console.error('[DiagramBlockView] Failed to open diagram window:', e);
-        setWindowOpen(false);
-      });
-  }, [windowOpen, isDark, handleWindowUpdate, blockId]);
-
-  // Cleanup listener on unmount.
-  useEffect(() => {
-    return () => {
-      unlistenRef.current?.();
-    };
-  }, []);
+  const { windowOpen, handleMaximize } = useDiagramWindow({
+    snapshot,
+    blockId,
+    isDark,
+    updateAttributes,
+  });
 
   /* -------------------------------------------------------------- */
   /* Render                                                          */
@@ -289,7 +150,7 @@ export default function DiagramBlockView({
     >
       <div className="diagram-block-container">
         <div
-          ref={setFigureRef}
+          ref={combinedFigureRef}
           className={`diagram-block-figure ${selected ? 'is-selected' : ''} ${
             editing ? 'is-editing' : ''
           }`}
@@ -304,8 +165,7 @@ export default function DiagramBlockView({
               onAlignChange={(a) => updateAttributes({ align: a })}
             />
             <BlockToolbarDivider />
-            {/* Enter / leave inline edit mode. While editing, the Excalidraw
-                canvas owns the keyboard (1/2/3 tool shortcuts, etc.). */}
+            {/* Enter / leave inline edit mode */}
             <BlockToolbarButton
               nav={{ activeIndex, registerButton }}
               index={2}
@@ -326,9 +186,7 @@ export default function DiagramBlockView({
             </BlockToolbarButton>
           </BlockToolbar>
 
-          {/* 画板内核：按快照格式路由。
-              - 旧 Excalidraw 快照 → 继续用 ExcalidrawCanvas 渲染（向后兼容）
-              - 空白 / 自研 jgraph 格式 → 自研 GraphCanvas 内核 */}
+          {/* Canvas renderer — kernel routing by snapshot format */}
           <div
             className="diagram-block-canvas"
             contentEditable={false}
@@ -353,10 +211,7 @@ export default function DiagramBlockView({
             )}
           </div>
 
-          {/* Transparent overlay when NOT editing — lets the user click to
-              select the node (and the toolbar/resize handle to work) without
-              the Excalidraw canvas swallowing the click. Removed in edit mode
-              so drawing interactions pass through. */}
+          {/* Overlay when NOT editing — enables node selection */}
           {!editing && (
             <div className="diagram-block-overlay" contentEditable={false} />
           )}
