@@ -26,7 +26,7 @@ export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
   'swimlane-v': { fill: 'none', stroke: '#374151' },
   'swimlane-h': { fill: 'none', stroke: '#374151' },
   lifeline: { fill: 'none', stroke: '#374151' },
-  activation: { fill: 'none', stroke: '#374151' },
+  activation: { fill: '#F3F4F6', stroke: '#374151' },
   note: { fill: 'none', stroke: '#374151' },
   'edge-line': { fill: 'none', stroke: '#374151' },
   'edge-ortho': { fill: 'none', stroke: '#374151' },
@@ -45,7 +45,7 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
   'swimlane-v': { fill: 'none', stroke: '#9CA3AF' },
   'swimlane-h': { fill: 'none', stroke: '#9CA3AF' },
   lifeline: { fill: 'none', stroke: '#9CA3AF' },
-  activation: { fill: 'none', stroke: '#9CA3AF' },
+  activation: { fill: '#374151', stroke: '#9CA3AF' },
   note: { fill: 'none', stroke: '#9CA3AF' },
   'edge-line': { fill: 'none', stroke: '#9CA3AF' },
   'edge-ortho': { fill: 'none', stroke: '#9CA3AF' },
@@ -81,7 +81,7 @@ export const HANDLE_STROKE_COLOR_DARK = '#60A5FA';
  */
 export const CONNECTION_POINT_COLOR_LIGHT = '#3B82F6';
 export const CONNECTION_POINT_COLOR_DARK = '#60A5FA';
-export const CONNECTION_POINT_SIZE = 8; // 飞书风格：更小巧
+export const CONNECTION_POINT_SIZE = 12; // 更大更清晰，在虚线生命线上可辨
 
 /** 拖动预览样式 - 跟随主题 */
 export const PREVIEW_FILL_COLOR_LIGHT = 'rgba(59, 130, 246, 0.1)';
@@ -125,17 +125,23 @@ export function getFontColor(dark: boolean): string {
 }
 
 /** 创建连接点 SVG 图标（飞书风格）
- *  设计：纯色实心小圆点，简洁优雅，无多余装饰。
- *  hover 时显示蓝色实心圆点，与选中手柄风格一致。
+ *  设计：白底圆环 + 蓝色实心圆心的"靶心"，Base64 编码保证所有浏览器/缩放级别都清晰渲染，
+ *  避免 data URI 的字符编码问题导致显示为方块或缺失。
  */
 export function createConnectionPointSVG(dark: boolean): string {
   const color = getConnectionPointColor(dark);
+  const bgColor = dark ? '#1F2937' : '#FFFFFF';
   const size = CONNECTION_POINT_SIZE;
-  const r = size / 2 - 1; // 留 1px 边距
-  return `data:image/svg+xml,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-      <circle cx="${size/2}" cy="${size/2}" r="${r}"
-        fill="${color}" stroke="none"/>
-    </svg>
-  `)}`;
+  const cx = size / 2;
+  const cy = size / 2;
+  const rOuter = size / 2 - 1;
+  const rInner = 2.5;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">\n    <circle cx="${cx}" cy="${cy}" r="${rOuter}"\n      fill="${bgColor}" stroke="${color}" stroke-width="1.5"/>\n    <circle cx="${cx}" cy="${cy}" r="${rInner}"\n      fill="${color}" stroke="none"/>\n  </svg>`;
+  const base64 = btoa(
+    encodeURIComponent(svg).replace(
+      /%([0-9A-F]{2})/g,
+      (_match, p1: string) => String.fromCharCode(Number.parseInt(p1, 16)),
+    ),
+  );
+  return `data:image/svg+xml;base64,${base64}`;
 }

@@ -188,19 +188,19 @@ function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
         </svg>
       );
     case 'actor':
-      // 用例图角色：小人图标
+      // 用例图角色：小人图标（头圆 + 身体 + 手臂 + 腿），手臂略向下倾斜
       return (
         <svg width="16" height="16" viewBox="0 0 16 20" fill="none" aria-hidden>
           {/* 头 */}
-          <circle cx="8" cy="3" r="2.5" stroke="currentColor" strokeWidth={sw} />
+          <circle cx="8" cy="3.5" r="3" stroke="currentColor" strokeWidth={sw} />
           {/* 身体 */}
-          <line x1="8" y1="5.5" x2="8" y2="12" stroke="currentColor" strokeWidth={sw} />
-          {/* 手臂 */}
-          <line x1="8" y1="7" x2="3" y2="10" stroke="currentColor" strokeWidth={sw} />
-          <line x1="8" y1="7" x2="13" y2="10" stroke="currentColor" strokeWidth={sw} />
+          <line x1="8" y1="7" x2="8" y2="11" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
+          {/* 手臂：略向下倾斜 */}
+          <line x1="8" y1="8" x2="3" y2="10" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
+          <line x1="8" y1="8" x2="13" y2="10" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
           {/* 腿 */}
-          <line x1="8" y1="12" x2="4" y2="18" stroke="currentColor" strokeWidth={sw} />
-          <line x1="8" y1="12" x2="12" y2="18" stroke="currentColor" strokeWidth={sw} />
+          <line x1="8" y1="11" x2="4" y2="17" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
+          <line x1="8" y1="11" x2="12" y2="17" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
         </svg>
       );
     case 'swimlane-v':
@@ -228,10 +228,10 @@ function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
         </svg>
       );
     case 'activation':
-      // 时序图激活框：窄矩形
+      // 时序图激活框：带填充的窄矩形，与画布实际样式一致
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <rect x="5" y="2" width="6" height="12" stroke="currentColor" strokeWidth={sw} />
+          <rect x="5" y="2" width="6" height="12" fill="currentColor" fillOpacity={0.18} stroke="currentColor" strokeWidth={sw} />
         </svg>
       );
     case 'note':
@@ -313,7 +313,8 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
       // 使用 lifelinePerimeter，连接点只落在中心虚线上
       return { ...base, shape: 'lifeline', perimeter: 'lifelinePerimeter' };
     case 'activation':
-      return { ...base, shape: 'rectangle', strokeWidth: 1, perimeter: 'rectanglePerimeter' };
+      // 时序图激活框：使用专用 umlActivation 形状，左右边缘优先连接消息线
+      return { ...base, shape: 'umlActivation', perimeter: 'activationPerimeter' };
     case 'note':
       // 注释框：使用自定义 note 形状（右上角折角的便利贴风格）
       return { ...base, shape: 'note' };
@@ -577,17 +578,18 @@ export function GraphCanvas({
         CONNECTION_POINT_SIZE,
       );
       connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
-      // 重写 createHighlightShape，将默认的矩形高亮改为圆形（与 pointImage 风格一致）
-      // 这样悬停连接点时不会出现方形边框
+      // 重写 createHighlightShape：悬停连接点时显示一个比锚点略大的半透明填充圆，
+      // 与飞书风格一致，避免默认矩形高亮造成的"方形边框"感。
       const ch = connectionHandler.constraintHandler;
       ch.createHighlightShape = () => {
+        const color = getConnectionPointColor(dark);
         const hl = new EllipseShape(
           new Rectangle(),
-          'none', // 无填充
-          getConnectionPointColor(dark),
-          1.5, // stroke width
+          color,
+          color,
+          0,
         );
-        hl.opacity = 0.6;
+        hl.opacity = 0.25;
         return hl as RectangleShape;
       };
     }
@@ -597,14 +599,14 @@ export function GraphCanvas({
       // 开启 livePreview，让预览线使用 edgeState 渲染（包含路由样式）
       connectionHandler.livePreview = true;
 
-      // 覆盖 createEdgeState：返回带有实际 edge 样式的状态，让预览线显示正确的路由
-      // 在 style 中直接设置蓝色 + 虚线 + 箭头
+      // 覆盖 createEdgeState：返回带有实际 edge 样式的状态，让预览线显示正确的路由。
+      // 注意：不要在这里设置 dashed，否则连接完成后的实际边也会变成虚线；
+      // 预览的虚线效果由 drawPreview 单独控制。
       connectionHandler.createEdgeState = function () {
         const edgeStyle: Record<string, unknown> = {
           edgeStyle: 'orthogonalEdgeStyle',
           strokeColor: getConnectionPointColor(dark),
           strokeWidth: 2,
-          dashed: true,
           endArrow: 'classic',
           endSize: 8,
         };
@@ -700,36 +702,76 @@ export function GraphCanvas({
     edgeDefault.endArrow = 'classic';
     edgeDefault.strokeColor = getEdgeColor(dark);
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
+    edgeDefault.dashed = false; // 默认连线为实线，仅 edge-dashed 工具显式设为虚线
 
-    // 为每个节点提供固定连接点（四边中点）：悬停边缘时高亮绿色十字，
+    // 为每个节点提供固定连接点：悬停边缘时高亮圆点锚点，
     // 从精确点位拖出连线，而非只能从整体边缘任意点连。
-    // 对于 lifeline 形状，提供多条垂直等距连接点（时序图消息需要在任意时间位置发出）。
+    // 针对时序图生命线/激活框做了专门分布，让消息箭头水平贴合。
     graph.getAllConnectionConstraints = (terminal: CellState | null) => {
-      if (terminal?.cell?.isVertex()) {
-        // 通过 graph.getCellStyle 获取节点的完整样式
-        const cellStyle = graph.getCellStyle(terminal.cell);
-        const shapeStyle = cellStyle?.shape;
-        // 时序图生命线：在中心垂直线上生成多个连接点
-        // 连接点数量基于节点高度，每 20px 一个点（最少 5 个）
-        if (shapeStyle === 'lifeline' || shapeStyle === 'umlActor') {
-          const nodeHeight = terminal.height ?? 150;
-          const lifelineHeight = nodeHeight - HEAD_HEIGHT;
-          const pointCount = Math.max(5, Math.floor(lifelineHeight / 20));
-          const constraints: ConnectionConstraint[] = [];
-          for (let i = 0; i <= pointCount; i++) {
-            // y 坐标从 HEAD_HEIGHT 开始，沿中心线均匀分布
-            // 使用相对坐标（0~1），所以 y = (HEAD_HEIGHT + offset) / totalHeight
-            const yOffset = (HEAD_HEIGHT + (lifelineHeight * i / pointCount)) / nodeHeight;
-            constraints.push(new ConnectionConstraint(new Point(0.5, yOffset), true));
-          }
-          return constraints;
+      if (!terminal?.cell?.isVertex()) return null;
+
+      const cellStyle = graph.getCellStyle(terminal.cell);
+      const shapeStyle = cellStyle?.shape;
+
+      // 时序图生命线 / 用例图角色：消息箭头沿中心虚线水平连接
+      // 连接点沿中心垂直线均匀分布，密度适中（每 60px 一个），避免一长串蓝点。
+      // 头部矩形补充顶部中点、左中、右中，让参与者块本身也能被连接。
+      if (shapeStyle === 'lifeline' || shapeStyle === 'umlActor') {
+        const nodeHeight = terminal.height ?? 150;
+        const lifelineHeight = nodeHeight - HEAD_HEIGHT;
+        const pointSpacing = 60;
+        const pointCount = Math.max(4, Math.floor(lifelineHeight / pointSpacing));
+        const constraints: ConnectionConstraint[] = [];
+        for (let i = 0; i <= pointCount; i++) {
+          const yOffset = (HEAD_HEIGHT + (lifelineHeight * i) / pointCount) / nodeHeight;
+          constraints.push(new ConnectionConstraint(new Point(0.5, yOffset), true));
         }
-        // 普通节点：四边中点连接点
-        return CONNECTION_POINTS.map(
-          ([x, y]) => new ConnectionConstraint(new Point(x, y), true),
-        );
+        // 头部矩形连接点：顶部中点、左中、右中
+        constraints.push(new ConnectionConstraint(new Point(0.5, 0), true));
+        const headMidY = (HEAD_HEIGHT / 2) / nodeHeight;
+        constraints.push(new ConnectionConstraint(new Point(0, headMidY), true));
+        constraints.push(new ConnectionConstraint(new Point(1, headMidY), true));
+        return constraints;
       }
-      return null;
+
+      // 时序图激活框：消息箭头优先从左右边缘水平出入，同时保留上下边缘用于激活起止
+      // 左右边缘按高度每 24px 一个点，并补充四角与四边中点。
+      if (shapeStyle === 'umlActivation') {
+        const nodeHeight = terminal.height ?? 60;
+        const nodeWidth = terminal.width ?? 16;
+        const pointSpacing = 24;
+        const pointCount = Math.max(2, Math.floor(nodeHeight / pointSpacing));
+        const constraints: ConnectionConstraint[] = [];
+
+        for (let i = 0; i <= pointCount; i++) {
+          const y = i / pointCount;
+          constraints.push(new ConnectionConstraint(new Point(0, y), true));
+          constraints.push(new ConnectionConstraint(new Point(1, y), true));
+        }
+
+        // 四角
+        constraints.push(new ConnectionConstraint(new Point(0, 0), true));
+        constraints.push(new ConnectionConstraint(new Point(1, 0), true));
+        constraints.push(new ConnectionConstraint(new Point(0, 1), true));
+        constraints.push(new ConnectionConstraint(new Point(1, 1), true));
+
+        // 上下边中点（激活开始/结束）
+        constraints.push(new ConnectionConstraint(new Point(0.5, 0), true));
+        constraints.push(new ConnectionConstraint(new Point(0.5, 1), true));
+
+        // 当激活框较宽时，补充左右边的中点，确保任意高度都能吸附
+        if (nodeWidth >= 30) {
+          constraints.push(new ConnectionConstraint(new Point(0, 0.5), true));
+          constraints.push(new ConnectionConstraint(new Point(1, 0.5), true));
+        }
+
+        return constraints;
+      }
+
+      // 普通节点：四边中点连接点
+      return CONNECTION_POINTS.map(
+        ([x, y]) => new ConnectionConstraint(new Point(x, y), true),
+      );
     };
 
     // Undo / Redo。

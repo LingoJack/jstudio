@@ -64,8 +64,8 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 使用 lifelinePerimeter，连接点只落在中心虚线上
       return { ...base, shape: 'lifeline', perimeter: 'lifelinePerimeter' };
     case 'activation':
-      // 时序图激活框：窄矩形，整条边都可以连接消息线
-      return { ...base, shape: 'rectangle', strokeWidth: 1, perimeter: 'rectanglePerimeter' };
+      // 时序图激活框：使用专用 umlActivation 形状，左右边缘均可连接消息线
+      return { ...base, shape: 'umlActivation', perimeter: 'activationPerimeter' };
     case 'note':
       // 注释框：使用 rectangle + 圆角模拟折角效果
       // maxGraph 没有 note 形状，用圆角矩形代替
@@ -94,6 +94,7 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   if (shape === 'text') return 'text';
   if (shape === 'umlActor') return 'actor'; // 用例图角色（自定义形状）
   if (shape === 'lifeline') return 'lifeline'; // 时序图生命线（自定义形状）
+  if (shape === 'umlActivation') return 'activation'; // 时序图激活框（自定义形状）
   if (shape === 'swimlane') {
     return style.horizontal === false ? 'swimlane-v' : 'swimlane-h';
   }

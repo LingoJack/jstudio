@@ -16,7 +16,6 @@ import {
   type AbstractCanvas2D,
   type Rectangle,
   type CellState,
-  type Point,
 } from '@maxgraph/core';
 
 /** 头部固定高度 —— 与 lifeline 协调一致
@@ -27,35 +26,84 @@ export const HEAD_HEIGHT = 50;
 /**
  * 生命线连接点计算函数
  *
- * 与普通矩形不同，生命线的连接点只落在中心虚线上（一条垂直线）。
- * 这样时序图的消息线会水平连接到生命线的中心，符合 UML 规范。
+ * 连接点分两段处理：
  *
- * 原理：
- * - 连接点的 x 坐标始终是中心线位置
- * - 连接点的 y 坐标根据连线方向动态计算，落在 [headHeight, bounds.height] 范围内
- * - 通过 getAllConnectionConstraints 提供多个等间距连接点（每 20px 一个），
- *   用户可以从生命线上的任意位置拉线连接到其他生命线
+ * 1. 头部矩形区域（y < bounds.y + HEAD_HEIGHT）：
+ *    "服务"/"参与者"块本身也要能被连接（创建消息、外部引用等）。
+ *    按 next 点相对头部矩形的方向，投影到头部框最近的边（上/下/左/右），
+ *    让连线端点落在头部框边缘而非强制到中心线底部。
+ *
+ * 2. 头部下方的虚线生命线区域：
+ *    连接点 x 始终为中心线，y 限制在 [headHeight, bounds.height] 内。
+ *    时序图的消息线会水平连接到生命线中心，符合 UML 规范。
+ *
+ * 配合 getAllConnectionConstraints：头部矩形提供四边中点连接点，
+ * 生命线提供中心垂直线等间距连接点（每 40px 一个）。
  */
 export const LifelinePerimeter = (bounds: Rectangle, _vertex: CellState, next: Point, _orthogonal = false) => {
-  // 中心线 x 坐标
   const cx = bounds.getCenterX();
-  
-  // 生命线有效范围：从头部底部到节点底部
-  const lineTop = bounds.y + HEAD_HEIGHT;
+  const headH = HEAD_HEIGHT;
+  const lineTop = bounds.y + headH;
   const lineBottom = bounds.y + bounds.height;
-  
-  // y 坐标根据 next 点（连线方向参考）计算，限制在生命线范围内
+
+  // 头部矩形区域：投影到头部框最近边，让"服务"块可被连接到任意边
+  if (next.y < lineTop) {
+    const headLeft = bounds.x;
+    const headRight = bounds.x + bounds.width;
+    const headTop = bounds.y;
+    const headBottom = lineTop;
+    const clampX = (v: number) => Math.max(headLeft, Math.min(headRight, v));
+    const clampY = (v: number) => Math.max(headTop, Math.min(headBottom, v));
+    // 取 next 到头部矩形四边的最近距离，投影到该边
+    const dTop = Math.abs(next.y - headTop);
+    const dBottom = Math.abs(next.y - headBottom);
+    const dLeft = Math.abs(next.x - headLeft);
+    const dRight = Math.abs(next.x - headRight);
+    const minDist = Math.min(dTop, dBottom, dLeft, dRight);
+    if (minDist === dTop) return new Point(clampX(next.x), headTop);
+    if (minDist === dBottom) return new Point(clampX(next.x), headBottom);
+    if (minDist === dLeft) return new Point(headLeft, clampY(next.y));
+    return new Point(headRight, clampY(next.y));
+  }
+
+  // 生命线区域：连接点固定在中心线上，y 限制在生命线范围内
   let y = next.y;
   if (y < lineTop) {
     y = lineTop;
   } else if (y > lineBottom) {
     y = lineBottom;
   }
-  
-  // 正交模式下，如果 next.x 在节点范围内，使用 next.x 作为 x 坐标
-  // 但生命线的连接点始终在中心线上，所以这里忽略 orthogonal 的 x 调整
-  
   return new Point(cx, y);
+};
+
+/**
+ * 时序图激活框连接点计算函数
+ *
+ * 激活框是贴在生命线上的窄矩形，UML 时序图的消息箭头主要水平出入其左右边缘，
+ * 开始/结束激活时也会连接到上下边缘。因此 perimeter 将连接点投影到矩形边界：
+ *
+ * - 若 next 靠近左/右边界，投影到对应垂直边（水平消息）。
+ * - 若 next 靠近上/下边界，投影到对应水平边（激活开始/结束）。
+ * - 其余情况按 x 位置默认落到左/右边缘，保证消息箭头优先水平。
+ */
+export const ActivationPerimeter = (bounds: Rectangle, _vertex: CellState, next: Point, _orthogonal = false) => {
+  const tolerance = 2;
+  const clampX = (v: number) => Math.max(bounds.x, Math.min(bounds.x + bounds.width, v));
+  const clampY = (v: number) => Math.max(bounds.y, Math.min(bounds.y + bounds.height, v));
+
+  const nearLeft = Math.abs(next.x - bounds.x) <= tolerance;
+  const nearRight = Math.abs(next.x - (bounds.x + bounds.width)) <= tolerance;
+  const nearTop = Math.abs(next.y - bounds.y) <= tolerance;
+  const nearBottom = Math.abs(next.y - (bounds.y + bounds.height)) <= tolerance;
+
+  if (nearLeft) return new Point(bounds.x, clampY(next.y));
+  if (nearRight) return new Point(bounds.x + bounds.width, clampY(next.y));
+  if (nearTop) return new Point(clampX(next.x), bounds.y);
+  if (nearBottom) return new Point(clampX(next.x), bounds.y + bounds.height);
+
+  // 默认按 x 位置投影到左或右边缘，让水平消息箭头自然贴合
+  const x = next.x < bounds.getCenterX() ? bounds.x : bounds.x + bounds.width;
+  return new Point(x, clampY(next.y));
 };
 
 /**
@@ -66,55 +114,60 @@ export const LifelinePerimeter = (bounds: Rectangle, _vertex: CellState, next: P
  */
 class UMLActorShape extends Shape {
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
-    // 头部高度固定 50px，与 lifeline 协调
+    // 头部高度固定 50px，与工具栏 actor 图标保持同比例
+    // 工具栏图标 viewBox 为 16x20，因此按 headH / 20 缩放后居中绘制
     const headH = HEAD_HEIGHT;
-    const cx = x + w / 2;
+    const scale = headH / 20;
+    const iconW = 16 * scale;
+    const ox = x + (w - iconW) / 2;
+    const oy = y;
 
-    // 头部：圆，直径约 18px
-    const headD = 18;
-    const headR = headD / 2;
-    const headX = cx - headR;
-    const headY = y + 2;
+    // 四肢交汇处用圆角线帽，避免生硬十字
+    c.setLineCap('round');
+    c.setLineJoin('round');
 
-    // 绘制头部圆
-    c.ellipse(headX, headY, headD, headD);
+    // 头部：圆，(8, 3.5), r=3
+    const headR = 3 * scale;
+    c.ellipse(ox + 8 * scale - headR, oy + 3.5 * scale - headR, headR * 2, headR * 2);
     c.fillAndStroke();
 
-    // 身体起点（头部下方）和终点（腰部）
-    const bodyTop = headY + headD;
-    const bodyMid = y + headH * 0.55;  // 腰部位置
-
-    // 身体竖线
+    // 身体：竖线 (8,7) -> (8,11)
     c.begin();
-    c.moveTo(cx, bodyTop);
-    c.lineTo(cx, bodyMid);
+    c.moveTo(ox + 8 * scale, oy + 7 * scale);
+    c.lineTo(ox + 8 * scale, oy + 11 * scale);
     c.stroke();
 
-    // 手臂：水平横线，在身体 1/3 处
-    const armY = bodyTop + (bodyMid - bodyTop) * 0.3;
+    // 手臂：从身体中点向两侧略向下倾斜 (8,8) -> (3,10) / (13,10)
     c.begin();
-    c.moveTo(x + 4, armY);
-    c.lineTo(x + w - 4, armY);
+    c.moveTo(ox + 8 * scale, oy + 8 * scale);
+    c.lineTo(ox + 3 * scale, oy + 10 * scale);
     c.stroke();
 
-    // 腿：V 形，从腰部向下延伸到头部底部
     c.begin();
-    c.moveTo(cx, bodyMid);
-    c.lineTo(x + 4, y + headH - 4);
+    c.moveTo(ox + 8 * scale, oy + 8 * scale);
+    c.lineTo(ox + 13 * scale, oy + 10 * scale);
     c.stroke();
-    
+
+    // 腿：从身体底部向两侧下方 (8,11) -> (4,17) / (12,17)
     c.begin();
-    c.moveTo(cx, bodyMid);
-    c.lineTo(x + w - 4, y + headH - 4);
+    c.moveTo(ox + 8 * scale, oy + 11 * scale);
+    c.lineTo(ox + 4 * scale, oy + 17 * scale);
     c.stroke();
+
+    c.begin();
+    c.moveTo(ox + 8 * scale, oy + 11 * scale);
+    c.lineTo(ox + 12 * scale, oy + 17 * scale);
+    c.stroke();
+
+    // 恢复默认线帽，避免影响底部生命线
+    c.setLineCap('flat');
+    c.setLineJoin('miter');
 
     // 底部生命线（虚线延伸）
     c.setDashed(true);
-    const lifelineTop = y + headH;
-    const lifelineBottom = y + h;
     c.begin();
-    c.moveTo(cx, lifelineTop);
-    c.lineTo(cx, lifelineBottom);
+    c.moveTo(ox + 8 * scale, y + headH);
+    c.lineTo(ox + 8 * scale, y + h);
     c.stroke();
     c.setDashed(false);
   }
@@ -146,6 +199,18 @@ class LifelineShape extends Shape {
     c.lineTo(lineX, lineBottom);
     c.stroke();
     c.setDashed(false);
+  }
+}
+
+/**
+ * 时序图激活框形状
+ * 绘制：实心填充的窄高矩形，贴在生命线上表示对象处于激活状态。
+ * 填充色/描边色由 graphTheme 的 activation 配色控制，使其在深浅主题下都可见。
+ */
+class ActivationShape extends Shape {
+  paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
+    c.rect(x, y, w, h);
+    c.fillAndStroke();
   }
 }
 
@@ -197,10 +262,12 @@ export function registerCustomShapes(): void {
   // 注册形状
   ShapeRegistry.add('umlActor', UMLActorShape);
   ShapeRegistry.add('lifeline', LifelineShape);
+  ShapeRegistry.add('umlActivation', ActivationShape);
   ShapeRegistry.add('note', NoteShape);
 
-  // 注册生命线连接点计算函数
+  // 注册连接点计算函数
   PerimeterRegistry.add('lifelinePerimeter', LifelinePerimeter);
+  PerimeterRegistry.add('activationPerimeter', ActivationPerimeter);
 }
 
-export { UMLActorShape, LifelineShape, NoteShape };
+export { UMLActorShape, LifelineShape, ActivationShape, NoteShape };
