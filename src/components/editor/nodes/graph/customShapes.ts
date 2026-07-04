@@ -9,61 +9,83 @@
 
 import { Shape, ShapeRegistry, type AbstractCanvas2D } from '@maxgraph/core';
 
+/** 头部固定高度 —— 与 lifeline 协调一致
+ *  50px 足够容纳小人图标（头+身体+手臂+腿）
+ */
+const HEAD_HEIGHT = 50;
+
 /**
- * 用例图角色形状（小人图标）
- * 绘制：头（圆）+ 身体（线）+ 手臂（线）+ 腿（线）
+ * 用例图角色形状（小人图标 + 底部生命线）
+ * 绘制：头（圆）+ 身体（线）+ 手臂（线）+ 腿（线）+ 底部虚线延伸（生命线）
+ * 
+ * 头部高度固定 50px，用户调整高度只影响生命线长度。
  */
 class UMLActorShape extends Shape {
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
-    // 头部：圆，直径为宽度的 1/3
-    // maxGraph 用 ellipse(x, y, w, h) 绘制椭圆，圆形是 w=h 的椭圆
-    const headR = w / 6;
-    const headD = headR * 2;
-    const headX = x + w / 2 - headR;
+    // 头部高度固定 50px，与 lifeline 协调
+    const headH = HEAD_HEIGHT;
+    const cx = x + w / 2;
+
+    // 头部：圆，直径约 18px
+    const headD = 18;
+    const headR = headD / 2;
+    const headX = cx - headR;
     const headY = y + 2;
 
-    // 绘制头部圆（用 ellipse）
+    // 绘制头部圆
     c.ellipse(headX, headY, headD, headD);
     c.fillAndStroke();
 
-    // 身体：从头部下方到中部
+    // 身体起点（头部下方）和终点（腰部）
     const bodyTop = headY + headD;
-    const bodyBottom = y + h * 0.55;
-    const cx = x + w / 2;
+    const bodyMid = y + headH * 0.55;  // 腰部位置
 
+    // 身体竖线
     c.begin();
     c.moveTo(cx, bodyTop);
-    c.lineTo(cx, bodyBottom);
+    c.lineTo(cx, bodyMid);
     c.stroke();
 
-    // 手臂：从身体中部向两侧
-    const armY = bodyTop + (bodyBottom - bodyTop) * 0.3;
+    // 手臂：水平横线，在身体 1/3 处
+    const armY = bodyTop + (bodyMid - bodyTop) * 0.3;
     c.begin();
-    c.moveTo(x + w * 0.1, armY);
-    c.lineTo(cx, armY);
-    c.lineTo(x + w * 0.9, armY);
+    c.moveTo(x + 4, armY);
+    c.lineTo(x + w - 4, armY);
     c.stroke();
 
-    // 腿：从身体底部向下
-    const legTop = bodyBottom;
-    const legBottom = y + h - 2;
+    // 腿：V 形，从腰部向下延伸到头部底部
     c.begin();
-    c.moveTo(cx, legTop);
-    c.lineTo(x + w * 0.2, legBottom);
-    c.moveTo(cx, legTop);
-    c.lineTo(x + w * 0.8, legBottom);
+    c.moveTo(cx, bodyMid);
+    c.lineTo(x + 4, y + headH - 4);
     c.stroke();
+    
+    c.begin();
+    c.moveTo(cx, bodyMid);
+    c.lineTo(x + w - 4, y + headH - 4);
+    c.stroke();
+
+    // 底部生命线（虚线延伸）
+    c.setDashed(true);
+    const lifelineTop = y + headH;
+    const lifelineBottom = y + h;
+    c.begin();
+    c.moveTo(cx, lifelineTop);
+    c.lineTo(cx, lifelineBottom);
+    c.stroke();
+    c.setDashed(false);
   }
 }
 
 /**
  * 时序图生命线形状
  * 绘制：矩形头部框 + 底部延伸的虚线（表示对象存在时间）
+ * 
+ * 头部高度固定 30px，用户调整高度只影响生命线长度。
  */
 class LifelineShape extends Shape {
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
-    // 头部矩形（圆角）
-    const headH = Math.min(30, h * 0.15);
+    // 头部矩形（圆角），高度固定 30px
+    const headH = HEAD_HEIGHT;
     const arc = 8;
 
     // 绘制头部圆角矩形

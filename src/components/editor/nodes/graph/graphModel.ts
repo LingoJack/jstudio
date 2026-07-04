@@ -51,7 +51,8 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
     case 'actor':
       // 用例图角色：使用自定义的 umlActor 形状（小人图标）
-      return { ...base, shape: 'umlActor' };
+      // 使用椭圆边界作为连接点计算，连线会连接到小人周围的边界框
+      return { ...base, shape: 'umlActor', perimeter: 'ellipsePerimeter' };
     case 'swimlane-v':
       // 垂直泳道：使用 swimlane 形状，horizontal=false
       return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: false };

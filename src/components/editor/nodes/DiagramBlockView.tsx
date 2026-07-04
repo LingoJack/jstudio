@@ -152,7 +152,7 @@ export default function DiagramBlockView({
       minWidth: 300,
       minHeight: 200,
       fallbackWidth: 520,
-      fallbackHeight: 320,
+      fallbackHeight: 400,
       maxWidth: () => {
         const el = figureRefInternal.current;
         const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
@@ -193,7 +193,7 @@ export default function DiagramBlockView({
   }
 
   const canvasStyle: React.CSSProperties = {
-    height: displayHeight ? `${displayHeight}px` : '320px',
+    height: displayHeight ? `${displayHeight}px` : '400px',
   };
 
   /* -------------------------------------------------------------- */

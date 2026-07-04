@@ -115,11 +115,11 @@ const DEFAULT_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   ellipse: { w: 120, h: 80 },
   diamond: { w: 80, h: 80 },
   text: { w: 60, h: 30 },
-  actor: { w: 40, h: 60 },
+  actor: { w: 50, h: 150 },      // 小人：宽度 50，高度 150（头部 50 + 生命线 100）
   'swimlane-v': { w: 200, h: 300 },
   'swimlane-h': { w: 300, h: 200 },
-  lifeline: { w: 100, h: 200 },
-  activation: { w: 20, h: 60 },
+  lifeline: { w: 100, h: 150 },   // 生命线：宽度 100，高度 150（头部 50 + 生命线 100）
+  activation: { w: 16, h: 60 },
   note: { w: 100, h: 60 },
   'edge-line': { w: 100, h: 20 },
   'edge-ortho': { w: 100, h: 20 },
@@ -301,7 +301,8 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
       return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
     case 'actor':
       // 用例图角色：使用自定义的 umlActor 形状（小人图标）
-      return { ...base, shape: 'umlActor' };
+      // 使用椭圆边界作为连接点计算，连线会连接到小人周围的边界框
+      return { ...base, shape: 'umlActor', perimeter: 'ellipsePerimeter' };
     case 'swimlane-v':
       return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: false };
     case 'swimlane-h':
