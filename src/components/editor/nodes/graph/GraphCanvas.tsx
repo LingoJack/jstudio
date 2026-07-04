@@ -312,8 +312,8 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     case 'activation':
       return { ...base, shape: 'rectangle', strokeWidth: 1 };
     case 'note':
-      // 注释框：使用圆角矩形（maxGraph 没有 note 形状）
-      return { ...base, shape: 'rectangle', rounded: true, arcSize: 5 };
+      // 注释框：使用自定义 note 形状（右上角折角的便利贴风格）
+      return { ...base, shape: 'note' };
     // 连线类型
     case 'edge-line':
       return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };

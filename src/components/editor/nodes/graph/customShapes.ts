@@ -84,11 +84,53 @@ class LifelineShape extends Shape {
 }
 
 /**
+ * 注释框形状（便利贴风格）
+ * 绘制：矩形 + 右上角折角（像便利贴被折起一角的效果）
+ * 
+ * 形状轮廓：
+ *   左上角 → 顶边 → 折角起点 → 折角顶点 → 折角终点 → 右边 → 底边 → 左边 → 闭合
+ * 
+ * 折角大小约为宽度的 15%，高度固定约 12px（或按比例）
+ */
+class NoteShape extends Shape {
+  paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
+    // 折角尺寸：宽度 15%，高度按比例但最小 8px
+    const foldW = Math.max(8, w * 0.15);
+    const foldH = Math.max(8, h * 0.12);
+    
+    // 绘制主体轮廓（带折角）
+    c.begin();
+    // 左上角
+    c.moveTo(x, y);
+    // 顶边 → 折角起点
+    c.lineTo(x + w - foldW, y);
+    // 折角顶点（右上角的折痕交点）
+    c.lineTo(x + w, y + foldH);
+    // 右边
+    c.lineTo(x + w, y + h);
+    // 底边
+    c.lineTo(x, y + h);
+    // 左边（闭合）
+    c.lineTo(x, y);
+    c.close();
+    c.fillAndStroke();
+    
+    // 绘制折角线（折痕）
+    c.begin();
+    c.moveTo(x + w - foldW, y);
+    c.lineTo(x + w - foldW, y + foldH);
+    c.lineTo(x + w, y + foldH);
+    c.stroke();
+  }
+}
+
+/**
  * 注册自定义形状到全局 ShapeRegistry
  */
 export function registerCustomShapes(): void {
   ShapeRegistry.add('umlActor', UMLActorShape);
   ShapeRegistry.add('lifeline', LifelineShape);
+  ShapeRegistry.add('note', NoteShape);
 }
 
-export { UMLActorShape, LifelineShape };
+export { UMLActorShape, LifelineShape, NoteShape };
