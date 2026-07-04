@@ -1233,11 +1233,6 @@ export function GraphCanvas({
         // 时序图
         { shape: 'lifeline' as const, title: '生命线（时序图）' },
         { shape: 'activation' as const, title: '激活框（时序图）' },
-        // 连线类型
-        { shape: 'edge-line' as const, title: '直线连线' },
-        { shape: 'edge-ortho' as const, title: '拐角连线（流程图）' },
-        { shape: 'edge-dashed' as const, title: '虚线连线（时序图）' },
-        { shape: 'edge-no-arrow' as const, title: '无箭头连线' },
       ] satisfies { shape: GraphNodeShape; title: string }[],
     [],
   );
