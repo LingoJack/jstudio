@@ -295,7 +295,7 @@ export default function LinkView({
 
   const handleOpenPreview = useCallback(() => {
     if (!url) return;
-    storage.openLinkPreview(url).catch(() => {});
+    storage.openLinkPreviewWithTabs(url).catch(() => {});
   }, [url]);
 
   const handleOpenExternal = useCallback(() => {

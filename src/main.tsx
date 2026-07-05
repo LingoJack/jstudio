@@ -6,6 +6,7 @@ import DiagramWindowApp from './components/windows/DiagramWindowApp';
 import TerminalWindowApp from './components/terminal/TerminalWindowApp';
 import DocumentWindowApp from './components/windows/DocumentWindowApp';
 import CommandPaletteWindow from './components/windows/CommandPaletteWindow';
+import LinkPreviewTabsApp from './components/windows/LinkPreviewTabsApp';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';
@@ -42,6 +43,7 @@ const isDiagramWindow = windowType === 'diagram';
 const isTerminalWindow = windowType === 'terminal';
 const isDocumentWindow = windowType === 'document';
 const isCommandPaletteWindow = windowType === 'command-palette';
+const isLinkPreviewTabsWindow = windowType === 'link-preview-tabs';
 
 // Command palette window is transparent & frameless — the body must not
 // paint an opaque background, otherwise it fills the whole window rect
@@ -74,6 +76,8 @@ const rootElement = (
       <PreviewWindowApp />
     ) : isDiagramWindow ? (
       <DiagramWindowApp />
+    ) : isLinkPreviewTabsWindow ? (
+      <LinkPreviewTabsApp />
     ) : (
       <App />
     )}

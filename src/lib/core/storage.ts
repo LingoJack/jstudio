@@ -450,4 +450,14 @@ export const storage = {
   /** Open a native WebviewWindow loading the real URL with Chrome cookies injected. */
   openLinkPreview: (url: string) =>
     invoke<void>('open_link_preview', { url }),
+
+  // ---- link preview tabs (multi-webview browser) ----
+
+  /** Open a link preview window with tabs support. Returns window label. */
+  openLinkPreviewWithTabs: (url: string) =>
+    invoke<string>('open_link_preview_with_tabs', { url }),
+
+  /** Open URL in system browser. */
+  openUrlInBrowser: (url: string) =>
+    invoke<void>('open_url_in_browser', { url }),
 };

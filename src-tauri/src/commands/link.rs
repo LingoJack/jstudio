@@ -19,8 +19,9 @@ use rusqlite::Connection;
 use serde::Serialize;
 use sha1::Sha1;
 use std::process::Command;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
+use tauri::webview::NewWindowResponse;
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 // ---------------------------------------------------------------------------
@@ -114,7 +115,7 @@ fn decrypt_cookie_value(encrypted: &[u8], key: &[u8; 16]) -> Result<String, Stri
     String::from_utf8(cookie_value.to_vec()).map_err(|e| format!("decrypted cookie not UTF-8: {e}"))
 }
 
-fn extract_domain(url: &str) -> Result<String, String> {
+pub fn extract_domain(url: &str) -> Result<String, String> {
     let parsed = url::Url::parse(url).map_err(|e| format!("invalid URL: {e}"))?;
     let host = parsed
         .host_str()
@@ -219,7 +220,7 @@ struct CookieCacheEntry {
 static COOKIE_CACHE: Mutex<Option<CookieCacheEntry>> = Mutex::new(None);
 const COOKIE_CACHE_TTL: Duration = Duration::from_secs(30);
 
-fn read_chrome_cookies_cached(url: &str) -> Vec<(String, String)> {
+pub fn read_chrome_cookies_cached(url: &str) -> Vec<(String, String)> {
     let domain = match extract_domain(url) {
         Ok(h) => parent_domain(&h),
         Err(_) => return vec![],
@@ -248,7 +249,7 @@ fn read_chrome_cookies_cached(url: &str) -> Vec<(String, String)> {
     }
 }
 
-const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+pub const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
      (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // ---------------------------------------------------------------------------
@@ -328,6 +329,12 @@ fn build_cookie_header(cookies: &[(String, String)]) -> String {
 ///
 /// The WKWebView (macOS) / WebView2 (Windows) engine handles all rendering,
 /// JS execution, AJAX, etc. natively — no proxy or URL rewriting needed.
+///
+/// ## window.open() support
+///
+/// Uses `on_new_window` to intercept `window.open()` and `target="_blank"` requests.
+/// Each such request creates a new independent preview window, allowing pages
+/// that rely on popup flows (OAuth, external links) to work correctly.
 #[tauri::command]
 pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(), String> {
     let cookies = read_chrome_cookies_cached(&url);
@@ -367,12 +374,101 @@ pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(),
 
     let url_parsed = url::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
 
-    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(url_parsed))
-        .title(&title)
-        .inner_size(1100.0, 800.0)
-        .min_inner_size(400.0, 300.0)
-        .resizable(true)
-        .user_agent(BROWSER_UA);
+    // Wrap AppHandle in Arc for sharing across 'static closures in on_new_window.
+    let app_handle = Arc::new(app);
+
+    let mut builder =
+        WebviewWindowBuilder::new(&*app_handle, &label, WebviewUrl::External(url_parsed))
+            .title(&title)
+            .inner_size(1100.0, 800.0)
+            .min_inner_size(400.0, 300.0)
+            .resizable(true)
+            .user_agent(BROWSER_UA)
+            .on_new_window({
+                let app_handle = app_handle.clone();
+                move |new_url, features| {
+                    // Generate unique label for the new window
+                    let new_label = format!(
+                        "link-preview-{}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis()
+                    );
+
+                    // Parse the requested URL
+                    let url_parsed: url::Url = match new_url.as_str().parse() {
+                        Ok(u) => u,
+                        Err(_) => return NewWindowResponse::Deny,
+                    };
+
+                    // Extract hostname for window title
+                    let new_title = url_parsed
+                        .host_str()
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "Link Preview".to_string());
+
+                    // Create a new preview window for the window.open() request
+                    // The new window also supports on_new_window (recursive)
+                    let app_for_nested = app_handle.clone();
+                    let builder = WebviewWindowBuilder::new(
+                        &*app_handle,
+                        &new_label,
+                        WebviewUrl::External(url_parsed),
+                    )
+                    .title(&new_title)
+                    .inner_size(900.0, 600.0)
+                    .min_inner_size(400.0, 300.0)
+                    .resizable(true)
+                    .user_agent(BROWSER_UA)
+                    .window_features(features)
+                    .on_new_window({
+                        let app_handle = app_for_nested.clone();
+                        move |nested_url, nested_features| {
+                            // Recursively handle nested window.open()
+                            let nested_label = format!(
+                                "link-preview-{}",
+                                std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_millis()
+                            );
+
+                            let nested_url_parsed: url::Url = match nested_url.as_str().parse() {
+                                Ok(u) => u,
+                                Err(_) => return NewWindowResponse::Deny,
+                            };
+
+                            let nested_title = nested_url_parsed
+                                .host_str()
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| "Link Preview".to_string());
+
+                            let builder = WebviewWindowBuilder::new(
+                                &*app_handle,
+                                &nested_label,
+                                WebviewUrl::External(nested_url_parsed),
+                            )
+                            .title(&nested_title)
+                            .inner_size(900.0, 600.0)
+                            .min_inner_size(400.0, 300.0)
+                            .resizable(true)
+                            .user_agent(BROWSER_UA)
+                            .window_features(nested_features);
+
+                            match builder.build() {
+                                Ok(window) => NewWindowResponse::Create { window },
+                                Err(_) => NewWindowResponse::Deny,
+                            }
+                        }
+                    });
+
+                    match builder.build() {
+                        Ok(window) => NewWindowResponse::Create { window },
+                        Err(_) => NewWindowResponse::Deny,
+                    }
+                }
+            });
 
     if !cookie_script.is_empty() {
         builder = builder.initialization_script(&cookie_script);

@@ -63,6 +63,16 @@ pub fn run() {
             // ── link preview ──
             commands::link::fetch_link_metadata,
             commands::link::open_link_preview,
+            // ── link preview tabs (multi-webview) ──
+            commands::link_tabs::open_link_preview_with_tabs,
+            commands::link_tabs::get_link_preview_tabs_state,
+            commands::link_tabs::add_link_preview_tab,
+            commands::link_tabs::switch_link_preview_tab,
+            commands::link_tabs::close_link_preview_tab,
+            commands::link_tabs::navigate_link_preview_tab,
+            commands::link_tabs::refresh_link_preview_tab,
+            commands::link_tabs::open_url_in_browser,
+            commands::link_tabs::get_current_window_label,
             // ── terminal detach (tear-off window mailbox) ──
             commands::detach::set_terminal_detach_payload,
             commands::detach::get_terminal_detach_payload,
