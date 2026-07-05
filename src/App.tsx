@@ -192,7 +192,10 @@ export default function App() {
 
       // Listen for native menu "Close Tab" event (Cmd+W intercepted by macOS).
       unlistenCloseTab = await listen(NATIVE_CLOSE_TAB_EVENT, () => {
-        useStore.getState().closeTab();
+        const { activeTabId } = useStore.getState();
+        if (activeTabId) {
+          useStore.getState().closeTab(activeTabId);
+        }
       });
     })();
 
