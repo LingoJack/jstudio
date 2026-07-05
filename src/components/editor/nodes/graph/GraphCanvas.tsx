@@ -55,6 +55,7 @@ import {
   ZoomOut,
   Maximize,
   Grid3x3,
+  FileDown,
 } from 'lucide-react';
 
 import {
@@ -65,6 +66,7 @@ import {
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
 import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
+import MermaidImportDialog from './MermaidImportDialog';
 import {
   paletteFor,
   getSelectionColor,
@@ -437,6 +439,9 @@ export function GraphCanvas({
   // showGrid 的 ref，供 emitSnapshot 读取最新值（无需进 emit 的依赖数组）。
   const showGridRef = useRef(showGrid);
   showGridRef.current = showGrid;
+
+  // Mermaid 导入对话框状态
+  const [mermaidDialogOpen, setMermaidDialogOpen] = useState(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -1284,6 +1289,28 @@ export function GraphCanvas({
     }
   }, []);
 
+  // Mermaid 导入处理：将转换后的快照应用到画板
+  const handleMermaidImport = useCallback((snapshotJson: string) => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const parsed = parseGraphSnapshot(snapshotJson);
+    applyingRef.current = true;
+    try {
+      graph.batchUpdate(() => {
+        applySnapshotToGraph(graph, parsed, darkModeRef.current);
+      });
+      // 导入后自适应显示
+      const hasCells = graph.getChildVertices(graph.getDefaultParent()).length > 0;
+      if (hasCells) {
+        graph.getPlugin<FitPlugin>('fit')?.fitCenter({ margin: 24 });
+      }
+      lastEmittedRef.current = snapshotJson;
+      onChangeRef.current(snapshotJson);
+    } finally {
+      applyingRef.current = false;
+    }
+  }, []);
+
   /* -------------------------------------------------------------- */
   /* 工具栏按钮定义                                                  */
   /* -------------------------------------------------------------- */
@@ -1400,8 +1427,24 @@ export function GraphCanvas({
           >
             <Grid3x3 size={16} />
           </button>
+          <div className="jgraph-tool-sep" />
+          <button
+            type="button"
+            className="jgraph-tool-btn"
+            title="导入 Mermaid 图表"
+            onClick={() => setMermaidDialogOpen(true)}
+          >
+            <FileDown size={16} />
+          </button>
         </div>
       )}
+
+      {/* Mermaid 导入对话框 */}
+      <MermaidImportDialog
+        open={mermaidDialogOpen}
+        onClose={() => setMermaidDialogOpen(false)}
+        onImport={handleMermaidImport}
+      />
 
       {/* maxGraph 渲染容器 */}
       <div

@@ -33,7 +33,11 @@ function resolveDark(mode: ThemeMode): boolean {
  * the main window's appearance.
  */
 function useThemeSync() {
-  const [isDark, setIsDark] = useState(false);
+  // 初始值从系统偏好开始，避免先以浅色模式渲染再突然切换
+  const [isDark, setIsDark] = useState(() => {
+    // 同步获取系统偏好作为初始值
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
     // Initial load from settings
@@ -42,9 +46,8 @@ function useThemeSync() {
       setIsDark(dark);
       document.documentElement.classList.toggle('dark', dark);
     }).catch(() => {
-      // Fallback: check system preference
+      // Fallback: check system preference (already set in initial state)
       const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDark(dark);
       document.documentElement.classList.toggle('dark', dark);
     });
 
@@ -61,6 +64,11 @@ function useThemeSync() {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
+
+  // 确保初始渲染时也设置正确的 class
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
 
   return isDark;
 }

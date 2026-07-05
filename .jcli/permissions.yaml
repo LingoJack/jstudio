@@ -71,4 +71,5 @@ allow:
 - Shell(cat node_modules/@maxgraph/core/lib/esm/view/handler/ConstraintHandler.js:*)
 - Shell(find .:*)
 - Shell(find src:*)
+- Shell(gh api:*)
 deny: []
