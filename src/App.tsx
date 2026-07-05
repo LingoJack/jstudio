@@ -244,44 +244,38 @@ export default function App() {
         )}
 
         {/* Main content area (right) */}
-        <div className="flex-1 min-w-0 h-full bg-[var(--vscode-editor-background)] flex flex-col overflow-hidden">
-          {/* Document Tab Bar — only shown in documents view, not in
-              terminal view (terminal has its own tab bar) or settings. */}
+        <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative">
+          {/* Document Tab Bar —绝对定位悬浮在内容上方 */}
           {!isSettingsOpen && !isTerminalView && <DocumentTabs />}
 
-          <div className="flex-1 min-h-0 overflow-hidden relative">
-            {/* Terminal panel: mount when there are terminal tabs OR we're
-                in terminal view (so it can auto-create the first session).
-                Stays mounted (CSS-hidden) when switching to documents to
-                preserve xterm instances + PTY listeners + scrollback. */}
-            {(hasTerminalTab || isTerminalView) && (
-              <div
-                className={`absolute inset-0 ${
-                  isTerminalView ? '' : 'hidden'
-                }`}
-              >
-                <TerminalPanel hidden={!isTerminalView} />
-              </div>
-            )}
+          {/* Terminal panel: mount when there are terminal tabs OR we're
+              in terminal view (so it can auto-create the first session).
+              Stays mounted (CSS-hidden) when switching to documents to
+              preserve xterm instances + PTY listeners + scrollback. */}
+          {(hasTerminalTab || isTerminalView) && (
+            <div
+              className={`absolute inset-0 ${
+                isTerminalView ? '' : 'hidden'
+              }`}
+            >
+              <TerminalPanel hidden={!isTerminalView} />
+            </div>
+          )}
 
-            {/* Settings / Editor / EmptyState overlaid on top */}
-            {isSettingsOpen ? (
-              <Settings />
-            ) : !isTerminalView ? (
-              hasActiveDoc ? (
-                // The sectioned editor (multi-instance ProseMirror) gives
-                // better large-document typing performance. Toggle it in
-                // Settings → Debug → Active Editor.
-                useSectionedEditor ? (
-                  <SectionedBlockEditor />
-                ) : (
-                  <BlockEditor />
-                )
+          {/* Settings / Editor / EmptyState overlaid on top */}
+          {isSettingsOpen ? (
+            <Settings />
+          ) : !isTerminalView ? (
+            hasActiveDoc ? (
+              useSectionedEditor ? (
+                <SectionedBlockEditor />
               ) : (
-                <EmptyState />
+                <BlockEditor />
               )
-            ) : null}
-          </div>
+            ) : (
+              <EmptyState />
+            )
+          ) : null}
         </div>
       </div>
 

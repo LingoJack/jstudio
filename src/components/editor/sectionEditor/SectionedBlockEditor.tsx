@@ -652,15 +652,15 @@ export default function SectionedBlockEditor() {
   if (!hasActiveDoc) return null;
 
   return (
-    <div ref={rootRef} className="flex h-full bg-transparent overflow-hidden relative">
+    <div ref={rootRef} className="flex h-full overflow-hidden relative bg-[var(--vscode-editor-background)]">
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+        className="flex-1 overflow-y-auto pb-8 md:pb-12 select-text"
         onMouseDown={handleMouseDown}
         onClick={handleBlankAreaClick}
       >
         {/* Document Title */}
-        <div className="px-4 md:px-12 lg:px-20 pb-4">
+        <div className="px-4 md:px-12 lg:px-20 pt-12 pb-4">
           <input
             ref={titleInputRef}
             type="text"
@@ -724,7 +724,12 @@ export default function SectionedBlockEditor() {
       {focusedEditor && <TableControls editor={focusedEditor} />}
 
       {/* Outline panel (conditional) */}
-      {isOutlineOpen && <SectionOutline scrollContainerRef={scrollContainerRef} />}
+      {isOutlineOpen && (
+        <SectionOutline
+          scrollContainerRef={scrollContainerRef}
+          sectionEditorsRef={sectionEditorsRef}
+        />
+      )}
 
       {/* Outline toggle icon */}
       <button

@@ -145,20 +145,21 @@ export default function DocumentTabs() {
 
   return (
     <>
+      {/* 悬浮液态玻璃胶囊 tab bar —不占据空间，完全悬浮 */}
       <div
         ref={tabBarRef}
-        className="shrink-0 flex items-stretch h-9 relative"
+        className="absolute left-0 right-0 top-0 flex items-center justify-center pt-3 z-10"
       >
-        {/* Divider between tab bar and editor content. Full-width, sitting
-            BEHIND the tabs. The active tab's opaque `editor-background`
-            (identical to the editor area below) covers the divider under
-            itself, so only inactive areas show the line — making content
-            look like it naturally overflows up into the active tab. */}
-        <span className="absolute bottom-0 left-0 right-0 h-px pointer-events-none bg-[var(--vscode-sideBar-border)]" style={{ zIndex: 0 }} />
         <div
           ref={scrollRef}
-          className="flex items-stretch overflow-x-auto flex-1 min-w-0 relative"
-          style={{ scrollbarWidth: 'none', zIndex: 1 }}
+          className="flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full"
+          style={{
+            scrollbarWidth: 'none',
+            background: 'rgba(255,255,255,0.06)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
+          }}
         >
           {docTabs.map((tab) => {
             const isActive = tab.id === activeTabId;
@@ -178,18 +179,14 @@ export default function DocumentTabs() {
                   e.stopPropagation();
                   setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                 }}
-                className={`group relative flex items-center gap-1.5 pl-3 pr-2 w-[140px] cursor-pointer border-r border-[var(--vscode-sideBar-border)] shrink-0 transition-colors duration-100 ${
+                className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-75 ${
                   isActive
-                    ? 'bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
-                    : 'bg-[var(--vscode-sideBar-background)] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]'
+                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
+                    : 'text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--vscode-foreground)]'
                 }`}
               >
-                {isActive && (
-                  <span className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--vscode-focusBorder)]" />
-                )}
-
-                <FileText className="w-3.5 h-3.5 shrink-0 opacity-70" />
-                <span className="text-xs font-medium flex-1 min-w-0 truncate">
+                <FileText className="w-4 h-4 shrink-0 opacity-70" />
+                <span className="text-[13px] font-medium flex-1 min-w-0 truncate max-w-[140px]">
                   {title}
                 </span>
 
@@ -198,13 +195,13 @@ export default function DocumentTabs() {
                     e.stopPropagation();
                     closeTab(tab.id);
                   }}
-                  className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
+                  className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-75 hover:bg-[rgba(255,255,255,0.15)] ${
                     isActive
-                      ? 'opacity-100'
-                      : 'opacity-0 group-hover:opacity-100'
+                      ? 'opacity-70'
+                      : 'opacity-0 group-hover:opacity-70'
                   }`}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3 h-3" />
                 </button>
               </div>
             );
@@ -213,7 +210,7 @@ export default function DocumentTabs() {
           {/* `+` button — new document */}
           <button
             onClick={() => createDocument()}
-            className="shrink-0 w-9 flex items-center justify-center text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] transition-colors duration-75 cursor-pointer"
             title={t('doclist.newDocument')}
           >
             <Plus className="w-4 h-4" />

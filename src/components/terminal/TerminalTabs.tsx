@@ -389,37 +389,26 @@ export default function TerminalTabs() {
 
   return (
     <>
+      {/* 悬浮液态玻璃胶囊 tab bar */}
       <div
-        className="shrink-0 flex items-stretch h-9 relative"
-        style={{
-          background: theme.ui.barBg,
-          // CSS vars for children — lets Tailwind arbitrary classes pick
-          // up the active terminal-theme palette without inline styles
-          // sprinkled on every tab.
-          ['--term-panel-bg' as string]: theme.ui.panelBg,
-          ['--term-bar-border' as string]: theme.ui.barBorder,
-          ['--term-fg' as string]: theme.foreground,
-          ['--term-tab-hover' as string]: theme.isDark
-            ? 'rgba(255,255,255,0.05)'
-            : 'rgba(0,0,0,0.04)',
-          ['--term-accent' as string]: theme.blue,
-        }}
+        className="relative h-14 shrink-0"
+        style={{ background: 'transparent' }}
         ref={tabBarRef}
       >
-        {/* Divider line between tab bar and content. Full-width, sitting
-            BEHIND the tabs (z-0). The active tab — whose background is
-            the same opaque `panelBg` as the content area — covers this
-            line under itself, so only inactive areas show the divider.
-            This makes the selected tab look like content overflowing up. */}
-        <span
-          className="absolute bottom-0 left-0 right-0 h-px pointer-events-none"
-          style={{ background: theme.ui.barBorder, zIndex: 0 }}
-        />
-        {/* Scrollable tab strip (includes trailing `+` so it follows tabs) */}
+        {/* 胶囊容器 */}
         <div
           ref={scrollRef}
-          className="flex items-stretch overflow-x-auto flex-1 min-w-0 relative"
-          style={{ zIndex: 1, scrollbarWidth: 'none' }}
+          className="absolute left-4 right-4 top-3 flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full"
+          style={{
+            scrollbarWidth: 'none',
+            background: 'rgba(255,255,255,0.06)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
+            // CSS vars for children
+            ['--term-fg' as string]: theme.foreground,
+            ['--term-accent' as string]: theme.blue,
+          }}
         >
           {groups.map((group) => {
             const isActive = group.id === activeGroupId;
@@ -448,20 +437,12 @@ export default function TerminalTabs() {
                     groupId: group.id,
                   });
                 }}
-                className={`group relative flex items-center gap-1.5 pl-3 pr-2 w-[120px] cursor-pointer border-r shrink-0 transition-colors duration-100 ${
+                className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-75 ${
                   isActive
-                    ? 'bg-[var(--term-panel-bg)] text-[var(--term-fg)]'
-                    : 'bg-transparent text-[var(--term-fg)] opacity-60 hover:opacity-90 hover:bg-[var(--term-tab-hover)]'
+                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
+                    : 'text-[var(--term-fg)] opacity-70 hover:bg-[rgba(255,255,255,0.08)] hover:opacity-100'
                 }`}
-                style={{ borderRightColor: 'var(--term-bar-border)' }}
               >
-                {isActive && (
-                  <span
-                    className="absolute top-0 left-0 right-0 h-0.5"
-                    style={{ background: 'var(--term-accent)' }}
-                  />
-                )}
-
                 {isRenaming ? (
                   <input
                     ref={renameInputRef}
@@ -474,21 +455,20 @@ export default function TerminalTabs() {
                     }}
                     onBlur={confirmRename}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs font-medium border rounded px-1 py-0 outline-none w-full text-center"
+                    className="text-[13px] font-medium border rounded px-1.5 py-0.5 outline-none w-full text-center bg-[var(--vscode-editor-background)]"
                     style={{
-                      background: theme.background,
                       color: theme.foreground,
                       borderColor: 'var(--term-accent)',
                     }}
                   />
                 ) : (
                   <>
-                    <span className="text-xs font-medium flex-1 min-w-0 truncate text-center">
+                    <span className="text-[13px] font-medium flex-1 min-w-0 truncate text-center">
                       {title}
                     </span>
 
                     {paneCount > 1 && (
-                      <span className="text-[10px] opacity-50 shrink-0">
+                      <span className="text-[11px] opacity-50 shrink-0">
                         {paneCount}
                       </span>
                     )}
@@ -499,14 +479,13 @@ export default function TerminalTabs() {
                           e.stopPropagation();
                           closeSession(group.activeSessionId);
                         }}
-                        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-100 hover:bg-[var(--term-tab-hover)] ${
+                        className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-75 hover:bg-[rgba(255,255,255,0.15)] ${
                           isActive
-                            ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-100'
+                            ? 'opacity-70'
+                            : 'opacity-0 group-hover:opacity-70'
                         }`}
-                        style={{ color: 'var(--term-fg)' }}
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-3 h-3" />
                       </button>
                     )}
                   </>
@@ -518,13 +497,13 @@ export default function TerminalTabs() {
           {/* `+` and Clock — both follow the last tab */}
           <button
             onClick={() => createSession()}
-            className="shrink-0 w-9 flex items-center justify-center text-[var(--term-fg)] opacity-60 hover:opacity-100 hover:bg-[var(--term-tab-hover)] transition-colors cursor-pointer"
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--term-fg)] opacity-60 hover:bg-[rgba(255,255,255,0.1)] hover:opacity-100 transition-colors duration-75 cursor-pointer"
             title={t('terminal.newSession')}
           >
             <Plus className="w-4 h-4" />
           </button>
 
-          {/* Clock — recent directories, right after `+` */}
+          {/* Clock — recent directories */}
           <div
             className="relative shrink-0"
             onMouseEnter={openHistory}
@@ -532,8 +511,8 @@ export default function TerminalTabs() {
           >
             <button
               ref={historyBtnRef}
-              className={`w-9 h-full flex items-center justify-center transition-colors cursor-pointer text-[var(--term-fg)] hover:bg-[var(--term-tab-hover)] ${
-                showHistory ? 'opacity-100 bg-[var(--term-tab-hover)]' : 'opacity-60 hover:opacity-100'
+              className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--term-fg)] hover:bg-[rgba(255,255,255,0.1)] ${
+                showHistory ? 'opacity-100 bg-[rgba(255,255,255,0.1)]' : 'opacity-60 hover:opacity-100'
               }`}
               title={t('terminal.recentDirs')}
             >

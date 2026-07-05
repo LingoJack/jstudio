@@ -8,7 +8,7 @@ import { FileText } from 'lucide-react';
  */
 export default function EmptyState() {
   return (
-    <div className="w-full h-full flex items-center justify-center">
+    <div className="w-full h-full flex items-center justify-center bg-[var(--vscode-editor-background)] pt-14">
       <FileText className="w-12 h-12 text-[var(--vscode-descriptionForeground)] opacity-20" />
     </div>
   );

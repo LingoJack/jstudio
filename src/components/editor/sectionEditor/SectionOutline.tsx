@@ -11,7 +11,8 @@
  * scroll it into view — no need to know which section it lives in.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
+import type { Editor } from '@tiptap/react';
 
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
@@ -42,9 +43,14 @@ function extractHeadings(blocks: Block[]): HeadingItem[] {
 interface SectionOutlineProps {
   /** The scroll container that wraps all sections (for jump-to-heading). */
   scrollContainerRef: React.RefObject<HTMLElement | null>;
+  /** Map of section id to its Editor instance, shared from parent. */
+  sectionEditorsRef: RefObject<Map<string, Editor> | null>;
 }
 
-export default function SectionOutline({ scrollContainerRef }: SectionOutlineProps) {
+export default function SectionOutline({
+  scrollContainerRef,
+  sectionEditorsRef,
+}: SectionOutlineProps) {
   const { t } = useI18n();
   // Subscribe to blocks so the outline updates as headings change. This is a
   // light read (heading extraction) and only the outline panel re-renders.
@@ -68,23 +74,47 @@ export default function SectionOutline({ scrollContainerRef }: SectionOutlinePro
   const handleClick = useCallback(
     (item: HeadingItem) => {
       const container = scrollContainerRef.current;
+      const editorsMap = sectionEditorsRef.current;
       if (!container) return;
-      // All sections render into the same container; find the heading by its
-      // block id regardless of which section editor owns it.
+
+      // Find the heading DOM element by its block id.
       const el = container.querySelector(
         `[data-block-id="${CSS.escape(item.id)}"]`,
       ) as HTMLElement | null;
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        container.scrollTop += rect.top - containerRect.top - 12;
-        // Place the caret in the heading so editing continues from there.
-        const editable = el.closest('.ProseMirror') as HTMLElement | null;
-        editable?.focus();
+      if (!el) {
+        setActiveId(item.id);
+        return;
       }
+
+      // Scroll the heading into view.
+      const rect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      container.scrollTop += rect.top - containerRect.top - 12;
+
+      // Find the ProseMirror editor that contains this heading.
+      const pmContainer = el.closest('.ProseMirror') as HTMLElement | null;
+      if (pmContainer && editorsMap) {
+        // Match the DOM container to its Editor instance.
+        for (const [, editor] of editorsMap) {
+          if (editor.view.dom === pmContainer) {
+            // Find the heading node's ProseMirror position and set caret there.
+            const doc = editor.state.doc;
+            doc.descendants((node, pos) => {
+              if (node.type.name === 'heading' && node.attrs.id === item.id) {
+                // Position at start of heading content (pos + 1 skips past the node start token).
+                editor.chain().focus().setTextSelection(pos + 1).run();
+                return false; // Stop traversal.
+              }
+              return true;
+            });
+            break;
+          }
+        }
+      }
+
       setActiveId(item.id);
     },
-    [scrollContainerRef],
+    [scrollContainerRef, sectionEditorsRef],
   );
 
   const toggle = useCallback((item: HeadingItem) => {

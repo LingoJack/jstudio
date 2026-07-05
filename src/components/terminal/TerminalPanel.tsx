@@ -43,10 +43,15 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   if (!hasSessions) {
     return (
       <div
-        className="w-full h-full flex flex-col"
+        className="w-full h-full flex flex-col relative overflow-hidden"
         style={{ background: theme.ui.panelBg }}
       >
-        <TerminalTabs />
+        {/* Tab bar 悬浮在内容上方 */}
+        <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
+          <div className="pointer-events-auto">
+            <TerminalTabs />
+          </div>
+        </div>
         <div className="flex-1" />
       </div>
     );
@@ -59,11 +64,16 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
 
   return (
     <div
-      className="w-full h-full flex flex-col"
+      className="w-full h-full flex flex-col relative overflow-hidden"
       style={{ background: theme.ui.panelBg }}
     >
-      <TerminalTabs />
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* Tab bar 悬浮在内容上方 */}
+      <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
+        <div className="pointer-events-auto">
+          <TerminalTabs />
+        </div>
+      </div>
+      <div className="flex-1 min-h-0 overflow-hidden pt-14">
         <PaneLayoutView
           groupId={activeGroup.id}
           sessionIds={groupSessionIds}

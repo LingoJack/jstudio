@@ -966,13 +966,13 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   const showSkeleton = renderedDocId !== activeDocId;
 
   return (
-    <div className="flex h-full bg-transparent overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+    <div className="flex h-full overflow-hidden relative bg-[var(--vscode-editor-background)]">
+      <div className="flex-1 overflow-y-auto pb-8 md:pb-12 select-text"
         onMouseDown={handleMouseDown}
         onClick={handleBlankAreaClick}
       >
         {/* Document Title */}
-        <div className="px-4 md:px-12 lg:px-20 pb-4">
+        <div className="px-4 md:px-12 lg:px-20 pt-12 pb-4">
           <input
             ref={titleInputRef}
             type="text"
