@@ -171,7 +171,12 @@ export default function TerminalTabs() {
       const binding = eventToBinding(e);
       if (!binding) return;
 
-      const ov = useStore.getState().keyboardShortcuts;
+      const store = useStore.getState();
+      const ov = store.keyboardShortcuts;
+
+      // Only handle cycleTabLeft/cycleTabRight when terminal view is active.
+      // Otherwise let the global handler (App.tsx) switch document tabs.
+      const isTerminalView = store.activeSidebarView === 'terminal';
 
       // newTab
       if (binding === resolveBinding('terminal.newTab', ov)) {
@@ -183,10 +188,12 @@ export default function TerminalTabs() {
 
       // cycleTabLeft / cycleTabRight — now use the global workspace
       // shortcut IDs (app.cycleTabLeft / app.cycleTabRight).
+      // Only handle when terminal view is active; otherwise let App.tsx handle.
       if (
         binding === resolveBinding('app.cycleTabLeft', ov) ||
         (e.altKey && e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey))
       ) {
+        if (!isTerminalView) return;
         if (groups.length < 2) return;
         e.preventDefault();
         e.stopPropagation();
@@ -202,6 +209,7 @@ export default function TerminalTabs() {
         binding === resolveBinding('app.cycleTabRight', ov) ||
         (e.altKey && e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey))
       ) {
+        if (!isTerminalView) return;
         if (groups.length < 2) return;
         e.preventDefault();
         e.stopPropagation();
