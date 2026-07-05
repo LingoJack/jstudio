@@ -22,7 +22,7 @@ export default function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="h-9 shrink-0 flex items-center justify-between bg-[var(--vscode-activityBar-background)] px-3 select-none relative z-toolbar"
+      className="h-9 shrink-0 flex items-center justify-between bg-[var(--vscode-activityBar-background)] border-b border-[var(--vscode-panel-border)] px-3 select-none relative z-toolbar"
     >
       {/* Left: placeholder for traffic lights space */}
       <div className="w-[72px]" data-tauri-drag-region />

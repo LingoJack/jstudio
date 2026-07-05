@@ -423,7 +423,7 @@ export default function TerminalTabs() {
       >
         {/* 胶囊容器 */}
         <div
-          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] mx-4 gap-0.5 px-2 py-1.5 rounded-full"
+          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] mx-auto gap-0.5 px-2 py-1.5 rounded-full"
           style={{
             scrollbarWidth: 'thin',
             background: 'rgba(255,255,255,0.06)',
