@@ -51,9 +51,9 @@ export interface TerminalTheme {
   };
 }
 
-/** App-wide semantic cursor colors: dark mode uses green, light mode uses blue. */
+/** App-wide semantic cursor colors: dark mode uses green, light mode uses black. */
 export const TERMINAL_CURSOR_DARK = '#07C160';
-export const TERMINAL_CURSOR_LIGHT = '#0052D9';
+export const TERMINAL_CURSOR_LIGHT = '#1a1612'; // 深褐/黑色，与 ink-light 文字一致
 
 export function getSemanticTerminalCursor(isDarkMode: boolean): string {
   return isDarkMode ? TERMINAL_CURSOR_DARK : TERMINAL_CURSOR_LIGHT;
