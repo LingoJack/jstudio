@@ -287,20 +287,19 @@ export default function CommandPalette() {
       onClick={() => setCommandPaletteOpen(false)}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-[1px]" />
 
       {/* Panel */}
       <div
-        className="relative w-command-palette max-w-[90vw] overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-quickInput-background)] flex flex-col"
+        className="relative w-[min(520px,90vw)] overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-quickInput-background)] flex flex-col rounded-lg"
         style={{
-          animation: 'paletteIn 150ms ease-out',
-          boxShadow: '0 24px 80px -12px rgba(0,0,0,0.5), 0 8px 24px -8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04)',
-          borderRadius: '10px',
+          animation: 'paletteIn 120ms ease-out',
+          boxShadow: '0 12px 32px -8px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Tabs ── */}
-        <div className="flex items-center gap-1 px-2 pt-2 border-b border-[var(--vscode-widget-border)]">
+        <div className="flex items-center gap-1 px-2.5 pt-2 border-b border-[var(--vscode-widget-border)]">
           <ModeTab
             label={searchTabLabel}
             active={!isCommandMode}
@@ -312,17 +311,17 @@ export default function CommandPalette() {
             onClick={() => switchMode(true)}
           />
           <div className="flex-1" />
-          <kbd className="text-tiny px-1.5 py-0.5 text-[var(--vscode-descriptionForeground)] opacity-50 mb-2 mr-1">
+          <kbd className="text-tiny px-1.5 py-0.5 text-[var(--vscode-descriptionForeground)] opacity-50 mb-1.5 mr-0.5">
             {bindingToDisplay(resolveBinding('app.commandPalette', overrides))}
           </kbd>
         </div>
 
         {/* ── Search input ── */}
-        <div className="flex items-center gap-2.5 px-3.5 h-12 border-b border-[var(--vscode-widget-border)]">
+        <div className="flex items-center gap-2 px-3 h-10 border-b border-[var(--vscode-widget-border)]">
           {isCommandMode ? (
-            <TerminalSquare className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-60" />
+            <TerminalSquare className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-50" />
           ) : (
-            <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-60" />
+            <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-50" />
           )}
           <input
             ref={inputRef}
@@ -330,16 +329,16 @@ export default function CommandPalette() {
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="flex-1 bg-transparent outline-none text-sm text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+            className="flex-1 bg-transparent outline-none text-[13px] text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
             autoComplete="off"
             spellCheck={false}
           />
         </div>
 
         {/* ── Results ── */}
-        <div ref={listRef} className="max-h-[min(360px,50vh)] overflow-y-auto py-1.5">
+        <div ref={listRef} className="max-h-[min(320px,45vh)] overflow-y-auto py-1">
           {items.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-[var(--vscode-descriptionForeground)] opacity-60">
+            <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-60">
               {t('palette.noResults')}
             </div>
           ) : (
@@ -371,7 +370,7 @@ export default function CommandPalette() {
 
       <style>{`
         @keyframes paletteIn {
-          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+          from { opacity: 0; transform: translateY(-6px) scale(0.98); }
           to   { opacity: 1; transform: translateY(0)    scale(1); }
         }
       `}</style>
@@ -395,10 +394,10 @@ function ModeTab({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-xs font-medium mb-[-1px] border-b-2 transition-colors duration-100 ${
+      className={`px-2.5 py-1 text-[13px] font-medium mb-[-1px] border-b-2 transition-colors duration-75 ${
         active
           ? 'text-[var(--vscode-foreground)] border-[var(--vscode-focusBorder)]'
-          : 'text-[var(--vscode-descriptionForeground)] border-transparent opacity-60 hover:text-[var(--vscode-foreground)] hover:opacity-100'
+          : 'text-[var(--vscode-descriptionForeground)] border-transparent opacity-50'
       }`}
     >
       {label}
@@ -429,12 +428,12 @@ function PaletteRow({
   onClick: () => void;
   onMouseEnter: () => void;
 }) {
-  const baseClass = `flex items-center gap-2.5 px-3 py-2 cursor-pointer text-sm transition-colors duration-75 ${
+  const baseClass = `flex items-center gap-2 px-3 py-1.5 cursor-pointer text-[13px] transition-colors duration-75 ${
     isSelected
       ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
       : 'text-[var(--vscode-foreground)]'
   }`;
-  const descClass = isSelected ? 'opacity-60' : 'text-[var(--vscode-descriptionForeground)] opacity-60';
+  const descClass = isSelected ? 'opacity-55' : 'text-[var(--vscode-descriptionForeground)] opacity-55';
 
   // ── Command ──
   if (item.kind === 'command') {
@@ -444,8 +443,8 @@ function PaletteRow({
     const title = language === 'zh' ? command.titleZh : command.titleEn;
     return (
       <div data-palette-index={index} onClick={onClick} onMouseEnter={onMouseEnter} className={baseClass}>
-        <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-90' : 'opacity-50'}`} />
-        <span className={`shrink-0 text-xs ${descClass}`}>{category}</span>
+        <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-45'}`} />
+        <span className={`shrink-0 text-[11px] ${descClass}`}>{category}</span>
         <span className={`${descClass} shrink-0`}>·</span>
         <span className="flex-1 truncate">
           <HighlightedText text={title} match={titleMatch} />
@@ -456,8 +455,8 @@ function PaletteRow({
             if (!binding) return null;
             const display = bindingToDisplay(binding);
             return (
-              <kbd className={`text-tiny px-1.5 py-0.5 shrink-0 ${
-                isSelected ? 'opacity-60' : descClass
+              <kbd className={`text-[11px] px-1.5 py-0.5 shrink-0 ${
+                isSelected ? 'opacity-55' : descClass
               }`}>
                 {display}
               </kbd>
@@ -473,7 +472,7 @@ function PaletteRow({
     const { doc, titleMatch } = item;
     return (
       <div data-palette-index={index} onClick={onClick} onMouseEnter={onMouseEnter} className={baseClass}>
-        <FileText className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-40'}`} />
+        <FileText className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-75' : 'opacity-40'}`} />
         <span className="flex-1 truncate">
           {doc.title ? (
             <HighlightedText text={doc.title} match={titleMatch} />
@@ -481,7 +480,7 @@ function PaletteRow({
             <span className="opacity-50 italic">Untitled</span>
           )}
         </span>
-        <span className={`text-tiny shrink-0 ${descClass}`}>
+        <span className={`text-[11px] shrink-0 ${descClass}`}>
           {formatDateOr(doc.updatedAt, language)}
         </span>
       </div>
@@ -494,12 +493,12 @@ function PaletteRow({
     const title = getSessionTitle(session);
     return (
       <div data-palette-index={index} onClick={onClick} onMouseEnter={onMouseEnter} className={baseClass}>
-        <TerminalSquare className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-40'}`} />
+        <TerminalSquare className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-75' : 'opacity-40'}`} />
         <span className="flex-1 truncate">
           <HighlightedText text={title} match={titleMatch} />
         </span>
         {session.cwd && (
-          <span className={`text-tiny shrink-0 truncate max-w-[200px] ${descClass}`}>
+          <span className={`text-[11px] shrink-0 truncate max-w-[180px] ${descClass}`}>
             {session.cwd}
           </span>
         )}
@@ -512,11 +511,11 @@ function PaletteRow({
   const Icon = secMeta.icon;
   return (
     <div data-palette-index={index} onClick={onClick} onMouseEnter={onMouseEnter} className={baseClass}>
-      <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-40'}`} />
+      <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-75' : 'opacity-40'}`} />
       <span className="flex-1 truncate">
         <HighlightedText text={t(secMeta.labelKey)} match={item.titleMatch} />
       </span>
-      <ChevronRight className={`w-3 h-3 shrink-0 ${descClass}`} />
+      <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${descClass}`} />
     </div>
   );
 }
