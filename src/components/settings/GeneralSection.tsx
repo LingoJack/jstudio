@@ -212,7 +212,7 @@ export default function GeneralSection() {
           isDark={true}
           selectedId={appThemeIdDark}
           onSelect={setAppThemeIdDark}
-          label={(id) => t(`appearance.appTheme_${id}` as const)}
+          label={(id) => t(`appearance.appTheme_${id}` as any)}
         />
       </div>
 
@@ -230,7 +230,7 @@ export default function GeneralSection() {
           isDark={false}
           selectedId={appThemeIdLight}
           onSelect={setAppThemeIdLight}
-          label={(id) => t(`appearance.appTheme_${id}` as const)}
+          label={(id) => t(`appearance.appTheme_${id}` as any)}
         />
       </div>
 
