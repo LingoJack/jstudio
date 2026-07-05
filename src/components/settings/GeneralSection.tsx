@@ -15,15 +15,15 @@ import { APP_THEMES, getAppThemesByMode, type AppTheme } from '../../lib/themes'
 function AppThemePreview({ theme }: { theme: AppTheme }) {
   const colors = theme.colors;
   return (
-    <div className="w-12 h-12 rounded-md shrink-0 overflow-hidden border" style={{ borderColor: colors.widgetBorder }}>
+    <div className="w-12 h-12 rounded-md shrink-0 overflow-hidden border" style={{ borderColor: colors['widget-border'] }}>
       {/* 3-layer vertical stack: activity bar > sidebar > editor */}
       <div className="flex flex-col h-full">
-        <div style={{ background: colors.activityBarBackground, height: '25%' }} />
-        <div style={{ background: colors.sideBarBackground, height: '25%' }} />
-        <div style={{ background: colors.editorBackground, height: '50%' }} className="flex items-center justify-center">
+        <div style={{ background: colors['activityBar-background'], height: '25%' }} />
+        <div style={{ background: colors['sideBar-background'], height: '25%' }} />
+        <div style={{ background: colors['editor-background'], height: '50%' }} className="flex items-center justify-center">
           <div
             className="w-2 h-2 rounded-full"
-            style={{ background: colors.focusBorder }}
+            style={{ background: colors['focusBorder'] }}
           />
         </div>
       </div>
@@ -60,18 +60,18 @@ function AppThemeGrid({
                 ? 'border-[var(--vscode-focusBorder)]'
                 : 'border-transparent hover:border-[var(--vscode-widget-border)]'
             }`}
-            style={{ background: colors.editorBackground }}
+            style={{ background: colors['editor-background'] }}
           >
             <AppThemePreview theme={th} />
             <div className="min-w-0">
               <div
                 className="text-sm font-medium truncate"
-                style={{ color: colors.foreground }}
+                style={{ color: colors['foreground'] }}
               >
                 {label(th.id)}
               </div>
               <div className="flex gap-1 mt-1.5">
-                {[colors.buttonBackground, colors.editorGutterAddedBackground, colors.editorGutterModifiedBackground, colors.focusBorder].map(
+                {[colors['button-background'], colors['editorGutter-addedBackground'], colors['editorGutter-modifiedBackground'], colors['focusBorder']].map(
                   (c, i) => (
                     <span
                       key={i}
