@@ -1914,6 +1914,7 @@ button {
   display: flex; align-items: stretch; justify-content: space-between;
   gap: 12px; padding: 12px 16px; cursor: pointer;
   text-decoration: none; color: inherit; transition: background 0.15s ease;
+  border-radius: 7px; /* Slightly smaller than figure (8px) to reveal border curve */
 }
 .link-block-card:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
 .link-block-card-left { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
@@ -2006,6 +2007,7 @@ button {
 .link-block-edit-form {
   display: flex; flex-direction: column; gap: 10px;
   padding: 14px 16px;
+  border-radius: 7px; /* Slightly smaller than figure (8px) to reveal border curve */
 }
 .link-block-edit-row {
   display: flex; flex-direction: column; gap: 4px;
