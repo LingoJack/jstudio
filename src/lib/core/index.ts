@@ -5,6 +5,7 @@
  *   - storage: Tauri IPC abstraction for all file system operations
  *   - i18n: Internationalization (zh-CN / en-US)
  *   - commandRegistry: Command palette action registry
+ *   - nativeMenu: macOS native menu for Cmd+W interception
  */
 
 export * from './storage';
@@ -12,3 +13,4 @@ export { storage } from './storage';
 export { useI18n } from './i18n';
 export type { Language, TranslationKey } from './i18n';
 export { buildCommands } from './commandRegistry';
+export { setupNativeMenu, NATIVE_CLOSE_TAB_EVENT } from './nativeMenu';

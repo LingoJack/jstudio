@@ -354,9 +354,9 @@ const INK_LIGHT: AppTheme = {
     'descriptionForeground': '#6b5e52',
     'iconForeground': '#6b5e52',
     'focusBorder': '#1a1612', // 深褐/黑色，与文字一致
-    'button-background': '#0052D9',
+    'button-background': '#1a1612', // 深褐/黑色
     'button-foreground': '#FFFFFF',
-    'button-hoverBackground': '#003CAB',
+    'button-hoverBackground': '#3a3530', // 略浅的褐色
     'buttonSecondary-background': '#ede4d8',
     'buttonSecondary-hoverBackground': '#ddd4c8',
     'buttonSecondary-foreground': '#1a1612',
@@ -376,7 +376,7 @@ const INK_LIGHT: AppTheme = {
     'menu-border': '#ddd4c8',
     'menu-hoverBackground': '#f0ebe3',
     'menu-separatorBackground': '#ddd4c8',
-    'menu-selectionBackground': '#0052D9',
+    'menu-selectionBackground': '#1a1612', // 深褐/黑色
     'menu-selectionForeground': '#FFFFFF',
     'list-hoverBackground': '#f0ebe3',
     'list-activeSelectionBackground': '#e8ddd0',
@@ -405,9 +405,9 @@ const INK_LIGHT: AppTheme = {
     'scrollbarSlider-activeBackground': '#00000052',
     'badge-background': '#ddd4c8',
     'badge-foreground': '#1a1612',
-    'progressBar-background': '#0052D9',
-    'textLink-foreground': '#0052D9',
-    'textLink-activeForeground': '#0052D9',
+    'progressBar-background': '#1a1612', // 深褐/黑色
+    'textLink-foreground': '#1a1612', // 深褐/黑色，链接也用深色
+    'textLink-activeForeground': '#3a3530', // 略浅的褐色作为激活态
     'textBlockQuote-background': '#f5f0e8',
     'textBlockQuote-border': '#ddd4c8',
     'textCodeBlock-background': '#f5f0e8',
