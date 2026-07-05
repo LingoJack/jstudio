@@ -587,7 +587,7 @@ export function GraphCanvas({
       // getTolerance 控制"鼠标离连接点多近才算悬停在连接点上"进而进入拉线模式。
       // 默认逻辑返回较大值（基于连接点图像尺寸），导致边缘附近按下容易误判为拉线而非拖动图形。
       // 覆写该方法返回固定 4 像素，只有鼠标几乎精确落在连接点上才触发连线（优先判定为拖动图形）。
-      connectionHandler.constraintHandler.getTolerance = () => 4;
+      connectionHandler.constraintHandler.getTolerance = () => 2;
       // 重写 createHighlightShape：悬停连接点时显示一个比锚点略大的半透明填充圆，
       // 与飞书风格一致，避免默认矩形高亮造成的"方形边框"感。
       const ch = connectionHandler.constraintHandler;

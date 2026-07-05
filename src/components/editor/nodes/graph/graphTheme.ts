@@ -81,7 +81,7 @@ export const HANDLE_STROKE_COLOR_DARK = '#60A5FA';
  */
 export const CONNECTION_POINT_COLOR_LIGHT = '#3B82F6';
 export const CONNECTION_POINT_COLOR_DARK = '#60A5FA';
-export const CONNECTION_POINT_SIZE = 12; // 更大更清晰，在虚线生命线上可辨
+export const CONNECTION_POINT_SIZE = 10; // 精巧但清晰，在虚线生命线上可辨
 
 /** 拖动预览样式 - 跟随主题 */
 export const PREVIEW_FILL_COLOR_LIGHT = 'rgba(59, 130, 246, 0.1)';
