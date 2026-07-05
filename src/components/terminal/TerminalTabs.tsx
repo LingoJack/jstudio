@@ -237,6 +237,32 @@ export default function TerminalTabs() {
     });
   }, [activeGroupId]);
 
+  // ── 滚动渐变遮罩显示/隐藏 ───────────────────────────────────────
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const container = scroller?.parentElement;
+    if (!scroller || !container) return;
+
+    const leftFade = container.querySelector('[data-scroll-left-fade]') as HTMLElement;
+    const rightFade = container.querySelector('[data-scroll-right-fade]') as HTMLElement;
+
+    const updateFades = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = scroller;
+      const canScrollLeft = scrollLeft > 4;
+      const canScrollRight = scrollLeft < scrollWidth - clientWidth - 4;
+      if (leftFade) leftFade.style.opacity = canScrollLeft ? '1' : '0';
+      if (rightFade) rightFade.style.opacity = canScrollRight ? '1' : '0';
+    };
+
+    updateFades();
+    scroller.addEventListener('scroll', updateFades);
+    window.addEventListener('resize', updateFades);
+    return () => {
+      scroller.removeEventListener('scroll', updateFades);
+      window.removeEventListener('resize', updateFades);
+    };
+  }, []);
+
   // ── Focus rename input when entering rename mode ─────────────────
   useEffect(() => {
     if (renamingGroupId && renameInputRef.current) {
@@ -391,16 +417,15 @@ export default function TerminalTabs() {
     <>
       {/* 悬浮液态玻璃胶囊 tab bar */}
       <div
-        className="relative h-14 shrink-0"
+        className="absolute left-0 right-0 top-0 pt-3 z-10"
         style={{ background: 'transparent' }}
         ref={tabBarRef}
       >
         {/* 胶囊容器 */}
         <div
-          ref={scrollRef}
-          className="absolute left-4 right-4 top-3 flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full"
+          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] mx-4 gap-0.5 px-2 py-1.5 rounded-full"
           style={{
-            scrollbarWidth: 'none',
+            scrollbarWidth: 'thin',
             background: 'rgba(255,255,255,0.06)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
@@ -410,6 +435,27 @@ export default function TerminalTabs() {
             ['--term-accent' as string]: theme.blue,
           }}
         >
+          {/* 左侧渐变遮罩 */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-8 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-150"
+            style={{
+              background: 'linear-gradient(to right, rgba(255,255,255,0.06), transparent)',
+            }}
+            data-scroll-left-fade
+          />
+          {/* 右侧渐变遮罩 */}
+          <div
+            className="absolute right-0 top-0 bottom-0 w-8 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-150"
+            style={{
+              background: 'linear-gradient(to left, rgba(255,255,255,0.06), transparent)',
+            }}
+            data-scroll-right-fade
+          />
+          <div
+            ref={scrollRef}
+            className="flex items-center overflow-x-auto min-w-0 gap-0.5"
+            style={{ scrollbarWidth: 'none' }}
+          >
           {groups.map((group) => {
             const isActive = group.id === activeGroupId;
             const session = sessions.find(
@@ -493,8 +539,8 @@ export default function TerminalTabs() {
               </div>
             );
           })}
-
-          {/* `+` and Clock — both follow the last tab */}
+          </div>
+          {/* `+` and Clock — outside scroll container, always visible */}
           <button
             onClick={() => createSession()}
             className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--term-fg)] opacity-60 hover:bg-[rgba(255,255,255,0.1)] hover:opacity-100 transition-colors duration-75 cursor-pointer"

@@ -63,6 +63,32 @@ export default function DocumentTabs() {
     });
   }, [activeTabId]);
 
+  // ── 滚动渐变遮罩显示/隐藏 ───────────────────────────────────────
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const container = scroller?.parentElement;
+    if (!scroller || !container) return;
+
+    const leftFade = container.querySelector('[data-scroll-left-fade]') as HTMLElement;
+    const rightFade = container.querySelector('[data-scroll-right-fade]') as HTMLElement;
+
+    const updateFades = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = scroller;
+      const canScrollLeft = scrollLeft > 4;
+      const canScrollRight = scrollLeft < scrollWidth - clientWidth - 4;
+      if (leftFade) leftFade.style.opacity = canScrollLeft ? '1' : '0';
+      if (rightFade) rightFade.style.opacity = canScrollRight ? '1' : '0';
+    };
+
+    updateFades();
+    scroller.addEventListener('scroll', updateFades);
+    window.addEventListener('resize', updateFades);
+    return () => {
+      scroller.removeEventListener('scroll', updateFades);
+      window.removeEventListener('resize', updateFades);
+    };
+  }, []);
+
   // ── Close context menu on outside click ─────────────────────────
   useEffect(() => {
     if (!contextMenu) return;
@@ -151,16 +177,36 @@ export default function DocumentTabs() {
         className="absolute left-0 right-0 top-0 flex items-center justify-center pt-3 z-10"
       >
         <div
-          ref={scrollRef}
-          className="flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full"
+          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full"
           style={{
-            scrollbarWidth: 'none',
+            scrollbarWidth: 'thin',
             background: 'rgba(255,255,255,0.06)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
           }}
         >
+          {/* 左侧渐变遮罩 —提示左侧有更多内容 */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-8 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-150"
+            style={{
+              background: 'linear-gradient(to right, rgba(255,255,255,0.06), transparent)',
+            }}
+            data-scroll-left-fade
+          />
+          {/* 右侧渐变遮罩 —提示右侧有更多内容 */}
+          <div
+            className="absolute right-0 top-0 bottom-0 w-8 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-150"
+            style={{
+              background: 'linear-gradient(to left, rgba(255,255,255,0.06), transparent)',
+            }}
+            data-scroll-right-fade
+          />
+          <div
+            ref={scrollRef}
+            className="flex items-center overflow-x-auto min-w-0 gap-0.5"
+            style={{ scrollbarWidth: 'none' }}
+          >
           {docTabs.map((tab) => {
             const isActive = tab.id === activeTabId;
             const title = getDocTitle(tab);
@@ -206,8 +252,8 @@ export default function DocumentTabs() {
               </div>
             );
           })}
-
-          {/* `+` button — new document */}
+          </div>
+          {/* `+` button — outside scroll container, always visible */}
           <button
             onClick={() => createDocument()}
             className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] transition-colors duration-75 cursor-pointer"
