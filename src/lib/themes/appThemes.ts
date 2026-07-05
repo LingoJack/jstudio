@@ -353,7 +353,7 @@ const INK_LIGHT: AppTheme = {
     'foreground': '#1a1612',
     'descriptionForeground': '#6b5e52',
     'iconForeground': '#6b5e52',
-    'focusBorder': '#0052D9',
+    'focusBorder': '#1a1612', // 深褐/黑色，与文字一致
     'button-background': '#0052D9',
     'button-foreground': '#FFFFFF',
     'button-hoverBackground': '#003CAB',
@@ -367,7 +367,7 @@ const INK_LIGHT: AppTheme = {
     'dropdown-background': '#faf6f1',
     'dropdown-border': '#ddd4c8',
     'tab-activeBackground': '#faf6f1',
-    'tab-activeBorderTop': '#0052D9',
+    'tab-activeBorderTop': '#1a1612', // 深褐/黑色，与 focusBorder 一致
     'tab-activeForeground': '#1a1612',
     'tab-inactiveBackground': '#f5f0e8',
     'tab-inactiveForeground': '#8a7e72',
