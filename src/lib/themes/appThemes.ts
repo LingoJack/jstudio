@@ -431,7 +431,7 @@ const INK_LIGHT: AppTheme = {
     'terminal-ansiBlue': '#4a70a0',
 
     // ── Editor cursor ──
-    'editorCursor-foreground': '#0052D9',
+    'editorCursor-foreground': '#1a1612', // 深褐/黑色，与文字颜色一致
 
     'editGlow': '177 64 64', // Terracotta #b14040
   },
