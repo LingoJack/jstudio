@@ -174,6 +174,9 @@ const JSTUDIO_LIGHT: AppTheme = {
     'terminal-ansiGreen': '#00BC00',
     'terminal-ansiBlue': '#0451A5',
 
+    // ── Editor cursor ──
+    'editorCursor-foreground': '#0052D9',
+
     // ── Edit glow (RGB tuple) ──
     'editGlow': '139 92 246', // Violet #8B5CF6
   },
@@ -298,6 +301,10 @@ const JSTUDIO_DARK: AppTheme = {
     'symbolIcon-folderForeground': '#D4A259',
     'terminal-ansiGreen': '#4EC9B0',
     'terminal-ansiBlue': '#6796E6',
+
+    // ── Editor cursor ──
+    'editorCursor-foreground': '#07C160',
+
     'editGlow': '236 72 153', // Pink #EC4899
   },
   tokens: {
@@ -422,6 +429,10 @@ const INK_LIGHT: AppTheme = {
     'symbolIcon-folderForeground': '#a07830',
     'terminal-ansiGreen': '#4a7a50',
     'terminal-ansiBlue': '#4a70a0',
+
+    // ── Editor cursor ──
+    'editorCursor-foreground': '#0052D9',
+
     'editGlow': '177 64 64', // Terracotta #b14040
   },
   tokens: {
@@ -545,6 +556,10 @@ const INK_DARK: AppTheme = {
     'symbolIcon-folderForeground': '#ffc777',
     'terminal-ansiGreen': '#c3e88d',
     'terminal-ansiBlue': '#82aaff',
+
+    // ── Editor cursor ──
+    'editorCursor-foreground': '#82aaff',
+
     'editGlow': '130 170 255', // Bright blue #82aaff
   },
   tokens: {

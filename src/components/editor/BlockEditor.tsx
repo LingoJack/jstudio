@@ -744,6 +744,40 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     };
   }, [editor]);
 
+  // ── Live theme update for cursor trail ──
+  // When the app theme changes, update the cursor trail color from CSS variables.
+  useEffect(() => {
+    if (readOnly) return;
+    const trail = trailRef.current;
+    if (!trail) return;
+
+    const updateColor = () => {
+      const cssColor =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('--vscode-editorCursor-foreground')
+          .trim() ||
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('--vscode-focusBorder')
+          .trim() ||
+        '#007fd4';
+      trail.setColor(cssColor);
+    };
+
+    // Initial update
+    updateColor();
+
+    // Observe CSS variable changes on <html>
+    const observer = new MutationObserver(() => {
+      updateColor();
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style'],
+    });
+
+    return () => observer.disconnect();
+  }, [readOnly]);
+
   // ------------------------------------------------------------------
   // Cursor rendering is fully owned by the WebGL EditorCursorTrail:
   // the trail draws the cursor SHAPE (bar / block / underline) as a solid

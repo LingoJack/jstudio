@@ -305,6 +305,39 @@ export default function SectionedBlockEditor() {
     };
   }, [hasActiveDoc, activeDocId]);
 
+  // ── Live theme update for cursor trail ──
+  // When the app theme changes, update the cursor trail color from CSS variables.
+  useEffect(() => {
+    const trail = trailRef.current;
+    if (!trail) return;
+
+    const updateColor = () => {
+      const cssColor =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('--vscode-editorCursor-foreground')
+          .trim() ||
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('--vscode-focusBorder')
+          .trim() ||
+        '#007fd4';
+      trail.setColor(cssColor);
+    };
+
+    // Initial update
+    updateColor();
+
+    // Observe CSS variable changes on <html>
+    const observer = new MutationObserver(() => {
+      updateColor();
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style'],
+    });
+
+    return () => observer.disconnect();
+  }, [activeDocId]); // Re-run when document changes (trail may be re-created)
+
   // Apply cursor style to the shared trail.
   useEffect(() => {
     trailRef.current?.setCursorStyle(editorCursorStyle);
