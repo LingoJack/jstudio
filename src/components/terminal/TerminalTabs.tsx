@@ -328,7 +328,12 @@ export default function TerminalTabs() {
     }
     if (historyBtnRef.current) {
       const rect = historyBtnRef.current.getBoundingClientRect();
-      setHistoryPos({ x: rect.left, y: rect.bottom + 4 });
+      // 向上展开：下拉菜单底部紧贴按钮顶部上方 4px
+      // 使用 top 定位：下拉菜单顶部 = 按钮顶部 - 下拉菜单高度 - gap
+      // 但高度不确定，改用 bottom 定位更简单
+      // bottom = 视口高度 - 按钮顶部 + gap
+      const gap = 4;
+      setHistoryPos({ x: rect.left, y: rect.top - gap });
     }
     setShowHistory(true);
     setContextMenu(null);
@@ -425,7 +430,7 @@ export default function TerminalTabs() {
     <>
       {/* 悬浮液态玻璃胶囊 tab bar */}
       <div
-        className="absolute left-0 right-0 top-0 pt-3 z-10"
+        className="relative left-0 right-0 pb-3 z-10"
         style={{ background: 'transparent' }}
         ref={tabBarRef}
       >
@@ -577,12 +582,13 @@ export default function TerminalTabs() {
       </div>
 
       {/* History dropdown — rendered at root level with fixed position to
-          escape overflow-x-auto clipping from the scroll container */}
+          escape overflow-x-auto clipping from the scroll container.
+          Opens upward since tab bar is at bottom. */}
       {showHistory && (
         <div
           ref={historyRef}
           className="fixed z-modal min-w-context max-w-context py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
-          style={{ left: historyPos.x, top: historyPos.y }}
+          style={{ left: historyPos.x, bottom: `calc(100vh - ${historyPos.y}px)` }}
           onClick={(e) => e.stopPropagation()}
           onMouseEnter={() => {
             if (historyCloseTimer.current) {

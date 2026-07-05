@@ -174,7 +174,7 @@ export default function DocumentTabs() {
       {/* 悬浮液态玻璃胶囊 tab bar —不占据空间，完全悬浮 */}
       <div
         ref={tabBarRef}
-        className="absolute left-0 right-0 top-0 flex items-center justify-center pt-3 z-10"
+        className="absolute left-0 right-0 bottom-0 flex items-center justify-center pb-3 z-10"
       >
         <div
           className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full"
