@@ -14,42 +14,14 @@ import { X, Loader2 } from 'lucide-react';
 import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../../lib/windows/previewWindow';
 import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../../lib/editor/fileUtils';
 import { docxToHtml } from '../../lib/editor/docxPreview';
-import { storage, type ThemeMode } from '../../lib/core/storage';
+import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import PdfPreview from '../editor/nodes/PdfPreview';
-
-/**
- * Resolve a theme preference to actual dark/light.
- * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
- * (Mirrors uiSlice.resolveDark without pulling in store dependencies.)
- */
-function resolveDark(mode: ThemeMode): boolean {
-  if (mode === 'dark') return true;
-  if (mode === 'light') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-/**
- * Sync dark/light theme from settings so the preview window matches
- * the main window's appearance.
- */
-function useThemeSync() {
-  useEffect(() => {
-    // Apply dark class immediately (synchronous fallback) to prevent flash.
-    document.documentElement.classList.add('dark');
-
-    storage.loadSettings().then((settings) => {
-      const isDark = resolveDark(settings.theme ?? 'system');
-      document.documentElement.classList.toggle('dark', isDark);
-    }).catch(() => {
-      // Keep dark as fallback.
-    });
-  }, []);
-}
 
 export default function PreviewWindowApp() {
   const [data, setData] = useState<PreviewPayload | null>(null);
 
-  useThemeSync();
+  // Sync theme with main window (includes app theme colors)
+  useWindowThemeSync();
 
   useEffect(() => {
     fetchPreviewData().then((payload) => {

@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Plus, Loader2, ExternalLink, RefreshCw, Home } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { storage, type ThemeMode } from '../../lib/core/storage';
+import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -25,24 +25,6 @@ interface TabsState {
   active_tab_id: string | null;
 }
 
-// ── Theme sync ──────────────────────────────────────────────────────────
-
-function resolveDark(mode: ThemeMode): boolean {
-  if (mode === 'dark') return true;
-  if (mode === 'light') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-function useThemeSync() {
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    storage.loadSettings().then((settings) => {
-      const isDark = resolveDark(settings.theme ?? 'system');
-      document.documentElement.classList.toggle('dark', isDark);
-    }).catch(() => {});
-  }, []);
-}
-
 // ── Main Component ─────────────────────────────────────────────────────
 
 export default function LinkPreviewTabsApp() {
@@ -56,7 +38,8 @@ export default function LinkPreviewTabsApp() {
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
 
-  useThemeSync();
+  // Sync theme with main window (includes app theme colors)
+  useWindowThemeSync();
 
   // 初始化：获取标签列表
   useEffect(() => {

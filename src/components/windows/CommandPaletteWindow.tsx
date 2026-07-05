@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { storage, type DocumentMeta, type TerminalSessionInfo, type ThemeMode } from '../../lib/core/storage';
+import { storage, type DocumentMeta, type TerminalSessionInfo } from '../../lib/core/storage';
 import { useI18n, type Language } from '../../lib/core/i18n';
 import type { SettingsSectionId } from '../../store/uiSlice';
 import type { TranslationKey } from '../../lib/core/i18n';
@@ -37,6 +37,12 @@ import {
   getSessionTitle,
   formatDateOr,
 } from '../../lib/commandPalette/shared.tsx';
+import {
+  applyAppTheme,
+  getAppTheme,
+  DEFAULT_APP_THEME_ID_DARK,
+  DEFAULT_APP_THEME_ID_LIGHT,
+} from '../../lib/themes';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -47,7 +53,7 @@ type PaletteItem =
   | { kind: 'session'; session: TerminalSessionInfo; titleMatch: [number, number] | null }
   | { kind: 'settings'; sectionId: SettingsSectionId; titleMatch: [number, number] | null };
 
-function resolveDark(mode: ThemeMode): boolean {
+function resolveDark(mode: string): boolean {
   if (mode === 'dark') return true;
   if (mode === 'light') return false;
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -72,10 +78,10 @@ export default function CommandPaletteWindow() {
   const listRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // ── 1. 强制透明背景 + 同步主题 ──
+  // ── 1. 强制透明背景 + 同步主题 + 应用配色 ──
   // 这是独立窗口，不继承主窗口的 store。必须手动：
   //   a) 注入 CSS 让 html/body/#root 透明（否则 body 的不透明背景填满整个窗口矩形 = 白色方块）
-  //   b) 根据 settings.json 切换 .dark 类
+  //   b) 根据 settings.json 切换 .dark 类并应用应用主题的 CSS 变量
   useEffect(() => {
     // (a) 强制透明 — 用 !important 确保覆盖 vscode-theme.css 的 body 规则
     const styleEl = document.createElement('style');
@@ -88,13 +94,19 @@ export default function CommandPaletteWindow() {
     `;
     document.head.appendChild(styleEl);
 
-    // (b) 同步主题
+    // (b) 同步主题 + 应用配色
     document.documentElement.classList.add('dark'); // 先默认暗色，避免闪烁
     storage.loadSettings().then((settings) => {
       const isDark = resolveDark(settings.theme ?? 'system');
-      document.documentElement.classList.toggle('dark', isDark);
+      const themeId = isDark
+        ? (settings.appThemeIdDark ?? DEFAULT_APP_THEME_ID_DARK)
+        : (settings.appThemeIdLight ?? DEFAULT_APP_THEME_ID_LIGHT);
+      const theme = getAppTheme(themeId, isDark);
+      applyAppTheme(theme);
     }).catch(() => {
-      /* 保持 dark 回退 */
+      // 保持 dark + 默认主题回退
+      const theme = getAppTheme(DEFAULT_APP_THEME_ID_DARK, true);
+      applyAppTheme(theme);
     });
 
     return () => {

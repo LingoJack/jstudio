@@ -4,7 +4,7 @@
  * 1. 从 Rust 内存获取初始快照。
  * 2. 渲染全尺寸 Excalidraw 画板。
  * 3. 用户编辑时通过 Tauri event 实时回传快照到主窗口。
- * 4. 主题跟随系统设置同步。
+ * 4. 主题跟随系统设置同步，包括应用配色主题。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,62 +16,7 @@ import {
   sendDiagramUpdate,
   type DiagramPayload,
 } from '../../lib/windows/diagramWindow';
-import { storage, type ThemeMode } from '../../lib/core/storage';
-
-/**
- * Resolve a theme preference to actual dark/light.
- * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
- */
-function resolveDark(mode: ThemeMode): boolean {
-  if (mode === 'dark') return true;
-  if (mode === 'light') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-/**
- * Sync dark/light theme from settings so the diagram window matches
- * the main window's appearance.
- */
-function useThemeSync() {
-  // 初始值从系统偏好开始，避免先以浅色模式渲染再突然切换
-  const [isDark, setIsDark] = useState(() => {
-    // 同步获取系统偏好作为初始值
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
-
-  useEffect(() => {
-    // Initial load from settings
-    storage.loadSettings().then((settings) => {
-      const dark = resolveDark(settings.theme ?? 'system');
-      setIsDark(dark);
-      document.documentElement.classList.toggle('dark', dark);
-    }).catch(() => {
-      // Fallback: check system preference (already set in initial state)
-      const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', dark);
-    });
-
-    // Listen for system preference changes (when theme is 'system')
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      storage.loadSettings().then((settings) => {
-        if (settings.theme === 'system') {
-          setIsDark(e.matches);
-          document.documentElement.classList.toggle('dark', e.matches);
-        }
-      }).catch(() => {});
-    };
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  // 确保初始渲染时也设置正确的 class
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-  }, [isDark]);
-
-  return isDark;
-}
+import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 
 export default function DiagramWindowApp() {
   const [payload, setPayload] = useState<DiagramPayload | null>(null);
@@ -81,8 +26,8 @@ export default function DiagramWindowApp() {
   // Keep latest snapshot in a ref so we can send a final update on close.
   const latestSnapshot = useRef('');
 
-  // Sync theme with main window
-  const isDark = useThemeSync();
+  // Sync theme with main window (includes app theme colors)
+  const isDark = useWindowThemeSync();
 
   useEffect(() => {
     let cancelled = false;
