@@ -10,6 +10,7 @@ import { migrateDocAssets } from '../lib/documents/migrateAssets';
 import { gcDocumentAssets } from '../lib/documents/assetGc';
 import { toast } from '../lib/toast';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
+import { applyAppTheme, getAppTheme, DEFAULT_APP_THEME_ID_DARK, DEFAULT_APP_THEME_ID_LIGHT } from '../lib/themes';
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
@@ -49,6 +50,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalThemeIdDark: string | undefined;
       let terminalThemeIdLight: string | undefined;
       let terminalThemeIdLegacy: string | undefined;
+      let appThemeIdDark: string | undefined;
+      let appThemeIdLight: string | undefined;
       let terminalFontSize: number | undefined;
       let terminalFontId: string | undefined;
       let terminalCursorStyle: TerminalCursorStyle | undefined;
@@ -107,6 +110,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         if (typeof settings.terminalThemeId === 'string' && settings.terminalThemeId) {
           terminalThemeIdLegacy = settings.terminalThemeId;
         }
+        if (typeof settings.appThemeIdDark === 'string' && settings.appThemeIdDark) {
+          appThemeIdDark = settings.appThemeIdDark;
+        }
+        if (typeof settings.appThemeIdLight === 'string' && settings.appThemeIdLight) {
+          appThemeIdLight = settings.appThemeIdLight;
+        }
         if (typeof settings.terminalFontSize === 'number') {
           terminalFontSize = settings.terminalFontSize;
         }
@@ -148,6 +157,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         // ignore
       }
       const isDark = resolveDark(themeMode);
+      // Apply app theme (inject CSS variables) before setting .dark class
+      const appThemeId = isDark
+        ? (appThemeIdDark ?? DEFAULT_APP_THEME_ID_DARK)
+        : (appThemeIdLight ?? DEFAULT_APP_THEME_ID_LIGHT);
+      const appTheme = getAppTheme(appThemeId, isDark);
+      applyAppTheme(appTheme);
       if (isDark) document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
       applyFont(fontId, cjkFontId, fontSize);
@@ -239,6 +254,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
             ? { terminalThemeIdDark: terminalThemeIdLegacy }
             : {}),
         ...(terminalThemeIdLight !== undefined ? { terminalThemeIdLight } : {}),
+        ...(appThemeIdDark !== undefined ? { appThemeIdDark } : {}),
+        ...(appThemeIdLight !== undefined ? { appThemeIdLight } : {}),
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),

@@ -110,6 +110,8 @@ export interface StoreState {
   // — ui state (ui slice) —
   themeMode: ThemeMode;
   isDarkMode: boolean;
+  appThemeIdDark: string;
+  appThemeIdLight: string;
   language: Language;
   activityBarBorder: boolean;
   activityBarItems: ActivityBarItemConfig[];
@@ -244,6 +246,8 @@ export interface StoreState {
   setSettingsActiveSection: (section: SettingsSectionId) => void;
   setTerminalThemeIdDark: (id: string) => void;
   setTerminalThemeIdLight: (id: string) => void;
+  setAppThemeIdDark: (id: string) => void;
+  setAppThemeIdLight: (id: string) => void;
   setTerminalFontSize: (size: number) => void;
   setTerminalFontId: (id: string) => void;
   setTerminalCursorStyle: (style: TerminalCursorStyle) => void;

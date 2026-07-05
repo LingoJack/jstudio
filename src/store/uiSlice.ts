@@ -15,6 +15,12 @@ import {
   DEFAULT_MONOSPACE_FONT_ID,
 } from '../lib/editor/fonts';
 import { DEFAULT_TERMINAL_THEME_ID_DARK, DEFAULT_TERMINAL_THEME_ID_LIGHT } from '../lib/terminal/themes';
+import {
+  applyAppTheme,
+  getAppTheme,
+  DEFAULT_APP_THEME_ID_DARK,
+  DEFAULT_APP_THEME_ID_LIGHT,
+} from '../lib/themes';
 
 /** Sidebar width constraints (px). */
 const MIN_SIDEBAR_WIDTH = 180;
@@ -42,7 +48,7 @@ export function resolveDark(mode: ThemeMode): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-/** Apply (or remove) the `dark` class on <html>. */
+/** Apply (or remove) the `dark` class on <html> AND inject the app theme colors. */
 function applyDark(isDark: boolean) {
   if (isDark) document.documentElement.classList.add('dark');
   else document.documentElement.classList.remove('dark');
@@ -83,6 +89,8 @@ export type SettingsSectionId = 'general' | 'agent' | 'editor' | 'terminal' | 's
 export const createUiSlice: SliceCreator = (set, get) => ({
   themeMode: 'dark',
   isDarkMode: true,
+  appThemeIdDark: DEFAULT_APP_THEME_ID_DARK,
+  appThemeIdLight: DEFAULT_APP_THEME_ID_LIGHT,
   language: 'zh',
   activityBarBorder: false,
   activityBarItems: DEFAULT_ACTIVITY_BAR_ITEMS,
@@ -111,6 +119,9 @@ export const createUiSlice: SliceCreator = (set, get) => ({
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
+    const themeId = isDark ? get().appThemeIdDark : get().appThemeIdLight;
+    const theme = getAppTheme(themeId, isDark);
+    applyAppTheme(theme);
     applyDark(isDark);
     set({ themeMode: mode, isDarkMode: isDark });
     storage.saveSettings({ theme: mode }).catch(onSaveError('设置'));
@@ -120,6 +131,9 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     // Convenience toggle — cycles between explicit dark/light only.
     const next = !get().isDarkMode;
     const mode: ThemeMode = next ? 'dark' : 'light';
+    const themeId = next ? get().appThemeIdDark : get().appThemeIdLight;
+    const theme = getAppTheme(themeId, next);
+    applyAppTheme(theme);
     applyDark(next);
     set({ themeMode: mode, isDarkMode: next });
     storage.saveSettings({ theme: mode }).catch(onSaveError('设置'));
@@ -207,6 +221,26 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setTerminalThemeIdLight: (id) => {
     set({ terminalThemeIdLight: id });
     storage.saveSettings({ terminalThemeIdLight: id }).catch(onSaveError('设置'));
+  },
+
+  setAppThemeIdDark: (id) => {
+    set({ appThemeIdDark: id });
+    // If currently in dark mode, apply the new theme immediately
+    if (get().isDarkMode) {
+      const theme = getAppTheme(id, true);
+      applyAppTheme(theme);
+    }
+    storage.saveSettings({ appThemeIdDark: id }).catch(onSaveError('设置'));
+  },
+
+  setAppThemeIdLight: (id) => {
+    set({ appThemeIdLight: id });
+    // If currently in light mode, apply the new theme immediately
+    if (!get().isDarkMode) {
+      const theme = getAppTheme(id, false);
+      applyAppTheme(theme);
+    }
+    storage.saveSettings({ appThemeIdLight: id }).catch(onSaveError('设置'));
   },
 
   setTerminalFontSize: (size) => {

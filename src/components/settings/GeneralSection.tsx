@@ -7,6 +7,87 @@ import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/toast';
 import type { Language, ThemeMode } from '../../lib/core/storage';
+import { APP_THEMES, getAppThemesByMode, type AppTheme } from '../../lib/themes';
+
+/**
+ * App theme grid card — shows a preview of the 3-layer background hierarchy.
+ */
+function AppThemePreview({ theme }: { theme: AppTheme }) {
+  const colors = theme.colors;
+  return (
+    <div className="w-12 h-12 rounded-md shrink-0 overflow-hidden border" style={{ borderColor: colors.widgetBorder }}>
+      {/* 3-layer vertical stack: activity bar > sidebar > editor */}
+      <div className="flex flex-col h-full">
+        <div style={{ background: colors.activityBarBackground, height: '25%' }} />
+        <div style={{ background: colors.sideBarBackground, height: '25%' }} />
+        <div style={{ background: colors.editorBackground, height: '50%' }} className="flex items-center justify-center">
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{ background: colors.focusBorder }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Renders a 2-column grid of app theme cards for a given `isDark` filter.
+ */
+function AppThemeGrid({
+  isDark,
+  selectedId,
+  onSelect,
+  label,
+}: {
+  isDark: boolean;
+  selectedId: string;
+  onSelect: (id: string) => void;
+  label: (id: string) => string;
+}) {
+  const themes = getAppThemesByMode(isDark);
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {themes.map((th) => {
+        const selected = selectedId === th.id;
+        const colors = th.colors;
+        return (
+          <button
+            key={th.id}
+            onClick={() => onSelect(th.id)}
+            className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all duration-150 cursor-pointer text-left ${
+              selected
+                ? 'border-[var(--vscode-focusBorder)]'
+                : 'border-transparent hover:border-[var(--vscode-widget-border)]'
+            }`}
+            style={{ background: colors.editorBackground }}
+          >
+            <AppThemePreview theme={th} />
+            <div className="min-w-0">
+              <div
+                className="text-sm font-medium truncate"
+                style={{ color: colors.foreground }}
+              >
+                {label(th.id)}
+              </div>
+              <div className="flex gap-1 mt-1.5">
+                {[colors.buttonBackground, colors.editorGutterAddedBackground, colors.editorGutterModifiedBackground, colors.focusBorder].map(
+                  (c, i) => (
+                    <span
+                      key={i}
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ background: c }}
+                    />
+                  ),
+                )}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * GeneralSection — app-wide settings.
@@ -26,6 +107,10 @@ export default function GeneralSection() {
   const setThemeMode = useStore((s) => s.setThemeMode);
   const activityBarBorder = useStore((s) => s.activityBarBorder);
   const setActivityBarBorder = useStore((s) => s.setActivityBarBorder);
+  const appThemeIdDark = useStore((s) => s.appThemeIdDark);
+  const appThemeIdLight = useStore((s) => s.appThemeIdLight);
+  const setAppThemeIdDark = useStore((s) => s.setAppThemeIdDark);
+  const setAppThemeIdLight = useStore((s) => s.setAppThemeIdLight);
 
   useEffect(() => {
     storage
@@ -111,6 +196,42 @@ export default function GeneralSection() {
         <p className="text-sm text-[var(--vscode-descriptionForeground)] mt-4">
           {themeOptions.find((o) => o.value === themeMode)?.desc}
         </p>
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- App Color Theme (Dark) ---- */}
+      <div id="settings-general-appThemeDark">
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('appearance.appThemeDark')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-5">
+          {t('appearance.appThemeDarkDesc')}
+        </p>
+        <AppThemeGrid
+          isDark={true}
+          selectedId={appThemeIdDark}
+          onSelect={setAppThemeIdDark}
+          label={(id) => t(`appearance.appTheme_${id}` as const)}
+        />
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- App Color Theme (Light) ---- */}
+      <div id="settings-general-appThemeLight">
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('appearance.appThemeLight')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-5">
+          {t('appearance.appThemeLightDesc')}
+        </p>
+        <AppThemeGrid
+          isDark={false}
+          selectedId={appThemeIdLight}
+          onSelect={setAppThemeIdLight}
+          label={(id) => t(`appearance.appTheme_${id}` as const)}
+        />
       </div>
 
       <div className="border-t border-[var(--vscode-widget-border)]" />

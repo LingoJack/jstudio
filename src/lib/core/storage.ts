@@ -128,6 +128,16 @@ export interface AppSettings {
   terminalThemeIdLight?: string;
   /** @deprecated Migrated to terminalThemeIdDark. Kept for one-time migration. */
   terminalThemeId?: string;
+  /**
+   * App UI color theme for dark mode — see lib/themes/appThemes.ts.
+   * Used when the app is in dark mode (or system mode while OS is dark).
+   */
+  appThemeIdDark?: string;
+  /**
+   * App UI color theme for light mode — see lib/themes/appThemes.ts.
+   * Used when the app is in light mode (or system mode while OS is light).
+   */
+  appThemeIdLight?: string;
   /** Terminal font size in pixels (independent from editor font size) */
   terminalFontSize?: number;
   /** Terminal monospace font id — see MONOSPACE_FONTS in lib/fonts.ts */

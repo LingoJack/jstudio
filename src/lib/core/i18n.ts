@@ -225,6 +225,16 @@ export const translations = {
     'appearance.terminalTheme_jstudio-dark': 'JStudio Dark',
     'appearance.terminalTheme_jstudio-light': 'JStudio Light',
 
+    // ── App color theme ──
+    'appearance.appThemeDark': '深色配色主题',
+    'appearance.appThemeDarkDesc': '应用处于深色模式（或跟随系统且系统为深色）时使用此配色',
+    'appearance.appThemeLight': '浅色配色主题',
+    'appearance.appThemeLightDesc': '应用处于浅色模式（或跟随系统且系统为浅色）时使用此配色',
+    'appearance.appTheme_jstudio-dark': 'JStudio Dark',
+    'appearance.appTheme_jstudio-light': 'JStudio Light',
+    'appearance.appTheme_ink-dark': 'Ink Dark',
+    'appearance.appTheme_ink-light': 'Ink Light',
+
     // ── About section ──
     'about.contactAuthor': '联系作者',
     'about.helpGuide': '帮助指南',
@@ -705,6 +715,16 @@ export const translations = {
     'appearance.terminalTheme_ink-light': 'Ink Light',
     'appearance.terminalTheme_jstudio-dark': 'JStudio Dark',
     'appearance.terminalTheme_jstudio-light': 'JStudio Light',
+
+    // ── App color theme ──
+    'appearance.appThemeDark': 'Dark Color Theme',
+    'appearance.appThemeDarkDesc': 'Used when the app is in dark mode (or system mode while OS is dark)',
+    'appearance.appThemeLight': 'Light Color Theme',
+    'appearance.appThemeLightDesc': 'Used when the app is in light mode (or system mode while OS is light)',
+    'appearance.appTheme_jstudio-dark': 'JStudio Dark',
+    'appearance.appTheme_jstudio-light': 'JStudio Light',
+    'appearance.appTheme_ink-dark': 'Ink Dark',
+    'appearance.appTheme_ink-light': 'Ink Light',
 
     // ── About section ──
     'about.contactAuthor': 'Contact Author',
