@@ -299,7 +299,7 @@ export default function CommandPalette() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Tabs ── */}
-        <div className="flex items-center gap-1 px-2.5 pt-2 border-b border-[var(--vscode-widget-border)]">
+        <div className="flex items-center gap-1 px-2.5 pt-2.5 pb-1">
           <ModeTab
             label={searchTabLabel}
             active={!isCommandMode}
@@ -311,13 +311,13 @@ export default function CommandPalette() {
             onClick={() => switchMode(true)}
           />
           <div className="flex-1" />
-          <kbd className="text-tiny px-1.5 py-0.5 text-[var(--vscode-descriptionForeground)] opacity-50 mb-1.5 mr-0.5">
+          <kbd className="text-tiny px-1.5 py-0.5 text-[var(--vscode-descriptionForeground)] opacity-50">
             {bindingToDisplay(resolveBinding('app.commandPalette', overrides))}
           </kbd>
         </div>
 
         {/* ── Search input ── */}
-        <div className="flex items-center gap-2 px-3 h-10 border-b border-[var(--vscode-widget-border)]">
+        <div className="flex items-center gap-2 px-3 h-10">
           {isCommandMode ? (
             <TerminalSquare className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-50" />
           ) : (

@@ -340,7 +340,7 @@ export default function CommandPaletteWindow() {
         }}
       >
         {/* ── 搜索输入框（始终可见）── */}
-        <div className="flex items-center gap-2 px-3 h-10 shrink-0 border-b border-[var(--vscode-widget-border)]">
+        <div className="flex items-center gap-2 px-3 h-10 shrink-0">
           <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-50" />
           <input
             ref={inputRef}
