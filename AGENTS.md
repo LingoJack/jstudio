@@ -345,6 +345,64 @@ window.addEventListener('keydown', handler, true); // ← capture: true 是关�
 
 > 关键心态：ProseMirror 的事件链有多层拦截（`defaultPrevented` 检查 → keymap 插件 → `handleKeyDown` → `handleKeyPress`），任何一层拦截都会导致后续层收不到事件。逐层加 log 确认事件到底走到哪一步被吞了。
 
+### 3. WKWebView 快捷键拦截策略（不要使用原生菜单）
+
+> **关键设计决策**：本项目**不使用** Tauri 的原生菜单（`@tauri-apps/api/menu`）来拦截快捷键，而是依赖纯 JavaScript 的全局快捷键处理器 + TipTap/ProseMirror 的内置事件处理。
+
+**为什么不用原生菜单**：
+
+曾经尝试用 `PredefinedMenuItem` 注册 Edit 菜单（Copy/Cut/Paste/SelectAll）和 Quit 菜单，但带来严重问题：
+
+1. **`PredefinedMenuItem` 的 SelectAll 会选中整个 WebView 内容**，包括侧边栏、标题栏等，完全绕过 TipTap 的 `SelectAllText` 扩展。而我们的扩展有自定义逻辑：在代码块内只选中代码块内容，避免 WebKit 绘制全宽选中条。
+2. **原生菜单是全局的**，无法区分当前焦点是在编辑器还是普通 `<input>`。TipTap 的 copy/paste 处理需要配合编辑器状态（如处理 Markdown 解析、图片粘贴等），原生菜单会绕过这些逻辑。
+3. **Cmd+Q 交给 macOS 系统处理即可**，不需要手动注册 Quit 菜单项。
+
+**正确的方案**：
+
+- **Cmd+C/V/X**：不在全局快捷键注册表中注册，让事件自然传递给 TipTap/ProseMirror，它们有内置的 clipboard 处理（会触发 `copy`/`paste`/`cut` 事件）。
+- **Cmd+A**：不在全局快捷键注册表中注册，由 `SelectAllText` TipTap 扩展处理（`addKeyboardShortcuts` 注册 `Mod-a`）。
+- **Cmd+Q**：不在全局快捷键注册表中注册，macOS 系统会默认处理（退出应用）。
+- **Cmd+W**：这个是特例！WKWebView 原生层会拦截 Cmd+W 并直接关闭窗口，JavaScript 收不到事件。**解决方案**：在全局快捷键注册表中注册 `app.closeTab` = `mod+w`，用 `window.addEventListener('keydown', handler, true)` 在 capture 阶段拦截。
+
+**全局快捷键处理器**（`App.tsx`）：
+
+```ts
+// capture 阶段拦截 — JS 能接触到的最早时机
+window.addEventListener('keydown', handler, true);
+
+// handler 逻辑：
+// 1. 解析 event → binding 字串（如 "mod+w"）
+// 2. 查 SHORTCUTS 注册表 → 找到 action
+// 3. 执行 action
+// 4. 如果不在注册表中，不做任何处理，让事件继续传递
+```
+
+**注册表设计**（`lib/shortcuts/keyboardShortcuts.ts`）：
+
+```ts
+export const SHORTCUTS = {
+  'app.closeTab': { action: 'app.closeTab', binding: 'mod+w' },
+  'app.toggleSidebar': { action: 'app.toggleSidebar', binding: 'mod+b' },
+  // ...
+};
+
+// 注意：mod+c、mod+v、mod+a、mod+q 都不在注册表中
+// 这些快捷键由系统/TipTap 自然处理
+```
+
+**EDITOR_RESERVED 集合**：
+
+```ts
+const EDITOR_RESERVED = new Set([
+  'mod+b', // bold
+  'mod+i', // italic
+  'mod+s', // strike
+  'mod+e', // code
+]);
+```
+
+当焦点在编辑器内且快捷键在 `EDITOR_RESERVED` 中时，全局处理器**不拦截**，让 TipTap 自己处理。这是为了让格式化快捷键（Bold/Italic 等）走 TipTap 的 `addKeyboardShortcuts`，而不是全局处理器（后者会触发 store action，绕过编辑器事务）。
+
 ## 构建与运行
 
 ```bash
