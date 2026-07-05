@@ -30,12 +30,12 @@ export default function SearchBar() {
       >
         <span className="truncate">{t('palette.placeholder')}</span>
       </button>
-      <kbd
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-tiny px-1.5 py-0.5 rounded border border-[var(--vscode-input-border)] text-[var(--vscode-descriptionForeground)] opacity-60 pointer-events-none"
+      <span
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-tiny text-[var(--vscode-descriptionForeground)] opacity-50 pointer-events-none select-none"
         data-tauri-drag-region={false}
       >
         {shortcutHint}
-      </kbd>
+      </span>
     </div>
   );
 }
