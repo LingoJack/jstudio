@@ -289,12 +289,12 @@ export default function CommandPalette() {
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/25 backdrop-blur-[1px]" />
 
-      {/* Panel */}
+      {/* Panel - 漫画风格框线 */}
       <div
-        className="relative w-[min(520px,90vw)] overflow-hidden border border-[var(--vscode-widget-border)] bg-[var(--vscode-quickInput-background)] flex flex-col rounded-lg"
+        className="relative w-[min(520px,90vw)] overflow-hidden bg-[var(--vscode-quickInput-background)] flex flex-col rounded-lg"
         style={{
           animation: 'paletteIn 120ms ease-out',
-          boxShadow: '0 12px 32px -8px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
+          boxShadow: '2px 2px 0 0 rgba(0,0,0,0.08), inset 0 0 0 1.5px rgba(255,255,255,0.15)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
