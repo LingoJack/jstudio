@@ -7,7 +7,7 @@ import { eventToBinding, resolveBinding, type ShortcutBinding } from './lib/shor
 import { buildCommands } from './lib/core/commandRegistry';
 import { storage } from './lib/core/storage';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
-import { setupNativeMenu, NATIVE_CLOSE_TAB_EVENT } from './lib/core/nativeMenu';
+
 // Side-effect import: registers built-in action handlers into the registry.
 import './lib/shortcuts/globalShortcutActions';
 import TitleBar from './components/layout/TitleBar';
@@ -149,12 +149,8 @@ export default function App() {
   useEffect(() => {
     let unlistenTrigger: (() => void) | null = null;
     let unlistenSelect: (() => void) | null = null;
-    let unlistenCloseTab: (() => void) | null = null;
 
     (async () => {
-      // Setup native menu to intercept Cmd+W on macOS.
-      await setupNativeMenu();
-
       // Listen for OS-level shortcut trigger events.
       unlistenTrigger = await listen<GlobalShortcutConfig>(
         'global-shortcut-triggered',
@@ -189,20 +185,11 @@ export default function App() {
           store.setSettingsActiveSection(id as 'general');
         }
       });
-
-      // Listen for native menu "Close Tab" event (Cmd+W intercepted by macOS).
-      unlistenCloseTab = await listen(NATIVE_CLOSE_TAB_EVENT, () => {
-        const { activeTabId } = useStore.getState();
-        if (activeTabId) {
-          useStore.getState().closeTab(activeTabId);
-        }
-      });
     })();
 
     return () => {
       unlistenTrigger?.();
       unlistenSelect?.();
-      unlistenCloseTab?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
