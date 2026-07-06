@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
 import { eventToBinding, resolveBinding, type ShortcutBinding } from './lib/shortcuts/keyboardShortcuts';
@@ -149,6 +150,7 @@ export default function App() {
   useEffect(() => {
     let unlistenTrigger: (() => void) | null = null;
     let unlistenSelect: (() => void) | null = null;
+    let unlistenClose: (() => void) | null = null;
 
     (async () => {
       // Listen for OS-level shortcut trigger events.
@@ -185,11 +187,32 @@ export default function App() {
           store.setSettingsActiveSection(id as 'general');
         }
       });
+
+      // Listen for window-close-requested events (Cmd+W on macOS).
+      // WKWebView intercepts Cmd+W before JS can handle it, so we intercept
+      // at the Rust layer and emit this event. Frontend decides: close tab
+      // if multiple tabs exist, or close window if it's the last tab.
+      unlistenClose = await listen('window-close-requested', () => {
+        const store = useStore.getState();
+        const tabs = store.tabs;
+        const activeTabId = store.activeTabId;
+
+        if (tabs.length > 1 && activeTabId) {
+          // Multiple tabs: close the current tab.
+          store.closeTab(activeTabId);
+        } else {
+          // Last tab (or no tabs): close the window.
+          invoke('close_window').catch((err) => {
+            console.error('[App] Failed to close window:', err);
+          });
+        }
+      });
     })();
 
     return () => {
       unlistenTrigger?.();
       unlistenSelect?.();
+      unlistenClose?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

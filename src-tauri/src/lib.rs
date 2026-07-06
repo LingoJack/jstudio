@@ -1,6 +1,23 @@
 mod commands;
 mod db;
 
+use tauri::{Emitter, Manager};
+
+/// Handle window close requests (Cmd+W on macOS).
+/// Instead of closing the window immediately, we prevent the default action
+/// and emit an event to the frontend, letting it decide whether to close
+/// the tab or the window.
+fn on_window_close_requested(app: &tauri::AppHandle, api: &tauri::CloseRequestApi) {
+    // Prevent the default close action — we'll handle it in JS.
+    // The frontend will call `close_window` if it really wants to close.
+    api.prevent_close();
+
+    // Emit event to frontend so it can close the current tab instead.
+    // The frontend decides: close tab if multiple tabs exist, or close
+    // window if it's the last tab.
+    let _ = app.emit("window-close-requested", ());
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -8,6 +25,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // Intercept window close requests (Cmd+W on macOS) before WKWebView
+        // closes the window. We emit an event to JS and let it decide.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                on_window_close_requested(window.app_handle(), api);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             // ── storage: paths ──
             commands::storage::paths::ensure_studio_dir,
@@ -84,6 +108,8 @@ pub fn run() {
             // ── debug / build info ──
             commands::debug::get_build_info,
             commands::debug::open_devtools,
+            // ── window control ──
+            commands::window::close_window,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");
