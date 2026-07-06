@@ -4,7 +4,7 @@ import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { eventToBinding, resolveBinding } from '../../lib/shortcuts/keyboardShortcuts';
 import { createTerminalWindow } from '../../lib/windows/terminalDetach';
-import { getTerminalTheme } from '../../lib/terminal/themes';
+import { getTerminalThemeFromAppTheme } from '../../lib/terminal/themes';
 import { Plus, X, Clock, FolderOpen, Trash2 } from 'lucide-react';
 import type { TerminalSession } from '../../store/terminalSlice';
 import TerminalTabContextMenu from './TerminalTabContextMenu';
@@ -99,17 +99,12 @@ export default function TerminalTabs() {
   const wsTabs = useStore((s) => s.tabs);
   const wsSetActiveTab = useStore((s) => s.setActiveTab);
 
-  // ── Terminal theme: the tab bar follows the terminal palette so it
-  // feels native to the selected theme (not the editor's VSCode vars).
-  // The active tab uses `panelBg` — identical to the xterm content area
-  // below — so content visually "overflows" up into the active tab with
-  // no divider between them.
-  const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
-  const terminalThemeIdLight = useStore((s) => s.terminalThemeIdLight);
+  // ── Terminal theme: follows app theme (same IDs: jstudio-dark, jstudio-light, etc.)
+  const appThemeIdDark = useStore((s) => s.appThemeIdDark);
+  const appThemeIdLight = useStore((s) => s.appThemeIdLight);
   const isDarkMode = useStore((s) => s.isDarkMode);
-  const theme = getTerminalTheme(
-    isDarkMode ? terminalThemeIdDark : terminalThemeIdLight,
-  );
+  const appThemeId = isDarkMode ? appThemeIdDark : appThemeIdLight;
+  const theme = getTerminalThemeFromAppTheme(appThemeId, isDarkMode);
 
   /**
    * Switch to a terminal session AND sync the workspace active tab.

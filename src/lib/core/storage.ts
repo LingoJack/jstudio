@@ -117,25 +117,28 @@ export interface AppSettings {
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
   /**
-   * Terminal color theme for dark mode — see lib/terminalThemes.ts.
-   * Used when the app is in dark mode (or system mode while OS is dark).
+   * @deprecated Terminal theme now follows app theme (same IDs).
+   * Kept for backward compatibility but will be ignored.
    */
   terminalThemeIdDark?: string;
   /**
-   * Terminal color theme for light mode — see lib/terminalThemes.ts.
-   * Used when the app is in light mode (or system mode while OS is light).
+   * @deprecated Terminal theme now follows app theme (same IDs).
+   * Kept for backward compatibility but will be ignored.
    */
   terminalThemeIdLight?: string;
-  /** @deprecated Migrated to terminalThemeIdDark. Kept for one-time migration. */
+  /**
+   * @deprecated Terminal theme now follows app theme (same IDs).
+   * Kept for backward compatibility but will be ignored.
+   */
   terminalThemeId?: string;
   /**
    * App UI color theme for dark mode — see lib/themes/appThemes.ts.
-   * Used when the app is in dark mode (or system mode while OS is dark).
+   * Terminal theme automatically uses the same ID (app theme = terminal theme).
    */
   appThemeIdDark?: string;
   /**
    * App UI color theme for light mode — see lib/themes/appThemes.ts.
-   * Used when the app is in light mode (or system mode while OS is light).
+   * Terminal theme automatically uses the same ID (app theme = terminal theme).
    */
   appThemeIdLight?: string;
   /** Terminal font size in pixels (independent from editor font size) */

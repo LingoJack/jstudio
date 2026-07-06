@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
-import { getTerminalTheme } from '../../lib/terminal/themes';
+import { getTerminalThemeFromAppTheme } from '../../lib/terminal/themes';
 import TerminalTabs from './TerminalTabs';
 import PaneLayoutView from './PaneLayoutView';
 import { usePaneShortcuts } from './usePaneShortcuts';
@@ -16,14 +16,16 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   const activeGroupId = useStore((s) => s.activeGroupId);
   const sessions = useStore((s) => s.sessions);
   const createSession = useStore((s) => s.createSession);
-  const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
-  const terminalThemeIdLight = useStore((s) => s.terminalThemeIdLight);
+  const appThemeIdDark = useStore((s) => s.appThemeIdDark);
+  const appThemeIdLight = useStore((s) => s.appThemeIdLight);
   const isDarkMode = useStore((s) => s.isDarkMode);
 
   // Activate Kitty-style pane keyboard shortcuts.
   usePaneShortcuts();
 
-  const theme = getTerminalTheme(isDarkMode ? terminalThemeIdDark : terminalThemeIdLight);
+  // Terminal theme follows app theme (same IDs: jstudio-dark, jstudio-light, ink-dark, ink-light)
+  const appThemeId = isDarkMode ? appThemeIdDark : appThemeIdLight;
+  const theme = getTerminalThemeFromAppTheme(appThemeId, isDarkMode);
 
   const activeGroup = groups.find((g) => g.id === activeGroupId);
   const hasSessions = activeGroup && activeGroup.sessionIds.length > 0;

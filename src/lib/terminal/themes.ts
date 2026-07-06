@@ -255,6 +255,29 @@ export function getTerminalTheme(id: string | undefined): TerminalTheme {
 }
 
 /**
+ * Get the terminal theme that matches the current app theme.
+ * App theme IDs and terminal theme IDs are the same (jstudio-dark, jstudio-light, ink-dark, ink-light),
+ * so this simply uses the app theme ID to find the corresponding terminal theme.
+ *
+ * @param appThemeId - The current app theme ID (e.g. 'jstudio-dark', 'ink-light')
+ * @param isDarkMode - Whether the app is in dark mode (used for fallback)
+ * @returns The matching terminal theme
+ */
+export function getTerminalThemeFromAppTheme(
+  appThemeId: string,
+  isDarkMode: boolean,
+): TerminalTheme {
+  // Try to find a terminal theme with the same ID as the app theme
+  const matched = TERMINAL_THEMES.find((t) => t.id === appThemeId);
+  if (matched) return matched;
+
+  // Fallback: if app theme ID doesn't match any terminal theme,
+  // use the default for the current mode
+  const defaultId = isDarkMode ? DEFAULT_TERMINAL_THEME_ID_DARK : DEFAULT_TERMINAL_THEME_ID_LIGHT;
+  return TERMINAL_THEMES.find((t) => t.id === defaultId)!;
+}
+
+/**
  * Pick a sensible default terminal theme based on whether the app is in
  * dark or light mode. Used when the user selects "auto" behavior.
  */

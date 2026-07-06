@@ -14,7 +14,6 @@ import {
   resolveFontFamily,
   DEFAULT_MONOSPACE_FONT_ID,
 } from '../lib/editor/fonts';
-import { DEFAULT_TERMINAL_THEME_ID_DARK, DEFAULT_TERMINAL_THEME_ID_LIGHT } from '../lib/terminal/themes';
 import {
   applyAppTheme,
   getAppTheme,
@@ -109,8 +108,6 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents',
   settingsActiveSection: 'general',
-  terminalThemeIdDark: DEFAULT_TERMINAL_THEME_ID_DARK,
-  terminalThemeIdLight: DEFAULT_TERMINAL_THEME_ID_LIGHT,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
   terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
@@ -211,16 +208,6 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     );
     set({ sidebarWidth: clamped });
     storage.saveSettings({ sidebarWidth: clamped }).catch(onSaveError('设置'));
-  },
-
-  setTerminalThemeIdDark: (id) => {
-    set({ terminalThemeIdDark: id });
-    storage.saveSettings({ terminalThemeIdDark: id }).catch(onSaveError('设置'));
-  },
-
-  setTerminalThemeIdLight: (id) => {
-    set({ terminalThemeIdLight: id });
-    storage.saveSettings({ terminalThemeIdLight: id }).catch(onSaveError('设置'));
   },
 
   setAppThemeIdDark: (id) => {

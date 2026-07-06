@@ -9,7 +9,7 @@ import {
 import { useStore } from '../../store/useStore';
 import { storage } from '../../lib/core/storage';
 import {
-  getTerminalTheme,
+  getTerminalThemeFromAppTheme,
   withSemanticTerminalCursor,
 } from '../../lib/terminal/themes';
 import { useTerminalManager } from './useTerminalManager';
@@ -283,8 +283,8 @@ export default function PaneLayoutView({
   resizeState,
   hidden = false,
 }: PaneLayoutViewProps) {
-  const terminalThemeIdDark = useStore((s) => s.terminalThemeIdDark);
-  const terminalThemeIdLight = useStore((s) => s.terminalThemeIdLight);
+  const appThemeIdDark = useStore((s) => s.appThemeIdDark);
+  const appThemeIdLight = useStore((s) => s.appThemeIdLight);
   const isDarkMode = useStore((s) => s.isDarkMode);
   const terminalFontId = useStore((s) => s.terminalFontId);
   const terminalFontSize = useStore((s) => s.terminalFontSize);
@@ -292,13 +292,15 @@ export default function PaneLayoutView({
   const setActivePane = useStore((s) => s.setActivePane);
   const setPaneResizeState = useStore((s) => s.setPaneResizeState);
 
+  // Terminal theme follows app theme (same IDs: jstudio-dark, jstudio-light, etc.)
+  const appThemeId = isDarkMode ? appThemeIdDark : appThemeIdLight;
   const theme = useMemo(
     () =>
       withSemanticTerminalCursor(
-        getTerminalTheme(isDarkMode ? terminalThemeIdDark : terminalThemeIdLight),
+        getTerminalThemeFromAppTheme(appThemeId, isDarkMode),
         isDarkMode,
       ),
-    [isDarkMode, terminalThemeIdDark, terminalThemeIdLight],
+    [isDarkMode, appThemeId],
   );
 
   const { terminalsRef, setupTerminal, destroyTerminal, destroyAll, tryEnableWebgl } =

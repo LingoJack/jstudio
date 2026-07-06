@@ -47,9 +47,6 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let language: Language = 'zh';
       let activityBarBorder = false;
       let activityBarItems: ActivityBarItemConfig[] = DEFAULT_ACTIVITY_BAR_ITEMS;
-      let terminalThemeIdDark: string | undefined;
-      let terminalThemeIdLight: string | undefined;
-      let terminalThemeIdLegacy: string | undefined;
       let appThemeIdDark: string | undefined;
       let appThemeIdLight: string | undefined;
       let terminalFontSize: number | undefined;
@@ -99,16 +96,6 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
             if (!savedIds.has(def.id)) valid.push({ ...def });
           }
           activityBarItems = valid;
-        }
-        if (typeof settings.terminalThemeIdDark === 'string' && settings.terminalThemeIdDark) {
-          terminalThemeIdDark = settings.terminalThemeIdDark;
-        }
-        if (typeof settings.terminalThemeIdLight === 'string' && settings.terminalThemeIdLight) {
-          terminalThemeIdLight = settings.terminalThemeIdLight;
-        }
-        // One-time migration: old single-theme setting becomes the dark theme.
-        if (typeof settings.terminalThemeId === 'string' && settings.terminalThemeId) {
-          terminalThemeIdLegacy = settings.terminalThemeId;
         }
         if (typeof settings.appThemeIdDark === 'string' && settings.appThemeIdDark) {
           appThemeIdDark = settings.appThemeIdDark;
@@ -248,12 +235,6 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         fontSize,
         editorLineHeight,
         ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
-        ...(terminalThemeIdDark !== undefined
-          ? { terminalThemeIdDark }
-          : terminalThemeIdLegacy !== undefined
-            ? { terminalThemeIdDark: terminalThemeIdLegacy }
-            : {}),
-        ...(terminalThemeIdLight !== undefined ? { terminalThemeIdLight } : {}),
         ...(appThemeIdDark !== undefined ? { appThemeIdDark } : {}),
         ...(appThemeIdLight !== undefined ? { appThemeIdLight } : {}),
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
