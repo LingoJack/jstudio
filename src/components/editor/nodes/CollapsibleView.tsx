@@ -40,6 +40,7 @@ import {
   COLLAPSIBLE_WRAPPER_CLASS,
   COLLAPSIBLE_HEADER_CLASS,
 } from '../../ui/Collapsible';
+import { useCursorTrail } from '../CursorTrailContext';
 
 /** Tags that should be shielded from ProseMirror's event interception. */
 const SHIELD_TAGS = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT']);
@@ -54,6 +55,13 @@ export default function CollapsibleView({
   // Local state for editing — avoids ProseMirror re-render on every keystroke
   const [localSummary, setLocalSummary] = useState(summary);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Register input with cursor trail for caret measurement
+  const cursorTrail = useCursorTrail();
+  useEffect(() => {
+    if (!inputRef.current || !cursorTrail) return;
+    return cursorTrail.registerInput(inputRef.current);
+  }, [cursorTrail]);
 
   // Sync local state when node.attrs.summary changes from outside
   useEffect(() => {
@@ -142,14 +150,23 @@ export default function CollapsibleView({
             ref={inputRef}
             type="text"
             value={localSummary}
-            onChange={(e) => setLocalSummary(e.target.value)}
+            onChange={(e) => {
+              setLocalSummary(e.target.value);
+              // Notify cursor trail to re-measure caret position
+              cursorTrail?.markDirty();
+            }}
             onBlur={commitSummary}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
                 commitSummary();
               }
+              // Arrow keys move caret — notify trail
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                cursorTrail?.markDirty();
+              }
             }}
+            onSelect={() => cursorTrail?.markDirty()}
             placeholder="折叠块标题..."
             className="flex-1 bg-transparent border-none focus:outline-none text-sm font-medium text-[var(--vscode-editor-foreground)] placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-50"
           />

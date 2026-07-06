@@ -66,6 +66,13 @@ export class EditorCursorTrail extends BaseCursorTrail {
    *  used to measure the title caret's pixel position. Lazily created. */
   private titleMirror: HTMLDivElement | null = null;
 
+  /** Dynamic set of inputs inside NodeViews (e.g. CollapsibleView's summary
+   *  input). When any of these holds focus, we measure its caret via mirror.
+   *  Unlike titleEl, these inputs live INSIDE editorEl, so the normal check
+   *  `editorEl.contains(activeElement)` passes, but Selection API still
+   *  cannot read their caret. */
+  private inputEls: Set<HTMLInputElement> = new Set();
+
   /** Current cursor shape — controls the trail geometry. */
   private cursorStyle: EditorCursorStyle = 'bar';
 
@@ -192,6 +199,19 @@ export class EditorCursorTrail extends BaseCursorTrail {
    */
   setTitleEl(el: HTMLInputElement | null) {
     this.titleEl = el;
+  }
+
+  /**
+   * Register an input inside a NodeView (e.g. CollapsibleView's summary input)
+   * as an alternate caret host. These inputs live INSIDE editorEl, so the
+   * normal focus check passes, but Selection API cannot read their caret.
+   * Call this when the input mounts. Returns an unregister function.
+   */
+  registerInputEl(el: HTMLInputElement): () => void {
+    this.inputEls.add(el);
+    return () => {
+      this.inputEls.delete(el);
+    };
   }
 
   /**
@@ -484,6 +504,15 @@ export class EditorCursorTrail extends BaseCursorTrail {
     // other case falls through to the editor (contentEditable) path.
     if (this.titleEl && document.activeElement === this.titleEl) {
       return this.measureTitleCaretRect(this.titleEl);
+    }
+
+    // ── NodeView <input> branch ──
+    // Inputs inside NodeViews (e.g. CollapsibleView's summary input) also need
+    // mirror measurement. They live INSIDE editorEl, so the normal focus check
+    // passes, but Selection API still cannot read their caret.
+    const activeEl = document.activeElement;
+    if (activeEl && activeEl instanceof HTMLInputElement && this.inputEls.has(activeEl)) {
+      return this.measureTitleCaretRect(activeEl);
     }
 
     const sel = window.getSelection();
