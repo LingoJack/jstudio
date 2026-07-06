@@ -29,7 +29,7 @@ GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
         current_dir push push-non-ai commit pull status \
         deps deps-fe deps-tauri \
         dev build release \
-        install uninstall reinstall \
+        install install-jstudio-only uninstall reinstall \
         bump-version set-version \
         fmt lint check clippy pre-commit \
         fmt-fe lint-fe check-fe \
@@ -145,11 +145,30 @@ build: deps ## 构建 Tauri 应用（release）
 
 release: build ## 别名：构建发布版本
 
+# jcli 父目录路径（相对路径）
+JCLI_ROOT := $(shell cd ../.. && pwd)
+JCLI_INSTALL_DIR := $(HOME)/.jdata/bin
+
 # ============================================
 # 安装相关
 # ============================================
-install: build ## 安装 JStudio app（macOS 安装到 /Applications，其他系统提示二进制路径）
+install: ## 安装 JStudio app（macOS 安装到 /Applications）；若 j cli 不存在则自动从父目录 jcli 安装
 	@echo "📦 安装 JStudio..."
+	@if ! command -v j >/dev/null 2>&1; then \
+		echo "⚠️  j cli 未安装，正在从父目录 jcli 安装..."; \
+		if [ -f "$(JCLI_ROOT)/Makefile" ]; then \
+			cd "$(JCLI_ROOT)" && $(MAKE) install; \
+		else \
+			echo "✖️ 未找到 jcli Makefile: $(JCLI_ROOT)/Makefile"; \
+			echo "   请手动安装 j cli: curl -fsSL https://raw.githubusercontent.com/LingoJack/jcli/main/install.sh | sh"; \
+			exit 1; \
+		fi; \
+		echo ""; \
+	fi
+	@$(MAKE) install-jstudio-only
+
+install-jstudio-only: build ## 仅安装 JStudio app（不检查 j cli）
+	@echo "📦 安装 JStudio App..."
 	@if [ "$$(uname -s)" = "Darwin" ]; then \
 		if [ ! -d "$(MACOS_APP)" ]; then \
 			echo "✖️ 未找到 $(MACOS_APP)"; exit 1; \
