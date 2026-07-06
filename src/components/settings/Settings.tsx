@@ -74,8 +74,6 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: 'settings.terminal',
     icon: Terminal,
     subItems: [
-      { anchorId: 'settings-terminal-themeDark', labelKey: 'appearance.terminalThemeDark' },
-      { anchorId: 'settings-terminal-themeLight', labelKey: 'appearance.terminalThemeLight' },
       { anchorId: 'settings-terminal-fontFamily', labelKey: 'terminal.fontFamily' },
       { anchorId: 'settings-terminal-cursorStyle', labelKey: 'terminal.cursorStyle' },
       { anchorId: 'settings-terminal-fontSize', labelKey: 'general.terminalFontSize' },
