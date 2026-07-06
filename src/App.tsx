@@ -1,16 +1,16 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
-import { eventToBinding, resolveBinding, SHORTCUTS, type ShortcutBinding, type ShortcutScope } from './lib/shortcuts/keyboardShortcuts';
-import { buildCommands } from './lib/core/commandRegistry';
 import { storage } from './lib/core/storage';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
+import { shortcutManager } from './lib/shortcuts/ShortcutManager';
 
-// Side-effect import: registers built-in action handlers into the registry.
+// Side-effect import: registers built-in action handlers for global shortcuts.
 import './lib/shortcuts/globalShortcutActions';
+
 import TitleBar from './components/layout/TitleBar';
 import ActivityBar from './components/layout/ActivityBar';
 import DocumentList from './components/documents/DocumentList';
@@ -22,16 +22,6 @@ import Settings from './components/settings/Settings';
 import EmptyState from './components/ui/EmptyState';
 import CommandPalette from './components/editor/CommandPalette';
 import { ToastContainer } from './components/ui/Toast';
-
-/**
- * Formatting shortcuts the editor owns.  When focus is inside a
- * contenteditable surface we must NOT hijack these — TipTap handles them.
- * Module-scope constant so the keydown handler doesn't rebuild the Set on
- * every keypress.
- */
-const EDITOR_RESERVED = new Set([
-  'mod+b', 'mod+i', 'mod+u', 'mod+e', 'mod+shift+s',
-]);
 
 export default function App() {
   const { t } = useI18n();
@@ -57,86 +47,13 @@ export default function App() {
     init();
   }, [init]);
 
-  // ── Global shortcuts (command palette + all shortcutId-mapped commands) ──
-  // Build a shortcutId → perform map once (commands are static).
-  const shortcutCommandMap = useMemo(() => {
-    const map = new Map<string, (store: ReturnType<typeof useStore.getState>) => void>();
-    for (const cmd of buildCommands()) {
-      if (cmd.shortcutId) {
-        map.set(cmd.shortcutId, cmd.perform);
-      }
-    }
-    return map;
-  }, []);
-
-  // User-customized bindings. Subscribed so the reverse lookup map below
-  // rebuilds ONLY when the user changes a binding — not on every keypress.
-  const keyboardShortcuts = useStore((s) => s.keyboardShortcuts);
-
-  // Reverse index: effective binding string → action.  Built once per
-  // override change (≈ never at runtime).  This replaces the previous
-  // per-keystroke scan that ran resolveBinding() — an O(SHORTCUTS) find() —
-  // ~20 times for EVERY key (including plain typing), just to discover that
-  // a printable character matches nothing.  Now a keypress is a single
-  // Map.get().  `null` perform marks the command-palette meta shortcut.
-  //
-  // NOTE: We only register shortcuts with scope='global' here. Terminal-scope
-  // shortcuts (like terminal.newTab) are handled by TerminalTabs.tsx's own
-  // keydown handler, which only fires when the terminal view is active.
-  const bindingActionMap = useMemo(() => {
-    const map = new Map<
-      ShortcutBinding,
-      (store: ReturnType<typeof useStore.getState>) => void
-    >();
-
-    // Command palette (meta shortcut, not in buildCommands).
-    const cpBinding = resolveBinding('app.commandPalette', keyboardShortcuts);
-    if (cpBinding) {
-      map.set(cpBinding, (store) => store.setCommandPaletteOpen(true));
-    }
-
-    // All other shortcutId-mapped commands with scope='global'.
-    // If a user override collides with the command palette binding, the
-    // palette wins (set first, not overwritten) — matching the previous
-    // handler's early-return order.
-    for (const [shortcutId, perform] of shortcutCommandMap) {
-      const def = SHORTCUTS.find((s) => s.id === shortcutId);
-      // Skip terminal-scope shortcuts — handled by TerminalTabs.tsx
-      if (def?.scope === 'terminal') continue;
-      const binding = resolveBinding(shortcutId, keyboardShortcuts);
-      if (!binding || map.has(binding)) continue;
-      map.set(binding, perform);
-    }
-
-    return map;
-  }, [shortcutCommandMap, keyboardShortcuts]);
-
+  // ── Unified Shortcut Manager ──
+  // Start the global keyboard shortcut handler on mount.
+  // This replaces the previous per-component keydown handlers.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const binding = eventToBinding(e);
-      if (!binding) return;
-
-      const perform = bindingActionMap.get(binding);
-      if (!perform) return; // not a registered shortcut — fast path for typing
-
-      // Editor conflict protection: when the focus is inside a contenteditable
-      // element, let the editor handle known formatting shortcuts (bold,
-      // italic, underline, strikethrough, inline code) to avoid hijacking.
-      if (EDITOR_RESERVED.has(binding)) {
-        const active = document.activeElement;
-        const inEditor =
-          active instanceof HTMLElement &&
-          (active.isContentEditable ||
-            active.closest('[contenteditable="true"], [data-editor-surface]'));
-        if (inEditor) return;
-      }
-
-      e.preventDefault();
-      perform(useStore.getState());
-    };
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
-  }, [bindingActionMap]);
+    shortcutManager.start();
+    return () => shortcutManager.stop();
+  }, []);
 
   // ── OS-level global shortcuts: register on config load, listen for triggers ──
   // The configs are loaded asynchronously into the store during initApp().

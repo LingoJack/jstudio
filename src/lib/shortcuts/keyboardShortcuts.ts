@@ -53,6 +53,12 @@ export interface ShortcutDef {
   labelKey: string;
   /** i18n key for the description (optional) */
   descKey?: string;
+  /**
+   * Action ID to execute when triggered.
+   * Defaults to the shortcut ID if not specified.
+   * Used by ShortcutManager to dispatch via commandRegistry.
+   */
+  actionId?: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

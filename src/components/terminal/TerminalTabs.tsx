@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { eventToBinding, resolveBinding } from '../../lib/shortcuts/keyboardShortcuts';
 import { createTerminalWindow } from '../../lib/windows/terminalDetach';
 import { getTerminalThemeFromAppTheme } from '../../lib/terminal/themes';
 import { Plus, X, Clock, FolderOpen, Trash2 } from 'lucide-react';
@@ -161,79 +160,8 @@ export default function TerminalTabs() {
   } | null>(null);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const binding = eventToBinding(e);
-      if (!binding) return;
-
-      const store = useStore.getState();
-      const ov = store.keyboardShortcuts;
-
-      // Only handle cycleTabLeft/cycleTabRight when terminal view is active.
-      // Otherwise let the global handler (App.tsx) switch document tabs.
-      const isTerminalView = store.activeSidebarView === 'terminal';
-
-      // newTab — only handle when terminal view is active.
-      // Otherwise let App.tsx handle (it won't — terminal.newTab scope is 'global'
-      // but App's handler only passes it through; we intercept here to scope it).
-      if (binding === resolveBinding('terminal.newTab', ov)) {
-        if (!isTerminalView) return;
-        e.preventDefault();
-        e.stopPropagation();
-        createSession();
-        return;
-      }
-
-      // cycleTabLeft / cycleTabRight — now use the global workspace
-      // shortcut IDs (app.cycleTabLeft / app.cycleTabRight).
-      // Only handle when terminal view is active; otherwise let App.tsx handle.
-      if (
-        binding === resolveBinding('app.cycleTabLeft', ov) ||
-        (e.altKey && e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey))
-      ) {
-        if (!isTerminalView) return;
-        if (groups.length < 2) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        const idx = groups.findIndex((g) => g.id === activeGroupId);
-        if (idx === -1) return;
-
-        const next = (idx - 1 + groups.length) % groups.length;
-        switchSession(groups[next].activeSessionId);
-        return;
-      }
-      if (
-        binding === resolveBinding('app.cycleTabRight', ov) ||
-        (e.altKey && e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey))
-      ) {
-        if (!isTerminalView) return;
-        if (groups.length < 2) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        const idx = groups.findIndex((g) => g.id === activeGroupId);
-        if (idx === -1) return;
-
-        const next = (idx + 1) % groups.length;
-        switchSession(groups[next].activeSessionId);
-        return;
-      }
-
-      // detachTab — tear the active tab off into a new OS window
-      if (binding === resolveBinding('terminal.detachTab', ov)) {
-        if (groups.length < 2) return;
-        if (!activeGroupId) return;
-        e.preventDefault();
-        e.stopPropagation();
-        createTerminalWindow(activeGroupId);
-        return;
-      }
-    };
-
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
-  }, [groups, activeGroupId, setActiveSession, createSession, wsTabs, wsSetActiveTab]);
+  // NOTE: All keyboard shortcuts are now handled centrally by ShortcutManager.
+  // No per-component keydown handlers needed.
 
   // ── Scroll active tab into view ──────────────────────────────────
   useEffect(() => {

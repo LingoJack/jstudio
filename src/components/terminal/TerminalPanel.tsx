@@ -3,13 +3,13 @@ import { useStore } from '../../store/useStore';
 import { getTerminalThemeFromAppTheme } from '../../lib/terminal/themes';
 import TerminalTabs from './TerminalTabs';
 import PaneLayoutView from './PaneLayoutView';
-import { usePaneShortcuts } from './usePaneShortcuts';
 import '@xterm/xterm/css/xterm.css';
 
 /**
  * TerminalPanel — top-level container for the terminal view.
  *
  * Always renders its own `<TerminalTabs />` tab bar.
+ * NOTE: All keyboard shortcuts are now handled centrally by ShortcutManager.
  */
 export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   const groups = useStore((s) => s.groups);
@@ -19,9 +19,6 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   const appThemeIdDark = useStore((s) => s.appThemeIdDark);
   const appThemeIdLight = useStore((s) => s.appThemeIdLight);
   const isDarkMode = useStore((s) => s.isDarkMode);
-
-  // Activate Kitty-style pane keyboard shortcuts.
-  usePaneShortcuts();
 
   // Terminal theme follows app theme (same IDs: jstudio-dark, jstudio-light, ink-dark, ink-light)
   const appThemeId = isDarkMode ? appThemeIdDark : appThemeIdLight;

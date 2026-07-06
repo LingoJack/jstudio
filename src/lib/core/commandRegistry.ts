@@ -19,9 +19,78 @@ import {
 import type { StoreState } from '../../store/storeHelpers';
 import { storage } from './storage';
 import { ACTIVITY_ITEM_META } from '../activityMeta';
+import { createTerminalWindow } from '../windows/terminalDetach';
 
 // ──────────────────────────────────────────────────────────────────
-// Types
+// Shortcut Action Registry
+// ──────────────────────────────────────────────────────────────────
+
+/**
+ * ShortcutAction — maps shortcut ID to a store action.
+ * Used by ShortcutManager to dispatch keyboard shortcuts.
+ */
+export interface ShortcutAction {
+  id: string;
+  perform: (store: StoreState) => void;
+}
+
+/**
+ * All shortcut actions, indexed by shortcut ID.
+ * This is the single source of truth for what each shortcut does.
+ * Terminal-scope actions are included here; ShortcutManager will
+ * only invoke them when the terminal view is active.
+ */
+export const SHORTCUT_ACTIONS: ShortcutAction[] = [
+  // ── Global / App ──
+  { id: 'app.commandPalette', perform: (store) => store.setCommandPaletteOpen(true) },
+  { id: 'app.newDocument', perform: (store) => store.createDocument() },
+  { id: 'app.toggleSidebar', perform: (store) => store.toggleSidebar() },
+  { id: 'app.toggleOutline', perform: (store) => store.toggleOutline() },
+  { id: 'app.openSettings', perform: (store) => store.setSettingsOpen(true) },
+  { id: 'app.goToDocuments', perform: (store) => { store.setSettingsOpen(false); store.setActiveSidebarView('documents'); if (!store.isSidebarOpen) store.toggleSidebar(); } },
+  { id: 'app.goToTerminal', perform: (store) => { store.setSettingsOpen(false); store.setActiveSidebarView('terminal'); if (!store.isSidebarOpen) store.toggleSidebar(); } },
+  { id: 'app.cycleTabLeft', perform: (store) => store.cycleTab(-1) },
+  { id: 'app.cycleTabRight', perform: (store) => store.cycleTab(1) },
+  { id: 'app.closeTab', perform: (store) => { if (store.activeTabId) store.closeTab(store.activeTabId); } },
+  { id: 'app.toggleDarkMode', perform: (store) => store.toggleDarkMode() },
+  { id: 'app.setDarkTheme', perform: (store) => store.setThemeMode('dark') },
+  { id: 'app.setLightTheme', perform: (store) => store.setThemeMode('light') },
+  { id: 'app.setSystemTheme', perform: (store) => store.setThemeMode('system') },
+  { id: 'app.importMarkdown', perform: importMarkdown },
+
+  // ── Terminal Tabs ──
+  { id: 'terminal.newTab', perform: (store) => store.createSession() },
+  {
+    id: 'terminal.detachTab',
+    perform: (store) => {
+      // Only detach if there are multiple groups (tabs)
+      if (store.groups.length < 2) return;
+      if (!store.activeGroupId) return;
+      createTerminalWindow(store.activeGroupId);
+    },
+  },
+
+  // ── Terminal Panes ──
+  { id: 'terminal.splitPane', perform: (store) => store.splitPane() },
+  { id: 'terminal.closePane', perform: (store) => { if (store.activeSessionId) store.closePane(store.activeSessionId); } },
+  { id: 'terminal.focusPrevPane', perform: (store) => store.focusPrevPane() },
+  { id: 'terminal.focusNextPane', perform: (store) => store.focusNextPane() },
+  { id: 'terminal.cycleLayout', perform: (store) => store.cyclePaneLayout() },
+  { id: 'terminal.movePane', perform: (store) => store.moveActivePane() },
+
+  // ── Editor Blocks ── (handled by TipTap, listed here for completeness)
+  { id: 'editor.insertBlockBelow', perform: () => { /* TipTap handles */ } },
+  { id: 'editor.insertBlockAbove', perform: () => { /* TipTap handles */ } },
+];
+
+/**
+ * Fast lookup: shortcut ID → action function.
+ */
+export function getShortcutAction(id: string): ((store: StoreState) => void) | null {
+  const action = SHORTCUT_ACTIONS.find((a) => a.id === id);
+  return action?.perform ?? null;
+}
+
 // ──────────────────────────────────────────────────────────────────
 
 export interface PaletteCommand {
