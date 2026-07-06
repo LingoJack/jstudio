@@ -247,6 +247,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         isLoading: false,
       });
 
+      // Open a workspace tab for the first document (if any).
+      // This ensures DocumentTabs shows the active document on startup.
+      if (firstId) {
+        get().openDocumentTab(firstId);
+      }
+
       // Load folder index
       try {
         const folders = await storage.loadFolders();
