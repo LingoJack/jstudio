@@ -1326,15 +1326,15 @@ button {
 }
 
 /* 可缩放方框本体（对齐 file-block-figure）
-   常态: 2px widget-border
-   选中(NodeSelection) / 光标在代码内(focus-within): 2px focusBorder 高亮 */
+   常态: 1px widget-border
+   选中(NodeSelection) / 光标在代码内(focus-within): 1px focusBorder 高亮 */
 .code-block-figure {
   position: relative;
   display: block;
   max-width: 100%;
   box-sizing: border-box;
   border-radius: 8px;
-  border: 2px solid var(--vscode-widget-border);
+  border: 1px solid var(--vscode-widget-border);
   background: var(--vscode-textCodeBlock-background);
   transition: border-color 0.15s;
 }
