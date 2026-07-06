@@ -173,8 +173,11 @@ export default function TerminalTabs() {
       // Otherwise let the global handler (App.tsx) switch document tabs.
       const isTerminalView = store.activeSidebarView === 'terminal';
 
-      // newTab
+      // newTab — only handle when terminal view is active.
+      // Otherwise let App.tsx handle (it won't — terminal.newTab scope is 'global'
+      // but App's handler only passes it through; we intercept here to scope it).
       if (binding === resolveBinding('terminal.newTab', ov)) {
+        if (!isTerminalView) return;
         e.preventDefault();
         e.stopPropagation();
         createSession();

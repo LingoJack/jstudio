@@ -24,16 +24,24 @@ export function usePaneShortcuts() {
   const focusPrevPane = useStore((s) => s.focusPrevPane);
   const closePane = useStore((s) => s.closePane);
   const activeSessionId = useStore((s) => s.activeSessionId);
+  const activeSidebarView = useStore((s) => s.activeSidebarView);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const binding = eventToBinding(e);
       if (!binding) return;
 
-      const ov = useStore.getState().keyboardShortcuts;
+      const store = useStore.getState();
+      const ov = store.keyboardShortcuts;
+
+      // Only handle terminal-scope shortcuts when terminal view is active.
+      // Otherwise let the editor / browser handle them (e.g. Cmd+ArrowLeft/Right
+      // for jumping to line start/end in the document editor).
+      const isTerminalView = store.activeSidebarView === 'terminal';
 
       // splitPane
       if (binding === resolveBinding('terminal.splitPane', ov)) {
+        if (!isTerminalView) return;
         e.preventDefault();
         e.stopPropagation();
         splitPane();
@@ -42,6 +50,7 @@ export function usePaneShortcuts() {
 
       // cycleLayout
       if (binding === resolveBinding('terminal.cycleLayout', ov)) {
+        if (!isTerminalView) return;
         e.preventDefault();
         e.stopPropagation();
         cyclePaneLayout();
@@ -50,6 +59,7 @@ export function usePaneShortcuts() {
 
       // movePane
       if (binding === resolveBinding('terminal.movePane', ov)) {
+        if (!isTerminalView) return;
         e.preventDefault();
         e.stopPropagation();
         moveActivePane();
@@ -58,12 +68,14 @@ export function usePaneShortcuts() {
 
       // focusPrevPane / focusNextPane
       if (binding === resolveBinding('terminal.focusPrevPane', ov)) {
+        if (!isTerminalView) return;
         e.preventDefault();
         e.stopPropagation();
         focusPrevPane();
         return;
       }
       if (binding === resolveBinding('terminal.focusNextPane', ov)) {
+        if (!isTerminalView) return;
         e.preventDefault();
         e.stopPropagation();
         focusNextPane();
@@ -73,6 +85,7 @@ export function usePaneShortcuts() {
       // closeTab is now handled globally by app.closeTab (workspace layer).
       // We only handle closePane here (Cmd/Ctrl+Shift+W).
       if (binding === resolveBinding('terminal.closePane', ov)) {
+        if (!isTerminalView) return;
         if (!activeSessionId) return;
         e.preventDefault();
         e.stopPropagation();
@@ -91,5 +104,6 @@ export function usePaneShortcuts() {
     focusPrevPane,
     closePane,
     activeSessionId,
+    activeSidebarView,
   ]);
 }

@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
-import { eventToBinding, resolveBinding, type ShortcutBinding } from './lib/shortcuts/keyboardShortcuts';
+import { eventToBinding, resolveBinding, SHORTCUTS, type ShortcutBinding, type ShortcutScope } from './lib/shortcuts/keyboardShortcuts';
 import { buildCommands } from './lib/core/commandRegistry';
 import { storage } from './lib/core/storage';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
@@ -79,6 +79,10 @@ export default function App() {
   // ~20 times for EVERY key (including plain typing), just to discover that
   // a printable character matches nothing.  Now a keypress is a single
   // Map.get().  `null` perform marks the command-palette meta shortcut.
+  //
+  // NOTE: We only register shortcuts with scope='global' here. Terminal-scope
+  // shortcuts (like terminal.newTab) are handled by TerminalTabs.tsx's own
+  // keydown handler, which only fires when the terminal view is active.
   const bindingActionMap = useMemo(() => {
     const map = new Map<
       ShortcutBinding,
@@ -91,10 +95,14 @@ export default function App() {
       map.set(cpBinding, (store) => store.setCommandPaletteOpen(true));
     }
 
-    // All other shortcutId-mapped commands.  If a user override collides with
-    // the command palette binding, the palette wins (set first, not
-    // overwritten) — matching the previous handler's early-return order.
+    // All other shortcutId-mapped commands with scope='global'.
+    // If a user override collides with the command palette binding, the
+    // palette wins (set first, not overwritten) — matching the previous
+    // handler's early-return order.
     for (const [shortcutId, perform] of shortcutCommandMap) {
+      const def = SHORTCUTS.find((s) => s.id === shortcutId);
+      // Skip terminal-scope shortcuts — handled by TerminalTabs.tsx
+      if (def?.scope === 'terminal') continue;
       const binding = resolveBinding(shortcutId, keyboardShortcuts);
       if (!binding || map.has(binding)) continue;
       map.set(binding, perform);

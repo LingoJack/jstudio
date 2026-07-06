@@ -211,7 +211,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   {
     id: 'terminal.newTab',
     category: 'terminal-tabs',
-    scope: 'global',
+    scope: 'terminal',
     defaultBinding: 'mod+t',
     customizable: true,
     labelKey: 'shortcut.terminal.newTab',
