@@ -28,3 +28,9 @@
 
 ## i18n 规范
 - `TranslationKey = keyof translations.zh`（只取自 zh 块）；新增 key 必须 zh+en 同时写；禁止重复 key（TS1117）
+
+## Tailwind v4 注意事项
+- **arbitrary value 不支持嵌套 `var()` fallback**：`border-[var(--vscode-menu-border, var(--vscode-widget-border))]` 不会被编译成 CSS 规则，导致 `border-color` 回退到 `currentColor`（文字色）。dark 主题下文字近白，边框会显示为"白色框"。
+- 正确写法：`border-[var(--vscode-menu-border)]`（单变量，无 fallback）。项目主题变量在所有主题 + :root + .dark 都有定义，不需要 fallback。
+- CSS 原生规则（vscode-theme.css 里的 `var(--a, var(--b))`）不受此限制，可保留 fallback。
+- 受此 bug 影响已修复的文件：TableControls.tsx（4处）、MenuList.tsx（1处）。排查方法：grep `\[var\(--vscode-[a-z-]+,\s*var\(--vscode-`
