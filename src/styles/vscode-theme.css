@@ -2236,11 +2236,11 @@ button {
    ============================================ */
 
 /* Wrapper around the table — horizontal scroll for wide tables.
-   Only a bottom border + subtle shadow for depth, no heavy frame. */
+   Minimal frame: only a subtle border, no heavy outline. */
 .ProseMirror .tableWrapper {
   margin: 16px 0;
-  border-radius: 6px;
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--vscode-widget-border, rgba(128, 128, 128, 0.25)) 50%, transparent);
   overflow-x: auto;
 }
 
@@ -2260,15 +2260,17 @@ button {
   text-align: left;
   vertical-align: top;
   box-sizing: border-box;
-  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-widget-border, rgba(128, 128, 128, 0.3)) 60%, transparent);
 }
 
-/* Body cells — hairline grid lines only */
+/* Body cells — very light hairline grid lines */
 .ProseMirror .tableWrapper th,
 .ProseMirror .tableWrapper td {
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
-  border-top: none;  /* header's own border-bottom handles the header/body seam */
-  padding: 7px 12px;
+  border-right: 1px solid color-mix(in srgb, var(--vscode-widget-border, rgba(128, 128, 128, 0.2)) 40%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-widget-border, rgba(128, 128, 128, 0.2)) 40%, transparent);
+  border-top: none;
+  border-left: none;
+  padding: 8px 12px;
   min-width: 80px;
   vertical-align: top;
   box-sizing: border-box;
@@ -2276,11 +2278,20 @@ button {
   transition: background-color 0.12s;
 }
 
-/* Header cells: skip the per-cell border, rely on th bottom-border for a
-   continuous seam; still keep right border for grid structure. */
+/* Header cells: keep the bottom border visible for header/body separation */
 .ProseMirror .tableWrapper th {
-  border-top: 1px solid transparent; /* align with wrapper's top edge */
-  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-widget-border, rgba(128, 128, 128, 0.3)) 60%, transparent);
+}
+
+/* Last column: no right border for cleaner edge */
+.ProseMirror .tableWrapper th:last-child,
+.ProseMirror .tableWrapper td:last-child {
+  border-right: none;
+}
+
+/* Last row: no bottom border for cleaner edge */
+.ProseMirror .tableWrapper tr:last-child td {
+  border-bottom: none;
 }
 
 /* No per-cell hover flicker — only the selected cell gets a highlight.
