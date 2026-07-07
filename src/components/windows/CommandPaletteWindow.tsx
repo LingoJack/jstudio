@@ -330,7 +330,7 @@ export default function CommandPaletteWindow() {
       {/* ── 面板 - 漫画风格框线 ── */}
       <div
         ref={panelRef}
-        className="flex flex-col overflow-hidden rounded-lg"
+        className="flex flex-col overflow-hidden rounded-2xl"
         style={{
           width: 'min(520px, 92vw)',
           maxHeight: '68vh',
