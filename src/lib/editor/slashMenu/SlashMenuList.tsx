@@ -107,7 +107,7 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
     return (
       <div
         ref={containerRef}
-        className="min-w-[220px] max-h-[280px] overflow-y-auto rounded-lg border border-[var(--vscode-menu-border, var(--vscode-widget-border))] bg-[var(--vscode-editorWidget-background)] p-1 shadow-lg"
+        className="slash-menu-panel"
         role="listbox"
         aria-label="Slash commands"
       >

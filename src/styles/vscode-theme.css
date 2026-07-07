@@ -56,7 +56,7 @@
   --vscode-textPreformat-foreground: #3B3B3B;
   --vscode-textPreformat-background: #0000001F;
   --vscode-menu-background: #FFFFFF;
-  --vscode-menu-border: #CECECE;
+  --vscode-menu-border: #D0D0D0;
   --vscode-menu-hoverBackground: #F2F2F2;
   --vscode-menu-separatorBackground: #E5E5E5;
   --vscode-menu-selectionBackground: #0052D9;
@@ -1471,6 +1471,18 @@ button {
   align-items: center;
   padding: 8px 10px;
   border-bottom: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
+}
+
+/* Slash menu panel — / 弹窗 */
+.slash-menu-panel {
+  min-width: 220px;
+  max-height: 280px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
+  background: var(--vscode-quickInput-background, var(--vscode-editorWidget-background));
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .code-lang-search-icon {
