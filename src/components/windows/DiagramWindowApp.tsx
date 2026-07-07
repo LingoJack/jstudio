@@ -17,11 +17,13 @@ import {
   type DiagramPayload,
 } from '../../lib/windows/diagramWindow';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
+import { useI18n } from '../../lib/core/i18n';
 
 export default function DiagramWindowApp() {
   const [payload, setPayload] = useState<DiagramPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   // Keep latest snapshot in a ref so we can send a final update on close.
   const latestSnapshot = useRef('');
@@ -37,7 +39,7 @@ export default function DiagramWindowApp() {
         latestSnapshot.current = data.snapshot || '';
         setPayload(data);
       } else {
-        setError('无法加载画板数据');
+        setError(t('diagram.loadError'));
       }
       setLoading(false);
     });
@@ -75,7 +77,7 @@ export default function DiagramWindowApp() {
     return (
       <div className="diagram-window-loading">
         <div className="spinner" />
-        <span>正在加载画板…</span>
+        <span>{t('diagram.loading')}</span>
       </div>
     );
   }

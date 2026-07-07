@@ -365,6 +365,67 @@ export const translations = {
     'slash.collapsible': '折叠区域',
     'slash.collapsibleDesc': '可折叠/展开的内容区域',
 
+    // ── Terminal Window ──
+    'terminal.loadError': '无法加载终端会话',
+    'terminal.loading': '正在加载终端…',
+
+    // ── Diagram Window ──
+    'diagram.loadError': '无法加载画板数据',
+    'diagram.loading': '正在加载画板…',
+
+    // ── Document Window ──
+    'document.loadError': '无法加载文档',
+    'document.loading': '正在加载文档…',
+
+    // ── PDF Preview ──
+    'pdf.loadError': '无法加载 PDF',
+    'pdf.error': 'PDF 加载失败',
+    'pdf.loading': '正在加载 PDF…',
+    'pdf.prevPage': '上一页',
+    'pdf.nextPage': '下一页',
+    'pdf.zoomOut': '缩小',
+    'pdf.zoomIn': '放大',
+    'pdf.fitWidth': '适配宽度',
+    'pdf.parseError': '加载失败',
+
+    // ── CodeBlockView Extended ──
+    'code.showCode': '显示代码',
+    'code.previewHtml': '预览 HTML',
+    'code.previewNewWindow': '在新窗口预览',
+    'code.dragResize': '拖拽调节大小，双击重置',
+
+    // ── Mermaid Import Dialog ──
+    'mermaid.title': '导入 Mermaid 图表',
+    'mermaid.inputPlaceholder': '请输入 Mermaid 代码',
+    'mermaid.convertError': '转换失败',
+    'mermaid.exception': '转换异常: {error}',
+    'mermaid.close': '关闭',
+    'mermaid.convert': '转换',
+
+    // ── Link Preview Tabs ──
+    'linkPreview.closeTab': '关闭标签',
+    'linkPreview.newTab': '新建标签',
+    'linkPreview.refresh': '刷新',
+    'linkPreview.openBrowser': '在浏览器中打开',
+    'linkPreview.home': '首页',
+    'linkPreview.urlPlaceholder': '输入 URL 并按 Enter...',
+
+    // ── Command Palette Window ──
+    'paletteWindow.loading': '加载中…',
+
+    // ── Preview Window ──
+    'preview.loading': '正在加载预览…',
+    'preview.notSupported': '此文件类型不支持预览',
+    'preview.closeWindow': '关闭窗口',
+    'preview.docxLoading': '正在解析 DOCX…',
+    'preview.docxError': 'Failed to load DOCX',
+    'preview.docxContentLoading': '加载中…',
+    'preview.textError': '无法读取文件内容',
+    'preview.zoomOut': '缩小',
+    'preview.zoomIn': '放大',
+    'preview.zoomReset': '重置 (双击图片)',
+    'preview.imageLoading': '加载中…',
+
     // ── Command Palette ──
     'palette.placeholder': '输入命令名称…',
     'palette.docPlaceholder': '搜索文档…',
@@ -372,6 +433,8 @@ export const translations = {
     'palette.tabDocuments': '文档',
     'palette.tabTerminal': '终端会话',
     'palette.tabSettings': '设置',
+    'palette.sessionSearch': '搜索终端会话…',
+    'palette.settingsSearch': '搜索设置项…',
     'palette.shortcutHint': '⌘P',
     'palette.noResults': '无匹配结果',
     'palette.footer': '↑↓ 导航 · Enter 执行 · Esc 关闭',
@@ -888,6 +951,67 @@ export const translations = {
     'slash.collapsible': 'Collapsible',
     'slash.collapsibleDesc': 'A foldable / expandable content region',
 
+    // ── Terminal Window ──
+    'terminal.loadError': 'Failed to load terminal session',
+    'terminal.loading': 'Loading terminal…',
+
+    // ── Diagram Window ──
+    'diagram.loadError': 'Failed to load diagram data',
+    'diagram.loading': 'Loading diagram…',
+
+    // ── Document Window ──
+    'document.loadError': 'Failed to load document',
+    'document.loading': 'Loading document…',
+
+    // ── PDF Preview ──
+    'pdf.loadError': 'Failed to load PDF',
+    'pdf.error': 'PDF load failed',
+    'pdf.loading': 'Loading PDF…',
+    'pdf.prevPage': 'Previous page',
+    'pdf.nextPage': 'Next page',
+    'pdf.zoomOut': 'Zoom out',
+    'pdf.zoomIn': 'Zoom in',
+    'pdf.fitWidth': 'Fit width',
+    'pdf.parseError': 'Failed to load',
+
+    // ── CodeBlockView Extended ──
+    'code.showCode': 'Show code',
+    'code.previewHtml': 'Preview HTML',
+    'code.previewNewWindow': 'Preview in new window',
+    'code.dragResize': 'Drag to resize, double-click to reset',
+
+    // ── Mermaid Import Dialog ──
+    'mermaid.title': 'Import Mermaid Diagram',
+    'mermaid.inputPlaceholder': 'Enter Mermaid code',
+    'mermaid.convertError': 'Conversion failed',
+    'mermaid.exception': 'Conversion error: {error}',
+    'mermaid.close': 'Close',
+    'mermaid.convert': 'Convert',
+
+    // ── Link Preview Tabs ──
+    'linkPreview.closeTab': 'Close tab',
+    'linkPreview.newTab': 'New tab',
+    'linkPreview.refresh': 'Refresh',
+    'linkPreview.openBrowser': 'Open in browser',
+    'linkPreview.home': 'Home',
+    'linkPreview.urlPlaceholder': 'Enter URL and press Enter...',
+
+    // ── Command Palette Window ──
+    'paletteWindow.loading': 'Loading…',
+
+    // ── Preview Window ──
+    'preview.loading': 'Loading preview…',
+    'preview.notSupported': 'This file type does not support preview',
+    'preview.closeWindow': 'Close window',
+    'preview.docxLoading': 'Parsing DOCX…',
+    'preview.docxError': 'Failed to load DOCX',
+    'preview.docxContentLoading': 'Loading…',
+    'preview.textError': 'Failed to read file content',
+    'preview.zoomOut': 'Zoom out',
+    'preview.zoomIn': 'Zoom in',
+    'preview.zoomReset': 'Reset (double-click image)',
+    'preview.imageLoading': 'Loading…',
+
     // ── Command Palette ──
     'palette.placeholder': 'Type a command name…',
     'palette.docPlaceholder': 'Search documents…',
@@ -895,6 +1019,8 @@ export const translations = {
     'palette.tabDocuments': 'Documents',
     'palette.tabTerminal': 'Sessions',
     'palette.tabSettings': 'Settings',
+    'palette.sessionSearch': 'Search sessions…',
+    'palette.settingsSearch': 'Search settings…',
     'palette.shortcutHint': '⌘P',
     'palette.noResults': 'No matching results',
     'palette.footer': '↑↓ Navigate · Enter Select · Esc Close',

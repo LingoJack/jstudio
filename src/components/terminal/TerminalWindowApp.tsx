@@ -20,11 +20,13 @@ import { useStore } from '../../store/useStore';
 import { fetchDetachPayload } from '../../lib/windows/terminalDetach';
 import type { TerminalSession } from '../../store/terminalSlice';
 import TerminalPanel from './TerminalPanel';
+import { useI18n } from '../../lib/core/i18n';
 
 type Status = 'loading' | 'ready' | 'error';
 
 export default function TerminalWindowApp() {
   const [status, setStatus] = useState<Status>('loading');
+  const { t } = useI18n();
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +98,7 @@ export default function TerminalWindowApp() {
   if (status === 'error') {
     return (
       <div className="w-screen h-screen flex items-center justify-center text-[var(--vscode-errorForeground)] text-sm">
-        无法加载终端会话
+        {t('terminal.loadError')}
       </div>
     );
   }
@@ -104,7 +106,7 @@ export default function TerminalWindowApp() {
   if (status === 'loading') {
     return (
       <div className="w-screen h-screen flex items-center justify-center text-[var(--vscode-descriptionForeground)] text-sm">
-        正在加载终端…
+        {t('terminal.loading')}
       </div>
     );
   }

@@ -13,11 +13,13 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { fetchDocumentDetachPayload } from '../../lib/windows/documentDetach';
 import BlockEditor from '../editor/BlockEditor';
+import { useI18n } from '../../lib/core/i18n';
 
 type Status = 'loading' | 'ready' | 'error';
 
 export default function DocumentWindowApp() {
   const [status, setStatus] = useState<Status>('loading');
+  const { t } = useI18n();
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +57,7 @@ export default function DocumentWindowApp() {
   if (status === 'error') {
     return (
       <div className="w-screen h-screen flex items-center justify-center text-[var(--vscode-errorForeground)] text-sm">
-        无法加载文档
+        {t('document.loadError')}
       </div>
     );
   }
@@ -63,7 +65,7 @@ export default function DocumentWindowApp() {
   if (status === 'loading') {
     return (
       <div className="w-screen h-screen flex items-center justify-center text-[var(--vscode-descriptionForeground)] text-sm">
-        正在加载文档…
+        {t('document.loading')}
       </div>
     );
   }

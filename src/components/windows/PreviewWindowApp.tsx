@@ -16,9 +16,11 @@ import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCatego
 import { docxToHtml } from '../../lib/editor/docxPreview';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import PdfPreview from '../editor/nodes/PdfPreview';
+import { useI18n } from '../../lib/core/i18n';
 
 export default function PreviewWindowApp() {
   const [data, setData] = useState<PreviewPayload | null>(null);
+  const { t } = useI18n();
 
   // Sync theme with main window (includes app theme colors)
   useWindowThemeSync();
@@ -33,7 +35,7 @@ export default function PreviewWindowApp() {
     return (
       <div className="preview-window-loading-screen">
         <Loader2 size={32} className="animate-spin" />
-        <span>正在加载预览…</span>
+        <span>{t('preview.loading')}</span>
       </div>
     );
   }
@@ -63,7 +65,7 @@ export default function PreviewWindowApp() {
           type="button"
           className="preview-window-close"
           onClick={closePreviewWindow}
-          title="关闭窗口"
+          title={t('preview.closeWindow')}
         >
           <X size={18} />
         </button>
@@ -93,6 +95,7 @@ function PreviewContent({
   /** Inline HTML source — when present, the html preview uses `srcDoc`. */
   html?: string;
 }) {
+  const { t } = useI18n();
   // ── Native DOM iframe for HTML preview (React 19 sandbox workaround) ──
   // Even though this is a separate window, we use native DOM for consistency.
   const htmlIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -168,7 +171,7 @@ function PreviewContent({
 
     default:
       return (
-        <div className="preview-window-fallback">此文件类型不支持预览</div>
+        <div className="preview-window-fallback">{t('preview.notSupported')}</div>
       );
   }
 }
@@ -180,6 +183,7 @@ function PreviewContent({
 function DocxPreview({ src }: { src: string }) {
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useI18n();
 
   useEffect(() => {
     let cancelled = false;
@@ -197,7 +201,7 @@ function DocxPreview({ src }: { src: string }) {
     return (
       <div className="preview-window-loading-center">
         <Loader2 size={28} className="animate-spin" />
-        <span>正在解析 DOCX…</span>
+        <span>{t('preview.docxLoading')}</span>
       </div>
     );
 
@@ -205,7 +209,7 @@ function DocxPreview({ src }: { src: string }) {
     <div className="preview-window-docx">
       <div
         className="preview-window-docx-content"
-        dangerouslySetInnerHTML={{ __html: html ?? '<p>加载中…</p>' }}
+        dangerouslySetInnerHTML={{ __html: html ?? `<p>${t('preview.docxContentLoading')}</p>` }}
       />
     </div>
   );
@@ -220,6 +224,7 @@ function ImageZoom({ src, alt }: { src: string; alt: string }) {
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const dragRef = useRef<{ startX: number; startY: number; baseTx: number; baseTy: number } | null>(null);
+  const { t } = useI18n();
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -282,20 +287,20 @@ function ImageZoom({ src, alt }: { src: string; alt: string }) {
           type="button"
           className="preview-window-zoom-btn"
           onClick={() => setScale((s) => Math.max(s * 0.8, 0.2))}
-          title="缩小"
+          title={t('preview.zoomOut')}
         >−</button>
         <span className="preview-window-zoom-label">{Math.round(scale * 100)}%</span>
         <button
           type="button"
           className="preview-window-zoom-btn"
           onClick={() => setScale((s) => Math.min(s * 1.25, 8))}
-          title="放大"
+          title={t('preview.zoomIn')}
         >+</button>
         <button
           type="button"
           className="preview-window-zoom-btn"
           onClick={reset}
-          title="重置 (双击图片)"
+          title={t('preview.zoomReset')}
         >↺</button>
       </div>
     </div>
@@ -328,6 +333,7 @@ function MediaPreview({ src, kind }: { src: string; kind: 'audio' | 'video' }) {
 function TextPreview({ src }: { src: string }) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const { t } = useI18n();
 
   useEffect(() => {
     let cancelled = false;
@@ -338,7 +344,7 @@ function TextPreview({ src }: { src: string }) {
         if (!cancelled) setText(t);
       })
       .catch(() => {
-        if (!cancelled) setText('无法读取文件内容');
+        if (!cancelled) setText(t('preview.textError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -346,13 +352,13 @@ function TextPreview({ src }: { src: string }) {
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [src, t]);
 
   if (loading)
     return (
       <div className="preview-window-loading-center">
         <Loader2 size={28} className="animate-spin" />
-        <span>加载中…</span>
+        <span>{t('preview.imageLoading')}</span>
       </div>
     );
 

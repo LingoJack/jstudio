@@ -291,12 +291,8 @@ export default function CommandPalette() {
     : searchScope === 'documents'
       ? t('palette.docPlaceholder')
       : searchScope === 'terminal'
-        ? lang === 'zh'
-          ? '搜索终端会话…'
-          : 'Search sessions…'
-        : lang === 'zh'
-          ? '搜索设置项…'
-          : 'Search settings…';
+        ? t('palette.sessionSearch')
+        : t('palette.settingsSearch');
 
   return (
     <div
