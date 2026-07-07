@@ -11,7 +11,8 @@
  * This follows the Open-Closed Principle: open for extension, closed for modification.
  */
 
-import type { Editor, ResolvedPos } from '@tiptap/core';
+import type { Editor } from '@tiptap/core';
+import type { ResolvedPos } from '@tiptap/pm/model';
 
 /**
  * Handler for a specific block type's deletion behavior.
