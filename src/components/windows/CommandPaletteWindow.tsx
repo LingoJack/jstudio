@@ -327,15 +327,17 @@ export default function CommandPaletteWindow() {
       className="fixed inset-0 flex flex-col items-center pt-[8vh]"
       style={{ background: 'rgba(0,0,0,0.01)' }}
     >
-      {/* ── 面板 - 漫画风格框线 ── */}
+      {/* ── 面板 - 液态玻璃 ── */}
       <div
         ref={panelRef}
         className="flex flex-col overflow-hidden rounded-2xl"
         style={{
           width: 'min(520px, 92vw)',
           maxHeight: '68vh',
-          background: 'var(--vscode-quickInput-background)',
-          boxShadow: '2px 2px 0 0 rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.1)',
+          background: 'rgba(255,255,255,0.06)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
           animation: 'cpwIn 100ms ease-out',
         }}
       >
