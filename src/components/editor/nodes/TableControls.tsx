@@ -169,7 +169,7 @@ export default function TableControls({ editor }: TableControlsProps) {
   return (
     <div
       data-table-control
-      className="fixed z-modal flex items-center rounded-md border border-[var(--vscode-menu-border, var(--vscode-widget-border))] bg-[var(--vscode-menu-background)] py-0.5 shadow-lg"
+      className="fixed z-modal flex items-center rounded-md border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] py-0.5 shadow-lg"
       style={{
         left: `${toolbar.x}px`,
         top: `${toolbar.y}px`,
@@ -238,7 +238,7 @@ export default function TableControls({ editor }: TableControlsProps) {
       </Dropdown>
 
       {/* Divider */}
-      <div className="mx-0.5 h-5 w-px bg-[var(--vscode-menu-border, var(--vscode-widget-border))]" />
+      <div className="mx-0.5 h-5 w-px bg-[var(--vscode-menu-border)]" />
 
       {/* Delete table */}
       <button
@@ -278,7 +278,7 @@ function Dropdown({ icon, isOpen, onHover, children }: DropdownProps) {
       {/* Dropdown panel */}
       {isOpen && (
         <div
-          className="absolute right-0 top-full z-[101] mt-1 min-w-[130px] rounded-md border border-[var(--vscode-menu-border, var(--vscode-widget-border))] bg-[var(--vscode-menu-background)] py-1 shadow-xl"
+          className="absolute right-0 top-full z-[101] mt-1 min-w-[130px] rounded-md border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] py-1 shadow-xl"
           onMouseEnter={onHover}
         >
           {children}
@@ -320,5 +320,5 @@ function DropdownItem({
 }
 
 function DropdownSep() {
-  return <div className="my-1 h-px bg-[var(--vscode-menu-border, var(--vscode-widget-border))]" />;
+  return <div className="my-1 h-px bg-[var(--vscode-menu-border)]" />;
 }

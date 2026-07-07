@@ -139,7 +139,7 @@ export function MenuList({
   return (
     <div
       ref={ref}
-      className={`z-dropdown min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border, var(--vscode-widget-border))] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${isFixed ? 'fixed' : ''} ${className}`}
+      className={`z-dropdown min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${isFixed ? 'fixed' : ''} ${className}`}
       style={isFixed ? { left: pos.left, top: pos.top } : undefined}
       onClick={onClick}
     >
