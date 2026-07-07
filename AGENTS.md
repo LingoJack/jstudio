@@ -270,6 +270,8 @@ jstudio/
    - **不要用 `.dark` 类区分主题**：`.dark` 只区分 light/dark 模式，无法区分同模式下不同配色（如 Ink Light 与 JStudio Light 都是浅色，但边框颜色不同）。
    - 正确示例：`border: 1px solid var(--vscode-widget-border, #E5E5E5)` → 自动适配所有主题。
    - 错误示例：`.dark` 下写 `border-color: #3C3C3C` → 只适配了 JStudio Dark，Ink Dark 的边框是 `#2f334d`（紫色调），会不一致。
+   - **Tailwind 任意值类禁止嵌套 `var()` fallback**：`border-[var(--vscode-menu-border, var(--vscode-widget-border))]` **不会被 Tailwind v4 编译成 CSS 规则**（嵌套括号导致解析失败），该 `border-color` 类不存在 → 浏览器回退到 `currentColor`（文字色）→ dark 主题下文字近白，边框显示为"白色框"。正确写法用单变量 `border-[var(--vscode-menu-border)]`（项目主题变量在所有 4 主题 + `:root` + `.dark` 都有定义，无需 fallback）。注意：**CSS 原生规则**（`vscode-theme.css` 里的 `var(--a, var(--b))`）不受此限制，可保留 fallback。排查存量：`grep -rn '\[var(--vscode-[a-z-]*,\s*var(--vscode-' src/`。
+   - **三层边框语义**（醒目度从高到低，新增浮窗组件须遵守）：`menu-border`（浮窗/弹窗/菜单：斜杠菜单、气泡菜单、下拉、对话框、Toast 等一切"浮在内容之上"的临时面板）> `block-border`（内容块：代码块外框、表格网格线）> `widget-border`（内嵌分隔/静态卡片：设置页分隔线、卡片轮廓）。背景同理：浮窗统一用 `menu-background`，勿混用 `quickInput-background`/`editorWidget-background`/`editor-background`。主题色值定义见 `lib/themes/appThemes.ts`，静态默认值见 `vscode-theme.css` 的 `:root`/`.dark`。
 5. **非受控 DOM**：surface 内的 DOM 内容由浏览器管理，React 不在元素聚焦时重写 `innerHTML`。
 6. **图标**：使用 `lucide-react`，图标大小统一用 `w-4 h-4` 或 `w-3.5 h-3.5`。
 7. **路径别名**：`@/*` 映射到 `src/*`（tsconfig 配置），但项目中主要使用相对路径导入。
