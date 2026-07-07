@@ -40,6 +40,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import { findChildren } from '@tiptap/core';
 import CodeBlockView from '../../../components/editor/nodes/CodeBlockView';
+import { blockBehaviorRegistry } from '../blockBehaviorRegistry';
 
 export interface CodeBlockNodeAttributes {
   language?: string;
@@ -424,5 +425,37 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
         },
       }),
     ];
+  },
+});
+
+/* --------------------------------------------------------------------- */
+/* BlockBehaviorRegistry — delete empty codeBlock on Backspace          */
+/* --------------------------------------------------------------------- */
+
+/**
+ * Register deletion behavior for codeBlock.
+ *
+ * When the user presses Backspace inside an EMPTY code block (content.size === 0),
+ * delete the whole block instead of leaving a ghost empty block.
+ */
+blockBehaviorRegistry.register({
+  nodeType: 'codeBlock',
+  canDelete: (editor, $head) => {
+    // Only delete when inside an empty code block
+    const parent = $head.parent;
+    if (parent.type.name !== 'codeBlock') return false;
+    // content.size === 0 means completely empty (no text)
+    return parent.content.size === 0;
+  },
+  delete: (editor, $head) => {
+    // Find the code block's position and delete it
+    const blockPos = $head.before(1);
+    editor
+      .chain()
+      .focus()
+      .setNodeSelection(blockPos)
+      .deleteSelection()
+      .run();
+    return true;
   },
 });

@@ -94,6 +94,19 @@ export default function CollapsibleView({
     const el = wrapperRef.current;
     if (!el) return;
 
+    /**
+     * Shield ProseMirror from form-control events.
+     * We only need to shield mousedown - this prevents ProseMirror from
+     * placing its own cursor when clicking on an input/textarea.
+     *
+     * IMPORTANT: We DO NOT shield keydown or beforeinput because:
+     * 1. React 17+ uses event delegation - events bubble to root before
+     *    React's synthetic event system processes them.
+     * 2. Native stopPropagation() prevents React from seeing the event,
+     *    which breaks onChange handlers on form controls.
+     * 3. ProseMirror's handleKeyDown only handles editable content, not
+     *    form controls inside contentEditable={false} regions.
+     */
     const mousedownShield = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -102,29 +115,9 @@ export default function CollapsibleView({
       }
     };
 
-    const keydownShield = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      if (SHIELD_TAGS.has(target.tagName) || target.closest('input, textarea, select, button')) {
-        e.stopPropagation();
-      }
-    };
-
-    const beforeinputShield = (e: InputEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      if (SHIELD_TAGS.has(target.tagName) || target.closest('input, textarea, select, button')) {
-        e.stopPropagation();
-      }
-    };
-
     el.addEventListener('mousedown', mousedownShield);
-    el.addEventListener('keydown', keydownShield);
-    el.addEventListener('beforeinput', beforeinputShield as EventListener);
     return () => {
       el.removeEventListener('mousedown', mousedownShield);
-      el.removeEventListener('keydown', keydownShield);
-      el.removeEventListener('beforeinput', beforeinputShield as EventListener);
     };
   }, []);
 

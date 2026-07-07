@@ -15,10 +15,9 @@
  *      and focus it ("下方插入一行").
  *   4. Cmd/Ctrl+Shift+Enter → insert an empty paragraph ABOVE the current
  *      block and focus it ("上方插入一行").
- *   5. Backspace inside an EMPTY codeBlock → convert it back to a plain
- *      paragraph (Notion-style "delete block"). Only fires when the block has
- *      no text content, so normal text editing inside a code block is
- *      unaffected.
+ *   5. Backspace — delegates to BlockBehaviorRegistry for block-type-specific
+ *      deletion logic (e.g., empty codeBlock, empty collapsible). Each block
+ *      extension registers its own deletion handler, keeping this file simple.
  *   6. Tab / Shift+Tab — context-aware indentation:
  *        • Inside a list / task item → delegate to the list extension, which
  *          sinks (indent) / lifts (outdent) the item one hierarchy level.
@@ -33,6 +32,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import { slashMenuPluginKey } from './slashMenu';
 import { resolveBinding, toTiptapBinding } from '../shortcuts/keyboardShortcuts';
 import { useStore } from '../../store/useStore';
+import { blockBehaviorRegistry } from './blockBehaviorRegistry';
 
 export interface BlockNavigationOptions {
   /** Called when the cursor should leave the editor upward to the title. */
@@ -192,26 +192,15 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     };
 
     // -----------------------------------------------------------------
-    // Backspace — convert an EMPTY codeBlock into a plain paragraph.
+    // Backspace — delegate to BlockBehaviorRegistry.
+    //
+    // Each block extension registers its own deletion logic (e.g.,
+    // empty codeBlock, empty collapsible). This keeps the navigation
+    // extension simple and allows block types to be added without
+    // modifying this central file.
     // -----------------------------------------------------------------
     const onBackspace = () => {
-      const { state } = editor;
-      const { selection } = state;
-      if (!selection.empty) return false;
-      const $head = selection.$head;
-      if ($head.depth < 1) return false;
-      const parent = $head.parent;
-      if (parent.type.name !== 'codeBlock') return false;
-      // Only when the block is completely empty.
-      if (parent.content.size !== 0) return false;
-      const blockPos = $head.before(1);
-      editor
-        .chain()
-        .focus()
-        .setNodeSelection(blockPos)
-        .deleteSelection()
-        .run();
-      return true;
+      return blockBehaviorRegistry.handleBackspace(editor);
     };
 
     // -----------------------------------------------------------------
