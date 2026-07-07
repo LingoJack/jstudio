@@ -96,16 +96,14 @@ export default function CollapsibleView({
 
     /**
      * Shield ProseMirror from form-control events.
-     * We only need to shield mousedown - this prevents ProseMirror from
-     * placing its own cursor when clicking on an input/textarea.
+     * We shield both mousedown and keydown:
+     * - mousedown: prevents ProseMirror from placing its own cursor
+     * - keydown: prevents ProseMirror's keymap from intercepting navigation keys
      *
-     * IMPORTANT: We DO NOT shield keydown or beforeinput because:
-     * 1. React 17+ uses event delegation - events bubble to root before
-     *    React's synthetic event system processes them.
-     * 2. Native stopPropagation() prevents React from seeing the event,
-     *    which breaks onChange handlers on form controls.
-     * 3. ProseMirror's handleKeyDown only handles editable content, not
-     *    form controls inside contentEditable={false} regions.
+     * IMPORTANT: We use native DOM listeners (not React's synthetic events)
+     * because ProseMirror registers native listeners on view.dom. React's
+     * e.stopPropagation() only stops the synthetic event propagation, which
+     * happens AFTER the native event has already reached ProseMirror.
      */
     const mousedownShield = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -115,9 +113,43 @@ export default function CollapsibleView({
       }
     };
 
+    /**
+     * Shield keydown events for navigation keys.
+     * ProseMirror's keymap plugin intercepts these at the editor DOM level
+     * (via handleKeyDown), and when any handler returns true, it calls
+     * preventDefault() which blocks normal input behavior.
+     */
+    const keydownShield = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // Only shield form controls
+      if (!SHIELD_TAGS.has(target.tagName) && !target.closest('input, textarea, select, button')) {
+        return;
+      }
+
+      const { key, metaKey, ctrlKey, altKey } = e;
+      // Stop propagation for navigation keys (no modifiers)
+      // Let modifier combos pass through for potential global shortcuts
+      if (
+        (key.startsWith('Arrow') ||
+          key === 'Backspace' ||
+          key === 'Delete' ||
+          key === 'Tab' ||
+          key === 'Home' ||
+          key === 'End') &&
+        !metaKey &&
+        !ctrlKey &&
+        !altKey
+      ) {
+        e.stopPropagation();
+      }
+    };
+
     el.addEventListener('mousedown', mousedownShield);
+    el.addEventListener('keydown', keydownShield);
     return () => {
       el.removeEventListener('mousedown', mousedownShield);
+      el.removeEventListener('keydown', keydownShield);
     };
   }, []);
 
