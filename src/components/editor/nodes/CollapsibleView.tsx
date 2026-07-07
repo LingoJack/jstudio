@@ -111,62 +111,99 @@ export default function CollapsibleView({
     const el = wrapperRef.current;
     if (!el) return;
 
+    /** True when the event landed on a form control we must shield. */
+    const isFormControl = (target: EventTarget | null): boolean => {
+      const t = target as HTMLElement | null;
+      if (!t) return false;
+      return SHIELD_TAGS.has(t.tagName) || !!t.closest('input, textarea, select, button');
+    };
+
     /**
-     * Shield ProseMirror from form-control events.
-     * We shield both mousedown and keydown:
-     * - mousedown: prevents ProseMirror from placing its own cursor
-     * - keydown: prevents ProseMirror's keymap from intercepting navigation keys
-     *
-     * IMPORTANT: We use native DOM listeners (not React's synthetic events)
-     * because ProseMirror registers native listeners on view.dom. React's
-     * e.stopPropagation() only stops the synthetic event propagation, which
-     * happens AFTER the native event has already reached ProseMirror.
+     * mousedown — prevent ProseMirror from placing its own caret / making a
+     * NodeSelection when the user clicks a form control. Lets the browser
+     * drop the native caret inside the <input>.
      */
     const mousedownShield = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      if (SHIELD_TAGS.has(target.tagName) || target.closest('input, textarea, select, button')) {
+      if (isFormControl(e.target)) {
         e.stopPropagation();
       }
     };
 
     /**
-     * Shield keydown events for navigation keys.
-     * ProseMirror's keymap plugin intercepts these at the editor DOM level
-     * (via handleKeyDown), and when any handler returns true, it calls
-     * preventDefault() which blocks normal input behavior.
+     * keydown — shield navigation keys so ProseMirror's keymap doesn't move
+     * the editor selection / delete nodes while the user is navigating
+     * inside the <input>. Modifier combos (Cmd+S, Ctrl+C …) are left alone
+     * for global shortcuts. Ordinary character keys are NOT shielded here:
+     * they are harmless at the keydown stage because ProseMirror handles
+     * text insertion via the `beforeinput` event (see below), not keydown.
      */
     const keydownShield = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      // Only shield form controls
-      if (!SHIELD_TAGS.has(target.tagName) && !target.closest('input, textarea, select, button')) {
-        return;
-      }
-
+      if (!isFormControl(e.target)) return;
       const { key, metaKey, ctrlKey, altKey } = e;
-      // Stop propagation for navigation keys (no modifiers)
-      // Let modifier combos pass through for potential global shortcuts
+      if (metaKey || ctrlKey || altKey) return;
       if (
-        (key.startsWith('Arrow') ||
-          key === 'Backspace' ||
-          key === 'Delete' ||
-          key === 'Tab' ||
-          key === 'Home' ||
-          key === 'End') &&
-        !metaKey &&
-        !ctrlKey &&
-        !altKey
+        key.startsWith('Arrow') ||
+        key === 'Backspace' ||
+        key === 'Delete' ||
+        key === 'Tab' ||
+        key === 'Home' ||
+        key === 'End'
       ) {
         e.stopPropagation();
       }
     };
 
+    /**
+     * beforeinput — THE critical fix for "can't type in the title".
+     *
+     * Modern browsers (incl. WKWebView) deliver text input through
+     * `beforeinput` (InputEvent, inputType "insertText" etc.). ProseMirror's
+     * beforeinput handler on view.dom does NOT check whether event.target is
+     * an <input> — it assumes every beforeinput is editor-content input,
+     * calls `event.preventDefault()`, and tries to insert the text via its
+     * own transaction. The preventDefault() cancels the browser's native
+     * character insertion into the <input>, so the subsequent `input` event
+     * never fires and React's onChange never runs — the title looks dead.
+     *
+     * stopPropagation() here on the wrapper (which sits *below* view.dom)
+     * fires before the event reaches ProseMirror, so ProseMirror never sees
+     * it and never calls preventDefault. The browser then inserts the
+     * character normally, the `input` event fires and bubbles past view.dom
+     * up to the React root, and onChange runs as expected.
+     *
+     * Note: stopPropagation on `beforeinput` does NOT affect the separate
+     * `input` event — they are different events, so React's onChange (which
+     * listens for `input` at the React root) still fires.
+     */
+    const beforeinputShield = (e: InputEvent) => {
+      if (!isFormControl(e.target)) return;
+      e.stopPropagation();
+    };
+
+    /**
+     * composition events — shield CJK IME sessions for the same reason as
+     * beforeinput. ProseMirror's compositionstart/compositionend handlers on
+     * view.dom would otherwise hijack the IME composition, breaking Chinese
+     * / Japanese / Korean input in the title field.
+     */
+    const compositionShield = (e: CompositionEvent) => {
+      if (!isFormControl(e.target)) return;
+      e.stopPropagation();
+    };
+
     el.addEventListener('mousedown', mousedownShield);
     el.addEventListener('keydown', keydownShield);
+    el.addEventListener('beforeinput', beforeinputShield as EventListener);
+    el.addEventListener('compositionstart', compositionShield);
+    el.addEventListener('compositionupdate', compositionShield);
+    el.addEventListener('compositionend', compositionShield);
     return () => {
       el.removeEventListener('mousedown', mousedownShield);
       el.removeEventListener('keydown', keydownShield);
+      el.removeEventListener('beforeinput', beforeinputShield as EventListener);
+      el.removeEventListener('compositionstart', compositionShield);
+      el.removeEventListener('compositionupdate', compositionShield);
+      el.removeEventListener('compositionend', compositionShield);
     };
   }, []);
 
