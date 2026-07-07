@@ -618,6 +618,10 @@ export default function SectionedBlockEditor() {
 
   const handleBlankAreaClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      // Only respond to clicks on the designated trailing blank area.
+      const target = e.target as HTMLElement;
+      if (!target.closest('.click-to-focus-end')) return;
+
       // If the mouse moved between mousedown and click, it was a drag-
       // selection, not a click — do not steal focus.
       const down = mouseDownPosRef.current;
@@ -627,12 +631,6 @@ export default function SectionedBlockEditor() {
         if (dx > 3 || dy > 3) return; // dragged more than 3px → selection
       }
       mouseDownPosRef.current = null;
-
-      // Skip if clicking inside any section editor (it handles its own clicks).
-      // We only want to focus when the click lands on the blank trailing area
-      // below all sections.
-      const target = e.target as HTMLElement;
-      if (target.closest('.tiptap.ProseMirror')) return;
 
       // Focus to end of the last visible section's editor.
       const order = sectionOrderRef.current;
@@ -706,8 +704,11 @@ export default function SectionedBlockEditor() {
           {showSkeleton && <EditorSkeleton />}
         </div>
 
-        {/* Trailing scroll buffer */}
-        <div className="min-h-[40vh]" aria-hidden="true" />
+        {/* Trailing scroll buffer — click here focuses end of last section */}
+        <div
+          className="min-h-[40vh] click-to-focus-end"
+          aria-hidden="true"
+        />
       </div>
 
       {/* Shared GPU cursor-trail overlay */}
