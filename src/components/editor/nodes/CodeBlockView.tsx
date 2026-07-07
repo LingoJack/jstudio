@@ -1,19 +1,18 @@
 /**
  * CodeBlockView — React NodeView for the code block node.
  *
- * Layout — single horizontal toolbar pinned to the top-right corner, the
- * same "one row of buttons" shape as the shared BlockToolbar:
+ * Layout — language badge pinned to the top-left, action toolbar pinned to the
+ * top-right (same "one row of buttons" shape as the shared BlockToolbar):
  *   ┌────────────────────────────────────────┐
- *   │              [preview] [copy] [lang ▾]  │  ← top-right toolbar
+ *   │ [lang ▾]               [preview] [copy] │  ← badge left, toolbar right
  *   │  const x = 1;                           │
  *   │  console.log(x);                     ◯  │  ← corner resize handle
  *   └────────────────────────────────────────┘
  *
- * The language badge is pinned to the right and stays put; the preview /
- * copy action buttons sit to its left.  Because the toolbar is right-aligned
- * (right: 8px), buttons appearing / disappearing (copy reveals on hover)
- * grow leftward and never shift the badge.  The action buttons reuse the
- * shared `block-toolbar-btn` skin so they match Image / File / Diagram blocks.
+ * The language badge is pinned to the left corner and stays put; the toolbar
+ * (preview toggle + copy button + open-window button) sits in the right corner.
+ * The action buttons reuse the shared `block-toolbar-btn` skin so they match
+ * Image / File / Diagram blocks.
  *
  * Selection / resize chrome is unified with FileView:
  *   - The figure shows a focusBorder when the node is selected (NodeSelection)
@@ -238,7 +237,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const badgeRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -437,9 +436,9 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         style={figureStyle}
       >
         {/* Top-right toolbar — a single horizontal row: the preview toggle
-            and copy button sit to the left of the language badge. The badge
-            is pinned right (the toolbar is right-aligned) so revealing the
-            copy button on hover grows leftward without shifting the badge. */}
+          and copy button sit to the left of the language badge. The badge
+          is pinned right (the toolbar is right-aligned) so revealing the
+          copy button on hover grows leftward without shifting the badge. */}
         <div className="code-toolbar" contentEditable={false}>
           {previewBtn}
           {openWindowBtn}
