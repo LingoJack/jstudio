@@ -1334,8 +1334,8 @@ button {
   max-width: 100%;
   box-sizing: border-box;
   border-radius: 8px;
-  border: 1px solid var(--vscode-widget-border);
-  background: var(--vscode-textCodeBlock-background);
+  border: 1px solid var(--vscode-widget-border, #E5E5E5);
+  background: var(--vscode-editor-background);
   transition: border-color 0.15s;
 }
 
@@ -1356,7 +1356,7 @@ button {
   margin: 0;
   border: none;
   border-radius: 8px;
-  background: var(--vscode-textCodeBlock-background);
+  background: transparent;
   padding: 14px 16px;
   overflow-x: auto;
 }

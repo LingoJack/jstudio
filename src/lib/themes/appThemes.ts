@@ -348,7 +348,7 @@ const INK_LIGHT: AppTheme = {
     'activityBar-background': '#f0ebe3',
     'sideBar-border': '#e8ddd0',
     'activityBar-border': '#ddd4c8',
-    'widget-border': '#ddd4c8',
+    'widget-border': '#1a1612', // 黑色/深褐，与文字一致
     'panel-border': '#ddd4c8',
     'foreground': '#1a1612',
     'descriptionForeground': '#6b5e52',
