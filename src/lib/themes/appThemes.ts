@@ -97,7 +97,6 @@ const JSTUDIO_LIGHT: AppTheme = {
 
     // ── Menu / List ──
     'menu-background': '#FFFFFF',
-    'menu-border': '#CECECE',
     'menu-hoverBackground': '#F2F2F2',
     'menu-separatorBackground': '#E5E5E5',
     'menu-selectionBackground': '#0052D9',
@@ -223,7 +222,8 @@ const JSTUDIO_DARK: AppTheme = {
     'sideBar-border': '#2B2B2B',
     'activityBar-border': '#2B2B2B',
     'widget-border': '#313131',
-    'block-border': '#313131', // 代码块、表格等内容块边框
+    'block-border': '#454545', // 代码块、表格等内容块边框，比 widget-border 略深
+    'menu-border': '#454545',  // 浮窗菜单边框，与 block-border 一致
     'panel-border': '#2B2B2B',
     'foreground': '#CCCCCC',
     'descriptionForeground': '#9D9D9D',
@@ -248,7 +248,6 @@ const JSTUDIO_DARK: AppTheme = {
     'tab-inactiveForeground': '#9D9D9D',
     'tab-border': '#2B2B2B',
     'menu-background': '#1F1F1F',
-    'menu-border': '#454545',
     'menu-hoverBackground': '#2A2D2E',
     'menu-separatorBackground': '#3A3A3A',
     'menu-selectionBackground': '#07C160',
@@ -353,6 +352,7 @@ const INK_LIGHT: AppTheme = {
     'activityBar-border': '#ddd4c8',
     'widget-border': '#ddd4c8',
     'block-border': '#1a1612', // 代码块、表格等内容块边框，黑色/深褐
+    'menu-border': '#1a1612',  // 浮窗菜单边框，与 block-border 一致
     'panel-border': '#ddd4c8',
     'foreground': '#1a1612',
     'descriptionForeground': '#6b5e52',
@@ -377,7 +377,6 @@ const INK_LIGHT: AppTheme = {
     'tab-inactiveForeground': '#8a7e72',
     'tab-border': '#ddd4c8',
     'menu-background': '#faf6f1',
-    'menu-border': '#1a1612', // 黑色/深褐，与 block-border 一致
     'menu-hoverBackground': '#f0ebe3',
     'menu-separatorBackground': '#ddd4c8',
     'menu-selectionBackground': '#1a1612', // 深褐/黑色
@@ -480,7 +479,8 @@ const INK_DARK: AppTheme = {
     'sideBar-border': '#2f334d',
     'activityBar-border': '#2f334d',
     'widget-border': '#2f334d',
-    'block-border': '#2f334d', // 代码块、表格等内容块边框
+    'block-border': '#5a6590', // 代码块、表格等内容块边框，比 widget-border 略深更醒目
+    'menu-border': '#5a6590',  // 浮窗菜单边框，与 block-border 一致
     'panel-border': '#2f334d',
     'foreground': '#c8d3f5',
     'descriptionForeground': '#7f88b0',
@@ -505,7 +505,6 @@ const INK_DARK: AppTheme = {
     'tab-inactiveForeground': '#7f88b0',
     'tab-border': '#2f334d',
     'menu-background': '#1e2030',
-    'menu-border': '#2f334d',
     'menu-hoverBackground': '#2f334d',
     'menu-separatorBackground': '#2f334d',
     'menu-selectionBackground': '#82aaff',
