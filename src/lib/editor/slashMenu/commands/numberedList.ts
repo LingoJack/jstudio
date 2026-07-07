@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Numbered List — create a list with numbering. */
+/** Numbered List — 创建有序列表 */
 export const numberedListCommand: SlashCommandItem = {
-  title: 'Numbered List',
-  description: 'Create a list with numbering',
+  title: '有序列表',
+  description: '创建有序列表',
   icon: '1.',
   aliases: ['numbered', 'ordered', 'ol', 'number', '有序'],
   command: ({ editor, range }) =>

@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Heading 3 — small section heading. */
+/** Heading 3 — 小标题 */
 export const heading3Command: SlashCommandItem = {
-  title: 'Heading 3',
-  description: 'Small section heading',
+  title: '标题 3',
+  description: '小标题',
   icon: 'H3',
   aliases: ['heading3', 'h3'],
   command: ({ editor, range }) =>

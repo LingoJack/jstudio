@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Quote — capture a quote (blockquote). */
+/** Quote — 引用块 */
 export const quoteCommand: SlashCommandItem = {
-  title: 'Quote',
-  description: 'Capture a quote',
+  title: '引用',
+  description: '插入引用块',
   icon: '❝',
   aliases: ['quote', 'blockquote', '引用'],
   command: ({ editor, range }) =>

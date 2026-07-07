@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Image — insert an image placeholder. */
+/** Image — 图片 */
 export const imageCommand: SlashCommandItem = {
-  title: 'Image',
-  description: 'Insert image placeholder',
+  title: '图片',
+  description: '插入图片',
   icon: 'IMG',
   aliases: ['image', 'img', 'picture', 'photo'],
   command: ({ editor, range }) => {

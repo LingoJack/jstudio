@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** File — upload a file attachment. */
+/** File — 文件附件 */
 export const fileCommand: SlashCommandItem = {
-  title: 'File',
-  description: 'Upload a file attachment',
+  title: '文件',
+  description: '上传文件附件',
   icon: 'FILE',
   aliases: ['file', 'attachment', 'upload', 'doc', 'pdf', 'document'],
   command: ({ editor, range }) => {

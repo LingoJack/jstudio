@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Link — embed a web link with preview. */
+/** Link — 网页链接 */
 export const linkCommand: SlashCommandItem = {
-  title: 'Link',
-  description: 'Embed a web link with preview',
+  title: '链接',
+  description: '嵌入网页链接并显示预览',
   icon: 'LINK',
   aliases: ['link', 'url', 'bookmark', 'web', '链接', '网页'],
   command: ({ editor, range }) => {

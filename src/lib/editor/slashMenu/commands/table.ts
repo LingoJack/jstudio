@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Table — insert an editable table via a grid picker. */
+/** Table — 表格 */
 export const tableCommand: SlashCommandItem = {
-  title: 'Table',
-  description: 'Insert an editable table',
+  title: '表格',
+  description: '插入可编辑表格',
   icon: '⊞',
   aliases: ['table', 'grid', '矩阵'],
   command: ({ editor, range }) => {
