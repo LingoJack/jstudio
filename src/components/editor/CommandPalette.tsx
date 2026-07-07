@@ -509,7 +509,7 @@ function PaletteRow({
           {doc.title ? (
             <HighlightedText text={doc.title} match={titleMatch} />
           ) : (
-            <span className="opacity-50 italic">Untitled</span>
+            <span className="opacity-50 italic">{t('doclist.untitled')}</span>
           )}
         </span>
         <span className={`text-[11px] shrink-0 ${descClass}`}>

@@ -395,7 +395,7 @@ export default function CommandPaletteWindow() {
             <div ref={listRef}>
               {loading ? (
                 <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-50">
-                  {lang === 'zh' ? '加载中…' : 'Loading…'}
+                  {t('paletteWindow.loading')}
                 </div>
               ) : items.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-50">

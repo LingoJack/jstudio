@@ -31,6 +31,23 @@
  *   For clicks on form controls we stopPropagation, so ProseMirror never sees
  *   the mousedown and never calls preventDefault — the browser then runs its
  *   default action and places the caret exactly where the user clicked.
+ *
+ * Critical beforeinput fix (text entry — "can't type in the title" bug):
+ *   ProseMirror ALSO registers a `beforeinput` handler on `view.dom`. Unlike
+ *   the mousedown handler, it does NOT check whether event.target is a form
+ *   control — it assumes every beforeinput bubbling up is editor-content
+ *   input, calls `preventDefault()`, and tries to insert the text via its own
+ *   transaction. That cancels the browser's native character insertion into
+ *   the <input>, so the subsequent `input` event never fires and React's
+ *   onChange never runs — the title field looks completely dead.
+ *
+ *   The fix uses the same pattern: a native bubble-phase `beforeinput`
+ *   listener on the wrapper that stopPropagation's when the target is a form
+ *   control, so ProseMirror never sees the event and the browser inserts the
+ *   character normally. The `input` event then fires, bubbles past view.dom
+ *   up to the React root, and onChange runs as expected. Composition events
+ *   (CJK IME) are shielded the same way to keep Chinese/Japanese/Korean
+ *   input working.
  */
 
 import { useEffect, useRef, useState } from 'react';

@@ -401,6 +401,17 @@ export const translations = {
     'mermaid.exception': '转换异常: {error}',
     'mermaid.close': '关闭',
     'mermaid.convert': '转换',
+    'mermaid.emptyCode': '请输入 Mermaid 代码',
+    'mermaid.description': '支持流程图（flowchart）和时序图（sequenceDiagram）。粘贴 Mermaid 代码后点击「转换」按钮。',
+    'mermaid.insertExample': '插入示例：',
+    'mermaid.flowchart': '流程图',
+    'mermaid.sequence': '时序图',
+    'mermaid.cancel': '取消',
+    'mermaid.converting': '转换中...',
+    'mermaid.syntaxTitle': '常用语法提示：',
+    'mermaid.syntax1': '节点形状：[方形]、([圆角])、((圆形))、{菱形}',
+    'mermaid.syntax2': '连线：--> 箭头实线、--- 无箭头实线、-.-> 箭头虚线',
+    'mermaid.syntax3': '标签：A-->|标签|B 或 A--> B : 标签',
 
     // ── Link Preview Tabs ──
     'linkPreview.closeTab': '关闭标签',
@@ -455,17 +466,9 @@ export const translations = {
     'image.previewMode': '切换到预览模式',
     'image.zoomNewWindow': '放大预览（新窗口）',
     'image.parsingDocx': '正在解析 DOCX…',
-    'image.cannotRead': '无法读取文件内容',
+  'image.cannotRead': '无法读取文件内容',
 
-    // ── PreviewWindow ──
-    'preview.loading': '正在加载预览…',
-    'preview.close': '关闭窗口',
-    'preview.unsupported': '此文件类型不支持预览',
-    'preview.zoomOut': '缩小',
-    'preview.zoomIn': '放大',
-    'preview.reset': '重置 (双击图片)',
-
-    // ── TableControls ──
+  // ── TableControls ──
     'table.insertRowAbove': '上方插入行',
     'table.insertRowBelow': '下方插入行',
     'table.deleteRow': '删除行',
@@ -480,6 +483,7 @@ export const translations = {
     // ── ErrorBoundary ──
     'error.title': '应用遇到了一个错误。',
     'error.retry': '重试',
+    'error.unknown': '未知错误',
 
     // ── Keyboard Shortcuts ──
     'shortcut.description': '自定义应用内的键盘快捷键。点击按键组合即可重新绑定。',
@@ -987,6 +991,17 @@ export const translations = {
     'mermaid.exception': 'Conversion error: {error}',
     'mermaid.close': 'Close',
     'mermaid.convert': 'Convert',
+    'mermaid.emptyCode': 'Please enter Mermaid code',
+    'mermaid.description': 'Supports flowcharts (flowchart) and sequence diagrams (sequenceDiagram). Paste Mermaid code and click "Convert".',
+    'mermaid.insertExample': 'Insert example: ',
+    'mermaid.flowchart': 'Flowchart',
+    'mermaid.sequence': 'Sequence diagram',
+    'mermaid.cancel': 'Cancel',
+    'mermaid.converting': 'Converting…',
+    'mermaid.syntaxTitle': 'Common syntax tips:',
+    'mermaid.syntax1': 'Node shapes: [square], ([rounded]), ((circle)), {diamond}',
+    'mermaid.syntax2': 'Edges: --> solid arrow, --- solid no-arrow, -.-> dotted arrow',
+    'mermaid.syntax3': 'Labels: A-->|label|B or A--> B : label',
 
     // ── Link Preview Tabs ──
     'linkPreview.closeTab': 'Close tab',
@@ -1043,14 +1058,6 @@ export const translations = {
     'image.parsingDocx': 'Parsing DOCX…',
     'image.cannotRead': 'Cannot read file content',
 
-    // ── PreviewWindow ──
-    'preview.loading': 'Loading preview…',
-    'preview.close': 'Close window',
-    'preview.unsupported': 'This file type cannot be previewed',
-    'preview.zoomOut': 'Zoom out',
-    'preview.zoomIn': 'Zoom in',
-    'preview.reset': 'Reset (double-click image)',
-
     // ── TableControls ──
     'table.insertRowAbove': 'Insert row above',
     'table.insertRowBelow': 'Insert row below',
@@ -1066,6 +1073,7 @@ export const translations = {
     // ── ErrorBoundary ──
     'error.title': 'The app encountered an error.',
     'error.retry': 'Retry',
+    'error.unknown': 'Unknown error',
 
     // ── Keyboard Shortcuts ──
     'shortcut.description': 'Customize keyboard shortcuts for the app. Click a key binding to rebind it.',
@@ -1204,7 +1212,7 @@ export type TranslationKey = keyof typeof translations.zh;
 // ──────────────────────────────────────────────────────────────────
 
 /** Replaces {placeholders} in a string with provided values. */
-function interpolate(str: string, vars?: Record<string, string | number>): string {
+export function interpolate(str: string, vars?: Record<string, string | number>): string {
   if (!vars) return str;
   return str.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? `{${key}}`));
 }

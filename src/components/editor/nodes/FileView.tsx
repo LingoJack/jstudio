@@ -64,6 +64,7 @@ import {
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import type { FileNodeAttributes } from '../../../lib/editor/extensions/fileExtension';
 import { openPreviewWindow } from '../../../lib/windows/previewWindow';
+import { useI18n } from '../../../lib/core/i18n';
 import PdfPreview from './PdfPreview';
 
 /* ------------------------------------------------------------------ */
@@ -76,6 +77,7 @@ export default function FileView({
   editor,
   getPos,
 }: NodeViewProps) {
+  const { t } = useI18n();
   const { src, fileName, fileSize, fileType, displayMode, width, widthPct, height, heightPct, align } =
     node.attrs as FileNodeAttributes;
 
@@ -273,7 +275,7 @@ export default function FileView({
       docxToHtml(resolvedSrc)
         .then((html) => setDocxHtml(html))
         .catch(() =>
-          setDocxHtml('<p style="color:#f85149;">Failed to load DOCX</p>'),
+          setDocxHtml(`<p style="color:#f85149;">${t('preview.docxError')}</p>`),
         )
         .finally(() => setDocxLoading(false));
     }
@@ -400,7 +402,7 @@ export default function FileView({
             className="image-node-placeholder"
             onClick={handlePlaceholderClick}
             disabled={loading}
-            aria-label="点击选择文件"
+            aria-label={t('image.selectFile')}
           >
             <span className="image-node-placeholder-icon">
               {loading ? (
@@ -410,7 +412,7 @@ export default function FileView({
               )}
             </span>
             <span className="image-node-placeholder-text">
-              {loading ? '加载中…' : '点击上传文件'}
+              {loading ? t('image.loading') : t('image.uploadFile')}
             </span>
           </button>
         ) : (
@@ -437,7 +439,7 @@ export default function FileView({
                   <BlockToolbarButton
                     nav={{ activeIndex, registerButton }}
                     index={2}
-                    title={isPreviewMode ? '切换到卡片模式' : '切换到预览模式'}
+                    title={isPreviewMode ? t('image.cardMode') : t('image.previewMode')}
                     onClick={() =>
                       updateAttributes({
                         displayMode: isPreviewMode ? 'card' : 'preview',
@@ -450,7 +452,7 @@ export default function FileView({
                     <BlockToolbarButton
                       nav={{ activeIndex, registerButton }}
                       index={3}
-                      title="放大预览（新窗口）"
+                      title={t('image.zoomNewWindow')}
                       onClick={handleOpenPreview}
                     >
                       <Maximize2 size={15} />
@@ -555,13 +557,13 @@ export default function FileView({
                     {docxLoading ? (
                       <div className="file-block-preview-loading">
                         <Loader2 size={20} className="animate-spin" />
-                        <span>正在解析 DOCX…</span>
+                        <span>{t('image.parsingDocx')}</span>
                       </div>
                     ) : (
                       <div
                         className="file-block-preview-docx-content"
                         dangerouslySetInnerHTML={{
-                          __html: docxHtml ?? '<p>加载中…</p>',
+                          __html: docxHtml ?? `<p>${t('image.loading')}</p>`,
                         }}
                       />
                     )}
@@ -588,6 +590,7 @@ export default function FileView({
 
 /** Fetches the text content from a URL (asset or data) and renders it in a <pre>. */
 function FileTextPreview({ src }: { src: string }) {
+  const { t } = useI18n();
   const [text, setText] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
@@ -600,7 +603,7 @@ function FileTextPreview({ src }: { src: string }) {
         if (!cancelled) setText(t);
       })
       .catch(() => {
-        if (!cancelled) setText('无法读取文件内容');
+        if (!cancelled) setText(t('image.cannotRead'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -608,13 +611,14 @@ function FileTextPreview({ src }: { src: string }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
   if (loading) {
     return (
       <div className="file-block-preview-loading">
         <Loader2 size={20} className="animate-spin" />
-        <span>加载中…</span>
+        <span>{t('image.loading')}</span>
       </div>
     );
   }

@@ -10,6 +10,7 @@ import { X, Plus, Loader2, ExternalLink, RefreshCw, Home } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
+import { useI18n } from '../../lib/core/i18n';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export default function LinkPreviewTabsApp() {
   const [addressBarUrl, setAddressBarUrl] = useState('');
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
 
   // Sync theme with main window (includes app theme colors)
   useWindowThemeSync();
@@ -179,7 +181,7 @@ export default function LinkPreviewTabsApp() {
                 type="button"
                 className="link-preview-tab-close"
                 onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                title="关闭标签"
+                title={t('linkPreview.closeTab')}
               >
                 <X size={14} />
               </button>
@@ -189,7 +191,7 @@ export default function LinkPreviewTabsApp() {
             type="button"
             className="link-preview-add-tab"
             onClick={addNewTab}
-            title="新建标签"
+            title={t('linkPreview.newTab')}
           >
             <Plus size={16} />
           </button>
@@ -202,7 +204,7 @@ export default function LinkPreviewTabsApp() {
             className="link-preview-toolbar-btn"
             onClick={refreshTab}
             disabled={!activeTab}
-            title="刷新"
+            title={t('linkPreview.refresh')}
           >
             <RefreshCw size={16} />
           </button>
@@ -211,7 +213,7 @@ export default function LinkPreviewTabsApp() {
             className="link-preview-toolbar-btn"
             onClick={openInBrowser}
             disabled={!activeTab}
-            title="在浏览器中打开"
+            title={t('linkPreview.openBrowser')}
           >
             <ExternalLink size={16} />
           </button>
@@ -224,7 +226,7 @@ export default function LinkPreviewTabsApp() {
           type="button"
           className="link-preview-toolbar-btn"
           onClick={() => navigateToUrl('https://www.google.com')}
-          title="首页"
+          title={t('linkPreview.home')}
         >
           <Home size={14} />
         </button>
@@ -235,7 +237,7 @@ export default function LinkPreviewTabsApp() {
           value={addressBarUrl}
           onChange={(e) => setAddressBarUrl(e.target.value)}
           onKeyDown={handleAddressKeyDown}
-          placeholder="输入 URL 并按 Enter..."
+          placeholder={t('linkPreview.urlPlaceholder')}
           disabled={isLoadingUrl}
         />
         {isLoadingUrl && (

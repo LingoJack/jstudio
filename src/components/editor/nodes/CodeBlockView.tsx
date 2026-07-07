@@ -34,6 +34,7 @@ import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeSelected } from '../hooks/useNodeSelected';
 import { openHtmlPreviewWindow } from '../../../lib/windows/previewWindow';
+import { useI18n } from '../../../lib/core/i18n';
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
@@ -83,6 +84,7 @@ function getLanguageLabel(value: string): string {
 
 export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
+  const { t } = useI18n();
   // Resize attributes (unified with FileView): width/height stored as a
   // percentage of the editor content width, with legacy px fallbacks.
   const widthPct = node.attrs?.widthPct as number | null | undefined;
@@ -133,7 +135,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     if (showPreview && !iframeRef.current) {
       const iframe = document.createElement('iframe');
       iframe.className = 'code-html-preview';
-      iframe.title = 'HTML preview';
+      iframe.title = t('code.previewHtml');
       iframe.sandbox.add('allow-scripts', 'allow-forms', 'allow-popups', 'allow-modals');
       iframe.srcdoc = htmlSource;
       container.appendChild(iframe);
@@ -377,8 +379,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         type="button"
         onClick={() => updateAttributes({ htmlPreview: !showPreview })}
         className={`block-toolbar-btn block-toolbar-btn--sm ${showPreview ? 'is-active' : ''}`}
-        title={showPreview ? '显示代码' : '预览 HTML'}
-        aria-label={showPreview ? 'Show code' : 'Preview HTML'}
+        title={showPreview ? t('code.showCode') : t('code.previewHtml')}
+        aria-label={showPreview ? t('code.showCode') : t('code.previewHtml')}
       >
         {showPreview ? <Code2 size={14} /> : <Eye size={14} />}
       </button>
@@ -392,8 +394,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         type="button"
         onClick={() => openHtmlPreviewWindow(htmlSource)}
         className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-        title="在新窗口预览"
-        aria-label="Preview HTML in new window"
+        title={t('code.previewNewWindow')}
+        aria-label={t('code.previewNewWindow')}
       >
         <ExternalLink size={14} />
       </button>
@@ -404,8 +406,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       type="button"
       onClick={handleCopy}
       className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-      title="复制代码"
-      aria-label="Copy code"
+      title={t('code.copy')}
+      aria-label={t('code.copy')}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </button>
@@ -498,13 +500,13 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
                       setHighlightedIndex(0);
                     }
                   }}
-                  placeholder="搜索语言…"
+                  placeholder={t('code.searchLang')}
                   className="code-lang-search-input"
                 />
               </div>
               <div ref={listRef} className="code-lang-list">
                 {filteredLanguages.length === 0 ? (
-                  <div className="code-lang-empty">无匹配语言</div>
+                  <div className="code-lang-empty">{t('code.noLangMatch')}</div>
                 ) : (
                   filteredLanguages.map(({ value, label }, index) => (
                     <button
@@ -566,7 +568,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         <ResizeHandle
           onPointerDown={onResizeStart}
           onDoubleClick={onSizeReset}
-          title="拖拽调节大小，双击重置"
+          title={t('code.dragResize')}
         />
       </div>
     </NodeViewWrapper>

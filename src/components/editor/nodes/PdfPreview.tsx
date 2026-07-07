@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page } from 'react-pdf';
+import { useI18n } from '../../../lib/core/i18n';
 import type { DocumentProps } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -65,6 +66,7 @@ export default function PdfPreview({
   className = '',
   fillContainer = false,
 }: PdfPreviewProps) {
+  const { t } = useI18n();
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
@@ -89,7 +91,7 @@ export default function PdfPreview({
   }, []);
 
   const onLoadError = useCallback((err: Error) => {
-    setLoadError(err.message || '无法加载 PDF');
+    setLoadError(err.message || t('pdf.loadError'));
   }, []);
 
   // ── 适配宽度：计算使页面适配容器宽度的 scale ────────────
@@ -206,7 +208,7 @@ export default function PdfPreview({
       <div className={rootClass}>
         <div className="pdf-preview-error">
           <FileX size={32} />
-          <span>PDF 加载失败</span>
+          <span>{t('pdf.error')}</span>
           <span className="pdf-preview-error-detail">{loadError}</span>
         </div>
       </div>
@@ -236,7 +238,7 @@ export default function PdfPreview({
             type="button"
             className="pdf-preview-btn"
             onClick={prevPage}
-            title="上一页"
+            title={t('pdf.prevPage')}
             disabled={currentPage <= 1}
           >
             <ChevronLeft size={15} />
@@ -248,7 +250,7 @@ export default function PdfPreview({
             type="button"
             className="pdf-preview-btn"
             onClick={nextPage}
-            title="下一页"
+            title={t('pdf.nextPage')}
             disabled={numPages > 0 && currentPage >= numPages}
           >
             <ChevronRight size={15} />
@@ -260,7 +262,7 @@ export default function PdfPreview({
             type="button"
             className="pdf-preview-btn"
             onClick={zoomOut}
-            title="缩小"
+            title={t('pdf.zoomOut')}
             disabled={scale <= MIN_SCALE}
           >
             <ZoomOut size={15} />
@@ -272,7 +274,7 @@ export default function PdfPreview({
             type="button"
             className="pdf-preview-btn"
             onClick={zoomIn}
-            title="放大"
+            title={t('pdf.zoomIn')}
             disabled={scale >= MAX_SCALE}
           >
             <ZoomIn size={15} />
@@ -281,7 +283,7 @@ export default function PdfPreview({
             type="button"
             className="pdf-preview-btn"
             onClick={fitWidth}
-            title="适配宽度"
+            title={t('pdf.fitWidth')}
           >
             <Maximize2 size={14} />
           </button>
@@ -306,13 +308,13 @@ export default function PdfPreview({
           loading={
             <div className="pdf-preview-loading">
               <Loader2 size={24} className="animate-spin" />
-              <span>正在加载 PDF…</span>
+              <span>{t('pdf.loading')}</span>
             </div>
           }
           error={
             <div className="pdf-preview-loading">
               <FileX size={24} />
-              <span>加载失败</span>
+              <span>{t('pdf.parseError')}</span>
             </div>
           }
         >
@@ -344,7 +346,7 @@ export default function PdfPreview({
           ) : (
             <div className="pdf-preview-loading">
               <Loader2 size={24} className="animate-spin" />
-              <span>正在加载 PDF…</span>
+              <span>{t('pdf.loading')}</span>
             </div>
           )}
         </Document>

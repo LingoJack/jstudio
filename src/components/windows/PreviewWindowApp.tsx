@@ -191,7 +191,7 @@ function DocxPreview({ src }: { src: string }) {
     docxToHtml(src)
       .then((result) => !cancelled && setHtml(result))
       .catch(() =>
-        !cancelled && setHtml('<p style="color:#f85149;">Failed to load DOCX</p>'),
+        !cancelled && setHtml(`<p style="color:#f85149;">${t('preview.docxError')}</p>`),
       )
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };

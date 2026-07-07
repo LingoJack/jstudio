@@ -51,7 +51,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             {this.t('error.title')}
           </p>
           <pre className="max-w-lg text-xs text-[var(--vscode-descriptionForeground)] overflow-auto px-4">
-            {this.state.error?.message ?? 'Unknown error'}
+            {this.state.error?.message ?? this.t('error.unknown')}
           </pre>
           <button
             onClick={this.handleReload}

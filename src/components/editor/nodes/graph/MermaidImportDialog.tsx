@@ -73,7 +73,7 @@ export default function MermaidImportDialog({
 
   const handleConvert = async () => {
     if (!code.trim()) {
-      setError('请输入 Mermaid 代码');
+      setError(t('mermaid.emptyCode'));
       return;
     }
 
@@ -84,7 +84,7 @@ export default function MermaidImportDialog({
       const result = await convertMermaidToSnapshot(code);
 
       if (!result.success) {
-        setError(result.error ?? '转换失败');
+        setError(result.error ?? t('mermaid.convertError'));
         setIsConverting(false);
         return;
       }
@@ -94,7 +94,7 @@ export default function MermaidImportDialog({
       onClose();
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      setError(`转换异常: ${errorMessage}`);
+      setError(t('mermaid.exception', { error: errorMessage }));
     } finally {
       setIsConverting(false);
     }
@@ -113,9 +113,9 @@ export default function MermaidImportDialog({
         <div className="flex items-center gap-2 px-5 py-4 border-b border-[var(--vscode-widget-border)]">
           <FileDown className="w-4 h-4 text-[var(--vscode-descriptionForeground)]" />
           <h2 className="flex-1 text-sm font-semibold text-[var(--vscode-foreground)]">
-            导入 Mermaid 图表
+            {t('mermaid.title')}
           </h2>
-          <IconButton onClick={onClose} title="关闭">
+          <IconButton onClick={onClose} title={t('mermaid.close')}>
             <X className="w-4 h-4" />
           </IconButton>
         </div>
@@ -124,12 +124,12 @@ export default function MermaidImportDialog({
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {/* 说明 */}
           <p className="text-xs text-[var(--vscode-descriptionForeground)] mb-3">
-            支持流程图（flowchart）和时序图（sequenceDiagram）。粘贴 Mermaid 代码后点击「转换」按钮。
+            {t('mermaid.description')}
           </p>
 
           {/* 示例选择 */}
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs text-[var(--vscode-descriptionForeground)]">插入示例：</span>
+            <span className="text-xs text-[var(--vscode-descriptionForeground)]">{t('mermaid.insertExample')}</span>
             <button
               onClick={() => {
                 setSelectedExample('flowchart');
@@ -141,7 +141,7 @@ export default function MermaidImportDialog({
                   : 'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
             >
-              流程图
+              {t('mermaid.flowchart')}
             </button>
             <button
               onClick={() => {
@@ -154,7 +154,7 @@ export default function MermaidImportDialog({
                   : 'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]'
               }`}
             >
-              时序图
+              {t('mermaid.sequence')}
             </button>
           </div>
 
@@ -165,7 +165,7 @@ export default function MermaidImportDialog({
               setCode(e.target.value);
               setError(null);
             }}
-            placeholder="输入 Mermaid 代码..."
+            placeholder={t('mermaid.inputPlaceholder')}
             className="w-full h-[200px] px-3 py-2.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-sm text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] resize-none focus:outline-none focus:border-[var(--vscode-focusBorder)] font-mono"
             spellCheck={false}
           />
@@ -180,11 +180,11 @@ export default function MermaidImportDialog({
 
           {/* 提示 */}
           <div className="mt-3 text-xs text-[var(--vscode-descriptionForeground)] opacity-70">
-            <p className="mb-1">常用语法提示：</p>
+            <p className="mb-1">{t('mermaid.syntaxTitle')}</p>
             <ul className="list-disc list-inside space-y-0.5">
-              <li>节点形状：[方形]、([圆角])、((圆形))、{'{'}菱形{'}'}</li>
-              <li>连线：--&gt; 箭头实线、--- 无箭头实线、-.-&gt; 箭头虚线</li>
-              <li>标签：A--&gt;|标签|B 或 A--&gt; B : 标签</li>
+              <li>{t('mermaid.syntax1')}</li>
+              <li>{t('mermaid.syntax2')}</li>
+              <li>{t('mermaid.syntax3')}</li>
             </ul>
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function MermaidImportDialog({
             onClick={onClose}
             className="text-sm px-4 py-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
           >
-            取消
+            {t('mermaid.cancel')}
           </button>
           <button
             onClick={handleConvert}
@@ -203,11 +203,11 @@ export default function MermaidImportDialog({
             className="flex items-center gap-1.5 text-sm px-4 py-1.5 rounded bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isConverting ? (
-              <span className="animate-pulse">转换中...</span>
+              <span className="animate-pulse">{t('mermaid.converting')}</span>
             ) : (
               <>
                 <ArrowRight className="w-4 h-4" />
-                <span>转换</span>
+                <span>{t('mermaid.convert')}</span>
               </>
             )}
           </button>
