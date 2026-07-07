@@ -60,7 +60,7 @@ const JSTUDIO_LIGHT: AppTheme = {
     // ── Borders ──
     'sideBar-border': '#E5E5E5',
     'activityBar-border': '#E5E5E5',
-    'widget-border': '#E5E5E5',
+    'widget-border': '#3B3B3B', // 与文字颜色一致
     'panel-border': '#E5E5E5',
 
     // ── Text ──
@@ -220,7 +220,7 @@ const JSTUDIO_DARK: AppTheme = {
     'activityBar-background': '#1F1F1F',
     'sideBar-border': '#2B2B2B',
     'activityBar-border': '#2B2B2B',
-    'widget-border': '#313131',
+    'widget-border': '#CCCCCC', // 与文字颜色一致
     'panel-border': '#2B2B2B',
     'foreground': '#CCCCCC',
     'descriptionForeground': '#9D9D9D',
@@ -475,7 +475,7 @@ const INK_DARK: AppTheme = {
     'activityBar-background': '#1e2030',
     'sideBar-border': '#2f334d',
     'activityBar-border': '#2f334d',
-    'widget-border': '#2f334d',
+    'widget-border': '#c8d3f5', // 与文字颜色一致
     'panel-border': '#2f334d',
     'foreground': '#c8d3f5',
     'descriptionForeground': '#7f88b0',
