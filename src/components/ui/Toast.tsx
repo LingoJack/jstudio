@@ -45,7 +45,7 @@ const ToastCard = memo(function ToastCard({
 
   return (
     <div
-      className="jstudio-toast-enter flex items-center gap-2.5 w-80 pl-3 pr-2 py-2.5 rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] shadow-xl"
+      className="jstudio-toast-enter flex items-center gap-2.5 w-80 pl-3 pr-2 py-2.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-xl"
       role="alert"
     >
       <Icon className={`w-4 h-4 shrink-0 ${iconClass}`} />

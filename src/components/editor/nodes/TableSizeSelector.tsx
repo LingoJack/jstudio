@@ -52,7 +52,7 @@ function GridPicker({ anchorX, anchorY, onSelect, onCancel }: GridPickerProps) {
     >
       {/* The actual grid card, positioned at the cursor anchor */}
       <div
-        className="absolute rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editorWidget-background)] p-3 shadow-xl"
+        className="absolute rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] p-3 shadow-xl"
         style={{
           left: `${anchorX}px`,
           top: `${anchorY + 8}px`,

@@ -91,7 +91,7 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
       onClick={onClose}
     >
       <div
-        className="w-[480px] max-h-[70vh] flex flex-col rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-2xl"
+        className="w-[480px] max-h-[70vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

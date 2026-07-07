@@ -56,7 +56,7 @@
   --vscode-textPreformat-foreground: #3B3B3B;
   --vscode-textPreformat-background: #0000001F;
   --vscode-menu-background: #FFFFFF;
-  --vscode-menu-border: #D0D0D0;
+  --vscode-menu-border: #C0C0C0;
   --vscode-menu-hoverBackground: #F2F2F2;
   --vscode-menu-separatorBackground: #E5E5E5;
   --vscode-menu-selectionBackground: #0052D9;
@@ -178,7 +178,7 @@
   --vscode-textPreformat-foreground: #D0D0D0;
   --vscode-textPreformat-background: #3C3C3C;
   --vscode-menu-background: #1F1F1F;
-  --vscode-menu-border: #454545;
+  --vscode-menu-border: #5A5A5A;
   --vscode-menu-hoverBackground: #2A2D2E;
   --vscode-menu-separatorBackground: #3A3A3A;
   --vscode-menu-selectionBackground: #07C160;
@@ -1457,7 +1457,7 @@ button {
   max-height: 320px;
   display: flex;
   flex-direction: column;
-  background: var(--vscode-quickInput-background, var(--vscode-editorWidget-background));
+  background: var(--vscode-menu-background);
   border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -1480,7 +1480,7 @@ button {
   overflow-y: auto;
   border-radius: 8px;
   border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
-  background: var(--vscode-quickInput-background, var(--vscode-editorWidget-background));
+  background: var(--vscode-menu-background);
   padding: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -1909,7 +1909,7 @@ button {
   gap: 2px;
   padding: 3px 4px;
   background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
-  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, #3c3c3c));
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 10;
@@ -1989,7 +1989,7 @@ button {
   gap: 2px;
   padding: 3px 4px;
   background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
-  border: 1px solid var(--vscode-widget-border, #3c3c3c);
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, #3c3c3c));
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 10;
@@ -2136,8 +2136,8 @@ button {
   max-height: 340px;
   display: flex;
   flex-direction: column;
-  background: var(--vscode-quickInput-background, var(--vscode-editorWidget-background));
-  border: 1px solid var(--vscode-widget-border);
+  background: var(--vscode-menu-background);
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   overflow: hidden;

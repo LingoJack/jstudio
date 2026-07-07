@@ -61,8 +61,8 @@ const JSTUDIO_LIGHT: AppTheme = {
     'sideBar-border': '#E5E5E5',
     'activityBar-border': '#E5E5E5',
     'widget-border': '#E5E5E5',
-    'block-border': '#D0D0D0', // 代码块、表格等内容块边框，比 widget-border 略深
-    'menu-border': '#D0D0D0',  // 浮窗菜单边框，与 block-border 一致
+    'block-border': '#C0C0C0', // 代码块、表格等内容块边框，深于 widget-border 以突出
+    'menu-border': '#C0C0C0',  // 浮窗菜单边框，与 block-border 一致，深于 widget-border
     'panel-border': '#E5E5E5',
 
     // ── Text ──
@@ -222,8 +222,8 @@ const JSTUDIO_DARK: AppTheme = {
     'sideBar-border': '#2B2B2B',
     'activityBar-border': '#2B2B2B',
     'widget-border': '#313131',
-    'block-border': '#454545', // 代码块、表格等内容块边框，比 widget-border 略深
-    'menu-border': '#454545',  // 浮窗菜单边框，与 block-border 一致
+    'block-border': '#5A5A5A', // 代码块、表格等内容块边框，亮于 widget-border 以突出
+    'menu-border': '#5A5A5A',  // 浮窗菜单边框，与 block-border 一致，亮于 widget-border
     'panel-border': '#2B2B2B',
     'foreground': '#CCCCCC',
     'descriptionForeground': '#9D9D9D',
