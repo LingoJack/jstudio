@@ -4,9 +4,10 @@ import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { createTerminalWindow } from '../../lib/windows/terminalDetach';
 import { getTerminalThemeFromAppTheme } from '../../lib/terminal/themes';
-import { Plus, X, Clock, FolderOpen, Trash2 } from 'lucide-react';
+import { Clock, FolderOpen, Trash2, Pencil, X, ExternalLink } from 'lucide-react';
+import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
+import TabBar, { type TabItem } from '../ui/TabBar';
 import type { TerminalSession } from '../../store/terminalSlice';
-import TerminalTabContextMenu from './TerminalTabContextMenu';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ function formatAutoTitle(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return '';
 
-  // Shell-specific titles like "zsh", "bash", "-zsh" are noise.
+  // Shell-specific titles like "zsh", "bash" are noise.
   if (/^-?(zsh|bash|fish|sh|dash)$/.test(trimmed)) return '';
 
   // "user@host: path" — extract path
@@ -72,8 +73,8 @@ function formatAutoTitle(raw: string): string {
 /**
  * TerminalTabs — VS Code-style tab bar for terminal pane groups.
  *
- * Features:
- *   - Right-click tab → context menu (Rename / Close)
+ * Uses the shared TabBar component with:
+ *   - Right-click context menu (Rename / Detach / Close)
  *   - Inline rename: type + Enter/blur to save, Escape to cancel
  *   - Smart title: custom rename > OSC auto title > cwd basename
  *   - `+` button → new tab
@@ -111,116 +112,25 @@ export default function TerminalTabs() {
    * tab is focused, so the global cycle shortcut (Cmd+Option+←/→)
    * knows the correct anchor point.
    */
-  const switchSession = (sessionId: string) => {
-    setActiveSession(sessionId);
-    // Find the workspace tab for the group that owns this session.
-    const group = groups.find((g) => g.activeSessionId === sessionId);
-    if (group) {
-      const wsTab = wsTabs.find(
-        (t) => t.kind === 'terminal' && t.groupId === group.id,
-      );
-      if (wsTab) wsSetActiveTab(wsTab.id);
-    }
-  };
+  const switchSession = useCallback(
+    (sessionId: string) => {
+      setActiveSession(sessionId);
+      // Find the workspace tab for the group that owns this session.
+      const group = groups.find((g) => g.activeSessionId === sessionId);
+      if (group) {
+        const wsTab = wsTabs.find(
+          (t) => t.kind === 'terminal' && t.groupId === group.id,
+        );
+        if (wsTab) wsSetActiveTab(wsTab.id);
+      }
+    },
+    [groups, wsTabs, setActiveSession, wsSetActiveTab]
+  );
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const activeTabRef = useRef<HTMLDivElement>(null);
-  const renameInputRef = useRef<HTMLInputElement>(null);
-
-  // Context menu state
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    groupId: string;
-  } | null>(null);
-
-  // Inline rename state
+  // ── Inline rename state ───────────────────────────────────────────
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  // History dropdown state
-  const [showHistory, setShowHistory] = useState(false);
-  const [historyPos, setHistoryPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const historyBtnRef = useRef<HTMLButtonElement>(null);
-  const historyRef = useRef<HTMLDivElement>(null);
-  const historyCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ── Tab tear-off (drag a tab out of the tab strip → new OS window) ──
-  // Tracks the in-flight drag. `outside` flips true once the cursor leaves
-  // the tab strip's bounds (the horizontal tab bar), which highlights the
-  // ghost and arms detach-on-release. Dragging down into the terminal area
-  // counts as "outside" too, since it left the strip.
-  const dragGroupId = useRef<string | null>(null);
-  const tabBarRef = useRef<HTMLDivElement>(null);
-  const [ghost, setGhost] = useState<{
-    x: number;
-    y: number;
-    title: string;
-    outside: boolean;
-  } | null>(null);
-
-  // ── Keyboard shortcuts ───────────────────────────────────────────
-  // NOTE: All keyboard shortcuts are now handled centrally by ShortcutManager.
-  // No per-component keydown handlers needed.
-
-  // ── Scroll active tab into view ──────────────────────────────────
-  useEffect(() => {
-    activeTabRef.current?.scrollIntoView({
-      block: 'nearest',
-      inline: 'nearest',
-    });
-  }, [activeGroupId]);
-
-  // ── 滚动渐变遮罩显示/隐藏 ───────────────────────────────────────
-  useEffect(() => {
-    const scroller = scrollRef.current;
-    const container = scroller?.parentElement;
-    if (!scroller || !container) return;
-
-    const leftFade = container.querySelector('[data-scroll-left-fade]') as HTMLElement;
-    const rightFade = container.querySelector('[data-scroll-right-fade]') as HTMLElement;
-
-    const updateFades = () => {
-      const { scrollLeft, scrollWidth, clientWidth } = scroller;
-      const canScrollLeft = scrollLeft > 4;
-      const canScrollRight = scrollLeft < scrollWidth - clientWidth - 4;
-      if (leftFade) leftFade.style.opacity = canScrollLeft ? '1' : '0';
-      if (rightFade) rightFade.style.opacity = canScrollRight ? '1' : '0';
-    };
-
-    updateFades();
-    scroller.addEventListener('scroll', updateFades);
-    window.addEventListener('resize', updateFades);
-    return () => {
-      scroller.removeEventListener('scroll', updateFades);
-      window.removeEventListener('resize', updateFades);
-    };
-  }, []);
-
-  // ── Focus rename input when entering rename mode ─────────────────
-  useEffect(() => {
-    if (renamingGroupId && renameInputRef.current) {
-      renameInputRef.current.focus();
-      renameInputRef.current.select();
-    }
-  }, [renamingGroupId]);
-
-  // ── Close context menu on outside click ─────────────────────────
-  useEffect(() => {
-    if (!contextMenu) return;
-
-    const handler = () => {
-      setContextMenu(null);
-    };
-
-    // Use nextTick to avoid the right-click event itself
-    requestAnimationFrame(() => {
-      window.addEventListener('click', handler);
-    });
-    return () => window.removeEventListener('click', handler);
-  }, [contextMenu]);
-
-  // ── Rename handlers ──────────────────────────────────────────────
   const startRename = useCallback(
     (groupId: string) => {
       const group = groups.find((g) => g.id === groupId);
@@ -230,23 +140,31 @@ export default function TerminalTabs() {
       setRenameValue(session.customTitle ?? getDisplayTitle(session));
       setRenamingGroupId(groupId);
     },
-    [groups, sessions],
+    [groups, sessions]
   );
 
-  const confirmRename = useCallback(() => {
-    if (!renamingGroupId) return;
-    const group = groups.find((g) => g.id === renamingGroupId);
-    if (group) {
-      renameSession(group.activeSessionId, renameValue);
-    }
-    setRenamingGroupId(null);
-  }, [renamingGroupId, renameValue, groups, renameSession]);
+  const confirmRename = useCallback(
+    (groupId: string) => {
+      const group = groups.find((g) => g.id === groupId);
+      if (group) {
+        renameSession(group.activeSessionId, renameValue);
+      }
+      setRenamingGroupId(null);
+    },
+    [groups, renameValue, renameSession]
+  );
 
   const cancelRename = useCallback(() => {
     setRenamingGroupId(null);
   }, []);
 
   // ── History dropdown (hover-triggered) ───────────────────────────
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyPos, setHistoryPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const historyBtnRef = useRef<HTMLButtonElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
+  const historyCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const openHistory = useCallback(() => {
     if (historyCloseTimer.current) {
       clearTimeout(historyCloseTimer.current);
@@ -254,15 +172,10 @@ export default function TerminalTabs() {
     }
     if (historyBtnRef.current) {
       const rect = historyBtnRef.current.getBoundingClientRect();
-      // 向上展开：下拉菜单底部紧贴按钮顶部上方 4px
-      // 使用 top 定位：下拉菜单顶部 = 按钮顶部 - 下拉菜单高度 - gap
-      // 但高度不确定，改用 bottom 定位更简单
-      // bottom = 视口高度 - 按钮顶部 + gap
       const gap = 4;
       setHistoryPos({ x: rect.left, y: rect.top - gap });
     }
     setShowHistory(true);
-    setContextMenu(null);
   }, []);
 
   const scheduleCloseHistory = useCallback(() => {
@@ -275,352 +188,196 @@ export default function TerminalTabs() {
       createSession(undefined, { cwd });
       setShowHistory(false);
     },
-    [createSession],
+    [createSession]
   );
 
   const clearRecentDirs = useStore((s) => s.clearRecentDirs);
 
-  // ── Tab tear-off drag handlers ───────────────────────────────────
-  // HTML5 drag can't truly drag content into a new OS window, so we detect
-  // when the cursor leaves the tab strip's bounds and, on drop, spawn a new
-  // window at the release point (kitty-style detach_window). Leaving the
-  // strip in any direction — including down into the terminal area — arms
-  // the detach.
-  const handleTabDragStart = useCallback(
-    (e: React.DragEvent, groupId: string) => {
-      // Never detach the only tab — the parent would auto-respawn one.
-      if (groups.length < 2) {
-        e.preventDefault();
-        return;
-      }
-      dragGroupId.current = groupId;
-      e.dataTransfer.effectAllowed = 'move';
-      // Suppress the browser's default drag image (a faded tab clone) so our
-      // custom ghost is the only thing the user sees.
-      const img = new Image();
-      img.src =
-        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-      e.dataTransfer.setDragImage(img, 0, 0);
-    },
-    [groups.length],
-  );
+  // ── Map groups → TabItem ──────────────────────────────────────────
+  const tabItems: TabItem[] = groups.map((group) => {
+    const isActive = group.id === activeGroupId;
+    const session = sessions.find((s) => s.id === group.activeSessionId);
+    const title = session ? getDisplayTitle(session) : 'Terminal';
+    const paneCount = group.sessionIds.length;
+    const isRenaming = renamingGroupId === group.id;
 
-  // True when the cursor (viewport coords) is outside the tab strip's box.
-  const isOutsideTabBar = useCallback((clientX: number, clientY: number) => {
-    const bar = tabBarRef.current;
-    if (!bar) return false;
-    const r = bar.getBoundingClientRect();
-    return (
-      clientX < r.left ||
-      clientX > r.right ||
-      clientY < r.top ||
-      clientY > r.bottom
-    );
+    return {
+      id: group.id,
+      title,
+      isActive,
+      paneCount,
+      isRenaming,
+      renameValue: isRenaming ? renameValue : undefined,
+      canClose: groups.length > 1,
+      canDrag: groups.length > 1,
+    };
+  });
+
+  // ── Detach handler ───────────────────────────────────────────────
+  const handleDetach = useCallback((groupId: string) => {
+    createTerminalWindow(groupId);
   }, []);
 
-  const handleTabDrag = useCallback(
-    (e: React.DragEvent, title: string) => {
-      // The final drag event fires with clientX/Y === 0; ignore it.
-      if (e.clientX === 0 && e.clientY === 0) return;
+  // ── Context menu renderer ───────────────────────────────────────
+  const renderContextMenu = useCallback(
+    (groupId: string, x: number, y: number, close: () => void) => {
+      return (
+        <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
+          <MenuItem
+            icon={<Pencil className="w-4 h-4" />}
+            onClick={() => {
+              startRename(groupId);
+              close();
+            }}
+          >
+            {t('terminal.rename')}
+          </MenuItem>
 
-      const outside = isOutsideTabBar(e.clientX, e.clientY);
-      setGhost({ x: e.clientX, y: e.clientY, title, outside });
+          {groups.length > 1 && (
+            <MenuItem
+              icon={<ExternalLink className="w-4 h-4" />}
+              onClick={() => {
+                createTerminalWindow(groupId);
+                close();
+              }}
+            >
+              {t('terminal.detachTab')}
+            </MenuItem>
+          )}
+
+          <MenuDivider />
+
+          <MenuItem
+            variant="danger"
+            icon={<X className="w-4 h-4" />}
+            onClick={() => {
+              const group = groups.find((g) => g.id === groupId);
+              if (group) closeSession(group.activeSessionId);
+              close();
+            }}
+          >
+            {t('terminal.close')}
+          </MenuItem>
+        </MenuList>
+      );
     },
-    [isOutsideTabBar],
+    [groups, startRename, closeSession, t]
   );
 
-  const handleTabDragEnd = useCallback(
-    (e: React.DragEvent) => {
-      const groupId = dragGroupId.current;
-      dragGroupId.current = null;
-      setGhost(null);
-
-      if (!groupId) return;
-
-      // dragend reports the release point; ignore the spurious 0,0 event.
-      if (e.clientX === 0 && e.clientY === 0) return;
-
-      if (isOutsideTabBar(e.clientX, e.clientY)) {
-        createTerminalWindow(groupId, { x: e.screenX, y: e.screenY });
-      }
-    },
-    [isOutsideTabBar],
+  // ── Extra actions (history dropdown trigger) ──────────────────────
+  const extraActions = (
+    <div
+      className="relative shrink-0"
+      onMouseEnter={openHistory}
+      onMouseLeave={scheduleCloseHistory}
+    >
+      <button
+        ref={historyBtnRef}
+        className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--term-fg)] hover:bg-[rgba(255,255,255,0.1)] ${
+          showHistory ? 'opacity-100 bg-[rgba(255,255,255,0.1)]' : 'opacity-60 hover:opacity-100'
+        }`}
+        title={t('terminal.recentDirs')}
+      >
+        <Clock className="w-4 h-4" />
+      </button>
+    </div>
   );
 
   if (groups.length === 0) return null;
 
-  // Hide the close button on the last remaining tab.
-  const isLastTab = groups.length <= 1;
-
   return (
     <>
-      {/* 悬浮液态玻璃胶囊 tab bar —不占据空间，完全悬浮 */}
-      <div
-        className="absolute left-0 right-0 bottom-0 flex items-center justify-center pb-3 z-10"
-        ref={tabBarRef}
-      >
-        <div
-          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full"
-          style={{
-            scrollbarWidth: 'thin',
-            background: 'rgba(255,255,255,0.06)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
-            // CSS vars for children
-            ['--term-fg' as string]: theme.foreground,
-            ['--term-accent' as string]: theme.blue,
-          }}
-        >
-          {/* 左侧渐变遮罩 */}
-          <div
-            className="absolute left-0 top-0 bottom-0 w-8 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-150"
-            style={{
-              background: 'linear-gradient(to right, rgba(255,255,255,0.06), transparent)',
-            }}
-            data-scroll-left-fade
-          />
-          {/* 右侧渐变遮罩 */}
-          <div
-            className="absolute right-0 top-0 bottom-0 w-8 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-150"
-            style={{
-              background: 'linear-gradient(to left, rgba(255,255,255,0.06), transparent)',
-            }}
-            data-scroll-right-fade
-          />
-          <div
-            ref={scrollRef}
-            className="flex items-center overflow-x-auto min-w-0 gap-0.5"
-            style={{ scrollbarWidth: 'none' }}
-          >
-          {groups.map((group) => {
-            const isActive = group.id === activeGroupId;
-            const session = sessions.find(
-              (s) => s.id === group.activeSessionId,
-            );
-            const title = session ? getDisplayTitle(session) : 'Terminal';
-            const paneCount = group.sessionIds.length;
-            const isRenaming = renamingGroupId === group.id;
-
-            return (
-              <div
-                key={group.id}
-                ref={isActive ? activeTabRef : null}
-                draggable={!isRenaming && groups.length > 1}
-                onDragStart={(e) => handleTabDragStart(e, group.id)}
-                onDrag={(e) => handleTabDrag(e, title)}
-                onDragEnd={handleTabDragEnd}
-                onClick={() => switchSession(group.activeSessionId)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setContextMenu({
-                    x: e.clientX,
-                    y: e.clientY,
-                    groupId: group.id,
-                  });
-                }}
-                className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-75 ${
-                  isActive
-                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
-                    : 'text-[var(--term-fg)] opacity-70 hover:bg-[rgba(255,255,255,0.08)] hover:opacity-100'
-                }`}
-              >
-                {isRenaming ? (
-                  <input
-                    ref={renameInputRef}
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === 'Enter') confirmRename();
-                      else if (e.key === 'Escape') cancelRename();
-                    }}
-                    onBlur={confirmRename}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-[13px] font-medium border rounded px-1.5 py-0.5 outline-none w-full text-center bg-[var(--vscode-editor-background)]"
-                    style={{
-                      color: theme.foreground,
-                      borderColor: 'var(--term-accent)',
-                    }}
-                  />
-                ) : (
-                  <>
-                    <span className="text-[13px] font-medium flex-1 min-w-0 truncate text-center">
-                      {title}
-                    </span>
-
-                    {paneCount > 1 && (
-                      <span className="text-[11px] opacity-50 shrink-0">
-                        {paneCount}
-                      </span>
-                    )}
-
-                    {!isLastTab && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closeSession(group.activeSessionId);
-                        }}
-                        className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-75 hover:bg-[rgba(255,255,255,0.15)] ${
-                          isActive
-                            ? 'opacity-70'
-                            : 'opacity-0 group-hover:opacity-70'
-                        }`}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-          </div>
-          {/* `+` and Clock — outside scroll container, always visible */}
-          <button
-            onClick={() => createSession()}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--term-fg)] opacity-60 hover:bg-[rgba(255,255,255,0.1)] hover:opacity-100 transition-colors duration-75 cursor-pointer"
-            title={t('terminal.newSession')}
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-
-          {/* Clock — recent directories */}
-          <div
-            className="relative shrink-0"
-            onMouseEnter={openHistory}
-            onMouseLeave={scheduleCloseHistory}
-          >
-            <button
-              ref={historyBtnRef}
-              className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--term-fg)] hover:bg-[rgba(255,255,255,0.1)] ${
-                showHistory ? 'opacity-100 bg-[rgba(255,255,255,0.1)]' : 'opacity-60 hover:opacity-100'
-              }`}
-              title={t('terminal.recentDirs')}
-            >
-              <Clock className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <TabBar
+        tabs={tabItems}
+        activeTabId={activeGroupId}
+        onTabClick={(groupId) => {
+          const group = groups.find((g) => g.id === groupId);
+          if (group) switchSession(group.activeSessionId);
+        }}
+        onTabClose={(groupId) => {
+          const group = groups.find((g) => g.id === groupId);
+          if (group) closeSession(group.activeSessionId);
+        }}
+        onDetach={handleDetach}
+        onRenameChange={setRenameValue}
+        onRenameConfirm={() => confirmRename(renamingGroupId ?? '')}
+        onRenameCancel={cancelRename}
+        onNew={() => createSession()}
+        renderContextMenu={renderContextMenu}
+        extraActions={extraActions}
+        rippleColor="rgba(255,255,255,0.25)"
+        textColor="var(--term-fg)"
+        accentColor="var(--vscode-list-activeSelectionBackground)"
+        renameBorderColor="var(--term-accent)"
+      />
 
       {/* History dropdown — rendered at root level with fixed position to
           escape overflow-x-auto clipping from the scroll container.
           Opens upward since tab bar is at bottom. */}
-      {showHistory && (
-        <div
-          ref={historyRef}
-          className="fixed z-modal min-w-context max-w-context py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
-          style={{ left: historyPos.x, bottom: `calc(100vh - ${historyPos.y}px)` }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseEnter={() => {
-            if (historyCloseTimer.current) {
-              clearTimeout(historyCloseTimer.current);
-              historyCloseTimer.current = null;
-            }
-          }}
-          onMouseLeave={scheduleCloseHistory}
-        >
-          {recentDirs.length === 0 ? (
-            <div className="px-3 py-3 text-center text-[var(--vscode-descriptionForeground)] text-xs">
-              {t('terminal.noRecentDirs')}
-            </div>
-          ) : (
-            <>
-              <div className="px-3 pb-1.5 text-tiny font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-                {t('terminal.recentDirs')}
-              </div>
-              <div className="max-h-[300px] overflow-y-auto">
-                {recentDirs.map((dir) => {
-                  const basename = getCwdBasename(dir);
-                  const parentPath = dir.replace(/\/[^/]*$/, '');
-                  return (
-                    <button
-                      key={dir}
-                      onClick={() => handlePickRecentDir(dir)}
-                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer hover:bg-[var(--vscode-menu-hoverBackground)] group"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5 opacity-50 group-hover:opacity-80 shrink-0 mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium text-[var(--vscode-menu-foreground)] truncate">
-                          {basename}
-                        </div>
-                        {parentPath && parentPath !== dir && (
-                          <div className="text-tiny text-[var(--vscode-descriptionForeground)] truncate font-mono leading-tight">
-                            {parentPath}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
-              <button
-                onClick={() => {
-                  clearRecentDirs();
-                  setShowHistory(false);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-              >
-                <Trash2 className="w-3.5 h-3.5 opacity-70 shrink-0" />
-                <span className="text-xs">{t('terminal.clearRecent')}</span>
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Right-click context menu (portal-like, rendered at root level) */}
-      {contextMenu && (
-        <TerminalTabContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          canDetach={groups.length > 1}
-          onRename={() => {
-            startRename(contextMenu.groupId);
-            setContextMenu(null);
-          }}
-          onDetach={() => {
-            createTerminalWindow(contextMenu.groupId);
-            setContextMenu(null);
-          }}
-          onClose={() => {
-            const group = groups.find((g) => g.id === contextMenu.groupId);
-            if (group) closeSession(group.activeSessionId);
-            setContextMenu(null);
-          }}
-        />
-      )}
-
-      {/* Drag ghost — follows the cursor during a tab tear-off drag.
-          Rendered via portal to escape the tab strip's overflow clipping. */}
-      {ghost &&
+      {showHistory &&
         createPortal(
           <div
-            className="fixed z-[9999] pointer-events-none select-none"
-            style={{
-              left: ghost.x + 12,
-              top: ghost.y + 12,
+            ref={historyRef}
+            className="fixed z-modal min-w-context max-w-context py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
+            style={{ left: historyPos.x, bottom: `calc(100vh - ${historyPos.y}px)` }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseEnter={() => {
+              if (historyCloseTimer.current) {
+                clearTimeout(historyCloseTimer.current);
+                historyCloseTimer.current = null;
+              }
             }}
+            onMouseLeave={scheduleCloseHistory}
           >
-            <div
-              className={`flex flex-col gap-0.5 px-3 py-2 rounded-md shadow-2xl border text-xs font-medium transition-colors ${
-                ghost.outside
-                  ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
-                  : 'border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-descriptionForeground)]'
-              }`}
-            >
-              <span className="max-w-[200px] truncate">{ghost.title}</span>
-              {ghost.outside && (
-                <span className="text-[10px] text-[var(--vscode-focusBorder)]">
-                  {t('terminal.releaseToDetach')}
-                </span>
-              )}
-            </div>
+            {recentDirs.length === 0 ? (
+              <div className="px-3 py-3 text-center text-[var(--vscode-descriptionForeground)] text-xs">
+                {t('terminal.noRecentDirs')}
+              </div>
+            ) : (
+              <>
+                <div className="px-3 pb-1.5 text-tiny font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+                  {t('terminal.recentDirs')}
+                </div>
+                <div className="max-h-[300px] overflow-y-auto">
+                  {recentDirs.map((dir) => {
+                    const basename = getCwdBasename(dir);
+                    const parentPath = dir.replace(/\/[^/]*$/, '');
+                    return (
+                      <button
+                        key={dir}
+                        onClick={() => handlePickRecentDir(dir)}
+                        className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer hover:bg-[var(--vscode-menu-hoverBackground)] group"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 opacity-50 group-hover:opacity-80 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-[var(--vscode-menu-foreground)] truncate">
+                            {basename}
+                          </div>
+                          {parentPath && parentPath !== dir && (
+                            <div className="text-tiny text-[var(--vscode-descriptionForeground)] truncate font-mono leading-tight">
+                              {parentPath}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
+                <button
+                  onClick={() => {
+                    clearRecentDirs();
+                    setShowHistory(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+                >
+                  <Trash2 className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                  <span className="text-xs">{t('terminal.clearRecent')}</span>
+                </button>
+              </>
+            )}
           </div>,
-          document.body,
+          document.body
         )}
     </>
   );
