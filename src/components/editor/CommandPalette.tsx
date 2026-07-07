@@ -294,7 +294,7 @@ export default function CommandPalette() {
         className="relative w-[min(520px,90vw)] overflow-hidden bg-[var(--vscode-quickInput-background)] flex flex-col rounded-2xl"
         style={{
           animation: 'paletteIn 120ms ease-out',
-          boxShadow: '2px 2px 0 0 rgba(0,0,0,0.08), inset 0 0 0 1.5px rgba(255,255,255,0.15)',
+          boxShadow: '2px 2px 0 0 rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.1)',
         }}
         onClick={(e) => e.stopPropagation()}
       >

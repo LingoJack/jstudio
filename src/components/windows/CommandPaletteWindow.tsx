@@ -335,7 +335,7 @@ export default function CommandPaletteWindow() {
           width: 'min(520px, 92vw)',
           maxHeight: '68vh',
           background: 'var(--vscode-quickInput-background)',
-          boxShadow: '2px 2px 0 0 rgba(0,0,0,0.08), inset 0 0 0 1.5px rgba(255,255,255,0.15)',
+          boxShadow: '2px 2px 0 0 rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.1)',
           animation: 'cpwIn 100ms ease-out',
         }}
       >
