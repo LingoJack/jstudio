@@ -73,6 +73,7 @@ export default function CommandPaletteWindow() {
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [sessions, setSessions] = useState<TerminalSessionInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canScrollDown, setCanScrollDown] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -265,6 +266,22 @@ export default function CommandPaletteWindow() {
     el?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
+  // ── 9.1 检测滚动位置，显示底部发光提示 ──
+  useEffect(() => {
+    const scroller = listRef.current;
+    if (!scroller) return;
+
+    const updateScrollState = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scroller;
+      const hasMoreBelow = scrollTop < scrollHeight - clientHeight - 8;
+      setCanScrollDown(hasMoreBelow);
+    };
+
+    updateScrollState();
+    scroller.addEventListener('scroll', updateScrollState);
+    return () => scroller.removeEventListener('scroll', updateScrollState);
+  }, [items]);
+
   // ── 10. 执行选中项 ──
   const executeItem = useCallback(
     async (item: PaletteItem) => {
@@ -327,7 +344,7 @@ export default function CommandPaletteWindow() {
       className="fixed inset-0 flex flex-col items-center pt-[8vh]"
       style={{ background: 'rgba(0,0,0,0.01)' }}
     >
-      {/* ── 面板 - 液态玻璃 ── */}
+      {/* ── 面板 - 液态玻璃 + 顶部高光 ── */}
       <div
         ref={panelRef}
         className="flex flex-col overflow-hidden rounded-2xl"
@@ -337,7 +354,12 @@ export default function CommandPaletteWindow() {
           background: 'rgba(255,255,255,0.06)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
+          boxShadow: `
+            inset 0 1px 0 0 rgba(255,255,255,0.2),
+            inset 0 0 0 1px rgba(255,255,255,0.1),
+            0 8px 32px rgba(0,0,0,0.15),
+            0 2px 8px rgba(0,0,0,0.08)
+          `,
           animation: 'cpwIn 100ms ease-out',
         }}
       >
@@ -369,34 +391,45 @@ export default function CommandPaletteWindow() {
 
         {/* ── 结果列表（仅当有输入时显示）── */}
         {showResults && (
-          <div ref={listRef} className="flex-1 overflow-y-auto py-1 min-h-0">
-            {loading ? (
-              <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-50">
-                {lang === 'zh' ? '加载中…' : 'Loading…'}
-              </div>
-            ) : items.length === 0 ? (
-              <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-50">
-                {t('palette.noResults')}
-              </div>
-            ) : (
-              items.map((item, index) => (
-                <PaletteRow
-                  key={
-                    item.kind === 'document'
-                      ? `doc-${item.doc.id}`
-                      : item.kind === 'session'
-                        ? `ses-${item.session.id}`
-                        : `set-${item.sectionId}`
-                  }
-                  item={item}
-                  index={index}
-                  isSelected={index === selectedIndex}
-                  t={t}
-                  language={lang}
-                  onClick={() => executeItem(item)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                />
-              ))
+          <div className="relative flex-1 overflow-y-auto py-1 min-h-0" style={{ scrollbarWidth: 'none' }}>
+            <div ref={listRef}>
+              {loading ? (
+                <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-50">
+                  {lang === 'zh' ? '加载中…' : 'Loading…'}
+                </div>
+              ) : items.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-50">
+                  {t('palette.noResults')}
+                </div>
+              ) : (
+                items.map((item, index) => (
+                  <PaletteRow
+                    key={
+                      item.kind === 'document'
+                        ? `doc-${item.doc.id}`
+                        : item.kind === 'session'
+                          ? `ses-${item.session.id}`
+                          : `set-${item.sectionId}`
+                    }
+                    item={item}
+                    index={index}
+                    isSelected={index === selectedIndex}
+                    t={t}
+                    language={lang}
+                    onClick={() => executeItem(item)}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  />
+                ))
+              )}
+            </div>
+            {/* 底部发光提示 - 仅当可向下滚动时显示 */}
+            {canScrollDown && (
+              <div
+                className="absolute left-0 right-0 bottom-0 h-12 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(to top, rgba(255,255,255,0.15), transparent)',
+                }}
+              />
             )}
           </div>
         )}

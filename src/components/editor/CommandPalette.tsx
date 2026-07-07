@@ -71,6 +71,7 @@ export default function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
 
   // ── derived mode ──
   const trimmedQuery = query.trimStart();
@@ -179,6 +180,22 @@ export default function CommandPalette() {
     el?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, isOpen]);
 
+  // ── Detect scroll position to show bottom glow ──
+  useEffect(() => {
+    const scroller = listRef.current;
+    if (!scroller) return;
+
+    const updateScrollState = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scroller;
+      const hasMoreBelow = scrollTop < scrollHeight - clientHeight - 8;
+      setCanScrollDown(hasMoreBelow);
+    };
+
+    updateScrollState();
+    scroller.addEventListener('scroll', updateScrollState);
+    return () => scroller.removeEventListener('scroll', updateScrollState);
+  }, [items]);
+
   // ── Execute item ──
   const executeItem = useCallback(
     (item: PaletteItem) => {
@@ -286,17 +303,22 @@ export default function CommandPalette() {
       className="fixed inset-0 z-[9999] flex justify-center items-start pt-[12vh]"
       onClick={() => setCommandPaletteOpen(false)}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/25 backdrop-blur-[1px]" />
+{/* Backdrop - 浅色模式下用白色遮罩，深色用黑色 */}
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-[1px] dark:bg-black/30" />
 
-      {/* Panel - 液态玻璃 */}
+{/* Panel - 液态玻璃 + 顶部高光 */}
       <div
         className="relative w-[min(520px,90vw)] overflow-hidden flex flex-col rounded-2xl"
         style={{
           background: 'rgba(255,255,255,0.06)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
+          boxShadow: `
+            inset 0 1px 0 0 rgba(255,255,255,0.2),
+            inset 0 0 0 1px rgba(255,255,255,0.1),
+            0 8px 32px rgba(0,0,0,0.15),
+            0 2px 8px rgba(0,0,0,0.08)
+          `,
           animation: 'paletteIn 120ms ease-out',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -339,33 +361,44 @@ export default function CommandPalette() {
         </div>
 
         {/* ── Results ── */}
-        <div ref={listRef} className="max-h-[min(320px,45vh)] overflow-y-auto py-1">
-          {items.length === 0 ? (
-            <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-60">
-              {t('palette.noResults')}
-            </div>
-          ) : (
-            items.map((item, index) => (
-              <PaletteRow
-                key={
-                  item.kind === 'command'
-                    ? `cmd-${item.scored.command.id}`
-                    : item.kind === 'document'
-                      ? `doc-${item.doc.id}`
-                      : item.kind === 'session'
-                        ? `ses-${item.session.id}`
-                        : `set-${item.sectionId}`
-                }
-                item={item}
-                index={index}
-                isSelected={index === selectedIndex}
-                language={lang}
-                t={t}
-                overrides={overrides}
-                onClick={() => executeItem(item)}
-                onMouseEnter={() => setSelectedIndex(index)}
-              />
-            ))
+        <div className="relative max-h-[min(320px,45vh)] overflow-y-auto py-1" style={{ scrollbarWidth: 'none' }}>
+          <div ref={listRef}>
+            {items.length === 0 ? (
+              <div className="px-3 py-6 text-center text-[13px] text-[var(--vscode-descriptionForeground)] opacity-60">
+                {t('palette.noResults')}
+              </div>
+            ) : (
+              items.map((item, index) => (
+                <PaletteRow
+                  key={
+                    item.kind === 'command'
+                      ? `cmd-${item.scored.command.id}`
+                      : item.kind === 'document'
+                        ? `doc-${item.doc.id}`
+                        : item.kind === 'session'
+                          ? `ses-${item.session.id}`
+                          : `set-${item.sectionId}`
+                  }
+                  item={item}
+                  index={index}
+                  isSelected={index === selectedIndex}
+                  language={lang}
+                  t={t}
+                  overrides={overrides}
+                  onClick={() => executeItem(item)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                />
+              ))
+            )}
+          </div>
+          {/* 底部发光提示 - 仅当可向下滚动时显示 */}
+          {canScrollDown && (
+            <div
+              className="absolute left-0 right-0 bottom-0 h-12 pointer-events-none"
+              style={{
+                background: 'linear-gradient(to top, rgba(255,255,255,0.15), transparent)',
+              }}
+            />
           )}
         </div>
 
