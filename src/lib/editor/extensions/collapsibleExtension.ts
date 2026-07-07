@@ -136,8 +136,8 @@ blockBehaviorRegistry.register({
     const parent = $head.parent;
     if (parent.type.name !== 'paragraph' || parent.content.size !== 0) return false;
 
-    // Walk up to find the collapsible ancestor
-    for (let d = $head.depth; d > 1; d--) {
+    // Walk up to find the collapsible ancestor (including depth=1)
+    for (let d = $head.depth; d >= 1; d--) {
       const ancestor = $head.node(d);
       if (ancestor.type.name === 'collapsible') {
         const summary = (ancestor.attrs.summary as string) ?? '';
@@ -154,7 +154,7 @@ blockBehaviorRegistry.register({
   },
   delete: (editor, $head) => {
     // Walk up to find the collapsible ancestor's position and delete it
-    for (let d = $head.depth; d > 1; d--) {
+    for (let d = $head.depth; d >= 1; d--) {
       const ancestor = $head.node(d);
       if (ancestor.type.name === 'collapsible') {
         const collapsiblePos = $head.before(d);
