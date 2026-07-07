@@ -1458,7 +1458,7 @@ button {
   display: flex;
   flex-direction: column;
   background: var(--vscode-quickInput-background, var(--vscode-editorWidget-background));
-  border: 1px solid var(--vscode-widget-border);
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -1470,7 +1470,7 @@ button {
   display: flex;
   align-items: center;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--vscode-widget-border);
+  border-bottom: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
 }
 
 .code-lang-search-icon {

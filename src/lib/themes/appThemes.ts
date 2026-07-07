@@ -376,7 +376,7 @@ const INK_LIGHT: AppTheme = {
     'tab-inactiveForeground': '#8a7e72',
     'tab-border': '#ddd4c8',
     'menu-background': '#faf6f1',
-    'menu-border': '#ddd4c8',
+    'menu-border': '#1a1612', // 黑色/深褐，与 block-border 一致
     'menu-hoverBackground': '#f0ebe3',
     'menu-separatorBackground': '#ddd4c8',
     'menu-selectionBackground': '#1a1612', // 深褐/黑色
