@@ -7,10 +7,10 @@ import {
   useState,
 } from 'react';
 import type { SlashMenuRenderHandle, SlashMenuRenderProps } from './types';
-import { useI18n } from '../../core/i18n';
+import { useI18n, type TranslationKey } from '../../core/i18n';
 
 // Mapping from command title (English) to i18n keys
-const SLASH_I18N_KEYS: Record<string, { title: string; description: string }> = {
+const SLASH_I18N_KEYS: Record<string, { title: TranslationKey; description: TranslationKey }> = {
   'Heading 1': { title: 'slash.heading1', description: 'slash.heading1Desc' },
   'Heading 2': { title: 'slash.heading2', description: 'slash.heading2Desc' },
   'Heading 3': { title: 'slash.heading3', description: 'slash.heading3Desc' },
