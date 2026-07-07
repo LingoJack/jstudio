@@ -275,12 +275,14 @@ jstudio/
 7. **路径别名**：`@/*` 映射到 `src/*`（tsconfig 配置），但项目中主要使用相对路径导入。
 8. **复用 UI 公共组件，不要重复造样式**：新增任何浮层 UI（菜单、下拉、上下文菜单等）之前，**先检查 `components/ui/` 下是否已有对应组件**。如果已有，直接引用；如果没有，先提取为公共组件再使用。详见下方「UI 组件复用规范」。
 9. **列表选中项高亮只用单一状态驱动，禁止 CSS `:hover`**：命令面板、斜杠菜单等"鼠标 + 键盘双模式选择"的列表，选中高亮**只能**由一个状态变量（如 `selectedIndex` / `activeIndex`）驱动。鼠标 hover 通过 `onMouseEnter={() => setSelectedIndex(index)}` 更新该状态，键盘方向键也更新同一状态。**禁止**在非选中行上使用 CSS `:hover` 伪类（如 `hover:bg-*`）作为高亮手段——否则鼠标物理位置所在行会与键盘选中行同时出现高亮。正确做法参考 `SlashMenuList`（`lib/tiptapExtensions.tsx`）和 `CommandPalette`（`components/CommandPalette.tsx`）。
+10. **视觉令牌统一在 `vscode-theme.css`，不要 inline 写死样式**：圆角、组件间距、阴影、卡片边框等"跨组件需要保持一致"的视觉属性，统一在 `src/styles/vscode-theme.css` 里以类选择器定义（如 `.code-block-figure`、`.tableWrapper`）。当某组件的视觉要和其它组件对齐（例如让代码块圆角与表格一致）时，**改 CSS 里的令牌**，不要往 TSX 加 `style={{ borderRadius: ... }}`。例：代码块 `.code-block-figure` 与表格 `.tableWrapper` 的外圆角都应是 `16px`，改动时两处一起调、保持单一事实来源。inline 只用于真正动态的值（如尺寸拖拽）。
 
 ### Rust 后端
 
 1. **命令注册**：新增 `#[tauri::command]` 后，必须在 `src/lib.rs` 的 `generate_handler!` 中注册。
 2. **错误处理**：所有命令返回 `Result<T, String>`，用 `.map_err(|e| e.to_string())` 转换。
 3. **路径辅助函数**：`storage.rs` 顶部有 `studio_dir()` / `doc_dir()` 等辅助函数，新增命令时复用。
+4. **避免 `unused_variables` 警告（也往往是更合理的设计）**：如果一个值只在某个块（block）内部使用，就不要把它解构/绑定到外层作用域。例：`link_tabs` 里 `ui_height` 只用来在块内算 `content_height`，原本写成 `let (ui_height, content_width, content_height) = {...}` 会触发 warning；正确做法是从返回元组剔除 `ui_height`，让它在块内 `let ui_height = m.ui_height` 局部生效。此外，如果一个值本应从"最新状态"实时读取（如 `show_tab` 每次都重新 `lock()` 取 `m.ui_height`），就不要复用别处算好的旧快照——局部现取始终最新，避免过期值。`cargo build` 默认把 `#[warn(unused_variables)]` 显示为 warning（不阻断 build，但应保持 clean）。
 
 ### 命名约定
 
@@ -317,6 +319,48 @@ jstudio/
 **为什么这条规范很重要**：
 
 历史上 `DocumentContextMenu` 和 `TerminalTabContextMenu` 是复制粘贴的，样式重复但散落在各自的文件里。当新增第三个菜单时，如果没有意识到应该用公共组件，就会手写一套 CSS 变量组合（用了不同的 `--vscode-*` 变量名），导致同一类 UI 视觉风格不一致。公共组件的意义在于**让一致性由结构保证，而非靠人记**。
+
+## 国际化（i18n）规范
+
+> 文件：`src/lib/core/i18n.ts`。**这是构建门禁最易触发的区域之一**——`t()` 的形参是 `TranslationKey`（严格字面量联合类型），任何类型不匹配都会让 `npm run build` 的 tsc 阶段失败。
+
+### 核心机制
+
+- 两个字典 `zh` 和 `en`，都用 `as const` 声明。
+- `export type TranslationKey = keyof typeof translations.zh;` —— **联合类型只取自 `zh` 块**。新增 key 必须先在 `zh` 写入，才会成为合法的 `TranslationKey`。
+- `useI18n()` 返回 `{ t, language }`（`language` 为 `'zh' | 'en'`，来自 Zustand UI slice）。组件用 `t('some.key')` 取值，语言切换时自动重渲染。
+- `t(key, vars?)` 支持占位符：`t('doclist.batchSelected', { count: 5 })` 会替换 `{count}`。占位符替换由导出的 `interpolate()` 完成。
+- **回退规则**（重要）：`t()` 的实现是 `dict[key] ?? translations.zh[key] ?? key`。如果某 key 只在 `zh` 写了、`en` 漏写，`dict[key]`（en）为 `undefined`，会**静默回退到中文**——英文界面显示中文，且不报任何错误。
+
+### 硬性规则
+
+1. **新增 key 必须 zh、en 同时写。** 漏写 en 不会触发 TS 报错，但会在英文模式下显示中文（静默 bug）。写完用 `npx tsc --noEmit` 确认，并人工核对英文字符串。
+2. **禁止重复 key。** 同一字典内重复定义同一 key 会触发 `TS1117`（Duplicate identifier）。i18n.ts 历史上曾因 `// ── PreviewWindow ──` 与 `// ── Preview Window ──` 两块重复定义 `preview.*` 而构建失败——新增 key 前先 grep 确认没有已存在的同名 key。
+3. **key 命名用点分前缀，按功能分组**：`pdf.*`、`code.*`、`image.*`、`preview.*`、`palette.*`、`linkPreview.*`、`mermaid.*`、`doclist.*`、`error.*` 等。新增一组功能时沿用已有前缀，不要造新前缀。
+4. **`interpolate` 必须保持 `export`。** `ErrorBoundary`（class 组件）无法用 hook，自己实现了 `t`，依赖这个导出函数。改 i18n.ts 时不要去掉它的 `export`。
+5. **class 组件的国际化**：class 组件拿不到 `useI18n()`，参考 `ErrorBoundary.tsx`——导入 `interpolate`，在类内部用 `translations[lang][key]` 自行实现 `t`。
+
+### 编译期校验映射表（推荐模式）
+
+当把"外部字符串 → i18n key"做映射时（例如斜杠菜单命令标题），**把 value 类型标注为 `TranslationKey`**，这样 TS 会在编译期校验每个 key 确实存在：
+
+```ts
+import { useI18n, type TranslationKey } from '../../core/i18n';
+
+const SLASH_I18N_KEYS: Record<string, { title: TranslationKey; description: TranslationKey }> = {
+  'Heading 1': { title: 'slash.heading1', description: 'slash.heading1Desc' },
+  // 若某个 key 拼错或在字典里漏掉，这里会立刻 TS 报错
+};
+```
+
+（示例见 `src/lib/editor/slashMenu/SlashMenuList.tsx`。）
+
+### 接 i18n 的标准流程
+
+1. 先在 `i18n.ts` 的 `zh` 和 `en` 两块里各加 key（同一前缀、同一含义）。
+2. 在组件里 `import { useI18n } from '../../core/i18n'`，调用 `const { t } = useI18n()`。
+3. 把硬编码中/英文字符串替换为 `t('your.key')` 或 `t('your.key', { var })`。
+4. 运行 `npx tsc --noEmit` 确认零错误。
 
 ## Tauri WebView 已知陷阱
 
@@ -429,3 +473,10 @@ npx tsc --noEmit
 - **前端 dev port**: `1420`
 - **前端 dist**: `dist/`
 - **Tauri 配置**: `src-tauri/tauri.conf.json`
+
+### 类型检查是构建门禁
+
+- `tauri.conf.json` 的 `beforeBuildCommand` 是 `npm run build`，而 `npm run build` 会先跑 `tsc` 严格类型检查。**任何 TS 错误都会让 `npm run build` 非零退出，进而 `tauri build` / `make` 失败**（`Found N errors. beforeBuildCommand ... failed`）。
+- 因此：**完成任何改动后，先跑 `npx tsc --noEmit`（或 `npx tsc --noEmit -p tsconfig.app.json`）确认 0 错误，再宣布完成。** 不要只靠"运行时没报错"判断。
+- 前端改动若涉及 i18n、类型映射、跨文件签名，尤其容易漏过 `tsc`——参见上方「国际化（i18n）规范」。
+- Rust 侧：`cargo build` 会把 `#[warn(unused_variables)]` 等输出为 warning（不阻断 build，但应保持 clean，见 Rust 编码规范第 4 条）。

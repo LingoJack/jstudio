@@ -50,7 +50,7 @@
  *   input working.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
 import {
@@ -69,8 +69,12 @@ export default function CollapsibleView({
   const open = (node.attrs['open'] as boolean) ?? true;
   const summary = (node.attrs['summary'] as string) ?? '';
 
-  // Local state for editing — avoids ProseMirror re-render on every keystroke
-  const [localSummary, setLocalSummary] = useState(summary);
+  // Uncontrolled input: the <input>'s value is managed by the BROWSER, not by
+  // React state. This is essential because ProseMirror's `input` / `beforeinput`
+  // handlers on view.dom can trigger NodeView re-renders (via domObserver.flush)
+  // that reset a *controlled* input's `value` back to stale state — making the
+  // title look like it can't accept text. With an uncontrolled input, the
+  // browser-inserted character survives any ProseMirror-triggered re-render.
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Register input with cursor trail for caret measurement
@@ -80,19 +84,38 @@ export default function CollapsibleView({
     return cursorTrail.registerInput(inputRef.current);
   }, [cursorTrail]);
 
-  // Sync local state when node.attrs.summary changes from outside
+  // Native `input` listener ON the <input> element (target phase — fires before
+  // the wrapper's stopPropagation). Notifies the cursor trail on every keystroke
+  // since React's onChange is deliberately not used (see shield notes below).
   useEffect(() => {
-    setLocalSummary(summary);
+    const el = inputRef.current;
+    if (!el) return;
+    const onInput = () => cursorTrail?.markDirty();
+    el.addEventListener('input', onInput);
+    return () => el.removeEventListener('input', onInput);
+  }, [cursorTrail]);
+
+  // Sync the input's value when summary changes from outside (e.g. undo/redo,
+  // or the slash-menu inserts a new collapsible). Only update when the input is
+  // NOT focused, to avoid clobbering in-progress editing.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    if (document.activeElement !== el && el.value !== summary) {
+      el.value = summary;
+    }
   }, [summary]);
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const toggleOpen = () => updateAttributes({ open: !open });
 
-  // Commit local edits to ProseMirror on blur or Enter
+  // Commit local edits to ProseMirror on blur or Enter.
+  // Reads directly from the DOM (uncontrolled input).
   const commitSummary = () => {
-    if (localSummary !== summary) {
-      updateAttributes({ summary: localSummary });
+    const value = inputRef.current?.value ?? '';
+    if (value !== summary) {
+      updateAttributes({ summary: value });
     }
   };
 
@@ -172,8 +195,9 @@ export default function CollapsibleView({
      * up to the React root, and onChange runs as expected.
      *
      * Note: stopPropagation on `beforeinput` does NOT affect the separate
-     * `input` event — they are different events, so React's onChange (which
-     * listens for `input` at the React root) still fires.
+     * `input` event — they are different events. The `input` event is itself
+     * shielded too (see inputShield below), and the <input> is uncontrolled, so
+     * no React onChange is needed — the browser manages the value directly.
      */
     const beforeinputShield = (e: InputEvent) => {
       if (!isFormControl(e.target)) return;
@@ -191,9 +215,24 @@ export default function CollapsibleView({
       e.stopPropagation();
     };
 
+    /**
+     * input — the InputEvent that fires AFTER the browser has already inserted
+     * a character. ProseMirror's `editHandlers.input` on view.dom calls
+     * `domObserver.flush()` which may detect spurious DOM mutations and trigger
+     * a NodeView re-render. On a controlled input that resets `value` to stale
+     * state; the uncontrolled approach already survives this, but shielding is
+     * belt-and-suspenders and also prevents ProseMirror from misinterpreting
+     * the <input>'s mutation as an editor-content change.
+     */
+    const inputShield = (e: Event) => {
+      if (!isFormControl(e.target)) return;
+      e.stopPropagation();
+    };
+
     el.addEventListener('mousedown', mousedownShield);
     el.addEventListener('keydown', keydownShield);
     el.addEventListener('beforeinput', beforeinputShield as EventListener);
+    el.addEventListener('input', inputShield);
     el.addEventListener('compositionstart', compositionShield);
     el.addEventListener('compositionupdate', compositionShield);
     el.addEventListener('compositionend', compositionShield);
@@ -201,6 +240,7 @@ export default function CollapsibleView({
       el.removeEventListener('mousedown', mousedownShield);
       el.removeEventListener('keydown', keydownShield);
       el.removeEventListener('beforeinput', beforeinputShield as EventListener);
+      el.removeEventListener('input', inputShield);
       el.removeEventListener('compositionstart', compositionShield);
       el.removeEventListener('compositionupdate', compositionShield);
       el.removeEventListener('compositionend', compositionShield);
@@ -228,21 +268,13 @@ export default function CollapsibleView({
           <input
             ref={inputRef}
             type="text"
-            value={localSummary}
-            onChange={(e) => {
-              setLocalSummary(e.target.value);
-              // Notify cursor trail to re-measure caret position
-              cursorTrail?.markDirty();
-            }}
+            defaultValue={summary}
             onBlur={commitSummary}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
                 commitSummary();
-              }
-              // Arrow keys move caret — notify trail
-              if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                cursorTrail?.markDirty();
+                inputRef.current?.blur();
               }
             }}
             onSelect={() => cursorTrail?.markDirty()}
