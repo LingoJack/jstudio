@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Divider — 分割线 */
+/** Divider — visual separator between blocks. */
 export const dividerCommand: SlashCommandItem = {
-  title: '分割线',
-  description: '插入水平分割线',
+  title: 'Divider',
+  description: 'Visual separator between blocks',
   icon: '—',
   aliases: ['divider', 'separator', 'horizontal', 'hr', '分割线', '分隔线'],
   command: ({ editor, range }) =>

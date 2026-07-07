@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Code Block — 代码块 */
+/** Code Block — display formatted code. */
 export const codeBlockCommand: SlashCommandItem = {
-  title: '代码块',
-  description: '插入格式化代码块',
+  title: 'Code Block',
+  description: 'Display formatted code',
   icon: '<>',
   aliases: ['code', 'codeblock', 'snippet'],
   command: ({ editor, range }) =>

@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Bullet List — 创建无序列表 */
+/** Bullet List — create a simple bulleted list. */
 export const bulletListCommand: SlashCommandItem = {
-  title: '无序列表',
-  description: '创建无序列表',
+  title: 'Bullet List',
+  description: 'Create a simple bulleted list',
   icon: '• —',
   aliases: ['bullet', 'ul', 'unordered', 'unorder', 'list', '无序'],
   command: ({ editor, range }) =>

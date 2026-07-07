@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** Collapsible — 折叠区域 */
+/** Collapsible — a foldable / expandable content region. */
 export const collapsibleCommand: SlashCommandItem = {
-  title: '折叠区域',
-  description: '可折叠/展开的内容区域',
+  title: 'Collapsible',
+  description: 'A foldable / expandable content region',
   icon: '▼',
   aliases: ['collapsible', 'collapse', 'toggle', 'fold', '折叠', '收起', '展开'],
   command: ({ editor, range }) =>

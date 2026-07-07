@@ -7,6 +7,26 @@ import {
   useState,
 } from 'react';
 import type { SlashMenuRenderHandle, SlashMenuRenderProps } from './types';
+import { useI18n } from '../../core/i18n';
+
+// Mapping from command title (English) to i18n keys
+const SLASH_I18N_KEYS: Record<string, { title: string; description: string }> = {
+  'Heading 1': { title: 'slash.heading1', description: 'slash.heading1Desc' },
+  'Heading 2': { title: 'slash.heading2', description: 'slash.heading2Desc' },
+  'Heading 3': { title: 'slash.heading3', description: 'slash.heading3Desc' },
+  'Bullet List': { title: 'slash.bulletList', description: 'slash.bulletListDesc' },
+  'Numbered List': { title: 'slash.numberedList', description: 'slash.numberedListDesc' },
+  'To-do List': { title: 'slash.todoList', description: 'slash.todoListDesc' },
+  'Quote': { title: 'slash.quote', description: 'slash.quoteDesc' },
+  'Code Block': { title: 'slash.codeBlock', description: 'slash.codeBlockDesc' },
+  'Image': { title: 'slash.image', description: 'slash.imageDesc' },
+  'File': { title: 'slash.file', description: 'slash.fileDesc' },
+  'Link': { title: 'slash.link', description: 'slash.linkDesc' },
+  'Table': { title: 'slash.table', description: 'slash.tableDesc' },
+  'Divider': { title: 'slash.divider', description: 'slash.dividerDesc' },
+  'Diagram': { title: 'slash.diagram', description: 'slash.diagramDesc' },
+  'Collapsible': { title: 'slash.collapsible', description: 'slash.collapsibleDesc' },
+};
 
 /**
  * The React component that renders the slash-menu popup list.
@@ -16,6 +36,7 @@ import type { SlashMenuRenderHandle, SlashMenuRenderProps } from './types';
  */
 export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderProps>(
   function SlashMenuList({ items, selectedIndex, onSelectItem }, ref) {
+    const { t } = useI18n();
     const [activeIndex, setActiveIndex] = useState(
       Math.min(selectedIndex, Math.max(items.length - 1, 0)),
     );
@@ -132,9 +153,13 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
               {item.icon}
             </span>
             <span className="flex flex-col gap-0.5">
-              <span className="text-[0.875rem] font-medium">{item.title}</span>
+              <span className="text-[0.875rem] font-medium">
+                {SLASH_I18N_KEYS[item.title] ? t(SLASH_I18N_KEYS[item.title].title) : item.title}
+              </span>
               <span className="text-[0.75rem] text-[var(--vscode-descriptionForeground)]">
-                {item.description}
+                {SLASH_I18N_KEYS[item.title]
+                  ? t(SLASH_I18N_KEYS[item.title].description)
+                  : item.description}
               </span>
             </span>
           </button>

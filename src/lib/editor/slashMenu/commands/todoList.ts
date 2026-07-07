@@ -1,9 +1,9 @@
 import type { SlashCommandItem } from '../types';
 
-/** To-do List — 待办列表 */
+/** To-do List — track tasks with a checkbox list. */
 export const todoListCommand: SlashCommandItem = {
-  title: '待办列表',
-  description: '带复选框的待办列表',
+  title: 'To-do List',
+  description: 'Track tasks with a checkbox list',
   icon: '☐',
   aliases: ['todo', 'task', 'checklist', 'checkbox', '待办', '清单', '任务'],
   command: ({ editor, range }) =>
