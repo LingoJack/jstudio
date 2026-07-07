@@ -1334,7 +1334,7 @@ button {
   max-width: 100%;
   box-sizing: border-box;
   border-radius: 8px;
-  border: 1px solid var(--vscode-widget-border, #E5E5E5);
+  border: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
   background: var(--vscode-editor-background);
   transition: border-color 0.15s;
 }
@@ -2240,7 +2240,7 @@ button {
 .ProseMirror .tableWrapper {
   margin: 16px 0;
   border-radius: 16px;
-  border: 1px solid var(--vscode-widget-border, #E5E5E5);
+  border: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
   overflow-x: auto;
 }
 
@@ -2260,14 +2260,14 @@ button {
   text-align: left;
   vertical-align: top;
   box-sizing: border-box;
-  border-bottom: 1px solid var(--vscode-widget-border, #E5E5E5);
+  border-bottom: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
 }
 
 /* Body cells — very light hairline grid lines */
 .ProseMirror .tableWrapper th,
 .ProseMirror .tableWrapper td {
-  border-right: 1px solid var(--vscode-widget-border, #E5E5E5);
-  border-bottom: 1px solid var(--vscode-widget-border, #E5E5E5);
+  border-right: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
+  border-bottom: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
   border-top: none;
   border-left: none;
   padding: 8px 12px;
@@ -2280,7 +2280,7 @@ button {
 
 /* Header cells: keep the bottom border visible for header/body separation */
 .ProseMirror .tableWrapper th {
-  border-bottom: 1px solid var(--vscode-widget-border, #E5E5E5);
+  border-bottom: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
 }
 
 /* Last column: no right border for cleaner edge */

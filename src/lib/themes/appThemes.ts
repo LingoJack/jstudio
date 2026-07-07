@@ -60,7 +60,8 @@ const JSTUDIO_LIGHT: AppTheme = {
     // ── Borders ──
     'sideBar-border': '#E5E5E5',
     'activityBar-border': '#E5E5E5',
-    'widget-border': '#3B3B3B', // 与文字颜色一致
+    'widget-border': '#E5E5E5',
+    'block-border': '#E5E5E5', // 代码块、表格等内容块边框
     'panel-border': '#E5E5E5',
 
     // ── Text ──
@@ -220,7 +221,8 @@ const JSTUDIO_DARK: AppTheme = {
     'activityBar-background': '#1F1F1F',
     'sideBar-border': '#2B2B2B',
     'activityBar-border': '#2B2B2B',
-    'widget-border': '#CCCCCC', // 与文字颜色一致
+    'widget-border': '#313131',
+    'block-border': '#313131', // 代码块、表格等内容块边框
     'panel-border': '#2B2B2B',
     'foreground': '#CCCCCC',
     'descriptionForeground': '#9D9D9D',
@@ -348,7 +350,8 @@ const INK_LIGHT: AppTheme = {
     'activityBar-background': '#f0ebe3',
     'sideBar-border': '#e8ddd0',
     'activityBar-border': '#ddd4c8',
-    'widget-border': '#1a1612', // 黑色/深褐，与文字一致
+    'widget-border': '#ddd4c8',
+    'block-border': '#1a1612', // 代码块、表格等内容块边框，黑色/深褐
     'panel-border': '#ddd4c8',
     'foreground': '#1a1612',
     'descriptionForeground': '#6b5e52',
@@ -475,7 +478,8 @@ const INK_DARK: AppTheme = {
     'activityBar-background': '#1e2030',
     'sideBar-border': '#2f334d',
     'activityBar-border': '#2f334d',
-    'widget-border': '#c8d3f5', // 与文字颜色一致
+    'widget-border': '#2f334d',
+    'block-border': '#2f334d', // 代码块、表格等内容块边框
     'panel-border': '#2f334d',
     'foreground': '#c8d3f5',
     'descriptionForeground': '#7f88b0',
