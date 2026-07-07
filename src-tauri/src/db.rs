@@ -14,14 +14,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 
-// ────────────────────────────────────────────────
-// Path helpers (mirror commands/storage.rs)
-// ────────────────────────────────────────────────
+use crate::commands::storage::paths::{documents_dir, studio_dir};
 
-fn studio_dir() -> PathBuf {
-    let home = dirs::home_dir().expect("cannot determine home directory");
-    home.join(".jdata").join("studio")
-}
+// ────────────────────────────────────────────────
+// Path helpers (reuse commands/storage/paths.rs)
+// ────────────────────────────────────────────────
 
 fn db_path() -> PathBuf {
     studio_dir().join("studio.db")
@@ -37,10 +34,6 @@ fn settings_path() -> PathBuf {
 
 fn folders_path() -> PathBuf {
     studio_dir().join("folders.json")
-}
-
-fn documents_dir() -> PathBuf {
-    studio_dir().join("documents")
 }
 
 // ────────────────────────────────────────────────

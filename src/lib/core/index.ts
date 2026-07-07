@@ -8,7 +8,6 @@
  */
 
 export * from './storage';
-export { storage } from './storage';
 export { useI18n } from './i18n';
 export type { Language, TranslationKey } from './i18n';
 export { buildCommands } from './commandRegistry';

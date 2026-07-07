@@ -50,7 +50,7 @@
  *   input working.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
 import {
@@ -69,12 +69,8 @@ export default function CollapsibleView({
   const open = (node.attrs['open'] as boolean) ?? true;
   const summary = (node.attrs['summary'] as string) ?? '';
 
-  // Uncontrolled input: the <input>'s value is managed by the BROWSER, not by
-  // React state. This is essential because ProseMirror's `input` / `beforeinput`
-  // handlers on view.dom can trigger NodeView re-renders (via domObserver.flush)
-  // that reset a *controlled* input's `value` back to stale state — making the
-  // title look like it can't accept text. With an uncontrolled input, the
-  // browser-inserted character survives any ProseMirror-triggered re-render.
+  // Local state for editing — avoids ProseMirror re-render on every keystroke
+  const [localSummary, setLocalSummary] = useState(summary);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Register input with cursor trail for caret measurement
@@ -84,38 +80,19 @@ export default function CollapsibleView({
     return cursorTrail.registerInput(inputRef.current);
   }, [cursorTrail]);
 
-  // Native `input` listener ON the <input> element (target phase — fires before
-  // the wrapper's stopPropagation). Notifies the cursor trail on every keystroke
-  // since React's onChange is deliberately not used (see shield notes below).
+  // Sync local state when node.attrs.summary changes from outside
   useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    const onInput = () => cursorTrail?.markDirty();
-    el.addEventListener('input', onInput);
-    return () => el.removeEventListener('input', onInput);
-  }, [cursorTrail]);
-
-  // Sync the input's value when summary changes from outside (e.g. undo/redo,
-  // or the slash-menu inserts a new collapsible). Only update when the input is
-  // NOT focused, to avoid clobbering in-progress editing.
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    if (document.activeElement !== el && el.value !== summary) {
-      el.value = summary;
-    }
+    setLocalSummary(summary);
   }, [summary]);
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const toggleOpen = () => updateAttributes({ open: !open });
 
-  // Commit local edits to ProseMirror on blur or Enter.
-  // Reads directly from the DOM (uncontrolled input).
+  // Commit local edits to ProseMirror on blur or Enter
   const commitSummary = () => {
-    const value = inputRef.current?.value ?? '';
-    if (value !== summary) {
-      updateAttributes({ summary: value });
+    if (localSummary !== summary) {
+      updateAttributes({ summary: localSummary });
     }
   };
 
@@ -134,116 +111,62 @@ export default function CollapsibleView({
     const el = wrapperRef.current;
     if (!el) return;
 
-    /** True when the event landed on a form control we must shield. */
-    const isFormControl = (target: EventTarget | null): boolean => {
-      const t = target as HTMLElement | null;
-      if (!t) return false;
-      return SHIELD_TAGS.has(t.tagName) || !!t.closest('input, textarea, select, button');
-    };
-
     /**
-     * mousedown — prevent ProseMirror from placing its own caret / making a
-     * NodeSelection when the user clicks a form control. Lets the browser
-     * drop the native caret inside the <input>.
+     * Shield ProseMirror from form-control events.
+     * We shield both mousedown and keydown:
+     * - mousedown: prevents ProseMirror from placing its own cursor
+     * - keydown: prevents ProseMirror's keymap from intercepting navigation keys
+     *
+     * IMPORTANT: We use native DOM listeners (not React's synthetic events)
+     * because ProseMirror registers native listeners on view.dom. React's
+     * e.stopPropagation() only stops the synthetic event propagation, which
+     * happens AFTER the native event has already reached ProseMirror.
      */
     const mousedownShield = (e: MouseEvent) => {
-      if (isFormControl(e.target)) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (SHIELD_TAGS.has(target.tagName) || target.closest('input, textarea, select, button')) {
         e.stopPropagation();
       }
     };
 
     /**
-     * keydown — shield navigation keys so ProseMirror's keymap doesn't move
-     * the editor selection / delete nodes while the user is navigating
-     * inside the <input>. Modifier combos (Cmd+S, Ctrl+C …) are left alone
-     * for global shortcuts. Ordinary character keys are NOT shielded here:
-     * they are harmless at the keydown stage because ProseMirror handles
-     * text insertion via the `beforeinput` event (see below), not keydown.
+     * Shield keydown events for navigation keys.
+     * ProseMirror's keymap plugin intercepts these at the editor DOM level
+     * (via handleKeyDown), and when any handler returns true, it calls
+     * preventDefault() which blocks normal input behavior.
      */
     const keydownShield = (e: KeyboardEvent) => {
-      if (!isFormControl(e.target)) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // Only shield form controls
+      if (!SHIELD_TAGS.has(target.tagName) && !target.closest('input, textarea, select, button')) {
+        return;
+      }
+
       const { key, metaKey, ctrlKey, altKey } = e;
-      if (metaKey || ctrlKey || altKey) return;
+      // Stop propagation for navigation keys (no modifiers)
+      // Let modifier combos pass through for potential global shortcuts
       if (
-        key.startsWith('Arrow') ||
-        key === 'Backspace' ||
-        key === 'Delete' ||
-        key === 'Tab' ||
-        key === 'Home' ||
-        key === 'End'
+        (key.startsWith('Arrow') ||
+          key === 'Backspace' ||
+          key === 'Delete' ||
+          key === 'Tab' ||
+          key === 'Home' ||
+          key === 'End') &&
+        !metaKey &&
+        !ctrlKey &&
+        !altKey
       ) {
         e.stopPropagation();
       }
     };
 
-    /**
-     * beforeinput — THE critical fix for "can't type in the title".
-     *
-     * Modern browsers (incl. WKWebView) deliver text input through
-     * `beforeinput` (InputEvent, inputType "insertText" etc.). ProseMirror's
-     * beforeinput handler on view.dom does NOT check whether event.target is
-     * an <input> — it assumes every beforeinput is editor-content input,
-     * calls `event.preventDefault()`, and tries to insert the text via its
-     * own transaction. The preventDefault() cancels the browser's native
-     * character insertion into the <input>, so the subsequent `input` event
-     * never fires and React's onChange never runs — the title looks dead.
-     *
-     * stopPropagation() here on the wrapper (which sits *below* view.dom)
-     * fires before the event reaches ProseMirror, so ProseMirror never sees
-     * it and never calls preventDefault. The browser then inserts the
-     * character normally, the `input` event fires and bubbles past view.dom
-     * up to the React root, and onChange runs as expected.
-     *
-     * Note: stopPropagation on `beforeinput` does NOT affect the separate
-     * `input` event — they are different events. The `input` event is itself
-     * shielded too (see inputShield below), and the <input> is uncontrolled, so
-     * no React onChange is needed — the browser manages the value directly.
-     */
-    const beforeinputShield = (e: InputEvent) => {
-      if (!isFormControl(e.target)) return;
-      e.stopPropagation();
-    };
-
-    /**
-     * composition events — shield CJK IME sessions for the same reason as
-     * beforeinput. ProseMirror's compositionstart/compositionend handlers on
-     * view.dom would otherwise hijack the IME composition, breaking Chinese
-     * / Japanese / Korean input in the title field.
-     */
-    const compositionShield = (e: CompositionEvent) => {
-      if (!isFormControl(e.target)) return;
-      e.stopPropagation();
-    };
-
-    /**
-     * input — the InputEvent that fires AFTER the browser has already inserted
-     * a character. ProseMirror's `editHandlers.input` on view.dom calls
-     * `domObserver.flush()` which may detect spurious DOM mutations and trigger
-     * a NodeView re-render. On a controlled input that resets `value` to stale
-     * state; the uncontrolled approach already survives this, but shielding is
-     * belt-and-suspenders and also prevents ProseMirror from misinterpreting
-     * the <input>'s mutation as an editor-content change.
-     */
-    const inputShield = (e: Event) => {
-      if (!isFormControl(e.target)) return;
-      e.stopPropagation();
-    };
-
     el.addEventListener('mousedown', mousedownShield);
     el.addEventListener('keydown', keydownShield);
-    el.addEventListener('beforeinput', beforeinputShield as EventListener);
-    el.addEventListener('input', inputShield);
-    el.addEventListener('compositionstart', compositionShield);
-    el.addEventListener('compositionupdate', compositionShield);
-    el.addEventListener('compositionend', compositionShield);
     return () => {
       el.removeEventListener('mousedown', mousedownShield);
       el.removeEventListener('keydown', keydownShield);
-      el.removeEventListener('beforeinput', beforeinputShield as EventListener);
-      el.removeEventListener('input', inputShield);
-      el.removeEventListener('compositionstart', compositionShield);
-      el.removeEventListener('compositionupdate', compositionShield);
-      el.removeEventListener('compositionend', compositionShield);
     };
   }, []);
 
@@ -268,13 +191,21 @@ export default function CollapsibleView({
           <input
             ref={inputRef}
             type="text"
-            defaultValue={summary}
+            value={localSummary}
+            onChange={(e) => {
+              setLocalSummary(e.target.value);
+              // Notify cursor trail to re-measure caret position
+              cursorTrail?.markDirty();
+            }}
             onBlur={commitSummary}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
                 commitSummary();
-                inputRef.current?.blur();
+              }
+              // Arrow keys move caret — notify trail
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                cursorTrail?.markDirty();
               }
             }}
             onSelect={() => cursorTrail?.markDirty()}

@@ -58,6 +58,8 @@ import {
   FileDown,
 } from 'lucide-react';
 
+import { logger } from '../../../../lib/core/logger';
+
 import {
   detectSnapshotKind,
   parseGraphSnapshot,
@@ -658,7 +660,7 @@ export function GraphCanvas({
       const r = evt.altKey;
       // 诊断日志：确认 isCloneEvent 是否被调用、返回什么。排查复制不生效问题。
       // eslint-disable-next-line no-console
-      console.log('[GraphCanvas] isCloneEvent → altKey:', r);
+      logger.debug('[GraphCanvas] isCloneEvent → altKey:', r);
       return r;
     };
     // 必须启用 cellsCloneable，否则 isCloneEvent 返回 true 也不会触发复制
@@ -1032,7 +1034,7 @@ export function GraphCanvas({
       if (!g) return;
       const sel = g.getSelectionCells();
       // eslint-disable-next-line no-console
-      console.log('[GraphCanvas] mouseup | altKey:', e.altKey,
+      logger.debug('[GraphCanvas] mouseup | altKey:', e.altKey,
         '| selCount:', sel.length, '| isCloneEvent:', g.isCloneEvent(e));
     };
     container.addEventListener('mouseup', onMouseUpDiag, true);

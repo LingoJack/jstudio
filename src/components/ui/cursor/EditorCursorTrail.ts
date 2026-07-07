@@ -17,6 +17,7 @@ import {
   type RenderOptions,
 } from './BaseCursorTrail';
 import type { EditorCursorStyle } from '../../../lib/core/storage';
+import { logger } from '../../../lib/core/logger';
 
 /** Longhand font properties of a glyph, used to re-draw it identically. */
 interface GlyphFont {
@@ -538,8 +539,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const dbgBail = (reason: string) => {
       if (!inPre) return;
       const ae = document.activeElement as HTMLElement | null;
-      // eslint-disable-next-line no-console
-      console.log('[caret-dbg] BAIL:', reason, {
+      logger.debug('[caret-dbg] BAIL:', reason, {
         hasEditor: !!this.editorEl,
         hasScroll: !!this.scrollContainer,
         editorHasActive: this.editorEl?.contains(ae) ?? false,
@@ -942,7 +942,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     if (caretTop + caretHeight <= preRect.top || caretTop >= preRect.bottom) {
       // eslint-disable-next-line no-console
-      console.log('[caret-dbg] CLIPPED → hidden', this.__dbgPreInfo);
+      logger.debug('[caret-dbg] CLIPPED → hidden', this.__dbgPreInfo);
       this.__dbgPreInfo = null;
       return null;
     }
@@ -1237,7 +1237,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
     // TEMP DEBUG — merge canvas-local values and log the full picture.
     if (this.__dbgPreInfo) {
       // eslint-disable-next-line no-console
-      console.log('[caret-dbg]', {
+      logger.debug('[caret-dbg]', {
         ...this.__dbgPreInfo,
         canvasTop: +canvasRect.top.toFixed(1),
         canvasLeft: +canvasRect.left.toFixed(1),

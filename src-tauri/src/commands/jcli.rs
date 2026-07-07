@@ -29,8 +29,7 @@ pub struct JcliStatus {
 
 /// `~/.jdata/bin/` — the canonical install location for the bundled j.
 fn jdata_bin_dir() -> PathBuf {
-    let home = dirs::home_dir().expect("cannot determine home directory");
-    home.join(".jdata").join("bin")
+    crate::commands::storage::paths::jdata_dir().join("bin")
 }
 
 /// `~/.jdata/bin/j` (macOS/Linux) or `j.exe` (Windows).

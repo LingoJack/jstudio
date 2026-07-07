@@ -6,10 +6,19 @@ use std::process::Command;
 
 // ---- path helpers (shared across all storage sub-modules) ----
 
+/// Return the shared jdata root: `~/.jdata/`
+///
+/// All jcli/jstudio data lives under this directory. Centralising the
+/// `home_dir` lookup here means every other module avoids repeating
+/// `dirs::home_dir().expect("cannot determine home directory")`.
+pub fn jdata_dir() -> PathBuf {
+    let home = dirs::home_dir().expect("cannot determine home directory");
+    home.join(".jdata")
+}
+
 /// Return the root data directory: `~/.jdata/studio/`
 pub fn studio_dir() -> PathBuf {
-    let home = dirs::home_dir().expect("cannot determine home directory");
-    home.join(".jdata").join("studio")
+    jdata_dir().join("studio")
 }
 
 /// `~/.jdata/studio/documents/`

@@ -13,6 +13,8 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 
+import { logger } from '../core/logger';
+
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
@@ -43,7 +45,7 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
   previewCounter += 1;
   const label = `preview-${Date.now()}-${previewCounter}`;
 
-  console.log('[PreviewWindow] Opening new window:', label, payload.fileName);
+  logger.debug('[PreviewWindow] Opening new window:', label, payload.fileName);
 
   const shortName =
     payload.fileName.length > 40
@@ -53,7 +55,7 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
   // 1. Store payload in Rust memory so the new window can retrieve it.
   try {
     await invoke('set_preview_data', { label, data: payload });
-    console.log('[PreviewWindow] Data stored in Rust cache for', label);
+    logger.debug('[PreviewWindow] Data stored in Rust cache for', label);
   } catch (e) {
     console.error('[PreviewWindow] Failed to store preview data:', e);
     return;
@@ -78,7 +80,7 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
   });
 
   webviewWindow.once('tauri://created', () => {
-    console.log('[PreviewWindow] Window created successfully:', label);
+    logger.debug('[PreviewWindow] Window created successfully:', label);
   });
 
   webviewWindow.once('tauri://error', (e) => {
@@ -129,14 +131,14 @@ export function fetchPreviewData(): Promise<PreviewPayload | null> {
 
   const doFetch = async (): Promise<PreviewPayload | null> => {
     const label = getCurrentWindow().label;
-    console.log('[PreviewWindow] Fetching preview data for label:', label);
+    logger.debug('[PreviewWindow] Fetching preview data for label:', label);
 
     // Retry a few times — the data might not be fully committed yet.
     for (let i = 0; i < 20; i++) {
       try {
         const data = await invoke<PreviewPayload | null>('get_preview_data', { label });
         if (data) {
-          console.log('[PreviewWindow] Data retrieved on attempt', i + 1);
+          logger.debug('[PreviewWindow] Data retrieved on attempt', i + 1);
           return data;
         }
       } catch (e) {

@@ -164,7 +164,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       }
 
       // Clean up legacy preset documents from earlier versions.
-      // These IDs were hardcoded in the old defaultData.ts and should
+      // These IDs were injected by early builds of the app and should
       // no longer appear for users who want a clean start.
       const LEGACY_PRESET_IDS = [
         'doc-welcome',

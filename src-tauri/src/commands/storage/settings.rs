@@ -68,8 +68,7 @@ pub fn write_settings(settings: Value) -> Result<(), String> {
 
 /// `~/.jdata/agent/data/agent_config.json`  (jcli agent 主配置)
 fn agent_config_path() -> PathBuf {
-    let home = dirs::home_dir().expect("cannot determine home directory");
-    home.join(".jdata")
+    crate::commands::storage::paths::jdata_dir()
         .join("agent")
         .join("data")
         .join("agent_config.json")

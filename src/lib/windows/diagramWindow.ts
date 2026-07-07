@@ -13,6 +13,8 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 
+import { logger } from '../core/logger';
+
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
@@ -49,14 +51,14 @@ export async function openDiagramWindow(
 ): Promise<() => void> {
   diagramCounter += 1;
   const label = `diagram-${Date.now()}-${diagramCounter}`;
-  console.log('[DiagramWindow] Opening new window:', label);
+  logger.debug('[DiagramWindow] Opening new window:', label);
 
   const payload: DiagramPayload = { snapshot, darkMode, blockId };
 
   // 1. Store payload in Rust memory so the new window can retrieve it.
   try {
     await invoke('set_preview_data', { label, data: payload });
-    console.log('[DiagramWindow] Data stored in Rust cache for', label);
+    logger.debug('[DiagramWindow] Data stored in Rust cache for', label);
   } catch (e) {
     console.error('[DiagramWindow] Failed to store data:', e);
     return () => {};
@@ -67,7 +69,7 @@ export async function openDiagramWindow(
   let stopped = false;
   let lastApplied = snapshot;
   const poll = async () => {
-    console.log('[DiagramWindow] Poll loop started for', label);
+    logger.debug('[DiagramWindow] Poll loop started for', label);
     while (!stopped) {
       try {
         const data = await invoke<DiagramPayload | null>(
@@ -79,7 +81,7 @@ export async function openDiagramWindow(
           data.snapshot !== lastApplied &&
           (!blockId || !data.blockId || data.blockId === blockId)
         ) {
-          console.log('[DiagramWindow] Received update from window, length:', data.snapshot.length);
+          logger.debug('[DiagramWindow] Received update from window, length:', data.snapshot.length);
           lastApplied = data.snapshot;
           onUpdate(data.snapshot);
         }
@@ -88,7 +90,7 @@ export async function openDiagramWindow(
       }
       await new Promise((r) => setTimeout(r, 500));
     }
-    console.log('[DiagramWindow] Poll loop stopped for', label);
+    logger.debug('[DiagramWindow] Poll loop stopped for', label);
   };
   poll();
 
@@ -112,7 +114,7 @@ export async function openDiagramWindow(
   });
 
   webviewWindow.once('tauri://created', () => {
-    console.log('[DiagramWindow] Window created:', label);
+    logger.debug('[DiagramWindow] Window created:', label);
   });
 
   webviewWindow.once('tauri://error', (e) => {
@@ -121,7 +123,7 @@ export async function openDiagramWindow(
   });
 
   webviewWindow.once('tauri://destroyed', () => {
-    console.log('[DiagramWindow] Window destroyed:', label);
+    logger.debug('[DiagramWindow] Window destroyed:', label);
     stopped = true;
     onClosed?.();
   });
@@ -171,7 +173,7 @@ export function fetchDiagramData(): Promise<DiagramPayload | null> {
 
   const doFetch = async (): Promise<DiagramPayload | null> => {
     const label = resolveLabel();
-    console.log('[DiagramWindow] Fetching data for label:', label);
+    logger.debug('[DiagramWindow] Fetching data for label:', label);
 
     for (let i = 0; i < 20; i++) {
       try {
@@ -179,7 +181,7 @@ export function fetchDiagramData(): Promise<DiagramPayload | null> {
           label,
         });
         if (data) {
-          console.log('[DiagramWindow] Data retrieved on attempt', i + 1);
+          logger.debug('[DiagramWindow] Data retrieved on attempt', i + 1);
           return data;
         }
       } catch (e) {
@@ -206,14 +208,14 @@ export function fetchDiagramData(): Promise<DiagramPayload | null> {
  */
 export async function sendDiagramUpdate(snapshot: string): Promise<void> {
   const label = resolveLabel();
-  console.log('[DiagramWindow] Sending update for label:', label, 'snapshot length:', snapshot.length);
+  logger.debug('[DiagramWindow] Sending update for label:', label, 'snapshot length:', snapshot.length);
   try {
     const payload = await fetchDiagramData();
     await invoke('set_diagram_update', {
       label,
       data: { snapshot, blockId: payload?.blockId } satisfies DiagramPayload,
     });
-    console.log('[DiagramWindow] Update stored in Rust cache OK');
+    logger.debug('[DiagramWindow] Update stored in Rust cache OK');
   } catch (e) {
     console.error('[DiagramWindow] Failed to send update:', e);
   }

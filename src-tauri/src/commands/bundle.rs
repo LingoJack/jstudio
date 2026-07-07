@@ -23,26 +23,14 @@ use rusqlite::OptionalExtension;
 use serde_json::Value;
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::PathBuf;
 use zip::write::SimpleFileOptions;
+
+use crate::commands::storage::paths::doc_dir;
 
 /// Marker stored in `manifest.json` to recognise our archives on import.
 const BUNDLE_FORMAT: &str = "jstudio-bundle";
 /// Bundle format version — bump if the on-disk layout ever changes.
 const BUNDLE_VERSION: u32 = 1;
-
-// ────────────────────────────────────────────────
-// Path helpers (mirror commands/storage.rs)
-// ────────────────────────────────────────────────
-
-fn studio_dir() -> PathBuf {
-    let home = dirs::home_dir().expect("cannot determine home directory");
-    home.join(".jdata").join("studio")
-}
-
-fn doc_dir(doc_id: &str) -> PathBuf {
-    studio_dir().join("documents").join(doc_id)
-}
 
 // ────────────────────────────────────────────────
 // Export
