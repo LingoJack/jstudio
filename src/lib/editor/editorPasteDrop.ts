@@ -13,6 +13,68 @@ import { getClipboardImageAsFile } from './clipboardImage';
 import { looksLikeMarkdown } from './pasteMarkdown';
 
 /**
+ * Strip inline styles and style-only tags from external HTML while preserving
+ * semantic structure (bold, italic, links, lists, headings, etc).
+ *
+ * Strategy: parse HTML in a temporary DOM, remove style/class attributes and
+ * certain style-only tags (<font>, <span> without semantic role), then return
+ * the cleaned HTML for ProseMirror's parser.
+ */
+function cleanExternalHtml(html: string): string {
+  // Quick check: if the HTML has no style/class, return as-is (no overhead).
+  if (!html.includes('style=') && !html.includes('class=') && !html.includes('<font') && !html.includes('<span')) {
+    return html;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const body = doc.body;
+
+  // Walk all elements and strip style/class attributes.
+  const walk = (el: Element) => {
+    el.removeAttribute('style');
+    el.removeAttribute('class');
+    // Remove other styling attributes common in foreign HTML.
+    el.removeAttribute('width');
+    el.removeAttribute('height');
+    el.removeAttribute('bgcolor');
+    el.removeAttribute('color');
+    el.removeAttribute('face'); // font face
+    el.removeAttribute('size'); // font size
+
+    // Unwrap <font> tags (pure style, no semantic meaning).
+    if (el.tagName === 'FONT') {
+      const parent = el.parentNode;
+      while (el.firstChild) {
+        parent?.insertBefore(el.firstChild, el);
+      }
+      parent?.removeChild(el);
+      return; // Don't recurse into removed element.
+    }
+
+    // Unwrap <span> tags that have no semantic role.
+    // Keep spans that might be used for marks (e.g. with data attributes),
+    // but unwrap pure styling spans.
+    if (el.tagName === 'SPAN' && !el.hasAttributes()) {
+      const parent = el.parentNode;
+      while (el.firstChild) {
+        parent?.insertBefore(el.firstChild, el);
+      }
+      parent?.removeChild(el);
+      return;
+    }
+
+    // Recurse into children.
+    for (const child of Array.from(el.children)) {
+      walk(child);
+    }
+  };
+
+  walk(body);
+  return body.innerHTML;
+}
+
+/**
  * Create the `handlePaste` callback for ProseMirror editorProps.
  *
  * Returns `true` if we handled the paste (preventing default), `false` to
@@ -76,7 +138,17 @@ export function createPasteHandler(
         return true;
       }
 
-      // Non-Markdown external paste with HTML → let ProseMirror handle.
+      // External HTML paste (non-Markdown) → strip styles, keep semantic structure.
+      // ProseMirror's default would preserve foreign HTML styles (fonts, colors),
+      // which is undesirable for a local note app. We clean the HTML first.
+      if (htmlText && !htmlText.includes('data-pm-slice')) {
+        event.preventDefault();
+        const cleanHtml = cleanExternalHtml(htmlText);
+        editor?.chain().focus().insertContent(cleanHtml).run();
+        return true;
+      }
+
+      // No HTML or internal paste — let ProseMirror handle.
       return false;
     }
 
