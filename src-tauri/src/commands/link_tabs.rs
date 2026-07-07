@@ -405,7 +405,7 @@ fn add_tab_internal(
         .get_window(window_label)
         .ok_or_else(|| format!("window not found: {}", window_label))?;
 
-    let (ui_height, content_width, content_height) = {
+    let (content_width, content_height) = {
         let m = manager.lock().unwrap();
         let ui_height = m.ui_height;
         let window_size = window
@@ -413,7 +413,7 @@ fn add_tab_internal(
             .map_err(|e| format!("failed to get size: {e}"))?;
         let content_width = window_size.width as f64;
         let content_height = window_size.height as f64 - ui_height;
-        (ui_height, content_width, content_height)
+        (content_width, content_height)
     };
 
     // Clone for closure
