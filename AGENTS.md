@@ -263,7 +263,13 @@ jstudio/
 1. **禁止组件直接调用 `invoke`**：所有 Tauri IPC 必须通过 `lib/storage.ts` 的 `storage` 对象。
 2. **Store 操作通过 slice**：新增状态/方法时，判断属于哪个 slice（documents / editor / ui），在对应 slice 文件中添加，并在 `storeHelpers.ts` 的 `StoreState` 接口中声明类型。
 3. **块组件只做展示**：文本块不处理自己的键盘事件，所有编辑逻辑在 `useSurfaceEditor` 中统一处理。
-4. **Tailwind CSS v4**：使用 CSS 变量 `var(--vscode-*)` 保持与 VSCode 主题一致，不要硬编码颜色值。
+4. **Tailwind CSS v4**：使用 CSS 变量 `var(--vscode-*)` 保持与 VSCode 主题一致，不要硬编码颜色值。**多主题适配要点**：
+   - 项目有 **4 个主题**（JStudio Light/Dark、Ink Light/Dark），每个主题的配色完全不同（如 `widget-border` 在不同主题下是 `#E5E5E5`、`#313131`、`#ddd4c8`、`#2f334d`）。
+   - 主题定义在 `lib/themes/appThemes.ts`，运行时通过 `applyAppTheme()` 将颜色注入到 CSS 变量。
+   - **所有颜色相关样式必须用 CSS 变量**，如 `var(--vscode-widget-border, #E5E5E5)`，fallback 值作为默认兜底。
+   - **不要用 `.dark` 类区分主题**：`.dark` 只区分 light/dark 模式，无法区分同模式下不同配色（如 Ink Light 与 JStudio Light 都是浅色，但边框颜色不同）。
+   - 正确示例：`border: 1px solid var(--vscode-widget-border, #E5E5E5)` → 自动适配所有主题。
+   - 错误示例：`.dark` 下写 `border-color: #3C3C3C` → 只适配了 JStudio Dark，Ink Dark 的边框是 `#2f334d`（紫色调），会不一致。
 5. **非受控 DOM**：surface 内的 DOM 内容由浏览器管理，React 不在元素聚焦时重写 `innerHTML`。
 6. **图标**：使用 `lucide-react`，图标大小统一用 `w-4 h-4` 或 `w-3.5 h-3.5`。
 7. **路径别名**：`@/*` 映射到 `src/*`（tsconfig 配置），但项目中主要使用相对路径导入。

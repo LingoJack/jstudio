@@ -91,6 +91,10 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     const onArrowUp = () => {
       if (isSuggestionActive()) return false;
       const { state, view } = editor;
+      // If the editor doesn't have focus (e.g., focus is on a form control
+      // inside a contentEditable={false} region like CollapsibleView's title
+      // input), let the browser handle the event normally.
+      if (!view.hasFocus()) return false;
       const { selection } = state;
       if (!selection.empty) return false;
       const $head = selection.$head;
@@ -114,7 +118,9 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     // -----------------------------------------------------------------
     const onArrowLeft = () => {
       if (isSuggestionActive()) return false;
-      const { state } = editor;
+      const { state, view } = editor;
+      // If the editor doesn't have focus, let the browser handle the event.
+      if (!view.hasFocus()) return false;
       const { selection } = state;
       if (!selection.empty) return false;
       const $head = selection.$head;
@@ -133,6 +139,8 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     const onArrowDown = () => {
       if (isSuggestionActive()) return false;
       const { state, view } = editor;
+      // If the editor doesn't have focus, let the browser handle the event.
+      if (!view.hasFocus()) return false;
       const { selection } = state;
       if (!selection.empty) return false;
       const $head = selection.$head;
@@ -161,7 +169,9 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     // Cmd/Ctrl+Enter — insert an empty paragraph BELOW the current block.
     // -----------------------------------------------------------------
     const onModEnter = () => {
-      const { state } = editor;
+      const { state, view } = editor;
+      // If the editor doesn't have focus, let the browser handle the event.
+      if (!view.hasFocus()) return false;
       const { selection } = state;
       const $head = selection.$head;
       if ($head.depth < 1) return false;
@@ -178,7 +188,9 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     // Cmd/Ctrl+Shift+Enter — insert an empty paragraph ABOVE the current block.
     // -----------------------------------------------------------------
     const onModShiftEnter = () => {
-      const { state } = editor;
+      const { state, view } = editor;
+      // If the editor doesn't have focus, let the browser handle the event.
+      if (!view.hasFocus()) return false;
       const { selection } = state;
       const $head = selection.$head;
       if ($head.depth < 1) return false;
@@ -200,6 +212,8 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     // modifying this central file.
     // -----------------------------------------------------------------
     const onBackspace = () => {
+      // If the editor doesn't have focus, let the browser handle the event.
+      if (!editor.view.hasFocus()) return false;
       return blockBehaviorRegistry.handleBackspace(editor);
     };
 
@@ -225,6 +239,8 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     const onTab = () => {
       if (isSuggestionActive()) return false;
       const { state, view } = editor;
+      // If the editor doesn't have focus, let the browser handle the event.
+      if (!view.hasFocus()) return false;
       const { selection } = state;
       const $head = selection.$head;
       if ($head.depth < 1) return false;
@@ -241,6 +257,8 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     const onShiftTab = () => {
       if (isSuggestionActive()) return false;
       const { state, view } = editor;
+      // If the editor doesn't have focus, let the browser handle the event.
+      if (!view.hasFocus()) return false;
       const { selection } = state;
       const $head = selection.$head;
       if ($head.depth < 1) return false;
