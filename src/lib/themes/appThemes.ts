@@ -61,7 +61,8 @@ const JSTUDIO_LIGHT: AppTheme = {
     'sideBar-border': '#E5E5E5',
     'activityBar-border': '#E5E5E5',
     'widget-border': '#E5E5E5',
-    'block-border': '#E5E5E5', // 代码块、表格等内容块边框
+    'block-border': '#D0D0D0', // 代码块、表格等内容块边框，比 widget-border 略深
+    'menu-border': '#D0D0D0',  // 浮窗菜单边框，与 block-border 一致
     'panel-border': '#E5E5E5',
 
     // ── Text ──
