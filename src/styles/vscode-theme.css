@@ -1333,7 +1333,7 @@ button {
   display: block;
   max-width: 100%;
   box-sizing: border-box;
-  border-radius: 8px;
+  border-radius: 16px;
   border: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
   background: var(--vscode-editor-background);
   transition: border-color 0.15s;
@@ -1355,7 +1355,7 @@ button {
 .code-block-wrapper .code-block-body {
   margin: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 16px;
   background: transparent;
   padding: 14px 16px;
   overflow-x: auto;
@@ -1582,7 +1582,7 @@ button {
    this container clips the iframe to rounded corners. */
 .code-block-wrapper .code-block-preview {
   position: relative;
-  border-radius: 6px;
+  border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
