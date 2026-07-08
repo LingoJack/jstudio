@@ -32,6 +32,7 @@ export default function DocumentTabs() {
   const closeOtherTabs = useStore((s) => s.closeOtherTabs);
   const docList = useStore((s) => s.docList);
   const createDocument = useStore((s) => s.createDocument);
+  const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
 
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
@@ -119,6 +120,7 @@ export default function DocumentTabs() {
       onDetach={handleDetach}
       renderContextMenu={renderContextMenu}
       rippleColor="rgba(255,255,255,0.25)"
+      glassOpacity={tabBarGlassOpacity}
     />
   );
 }

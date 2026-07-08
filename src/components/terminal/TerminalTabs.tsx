@@ -98,6 +98,7 @@ export default function TerminalTabs() {
   // Workspace: sync activeTabId when switching terminal groups.
   const wsTabs = useStore((s) => s.tabs);
   const wsSetActiveTab = useStore((s) => s.setActiveTab);
+  const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
 
   // ── Terminal theme: follows app theme (same IDs: jstudio-dark, jstudio-light, etc.)
   const appThemeIdDark = useStore((s) => s.appThemeIdDark);
@@ -309,6 +310,7 @@ export default function TerminalTabs() {
         textColor="var(--term-fg)"
         accentColor="var(--vscode-list-activeSelectionBackground)"
         renameBorderColor="var(--term-accent)"
+        glassOpacity={tabBarGlassOpacity}
       />
 
       {/* History dropdown — rendered at root level with fixed position to

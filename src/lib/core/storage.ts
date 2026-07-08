@@ -151,6 +151,12 @@ export interface AppSettings {
   keyboardShortcuts?: Record<string, string>;
   /** OS-level global shortcut configs — see lib/shortcuts/globalShortcuts.ts */
   globalShortcuts?: GlobalShortcutConfig[];
+  /**
+   * Tab bar glassmorphism background opacity (0.02–0.15).
+   * Controls the transparency of the floating pill-shaped tab bar container.
+   * Higher = more visible/solid; lower = more transparent/glass-like.
+   */
+  tabBarGlassOpacity?: number;
   [key: string]: unknown;
 }
 

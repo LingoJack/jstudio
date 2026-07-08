@@ -133,6 +133,7 @@ export interface StoreState {
   terminalFontSize: number;
   terminalFontId: string;
   terminalCursorStyle: TerminalCursorStyle;
+  tabBarGlassOpacity: number;
   keyboardShortcuts: ShortcutOverrides;
   globalShortcuts: GlobalShortcutConfig[];
 
@@ -247,6 +248,7 @@ export interface StoreState {
   setTerminalFontSize: (size: number) => void;
   setTerminalFontId: (id: string) => void;
   setTerminalCursorStyle: (style: TerminalCursorStyle) => void;
+  setTabBarGlassOpacity: (opacity: number) => void;
   setKeyboardShortcut: (id: string, binding: string) => void;
   resetKeyboardShortcut: (id: string) => void;
   resetAllKeyboardShortcuts: () => void;

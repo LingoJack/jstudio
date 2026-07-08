@@ -54,6 +54,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalCursorStyle: TerminalCursorStyle | undefined;
       let editorCursorStyle: EditorCursorStyle | undefined;
   let useSectionedEditor = false;
+      let tabBarGlassOpacity: number | undefined;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
@@ -139,6 +140,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         // Load OS-level global shortcuts
         if (Array.isArray(settings.globalShortcuts)) {
           globalShortcuts = settings.globalShortcuts;
+        }
+        // Load tab bar glass opacity
+        if (typeof settings.tabBarGlassOpacity === 'number') {
+          tabBarGlassOpacity = settings.tabBarGlassOpacity;
         }
       } catch {
         // ignore
@@ -242,6 +247,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
         ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
         ...(useSectionedEditor ? { useSectionedEditor } : {}),
+        ...(tabBarGlassOpacity !== undefined ? { tabBarGlassOpacity } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
         isLoading: false,

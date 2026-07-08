@@ -197,6 +197,8 @@ export const translations = {
     'general.language': '语言',
     'general.languageDesc': '选择应用界面的显示语言',
     'general.fontPreview': 'Hello 世界 — 这是字体预览 AaBbCc 你好',
+    'general.tabBarGlassOpacity': '标签栏透明度',
+    'general.tabBarGlassOpacityDesc': '控制浮动标签栏的背景透明度，数值越大越明显',
 
     // ── Appearance section ──
     'appearance.theme': '主题',
@@ -787,6 +789,8 @@ export const translations = {
     'general.language': 'Language',
     'general.languageDesc': 'Choose the display language for the interface',
     'general.fontPreview': 'Hello World — Font preview AaBbCc',
+    'general.tabBarGlassOpacity': 'Tab Bar Opacity',
+    'general.tabBarGlassOpacityDesc': 'Controls the background opacity of the floating tab bar; higher values make it more visible',
 
     // ── Appearance section ──
     'appearance.theme': 'Theme',

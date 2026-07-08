@@ -73,4 +73,7 @@ allow:
 - Shell(find src:*)
 - Shell(gh api:*)
 - Shell(cd /Users/lingojack/dev_custom/jcli:*)
+- Shell(grep -l:*)
+- Shell(grep '"type"::*)
+- Shell(sqlite3 ~/.jdata/studio/studio.db:*)
 deny: []

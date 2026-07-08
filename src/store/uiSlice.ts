@@ -37,6 +37,11 @@ const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = 'underline';
 /** Default editor cursor shape — also drives the editor cursor trail shape. */
 const DEFAULT_EDITOR_CURSOR_STYLE: EditorCursorStyle = 'bar';
 
+/** Tab bar glassmorphism opacity constraints. */
+const MIN_TAB_BAR_GLASS_OPACITY = 0.02;
+const MAX_TAB_BAR_GLASS_OPACITY = 0.15;
+const DEFAULT_TAB_BAR_GLASS_OPACITY = 0.06;
+
 /**
  * Resolve a theme preference to the actual dark/light value.
  * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
@@ -111,6 +116,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
   terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
+  tabBarGlassOpacity: DEFAULT_TAB_BAR_GLASS_OPACITY,
   keyboardShortcuts: {} as ShortcutOverrides,
   globalShortcuts: [] as GlobalShortcutConfig[],
 
@@ -247,6 +253,15 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setTerminalCursorStyle: (style) => {
     set({ terminalCursorStyle: style });
     storage.saveSettings({ terminalCursorStyle: style }).catch(onSaveError('设置'));
+  },
+
+  setTabBarGlassOpacity: (opacity) => {
+    const clamped = Math.min(
+      MAX_TAB_BAR_GLASS_OPACITY,
+      Math.max(MIN_TAB_BAR_GLASS_OPACITY, opacity),
+    );
+    set({ tabBarGlassOpacity: clamped });
+    storage.saveSettings({ tabBarGlassOpacity: clamped }).catch(onSaveError('设置'));
   },
 
   setKeyboardShortcut: (id: string, binding: string) => {

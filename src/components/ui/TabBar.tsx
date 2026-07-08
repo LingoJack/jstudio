@@ -67,6 +67,12 @@ export interface TabBarProps {
   textColor?: string; // CSS color for inactive tab text (default: var(--vscode-descriptionForeground))
   accentColor?: string; // CSS color for active tab / focus (default: var(--vscode-list-activeSelectionBackground))
   renameBorderColor?: string; // CSS color for rename input border (optional)
+  /**
+   * Glassmorphism background opacity (0.02–0.15).
+   * Controls the transparency of the floating pill-shaped container.
+   * Default: 0.06 (subtle glass effect).
+   */
+  glassOpacity?: number;
 }
 
 export default function TabBar({
@@ -90,6 +96,7 @@ export default function TabBar({
   textColor = 'var(--vscode-descriptionForeground)',
   accentColor = 'var(--vscode-list-activeSelectionBackground)',
   renameBorderColor,
+  glassOpacity = 0.06,
 }: TabBarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
@@ -252,7 +259,7 @@ export default function TabBar({
           className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full border border-[var(--vscode-menu-border)]"
           style={{
             scrollbarWidth: 'thin',
-            background: 'rgba(255,255,255,0.06)',
+            background: `rgba(255,255,255,${glassOpacity})`,
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
@@ -262,7 +269,7 @@ export default function TabBar({
           <div
             className="absolute left-0 top-0 bottom-0 w-8 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-150"
             style={{
-              background: 'linear-gradient(to right, rgba(255,255,255,0.06), transparent)',
+              background: `linear-gradient(to right, rgba(255,255,255,${glassOpacity}), transparent)`,
             }}
             data-scroll-left-fade
           />
@@ -270,7 +277,7 @@ export default function TabBar({
           <div
             className="absolute right-0 top-0 bottom-0 w-8 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-150"
             style={{
-              background: 'linear-gradient(to left, rgba(255,255,255,0.06), transparent)',
+              background: `linear-gradient(to left, rgba(255,255,255,${glassOpacity}), transparent)`,
             }}
             data-scroll-right-fade
           />
