@@ -44,8 +44,9 @@ use super::link::{extract_domain, read_chrome_cookies_cached, BROWSER_UA};
 // Constants
 // ---------------------------------------------------------------------------
 
-/// UI webview height in logical pixels (tab strip + address bar).
-const UI_HEIGHT: f64 = 80.0;
+/// UI webview height in logical pixels.
+/// Address bar (~38px) at top + floating glassmorphism tab bar (~52px area) at bottom.
+const UI_HEIGHT: f64 = 90.0;
 
 // ---------------------------------------------------------------------------
 // Types
