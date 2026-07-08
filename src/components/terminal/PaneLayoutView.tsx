@@ -739,12 +739,9 @@ export default function PaneLayoutView({
   }, [commitResizeState]);
 
   // ── Render ───────────────────────────────────────────────────────
-  const dividerColor = theme.isDark
-    ? 'rgba(255,255,255,0.10)'
-    : 'rgba(0,0,0,0.10)';
-  const handleColor = theme.isDark
-    ? 'rgba(255,255,255,0.16)'
-    : 'rgba(0,0,0,0.18)';
+  // 分屏边框使用统一的 menu-border 颜色
+  const dividerColor = 'var(--vscode-menu-border)';
+  const handleColor = 'var(--vscode-menu-border)';
   const columnBoundaries = trackBoundaries(columns);
   const rowBoundaries = trackBoundaries(rows);
   const stackColumnStart = layout === 'tall' && columnBoundaries.length > 0

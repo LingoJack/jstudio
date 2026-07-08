@@ -184,7 +184,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     brightWhite: '#FFFFFF',
     ui: {
       barBg: '#1F1F1F',
-      barBorder: '#2B2B2B',
+      barBorder: '#5A5A5A',
       barFg: '#CCCCCC',
       panelBg: '#181818',
     },
