@@ -4,10 +4,23 @@ mod db;
 use tauri::{Emitter, Manager};
 
 /// Handle window close requests (Cmd+W on macOS).
-/// Instead of closing the window immediately, we prevent the default action
-/// and emit an event to the frontend, letting it decide whether to close
-/// the tab or the window.
-fn on_window_close_requested(app: &tauri::AppHandle, api: &tauri::CloseRequestApi) {
+///
+/// Only intercepts close requests for the **main window**. Child windows
+/// (preview, diagram, terminal detach, document detach) are allowed to
+/// close directly without triggering the tab-close logic.
+///
+/// For the main window, we prevent the default action and emit an event
+/// to the frontend, letting it decide whether to close the current tab
+/// or the entire window.
+fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestApi) {
+    // Only intercept close requests for the main window.
+    // Child windows (preview, diagram, terminal, document) should close directly.
+    let label = window.label();
+    if label != "main" {
+        // Let child windows close normally.
+        return;
+    }
+
     // Prevent the default close action — we'll handle it in JS.
     // The frontend will call `close_window` if it really wants to close.
     api.prevent_close();
@@ -15,7 +28,7 @@ fn on_window_close_requested(app: &tauri::AppHandle, api: &tauri::CloseRequestAp
     // Emit event to frontend so it can close the current tab instead.
     // The frontend decides: close tab if multiple tabs exist, or close
     // window if it's the last tab.
-    let _ = app.emit("window-close-requested", ());
+    let _ = window.app_handle().emit("window-close-requested", ());
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -27,9 +40,10 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         // Intercept window close requests (Cmd+W on macOS) before WKWebView
         // closes the window. We emit an event to JS and let it decide.
+        // Only the main window is intercepted; child windows close directly.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                on_window_close_requested(window.app_handle(), api);
+                on_window_close_requested(window, api);
             }
         })
         .invoke_handler(tauri::generate_handler![
