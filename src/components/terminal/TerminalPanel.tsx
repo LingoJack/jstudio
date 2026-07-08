@@ -72,7 +72,7 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
           <TerminalTabs />
         </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden pb-14">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <PaneLayoutView
           groupId={activeGroup.id}
           sessionIds={groupSessionIds}
