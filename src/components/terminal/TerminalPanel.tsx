@@ -46,7 +46,7 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
         style={{ background: theme.ui.panelBg }}
       >
         {/* Tab bar 悬浮在内容上方 */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
+        <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
           <div className="pointer-events-auto">
             <TerminalTabs />
           </div>
@@ -67,7 +67,7 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
       style={{ background: theme.ui.panelBg }}
     >
       {/* Tab bar 悬浮在内容上方 */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
         <div className="pointer-events-auto">
           <TerminalTabs />
         </div>

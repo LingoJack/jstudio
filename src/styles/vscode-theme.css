@@ -3098,7 +3098,11 @@ button {
    Link Preview Tabs (Multi-webview browser)
    ============================================ */
 
-.link-preview-tabs-root {
+/* ── Link Preview Window ────────────────────────────────────────────────
+ * Tabs 使用共享 TabBar 组件（glassmorphism capsule），此处仅定义地址栏样式。
+ */
+
+.link-preview-root {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -3106,122 +3110,15 @@ button {
   overflow: hidden;
 }
 
-/* ── Tabs bar ─────────────────────────────── */
+/* ── Address bar (顶部) ──────────────────────────── */
 
-.link-preview-tabs-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--vscode-titleBar-background);
-  border-bottom: 1px solid var(--vscode-titleBar-border);
-  min-height: 36px;
-}
-
-.link-preview-tabs-list {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  overflow-x: auto;
-}
-
-.link-preview-tabs-list::-webkit-scrollbar {
-  height: 4px;
-}
-
-.link-preview-tabs-list::-webkit-scrollbar-thumb {
-  background: var(--vscode-scrollbarSlider-background);
-  border-radius: 2px;
-}
-
-/* Single tab */
-.link-preview-tab {
+.link-preview-address-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  padding-right: 4px;
-  border-radius: 4px;
-  background: var(--vscode-tab-inactiveBackground);
-  color: var(--vscode-tab-inactiveForeground);
-  cursor: pointer;
-  max-width: 200px;
-  min-width: 80px;
-  flex-shrink: 0;
-  transition: background 0.1s ease, color 0.1s ease;
-}
-
-.link-preview-tab:hover {
-  background: var(--vscode-list-hoverBackground);
-}
-
-.link-preview-tab.active {
-  background: var(--vscode-tab-activeBackground);
-  color: var(--vscode-tab-activeForeground);
-  border-top: 2px solid var(--vscode-tab-activeBorderTop);
-}
-
-.link-preview-tab-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
-.link-preview-tab-loading {
-  flex-shrink: 0;
-}
-
-.link-preview-tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--vscode-tab-inactiveForeground);
-  opacity: 0.6;
-  flex-shrink: 0;
-  transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
-}
-
-.link-preview-tab-close:hover {
-  opacity: 1;
-  background: var(--vscode-menu-hoverBackground);
-  color: var(--vscode-errorForeground);
-}
-
-.link-preview-tab.active .link-preview-tab-close {
-  color: var(--vscode-tab-activeForeground);
-}
-
-/* Add new tab button */
-.link-preview-add-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--vscode-icon-foreground);
-  opacity: 0.6;
-  flex-shrink: 0;
-  transition: opacity 0.1s ease, background 0.1s ease;
-}
-
-.link-preview-add-tab:hover {
-  opacity: 1;
-  background: var(--vscode-list-hoverBackground);
-}
-
-/* Toolbar (right side) */
-.link-preview-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
+  padding: 6px 10px;
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-widget-border, #E5E5E5);
 }
 
 .link-preview-toolbar-btn {
@@ -3244,17 +3141,6 @@ button {
 .link-preview-toolbar-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
-}
-
-/* ── Address bar ──────────────────────────── */
-
-.link-preview-address-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: var(--vscode-sideBar-background);
-  border-bottom: 1px solid var(--vscode-titleBar-border);
 }
 
 .link-preview-address-input {

@@ -325,14 +325,34 @@ export default function LinkView({
 
     setError(null);
 
+    const newTitle = editTitle.trim();
+
     if (normalized !== url) {
+      // Optimistic update: write the new URL + title to the node IMMEDIATELY,
+      // before kicking off the async metadata fetch. Otherwise the component
+      // flips back to the loaded-card state (setEditing(false) below) while
+      // `url` is still the OLD value — any click / double-click / toolbar
+      // "open" action taken during the fetch window would navigate to the
+      // previous URL. Clearing the metadata fields here also avoids showing
+      // stale favicon/description for the old page while the new one loads.
+      updateAttributes({
+        url: normalized,
+        title: newTitle || hostnameFromUrl(normalized),
+        description: '',
+        favicon: '',
+        ogImage: '',
+        siteName: '',
+      });
+
       setLoading(true);
       storage
         .fetchLinkMetadata(normalized)
         .then((meta) => {
+          // Refine with fetched metadata. meta.url may differ from normalized
+          // (e.g. redirects), so we overwrite url too.
           updateAttributes({
             url: meta.url || normalized,
-            title: editTitle.trim() || meta.title || hostnameFromUrl(normalized),
+            title: newTitle || meta.title || hostnameFromUrl(normalized),
             description: meta.description,
             favicon: meta.faviconUrl,
             ogImage: meta.ogImage,
@@ -340,18 +360,13 @@ export default function LinkView({
           });
         })
         .catch(() => {
-          updateAttributes({
-            url: normalized,
-            title: editTitle.trim() || hostnameFromUrl(normalized),
-            description: '',
-            favicon: '',
-            ogImage: '',
-            siteName: '',
-          });
+          // Keep the optimistic values already written above (url + title).
+          // Nothing to do here except stop the spinner.
         })
         .finally(() => setLoading(false));
     } else {
-      updateAttributes({ title: editTitle.trim() });
+      // URL unchanged — only update the title.
+      updateAttributes({ title: newTitle });
     }
 
     setEditing(false);
