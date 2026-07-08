@@ -273,8 +273,8 @@ export function useTerminalManager(
       // compositionend and gets forwarded to the PTY, causing unwanted
       // spaces at the cursor position.
       //
-      // Strategy (same as ImeCapsLockFix for the document editor):
-      //   1. Track composition lifecycle (start/end times + committed text).
+      // Strategy:
+      //   1. Track composition lifecycle (start/end times).
       //   2. Suppress single-space beforeinput events that arrive within
       //      a short window after compositionend.
       const STRAY_SPACE_WINDOW = 200; // ms

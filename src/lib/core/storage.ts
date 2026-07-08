@@ -132,12 +132,12 @@ export interface AppSettings {
    */
   terminalThemeId?: string;
   /**
-   * App UI color theme for dark mode — see lib/themes/appThemes.ts.
+   * App UI color theme for dark mode — see lib/themes/registry.ts.
    * Terminal theme automatically uses the same ID (app theme = terminal theme).
    */
   appThemeIdDark?: string;
   /**
-   * App UI color theme for light mode — see lib/themes/appThemes.ts.
+   * App UI color theme for light mode — see lib/themes/registry.ts.
    * Terminal theme automatically uses the same ID (app theme = terminal theme).
    */
   appThemeIdLight?: string;

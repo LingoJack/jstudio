@@ -34,6 +34,7 @@ import { LinkExtension } from '../../lib/editor/extensions/linkExtension';
 import { CollapsibleExtension } from '../../lib/editor/extensions/collapsibleExtension';
 import { DiagramExtension } from '../../lib/editor/extensions/diagramExtension';
 import Link from '@tiptap/extension-link';
+import { customLinkAutolink } from '../../lib/editor/extensions/customLinkAutolink';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
@@ -312,9 +313,17 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         inclusive() {
           return false;
         },
+        addProseMirrorPlugins() {
+          return [
+            customLinkAutolink({
+              type: this.type,
+              defaultProtocol: 'https',
+            }),
+          ];
+        },
       }).configure({
         openOnClick: readOnly, // allow link clicks in read-only mode
-        autolink: true,
+        autolink: false,
       }),
       // NOTE: `Underline` is provided by StarterKit v3 — do NOT add it
       // explicitly, or you get a "Duplicate extension names" warning + two

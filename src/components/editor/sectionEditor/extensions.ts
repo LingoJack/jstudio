@@ -21,6 +21,7 @@ import { LinkExtension } from '../../../lib/editor/extensions/linkExtension';
 import { CollapsibleExtension } from '../../../lib/editor/extensions/collapsibleExtension';
 import { DiagramExtension } from '../../../lib/editor/extensions/diagramExtension';
 import Link from '@tiptap/extension-link';
+import { customLinkAutolink } from '../../../lib/editor/extensions/customLinkAutolink';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
@@ -71,7 +72,16 @@ export function createSectionExtensions(
     LinkExtension,
     CollapsibleExtension,
     DiagramExtension,
-    Link.configure({ openOnClick: false, autolink: true }),
+    Link.extend({
+      addProseMirrorPlugins() {
+        return [
+          customLinkAutolink({
+            type: this.type,
+            defaultProtocol: 'https',
+          }),
+        ];
+      },
+    }).configure({ openOnClick: false, autolink: false }),
     // NOTE: `Underline` comes from StarterKit v3 — do not re-add it.
     TextStyle,
     Color,
