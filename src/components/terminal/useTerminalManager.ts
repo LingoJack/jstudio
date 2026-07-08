@@ -13,6 +13,7 @@ import { resolveMonospaceFont } from '../../lib/editor/fonts';
 import type { TerminalTheme } from '../../lib/terminal/themes';
 import type { SessionTerminal } from './types';
 import { registerTerminal, unregisterTerminal } from './terminalRegistry';
+import { isRawPinyinCommit, stripPinyinSpaces } from '../../lib/ime/pinyinStrip';
 
 /**
  * Extract a working directory path from a shell OSC title string.
@@ -278,8 +279,16 @@ export function useTerminalManager(
       //   2. Suppress single-space beforeinput events that arrive within
       //      a short window after compositionend.
       const STRAY_SPACE_WINDOW = 200; // ms
+      // onData must match a composition commit within this window after
+      // compositionend — xterm reads textarea.value via setTimeout(0) and
+      // fires onData shortly after the event, so keep this tight.
+      const COMPOSITION_COMMIT_WINDOW = 120; // ms
       let composing = false;
       let lastCompositionEndTime = 0;
+      // Raw text from the last compositionend. Used to match the ensuing
+      // onData payload so we only strip spaces on an actual pinyin commit,
+      // never on a paste or normal keystroke.
+      let lastCompositionEndData = '';
 
       const bridgeKeyDown = (event: KeyboardEvent) => {
         keydownHandledByXterm = null;
@@ -299,9 +308,10 @@ export function useTerminalManager(
         composing = true;
       };
 
-      const bridgeCompositionEnd = () => {
+      const bridgeCompositionEnd = (event: CompositionEvent) => {
         composing = false;
         lastCompositionEndTime = Date.now();
+        lastCompositionEndData = event.data ?? '';
       };
 
       const bridgeBeforeInput = (event: InputEvent) => {
@@ -360,6 +370,26 @@ export function useTerminalManager(
 
       // Keyboard input → PTY
       term.onData((data) => {
+        // ── Pinyin strip: raw pinyin committed on IME switch ───────────
+        // When the user switches to English mid-composition, the IME commits
+        // the raw pinyin (e.g. "ni hao") into the textarea; xterm reads it
+        // via setTimeout(0) and fires onData. Match against the compositionend
+        // data + a tight time window to confirm this is that commit (not a
+        // paste or normal typing), then strip spaces before forwarding so
+        // "ni hao" → "nihao" lands at the cursor.
+        if (
+          lastCompositionEndData &&
+          lastCompositionEndTime > 0 &&
+          Date.now() - lastCompositionEndTime < COMPOSITION_COMMIT_WINDOW &&
+          data === lastCompositionEndData &&
+          isRawPinyinCommit(data)
+        ) {
+          lastCompositionEndData = ''; // consume once — avoid repeat matches
+          storage
+            .ptyWrite(sessionId, stripPinyinSpaces(data))
+            .catch(console.error);
+          return;
+        }
         storage.ptyWrite(sessionId, data).catch(console.error);
       });
 

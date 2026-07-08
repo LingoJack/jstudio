@@ -56,3 +56,10 @@
 - **点击跳转机制（非直觉）**：editable 模式 `openOnClick: false`，clickHandler.handleClick 进入但 openOnClick false 不 `window.open`，返回 false（不 preventDefault）→ 浏览器原生 `<a target="_blank">` 默认行为触发 → Tauri `on_new_window` 拦截 → 预览窗口。所以 editable 下点 inline link **能跳**，href 来自 link mark 的 attrs。改 href 行为要改 mark，不是改 DOM
 - **autolink 用自定义版**（`src/lib/editor/extensions/customLinkAutolink.ts`），非上游。原因：上游 autolink（node_modules/@tiptap/extension-link/src/helpers/autolink.ts:158-165）对**已有 link mark** 的文字 `getMarksBetween` 检查后直接 return，**不更新 href**——用户编辑 link 文字改 URL 后残留旧 href，点击跳旧地址。自定义版在 `href !== 检测值` 时 `removeMark`+`addMark` 更新。两处 Link 配置：`Link.extend({ addProseMirrorPlugins() { return [customLinkAutolink({ type: this.type, defaultProtocol: 'https' })] } }).configure({ openOnClick: ..., autolink: false })`
 - **功能缺口**：无 inline link href 编辑 UI。`setLink`/`toggleLink`/`unsetLink` 命令存在但无任何 UI 调用（FormatBubbleMenu 只有 bold/italic/strike/code，命令面板/快捷键无 link）。用户只能改文字为 URL 让 autolink 更新 href，无法像 Notion 那样独立改显示文字+href
+
+## IME 中文输入法处理
+
+- 共享检测 util：`src/lib/ime/pinyinStrip.ts`（`isRawPinyinCommit` + `stripPinyinSpaces`）。拼音特征 = 含空格 + 全 ASCII 字母/空格 + 含字母；正常选词提交是中文无空格，不受影响
+- **终端拦截点（非直觉）**：xterm `compositionend` 后用 `setTimeout(0)` 读 `textarea.value` → `triggerDataEvent` → `term.onData`，所以对 compositionend `preventDefault` **无效**。必须在 `term.onData` 里配合 compositionend 记录的 data + 时间窗口（120ms）精确匹配（`data === lastCompositionEndData`）后改写。见 `useTerminalManager.ts`
+- **编辑器拦截点**：`ImeCapsLockFix`（`src/lib/editor/extensions/imeCapsLockFix.ts`）ProseMirror plugin，在 `beforeinput(insertText)` 拦截，`view.dispatch(tr.insertText(cleaned))` + preventDefault。BlockEditor + sectionEditor 都注册它，改一处全覆盖
+- 现有 IME 基础设施：终端 stray-space 抑制 + Shift 符号桥接（`useTerminalManager.ts` bridge 闭包）；编辑器 CapsLock 幻影字符抑制（`imeCapsLockFix.ts`）。拼音去空格逻辑独立于这些，互不干扰
