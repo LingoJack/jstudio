@@ -4,7 +4,7 @@
  * Layout:
  *
  *   ┌───────────────────────────────────────────────┐
- *   │  ▼  [Summary title input ........................]  │  ← header (contentEditable=false)
+ *   │  ▼  [Summary title input ........................]  │  ← header
  *   ├───────────────────────────────────────────────┤
  *   │  <NodeViewContent>                              │  ← editable body (TipTap content)
  *   │  • paragraphs, headings, images, etc.           │
@@ -13,41 +13,30 @@
  * Key constraints:
  *   - `NodeViewContent` MUST always be in the DOM tree (ProseMirror needs the
  *     contentDOM even when collapsed). We toggle visibility with `hidden`.
- *   - The header row is `contentEditable={false}` so ProseMirror never treats
- *     it as editable text.
- *   - Visual styles reuse the shared constants from `components/ui/Collapsible`.
  *
- * Critical WKWebView caret fix:
- *   ProseMirror registers its mousedown handler on `view.dom`, which is an
- *   ANCESTOR of this NodeView. React's synthetic onClick is delegated at the
- *   React root — also above view.dom — so a React-level stopPropagation runs
- *   *after* ProseMirror has already handled the event and called preventDefault()
- *   (to make a NodeSelection on this atom node). That cancels the browser's
- *   native "drop the caret where you clicked" action, so clicking inside an
- *   input no longer moves the caret.
+ * ── Why contentEditable={false} is NOT on the header ──
  *
- *   The fix is a NATIVE, bubble-phase listener on the wrapper element (which
- *   sits *below* view.dom): it fires before the event bubbles up to ProseMirror.
- *   For clicks on form controls we stopPropagation, so ProseMirror never sees
- *   the mousedown and never calls preventDefault — the browser then runs its
- *   default action and places the caret exactly where the user clicked.
+ * In WKWebView (Tauri/macOS), `contentEditable={false}` inside a
+ * `contentEditable={true}` editor creates a "non-editable island". WebKit
+ * blocks keyboard input to ALL form controls inside that island — the
+ * `<input>` can receive focus but no characters are inserted. This is a
+ * browser-level behavior that JavaScript event shielding cannot override.
  *
- * Critical beforeinput fix (text entry — "can't type in the title" bug):
- *   ProseMirror ALSO registers a `beforeinput` handler on `view.dom`. Unlike
- *   the mousedown handler, it does NOT check whether event.target is a form
- *   control — it assumes every beforeinput bubbling up is editor-content
- *   input, calls `preventDefault()`, and tries to insert the text via its own
- *   transaction. That cancels the browser's native character insertion into
- *   the <input>, so the subsequent `input` event never fires and React's
- *   onChange never runs — the title field looks completely dead.
+ * Without `contentEditable={false}`, TipTap's `NodeView.stopEvent` handles
+ * everything correctly:
+ *   - Events from `<input>` (outside contentDOM): stopEvent returns true →
+ *     ProseMirror ignores them → browser handles input normally.
+ *   - Clicks on header background (isContentEditable=true): stopEvent returns
+ *     false → ProseMirror handles → places NodeSelection (desired).
+ *   - ProseMirror's mousedown handler calls preventDefault() → no stray
+ *     text caret appears in the header.
  *
- *   The fix uses the same pattern: a native bubble-phase `beforeinput`
- *   listener on the wrapper that stopPropagation's when the target is a form
- *   control, so ProseMirror never sees the event and the browser inserts the
- *   character normally. The `input` event then fires, bubbles past view.dom
- *   up to the React root, and onChange runs as expected. Composition events
- *   (CJK IME) are shielded the same way to keep Chinese/Japanese/Korean
- *   input working.
+ * ── Event shields (safety net) ──
+ *
+ * Native bubble-phase listeners on the wrapper provide defense-in-depth.
+ * They fire before events bubble to ProseMirror's listeners on view.dom.
+ * For form-control events we stopPropagation so ProseMirror never sees them.
+ * This covers edge cases where pmViewDesc might not be set correctly.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -97,85 +86,74 @@ export default function CollapsibleView({
   };
 
   /**
-   * Native bubble-phase listeners on the wrapper. Runs before the event
-   * bubbles up to ProseMirror (on view.dom). When the click/keydown lands on a
-   * form control, we stopPropagation so ProseMirror never sees it — letting
-   * the browser handle the event normally.
-   *
-   * IMPORTANT: React's synthetic e.stopPropagation() only stops the React
-   * synthetic event propagation, NOT the native DOM event. ProseMirror
-   * registers native DOM listeners on view.dom, so we need native listeners
-   * here to actually block the event from reaching ProseMirror.
+   * Native bubble-phase listeners — defense-in-depth safety net.
+   * Fires before events bubble to ProseMirror's listeners on view.dom.
+   * For form-control events we stopPropagation so ProseMirror never sees them.
    */
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
 
-    /**
-     * Shield ProseMirror from form-control events.
-     * We shield both mousedown and keydown:
-     * - mousedown: prevents ProseMirror from placing its own cursor
-     * - keydown: prevents ProseMirror's keymap from intercepting navigation keys
-     *
-     * IMPORTANT: We use native DOM listeners (not React's synthetic events)
-     * because ProseMirror registers native listeners on view.dom. React's
-     * e.stopPropagation() only stops the synthetic event propagation, which
-     * happens AFTER the native event has already reached ProseMirror.
-     */
+    const isFormControl = (target: EventTarget | null): boolean => {
+      const t = target as HTMLElement | null;
+      if (!t) return false;
+      return SHIELD_TAGS.has(t.tagName) || !!t.closest('input, textarea, select, button');
+    };
+
     const mousedownShield = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      if (SHIELD_TAGS.has(target.tagName) || target.closest('input, textarea, select, button')) {
+      if (isFormControl(e.target)) {
         e.stopPropagation();
       }
     };
 
-    /**
-     * Shield keydown events for navigation keys.
-     * ProseMirror's keymap plugin intercepts these at the editor DOM level
-     * (via handleKeyDown), and when any handler returns true, it calls
-     * preventDefault() which blocks normal input behavior.
-     */
+    // Shield ALL keydown events from form controls (not just navigation keys).
+    // In WKWebView, ProseMirror's keydown handler can interfere with input
+    // even for printable characters in certain edge cases.
     const keydownShield = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      // Only shield form controls
-      if (!SHIELD_TAGS.has(target.tagName) && !target.closest('input, textarea, select, button')) {
-        return;
+      if (isFormControl(e.target)) {
+        e.stopPropagation();
       }
+    };
 
-      const { key, metaKey, ctrlKey, altKey } = e;
-      // Stop propagation for navigation keys (no modifiers)
-      // Let modifier combos pass through for potential global shortcuts
-      if (
-        (key.startsWith('Arrow') ||
-          key === 'Backspace' ||
-          key === 'Delete' ||
-          key === 'Tab' ||
-          key === 'Home' ||
-          key === 'End') &&
-        !metaKey &&
-        !ctrlKey &&
-        !altKey
-      ) {
+    // Shield beforeinput — prevents ProseMirror from calling preventDefault()
+    // on text insertion events from the <input>.
+    const beforeinputShield = (e: InputEvent) => {
+      if (isFormControl(e.target)) {
+        e.stopPropagation();
+      }
+    };
+
+    // Shield composition events — protects CJK IME input.
+    const compositionShield = (e: CompositionEvent) => {
+      if (isFormControl(e.target)) {
         e.stopPropagation();
       }
     };
 
     el.addEventListener('mousedown', mousedownShield);
     el.addEventListener('keydown', keydownShield);
+    el.addEventListener('beforeinput', beforeinputShield);
+    el.addEventListener('compositionstart', compositionShield);
+    el.addEventListener('compositionupdate', compositionShield);
+    el.addEventListener('compositionend', compositionShield);
     return () => {
       el.removeEventListener('mousedown', mousedownShield);
       el.removeEventListener('keydown', keydownShield);
+      el.removeEventListener('beforeinput', beforeinputShield);
+      el.removeEventListener('compositionstart', compositionShield);
+      el.removeEventListener('compositionupdate', compositionShield);
+      el.removeEventListener('compositionend', compositionShield);
     };
   }, []);
 
   return (
     <NodeViewWrapper className="my-3">
       <div ref={wrapperRef} className={COLLAPSIBLE_WRAPPER_CLASS}>
-        {/* ── Header row (non-editable) ── */}
+        {/* ── Header row ── */}
+        {/* NO contentEditable={false} — WKWebView blocks keyboard input to
+            form controls inside contentEditable={false} islands. TipTap's
+            stopEvent + the native shields below handle ProseMirror isolation. */}
         <div
-          contentEditable={false}
           className={COLLAPSIBLE_HEADER_CLASS}
           onClick={(e) => {
             // Don't toggle when clicking the input itself.

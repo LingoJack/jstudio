@@ -31,7 +31,6 @@ import { ListTree } from 'lucide-react';
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
-import { tiptapJSONToOurBlocks } from '../../../lib/editor/tiptapAdapter';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
@@ -184,35 +183,28 @@ export default function SectionedBlockEditor() {
     if (loadedDocIdRef.current === activeDocId) return;
 
     // ── Flush the OUTGOING document's pending section edits ──
-    // Before switching to the new document, serialize every mounted section
-    // editor's CURRENT content (including edits still pending in the 300ms
-    // debounce timer) and persist it to the outgoing doc's `documents[]`
-    // entry via `flushBlocksToDoc`.
+    // Before switching to the new document, persist the outgoing doc's current
+    // blocks to its `documents[]` entry via `flushBlocksToDoc`.
     //
-    // Without this, pending edits are lost: the SectionEditor's unmount
-    // cleanup calls `handleSectionChange` → `setActiveDocBlocks`, but that
-    // has an ownership guard (`docId !== activeDoc.id → return`) that drops
-    // the edit because `activeDoc` has already moved to the new document.
-    // The result is a stale `documents[]` entry for the outgoing doc — when
-    // the user switches back, the outline and editor show outdated content.
+    // We read `s.blocks` from the section state directly — NOT from
+    // `editor.getJSON()`. Each SectionEditor's unmount cleanup runs
+    // synchronously in the commit phase (BEFORE this passive effect), and
+    // already flushed any pending (un-debounced) edits into its section's
+    // `blocks` via `handleSectionChange`. So `s.blocks` holds the most recent
+    // content.
+    //
+    // Reading `editor.getJSON()` here would be a DATA-LOSS BUG: when the
+    // active doc changes, the SectionEditor keys change
+    // (`${activeDocId}:${s.id}`), so React unmounts the old editors and mounts
+    // new ones. The newly-mounted editors start with an empty paragraph and
+    // load real content via a deferred `setTimeout(0)` setContent — which runs
+    // AFTER this passive effect. Calling getJSON() here captures that empty
+    // initial state and overwrites the outgoing doc with a single blank block,
+    // destroying all its content.
     const outgoingDocId = loadedDocIdRef.current;
     if (outgoingDocId && outgoingDocId !== activeDocId) {
-      const editors = sectionEditorsRef.current;
       const current = sectionsRef.current;
-      // Read each section editor's live content so pending (un-debounced)
-      // edits are captured, not just the last-flushed snapshot.
-      const full = current.flatMap((s) => {
-        const ed = editors.get(s.id);
-        if (ed && !ed.isDestroyed) {
-          try {
-            const json = ed.getJSON();
-            return tiptapJSONToOurBlocks(json.content ?? []);
-          } catch {
-            // Editor may be mid-teardown — fall back to last-known blocks.
-          }
-        }
-        return s.blocks;
-      });
+      const full = current.flatMap((s) => s.blocks);
       useStore.getState().flushBlocksToDoc(outgoingDocId, full);
     }
 

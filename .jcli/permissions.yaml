@@ -76,4 +76,5 @@ allow:
 - Shell(grep -l:*)
 - Shell(grep '"type"::*)
 - Shell(sqlite3 ~/.jdata/studio/studio.db:*)
+- Shell(cat ~/.jdata/studio/index.json.bak:*)
 deny: []
