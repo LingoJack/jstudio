@@ -127,7 +127,7 @@ export default function SectionOutline({
   }, []);
 
   return (
-    <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
+    <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-menu-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
       <div className="px-5 mb-5 shrink-0">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
           {t('outline.title')}

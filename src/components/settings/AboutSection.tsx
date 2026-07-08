@@ -47,7 +47,7 @@ export default function AboutSection() {
       )}
 
       {/* ── Links ── */}
-      <div className="border-t border-[var(--vscode-sideBar-border)] pt-6 space-y-2">
+      <div className="border-t border-[var(--vscode-menu-border)] pt-6 space-y-2">
         <a
           href="https://github.com/LingoJack/jcli"
           target="_blank"
