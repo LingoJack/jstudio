@@ -100,7 +100,7 @@ export default function ActivityBar() {
       <button
         key={id}
         onClick={() => handleClick(id)}
-        className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors duration-150 cursor-pointer ${
+        className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors duration-150 cursor-pointer ${
           isActive(id) ? activeClass : inactiveClass
         }`}
         title={t(meta.labelKey)}
