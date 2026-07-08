@@ -3113,14 +3113,16 @@ button {
   overflow: hidden;
 }
 
-/* ── Address bar + toolbar (顶部) ───────────────────────────────────── */
+/* ── Address bar + toolbar (底部) ───────────────────────────────────── */
 
 .link-preview-address-bar {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
+  margin-top: auto;
   background: var(--vscode-sideBar-background);
+  border-top: 1px solid var(--vscode-widget-border, #E5E5E5);
   border-bottom: 1px solid var(--vscode-widget-border, #E5E5E5);
   flex-shrink: 0;
   -webkit-app-region: drag;

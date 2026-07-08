@@ -226,7 +226,22 @@ export default function LinkPreviewTabsApp() {
 
   return (
     <div className="link-preview-root">
-      {/* ── Address bar + toolbar (顶部) ── */}
+      {/* ── 浮动 TabBar (glassmorphism capsule, 顶部) ── */}
+      {tabItems.length > 0 && (
+        <TabBar
+          tabs={tabItems}
+          activeTabId={state.active_tab_id}
+          onTabClick={switchTab}
+          onTabClose={closeTab}
+          onNew={addNewTab}
+          renderContextMenu={renderContextMenu}
+          rippleColor="rgba(255,255,255,0.2)"
+          glassOpacity={0.08}
+          className="!top-0 !bottom-auto !pt-3 !pb-0"
+        />
+      )}
+
+      {/* ── Address bar + toolbar (底部) ── */}
       <div className="link-preview-address-bar">
         <button
           type="button"
@@ -273,20 +288,6 @@ export default function LinkPreviewTabsApp() {
           <ExternalLink size={14} />
         </button>
       </div>
-
-      {/* ── 浮动 TabBar (glassmorphism capsule, 底部) ── */}
-      {tabItems.length > 0 && (
-        <TabBar
-          tabs={tabItems}
-          activeTabId={state.active_tab_id}
-          onTabClick={switchTab}
-          onTabClose={closeTab}
-          onNew={addNewTab}
-          renderContextMenu={renderContextMenu}
-          rippleColor="rgba(255,255,255,0.2)"
-          glassOpacity={0.08}
-        />
-      )}
     </div>
   );
 }
