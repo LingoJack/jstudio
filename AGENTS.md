@@ -44,10 +44,11 @@ jstudio/
 │   │   │   ├── extensions/     # TipTap 扩展
 │   │   │   ├── content/        # 内容转换（richText ↔ HTML）
 │   │   │   ├── slashMenu/      # 斜杠菜单
-│   │   │   ├── tiptapAdapter.ts # TipTap ↔ Block 转换
+│   │   │   ├── tiptapAdapter.ts # TipTap ↔ Block 转换（唯一转换源）
 │   │   │   ├── fonts.ts        # 字体配置
 │   │   │   └── upload.ts       # 文件上传
 │   │   │
+│   │   ├── themes/             # 主题系统（types.ts + 4 主题单文件 + registry.ts）
 │   │   ├── shortcuts/          # 快捷键
 │   │   ├── documents/          # 文档工具
 │   │   ├── terminal/           # 终端相关
@@ -67,7 +68,7 @@ jstudio/
 │   │   └── toastSlice.ts       # 轻提示状态
 │   │
 │   ├── data/
-│   │   └── defaultData.ts      # 预设文档（仅 legacy，新用户为空）
+│   │   └── helpDocument.ts     # 帮助文档内容
 │   │
 │   ├── styles/
 │   │   └── vscode-theme.css    # VSCode 风格主题变量 + 全局样式
@@ -79,7 +80,8 @@ jstudio/
 │       │   └── ErrorBoundary.tsx # 错误边界
 │       │
 │       ├── editor/             # 编辑器组件
-│       │   ├── BlockEditor.tsx # 编辑器主体
+│       │   ├── BlockEditor.tsx # 编辑器主体（单 TipTap 实例）
+│       │   ├── sectionEditor/  # 分段编辑器（高性能，N 个 TipTap 实例）
 │       │   ├── CommandPalette.tsx # 命令面板
 │       │   ├── nodes/          # 块节点视图
 │       │   └── hooks/          # 编辑器 hooks
@@ -114,9 +116,28 @@ jstudio/
     ├── tauri.conf.json
     └── src/
         ├── main.rs             # 入口
-        ├── lib.rs              # 插件注册 + 命令绑定
+        ├── lib.rs              # 插件注册 + 命令绑定 (generate_handler!)
+        ├── db.rs               # SQLite（建表/迁移/孤儿恢复）
         └── commands/
-            └── storage.rs      # 14 个文件系统存储命令
+            ├── mod.rs
+            ├── storage/         # 存储层（已模块化）
+            │   ├── mod.rs
+            │   ├── paths.rs    # 路径 helper（jdata_dir/studio_dir/documents_dir 等，全后端唯一源头）
+            │   ├── documents.rs
+            │   ├── folders.rs
+            │   ├── assets.rs
+            │   ├── settings.rs
+            │   ├── markdown.rs # Markdown 导入
+            │   └── cache.rs
+            ├── bundle.rs       # .jnote 导出/导入
+            ├── link.rs         # 链接元数据抓取
+            ├── link_tabs.rs    # Link Preview 多 webview 窗口
+            ├── terminal.rs
+            ├── window.rs
+            ├── detach.rs       # 终端分离窗口
+            ├── global_shortcut.rs
+            ├── jcli.rs
+            └── debug.rs
 ```
 
 ## UI 布局（三栏）
@@ -207,52 +228,78 @@ jstudio/
 
 ## 编辑器架构（核心）
 
-### 统一 Surface 模式（Notion 式）
+### 双编辑器模式
 
-整个文档的块区域是**一个** `contentEditable` div（`data-editor-surface`）。每个文本块是其中的 `<div data-block-line>` 子节点。这是实现**跨块选中、复制、剪切**的关键——浏览器看到一个连续的可编辑区域。
+项目有两种编辑器实现，通过 UI 设置 `useSectionedEditor` 切换：
+
+| 编辑器 | 文件 | 架构 | 适用场景 |
+|--------|------|------|----------|
+| `BlockEditor` | `components/editor/BlockEditor.tsx` | 单个 TipTap/ProseMirror 实例 | 小文档 / 默认 |
+| `SectionedBlockEditor` | `components/editor/sectionEditor/SectionedBlockEditor.tsx` | N 个独立 TipTap 实例（每 ~30 块一段） | 大文档（解决输入卡顿） |
+
+两者共用同一套 TipTap 扩展和 `tiptapAdapter` 数据转换层，store 侧的 `Block[]` 格式完全一致。
+
+### 数据流（tiptapAdapter 是唯一转换源）
 
 ```
-<div data-editor-surface contentEditable>
-  <div data-block-id="b1" class="block-wrapper">
-    <BlockHandle />                    ← hover/active 时显示 [+] [⋮⋮]
-    <div data-block-line>文本内容</div>  ← 参与选区的子节点
-  </div>
-  <div data-block-id="b2" class="block-wrapper">
-    <BlockHandle />
-    <div data-block-line>第二段</div>
-  </div>
-  <div data-block-id="b3" data-block-island>  ← 非文本块
-    <div contentEditable={false}>图片/代码/表格</div>
-  </div>
-</div>
+store.activeDoc.blocks  →  ourBlocksToTiptapJSON()   →  editor.commands.setContent()
+editor.getJSON()        →  tiptapJSONToOurBlocks()   →  store.setActiveDocBlocks()
 ```
 
-### 事件处理层级
+- `lib/editor/tiptapAdapter.ts` 是 `Block[]` ↔ TipTap `JSONContent[]` 的**唯一**双向转换源。块类型映射、RichText 标注（bold/italic/code/color/href）↔ TipTap marks、表格/列表/待办/折叠块的嵌套结构都在这里。
+- 编辑器加载内容用 `setContent(content, { emitUpdate: false })`，**不触发 onUpdate**，store 的 `activeDoc.blocks` 不会被同步——只有用户编辑后 debounce flush 才会写回 store。
 
-| 层级 | 处理者 | 职责 |
-|------|--------|------|
-| Surface 容器 | `useSurfaceEditor.ts` | 所有 keydown / input / paste 事件 |
-| BlockRouter | 仅渲染 | 根据 type 路由到具体块组件 |
-| 块组件 | 仅展示 | TextBlock / HeadingBlock 等只负责渲染内容 |
-| BlockHandle | 交互 | hover 控件、右键菜单（删除/复制/转换） |
+### SectionedBlockEditor 分段策略
 
-### 文本块 vs 非文本块
+- 大文档按 `SECTION_SIZE=30` 切分为多个 `SectionEditor`，每个是独立 ProseMirror 实例。按键只重排当前 ~30 块的 section，不触发整文档重排。
+- **渐进挂载**：`visibleCount` 从 0 开始，通过 `requestIdleCallback` 分批挂载（每批 2 个），避免大文档一次性创建 N 个 ProseMirror 实例阻塞主线程。
+- **内容同步**：`SectionEditor` 编辑后 debounce 300ms → `handleSectionChange` → 更新 `sectionsRef.current[idx].blocks` + `setActiveDocBlocks(full, docId)`。
+- `setActiveDocBlocks` 有 **ownership guard**：`docId !== activeDoc.id → return`，防止切换文档时把旧文档编辑写到新文档。
+- **SectionOutline 大纲**用双源合并：store `activeDoc.blocks`（覆盖未挂载 section）+ mounted editors 的 ProseMirror doc `descendants()`（覆盖 store 过期场景），按 id 去重。
 
-- **文本块**（text, heading-1/2/3, callout, toggle）：是 surface 的直接参与节点，用 `<BlockLine>` 渲染
-- **非文本块**（image, table, code, canvas, whiteboard, web-embed, attachment）：用 `contentEditable={false}` 包裹为原子岛屿
+### ⚠️ 文档切换 flush 的时序陷阱（曾导致严重数据丢失）
+
+`SectionedBlockEditor` 切换文档时，必须把 outgoing doc 的 pending 编辑保存下来（否则被 ownership guard 丢弃）。flush 逻辑在 load effect（passive effect）里调 `flushBlocksToDoc(outgoingDocId, full)`。
+
+**铁律：flush 必须读 `sectionsRef.current` 的 `s.blocks`，绝对不能读 `editor.getJSON()`。**
+
+曾导致 bug 的原因（07-08 引入、07-09 修复）：
+
+1. 切换文档时 `key=${activeDocId}:${s.id}` 变化 → React 卸载旧 SectionEditor、挂载新的
+2. 新 editor 初始内容是**空 paragraph**，真正 `setContent` 被推迟到 `setTimeout(0)`（macrotask）
+3. 父组件 load effect（passive effect）早于子的 `setTimeout(0)` 执行
+4. 此时 `ed.getJSON()` 返回空，`tiptapJSONToOurBlocks` 转成单个空文本块
+5. `flushBlocksToDoc(outgoingDocId, [空块])` 把原文档完整内容覆盖成空块 → **数据丢失**
+
+`s.blocks` 是安全的：`SectionEditor` 的 unmount cleanup 在 commit 阶段（同步，早于 passive effect）已把 pending 编辑经 `handleSectionChange` 同步进 `sectionsRef.current[idx].blocks`；无 pending 编辑时它是初始值（= store 完整内容）。
+
+> **对比**：`BlockEditor` 是单 editor 实例，切换时 editor 不卸载，`getJSON()` 读到的是真实内容，且有 pending guard（无编辑不 flush），所以不存在此问题。跨组件读 imperative state 前必须确认 React effect 时序，优先用已被 cleanup 同步过的 ref/state。
+
+### 块类型
+
+| 我们的 BlockType | TipTap 节点 | 说明 |
+|-----------------|------------|------|
+| `text` | `paragraph` | 普通段落 |
+| `heading-1/2/3` | `heading` (attrs.level) | 标题 |
+| `quote` | `blockquote` | 引用（含一个 paragraph） |
+| `code` | `codeBlock` | 代码块（attrs: language/width/height 等） |
+| `image` / `file` / `link` / `diagram` | `image` / `fileBlock` / `linkBlock` / `diagramBlock` | 媒体/附件/链接卡片/画图（atom 节点） |
+| `table` | `table` | 表格（嵌套 tableRow/tableCell/tableHeader） |
+| `bullet-list` / `ordered-list` | `bulletList` / `orderedList` | 列表（嵌套 listItem，支持多级缩进） |
+| `todo-list` | `taskList` | 待办（taskItem attrs.checked） |
+| `divider` | `horizontalRule` | 分割线（atom） |
+| `collapsible` | `collapsible` | 折叠块（attrs.open/summary，content 为子节点 JSON） |
 
 ### Notion 风格键盘行为
 
 | 按键 | 行为 |
 |------|------|
-| `Enter` | 在下方新建文本块 |
-| `Shift+Enter` | 块内换行 |
+| `Enter` | 在下方新建块 / 块内换行（依上下文） |
+| `Shift+Enter` | 块内软换行（hardBreak） |
 | `Backspace`（块首） | 与上一个块合并 |
 | `ArrowUp`（首行） | 跳到上一个块（或标题） |
 | `ArrowDown`（末行） | 跳到下一个块 |
-| `Cmd/Ctrl+B` | 粗体 |
-| `Cmd/Ctrl+I` | 斜体 |
-| `Cmd/Ctrl+D` | 复制当前块 |
+| `Cmd/Ctrl+B/I` | 粗体 / 斜体 |
 | `/` | 唤出 Slash 菜单 |
 | `# ` / `## ` / `### ` | Markdown 快捷转换为标题 |
 
@@ -265,13 +312,13 @@ jstudio/
 3. **块组件只做展示**：文本块不处理自己的键盘事件，所有编辑逻辑在 `useSurfaceEditor` 中统一处理。
 4. **Tailwind CSS v4**：使用 CSS 变量 `var(--vscode-*)` 保持与 VSCode 主题一致，不要硬编码颜色值。**多主题适配要点**：
    - 项目有 **4 个主题**（JStudio Light/Dark、Ink Light/Dark），每个主题的配色完全不同（如 `widget-border` 在不同主题下是 `#E5E5E5`、`#313131`、`#ddd4c8`、`#2f334d`）。
-   - 主题定义在 `lib/themes/appThemes.ts`，运行时通过 `applyAppTheme()` 将颜色注入到 CSS 变量。
+   - 主题定义在 `lib/themes/` 目录（`types.ts` + 4 个主题单文件 `jstudio-light/dark.ts`、`ink-light/dark.ts` + `registry.ts` + `index.ts` barrel），运行时通过 `applyAppTheme()` 将颜色注入到 CSS 变量。
    - **所有颜色相关样式必须用 CSS 变量**，如 `var(--vscode-widget-border, #E5E5E5)`，fallback 值作为默认兜底。
    - **不要用 `.dark` 类区分主题**：`.dark` 只区分 light/dark 模式，无法区分同模式下不同配色（如 Ink Light 与 JStudio Light 都是浅色，但边框颜色不同）。
    - 正确示例：`border: 1px solid var(--vscode-widget-border, #E5E5E5)` → 自动适配所有主题。
    - 错误示例：`.dark` 下写 `border-color: #3C3C3C` → 只适配了 JStudio Dark，Ink Dark 的边框是 `#2f334d`（紫色调），会不一致。
    - **Tailwind 任意值类禁止嵌套 `var()` fallback**：`border-[var(--vscode-menu-border, var(--vscode-widget-border))]` **不会被 Tailwind v4 编译成 CSS 规则**（嵌套括号导致解析失败），该 `border-color` 类不存在 → 浏览器回退到 `currentColor`（文字色）→ dark 主题下文字近白，边框显示为"白色框"。正确写法用单变量 `border-[var(--vscode-menu-border)]`（项目主题变量在所有 4 主题 + `:root` + `.dark` 都有定义，无需 fallback）。注意：**CSS 原生规则**（`vscode-theme.css` 里的 `var(--a, var(--b))`）不受此限制，可保留 fallback。排查存量：`grep -rn '\[var(--vscode-[a-z-]*,\s*var(--vscode-' src/`。
-   - **三层边框语义**（醒目度从高到低，新增浮窗组件须遵守）：`menu-border`（浮窗/弹窗/菜单：斜杠菜单、气泡菜单、下拉、对话框、Toast 等一切"浮在内容之上"的临时面板）> `block-border`（内容块：代码块外框、表格网格线）> `widget-border`（内嵌分隔/静态卡片：设置页分隔线、卡片轮廓）。背景同理：浮窗统一用 `menu-background`，勿混用 `quickInput-background`/`editorWidget-background`/`editor-background`。主题色值定义见 `lib/themes/appThemes.ts`，静态默认值见 `vscode-theme.css` 的 `:root`/`.dark`。
+   - **三层边框语义**（醒目度从高到低，新增浮窗组件须遵守）：`menu-border`（浮窗/弹窗/菜单：斜杠菜单、气泡菜单、下拉、对话框、Toast 等一切"浮在内容之上"的临时面板）> `block-border`（内容块：代码块外框、表格网格线）> `widget-border`（内嵌分隔/静态卡片：设置页分隔线、卡片轮廓）。背景同理：浮窗统一用 `menu-background`，勿混用 `quickInput-background`/`editorWidget-background`/`editor-background`。主题色值定义见 `lib/themes/` 各主题单文件，静态默认值（仅 jstudio-light/dark）见 `vscode-theme.css` 的 `:root`/`.dark`。
 5. **非受控 DOM**：surface 内的 DOM 内容由浏览器管理，React 不在元素聚焦时重写 `innerHTML`。
 6. **图标**：使用 `lucide-react`，图标大小统一用 `w-4 h-4` 或 `w-3.5 h-3.5`。
 7. **路径别名**：`@/*` 映射到 `src/*`（tsconfig 配置），但项目中主要使用相对路径导入。
@@ -283,7 +330,7 @@ jstudio/
 
 1. **命令注册**：新增 `#[tauri::command]` 后，必须在 `src/lib.rs` 的 `generate_handler!` 中注册。
 2. **错误处理**：所有命令返回 `Result<T, String>`，用 `.map_err(|e| e.to_string())` 转换。
-3. **路径辅助函数**：`storage.rs` 顶部有 `studio_dir()` / `doc_dir()` 等辅助函数，新增命令时复用。
+3. **路径辅助函数**：路径 helper 统一收敛在 `commands/storage/paths.rs`（`jdata_dir()` / `studio_dir()` / `documents_dir()` / `doc_dir()` 等），全后端唯一源头。`db.rs`、`bundle.rs` 等都 `use crate::commands::storage::paths::{...}` 复用，不要在各命令文件里重复定义。
 4. **避免 `unused_variables` 警告（也往往是更合理的设计）**：如果一个值只在某个块（block）内部使用，就不要把它解构/绑定到外层作用域。例：`link_tabs` 里 `ui_height` 只用来在块内算 `content_height`，原本写成 `let (ui_height, content_width, content_height) = {...}` 会触发 warning；正确做法是从返回元组剔除 `ui_height`，让它在块内 `let ui_height = m.ui_height` 局部生效。此外，如果一个值本应从"最新状态"实时读取（如 `show_tab` 每次都重新 `lock()` 取 `m.ui_height`），就不要复用别处算好的旧快照——局部现取始终最新，避免过期值。`cargo build` 默认把 `#[warn(unused_variables)]` 显示为 warning（不阻断 build，但应保持 clean）。
 
 ### 命名约定
