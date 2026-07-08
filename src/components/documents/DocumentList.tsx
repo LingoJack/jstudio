@@ -812,7 +812,7 @@ export default function DocumentList() {
 
   return (
     <div
-      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col pb-5 select-none z-10 relative"
+      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-menu-border)] flex flex-col pb-5 select-none z-10 relative"
       style={{ width: sidebarWidth }}
     >
       {/* Header — aligned with the tab bar height (h-9) */}
