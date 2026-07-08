@@ -265,6 +265,22 @@ export function useTerminalManager(
 
       let keydownHandledByXterm: string | null = null;
 
+      // ── IME composition state tracking (suppress phantom spaces) ────────
+      //
+      // macOS Chinese IMEs (Pinyin, Wubi, Sogou, etc.) emit a stray space
+      // when the user switches input mode mid-composition (Shift toggle,
+      // CapsLock, etc.). This space appears via beforeinput right after
+      // compositionend and gets forwarded to the PTY, causing unwanted
+      // spaces at the cursor position.
+      //
+      // Strategy (same as ImeCapsLockFix for the document editor):
+      //   1. Track composition lifecycle (start/end times + committed text).
+      //   2. Suppress single-space beforeinput events that arrive within
+      //      a short window after compositionend.
+      const STRAY_SPACE_WINDOW = 200; // ms
+      let composing = false;
+      let lastCompositionEndTime = 0;
+
       const bridgeKeyDown = (event: KeyboardEvent) => {
         keydownHandledByXterm = null;
         if (
@@ -279,7 +295,31 @@ export function useTerminalManager(
         }
       };
 
+      const bridgeCompositionStart = () => {
+        composing = true;
+      };
+
+      const bridgeCompositionEnd = () => {
+        composing = false;
+        lastCompositionEndTime = Date.now();
+      };
+
       const bridgeBeforeInput = (event: InputEvent) => {
+        // ── Suppress phantom space from IME mode switch ───────────────────
+        // A single space arriving right after compositionend is likely a
+        // stray from the IME's internal mode-switch logic, not intentional
+        // user input. Suppress it to match document editor behavior.
+        if (
+          event.inputType === 'insertText' &&
+          event.data === ' ' &&
+          !composing &&
+          lastCompositionEndTime > 0 &&
+          Date.now() - lastCompositionEndTime < STRAY_SPACE_WINDOW
+        ) {
+          event.preventDefault();
+          return;
+        }
+
         const symbol = isPrintableSymbol(event.data) ? event.data : null;
         if (!isSymbolInputType(event.inputType) || symbol === null) return;
         // xterm already handled this symbol via its normal keydown path.
@@ -304,9 +344,13 @@ export function useTerminalManager(
         if (term.textarea) {
           term.textarea.addEventListener('keydown', bridgeKeyDown);
           term.textarea.addEventListener('beforeinput', bridgeBeforeInput);
+          term.textarea.addEventListener('compositionstart', bridgeCompositionStart);
+          term.textarea.addEventListener('compositionend', bridgeCompositionEnd);
           bridgeCleanup = () => {
             term.textarea?.removeEventListener('keydown', bridgeKeyDown);
             term.textarea?.removeEventListener('beforeinput', bridgeBeforeInput);
+            term.textarea?.removeEventListener('compositionstart', bridgeCompositionStart);
+            term.textarea?.removeEventListener('compositionend', bridgeCompositionEnd);
           };
         } else if (retries > 0) {
           requestAnimationFrame(() => attachInputBridge(retries - 1));
