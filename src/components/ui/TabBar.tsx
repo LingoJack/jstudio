@@ -409,7 +409,7 @@ export default function TabBar({
               className={`flex flex-col gap-0.5 px-3 py-2 rounded-md shadow-2xl border text-xs font-medium transition-colors ${
                 ghost.outside
                   ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]'
-                  : 'border-[var(--vscode-menu-border)] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-descriptionForeground)]'
+                  : 'border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-descriptionForeground)]'
               }`}
             >
               <span className="max-w-[200px] truncate">{ghost.title}</span>

@@ -111,7 +111,7 @@ export default function ActivityBar() {
   }
 
   return (
-    <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-menu-border)] py-2 select-none">
+    <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
       {/* Top: configurable entries (documents, terminal, …) */}
       <div className="flex flex-col items-center gap-1">
         {topItems.map((item) => renderEntry(item.id))}

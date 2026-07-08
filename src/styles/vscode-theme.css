@@ -58,14 +58,14 @@
   --vscode-menu-background: #FFFFFF;
   --vscode-menu-border: #C0C0C0;
   --vscode-menu-hoverBackground: #F2F2F2;
-  --vscode-menu-separatorBackground: #E5E5E5;
+  --vscode-menu-separatorBackground: #C0C0C0;
   --vscode-menu-selectionBackground: #0052D9;
   --vscode-menu-selectionForeground: #FFFFFF;
   --vscode-list-hoverBackground: #F2F2F2;
   --vscode-list-activeSelectionBackground: #E8E8E8;
   --vscode-panel-background: #F8F8F8;
-  --vscode-panel-border: #E5E5E5;
-  --vscode-widget-border: #E5E5E5;
+  --vscode-panel-border: #C0C0C0;
+  --vscode-widget-border: #C0C0C0;
   --vscode-quickInput-background: #F8F8F8;
   --vscode-editorWidget-background: #F8F8F8;
   --vscode-editorLineNumber-foreground: #6E7681;
@@ -180,14 +180,14 @@
   --vscode-menu-background: #1F1F1F;
   --vscode-menu-border: #5A5A5A;
   --vscode-menu-hoverBackground: #2A2D2E;
-  --vscode-menu-separatorBackground: #3A3A3A;
+  --vscode-menu-separatorBackground: #5A5A5A;
   --vscode-menu-selectionBackground: #07C160;
   --vscode-menu-selectionForeground: #FFFFFF;
   --vscode-list-hoverBackground: #F1F1F133;
   --vscode-list-activeSelectionBackground: #F1F1F133;
   --vscode-panel-background: #181818;
-  --vscode-panel-border: #2B2B2B;
-  --vscode-widget-border: #313131;
+  --vscode-panel-border: #5A5A5A;
+  --vscode-widget-border: #5A5A5A;
   --vscode-quickInput-background: #222222;
   --vscode-editorWidget-background: #202020;
   --vscode-editorLineNumber-foreground: #6E7681;
@@ -2367,7 +2367,7 @@ button {
   justify-content: space-between;
   padding: 12px 20px;
   background: var(--vscode-editor-background);
-  border-bottom: 1px solid var(--vscode-menu-border, rgba(128, 128, 128, 0.2));
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
   flex-shrink: 0;
   user-select: none;
 }
@@ -2442,7 +2442,7 @@ button {
 .preview-window-frame {
   width: 100%;
   height: 100%;
-  border: 1px solid var(--vscode-menu-border, rgba(128, 128, 128, 0.2));
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
   border-radius: 8px;
   background: white;
 }
@@ -2478,7 +2478,7 @@ button {
   gap: 4px;
   padding: 4px 8px;
   background: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-menu-border, rgba(128, 128, 128, 0.2));
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   user-select: none;
@@ -2546,7 +2546,7 @@ button {
   word-break: break-all;
   overflow: auto;
   border-radius: 8px;
-  border: 1px solid var(--vscode-menu-border, rgba(128, 128, 128, 0.2));
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
 }
 
 /* --- Audio / Video --- */
