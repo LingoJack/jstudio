@@ -1,20 +1,26 @@
 /**
- * LinkPreviewTabsApp — 链接预览窗口的标签页 UI。
+ * LinkPreviewTabsApp — 链接预览窗口的浏览器式标签页 UI。
  *
- * 使用共享 TabBar 组件（glassmorphism 风格）。
- * 布局：
- *   - 顶部：地址栏 + toolbar
- *   - 底部：浮动 TabBar（glassmorphism capsule）
+ * 布局（仿浏览器）：
+ *   ┌────────────────────────────────────────────────────┐
+ *   │ [Tab1] [Tab2] [Tab3] [+]          ← tab strip 36px │
+ *   ├────────────────────────────────────────────────────┤
+ *   │ 🏠 [https://example.com        ] 🔄 ↗ ← address 38px│
+ *   └────────────────────────────────────────────────────┘
+ *   │                                                    │
+ *   │  Content Webview (由 Rust 端管理，位于此 UI 下方)   │
+ *   │                                                    │
+ *
+ * UI webview 高度 80px（tab strip + address bar），content webview
+ * 从 Y=80 开始填充剩余空间（由 Rust 端 link_tabs.rs 控制）。
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Loader2, ExternalLink, RefreshCw, Home, Globe } from 'lucide-react';
+import { X, Loader2, ExternalLink, RefreshCw, Home, Globe, Plus } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useI18n } from '../../lib/core/i18n';
-import TabBar, { type TabItem } from '../ui/TabBar';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -35,7 +41,7 @@ interface TabsState {
 
 export default function LinkPreviewTabsApp() {
   // 从 URL 参数获取窗口标签
-  const [windowLabel, setWindowLabel] = useState<string | null>(() => {
+  const [windowLabel] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('windowLabel');
   });
@@ -56,29 +62,24 @@ export default function LinkPreviewTabsApp() {
       .catch(console.error);
   }, [windowLabel]);
 
-  // 监听 Rust 端事件
+  // 监听 Rust 端事件 — 统一通过 tabs-updated 同步全量状态
   useEffect(() => {
-    const unlistenTabAdded = listen<TabInfo>('link-preview:tab-added', (event) => {
-      setState((prev) => ({
-        tabs: [...prev.tabs.filter(t => t.id !== event.payload.id), event.payload],
-        active_tab_id: event.payload.id,
-      }));
-    });
+    if (!windowLabel) return;
 
     const unlistenTabsUpdate = listen<TabsState>('link-preview:tabs-updated', (event) => {
       setState(event.payload);
     });
 
     return () => {
-      unlistenTabAdded.then((f) => f());
       unlistenTabsUpdate.then((f) => f());
     };
-  }, []);
+  }, [windowLabel]);
 
-  // 同步地址栏显示当前活动标签的 URL
+  // 同步地址栏显示当前活动标签的 URL（about:blank 显示为空）
   useEffect(() => {
     const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
-    setAddressBarUrl(activeTab?.url ?? '');
+    const url = activeTab?.url ?? '';
+    setAddressBarUrl(url === 'about:blank' ? '' : url);
   }, [state.active_tab_id, state.tabs]);
 
   // ── Actions ───────────────────────────────────────────────────────────
@@ -86,39 +87,34 @@ export default function LinkPreviewTabsApp() {
   const switchTab = useCallback((tabId: string) => {
     if (!windowLabel) return;
     invoke('switch_link_preview_tab', { windowLabel, tabId }).catch(console.error);
-    setState((prev) => ({ ...prev, active_tab_id: tabId }));
   }, [windowLabel]);
 
   const closeTab = useCallback((tabId: string) => {
     if (!windowLabel) return;
     invoke('close_link_preview_tab', { windowLabel, tabId }).catch(console.error);
-    setState((prev) => {
-      const newTabs = prev.tabs.filter((t) => t.id !== tabId);
-      let newActiveId = prev.active_tab_id;
-      if (prev.active_tab_id === tabId) {
-        const idx = prev.tabs.findIndex((t) => t.id === tabId);
-        newActiveId = newTabs[idx]?.id ?? newTabs[idx - 1]?.id ?? null;
-        if (newActiveId && windowLabel) {
-          invoke('switch_link_preview_tab', { windowLabel, tabId: newActiveId }).catch(console.error);
-        }
-      }
-      return { tabs: newTabs, active_tab_id: newActiveId };
-    });
   }, [windowLabel]);
 
   const addNewTab = useCallback(() => {
     if (!windowLabel) return;
-    // 新标签默认打开空白页
     invoke('add_link_preview_tab', { windowLabel, url: 'about:blank' }).catch(console.error);
   }, [windowLabel]);
 
   const navigateToUrl = useCallback((url: string) => {
     if (!url.trim() || !windowLabel) return;
-    
+
     // URL 规范化
     let normalizedUrl = url.trim();
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://') && !normalizedUrl.startsWith('about:')) {
-      normalizedUrl = 'https://' + normalizedUrl;
+    if (
+      !normalizedUrl.startsWith('http://') &&
+      !normalizedUrl.startsWith('https://') &&
+      !normalizedUrl.startsWith('about:')
+    ) {
+      // 如果看起来像域名（含点），加 https://；否则当作搜索
+      if (normalizedUrl.includes('.') && !normalizedUrl.includes(' ')) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      } else {
+        normalizedUrl = 'https://www.google.com/search?q=' + encodeURIComponent(normalizedUrl);
+      }
     }
 
     const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
@@ -128,7 +124,6 @@ export default function LinkPreviewTabsApp() {
         .catch(console.error)
         .finally(() => setIsLoadingUrl(false));
     } else {
-      // 没有活动标签，创建新标签
       setIsLoadingUrl(true);
       invoke('add_link_preview_tab', { windowLabel, url: normalizedUrl })
         .catch(console.error)
@@ -156,80 +151,84 @@ export default function LinkPreviewTabsApp() {
       navigateToUrl(addressBarUrl);
     } else if (e.key === 'Escape') {
       const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
-      setAddressBarUrl(activeTab?.url ?? '');
+      const url = activeTab?.url ?? '';
+      setAddressBarUrl(url === 'about:blank' ? '' : url);
       addressInputRef.current?.blur();
     }
   }, [addressBarUrl, navigateToUrl, state.tabs]);
 
-  // ── Map TabInfo → TabItem ─────────────────────────────────────────────
+  // ── Context menu ─────────────────────────────────────────────────────
 
-  const tabItems: TabItem[] = state.tabs.map((tab) => ({
-    id: tab.id,
-    title: tab.title || tab.url,
-    isActive: tab.id === state.active_tab_id,
-    icon: tab.loading ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />,
-    canClose: state.tabs.length > 1,
-    canDrag: state.tabs.length > 1,
-  }));
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
 
-  // ── Context menu renderer ────────────────────────────────────────────
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    requestAnimationFrame(() => window.addEventListener('click', handler));
+    return () => window.removeEventListener('click', handler);
+  }, [contextMenu]);
 
-  const renderContextMenu = useCallback(
-    (tabId: string, x: number, y: number, close: () => void) => {
-      const tab = state.tabs.find((t) => t.id === tabId);
-      return (
-        <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
-          <MenuItem
-            icon={<RefreshCw className="w-4 h-4" />}
-            onClick={() => {
-              if (windowLabel) {
-                invoke('refresh_link_preview_tab', { windowLabel, tabId }).catch(console.error);
-              }
-              close();
-            }}
-          >
-            {t('linkPreview.refresh')}
-          </MenuItem>
-
-          <MenuItem
-            icon={<ExternalLink className="w-4 h-4" />}
-            onClick={() => {
-              if (tab) {
-                invoke('open_url_in_browser', { url: tab.url }).catch(console.error);
-              }
-              close();
-            }}
-          >
-            {t('linkPreview.openBrowser')}
-          </MenuItem>
-
-          {state.tabs.length > 1 && (
-            <MenuDivider />
-          )}
-
-          {state.tabs.length > 1 && (
-            <MenuItem
-              variant="danger"
-              icon={<X className="w-4 h-4" />}
-              onClick={() => {
-                closeTab(tabId);
-                close();
-              }}
-            >
-              {t('linkPreview.closeTab')}
-            </MenuItem>
-          )}
-        </MenuList>
-      );
-    },
-    [state.tabs, windowLabel, closeTab, t]
-  );
+  const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
 
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="link-preview-root">
-      {/* 顶部：地址栏 + toolbar */}
+      {/* ── Tab strip (browser-style, edge-to-edge) ── */}
+      <div className="link-preview-tab-strip">
+        <div className="link-preview-tabs-scroll">
+          {state.tabs.map((tab) => {
+            const isActive = tab.id === state.active_tab_id;
+            const canClose = state.tabs.length > 1;
+            return (
+              <div
+                key={tab.id}
+                className={`link-preview-tab ${isActive ? 'link-preview-tab-active' : ''}`}
+                onClick={() => switchTab(tab.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
+                }}
+                title={tab.title || tab.url}
+              >
+                <span className="link-preview-tab-icon">
+                  {tab.loading ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Globe size={13} />
+                  )}
+                </span>
+                <span className="link-preview-tab-title">
+                  {tab.url === 'about:blank' ? 'New Tab' : (tab.title || tab.url || 'New Tab')}
+                </span>
+                {canClose && (
+                  <button
+                    className="link-preview-tab-close"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeTab(tab.id);
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* New tab button */}
+        <button
+          className="link-preview-tab-new"
+          onClick={addNewTab}
+          title={t('linkPreview.newTab')}
+        >
+          <Plus size={15} />
+        </button>
+      </div>
+
+      {/* ── Address bar + toolbar ── */}
       <div className="link-preview-address-bar">
         <button
           type="button"
@@ -249,6 +248,7 @@ export default function LinkPreviewTabsApp() {
           onKeyDown={handleAddressKeyDown}
           placeholder={t('linkPreview.urlPlaceholder')}
           disabled={isLoadingUrl}
+          onFocus={(e) => e.target.select()}
         />
 
         {isLoadingUrl && (
@@ -259,7 +259,7 @@ export default function LinkPreviewTabsApp() {
           type="button"
           className="link-preview-toolbar-btn"
           onClick={refreshTab}
-          disabled={!state.tabs.find((t) => t.id === state.active_tab_id)}
+          disabled={!activeTab}
           title={t('linkPreview.refresh')}
         >
           <RefreshCw size={14} />
@@ -269,25 +269,56 @@ export default function LinkPreviewTabsApp() {
           type="button"
           className="link-preview-toolbar-btn"
           onClick={openInBrowser}
-          disabled={!state.tabs.find((t) => t.id === state.active_tab_id)}
+          disabled={!activeTab}
           title={t('linkPreview.openBrowser')}
         >
           <ExternalLink size={14} />
         </button>
       </div>
 
-      {/* 底部：浮动 TabBar */}
-      {tabItems.length > 0 && (
-        <TabBar
-          tabs={tabItems}
-          activeTabId={state.active_tab_id}
-          onTabClick={switchTab}
-          onTabClose={closeTab}
-          onNew={addNewTab}
-          renderContextMenu={renderContextMenu}
-          rippleColor="rgba(255,255,255,0.2)"
-          glassOpacity={0.05}
-        />
+      {/* ── Context menu ── */}
+      {contextMenu && (
+        <MenuList x={contextMenu.x} y={contextMenu.y} onClick={(e) => e.stopPropagation()}>
+          <MenuItem
+            icon={<RefreshCw className="w-4 h-4" />}
+            onClick={() => {
+              if (windowLabel) {
+                invoke('refresh_link_preview_tab', { windowLabel, tabId: contextMenu.tabId }).catch(console.error);
+              }
+              setContextMenu(null);
+            }}
+          >
+            {t('linkPreview.refresh')}
+          </MenuItem>
+
+          <MenuItem
+            icon={<ExternalLink className="w-4 h-4" />}
+            onClick={() => {
+              const tab = state.tabs.find((t) => t.id === contextMenu.tabId);
+              if (tab) {
+                invoke('open_url_in_browser', { url: tab.url }).catch(console.error);
+              }
+              setContextMenu(null);
+            }}
+          >
+            {t('linkPreview.openBrowser')}
+          </MenuItem>
+
+          {state.tabs.length > 1 && <MenuDivider />}
+
+          {state.tabs.length > 1 && (
+            <MenuItem
+              variant="danger"
+              icon={<X className="w-4 h-4" />}
+              onClick={() => {
+                closeTab(contextMenu.tabId);
+                setContextMenu(null);
+              }}
+            >
+              {t('linkPreview.closeTab')}
+            </MenuItem>
+          )}
+        </MenuList>
       )}
     </div>
   );
