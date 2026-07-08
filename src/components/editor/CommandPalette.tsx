@@ -302,19 +302,14 @@ export default function CommandPalette() {
 {/* Backdrop - 浅色模式下用白色遮罩，深色用黑色 */}
       <div className="absolute inset-0 bg-black/25 backdrop-blur-[1px] dark:bg-black/30" />
 
-{/* Panel - 液态玻璃 + 顶部高光 */}
+{/* Panel - VSCode 风格边框 + 液态玻璃背景 */}
       <div
-        className="relative w-[min(520px,90vw)] overflow-hidden flex flex-col rounded-2xl"
+        className="relative w-[min(520px,90vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)]"
         style={{
           background: 'rgba(255,255,255,0.06)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: `
-            inset 0 1px 0 0 rgba(255,255,255,0.2),
-            inset 0 0 0 1px rgba(255,255,255,0.1),
-            0 8px 32px rgba(0,0,0,0.15),
-            0 2px 8px rgba(0,0,0,0.08)
-          `,
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
           animation: 'paletteIn 120ms ease-out',
         }}
         onClick={(e) => e.stopPropagation()}

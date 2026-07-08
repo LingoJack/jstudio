@@ -249,13 +249,13 @@ export default function TabBar({
         className={`absolute left-0 right-0 bottom-0 flex items-center justify-center pb-3 z-10 ${className ?? ''}`}
       >
         <div
-          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full"
+          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full border border-[var(--vscode-menu-border)]"
           style={{
             scrollbarWidth: 'thin',
             background: 'rgba(255,255,255,0.06)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.12)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
           }}
         >
           {/* Left gradient fade mask */}

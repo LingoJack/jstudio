@@ -363,7 +363,7 @@ export default function TerminalTabs() {
                     );
                   })}
                 </div>
-                <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
+                <div className="my-1 border-t border-[var(--vscode-menu-border)] opacity-50" />
                 <button
                   onClick={() => {
                     clearRecentDirs();
