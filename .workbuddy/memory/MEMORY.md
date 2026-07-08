@@ -1,5 +1,13 @@
 # JStudio 项目长期记忆
 
+## 分段编辑器（SectionedBlockEditor）架构要点
+
+- 大文档按 SECTION_SIZE=30 切分为多个独立 ProseMirror 实例，解决大文档输入卡顿
+- `setContent({ emitUpdate: false })` 加载内容时不触发 onUpdate，store 的 `activeDoc.blocks` 不会被同步——只有用户编辑后 debounce flush 才会 `setActiveDocBlocks`
+- `setActiveDocBlocks` 有 ownership guard：`docId !== activeDoc.id → return`，防止切换文档时把旧文档编辑写到新文档
+- **文档切换时必须 flush outgoing doc**：SectionedBlockEditor 的 load effect 里用 `flushBlocksToDoc(outgoingDocId, full)` 保存旧文档编辑（遍历所有 section editor 的 `getJSON()` 序列化当前内容），否则 pending edits 被丢弃
+- SectionOutline 大纲提取用**双源合并**：store `activeDoc.blocks`（覆盖未挂载 section）+ mounted editors 的 ProseMirror doc `descendants()`（覆盖 store 过期场景），按 id 去重
+
 ## 主题系统规范
 
 ### 三层边框语义（醒目度从高到低）

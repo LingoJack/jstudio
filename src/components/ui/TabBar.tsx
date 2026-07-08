@@ -267,17 +267,17 @@ export default function TabBar({
         >
           {/* Left gradient fade mask */}
           <div
-            className="absolute left-0 top-0 bottom-0 w-8 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-150"
+            className="absolute left-0 top-0 bottom-0 w-10 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-250 ease-out"
             style={{
-              background: `linear-gradient(to right, rgba(255,255,255,${glassOpacity}), transparent)`,
+              background: `linear-gradient(to right, rgba(255,255,255,${glassOpacity * 1.5}), transparent)`,
             }}
             data-scroll-left-fade
           />
           {/* Right gradient fade mask */}
           <div
-            className="absolute right-0 top-0 bottom-0 w-8 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-150"
+            className="absolute right-0 top-0 bottom-0 w-10 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-250 ease-out"
             style={{
-              background: `linear-gradient(to left, rgba(255,255,255,${glassOpacity}), transparent)`,
+              background: `linear-gradient(to left, rgba(255,255,255,${glassOpacity * 1.5}), transparent)`,
             }}
             data-scroll-right-fade
           />
@@ -287,14 +287,15 @@ export default function TabBar({
             className="flex items-center overflow-x-auto min-w-0 gap-0.5"
             style={{ scrollbarWidth: 'none' }}
           >
-            {/* Apple-style sliding selection indicator */}
+            {/* Apple-style sliding selection indicator with glass glow */}
             <div
               className="absolute top-1.5 bottom-1.5 rounded-full pointer-events-none"
               style={{
                 left: `calc(8px + ${indicatorPos.left}px)`,
                 width: indicatorPos.width,
                 background: accentColor,
-                transition: 'left 280ms cubic-bezier(0.34, 1.56, 0.64, 1), width 280ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+                boxShadow: `0 0 16px 3px color-mix(in srgb, ${accentColor} 50%, transparent), 0 1px 3px rgba(0,0,0,0.1)`,
+                transition: 'left 320ms cubic-bezier(0.34, 1.4, 0.64, 1), width 320ms cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 200ms ease-out',
               }}
             />
 
@@ -319,7 +320,7 @@ export default function TabBar({
                     e.stopPropagation();
                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                   }}
-                  className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-75 ${
+                  className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-all duration-200 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
                       : `text-[${textColor}] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--vscode-foreground)]`
@@ -344,14 +345,20 @@ export default function TabBar({
                   ) : (
                     <>
                       {tab.icon && (
-                        <span className="shrink-0 opacity-70">{tab.icon}</span>
+                        <span className={`shrink-0 transition-all duration-200 ${
+                          tab.isActive ? 'opacity-90 scale-[1.02]' : 'opacity-70 group-hover:opacity-80'
+                        }`}>{tab.icon}</span>
                       )}
-                      <span className="text-[13px] font-medium flex-1 min-w-0 truncate max-w-[140px]">
+                      <span className={`text-[13px] font-medium flex-1 min-w-0 truncate max-w-[140px] transition-all duration-200 ${
+                        tab.isActive ? 'tracking-wide' : ''
+                      }`}>
                         {tab.title}
                       </span>
 
                       {tab.paneCount && tab.paneCount > 1 && (
-                        <span className="text-[11px] opacity-50 shrink-0">
+                        <span className={`text-[11px] shrink-0 transition-all duration-200 ${
+                          tab.isActive ? 'opacity-60' : 'opacity-50'
+                        }`}>
                           {tab.paneCount}
                         </span>
                       )}
@@ -362,7 +369,7 @@ export default function TabBar({
                             e.stopPropagation();
                             onTabClose(tab.id);
                           }}
-                          className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-75 hover:bg-[rgba(255,255,255,0.15)] ${
+                          className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-150 hover:bg-[rgba(255,255,255,0.15)] hover:scale-110 ${
                             tab.isActive
                               ? 'opacity-70'
                               : 'opacity-0 group-hover:opacity-70'
