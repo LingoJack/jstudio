@@ -52,6 +52,7 @@ export default function CommandPalette() {
   const isOpen = useStore((s) => s.isCommandPaletteOpen);
   const setCommandPaletteOpen = useStore((s) => s.setCommandPaletteOpen);
   const overrides = useStore((s) => s.keyboardShortcuts);
+  const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
   const { t, language } = useI18n();
   const lang = language as Language;
 
@@ -306,7 +307,7 @@ export default function CommandPalette() {
       <div
         className="relative w-[min(520px,90vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)]"
         style={{
-          background: 'rgba(255,255,255,0.06)',
+          background: `rgba(255,255,255,${tabBarGlassOpacity})`,
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',

@@ -31,6 +31,7 @@ import { ListTree } from 'lucide-react';
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
+import { tiptapJSONToOurBlocks } from '../../../lib/editor/tiptapAdapter';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
@@ -181,6 +182,40 @@ export default function SectionedBlockEditor() {
       return;
     }
     if (loadedDocIdRef.current === activeDocId) return;
+
+    // ── Flush the OUTGOING document's pending section edits ──
+    // Before switching to the new document, serialize every mounted section
+    // editor's CURRENT content (including edits still pending in the 300ms
+    // debounce timer) and persist it to the outgoing doc's `documents[]`
+    // entry via `flushBlocksToDoc`.
+    //
+    // Without this, pending edits are lost: the SectionEditor's unmount
+    // cleanup calls `handleSectionChange` → `setActiveDocBlocks`, but that
+    // has an ownership guard (`docId !== activeDoc.id → return`) that drops
+    // the edit because `activeDoc` has already moved to the new document.
+    // The result is a stale `documents[]` entry for the outgoing doc — when
+    // the user switches back, the outline and editor show outdated content.
+    const outgoingDocId = loadedDocIdRef.current;
+    if (outgoingDocId && outgoingDocId !== activeDocId) {
+      const editors = sectionEditorsRef.current;
+      const current = sectionsRef.current;
+      // Read each section editor's live content so pending (un-debounced)
+      // edits are captured, not just the last-flushed snapshot.
+      const full = current.flatMap((s) => {
+        const ed = editors.get(s.id);
+        if (ed && !ed.isDestroyed) {
+          try {
+            const json = ed.getJSON();
+            return tiptapJSONToOurBlocks(json.content ?? []);
+          } catch {
+            // Editor may be mid-teardown — fall back to last-known blocks.
+          }
+        }
+        return s.blocks;
+      });
+      useStore.getState().flushBlocksToDoc(outgoingDocId, full);
+    }
+
     loadedDocIdRef.current = activeDocId;
     // Reset loading counters — sections will report back as they finish.
     loadedSectionCountRef.current = 0;

@@ -1,9 +1,22 @@
 /**
  * SectionOutline — heading navigation for the sectioned editor.
  *
- * Unlike DocumentOutline (which reads headings from a single editor's
- * ProseMirror doc), this reads headings directly from the store's block array,
- * so it is independent of how the document is split into section editors.
+ * Headings are extracted from TWO sources and merged:
+ *
+ *   1. The store's `activeDoc.blocks` array — covers ALL blocks including
+ *      those in not-yet-mounted sections (progressive mounting means some
+ *      section editors don't exist yet when the outline first renders).
+ *
+ *   2. The mounted section editors' ProseMirror docs — always reflects the
+ *      live editor state, even when the store's `blocks` hasn't been synced
+ *      yet (setContent uses `emitUpdate: false`, so the store keeps the
+ *      original DB blocks until the user edits a section).
+ *
+ * Merging both sources fixes the bug where the outline showed "no outline"
+ * for documents whose `activeDoc.blocks` was stale or temporarily empty
+ * (e.g. after a document switch where the outgoing doc's pending edits were
+ * dropped by the ownership guard, or when a section's `setContent` failed
+ * and a subsequent flush replaced the store's blocks with empty content).
  *
  * Jump-to-heading works across sections because every section renders into the
  * SAME scroll container, and heading blocks carry a `data-block-id` attribute
@@ -11,7 +24,7 @@
  * scroll it into view — no need to know which section it lives in.
  */
 
-import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { Editor } from '@tiptap/react';
 
 import { useStore } from '../../../store/useStore';
@@ -26,7 +39,8 @@ interface HeadingItem {
   text: string;
 }
 
-function extractHeadings(blocks: Block[]): HeadingItem[] {
+/** Extract headings from the store's Block[] (top-level blocks only). */
+function extractHeadingsFromBlocks(blocks: Block[]): HeadingItem[] {
   const items: HeadingItem[] = [];
   for (const b of blocks) {
     if (b.type === 'heading-1' || b.type === 'heading-2' || b.type === 'heading-3') {
@@ -36,6 +50,37 @@ function extractHeadings(blocks: Block[]): HeadingItem[] {
         items.push({ id: b.id, level, text });
       }
     }
+  }
+  return items;
+}
+
+/**
+ * Extract headings from mounted section editors' ProseMirror docs.
+ *
+ * Each editor's doc is traversed via `descendants()` so headings nested
+ * inside collapsible blocks (stored as `collapsibleChildren` in the Block
+ * model, but rendered as real heading nodes in ProseMirror) are also found.
+ */
+function extractHeadingsFromEditors(
+  editors: Map<string, Editor> | null,
+): HeadingItem[] {
+  if (!editors || editors.size === 0) return [];
+  const items: HeadingItem[] = [];
+  for (const [, editor] of editors) {
+    if (editor.isDestroyed) continue;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'heading') {
+        const level = node.attrs.level as number;
+        if (level >= 1 && level <= 3) {
+          const text = node.textContent.trim();
+          const id = (node.attrs.id as string) ?? '';
+          if (text && id) {
+            items.push({ id, level, text });
+          }
+        }
+      }
+      return true;
+    });
   }
   return items;
 }
@@ -52,13 +97,89 @@ export default function SectionOutline({
   sectionEditorsRef,
 }: SectionOutlineProps) {
   const { t } = useI18n();
-  // Subscribe to blocks so the outline updates as headings change. This is a
-  // light read (heading extraction) and only the outline panel re-renders.
+  // Subscribe to blocks (primary heading source — covers unmounted sections).
   const blocks = useStore((s) => s.activeDoc?.blocks);
+  // Subscribe to activeDocId so the outline re-extracts on document switch
+  // even if the `blocks` reference happens to be reused (defensive — in
+  // practice openDocument always sets a different doc with a different
+  // blocks array, but this costs nothing and guards against edge cases).
+  const activeDocId = useStore((s) => s.activeDocId);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Bumped by section-editor event listeners to force re-extraction from
+  // the editors' live ProseMirror docs. This catches content loaded via
+  // setContent({ emitUpdate: false }) which doesn't sync back to the store.
+  const [editorVersion, setEditorVersion] = useState(0);
 
-  const headings = useMemo(() => extractHeadings(blocks ?? []), [blocks]);
+  // ── Source 1: store blocks ──
+  const storeHeadings = useMemo(
+    () => extractHeadingsFromBlocks(blocks ?? []),
+    // activeDocId is a dep so we re-extract on doc switch even if blocks
+    // ref is unchanged (stale reference edge case).
+    [blocks, activeDocId],
+  );
+
+  // ── Source 2: mounted editors' ProseMirror docs ──
+  const editorHeadings = useMemo(
+    () => extractHeadingsFromEditors(sectionEditorsRef.current),
+    [sectionEditorsRef, editorVersion, activeDocId],
+  );
+
+  // ── Merge: union of both, deduplicated by heading id ──
+  // Store headings take priority (they cover unmounted sections). Editor
+  // headings fill gaps when the store is stale/empty — this is the fix for
+  // the "some docs show empty outline" bug.
+  const headings = useMemo(() => {
+    if (editorHeadings.length === 0) return storeHeadings;
+    if (storeHeadings.length === 0) return editorHeadings;
+    const seen = new Set(storeHeadings.map((h) => h.id));
+    const merged = [...storeHeadings];
+    for (const h of editorHeadings) {
+      if (!seen.has(h.id)) {
+        merged.push(h);
+        seen.add(h.id);
+      }
+    }
+    return merged;
+  }, [storeHeadings, editorHeadings]);
+
+  // ── Subscribe to editor events to trigger re-extraction ──
+  // Sections mount progressively (requestIdleCallback batches), so we
+  // re-attempt subscription on a few timers to catch newly mounted editors.
+  const subscribedRef = useRef<Set<Editor>>(new Set());
+  useEffect(() => {
+    const trigger = () => setEditorVersion((v) => (v + 1) & 0x7fffffff);
+
+    const subscribeAll = () => {
+      const editors = sectionEditorsRef.current;
+      if (!editors) return;
+      for (const [, editor] of editors) {
+        if (subscribedRef.current.has(editor) || editor.isDestroyed) continue;
+        editor.on('transaction', trigger);
+        editor.on('update', trigger);
+        subscribedRef.current.add(editor);
+      }
+    };
+
+    // Reset subscribed set on doc switch — old editors are destroyed.
+    subscribedRef.current = new Set();
+    subscribeAll();
+    // Re-subscribe as more sections mount progressively.
+    const timers = [100, 300, 800, 2000].map((ms) =>
+      window.setTimeout(subscribeAll, ms),
+    );
+
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      for (const editor of subscribedRef.current) {
+        if (!editor.isDestroyed) {
+          editor.off('transaction', trigger);
+          editor.off('update', trigger);
+        }
+      }
+      subscribedRef.current.clear();
+    };
+  }, [activeDocId, sectionEditorsRef]);
 
   // Keep the active heading valid as the list changes.
   useEffect(() => {
