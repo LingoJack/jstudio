@@ -1623,7 +1623,9 @@ button {
 
 /* Mermaid live preview container */
 .code-block-wrapper .code-block-mermaid-preview {
-  background: var(--vscode-editor-background, #ffffff);
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  position: relative;
 }
 
 .code-block-wrapper .code-block-mermaid-content {
@@ -1632,29 +1634,67 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 24px;
   overflow: auto;
+  min-height: 200px;
 }
 
 .code-block-wrapper .code-block-mermaid-content svg {
   max-width: 100%;
   max-height: 100%;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
+  transition: transform 0.15s ease-out;
+}
+
+/* Mermaid SVG internal styles - enhance node appearance */
+.code-block-wrapper .code-block-mermaid-content svg .node rect,
+.code-block-wrapper .code-block-mermaid-content svg .node circle,
+.code-block-wrapper .code-block-mermaid-content svg .node ellipse,
+.code-block-wrapper .code-block-mermaid-content svg .node polygon,
+.code-block-wrapper .code-block-mermaid-content svg .node path {
+  stroke: #4A90D9;
+  stroke-width: 2px;
+}
+
+.code-block-wrapper .code-block-mermaid-content svg .edgePath path {
+  stroke: #5A5A5A;
+  stroke-width: 2px;
+}
+
+.code-block-wrapper .code-block-mermaid-content svg .label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.code-block-wrapper .code-block-mermaid-content svg .cluster rect {
+  fill: #F0F4F8;
+  stroke: #4A90D9;
+  stroke-width: 2px;
 }
 
 .code-block-wrapper .code-block-mermaid-error {
-  padding: 16px;
-  color: var(--vscode-errorForeground, #f00);
+  padding: 20px;
+  color: var(--vscode-errorForeground, #d32f2f);
   font-size: 13px;
+  background: rgba(211, 47, 47, 0.08);
+  border-radius: 8px;
+  margin: 16px;
+}
+
+.code-block-wrapper .code-block-mermaid-error p {
+  margin: 0 0 8px 0;
+  font-weight: 500;
 }
 
 .code-block-wrapper .code-block-mermaid-error pre {
-  margin-top: 8px;
-  padding: 8px;
-  background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.1));
-  border-radius: 4px;
+  margin: 0;
+  padding: 12px;
+  background: rgba(211, 47, 47, 0.12);
+  border-radius: 6px;
   overflow: auto;
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 12px;
+  white-space: pre-wrap;
 }
 
 /* ============================================
