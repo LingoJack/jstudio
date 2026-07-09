@@ -130,17 +130,82 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const [mermaidError, setMermaidError] = useState<string | null>(null);
   const mermaidPreviewRef = useRef<HTMLDivElement>(null);
 
-  // Initialize mermaid with theme based on editor dark mode
+  // Initialize mermaid with high-quality rendering settings
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'loose', // Allow click events in diagrams
-      theme: 'neutral', // Use neutral theme that works in both light and dark
+      theme: 'base', // Use base theme for customization
+      themeVariables: {
+        primaryColor: '#4A90D9',
+        primaryTextColor: '#333',
+        primaryBorderColor: '#2B5F8E',
+        lineColor: '#5A5A5A',
+        secondaryColor: '#E8F4FD',
+        tertiaryColor: '#F5F5F5',
+        background: '#FFFFFF',
+        mainBkg: '#FFFFFF',
+        nodeBorder: '#4A90D9',
+        clusterBkg: '#F0F4F8',
+        clusterBorder: '#4A90D9',
+        titleColor: '#333',
+        edgeLabelBackground: '#FFFFFF',
+        actorBkg: '#E8F4FD',
+        actorBorder: '#4A90D9',
+        actorTextColor: '#333',
+        actorLineColor: '#5A5A5A',
+        signalColor: '#4A90D9',
+        signalTextColor: '#333',
+        labelBoxBkg: '#E8F4FD',
+        labelBoxBorderColor: '#4A90D9',
+        labelTextColor: '#333',
+        loopTextColor: '#333',
+        noteBorderColor: '#4A90D9',
+        noteBkgColor: '#FFF9E6',
+        noteTextColor: '#333',
+        activationBorderColor: '#4A90D9',
+        activationBkgColor: '#E8F4FD',
+        sequenceNumberColor: '#FFFFFF',
+      },
       flowchart: {
         useMaxWidth: true,
         htmlLabels: true,
+        curve: 'basis', // Smooth curved lines
+        padding: 15,
+        nodeSpacing: 50,
+        rankSpacing: 50,
+        diagramPadding: 8,
       },
       sequence: {
+        useMaxWidth: true,
+        diagramMarginX: 8,
+        diagramMarginY: 8,
+        actorMargin: 50,
+        width: 150,
+        height: 65,
+        boxMargin: 10,
+        boxTextMargin: 5,
+        noteMargin: 10,
+        messageMargin: 35,
+        mirrorActors: false,
+        bottomMarginAdj: 1,
+      },
+      gantt: {
+        useMaxWidth: true,
+        leftPadding: 75,
+        gridLineStartPadding: 35,
+        barHeight: 20,
+        barGap: 4,
+        topPadding: 50,
+        titleTopMargin: 25,
+      },
+      class: {
+        useMaxWidth: true,
+      },
+      state: {
+        useMaxWidth: true,
+      },
+      pie: {
         useMaxWidth: true,
       },
     });
@@ -477,61 +542,121 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 <head>
   <meta charset="utf-8">
   <style>
-    body { margin: 0; padding: 20px; background: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-    .controls { position: fixed; top: 10px; right: 10px; display: flex; gap: 8px; }
-    .controls button { width: 36px; height: 36px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
-    .controls button:hover { background: #f0f0f0; }
-    .container { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: auto; }
-    svg { max-width: 100%; height: auto; transition: transform 0.1s; cursor: move; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background: #f8f9fa; display: flex; flex-direction: column; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .toolbar { position: fixed; top: 0; left: 0; right: 0; height: 48px; background: #fff; border-bottom: 1px solid #e1e4e8; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .toolbar-title { font-size: 14px; font-weight: 500; color: #333; }
+    .toolbar-controls { display: flex; gap: 4px; align-items: center; }
+    .toolbar-btn { width: 32px; height: 32px; border: none; border-radius: 6px; background: transparent; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .toolbar-btn:hover { background: #f0f2f5; }
+    .toolbar-btn:active { background: #e1e4e8; }
+    .zoom-info { font-size: 12px; color: #666; margin-right: 12px; min-width: 50px; text-align: center; }
+    .container { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px 24px 24px; overflow: hidden; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
+    svg { transition: transform 0.15s ease-out; cursor: grab; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)); }
+    svg:active { cursor: grabbing; }
+    .hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #888; background: #fff; padding: 6px 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <button onclick="zoomIn()" title="放大">+</button>
-    <button onclick="zoomOut()" title="缩小">−</button>
-    <button onclick="resetZoom()" title="重置">↺</button>
+  <div class="toolbar">
+    <span class="toolbar-title">Mermaid Diagram</span>
+    <div class="toolbar-controls">
+      <span class="zoom-info" id="zoomInfo">100%</span>
+      <button class="toolbar-btn" onclick="zoomOut()" title="缩小 (滚轮向下)">−</button>
+      <button class="toolbar-btn" onclick="zoomIn()" title="放大 (滚轮向上)">+</button>
+      <button class="toolbar-btn" onclick="fitToScreen()" title="适应屏幕">⊗</button>
+      <button class="toolbar-btn" onclick="resetZoom()" title="重置 (100%)">↺</button>
+    </div>
   </div>
   <div class="container" id="container">
     ${mermaidSvg}
   </div>
+  <div class="hint">滚轮缩放 · 拖拽平移</div>
   <script>
     let scale = 1;
     let panX = 0, panY = 0;
+    let initialScale = 1;
     const svg = document.querySelector('svg');
     const container = document.getElementById('container');
+    const zoomInfo = document.getElementById('zoomInfo');
     
     function updateTransform() {
       svg.style.transform = 'scale(' + scale + ') translate(' + panX + 'px, ' + panY + 'px)';
+      zoomInfo.textContent = Math.round(scale * 100) + '%';
     }
     
-    function zoomIn() { scale = Math.min(scale * 1.2, 5); updateTransform(); }
-    function zoomOut() { scale = Math.max(scale / 1.2, 0.2); updateTransform(); }
-    function resetZoom() { scale = 1; panX = 0; panY = 0; updateTransform(); }
+    function zoomIn() { scale = Math.min(scale * 1.25, 10); updateTransform(); }
+    function zoomOut() { scale = Math.max(scale / 1.25, 0.1); updateTransform(); }
+    function resetZoom() { scale = initialScale; panX = 0; panY = 0; updateTransform(); }
     
-    // Mouse wheel zoom
+    function fitToScreen() {
+      const svgRect = svg.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const scaleX = (containerRect.width - 48) / svgRect.width * scale;
+      const scaleY = (containerRect.height - 48) / svgRect.height * scale;
+      scale = Math.min(scaleX, scaleY, 1);
+      panX = 0; panY = 0;
+      updateTransform();
+    }
+    
+    // Initialize: fit to screen on load
+    setTimeout(() => {
+      const svgRect = svg.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      if (svgRect.width > containerRect.width || svgRect.height > containerRect.height) {
+        const scaleX = (containerRect.width - 48) / svgRect.width;
+        const scaleY = (containerRect.height - 48) / svgRect.height;
+        initialScale = Math.min(scaleX, scaleY);
+        scale = initialScale;
+      }
+      updateTransform();
+    }, 50);
+    
+    // Mouse wheel zoom (centered on cursor)
     container.addEventListener('wheel', (e) => {
       e.preventDefault();
-      if (e.deltaY < 0) zoomIn();
-      else zoomOut();
-    });
-    
-    // Drag to pan (when zoomed)
-    let dragging = false, startX, startY;
-    svg.addEventListener('mousedown', (e) => {
-      if (scale !== 1) {
-        dragging = true;
-        startX = e.clientX - panX;
-        startY = e.clientY - panY;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.max(0.1, Math.min(scale * delta, 10));
+      if (newScale !== scale) {
+        scale = newScale;
+        updateTransform();
       }
+    }, { passive: false });
+    
+    // Drag to pan
+    let dragging = false, lastX, lastY;
+    svg.addEventListener('mousedown', (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      svg.style.cursor = 'grabbing';
+      e.preventDefault();
     });
     document.addEventListener('mousemove', (e) => {
       if (dragging) {
-        panX = (e.clientX - startX) / scale;
-        panY = (e.clientY - startY) / scale;
+        const dx = (e.clientX - lastX) / scale;
+        const dy = (e.clientY - lastY) / scale;
+        panX += dx;
+        panY += dy;
+        lastX = e.clientX;
+        lastY = e.clientY;
         updateTransform();
       }
     });
-    document.addEventListener('mouseup', () => { dragging = false; });
+    document.addEventListener('mouseup', () => { 
+      if (dragging) {
+        dragging = false;
+        svg.style.cursor = 'grab';
+      }
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '+' || e.key === '=') zoomIn();
+      else if (e.key === '-') zoomOut();
+      else if (e.key === '0') resetZoom();
+      else if (e.key === 'f') fitToScreen();
+    });
   </script>
 </body>
 </html>`;
