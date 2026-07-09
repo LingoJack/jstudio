@@ -33,9 +33,8 @@ export default function PreviewWindowApp() {
 
   if (!data) {
     return (
-      <div className="preview-window-loading-screen">
-        <Loader2 size={32} className="animate-spin" />
-        <span>{t('preview.loading')}</span>
+      <div className="preview-loading">
+        <Loader2 size={24} className="animate-spin" />
       </div>
     );
   }
@@ -44,37 +43,19 @@ export default function PreviewWindowApp() {
   const safeSrc = ensureUtf8Charset(data.src);
 
   return (
-    <div className="preview-window-root">
-      {/* Header */}
-      <div className="preview-window-header">
-        <div className="preview-window-info">
-          <span className="preview-window-name" title={data.fileName}>
-            {data.fileName}
-          </span>
-          <span className="preview-window-meta">
-            <span className="preview-window-type">
-              {getCategoryLabel(category)}
-            </span>
-            <span className="preview-window-dot">·</span>
-            <span className="preview-window-size">
-              {formatFileSize(data.fileSize)}
-            </span>
-          </span>
-        </div>
-        <button
-          type="button"
-          className="preview-window-close"
-          onClick={closePreviewWindow}
-          title={t('preview.closeWindow')}
-        >
-          <X size={18} />
-        </button>
-      </div>
+    <div className="preview-root">
+      {/* Minimal header - only close button */}
+      <button
+        type="button"
+        className="preview-close"
+        onClick={closePreviewWindow}
+        title={t('preview.closeWindow')}
+      >
+        <X size={16} />
+      </button>
 
       {/* Content */}
-      <div className="preview-window-body">
-        <PreviewContent src={safeSrc} category={category} fileName={data.fileName} html={data.html} />
-      </div>
+      <PreviewContent src={safeSrc} category={category} fileName={data.fileName} html={data.html} />
     </div>
   );
 }
@@ -97,7 +78,6 @@ function PreviewContent({
 }) {
   const { t } = useI18n();
   // ── Native DOM iframe for HTML preview (React 19 sandbox workaround) ──
-  // Even though this is a separate window, we use native DOM for consistency.
   const htmlIframeRef = useRef<HTMLIFrameElement | null>(null);
   const htmlContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -106,10 +86,9 @@ function PreviewContent({
     const container = htmlContainerRef.current;
     if (!container) return;
 
-    // Create iframe via native DOM if not already present
     if (!htmlIframeRef.current) {
       const iframe = document.createElement('iframe');
-      iframe.className = 'preview-window-frame';
+      iframe.className = 'preview-frame';
       iframe.title = fileName;
       iframe.sandbox.add(
         'allow-same-origin',
@@ -126,7 +105,6 @@ function PreviewContent({
       htmlIframeRef.current = iframe;
     }
 
-    // Update src/srcdoc if props change
     const iframe = htmlIframeRef.current;
     if (iframe) {
       if (html != null) {
@@ -142,13 +120,7 @@ function PreviewContent({
   switch (category) {
     case 'html':
       return (
-        <div
-          ref={htmlContainerRef}
-          className="preview-window-frame-container"
-          style={{ width: '100%', height: '100%' }}
-        >
-          {/* iframe inserted by useEffect */}
-        </div>
+        <div ref={htmlContainerRef} className="preview-frame-wrap" />
       );
 
     case 'pdf':
@@ -158,7 +130,7 @@ function PreviewContent({
       return <DocxPreview src={src} />;
 
     case 'image':
-      return <ImageZoom src={src} alt={fileName} />;
+      return <ImageZoom src={src} />;
 
     case 'audio':
       return <MediaPreview src={src} kind="audio" />;
@@ -170,9 +142,7 @@ function PreviewContent({
       return <TextPreview src={src} />;
 
     default:
-      return (
-        <div className="preview-window-fallback">{t('preview.notSupported')}</div>
-      );
+      return <div className="preview-fallback">{t('preview.notSupported')}</div>;
   }
 }
 
@@ -195,21 +165,20 @@ function DocxPreview({ src }: { src: string }) {
       )
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [src]);
+  }, [src, t]);
 
   if (loading)
     return (
-      <div className="preview-window-loading-center">
-        <Loader2 size={28} className="animate-spin" />
-        <span>{t('preview.docxLoading')}</span>
+      <div className="preview-loading-center">
+        <Loader2 size={24} className="animate-spin" />
       </div>
     );
 
   return (
-    <div className="preview-window-docx">
+    <div className="preview-docx">
       <div
-        className="preview-window-docx-content"
-        dangerouslySetInnerHTML={{ __html: html ?? `<p>${t('preview.docxContentLoading')}</p>` }}
+        className="preview-docx-content"
+        dangerouslySetInnerHTML={{ __html: html ?? '' }}
       />
     </div>
   );
@@ -219,22 +188,20 @@ function DocxPreview({ src }: { src: string }) {
 /* Image with zoom & pan                                              */
 /* ------------------------------------------------------------------ */
 
-function ImageZoom({ src, alt }: { src: string; alt: string }) {
+function ImageZoom({ src }: { src: string }) {
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const dragRef = useRef<{ startX: number; startY: number; baseTx: number; baseTy: number } | null>(null);
-  const { t } = useI18n();
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setScale((s) => Math.min(Math.max(s * delta, 0.2), 8));
+    setScale((s) => Math.min(Math.max(s * delta, 0.1), 10));
   }, []);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (scale <= 1) return;
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
@@ -243,7 +210,7 @@ function ImageZoom({ src, alt }: { src: string; alt: string }) {
       };
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [scale, tx, ty],
+    [tx, ty],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -259,49 +226,41 @@ function ImageZoom({ src, alt }: { src: string; alt: string }) {
     } catch { /* ignore */ }
   }, []);
 
-  const reset = useCallback(() => {
-    setScale(1);
+  const fit = useCallback(() => {
+    const img = document.querySelector('.preview-image') as HTMLImageElement;
+    if (!img) return;
+    const container = img.parentElement;
+    if (!container) return;
+    const scaleX = (container.clientWidth * 0.9) / img.naturalWidth;
+    const scaleY = (container.clientHeight * 0.9) / img.naturalHeight;
+    setScale(Math.min(scaleX, scaleY, 3));
     setTx(0);
     setTy(0);
   }, []);
 
+  // Auto fit on load
+  const onLoad = useCallback(() => {
+    setTimeout(fit, 50);
+  }, [fit]);
+
   return (
-    <div className="preview-window-image-area">
+    <div className="preview-image-area">
       <img
         src={src}
-        alt={alt}
-        className="preview-window-image"
-        style={{
-          transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
-          cursor: scale > 1 ? (dragRef.current ? 'grabbing' : 'grab') : 'default',
-        }}
+        alt=""
+        className="preview-image"
+        style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onDoubleClick={reset}
+        onLoad={onLoad}
         draggable={false}
       />
-      <div className="preview-window-zoom-bar">
-        <button
-          type="button"
-          className="preview-window-zoom-btn"
-          onClick={() => setScale((s) => Math.max(s * 0.8, 0.2))}
-          title={t('preview.zoomOut')}
-        >−</button>
-        <span className="preview-window-zoom-label">{Math.round(scale * 100)}%</span>
-        <button
-          type="button"
-          className="preview-window-zoom-btn"
-          onClick={() => setScale((s) => Math.min(s * 1.25, 8))}
-          title={t('preview.zoomIn')}
-        >+</button>
-        <button
-          type="button"
-          className="preview-window-zoom-btn"
-          onClick={reset}
-          title={t('preview.zoomReset')}
-        >↺</button>
+      <div className="preview-zoom">
+        <button type="button" onClick={() => setScale((s) => Math.max(s * 0.8, 0.1))}>−</button>
+        <button type="button" onClick={() => setScale((s) => Math.min(s * 1.25, 10))}>+</button>
+        <button type="button" onClick={fit}>⊗</button>
       </div>
     </div>
   );
@@ -313,14 +272,11 @@ function ImageZoom({ src, alt }: { src: string; alt: string }) {
 
 function MediaPreview({ src, kind }: { src: string; kind: 'audio' | 'video' }) {
   return (
-    <div className="preview-window-media">
+    <div className="preview-media">
       {kind === 'video' ? (
-        <video src={src} controls autoPlay className="preview-window-video" />
+        <video src={src} controls autoPlay className="preview-video" />
       ) : (
-        <div className="preview-window-audio-wrap">
-          <div className="preview-window-audio-icon">♪</div>
-          <audio src={src} controls autoPlay className="preview-window-audio" />
-        </div>
+        <audio src={src} controls autoPlay className="preview-audio" />
       )}
     </div>
   );
@@ -340,8 +296,8 @@ function TextPreview({ src }: { src: string }) {
     setLoading(true);
     fetch(src)
       .then((res) => res.text())
-      .then((t) => {
-        if (!cancelled) setText(t);
+      .then((txt) => {
+        if (!cancelled) setText(txt);
       })
       .catch(() => {
         if (!cancelled) setText(t('preview.textError'));
@@ -356,11 +312,10 @@ function TextPreview({ src }: { src: string }) {
 
   if (loading)
     return (
-      <div className="preview-window-loading-center">
-        <Loader2 size={28} className="animate-spin" />
-        <span>{t('preview.imageLoading')}</span>
+      <div className="preview-loading-center">
+        <Loader2 size={24} className="animate-spin" />
       </div>
     );
 
-  return <pre className="preview-window-text">{text}</pre>;
+  return <pre className="preview-text">{text}</pre>;
 }

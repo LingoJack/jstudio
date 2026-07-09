@@ -2424,116 +2424,78 @@ button {
 }
 
 /* ============================================
-   Preview Window (independent OS window for file preview)
+   Preview Window — minimal, content-focused
    ============================================ */
 
-.preview-window-overlay {
+.preview-root {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.preview-window-loading-screen {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 14px;
-}
-
-.preview-window-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
   background: var(--vscode-editor-background);
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
-  flex-shrink: 0;
-  user-select: none;
 }
 
-.preview-window-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.preview-window-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--vscode-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 400px;
-}
-
-.preview-window-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-}
-
-.preview-window-type {
-  background: var(--vscode-badge-background, rgba(128, 128, 128, 0.25));
-  color: var(--vscode-badge-foreground, var(--vscode-foreground));
-  padding: 1px 8px;
-  border-radius: 8px;
-  font-size: 11px;
-}
-
-.preview-window-dot {
-  color: var(--vscode-descriptionForeground);
-}
-
-.preview-window-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
+.preview-close {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 100;
+  width: 28px;
+  height: 28px;
   border: none;
-  background: transparent;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
   color: var(--vscode-foreground);
   cursor: pointer;
-  border-radius: 6px;
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.preview-window-close:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
-}
-
-.preview-window-body {
-  flex: 1;
-  min-height: 0;
+  opacity: 0.5;
+  transition: opacity 0.2s, background 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  padding: 24px;
 }
 
-/* --- iframe (HTML/PDF) --- */
-.preview-window-frame {
+.preview-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.preview-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preview-loading-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preview-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px;
+}
+
+.preview-frame-wrap {
   width: 100%;
   height: 100%;
-  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
-  border-radius: 8px;
-  background: white;
 }
 
-/* --- image with zoom --- */
-.preview-window-image-area {
+.preview-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+.preview-image-area {
   position: relative;
   width: 100%;
   height: 100%;
@@ -2541,64 +2503,51 @@ button {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  cursor: grab;
 }
 
-.preview-window-image {
-  max-width: 90%;
-  max-height: 90%;
-  object-fit: contain;
-  border-radius: 8px;
-  transition: transform 0.05s ease-out;
-  user-select: none;
-  pointer-events: auto;
+.preview-image-area:active {
+  cursor: grabbing;
 }
 
-.preview-window-zoom-bar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+.preview-image {
+  display: block;
+  transition: transform 0.1s ease-out;
   user-select: none;
 }
 
-.preview-window-zoom-btn {
+.preview-zoom {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 2px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.preview-image-area:hover .preview-zoom {
+  opacity: 1;
+}
+
+.preview-zoom button {
   width: 28px;
   height: 28px;
   border: none;
-  background: transparent;
-  color: var(--vscode-foreground);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.04);
   cursor: pointer;
-  border-radius: 5px;
   font-size: 16px;
-  font-weight: 600;
-  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.preview-window-zoom-btn:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+.preview-zoom button:hover {
+  background: rgba(0, 0, 0, 0.08);
 }
 
-.preview-window-zoom-label {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  min-width: 42px;
-  text-align: center;
-  user-select: none;
-}
-
-/* --- DOCX --- */
-.preview-window-docx {
+.preview-docx {
   width: 100%;
   height: 100%;
   overflow: auto;
@@ -2606,22 +2555,20 @@ button {
   justify-content: center;
 }
 
-.preview-window-docx-content {
+.preview-docx-content {
   max-width: 800px;
   width: 100%;
-  background: white;
+  background: #fff;
   color: #333;
-  padding: 48px 64px;
-  border-radius: 8px;
+  padding: 32px 48px;
   min-height: 100%;
 }
 
-/* --- Text --- */
-.preview-window-text {
+.preview-text {
   width: 100%;
   height: 100%;
   margin: 0;
-  padding: 24px 32px;
+  padding: 24px;
   background: var(--vscode-editor-background);
   color: var(--vscode-foreground);
   font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
@@ -2630,79 +2577,25 @@ button {
   white-space: pre-wrap;
   word-break: break-all;
   overflow: auto;
-  border-radius: 8px;
-  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
 }
 
-/* --- Audio / Video --- */
-.preview-window-media {
+.preview-media {
   width: 100%;
   height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 24px;
 }
 
-.preview-window-video {
+.preview-video {
   max-width: 100%;
   max-height: 100%;
-  border-radius: 8px;
   background: #000;
 }
 
-.preview-window-audio-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  padding: 48px;
-}
-
-.preview-window-audio-icon {
-  font-size: 72px;
-  color: var(--vscode-descriptionForeground, #888);
-  user-select: none;
-}
-
-.preview-window-audio {
-  width: 420px;
-  max-width: 100%;
-}
-
-/* --- Root layout --- */
-.preview-window-root {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--vscode-editor-background);
-}
-
-/* --- Loading --- */
-.preview-window-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 14px;
-}
-
-.preview-window-loading-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 12px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 14px;
-}
-
-.preview-window-fallback {
-  color: var(--vscode-descriptionForeground);
-  font-size: 15px;
+.preview-audio {
+  width: 320px;
+  max-width: 90%;
 }
 
 /* ============================================
