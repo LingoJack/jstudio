@@ -55,6 +55,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let editorCursorStyle: EditorCursorStyle | undefined;
   let useSectionedEditor = false;
       let tabBarGlassOpacity: number | undefined;
+      let tabBarPosition: 'top' | 'bottom' | undefined;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
@@ -141,6 +142,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         // Load tab bar glass opacity
         if (typeof settings.tabBarGlassOpacity === 'number') {
           tabBarGlassOpacity = settings.tabBarGlassOpacity;
+        }
+        // Load tab bar position
+        if (settings.tabBarPosition === 'top' || settings.tabBarPosition === 'bottom') {
+          tabBarPosition = settings.tabBarPosition;
         }
       } catch {
         // ignore
@@ -244,6 +249,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
         ...(useSectionedEditor ? { useSectionedEditor } : {}),
         ...(tabBarGlassOpacity !== undefined ? { tabBarGlassOpacity } : {}),
+        ...(tabBarPosition !== undefined ? { tabBarPosition } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
         isLoading: false,
