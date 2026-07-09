@@ -66,6 +66,19 @@ export const translations = {
     'doclist.copyPath': '复制路径',
     'doclist.copyRelativePath': '复制相对路径',
     'doclist.copied': '已复制到剪贴板',
+    'doclist.backupRestore': '备份恢复',
+
+    // ── Document body backup & restore ──
+    'backup.title': '备份恢复',
+    'backup.noBackups': '该文档暂无备份',
+    'backup.blockCount': '{count} 个块',
+    'backup.restore': '恢复此版本',
+    'backup.restoreConfirm': '确定恢复到此版本？当前内容会先自动备份。',
+    'backup.restoreSuccess': '已从备份恢复「{title}」',
+    'backup.abnormalShrink': '检测到「{title}」内容大幅减少（{oldCount} → {newCount} 块），已自动备份。如非预期，可右键文档 → 备份恢复 找回。',
+    'backup.preview': '预览',
+    'backup.close': '关闭',
+    'backup.loading': '加载中...',
 
     // ── DocumentList folders ──
     'doclist.newFolder': '新建文件夹',
@@ -658,6 +671,19 @@ export const translations = {
     'doclist.copyPath': 'Copy Path',
     'doclist.copyRelativePath': 'Copy Relative Path',
     'doclist.copied': 'Copied to clipboard',
+    'doclist.backupRestore': 'Backup & Restore',
+
+    // ── Document body backup & restore ──
+    'backup.title': 'Backup & Restore',
+    'backup.noBackups': 'No backups for this document',
+    'backup.blockCount': '{count} blocks',
+    'backup.restore': 'Restore this version',
+    'backup.restoreConfirm': 'Restore to this version? The current content will be backed up first.',
+    'backup.restoreSuccess': 'Restored "{title}" from backup',
+    'backup.abnormalShrink': 'Document "{title}" shrank significantly ({oldCount} → {newCount} blocks). A backup was saved. If unexpected, right-click → Backup & Restore to recover.',
+    'backup.preview': 'Preview',
+    'backup.close': 'Close',
+    'backup.loading': 'Loading...',
 
     // ── DocumentList folders ──
     'doclist.newFolder': 'New Folder',

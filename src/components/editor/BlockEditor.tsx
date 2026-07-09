@@ -115,6 +115,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   // component while ProseMirror is mid-transaction causes visible cursor lag,
   // especially inside code blocks.
   const activeDocId = useStore((s) => s.activeDocId);
+  const activeDocReloadNonce = useStore((s) => s.activeDocReloadNonce);
   const activeDocTitle = useStore((s) => s.activeDoc?.title ?? '');
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
@@ -135,6 +136,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
   /** Tracks the document ID currently loaded into the editor to prevent
    *  reload loops. */
   const loadedDocIdRef = useRef<string | null>(null);
+  const loadTriggerRef = useRef<string | null>(null);
   /** Tracks WHICH editor instance loaded `loadedDocIdRef`. If the editor is
    *  recreated (TipTap StrictMode 1ms-destroy race, HMR, etc.) the new instance
    *  has NOT had the content loaded even though loadedDocIdRef matches — so we
@@ -500,8 +502,9 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     // loadedDocIdRef still matches the active doc. Without this check the
     // guard would skip the reload and leave a freshly-created (empty / stale)
     // editor showing the wrong content under the new document's title.
+    const trigger = `${activeDocId}:${activeDocReloadNonce}`;
     if (
-      loadedDocIdRef.current === activeDocId &&
+      loadTriggerRef.current === trigger &&
       loadedEditorRef.current === editor
     ) {
       // Content is already the active doc's — just make sure the skeleton is
@@ -530,6 +533,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     // doesn't also try to setContent. The actual markers (loadedDocIdRef etc.)
     // are committed inside the microtask after setContent succeeds.
     loadedDocIdRef.current = targetDocId;
+    loadTriggerRef.current = `${targetDocId}:${activeDocReloadNonce}`;
 
     // Defer the setContent dispatch OUT of React's commit phase. When called
     // synchronously inside a useEffect, ProseMirror's updateChildren may mount
@@ -580,7 +584,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
     // editor recreated, or doc switched again during the 0ms window).
     return () => clearTimeout(loadTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDocId, editor, isStatic, doc]);
+  }, [activeDocId, editor, isStatic, doc, activeDocReloadNonce]);
 
   // ------------------------------------------------------------------
   // Cleanup on unmount (e.g. leaving the editor entirely)

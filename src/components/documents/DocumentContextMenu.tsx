@@ -1,5 +1,5 @@
 import { useI18n } from '../../lib/core/i18n';
-import { Pencil, Trash2, FolderOpen, Copy, CopyPlus, PackageOpen } from 'lucide-react';
+import { Pencil, Trash2, FolderOpen, Copy, CopyPlus, PackageOpen, History } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 
 export interface DocumentContextMenuProps {
@@ -18,6 +18,8 @@ export interface DocumentContextMenuProps {
   onCopyRelativePath: () => void;
   /** Callback when the user picks "Export Backup (.jnote)" */
   onExportBundle: () => void;
+  /** Callback when the user picks "Backup & Restore" */
+  onBackupRestore: () => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export default function DocumentContextMenu({
   onCopyPath,
   onCopyRelativePath,
   onExportBundle,
+  onBackupRestore,
 }: DocumentContextMenuProps) {
   const { t } = useI18n();
 
@@ -49,6 +52,9 @@ export default function DocumentContextMenu({
 
       <MenuItem icon={<PackageOpen />} onClick={onExportBundle}>
         {t('doclist.exportBundle')}
+      </MenuItem>
+      <MenuItem icon={<History />} onClick={onBackupRestore}>
+        {t('doclist.backupRestore')}
       </MenuItem>
 
       <MenuDivider />

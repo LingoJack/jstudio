@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
 import { storage } from './lib/core/storage';
+import { toast } from './lib/toast';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 import { shortcutManager } from './lib/shortcuts/ShortcutManager';
 
@@ -54,6 +55,28 @@ export default function App() {
     shortcutManager.start();
     return () => shortcutManager.stop();
   }, []);
+
+  // ── Document abnormal-shrink detection ──
+  // Backend emits this when `write_document` detects the new content is
+  // suspiciously smaller than the old (e.g. a bug overwrote the doc with a
+  // blank block). Warn the user so they can restore from backup.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    listen<{ docId: string; oldCount: number; newCount: number }>(
+      'document:abnormal-shrink',
+      (event) => {
+        const { docId, oldCount, newCount } = event.payload;
+        const doc = useStore.getState().documents.find((d) => d.id === docId);
+        const title = doc?.title || docId;
+        toast.warning(t('backup.abnormalShrink', { title, oldCount, newCount }), 8000);
+      },
+    ).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [t]);
 
   // ── OS-level global shortcuts: register on config load, listen for triggers ──
   // The configs are loaded asynchronously into the store during initApp().

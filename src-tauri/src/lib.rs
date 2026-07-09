@@ -59,6 +59,10 @@ pub fn run() {
             commands::storage::documents::read_document,
             commands::storage::documents::write_document,
             commands::storage::documents::delete_document,
+            // ── storage: document backups ──
+            commands::storage::backups::list_doc_backups,
+            commands::storage::backups::read_doc_backup,
+            commands::storage::backups::restore_doc_backup,
             // ── storage: folders ──
             commands::storage::folders::read_folders,
             commands::storage::folders::write_folders,

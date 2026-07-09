@@ -99,6 +99,9 @@ export interface StoreState {
   trashedAssets: TrashedAsset[];
   activeDoc: Document | null;
   activeDocId: string;
+  /** Incremented to force editors to reload the active doc's content (e.g.
+   *  after restoring a backup). Editors watch this nonce and re-setContent. */
+  activeDocReloadNonce: number;
   documents: Document[];
   /** Absolute path of the studio root dir (~/.jdata/studio), cached at init. */
   studioRoot: string;
@@ -176,6 +179,9 @@ export interface StoreState {
   emptyTrashAssets: () => Promise<void>;
   renameDocument: (id: string, title: string) => void;
   openDocument: (id: string) => Promise<void>;
+  /** Reload a document's content from disk and bump `activeDocReloadNonce`
+   *  so editors re-setContent. Used after restoring a backup. */
+  reloadDoc: (docId: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
   importDocumentFromMarkdown: (filename: string, md: string, folderId?: string) => Promise<void>;
   importMarkdownDirectory: (dirPath: string, targetFolderId?: string) => Promise<number>;

@@ -101,6 +101,7 @@ function EditorSkeleton() {
 export default function SectionedBlockEditor() {
   const { t } = useI18n();
   const activeDocId = useStore((s) => s.activeDocId);
+  const activeDocReloadNonce = useStore((s) => s.activeDocReloadNonce);
   const activeDocTitle = useStore((s) => s.activeDoc?.title ?? '');
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
@@ -115,6 +116,11 @@ export default function SectionedBlockEditor() {
   const sectionsRef = useRef<SectionState[]>([]);
   sectionsRef.current = sections;
   const loadedDocIdRef = useRef<string | null>(null);
+  /** `${docId}:${reloadNonce}` — guards against reloading the same doc+nonce.
+   *  Separated from `loadedDocIdRef` (pure docId) which is used for flushing
+   *  the outgoing doc. When a backup restore bumps the nonce without changing
+   *  docId, this guard lets the load effect re-run. */
+  const loadTriggerRef = useRef<string | null>(null);
   /** The doc id whose content has actually finished loading into all
    *  section editors. While this lags behind `activeDocId` we show a
    *  Skeleton overlay so the user doesn't see empty editors / placeholder
@@ -175,12 +181,16 @@ export default function SectionedBlockEditor() {
   useEffect(() => {
     if (!hasActiveDoc) {
       loadedDocIdRef.current = null;
+      loadTriggerRef.current = null;
       setRenderedDocId(null);
       setVisibleCount(0);
       setSections([]);
       return;
     }
-    if (loadedDocIdRef.current === activeDocId) return;
+    // Guard on `${docId}:${nonce}` so a backup restore (which bumps the
+    // nonce without changing docId) forces a reload.
+    const trigger = `${activeDocId}:${activeDocReloadNonce}`;
+    if (loadTriggerRef.current === trigger) return;
 
     // ── Flush the OUTGOING document's pending section edits ──
     // Before switching to the new document, persist the outgoing doc's current
@@ -208,6 +218,7 @@ export default function SectionedBlockEditor() {
       useStore.getState().flushBlocksToDoc(outgoingDocId, full);
     }
 
+    loadTriggerRef.current = trigger;
     loadedDocIdRef.current = activeDocId;
     // Reset loading counters — sections will report back as they finish.
     loadedSectionCountRef.current = 0;
@@ -220,7 +231,7 @@ export default function SectionedBlockEditor() {
     // instances at once (which blocks the main thread for large documents).
     setVisibleCount(0);
     setSections(newSections);
-  }, [activeDocId, hasActiveDoc]);
+  }, [activeDocId, hasActiveDoc, activeDocReloadNonce]);
 
   // ── Progressive section mounting ──
   // Reveal sections a few at a time using requestIdleCallback (or setTimeout

@@ -2,7 +2,8 @@
 //!
 //! Sub-modules:
 //! - [`paths`]     — directory path helpers + file-manager open
-//! - [`documents`] — document metadata (SQLite) + document body (filesystem)
+//! - [`documents`] — document metadata + body (SQLite)
+//! - [`backups`]   — write-before-overwrite body backups (filesystem)
 //! - [`folders`]   — folder tree (SQLite)
 //! - [`settings`]  — app settings + agent config (SQLite / filesystem)
 //! - [`assets`]    — document-private binary assets (filesystem)
@@ -10,6 +11,7 @@
 //! - [`markdown`]  — markdown import helpers (filesystem scan)
 
 pub mod assets;
+pub mod backups;
 pub mod cache;
 pub mod documents;
 pub mod folders;

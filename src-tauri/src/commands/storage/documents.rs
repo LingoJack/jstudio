@@ -198,8 +198,17 @@ pub fn read_document(doc_id: String) -> Result<Value, String> {
 /// `ORDER BY updated_at DESC` would otherwise go stale. It deliberately
 /// leaves `folder_id` / `is_favorite` / `trashed_at` / `created_at` alone,
 /// since those are owned by `write_index`.
+///
+/// **Backup**: before overwriting `body`, the previous body is snapshotted
+/// to `.backups/` (see [`super::backups::backup_before_write`]). The
+/// `AppHandle` is auto-injected by Tauri and used to emit an abnormal-shrink
+/// event when the new content is suspiciously smaller than the old.
 #[tauri::command]
-pub fn write_document(doc_id: String, doc: Value) -> Result<(), String> {
+pub fn write_document(doc_id: String, doc: Value, app: tauri::AppHandle) -> Result<(), String> {
+    // Snapshot the current body before overwriting (write-before-overwrite
+    // safety net). Also detects abnormal shrink and emits an event.
+    super::backups::backup_before_write(&doc_id, &doc, &app);
+
     let body = serde_json::to_string(&doc).map_err(|e| e.to_string())?;
     let title = doc["title"].as_str().unwrap_or("");
     let emoji = doc["emoji"].as_str().unwrap_or("");

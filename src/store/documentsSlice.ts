@@ -20,6 +20,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   activeDoc: null,
   activeDocId: '',
   documents: [],
+  activeDocReloadNonce: 0,
   studioRoot: '',
 
   // ================================================================
@@ -642,6 +643,24 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       if (prevDoc && prevDoc.id !== id) {
         void get().gcDocAssets(prevDoc);
       }
+    }
+  },
+
+  reloadDoc: async (docId) => {
+    try {
+      const doc = await storage.loadDocument(docId);
+      const { documents, activeDocId, activeDocReloadNonce } = get();
+      const newDocuments = documents.map((d) => (d.id === docId ? doc : d));
+      const patch: Partial<StoreState> = {
+        documents: newDocuments,
+        activeDocReloadNonce: activeDocReloadNonce + 1,
+      };
+      if (docId === activeDocId) {
+        patch.activeDoc = doc;
+      }
+      set(patch);
+    } catch (e) {
+      console.error('Failed to reload document:', e);
     }
   },
 

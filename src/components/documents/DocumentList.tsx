@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import TrashDialog from './TrashDialog';
+import BackupRestoreDialog from './BackupRestoreDialog';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 import { NavBranch, NavRow } from '../ui/NavTree';
 
@@ -87,6 +88,8 @@ export default function DocumentList() {
 
   // ── Trash dialog state ────────────────────────────────────
   const [trashDialogOpen, setTrashDialogOpen] = useState(false);
+  // ── Backup & restore dialog state ──
+  const [backupDialogDoc, setBackupDialogDoc] = useState<{ id: string; title: string } | null>(null);
 
   // ── Pointer-drag state ────────────────────────────────────
   /**
@@ -941,6 +944,14 @@ export default function DocumentList() {
 
       <TrashDialog open={trashDialogOpen} onClose={() => setTrashDialogOpen(false)} />
 
+      {backupDialogDoc && (
+        <BackupRestoreDialog
+          docId={backupDialogDoc.id}
+          docTitle={backupDialogDoc.title}
+          onClose={() => setBackupDialogDoc(null)}
+        />
+      )}
+
       {/* Folder context menu */}
       {folderMenu && (
         <MenuList
@@ -1020,6 +1031,11 @@ export default function DocumentList() {
           onCopyPath={() => handleCopyPath(contextMenu.docId)}
           onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
           onExportBundle={() => handleExportBundle(contextMenu.docId)}
+          onBackupRestore={() => {
+            const doc = documents.find((d) => d.id === contextMenu.docId);
+            setBackupDialogDoc({ id: contextMenu.docId, title: doc?.title || '' });
+            setContextMenu(null);
+          }}
         />
       )}
 

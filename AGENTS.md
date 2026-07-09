@@ -160,21 +160,21 @@ jstudio/
 | Activity Bar | `App.tsx` 内联 | 文档 / 设置 入口切换（48px 固定宽） |
 | Sidebar | `DocumentList.tsx` | 文档搜索 + 列表 + **新建文档**（头部 `+` 按钮） |
 | Action Bar | `App.tsx` 内联 | 品牌标识 + 删除当前文档（不含新建） |
-| Main | `BlockEditor.tsx` / `Settings.tsx` | 文档编辑 / 设置页（按 `isSettingsOpen` 切换） |
+| Main | `BlockEditor.tsx` / `SectionedBlockEditor.tsx` / `Settings.tsx` | 文档编辑（单实例 / 分段高性能）/ 设置页 |
 
 > **新建文档**入口位于 `DocumentList` 头部，不在顶部 action bar。
 > **侧边栏收起/展开**入口位于 `TitleBar` 右侧按钮（VSCode 风格 `PanelLeft` 图标），也可通过命令面板操作。
 
 ## 数据存储
 
-> **架构：SQLite（元数据）+ 文件系统（正文与资源）混合。**
-> 轻量、需要排序/查询的元数据进 SQLite；体积大、需整体读写的文档正文与二进制资源留在文件系统，按文档分文件夹存放。
+> **架构：SQLite（元数据 + 正文）+ 文件系统（二进制资源 / 备份）混合。**
+> 文档元数据与正文均存 SQLite；体积大、需整体读写的二进制资源（图片/附件）留在文件系统，按文档分文件夹存放。每次覆盖正文前自动备份到 `.backups/`（write-before-overwrite 兜底，防 bug 覆盖丢数据）。
 
 ### 存储位置
 
 ```
 ~/.jdata/studio/
-├── studio.db                           # SQLite 数据库（元数据：文档/文件夹/设置）
+├── studio.db                           # SQLite（元数据 + 文档正文 + 设置）
 ├── studio.db-wal / studio.db-shm       # WAL 日志（自动生成）
 ├── index.json.bak                      # 旧 JSON 迁移后的备份（一次性，仅恢复用）
 ├── settings.json.bak                   # 同上
@@ -182,49 +182,58 @@ jstudio/
 ├── assets/                             # 全局共享资源（legacy）
 └── documents/
     └── {docId}/                        # 每篇文档独立文件夹
-        ├── document.json               # 完整文档正文（含 blocks 数组）—— 仍是文件
-        └── assets/                     # 文档私有资源（粘贴的图片等）
+        ├── document.json               # legacy 正文文件（启动时 backfill 进 body；保留作 fallback）
+        ├── assets/                     # 文档私有资源（粘贴的图片等）
+        ├── .backups/                   # 正文快照（write-before-overwrite，保留最近 50 份）
+        └── .trash/                     # 资产回收站（从 assets 移除但可恢复）
 ```
 
 ### SQLite 表结构（`src-tauri/src/db.rs`）
 
-数据库文件 `~/.jdata/studio/studio.db`，使用 `rusqlite`，开启 **WAL** 模式（`journal_mode=WAL`、`synchronous=NORMAL`、`foreign_keys=ON`），允许主窗口与预览窗口并发读。共 3 张表：
+数据库文件 `~/.jdata/studio/studio.db`，使用 `rusqlite`，开启 **WAL** 模式（`journal_mode=WAL`、`synchronous=NORMAL`、`foreign_keys=ON`），允许主窗口与预览窗口并发读。共 5 张表：
 
 | 表 | 取代的旧文件 | 字段 | 说明 |
 |----|------------|------|------|
-| `documents` | `index.json` | `id`(PK), `title`, `emoji`, `folder_id`, `is_favorite`, `created_at`, `updated_at` | 文档**元数据**（不含 blocks）。索引：`folder_id`、`updated_at DESC` |
-| `folders` | `folders.json` | `id`(PK), `name`, `parent_id`, `sort_order`, `collapsed` | 文件夹树，`parent_id` 自引用，`sort_order` 决定同级排序 |
+| `documents` | `index.json` + `document.json` | `id`(PK), `title`, `emoji`, `folder_id`, `is_favorite`, `created_at`, `updated_at`, `trashed_at`, **`body`** | 文档**元数据 + 正文**。`body` 为完整文档 JSON 字符串（含 blocks 数组）。索引：`folder_id`、`updated_at DESC` |
+| `folders` | `folders.json` | `id`(PK), `name`, `parent_id`, `sort_order`, `collapsed`, `trashed_at` | 文件夹树，`parent_id` 自引用，`sort_order` 决定同级排序 |
 | `settings` | `settings.json` | `key`(PK), `value` | 每行一个设置项，`value` 为 JSON 编码字符串（前端组装回单个对象） |
+| `deleted_documents` | — | `id`(PK), `deleted_at` | 永久删除文档的墓碑。`reconcile_orphan_documents` 据此避免复活已删文档 |
+| `trashed_assets` | — | `id`(PK auto), `doc_id`, `trash_name`, `original_name`, `mime`, `size_bytes`, `trashed_at` | 资产回收站记录。资产从 `assets/` 移到 `.trash/` 时记一行，支持恢复/永久删除。索引：`doc_id` |
 
-### 三者如何关联运作
+### 元数据、正文、资源如何关联
 
-- **元数据在库、正文在盘，靠 `id` 关联**：`documents` 表的 `id` 即文档文件夹名 `documents/{id}/`。侧边栏从 `documents` 表读列表（`read_index`，按 `updated_at DESC` 排序），点开某篇时再用同一个 `id` 去读盘上的 `documents/{id}/document.json`（`read_document`）。
-- **文件夹归属**：`documents.folder_id` 指向 `folders.id`；`folders.parent_id` 指向上级文件夹，构成树。
-- **`documents` 表里**没有 blocks 正文——正文只存在于盘上的 `document.json`，删除文档时连整个 `documents/{id}/` 文件夹（含 assets）一并删除。
+- **元数据 + 正文都在 `documents` 表**：侧边栏从 `documents` 读列表（`read_index`，按 `updated_at DESC` 排序），点开某篇时从同一行的 `body` 列读正文（`read_document`）。`body` 是完整文档 JSON（含 `blocks` 数组）。
+- **`body` 迁移**：启动时 `db.rs::migrate_document_bodies` 把旧的 `documents/{id}/document.json` backfill 进 `body`（仅 `body` 为空的行，幂等）。旧 `document.json` 文件保留作 fallback 和手动恢复。
+- **`read_document` fallback**：若 `body` 为空，回退读文件系统 `documents/{id}/document.json`（或更老的扁平 `documents/{id}.json`），读到后 backfill 进 `body`。
+- **文件夹归属**：`documents.folder_id` → `folders.id`；`folders.parent_id` 自引用构成树。
+- **资源在盘**：二进制资源（图片/附件）存在 `documents/{id}/assets/`，不进 DB。删除文档时整个 `documents/{id}/` 文件夹（含 assets / .backups / .trash）一并删除。
 
 ### 存储规则
 
-1. **元数据/正文分离**：列表元数据走 SQLite（`read_index`/`write_index` 实为读写 `documents` 表），正文按需从 `documents/{id}/document.json` 加载。
-2. **每文档独立文件夹**：文档的所有资源（图片、附件）存在 `documents/{id}/assets/` 下，删除文档时整个文件夹一并删除，无残留。
-3. **防抖写入**：文档和索引的保存都有 debounce（`scheduleDocumentSave` / `scheduleIndexSave`），避免高频 IO。
-4. **一次性 JSON → SQLite 迁移**：首次启动时 `db.rs::migrate_from_json` 把旧的 `index.json`/`folders.json`/`settings.json` 导入对应表（仅当目标表为空时执行，幂等），成功后把原文件重命名为 `*.json.bak` 留作人工恢复。
-5. **孤儿文档恢复**：`db.rs::reconcile_orphan_documents` 在启动时扫描 `documents/` 目录，把盘上存在但未登记进 `documents` 表的非空文档补录回表（按 `id` 升序、按正文指纹去重），修复迁移可能遗漏的文档。
-6. **向后兼容**：`read_document` 支持旧的扁平文件 `documents/{id}.json`，`delete_document` 会同时清理两种布局。
+1. **正文在 SQLite `body` 列**：`write_document` 用 UPSERT 写 `body`（+ 刷新 title/emoji/updated_at）。列表元数据走 `read_index`/`write_index`（读写 `documents` 表，不含 body）。
+2. **每文档独立文件夹**：资源存 `documents/{id}/assets/`，删除文档时整个文件夹一并删除，无残留。
+3. **防抖写入**：文档和索引的保存都有 debounce（`scheduleDocumentSave` 500ms / `scheduleIndexSave` 500ms），避免高频 IO。每文档独立 timer（`docSaveTimers` Map），切换文档不丢 pending。
+4. **write-before-overwrite 备份**：`write_document` 覆盖 `body` 前，`backups::backup_before_write` 把旧 body 快照到 `documents/{id}/.backups/{epochMs}.json`，保留最近 **50 份**，超出自动清理。异常缩小检测（new blocks < old×20% 且 old>5）emit `document:abnormal-shrink` 事件，前端 toast 提醒。恢复入口：文档右键 → 备份恢复。
+5. **一次性 JSON → SQLite 迁移**：首次启动时 `db.rs::migrate_from_json` 把旧的 `index.json`/`folders.json`/`settings.json` 导入对应表（仅当目标表为空时执行，幂等），成功后原文件重命名为 `*.json.bak`。
+6. **孤儿文档恢复**：`db.rs::reconcile_orphan_documents` 在启动时扫描 `documents/` 目录，把盘上存在但未登记进 `documents` 表的非空文档补录回表（按 `id` 升序、按正文指纹去重），跳过 `deleted_documents` 墓碑里的已删文档。
+7. **向后兼容**：`read_document` 支持 legacy 文件系统 fallback；`delete_document` 清理 DB 行 + 文件夹 + 墓碑。
 
 ### Rust 命令清单
 
-> 命令是稳定的 IPC 接口，**底层实现已从 JSON 文件切换到 SQLite**（命令名保留未变）。
+> 命令是稳定的 IPC 接口，**命令名保留 JSON 时代旧名未变**（底层已切换到 SQLite）。
 
 | 命令 | 功能 | 底层 |
 |------|------|------|
-| `ensure_studio_dir` | 创建目录树并初始化 SQLite（建表 + 迁移），返回根路径 | 文件系统 + DB |
-| `read_index` / `write_index` | 读写文档元数据（旧名沿用） | **SQLite `documents` 表** |
+| `ensure_studio_dir` | 创建目录树并初始化 SQLite（建表 + 迁移 + 孤儿恢复 + body backfill），返回根路径 | 文件系统 + DB |
+| `read_index` / `write_index` | 读写文档元数据（旧名沿用，不含 body） | **SQLite `documents` 表** |
 | `read_folders` / `write_folders` | 读写文件夹树 | **SQLite `folders` 表** |
 | `read_settings` / `write_settings` | 读写应用设置（`write_settings` 为按 key 的局部 upsert） | **SQLite `settings` 表** |
-| `read_document` / `write_document` / `delete_document` | 文档正文 CRUD | 文件系统 `document.json` |
-| `save_doc_asset` / `read_doc_asset_base64` / `list_doc_assets` | 文档私有资源读写 | 文件系统 `documents/{id}/assets/` |
-| `save_asset` / `delete_asset` / `read_asset_base64` / `list_assets` | 全局资源（legacy） | 文件系统 |
-| `get_doc_path` / `open_doc_dir` / `open_studio_dir` | 路径查询 / 在文件管理器中打开 | 文件系统 |
+| `read_document` / `write_document` / `delete_document` | 文档正文 CRUD（read 有文件系统 fallback；write 覆盖前自动备份） | **SQLite `documents.body`** + 文件系统 fallback |
+| `list_doc_backups` / `read_doc_backup` / `restore_doc_backup` | 文档正文备份：列表 / 读取 / 恢复（恢复前先备份当前版本） | 文件系统 `.backups/` |
+| `save_doc_asset` / `delete_doc_asset` / `list_doc_assets` | 文档私有资源读写 | 文件系统 `documents/{id}/assets/` |
+| `trash_doc_asset` / `list_trashed_assets` / `restore_trashed_asset` / `delete_trashed_asset` | 资产回收站：移入 / 列表 / 恢复 / 永久删除 | 文件系统 `.trash/` + SQLite `trashed_assets` |
+| `save_asset` / `delete_asset` / `read_asset_base64` / `list_assets` / `clean_global_assets` | 全局资源（legacy） | 文件系统 |
+| `get_doc_path` / `open_doc_dir` / `open_studio_dir` / `read_file_bytes` | 路径查询 / 在文件管理器中打开 / 读任意文件字节 | 文件系统 |
 
 ## 编辑器架构（核心）
 

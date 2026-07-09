@@ -190,6 +190,21 @@ export interface TrashedAsset {
   trashedAt: string;
 }
 
+/**
+ * Metadata for a document body backup snapshot (no body — keeps the list
+ * payload small). Mirrors the Rust `BackupMeta` struct.
+ */
+export interface DocBackup {
+  /** File name without extension, e.g. "1720472340000". Used as the id. */
+  id: string;
+  /** Epoch milliseconds when the backup was taken. */
+  timestampMs: number;
+  /** Block count of the snapshot. */
+  blockCount: number;
+  /** File size in bytes. */
+  size: number;
+}
+
 // ────────────────────────────────────────────────
 // Agent config (jcli agent model providers)
 // ────────────────────────────────────────────────
@@ -328,6 +343,19 @@ export const storage = {
     invoke<void>('write_document', { docId: doc.id, doc }),
   deleteDocument: (docId: string) =>
     invoke<void>('delete_document', { docId }),
+
+  // ---- document body backups (write-before-overwrite safety net) ----
+
+  /** List all body backups for a document, newest first (metadata only). */
+  listDocBackups: (docId: string) =>
+    invoke<DocBackup[]>('list_doc_backups', { docId }),
+  /** Read a specific backup's full document body. */
+  readDocBackup: (docId: string, backupId: string) =>
+    invoke<Document>('read_doc_backup', { docId, backupId }),
+  /** Restore a backup as the current document body (reversible — the
+   *  pre-restore state is snapshotted first). */
+  restoreDocBackup: (docId: string, backupId: string) =>
+    invoke<void>('restore_doc_backup', { docId, backupId }),
 
   // ---- document-scoped assets (per-doc folder) ----
 
