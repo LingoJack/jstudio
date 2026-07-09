@@ -609,12 +609,11 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     setTimeout(() => {
       const bbox = svg.getBBox();
       const containerRect = container.getBoundingClientRect();
-      if (bbox.width > containerRect.width - 48 || bbox.height > containerRect.height - 48) {
-        const scaleX = (containerRect.width - 48) / bbox.width;
-        const scaleY = (containerRect.height - 48) / bbox.height;
-        initialScale = Math.min(scaleX, scaleY, 1);
-        scale = initialScale;
-      }
+      // Calculate scale to fill 80% of container (can zoom in if diagram is small)
+      const scaleX = (containerRect.width * 0.8) / bbox.width;
+      const scaleY = (containerRect.height * 0.8) / bbox.height;
+      initialScale = Math.min(scaleX, scaleY, 1.5);
+      scale = initialScale;
       updateTransform();
     }, 50);
     
