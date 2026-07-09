@@ -471,20 +471,71 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         type="button"
         onClick={() => {
           // Pass the already-rendered SVG directly, no CDN dependency
+          // Include zoom controls for enlarged viewing
           const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
-    body { margin: 0; padding: 20px; background: #fff; display: flex; justify-content: center; }
-    svg { max-width: 100%; height: auto; }
+    body { margin: 0; padding: 20px; background: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    .controls { position: fixed; top: 10px; right: 10px; display: flex; gap: 8px; }
+    .controls button { width: 36px; height: 36px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    .controls button:hover { background: #f0f0f0; }
+    .container { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: auto; }
+    svg { max-width: 100%; height: auto; transition: transform 0.1s; cursor: move; }
   </style>
 </head>
 <body>
-  ${mermaidSvg}
+  <div class="controls">
+    <button onclick="zoomIn()" title="放大">+</button>
+    <button onclick="zoomOut()" title="缩小">−</button>
+    <button onclick="resetZoom()" title="重置">↺</button>
+  </div>
+  <div class="container" id="container">
+    ${mermaidSvg}
+  </div>
+  <script>
+    let scale = 1;
+    let panX = 0, panY = 0;
+    const svg = document.querySelector('svg');
+    const container = document.getElementById('container');
+    
+    function updateTransform() {
+      svg.style.transform = 'scale(' + scale + ') translate(' + panX + 'px, ' + panY + 'px)';
+    }
+    
+    function zoomIn() { scale = Math.min(scale * 1.2, 5); updateTransform(); }
+    function zoomOut() { scale = Math.max(scale / 1.2, 0.2); updateTransform(); }
+    function resetZoom() { scale = 1; panX = 0; panY = 0; updateTransform(); }
+    
+    // Mouse wheel zoom
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaY < 0) zoomIn();
+      else zoomOut();
+    });
+    
+    // Drag to pan (when zoomed)
+    let dragging = false, startX, startY;
+    svg.addEventListener('mousedown', (e) => {
+      if (scale !== 1) {
+        dragging = true;
+        startX = e.clientX - panX;
+        startY = e.clientY - panY;
+      }
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (dragging) {
+        panX = (e.clientX - startX) / scale;
+        panY = (e.clientY - startY) / scale;
+        updateTransform();
+      }
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+  </script>
 </body>
 </html>`;
-          openHtmlPreviewWindow(htmlContent);
+          openHtmlPreviewWindow(htmlContent, 'Mermaid');
         }}
         className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
         title={t('code.previewNewWindow')}
