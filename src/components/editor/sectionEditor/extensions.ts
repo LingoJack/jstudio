@@ -40,6 +40,7 @@ import { ImeCapsLockFix } from '../../../lib/editor/extensions/imeCapsLockFix';
 import { TaskListMarkdown } from '../../../lib/editor/extensions/taskListMarkdown';
 import { SlashMenuExtension } from '../../../lib/editor/slashMenu';
 import { BlockNavigation } from '../../../lib/editor/blockNavigation';
+import { SectionHighlightSelection } from '../../../lib/editor/extensions/sectionHighlightSelection';
 
 export interface SectionExtensionOptions {
   placeholder: string;
@@ -100,6 +101,7 @@ export function createSectionExtensions(
     BlockNavigation.configure({
       onExitToTitle: opts.onExitToTitle,
     }),
+    SectionHighlightSelection,
     Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
   ];
 }

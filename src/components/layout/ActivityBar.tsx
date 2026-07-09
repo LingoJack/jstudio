@@ -13,16 +13,12 @@ import type { ActivityItemId } from '../../lib/core/storage';
  *   - Top section: all non-settings entries (documents, terminal, …) in
  *     their configured order.
  *   - Bottom section: settings is pinned at the bottom (VSCode-style).
- *
- * The active item is highlighted with a border or full color depending on
- * the `activityBarBorder` preference.
  */
 export default function ActivityBar() {
   const { t } = useI18n();
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
-  const activityBarBorder = useStore((s) => s.activityBarBorder);
   const activityBarItems = useStore((s) => s.activityBarItems);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
@@ -30,9 +26,7 @@ export default function ActivityBar() {
   const tabs = useStore((s) => s.tabs);
   const setActiveTab = useStore((s) => s.setActiveTab);
 
-  const activeClass = activityBarBorder
-    ? 'text-[var(--vscode-foreground)] border border-[var(--vscode-focusBorder)]'
-    : 'text-[var(--vscode-foreground)]';
+  const activeClass = 'text-[var(--vscode-foreground)]';
   const inactiveClass =
     'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]';
 

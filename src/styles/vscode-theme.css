@@ -742,6 +742,16 @@ pre[class*="language-"] {
   background: var(--vscode-editor-selectionBackground);
 }
 
+/* Cross-section selection highlight — painted by the section coordinator
+   (useCrossSectionSelection) on sections that are part of a cross-section
+   selection but do NOT hold the native Selection. The browser only keeps one
+   Selection, inside the focused anchor section; every other covered section
+   gets this class via a ProseMirror inline Decoration so the user sees a
+   continuous highlight across section boundaries. */
+.cross-section-selected {
+  background: var(--vscode-editor-selectionBackground);
+}
+
 /* ============================================
    Link Styles
    ============================================ */

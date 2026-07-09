@@ -46,7 +46,6 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let editorLineHeight = DEFAULT_LINE_HEIGHT;
       let sidebarWidth: number | undefined;
       let language: Language = 'zh';
-      let activityBarBorder = false;
       let activityBarItems: ActivityBarItemConfig[] = DEFAULT_ACTIVITY_BAR_ITEMS;
       let appThemeIdDark: string | undefined;
       let appThemeIdLight: string | undefined;
@@ -82,9 +81,6 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (settings.language === 'en' || settings.language === 'zh') {
           language = settings.language;
-        }
-        if (typeof settings.activityBarBorder === 'boolean') {
-          activityBarBorder = settings.activityBarBorder;
         }
         if (Array.isArray(settings.activityBarItems)) {
           // Merge with defaults so new items appear automatically
@@ -234,7 +230,6 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         themeMode,
         isDarkMode: isDark,
         language,
-        activityBarBorder,
         activityBarItems,
         fontId,
         cjkFontId,

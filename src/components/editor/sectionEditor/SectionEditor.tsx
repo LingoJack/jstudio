@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { DOMSerializer } from '@tiptap/pm/model';
 
 import { useI18n } from '../../../lib/core/i18n';
 import {
@@ -32,6 +33,28 @@ export interface SectionFocusHandle {
   focusStart: () => void;
   /** Focus this section's editor with the caret at the very end. */
   focusEnd: () => void;
+  /** Map a screen coordinate (clientX/Y) to a ProseMirror doc position within
+   *  this section, or null if the point is outside this section's content. */
+  posAtCoords: (x: number, y: number) => number | null;
+  /** Set a text selection [from, to] within this section and focus it.
+   *  from/to are ProseMirror positions local to this section's doc. */
+  setTextSelection: (from: number, to: number) => void;
+  /** Select the entire content of this section. Does NOT steal focus. */
+  selectAll: () => void;
+  /** Collapse any selection in this section to a caret at its current pos. */
+  clearSelection: () => void;
+  /** Focus this section's editor (caret stays at its current pos). */
+  focus: () => void;
+  /** Remove focus from this section's editor. */
+  blur: () => void;
+  /** Plain text between [from, to]. Block boundaries become '\n'. */
+  getText: (from: number, to: number) => string;
+  /** Serialized HTML for the content between [from, to]. */
+  getHTML: (from: number, to: number) => string;
+  /** Delete the range [from, to] from this section's doc. */
+  deleteRange: (from: number, to: number) => void;
+  /** Total doc size (== max valid position) for this section. */
+  getDocSize: () => number;
 }
 
 interface SectionEditorProps {
@@ -262,6 +285,34 @@ export default function SectionEditor({
     const handle: SectionFocusHandle = {
       focusStart: () => editor.chain().focus('start').run(),
       focusEnd: () => editor.chain().focus('end').run(),
+      posAtCoords: (x, y) => {
+        const r = editor.view.posAtCoords({ left: x, top: y });
+        return r ? r.pos : null;
+      },
+      setTextSelection: (from, to) => {
+        editor.chain().focus().setTextSelection({ from, to }).run();
+      },
+      selectAll: () => {
+        const size = editor.state.doc.content.size;
+        editor.chain().setTextSelection({ from: 0, to: size }).run();
+      },
+      clearSelection: () => {
+        const { from } = editor.state.selection;
+        editor.chain().setTextSelection(from).run();
+      },
+      focus: () => editor.chain().focus().run(),
+      blur: () => editor.chain().blur().run(),
+      getText: (from, to) => editor.state.doc.textBetween(from, to, '\n'),
+      getHTML: (from, to) => {
+        const slice = editor.state.doc.slice(from, to);
+        const serializer = DOMSerializer.fromSchema(editor.schema);
+        const frag = serializer.serializeFragment(slice.content);
+        const div = document.createElement('div');
+        div.appendChild(frag);
+        return div.innerHTML;
+      },
+      deleteRange: (from, to) => editor.chain().deleteRange({ from, to }).run(),
+      getDocSize: () => editor.state.doc.content.size,
     };
     registerFocus(sectionId, handle);
     return () => registerFocus(sectionId, null);
@@ -396,10 +447,14 @@ export default function SectionEditor({
     const editorDom = editor?.view?.dom as HTMLElement | undefined;
     if (!editorDom) return;
     editorDom.style.caretColor = 'transparent';
+    // Tag the section's DOM root so the cross-section selection coordinator
+    // can map a mouse target back to its section id via closest().
+    editorDom.setAttribute('data-section-id', sectionId);
     return () => {
       editorDom.style.caretColor = '';
+      editorDom.removeAttribute('data-section-id');
     };
-  }, [editor]);
+  }, [editor, sectionId]);
 
   return <EditorContent editor={editor} />;
 }

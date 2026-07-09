@@ -37,6 +37,7 @@ import TableControls from '../nodes/TableControls';
 import type { Block } from '../../../types';
 import SectionEditor, { type SectionFocusHandle } from './SectionEditor';
 import SectionOutline from './SectionOutline';
+import { useCrossSectionSelection, type CrossSelectionContext } from './useCrossSectionSelection';
 
 /** Target number of top-level blocks per section. */
 const SECTION_SIZE = 30;
@@ -517,6 +518,21 @@ export default function SectionedBlockEditor() {
   const sectionOrderRef = useRef<string[]>([]);
   sectionOrderRef.current = renderSections.map((s) => s.id);
 
+  // ── Cross-section selection ──
+  // Each section is an independent contenteditable, so a native Selection
+  // stops at the section boundary. This coordinator synthesizes a selection
+  // that spans sections (paint highlights on every covered section, keep the
+  // native selection inside the anchor section, intercept copy/cut/delete).
+  const crossCtx: CrossSelectionContext = useMemo(
+    () => ({
+      getOrder: () => sectionOrderRef.current,
+      getHandle: (id) => focusHandlesRef.current.get(id),
+      getEditor: (id) => sectionEditorsRef.current.get(id),
+    }),
+    [],
+  );
+  const crossSel = useCrossSectionSelection(crossCtx, activeDocId);
+
   const registerFocus = useCallback(
     (sectionId: string, handle: SectionFocusHandle | null) => {
       if (handle) focusHandlesRef.current.set(sectionId, handle);
@@ -693,6 +709,7 @@ export default function SectionedBlockEditor() {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto pb-8 md:pb-12 select-text"
         onMouseDown={handleMouseDown}
+        onMouseDownCapture={crossSel.onMouseDownCapture}
         onClick={handleBlankAreaClick}
       >
         {/* Document Title */}
@@ -756,11 +773,13 @@ export default function SectionedBlockEditor() {
         style={{ pointerEvents: 'none', zIndex: 5 }}
       />
 
-      {/* Selection-triggered formatting toolbar */}
-      {focusedEditor && <FormatBubbleMenu editor={focusedEditor} />}
+      {/* Selection-triggered formatting toolbar.
+          Hidden while a cross-section selection is active — formatting only
+          the anchor section's slice would be misleading. */}
+      {focusedEditor && !crossSel.active && <FormatBubbleMenu editor={focusedEditor} />}
 
       {/* Table hover controls + context menu */}
-      {focusedEditor && <TableControls editor={focusedEditor} />}
+      {focusedEditor && !crossSel.active && <TableControls editor={focusedEditor} />}
 
       {/* Outline panel (conditional) */}
       {isOutlineOpen && (

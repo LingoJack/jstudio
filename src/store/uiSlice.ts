@@ -96,7 +96,6 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   appThemeIdDark: DEFAULT_APP_THEME_ID_DARK,
   appThemeIdLight: DEFAULT_APP_THEME_ID_LIGHT,
   language: 'zh',
-  activityBarBorder: false,
   activityBarItems: DEFAULT_ACTIVITY_BAR_ITEMS,
   isSidebarOpen: true,
   isOutlineOpen: false,
@@ -156,11 +155,6 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setLanguage: (lang: Language) => {
     set({ language: lang });
     storage.saveSettings({ language: lang }).catch(onSaveError('设置'));
-  },
-
-  setActivityBarBorder: (enabled: boolean) => {
-    set({ activityBarBorder: enabled });
-    storage.saveSettings({ activityBarBorder: enabled }).catch(onSaveError('设置'));
   },
 
   setActivityBarItems: (items: ActivityBarItemConfig[]) => {

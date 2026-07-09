@@ -116,7 +116,7 @@ export interface StoreState {
   appThemeIdDark: string;
   appThemeIdLight: string;
   language: Language;
-  activityBarBorder: boolean;
+  
   activityBarItems: ActivityBarItemConfig[];
   isSidebarOpen: boolean;
   isOutlineOpen: boolean;

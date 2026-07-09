@@ -90,8 +90,7 @@ export interface AppSettings {
   theme?: ThemeMode;
   /** UI display language — 'zh' (default) or 'en' */
   language?: Language;
-  /** Whether to show a colored border on the active Activity Bar icon */
-  activityBarBorder?: boolean;
+  
   /**
    * Activity Bar item visibility and ordering.
    * Each entry controls one icon; array order determines display order.

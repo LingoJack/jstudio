@@ -105,8 +105,6 @@ export default function GeneralSection() {
 
   const themeMode = useStore((s) => s.themeMode);
   const setThemeMode = useStore((s) => s.setThemeMode);
-  const activityBarBorder = useStore((s) => s.activityBarBorder);
-  const setActivityBarBorder = useStore((s) => s.setActivityBarBorder);
   const appThemeIdDark = useStore((s) => s.appThemeIdDark);
   const appThemeIdLight = useStore((s) => s.appThemeIdLight);
   const setAppThemeIdDark = useStore((s) => s.setAppThemeIdDark);
@@ -232,36 +230,6 @@ export default function GeneralSection() {
           onSelect={setAppThemeIdLight}
           label={(id) => t(`appearance.appTheme_${id}` as any)}
         />
-      </div>
-
-      <div className="border-t border-[var(--vscode-widget-border)]" />
-
-      {/* ---- Activity Bar Border ---- */}
-      <div id="settings-general-activityBarBorder" className="flex items-center justify-between">
-        <div className="pr-4">
-          <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1">
-            {t('appearance.activityBarBorder')}
-          </label>
-          <p className="text-sm text-[var(--vscode-descriptionForeground)]">
-            {t('appearance.activityBarBorderDesc')}
-          </p>
-        </div>
-        <button
-          onClick={() => setActivityBarBorder(!activityBarBorder)}
-          className={`relative w-12 h-7 rounded-full transition-colors duration-200 shrink-0 cursor-pointer ${
-            activityBarBorder
-              ? 'bg-[var(--vscode-button-background)]'
-              : 'bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)]'
-          }`}
-        >
-          <span
-            className={`absolute top-1 left-1 w-5 h-5 rounded-full transition-transform duration-200 ${
-              activityBarBorder
-                ? 'translate-x-5 bg-[var(--vscode-button-foreground)]'
-                : 'bg-[var(--vscode-descriptionForeground)]'
-            }`}
-          />
-        </button>
       </div>
 
       <div className="border-t border-[var(--vscode-widget-border)]" />

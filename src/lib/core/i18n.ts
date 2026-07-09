@@ -222,8 +222,7 @@ export const translations = {
     'appearance.darkDesc': '始终使用深色主题',
     'appearance.system': '跟随系统',
     'appearance.systemDesc': '自动匹配操作系统外观',
-    'appearance.activityBarBorder': '图标边框',
-    'appearance.activityBarBorderDesc': '为左侧导航栏的选中图标显示彩色边框',
+    
     'appearance.activityBarItems': '活动栏图标',
     'appearance.activityBarItemsDesc': '勾选以显示图标，拖拽手柄可调整顺序（设置始终位于底部）',
     'appearance.activityBarItem_documents': '文档',
