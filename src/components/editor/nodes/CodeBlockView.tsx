@@ -166,9 +166,10 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         activationBorderColor: '#4A90D9',
         activationBkgColor: '#E8F4FD',
         sequenceNumberColor: '#FFFFFF',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       },
       flowchart: {
-        useMaxWidth: true,
+        useMaxWidth: false, // Generate fixed-size SVG for proper scaling
         htmlLabels: true,
         curve: 'basis', // Smooth curved lines
         padding: 15,
@@ -177,7 +178,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         diagramPadding: 8,
       },
       sequence: {
-        useMaxWidth: true,
+        useMaxWidth: false, // Generate fixed-size SVG for proper scaling
         diagramMarginX: 8,
         diagramMarginY: 8,
         actorMargin: 50,
@@ -191,7 +192,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         bottomMarginAdj: 1,
       },
       gantt: {
-        useMaxWidth: true,
+        useMaxWidth: false,
         leftPadding: 75,
         gridLineStartPadding: 35,
         barHeight: 20,
@@ -200,13 +201,13 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         titleTopMargin: 25,
       },
       class: {
-        useMaxWidth: true,
+        useMaxWidth: false,
       },
       state: {
-        useMaxWidth: true,
+        useMaxWidth: false,
       },
       pie: {
-        useMaxWidth: true,
+        useMaxWidth: false,
       },
     });
   }, []);
@@ -555,7 +556,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     .container { flex: 1; position: relative; overflow: hidden; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); cursor: grab; user-select: none; }
     .container.dragging { cursor: grabbing; }
     .svg-wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: transform 0.1s ease-out; }
-    svg { display: block; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)); }
+    svg { display: block; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)); width: auto; height: auto; }
     .hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #888; background: #fff; padding: 6px 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); opacity: 0.8; transition: opacity 0.3s; }
     .container:hover .hint { opacity: 1; }
   </style>
@@ -605,17 +606,32 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       updateTransform();
     }
     
-    // Initialize
+    // Initialize - scale diagram to fill container
     setTimeout(() => {
-      const bbox = svg.getBBox();
+      // Get SVG viewBox or bounding box for actual content size
+      const viewBox = svg.getAttribute('viewBox');
+      let svgWidth, svgHeight;
+      
+      if (viewBox) {
+        const parts = viewBox.split(' ').map(Number);
+        svgWidth = parts[2];
+        svgHeight = parts[3];
+      } else {
+        const bbox = svg.getBBox();
+        svgWidth = bbox.width;
+        svgHeight = bbox.height;
+      }
+      
       const containerRect = container.getBoundingClientRect();
-      // Calculate scale to fill 80% of container (can zoom in if diagram is small)
-      const scaleX = (containerRect.width * 0.8) / bbox.width;
-      const scaleY = (containerRect.height * 0.8) / bbox.height;
-      initialScale = Math.min(scaleX, scaleY, 1.5);
+      // Fill 85% of container, allow zoom up to 3x for small diagrams
+      const targetWidth = containerRect.width * 0.85;
+      const targetHeight = containerRect.height * 0.85;
+      const scaleX = targetWidth / svgWidth;
+      const scaleY = targetHeight / svgHeight;
+      initialScale = Math.min(scaleX, scaleY, 3);
       scale = initialScale;
       updateTransform();
-    }, 50);
+    }, 100);
     
     // Mouse wheel zoom
     container.addEventListener('wheel', (e) => {
