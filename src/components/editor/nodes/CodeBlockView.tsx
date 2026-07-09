@@ -536,189 +536,41 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       <button
         type="button"
         onClick={() => {
-          // Pass the already-rendered SVG directly, no CDN dependency
-          // Include zoom controls for enlarged viewing
           const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-    body { background: #f8f9fa; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .toolbar { height: 48px; background: #fff; border-bottom: 1px solid #e1e4e8; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-    .toolbar-title { font-size: 14px; font-weight: 500; color: #333; }
-    .toolbar-controls { display: flex; gap: 4px; align-items: center; }
-    .toolbar-btn { width: 32px; height: 32px; border: none; border-radius: 6px; background: transparent; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
-    .toolbar-btn:hover { background: #f0f2f5; }
-    .toolbar-btn:active { background: #e1e4e8; }
-    .zoom-info { font-size: 12px; color: #666; margin-right: 12px; min-width: 50px; text-align: center; }
-    .container { flex: 1; position: relative; overflow: hidden; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); cursor: grab; user-select: none; }
-    .container.dragging { cursor: grabbing; }
-    .svg-wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: transform 0.1s ease-out; }
-    svg { display: block; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)); width: auto; height: auto; }
-    .hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #888; background: #fff; padding: 6px 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); opacity: 0.8; transition: opacity 0.3s; }
-    .container:hover .hint { opacity: 1; }
+    html,body{margin:0;padding:0;height:100%;overflow:hidden}
+    body{background:#fff;cursor:grab;user-select:none}
+    body.dragging{cursor:grabbing}
+    .w{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+    svg{display:block}
+    .c{position:fixed;top:8px;right:8px;display:flex;gap:2px;opacity:0.5;transition:opacity 0.2s}
+    body:hover .c{opacity:1}
+    .b{width:28px;height:28px;border:none;border-radius:4px;background:rgba(0,0,0,0.06);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+    .b:hover{background:rgba(0,0,0,0.12)}
   </style>
 </head>
 <body>
-  <div class="toolbar">
-    <span class="toolbar-title">Mermaid Diagram</span>
-    <div class="toolbar-controls">
-      <span class="zoom-info" id="zoomInfo">100%</span>
-      <button class="toolbar-btn" onclick="zoomOut()" title="缩小">−</button>
-      <button class="toolbar-btn" onclick="zoomIn()" title="放大">+</button>
-      <button class="toolbar-btn" onclick="fitToScreen()" title="适应屏幕">⊗</button>
-      <button class="toolbar-btn" onclick="resetZoom()" title="重置">↺</button>
-    </div>
+  <div class="w" id="w">${mermaidSvg}</div>
+  <div class="c">
+    <button class="b" onclick="z(0.8)">−</button>
+    <button class="b" onclick="z(1.25)">+</button>
+    <button class="b" onclick="fit()">⊗</button>
   </div>
-  <div class="container" id="container">
-    <div class="svg-wrapper" id="svgWrapper">
-      ${mermaidSvg}
-    </div>
-  </div>
-  <div class="hint">滚轮缩放 · 拖拽平移</div>
   <script>
-    let scale = 1;
-    let panX = 0, panY = 0;
-    let initialScale = 1;
-    const container = document.getElementById('container');
-    const svgWrapper = document.getElementById('svgWrapper');
-    const svg = document.querySelector('svg');
-    const zoomInfo = document.getElementById('zoomInfo');
-    
-    function updateTransform() {
-      svgWrapper.style.transform = 'translate(-50%, -50%) translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
-      zoomInfo.textContent = Math.round(scale * 100) + '%';
-    }
-    
-    function zoomIn() { scale = Math.min(scale * 1.25, 10); updateTransform(); }
-    function zoomOut() { scale = Math.max(scale / 1.25, 0.1); updateTransform(); }
-    function resetZoom() { scale = initialScale; panX = 0; panY = 0; updateTransform(); }
-    
-    function fitToScreen() {
-      const svgRect = svg.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const scaleX = (containerRect.width - 48) / svg.getBBox().width;
-      const scaleY = (containerRect.height - 48) / svg.getBBox().height;
-      scale = Math.min(scaleX, scaleY, 1);
-      panX = 0; panY = 0;
-      updateTransform();
-    }
-    
-    // Initialize - scale diagram to fill container
-    setTimeout(() => {
-      // Get SVG viewBox or bounding box for actual content size
-      const viewBox = svg.getAttribute('viewBox');
-      let svgWidth, svgHeight;
-      
-      if (viewBox) {
-        const parts = viewBox.split(' ').map(Number);
-        svgWidth = parts[2];
-        svgHeight = parts[3];
-      } else {
-        const bbox = svg.getBBox();
-        svgWidth = bbox.width;
-        svgHeight = bbox.height;
-      }
-      
-      const containerRect = container.getBoundingClientRect();
-      // Fill 85% of container, allow zoom up to 3x for small diagrams
-      const targetWidth = containerRect.width * 0.85;
-      const targetHeight = containerRect.height * 0.85;
-      const scaleX = targetWidth / svgWidth;
-      const scaleY = targetHeight / svgHeight;
-      initialScale = Math.min(scaleX, scaleY, 3);
-      scale = initialScale;
-      updateTransform();
-    }, 100);
-    
-    // Mouse wheel zoom
-    container.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      scale = Math.max(0.1, Math.min(scale * delta, 10));
-      updateTransform();
-    }, { passive: false });
-    
-    // Drag to pan - smooth and responsive
-    let dragging = false;
-    let startX = 0, startY = 0;
-    let startPanX = 0, startPanY = 0;
-    
-    container.addEventListener('mousedown', (e) => {
-      dragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      startPanX = panX;
-      startPanY = panY;
-      container.classList.add('dragging');
-      e.preventDefault();
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-      if (!dragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      panX = startPanX + dx;
-      panY = startPanY + dy;
-      updateTransform();
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (dragging) {
-        dragging = false;
-        container.classList.remove('dragging');
-      }
-    });
-    
-    // Touch support for mobile/tablet
-    let touchStartX = 0, touchStartY = 0;
-    let touchStartPanX = 0, touchStartPanY = 0;
-    let touchStartScale = 1;
-    let initialPinchDistance = 0;
-    
-    container.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        touchStartPanX = panX;
-        touchStartPanY = panY;
-      } else if (e.touches.length === 2) {
-        initialPinchDistance = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        touchStartScale = scale;
-      }
-      e.preventDefault();
-    }, { passive: false });
-    
-    container.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 1) {
-        const dx = e.touches[0].clientX - touchStartX;
-        const dy = e.touches[0].clientY - touchStartY;
-        panX = touchStartPanX + dx;
-        panY = touchStartPanY + dy;
-        updateTransform();
-      } else if (e.touches.length === 2) {
-        const currentDistance = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        scale = Math.max(0.1, Math.min(touchStartScale * (currentDistance / initialPinchDistance), 10));
-        updateTransform();
-      }
-      e.preventDefault();
-    }, { passive: false });
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.key === '+' || e.key === '=') zoomIn();
-      else if (e.key === '-') zoomOut();
-      else if (e.key === '0') resetZoom();
-      else if (e.key === 'f') fitToScreen();
-    });
+    const w=document.getElementById('w'),s=document.querySelector('svg');
+    let scale=1,px=0,py=0;
+    const upd=()=>w.style.transform='translate(-50%,-50%)translate('+px+'px,'+py+'px)scale('+scale+')';
+    const z=d=>{scale=Math.max(0.1,Math.min(scale*d,5));upd()};
+    const fit=()=>{const v=s.getAttribute('viewBox')?.split(' ').map(Number)||[0,0,s.getBBox().width,s.getBBox().height];const b=document.body.getBoundingClientRect();scale=Math.min((b.width*0.9)/v[2],(b.height*0.9)/v[3],3);px=0;py=0;upd()};
+    setTimeout(fit,50);
+    addEventListener('wheel',e=>{e.preventDefault();z(e.deltaY>0?0.9:1.1)},{passive:false});
+    let drag=0,sx,sy,sp,st;
+    onmousedown=e=>{drag=1;sx=e.clientX;sy=e.clientY;sp=px;st=py;document.body.classList.add('dragging')};
+    onmousemove=e=>{if(!drag)return;px=sp+e.clientX-sx;py=st+e.clientY-sy;upd()};
+    onmouseup=()=>{drag=0;document.body.classList.remove('dragging')};
   </script>
 </body>
 </html>`;
