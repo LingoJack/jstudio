@@ -19,6 +19,7 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
   const appThemeIdDark = useStore((s) => s.appThemeIdDark);
   const appThemeIdLight = useStore((s) => s.appThemeIdLight);
   const isDarkMode = useStore((s) => s.isDarkMode);
+  const tabBarPosition = useStore((s) => s.tabBarPosition);
 
   // Terminal theme follows app theme (same IDs: jstudio-dark, jstudio-light, ink-dark, ink-light)
   const appThemeId = isDarkMode ? appThemeIdDark : appThemeIdLight;
@@ -45,8 +46,8 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
         className="w-full h-full flex flex-col relative overflow-hidden"
         style={{ background: theme.ui.panelBg }}
       >
-        {/* Tab bar 悬浮在内容上方 */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
+        {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置 */}
+        <div className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}>
           <div className="pointer-events-auto">
             <TerminalTabs />
           </div>
@@ -66,12 +67,13 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
       className="w-full h-full flex flex-col relative overflow-hidden"
       style={{ background: theme.ui.panelBg }}
     >
-      {/* Tab bar 悬浮在内容上方 */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
+      {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置 */}
+      <div className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}>
         <div className="pointer-events-auto">
           <TerminalTabs />
         </div>
       </div>
+      {/* 内容区域：TabBar 悬浮覆盖在内容上方，无需 padding */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <PaneLayoutView
           groupId={activeGroup.id}

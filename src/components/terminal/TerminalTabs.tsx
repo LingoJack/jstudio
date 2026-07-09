@@ -323,13 +323,17 @@ export default function TerminalTabs() {
 
       {/* History dropdown — rendered at root level with fixed position to
           escape overflow-x-auto clipping from the scroll container.
-          Opens upward since tab bar is at bottom. */}
+          Opens downward when tab bar at top, upward when at bottom. */}
       {showHistory &&
         createPortal(
           <div
             ref={historyRef}
             className="fixed z-modal min-w-context max-w-context py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
-            style={{ left: historyPos.x, bottom: `calc(100vh - ${historyPos.y}px)` }}
+            style={
+              tabBarPosition === 'top'
+                ? { left: historyPos.x, top: `${historyPos.y}px` }
+                : { left: historyPos.x, bottom: `calc(100vh - ${historyPos.y}px)` }
+            }
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={() => {
               if (historyCloseTimer.current) {

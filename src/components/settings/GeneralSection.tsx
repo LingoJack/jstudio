@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, AlignBottom, AlignTop, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, ArrowDownToLine, ArrowUpFromLine, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/core/storage';
 import type { JcliStatus, ActivityItemId } from '../../lib/core/storage';
 import { ACTIVITY_ITEM_META } from '../../lib/activityMeta';
@@ -872,8 +872,8 @@ function TabBarGlassOpacitySlider() {
 // ──────────────────────────────────────────────────────────────────
 
 const TAB_BAR_POSITION_OPTIONS: { value: 'top' | 'bottom'; icon: LucideIcon }[] = [
-  { value: 'bottom', icon: AlignBottom },
-  { value: 'top', icon: AlignTop },
+  { value: 'bottom', icon: ArrowDownToLine },
+  { value: 'top', icon: ArrowUpFromLine },
 ];
 
 function TabBarPositionSelector() {
