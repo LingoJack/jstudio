@@ -405,6 +405,7 @@ export const translations = {
     // ── CodeBlockView Extended ──
     'code.showCode': '显示代码',
     'code.previewHtml': '预览 HTML',
+    'code.previewMermaid': '预览 Mermaid',
     'code.previewNewWindow': '在新窗口预览',
     'code.dragResize': '拖拽调节大小，双击重置',
 
@@ -426,6 +427,7 @@ export const translations = {
     'mermaid.syntax1': '节点形状：[方形]、([圆角])、((圆形))、{菱形}',
     'mermaid.syntax2': '连线：--> 箭头实线、--- 无箭头实线、-.-> 箭头虚线',
     'mermaid.syntax3': '标签：A-->|标签|B 或 A--> B : 标签',
+    'mermaid.renderError': '渲染错误',
 
     // ── Link Preview Tabs ──
     'linkPreview.closeTab': '关闭标签',
@@ -1010,6 +1012,7 @@ export const translations = {
     // ── CodeBlockView Extended ──
     'code.showCode': 'Show code',
     'code.previewHtml': 'Preview HTML',
+    'code.previewMermaid': 'Preview Mermaid',
     'code.previewNewWindow': 'Preview in new window',
     'code.dragResize': 'Drag to resize, double-click to reset',
 
@@ -1031,6 +1034,7 @@ export const translations = {
     'mermaid.syntax1': 'Node shapes: [square], ([rounded]), ((circle)), {diamond}',
     'mermaid.syntax2': 'Edges: --> solid arrow, --- solid no-arrow, -.-> dotted arrow',
     'mermaid.syntax3': 'Labels: A-->|label|B or A--> B : label',
+    'mermaid.renderError': 'Render error',
 
     // ── Link Preview Tabs ──
     'linkPreview.closeTab': 'Close tab',

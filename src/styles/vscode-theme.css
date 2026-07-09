@@ -1621,6 +1621,42 @@ button {
   overflow: auto;
 }
 
+/* Mermaid live preview container */
+.code-block-wrapper .code-block-mermaid-preview {
+  background: var(--vscode-editor-background, #ffffff);
+}
+
+.code-block-wrapper .code-block-mermaid-content {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: auto;
+}
+
+.code-block-wrapper .code-block-mermaid-content svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.code-block-wrapper .code-block-mermaid-error {
+  padding: 16px;
+  color: var(--vscode-errorForeground, #f00);
+  font-size: 13px;
+}
+
+.code-block-wrapper .code-block-mermaid-error pre {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.1));
+  border-radius: 4px;
+  overflow: auto;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+}
+
 /* ============================================
    File Attachment NodeView Styles
    ============================================ */

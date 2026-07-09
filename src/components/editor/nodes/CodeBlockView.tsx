@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
 import { Copy, Check, ChevronDown, Search, Eye, Code2, ExternalLink } from 'lucide-react';
+import mermaid from 'mermaid';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
@@ -74,6 +75,7 @@ const LANGUAGES: { value: string; label: string }[] = [
   { value: 'r', label: 'R' },
   { value: 'perl', label: 'Perl' },
   { value: 'arduino', label: 'Arduino' },
+  { value: 'mermaid', label: 'Mermaid' },
 ];
 
 /** Display label for a language value (e.g. "typescript" → "TypeScript"). */
@@ -113,15 +115,67 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // sandboxed iframe so users can see the result without leaving the editor.
   // The choice (source vs rendered) is persisted via the `htmlPreview` attr.
   const isHtml = language === 'html';
-  const showPreview = isHtml && (node.attrs?.htmlPreview as boolean | undefined) === true;
+  const showHtmlPreview = isHtml && (node.attrs?.htmlPreview as boolean | undefined) === true;
   // The current code text, used as the iframe `srcDoc`. Reading
   // `node.textContent` on every render keeps the preview in sync with edits.
   const htmlSource = node.textContent;
 
-  // Clear the persisted preview flag when the language changes away from HTML.
+  // ---- Mermaid live preview ----
+  // For Mermaid code blocks we offer a toggle that renders the diagram.
+  // The choice (source vs rendered) is persisted via the `mermaidPreview` attr.
+  const isMermaid = language === 'mermaid';
+  const showMermaidPreview = isMermaid && (node.attrs?.mermaidPreview as boolean | undefined) === true;
+  const mermaidSource = node.textContent;
+  const [mermaidSvg, setMermaidSvg] = useState<string | null>(null);
+  const [mermaidError, setMermaidError] = useState<string | null>(null);
+  const mermaidPreviewRef = useRef<HTMLDivElement>(null);
+
+  // Initialize mermaid with theme based on editor dark mode
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'loose', // Allow click events in diagrams
+      theme: 'neutral', // Use neutral theme that works in both light and dark
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+      },
+      sequence: {
+        useMaxWidth: true,
+      },
+    });
+  }, []);
+
+  // Render mermaid diagram when preview is shown
+  useEffect(() => {
+    if (!showMermaidPreview || !mermaidSource.trim()) {
+      setMermaidSvg(null);
+      setMermaidError(null);
+      return;
+    }
+
+    const renderMermaid = async () => {
+      try {
+        // Generate unique id for this diagram
+        const id = `mermaid-${Date.now()}`;
+        const { svg } = await mermaid.render(id, mermaidSource);
+        setMermaidSvg(svg);
+        setMermaidError(null);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        setMermaidError(errorMsg);
+        setMermaidSvg(null);
+      }
+    };
+
+    renderMermaid();
+  }, [showMermaidPreview, mermaidSource]);
+
+  // Clear the persisted preview flag when the language changes away from HTML/Mermaid.
   useEffect(() => {
     if (!isHtml && node.attrs?.htmlPreview) updateAttributes({ htmlPreview: false });
-  }, [isHtml, node.attrs?.htmlPreview, updateAttributes]);
+    if (!isMermaid && node.attrs?.mermaidPreview) updateAttributes({ mermaidPreview: false });
+  }, [isHtml, isMermaid, node.attrs?.htmlPreview, node.attrs?.mermaidPreview, updateAttributes]);
 
   // ── Native DOM iframe management (React 19 sandbox workaround) ──
   // React 19's development-mode reconciliation traverses DOM trees including
@@ -132,7 +186,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     if (!container) return;
 
     // If preview should be shown and iframe doesn't exist yet, create it.
-    if (showPreview && !iframeRef.current) {
+    if (showHtmlPreview && !iframeRef.current) {
       const iframe = document.createElement('iframe');
       iframe.className = 'code-html-preview';
       iframe.title = t('code.previewHtml');
@@ -143,16 +197,16 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     }
 
     // If preview is hidden, remove the iframe.
-    if (!showPreview && iframeRef.current) {
+    if (!showHtmlPreview && iframeRef.current) {
       iframeRef.current.remove();
       iframeRef.current = null;
     }
 
     // Update srcdoc when htmlSource changes (only if iframe exists).
-    if (showPreview && iframeRef.current && iframeRef.current.srcdoc !== htmlSource) {
+    if (showHtmlPreview && iframeRef.current && iframeRef.current.srcdoc !== htmlSource) {
       iframeRef.current.srcdoc = htmlSource;
     }
-  }, [showPreview, htmlSource]);
+  }, [showHtmlPreview, htmlSource]);
 
   /* -------------------------------------------------------------- */
   /* Resize: drag the bottom-right handle (shared useNodeResize)     */
@@ -367,32 +421,71 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     }
   }, [highlightedIndex, dropdownOpen]);
 
-  // ---- Action buttons (HTML preview toggle + copy) ----
+  // ---- Action buttons (HTML/Mermaid preview toggle + copy) ----
   // Both reuse the shared `block-toolbar-btn` skin (--sm size variant) so the
   // code block matches Image / File / Diagram toolbars. They live in the
   // top-right toolbar, to the left of the language badge. Copy reveals on
   // hover (`code-toolbar-reveal`); the preview toggle is always visible and
   // gets `is-active` while previewing.
-  const previewBtn =
+  const htmlPreviewBtn =
     isHtml && hasContent ? (
       <button
         type="button"
-        onClick={() => updateAttributes({ htmlPreview: !showPreview })}
-        className={`block-toolbar-btn block-toolbar-btn--sm ${showPreview ? 'is-active' : ''}`}
-        title={showPreview ? t('code.showCode') : t('code.previewHtml')}
-        aria-label={showPreview ? t('code.showCode') : t('code.previewHtml')}
+        onClick={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
+        className={`block-toolbar-btn block-toolbar-btn--sm ${showHtmlPreview ? 'is-active' : ''}`}
+        title={showHtmlPreview ? t('code.showCode') : t('code.previewHtml')}
+        aria-label={showHtmlPreview ? t('code.showCode') : t('code.previewHtml')}
       >
-        {showPreview ? <Code2 size={14} /> : <Eye size={14} />}
+        {showHtmlPreview ? <Code2 size={14} /> : <Eye size={14} />}
       </button>
     ) : null;
 
-  // Open the HTML source in a separate OS window for an enlarged preview.
+  const mermaidPreviewBtn =
+    isMermaid && hasContent ? (
+      <button
+        type="button"
+        onClick={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
+        className={`block-toolbar-btn block-toolbar-btn--sm ${showMermaidPreview ? 'is-active' : ''}`}
+        title={showMermaidPreview ? t('code.showCode') : t('code.previewMermaid')}
+        aria-label={showMermaidPreview ? t('code.showCode') : t('code.previewMermaid')}
+      >
+        {showMermaidPreview ? <Code2 size={14} /> : <Eye size={14} />}
+      </button>
+    ) : null;
+
+  // Open the HTML/Mermaid source in a separate OS window for an enlarged preview.
   // Reuses the same Rust-memory transport as file preview (see previewWindow.ts).
   const openWindowBtn =
     isHtml && hasContent ? (
       <button
         type="button"
         onClick={() => openHtmlPreviewWindow(htmlSource)}
+        className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+        title={t('code.previewNewWindow')}
+        aria-label={t('code.previewNewWindow')}
+      >
+        <ExternalLink size={14} />
+      </button>
+    ) : isMermaid && hasContent && mermaidSvg ? (
+      <button
+        type="button"
+        onClick={() => {
+          // Pass the already-rendered SVG directly, no CDN dependency
+          const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { margin: 0; padding: 20px; background: #fff; display: flex; justify-content: center; }
+    svg { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  ${mermaidSvg}
+</body>
+</html>`;
+          openHtmlPreviewWindow(htmlContent);
+        }}
         className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
         title={t('code.previewNewWindow')}
         aria-label={t('code.previewNewWindow')}
@@ -416,13 +509,14 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // ---- Inline styles driven by displayWidth / displayHeight ----
   // Default: full editor width, content-driven height (scroll past 60vh).
   // After a resize: fixed pixel width / height.
+  const showAnyPreview = showHtmlPreview || showMermaidPreview;
   const figureStyle: React.CSSProperties = {
     width: displayWidth ? `${displayWidth}px` : '100%',
   };
   const bodyStyle: React.CSSProperties = {
     overflow: 'auto',
     ...(displayHeight != null ? { height: `${displayHeight}px` } : { maxHeight: '60vh' }),
-    ...(showPreview ? { display: 'none' } : null),
+    ...(showAnyPreview ? { display: 'none' } : null),
   };
   const previewStyle: React.CSSProperties = {
     height: displayHeight != null ? `${displayHeight}px` : '320px',
@@ -433,7 +527,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       <div
         ref={setFigureRef}
         className={`code-block-figure ${selected ? 'is-selected' : ''} ${
-          showPreview ? 'is-preview' : ''
+          showAnyPreview ? 'is-preview' : ''
         }`}
         style={figureStyle}
       >
@@ -442,7 +536,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
           is pinned right (the toolbar is right-aligned) so revealing the
           copy button on hover grows leftward without shifting the badge. */}
         <div className="code-toolbar" contentEditable={false}>
-          {previewBtn}
+          {htmlPreviewBtn}
+          {mermaidPreviewBtn}
           {openWindowBtn}
           {copyBtn}
           <div
@@ -548,7 +643,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             This crashes the entire reconciliation loop and blocks ALL user
             interactions. By using native DOM, React never sees the iframe's
             internal structure. */}
-        {isHtml && showPreview && (
+        {isHtml && showHtmlPreview && (
           <div
             ref={previewContainerRef}
             className="code-block-preview"
@@ -559,6 +654,34 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
               <div className="code-block-preview-overlay" onMouseDown={selectNode} />
             )}
             {/* iframe inserted by useEffect below, not JSX */}
+          </div>
+        )}
+
+        {/* Mermaid live preview — rendered SVG diagram.
+            When NOT selected a transparent overlay sits above the diagram so a
+            click selects the node; once selected the overlay disappears. */}
+        {isMermaid && showMermaidPreview && (
+          <div
+            ref={mermaidPreviewRef}
+            className="code-block-preview code-block-mermaid-preview"
+            contentEditable={false}
+            style={previewStyle}
+          >
+            {!selected && (
+              <div className="code-block-preview-overlay" onMouseDown={selectNode} />
+            )}
+            {mermaidError && (
+              <div className="code-block-mermaid-error">
+                <p>{t('mermaid.renderError')}</p>
+                <pre>{mermaidError}</pre>
+              </div>
+            )}
+            {mermaidSvg && (
+              <div
+                className="code-block-mermaid-content"
+                dangerouslySetInnerHTML={{ __html: mermaidSvg }}
+              />
+            )}
           </div>
         )}
 

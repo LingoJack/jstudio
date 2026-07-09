@@ -46,6 +46,8 @@ export interface CodeBlockNodeAttributes {
   language?: string;
   /** HTML code blocks: whether the rendered (iframe) preview is shown instead of the source. */
   htmlPreview?: boolean;
+  /** Mermaid code blocks: whether the rendered SVG diagram is shown instead of the source. */
+  mermaidPreview?: boolean;
   /** Legacy: maximum body height as a percentage of viewport height (0-100). Parsed for backward-compat only. */
   maxHeightPct?: number | null;
   /** Legacy pixel width (kept for backward-compat migration). */
@@ -246,6 +248,14 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
         renderHTML: (attrs) => {
           if (!attrs.htmlPreview) return {};
           return { 'data-html-preview': 'true' };
+        },
+      },
+      mermaidPreview: {
+        default: false,
+        parseHTML: (el) => el.getAttribute('data-mermaid-preview') === 'true',
+        renderHTML: (attrs) => {
+          if (!attrs.mermaidPreview) return {};
+          return { 'data-mermaid-preview': 'true' };
         },
       },
       maxHeightPct: {
