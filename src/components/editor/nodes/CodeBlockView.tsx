@@ -543,18 +543,21 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   <meta charset="utf-8">
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 0; background: #f8f9fa; display: flex; flex-direction: column; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .toolbar { position: fixed; top: 0; left: 0; right: 0; height: 48px; background: #fff; border-bottom: 1px solid #e1e4e8; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    body { background: #f8f9fa; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .toolbar { height: 48px; background: #fff; border-bottom: 1px solid #e1e4e8; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .toolbar-title { font-size: 14px; font-weight: 500; color: #333; }
     .toolbar-controls { display: flex; gap: 4px; align-items: center; }
     .toolbar-btn { width: 32px; height: 32px; border: none; border-radius: 6px; background: transparent; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
     .toolbar-btn:hover { background: #f0f2f5; }
     .toolbar-btn:active { background: #e1e4e8; }
     .zoom-info { font-size: 12px; color: #666; margin-right: 12px; min-width: 50px; text-align: center; }
-    .container { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px 24px 24px; overflow: hidden; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
-    svg { transition: transform 0.15s ease-out; cursor: grab; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)); }
-    svg:active { cursor: grabbing; }
-    .hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #888; background: #fff; padding: 6px 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .container { flex: 1; position: relative; overflow: hidden; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); cursor: grab; user-select: none; }
+    .container.dragging { cursor: grabbing; }
+    .svg-wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: transform 0.1s ease-out; }
+    svg { display: block; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)); }
+    .hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #888; background: #fff; padding: 6px 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); opacity: 0.8; transition: opacity 0.3s; }
+    .container:hover .hint { opacity: 1; }
   </style>
 </head>
 <body>
@@ -562,26 +565,29 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     <span class="toolbar-title">Mermaid Diagram</span>
     <div class="toolbar-controls">
       <span class="zoom-info" id="zoomInfo">100%</span>
-      <button class="toolbar-btn" onclick="zoomOut()" title="缩小 (滚轮向下)">−</button>
-      <button class="toolbar-btn" onclick="zoomIn()" title="放大 (滚轮向上)">+</button>
+      <button class="toolbar-btn" onclick="zoomOut()" title="缩小">−</button>
+      <button class="toolbar-btn" onclick="zoomIn()" title="放大">+</button>
       <button class="toolbar-btn" onclick="fitToScreen()" title="适应屏幕">⊗</button>
-      <button class="toolbar-btn" onclick="resetZoom()" title="重置 (100%)">↺</button>
+      <button class="toolbar-btn" onclick="resetZoom()" title="重置">↺</button>
     </div>
   </div>
   <div class="container" id="container">
-    ${mermaidSvg}
+    <div class="svg-wrapper" id="svgWrapper">
+      ${mermaidSvg}
+    </div>
   </div>
   <div class="hint">滚轮缩放 · 拖拽平移</div>
   <script>
     let scale = 1;
     let panX = 0, panY = 0;
     let initialScale = 1;
-    const svg = document.querySelector('svg');
     const container = document.getElementById('container');
+    const svgWrapper = document.getElementById('svgWrapper');
+    const svg = document.querySelector('svg');
     const zoomInfo = document.getElementById('zoomInfo');
     
     function updateTransform() {
-      svg.style.transform = 'scale(' + scale + ') translate(' + panX + 'px, ' + panY + 'px)';
+      svgWrapper.style.transform = 'translate(-50%, -50%) translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
       zoomInfo.textContent = Math.round(scale * 100) + '%';
     }
     
@@ -592,63 +598,104 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     function fitToScreen() {
       const svgRect = svg.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
-      const scaleX = (containerRect.width - 48) / svgRect.width * scale;
-      const scaleY = (containerRect.height - 48) / svgRect.height * scale;
+      const scaleX = (containerRect.width - 48) / svg.getBBox().width;
+      const scaleY = (containerRect.height - 48) / svg.getBBox().height;
       scale = Math.min(scaleX, scaleY, 1);
       panX = 0; panY = 0;
       updateTransform();
     }
     
-    // Initialize: fit to screen on load
+    // Initialize
     setTimeout(() => {
-      const svgRect = svg.getBoundingClientRect();
+      const bbox = svg.getBBox();
       const containerRect = container.getBoundingClientRect();
-      if (svgRect.width > containerRect.width || svgRect.height > containerRect.height) {
-        const scaleX = (containerRect.width - 48) / svgRect.width;
-        const scaleY = (containerRect.height - 48) / svgRect.height;
-        initialScale = Math.min(scaleX, scaleY);
+      if (bbox.width > containerRect.width - 48 || bbox.height > containerRect.height - 48) {
+        const scaleX = (containerRect.width - 48) / bbox.width;
+        const scaleY = (containerRect.height - 48) / bbox.height;
+        initialScale = Math.min(scaleX, scaleY, 1);
         scale = initialScale;
       }
       updateTransform();
     }, 50);
     
-    // Mouse wheel zoom (centered on cursor)
+    // Mouse wheel zoom
     container.addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.max(0.1, Math.min(scale * delta, 10));
-      if (newScale !== scale) {
-        scale = newScale;
-        updateTransform();
-      }
+      scale = Math.max(0.1, Math.min(scale * delta, 10));
+      updateTransform();
     }, { passive: false });
     
-    // Drag to pan
-    let dragging = false, lastX, lastY;
-    svg.addEventListener('mousedown', (e) => {
+    // Drag to pan - smooth and responsive
+    let dragging = false;
+    let startX = 0, startY = 0;
+    let startPanX = 0, startPanY = 0;
+    
+    container.addEventListener('mousedown', (e) => {
       dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      svg.style.cursor = 'grabbing';
+      startX = e.clientX;
+      startY = e.clientY;
+      startPanX = panX;
+      startPanY = panY;
+      container.classList.add('dragging');
       e.preventDefault();
     });
+    
     document.addEventListener('mousemove', (e) => {
-      if (dragging) {
-        const dx = (e.clientX - lastX) / scale;
-        const dy = (e.clientY - lastY) / scale;
-        panX += dx;
-        panY += dy;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        updateTransform();
-      }
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      panX = startPanX + dx;
+      panY = startPanY + dy;
+      updateTransform();
     });
-    document.addEventListener('mouseup', () => { 
+    
+    document.addEventListener('mouseup', () => {
       if (dragging) {
         dragging = false;
-        svg.style.cursor = 'grab';
+        container.classList.remove('dragging');
       }
     });
+    
+    // Touch support for mobile/tablet
+    let touchStartX = 0, touchStartY = 0;
+    let touchStartPanX = 0, touchStartPanY = 0;
+    let touchStartScale = 1;
+    let initialPinchDistance = 0;
+    
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartPanX = panX;
+        touchStartPanY = panY;
+      } else if (e.touches.length === 2) {
+        initialPinchDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchStartScale = scale;
+      }
+      e.preventDefault();
+    }, { passive: false });
+    
+    container.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1) {
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
+        panX = touchStartPanX + dx;
+        panY = touchStartPanY + dy;
+        updateTransform();
+      } else if (e.touches.length === 2) {
+        const currentDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        scale = Math.max(0.1, Math.min(touchStartScale * (currentDistance / initialPinchDistance), 10));
+        updateTransform();
+      }
+      e.preventDefault();
+    }, { passive: false });
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
