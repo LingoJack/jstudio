@@ -146,6 +146,8 @@ export interface AppSettings {
   terminalFontId?: string;
   /** Terminal cursor shape — also drives the cursor trail shape */
   terminalCursorStyle?: TerminalCursorStyle;
+  /** Tab bar position — 'top' or 'bottom' (default: 'bottom') */
+  tabBarPosition?: 'top' | 'bottom';
   /** User-customized keyboard shortcut overrides — see lib/shortcuts.ts */
   keyboardShortcuts?: Record<string, string>;
   /** OS-level global shortcut configs — see lib/shortcuts/globalShortcuts.ts */

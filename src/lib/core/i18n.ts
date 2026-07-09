@@ -212,6 +212,10 @@ export const translations = {
     'general.fontPreview': 'Hello 世界 — 这是字体预览 AaBbCc 你好',
     'general.tabBarGlassOpacity': '标签栏透明度',
     'general.tabBarGlassOpacityDesc': '控制浮动标签栏的背景透明度，数值越大越明显',
+    'general.tabBarPosition': '标签栏位置',
+    'general.tabBarPositionDesc': '控制标签栏显示在内容区域的上方还是下方',
+    'general.tabBarPosition_top': '上方',
+    'general.tabBarPosition_bottom': '下方',
 
     // ── Appearance section ──
     'appearance.theme': '主题',
@@ -818,6 +822,10 @@ export const translations = {
     'general.fontPreview': 'Hello World — Font preview AaBbCc',
     'general.tabBarGlassOpacity': 'Tab Bar Opacity',
     'general.tabBarGlassOpacityDesc': 'Controls the background opacity of the floating tab bar; higher values make it more visible',
+    'general.tabBarPosition': 'Tab Bar Position',
+    'general.tabBarPositionDesc': 'Controls whether the tab bar appears above or below the content area',
+    'general.tabBarPosition_top': 'Top',
+    'general.tabBarPosition_bottom': 'Bottom',
 
     // ── Appearance section ──
     'appearance.theme': 'Theme',

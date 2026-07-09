@@ -73,6 +73,11 @@ export interface TabBarProps {
    * Default: 0.06 (subtle glass effect).
    */
   glassOpacity?: number;
+  /**
+   * Tab bar position relative to the content area.
+   * 'top' = above content, 'bottom' = below content (default).
+   */
+  position?: 'top' | 'bottom';
 }
 
 export default function TabBar({
@@ -97,6 +102,7 @@ export default function TabBar({
   accentColor = 'var(--vscode-list-activeSelectionBackground)',
   renameBorderColor,
   glassOpacity = 0.06,
+  position = 'bottom',
 }: TabBarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
@@ -253,7 +259,7 @@ export default function TabBar({
       {/* Floating glassmorphism capsule tab bar */}
       <div
         ref={tabBarRef}
-        className={`absolute left-0 right-0 bottom-0 flex items-center justify-center pb-3 z-20 ${className ?? ''}`}
+        className={`absolute left-0 right-0 ${position === 'top' ? 'top-0 pt-3' : 'bottom-0 pb-3'} flex items-center justify-center z-20 ${className ?? ''}`}
       >
         <div
           className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full border border-[var(--vscode-menu-border)]"

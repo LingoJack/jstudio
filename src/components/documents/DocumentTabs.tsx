@@ -33,6 +33,7 @@ export default function DocumentTabs() {
   const docList = useStore((s) => s.docList);
   const createDocument = useStore((s) => s.createDocument);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
+  const tabBarPosition = useStore((s) => s.tabBarPosition);
 
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
@@ -121,6 +122,7 @@ export default function DocumentTabs() {
       renderContextMenu={renderContextMenu}
       rippleColor="rgba(255,255,255,0.25)"
       glassOpacity={tabBarGlassOpacity}
+      position={tabBarPosition}
     />
   );
 }

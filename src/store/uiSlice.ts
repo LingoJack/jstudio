@@ -42,6 +42,9 @@ const MIN_TAB_BAR_GLASS_OPACITY = 0.02;
 const MAX_TAB_BAR_GLASS_OPACITY = 0.15;
 const DEFAULT_TAB_BAR_GLASS_OPACITY = 0.06;
 
+/** Default tab bar position. */
+const DEFAULT_TAB_BAR_POSITION: 'top' | 'bottom' = 'bottom';
+
 /**
  * Resolve a theme preference to the actual dark/light value.
  * When `mode` is `system`, queries the OS via `prefers-color-scheme`.
@@ -116,6 +119,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
   terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
   tabBarGlassOpacity: DEFAULT_TAB_BAR_GLASS_OPACITY,
+  tabBarPosition: DEFAULT_TAB_BAR_POSITION,
   keyboardShortcuts: {} as ShortcutOverrides,
   globalShortcuts: [] as GlobalShortcutConfig[],
 
@@ -256,6 +260,11 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     );
     set({ tabBarGlassOpacity: clamped });
     storage.saveSettings({ tabBarGlassOpacity: clamped }).catch(onSaveError('设置'));
+  },
+
+  setTabBarPosition: (position) => {
+    set({ tabBarPosition: position });
+    storage.saveSettings({ tabBarPosition: position }).catch(onSaveError('设置'));
   },
 
   setKeyboardShortcut: (id: string, binding: string) => {

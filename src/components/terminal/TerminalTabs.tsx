@@ -99,6 +99,7 @@ export default function TerminalTabs() {
   const wsTabs = useStore((s) => s.tabs);
   const wsSetActiveTab = useStore((s) => s.setActiveTab);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
+  const tabBarPosition = useStore((s) => s.tabBarPosition);
 
   // ── Terminal theme: follows app theme (same IDs: jstudio-dark, jstudio-light, etc.)
   const appThemeIdDark = useStore((s) => s.appThemeIdDark);
@@ -174,10 +175,16 @@ export default function TerminalTabs() {
     if (historyBtnRef.current) {
       const rect = historyBtnRef.current.getBoundingClientRect();
       const gap = 4;
-      setHistoryPos({ x: rect.left, y: rect.top - gap });
+      if (tabBarPosition === 'top') {
+        // Tab bar at top → dropdown opens below
+        setHistoryPos({ x: rect.left, y: rect.bottom + gap });
+      } else {
+        // Tab bar at bottom → dropdown opens above
+        setHistoryPos({ x: rect.left, y: rect.top - gap });
+      }
     }
     setShowHistory(true);
-  }, []);
+  }, [tabBarPosition]);
 
   const scheduleCloseHistory = useCallback(() => {
     if (historyCloseTimer.current) clearTimeout(historyCloseTimer.current);
@@ -311,6 +318,7 @@ export default function TerminalTabs() {
         accentColor="var(--vscode-list-activeSelectionBackground)"
         renameBorderColor="var(--term-accent)"
         glassOpacity={tabBarGlassOpacity}
+        position={tabBarPosition}
       />
 
       {/* History dropdown — rendered at root level with fixed position to

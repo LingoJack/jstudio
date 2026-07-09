@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, AlignBottom, AlignTop, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/core/storage';
 import type { JcliStatus, ActivityItemId } from '../../lib/core/storage';
 import { ACTIVITY_ITEM_META } from '../../lib/activityMeta';
@@ -243,6 +243,19 @@ export default function GeneralSection() {
           {t('general.tabBarGlassOpacityDesc')}
         </p>
         <TabBarGlassOpacitySlider />
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- Tab Bar Position ---- */}
+      <div id="settings-general-tabBarPosition">
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('general.tabBarPosition')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('general.tabBarPositionDesc')}
+        </p>
+        <TabBarPositionSelector />
       </div>
 
       <div className="border-t border-[var(--vscode-widget-border)]" />
@@ -850,6 +863,50 @@ function TabBarGlassOpacitySlider() {
       >
         {opacity.toFixed(2)}
       </span>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// TabBarPositionSelector — controls the tab bar position (top/bottom).
+// ──────────────────────────────────────────────────────────────────
+
+const TAB_BAR_POSITION_OPTIONS: { value: 'top' | 'bottom'; icon: LucideIcon }[] = [
+  { value: 'bottom', icon: AlignBottom },
+  { value: 'top', icon: AlignTop },
+];
+
+function TabBarPositionSelector() {
+  const { t } = useI18n();
+  const position = useStore((s) => s.tabBarPosition);
+  const setPosition = useStore((s) => s.setTabBarPosition);
+
+  return (
+    <div className="flex gap-3 max-w-sm">
+      {TAB_BAR_POSITION_OPTIONS.map((opt) => {
+        const Icon = opt.icon;
+        const selected = position === opt.value;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => setPosition(opt.value)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all duration-150 cursor-pointer ${
+              selected
+                ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                : 'border-transparent bg-[var(--vscode-list-hoverBackground)] hover:border-[var(--vscode-widget-border)]'
+            }`}
+          >
+            <Icon
+              className={`w-4 h-4 ${selected ? 'text-[var(--vscode-foreground)]' : 'text-[var(--vscode-descriptionForeground)]'}`}
+            />
+            <span
+              className={`text-sm ${selected ? 'text-[var(--vscode-foreground)] font-medium' : 'text-[var(--vscode-sideBar-foreground)]'}`}
+            >
+              {t(`general.tabBarPosition_${opt.value}` as 'general.tabBarPosition_top')}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
