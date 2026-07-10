@@ -22,6 +22,12 @@
 
 ```
 jstudio/
+├── jcli/                       # jcli submodule（AI 驱动的命令行工作台，构建产物 j 二进制嵌入 JStudio）
+│   ├── j-agent/                # 核心引擎库
+│   ├── src/                    # CLI/TUI 源码
+│   ├── Cargo.toml
+│   └── target/release/j        # 构建产物（make build-jcli 生成）
+│
 ├── src/                        # 前端源码
 │   ├── App.tsx                 # 根组件（三栏布局）
 │   ├── main.tsx                # React 入口
@@ -514,11 +520,20 @@ const EDITOR_RESERVED = new Set([
 ## 构建与运行
 
 ```bash
+# 构建 jcli 二进制（在 submodule 中）
+make build-jcli
+
 # 前端开发（仅 Vite dev server）
 npm run dev
 
-# Tauri 桌面应用开发（前端 + Rust 后端）
+# Tauri 桌面应用开发（前端 + Rust 后端，需提前 make build-jcli）
 npm run tauri dev
+
+# 完整构建（自动先构建 jcli，再构建 Tauri 应用）
+make build
+
+# 安装到系统（macOS 安装到 /Applications）
+make install
 
 # 生产构建
 npm run build          # 前端
@@ -526,6 +541,9 @@ npm run tauri build    # 完整桌面应用
 
 # 类型检查
 npx tsc --noEmit
+
+# 清理所有构建产物（含 jcli）
+make clean
 ```
 
 - **前端 dev port**: `1420`
@@ -538,3 +556,27 @@ npx tsc --noEmit
 - 因此：**完成任何改动后，先跑 `npx tsc --noEmit`（或 `npx tsc --noEmit -p tsconfig.app.json`）确认 0 错误，再宣布完成。** 不要只靠"运行时没报错"判断。
 - 前端改动若涉及 i18n、类型映射、跨文件签名，尤其容易漏过 `tsc`——参见上方「国际化（i18n）规范」。
 - Rust 侧：`cargo build` 会把 `#[warn(unused_variables)]` 等输出为 warning（不阻断 build，但应保持 clean，见 Rust 编码规范第 4 条）。
+
+## jcli Submodule 管理
+
+jcli 作为 submodule 嵌入在 `jcli/` 目录，提供 `j` 二进制文件供 JStudio 内嵌使用。
+
+```bash
+# 初始化 submodule（clone 后首次）
+git submodule update --init --recursive
+
+# 更新 submodule 到最新 commit
+git submodule update --remote jcli
+
+# 构建 jcli 二进制
+make build-jcli
+# 或手动：cd jcli && cargo build --release
+
+# 查看 submodule 状态
+git submodule status
+```
+
+**注意事项**：
+- jcli submodule 只保存指针（特定 commit），不包含 jcli 的完整历史
+- 更新 jcli 后需先 commit submodule 变更，再 commit 主仓库
+- `make build` 会自动先执行 `build-jcli`，无需手动干预

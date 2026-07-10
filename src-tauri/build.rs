@@ -45,17 +45,15 @@ fn manifest_dir() -> PathBuf {
     PathBuf::from(env::var(CARGO_MANIFEST_DIR).expect("CARGO_MANIFEST_DIR not set"))
 }
 
-/// `../../../` relative to `src-tauri/` = the jcli workspace root.
-///   src-tauri/  →  ../  = jstudio/
-///                →  ../../  = apps/
-///                →  ../../../  = jcli root
+/// `../jcli/` relative to `src-tauri/` = the jcli submodule root.
+///   src-tauri/  →  ../  = jstudio root
+///                →  ../jcli/  = jcli submodule
 fn jcli_workspace_root() -> PathBuf {
     manifest_dir()
         .join("..")
-        .join("..")
-        .join("..")
+        .join("jcli")
         .canonicalize()
-        .unwrap_or_else(|_| manifest_dir().join("..").join("..").join(".."))
+        .unwrap_or_else(|_| manifest_dir().join("..").join("jcli"))
 }
 
 /// Stage the `j` binary into `resources/bin/`.
@@ -146,5 +144,5 @@ fn inject_build_commit() {
 
     println!("cargo:rustc-env=JSTUDIO_BUILD_COMMIT={}", commit);
     // Re-run if HEAD changes (best-effort: just re-run on any change in the repo).
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
+    println!("cargo:rerun-if-changed=../.git/HEAD");
 }

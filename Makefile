@@ -28,7 +28,7 @@ GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 .PHONY: help \
         current_dir push push-non-ai commit pull status \
         deps deps-fe deps-tauri \
-        dev build release \
+        dev build release build-jcli \
         install install-jstudio-only uninstall reinstall \
         bump-version set-version \
         fmt lint check clippy pre-commit \
@@ -133,7 +133,7 @@ dev: deps ## 启动 Tauri 开发模式
 	@echo "🚀 启动 Tauri 开发模式..."
 	@npm run tauri:dev
 
-build: deps ## 构建 Tauri 应用（release）
+build: deps build-jcli ## 构建 Tauri 应用（release）
 	@echo "🏗️  构建 Tauri 应用..."
 	@npm run tauri:build -- --bundles app
 	@echo "☑️ Tauri 应用构建完成"
@@ -143,19 +143,24 @@ build: deps ## 构建 Tauri 应用（release）
 		echo "   Binary: $(BIN)"; \
 	fi
 
+build-jcli: ## 构建 jcli 二进制（在 submodule 中）
+	@echo "🏗️  构建 jcli..."
+	@cd jcli && cargo build --release
+	@echo "☑️ jcli 构建完成"
+
 release: build ## 别名：构建发布版本
 
-# jcli 父目录路径（相对路径）
-JCLI_ROOT := $(shell cd ../.. && pwd)
+# jcli submodule 目录路径（相对路径）
+JCLI_ROOT := $(shell cd jcli && pwd)
 JCLI_INSTALL_DIR := $(HOME)/.jdata/bin
 
 # ============================================
 # 安装相关
 # ============================================
-install: ## 安装 JStudio app（macOS 安装到 /Applications）；若 j cli 不存在则自动从父目录 jcli 安装
+install: ## 安装 JStudio app（macOS 安装到 /Applications）；若 j cli 不存在则自动从 submodule jcli 安装
 	@echo "📦 安装 JStudio..."
 	@if ! command -v j >/dev/null 2>&1; then \
-		echo "⚠️  j cli 未安装，正在从父目录 jcli 安装..."; \
+		echo "⚠️  j cli 未安装，正在从 submodule jcli 安装..."; \
 		if [ -f "$(JCLI_ROOT)/Makefile" ]; then \
 			cd "$(JCLI_ROOT)" && $(MAKE) install; \
 		else \
@@ -317,6 +322,8 @@ test-rust: ## 运行 Rust 测试
 # 清理相关
 # ============================================
 clean: clean-fe clean-tauri ## 清理构建产物
+	@echo "🧹 清理 jcli 构建产物..."
+	@cd jcli && cargo clean 2>/dev/null || true
 	@echo "☑️ 构建产物已清理"
 
 clean-fe: ## 清理前端构建产物
