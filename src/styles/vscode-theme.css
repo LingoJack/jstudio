@@ -1254,9 +1254,11 @@ button {
 .ProseMirror code {
   background: var(--vscode-textPreformat-background);
   color: var(--vscode-textPreformat-foreground);
-  border-radius: 3px;
+  border: 1px solid var(--vscode-block-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.35)));
+  border-radius: 4px;
   padding: 1px 5px;
   font-size: 0.9em;
+  font-family: Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
 }
 
 /* ─── BubbleMenu (selection formatting toolbar) ────────────────────────── */
