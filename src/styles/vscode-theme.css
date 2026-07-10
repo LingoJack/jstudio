@@ -1626,7 +1626,7 @@ button {
 /* Mermaid live preview container */
 .code-block-wrapper .code-block-mermaid-preview {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 12px;
+  border-radius: 16px;
   position: relative;
 }
 
