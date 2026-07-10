@@ -272,6 +272,15 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
 
   const editor = useEditor({
     editable: !readOnly,
+    // Configure clipboard text serializer to use single newline as block
+    // separator instead of the default '\n\n' (double newline). This fixes
+    // the issue where copying content from the editor to external apps
+    // produces extra blank lines between paragraphs.
+    coreExtensionOptions: {
+      clipboardTextSerializer: {
+        blockSeparator: '\n',
+      },
+    },
     extensions: [
       StarterKit.configure({
         codeBlock: false, // replaced by CodeBlockLowlight

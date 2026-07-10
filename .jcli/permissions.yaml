@@ -79,4 +79,5 @@ allow:
 - Shell(cat ~/.jdata/studio/index.json.bak:*)
 - Shell(git status:*)
 - Shell(rm -f:*)
+- Shell(cat node_modules/@tiptap/markdown/package.json:*)
 deny: []

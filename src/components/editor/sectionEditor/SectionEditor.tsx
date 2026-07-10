@@ -167,6 +167,15 @@ export default function SectionEditor({
   );
 
   const editor = useEditor({
+    // Configure clipboard text serializer to use single newline as block
+    // separator instead of the default '\n\n' (double newline). This fixes
+    // the issue where copying content from the editor to external apps
+    // produces extra blank lines between paragraphs.
+    coreExtensionOptions: {
+      clipboardTextSerializer: {
+        blockSeparator: '\n',
+      },
+    },
     extensions: createSectionExtensions({
       placeholder: t('editor.placeholder'),
       onExitToTitle: () => onExitToTitleRef.current?.(),
