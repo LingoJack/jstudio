@@ -264,7 +264,7 @@ export default function CommandPalette() {
     setQuery(newVal);
   };
 
-  // ── Keyboard handling ──
+  // ── Keyboard handling via input ──
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -294,6 +294,50 @@ export default function CommandPalette() {
       return;
     }
   };
+
+  // ── Global keyboard handling (capture phase) ──
+  // 确保 focus 不在 input 时（如切换到终端）也能响应键盘
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setCommandPaletteOpen(false);
+        return;
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        switchMode(!isCommandMode);
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedIndex((i) => Math.min(i + 1, Math.max(items.length - 1, 0)));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (items[selectedIndex]) {
+          executeItem(items[selectedIndex]);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+  }, [isOpen, isCommandMode, items, selectedIndex, setCommandPaletteOpen, switchMode, executeItem]);
 
   if (!isOpen) return null;
 
