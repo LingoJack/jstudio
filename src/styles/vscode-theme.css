@@ -3156,3 +3156,51 @@ button {
   opacity: 0.7;
 }
 
+/* ============================================
+   Command Palette Animations
+   ============================================ */
+
+/* ── 背景遮罩渐入 ── */
+@keyframes palette-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-palette-backdrop-in {
+  animation: palette-backdrop-in 160ms ease-out both;
+}
+
+/* ── 面板入场 ──
+   使用简洁的入场动画，位移小、速度快。 */
+@keyframes palette-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-palette-panel-in {
+  animation: palette-panel-in 180ms ease-out both;
+}
+
+/* ── 列表项交错渐入 ──
+   配合 animationDelay 实现瀑布流效果。 */
+@keyframes palette-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-palette-row-in {
+  animation: palette-row-in 100ms ease-out both;
+}
+
