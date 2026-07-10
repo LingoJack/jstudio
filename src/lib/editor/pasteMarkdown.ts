@@ -37,7 +37,12 @@ export interface PasteMarkdownOptions {
 export function looksLikeMarkdown(text: string): boolean {
   if (!text || text.length < 2) return false;
 
-  const patterns: RegExp[] = [
+  // Block-level patterns that indicate true Markdown structure.
+  // Inline patterns like **bold** or [link](url) are excluded because
+  // they cause false positives (e.g., "This is **important**" would trigger
+  // Markdown parsing, which with breaks:true converts every \n to <br>,
+  // producing extra blank lines when pasting back).
+  const blockPatterns: RegExp[] = [
     /^#{1,6}\s+\S/m, // # Heading
     /^>\s+\S/m, // > Blockquote
     /^[-*+]\s+\S/m, // - Unordered list
@@ -45,12 +50,10 @@ export function looksLikeMarkdown(text: string): boolean {
     /```[\s\S]*?```/, // ``` Fenced code block
     /^\|.+\|.*\n\|[-:\s|]+\|/m, // | GFM table |
     /^-{3,}$|^\*{3,}$/m, // --- Horizontal rule
-    /\*\*[^*\n]+\*\*/, // **bold**
-    /\[[^\]]+\]\([^)]+\)/, // [text](url)
     /^!\[.*\]\(.*\)/m, // ![alt](url) image
   ];
 
-  return patterns.some((re) => re.test(text));
+  return blockPatterns.some((re) => re.test(text));
 }
 
 export const PasteMarkdown = Extension.create<PasteMarkdownOptions>({
