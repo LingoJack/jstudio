@@ -83,8 +83,8 @@ export default function CommandPalette() {
     if (isOpen && !prevIsOpen.current) {
       // 从关闭到打开：触发入场动画
       setIsAnimatingIn(true);
-      // 动画结束后清除状态
-      const timer = setTimeout(() => setIsAnimatingIn(false), 280);
+      // 动画结束后清除状态（面板 320ms + 最大延迟 160ms + 行动画 180ms ≈ 500ms）
+      const timer = setTimeout(() => setIsAnimatingIn(false), 520);
       return () => clearTimeout(timer);
     } else if (!isOpen && prevIsOpen.current) {
       // 从打开到关闭：立即清除动画状态
