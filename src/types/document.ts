@@ -20,58 +20,88 @@ export type BlockType =
   | 'link'
   | 'diagram';
 
-export interface BlockProperties {
-  /** Code block: syntax language. */
+// ---------------------------------------------------------------------------
+// Block property interfaces (split by block type for better organization)
+// ---------------------------------------------------------------------------
+
+/** Code block properties. */
+export interface CodeBlockProperties {
+  /** Syntax language for highlighting. */
   language?: string;
-  /** Code block (HTML): whether the rendered preview is shown instead of the source. */
+  /** Whether HTML preview is shown instead of source. */
   codeHtmlPreview?: boolean;
-  /** Code block: maximum body height as percentage of viewport height (0-100). Legacy, parsed for backward-compat only. */
+  /** Max body height as viewport percentage (legacy). */
   codeMaxHeightPct?: number;
-  /** Code block: display width in px (legacy). */
+  /** Display width in px (legacy). */
   codeWidth?: number;
-  /** Code block: width as percentage of editor surface (0-100). Preferred. */
+  /** Width as percentage of editor surface (0-100). Preferred. */
   codeWidthPct?: number;
-  /** Code block: body/preview height in px (legacy). */
+  /** Body/preview height in px (legacy). */
   codeHeight?: number;
-  /** Code block: height as percentage of editor surface (0-100). Preferred. */
+  /** Height as percentage of editor surface (0-100). Preferred. */
   codeHeightPct?: number;
-  caption?: string; // image block caption
+}
+
+/** Image block properties. */
+export interface ImageBlockProperties {
+  /** Image caption text. */
+  caption?: string;
+  /** Source type: external URL, base64 data, or local asset path. */
   imageType?: 'url' | 'base64' | 'asset';
-  width?: number; // image display width (px, legacy)
-  /** Image block: width as percentage of editor surface (0-100). Preferred. */
+  /** Display width in px (legacy). */
+  width?: number;
+  /** Width as percentage of editor surface (0-100). Preferred. */
   widthPct?: number;
-  height?: number; // image display height (px, legacy)
-  /** Image block: height as percentage of editor surface (0-100). Preferred. */
+  /** Display height in px (legacy). */
+  height?: number;
+  /** Height as percentage of editor surface (0-100). Preferred. */
   heightPct?: number;
-  align?: 'left' | 'center'; // image alignment
-  /** File attachment: MIME type of the uploaded file. */
+  /** Horizontal alignment. */
+  align?: 'left' | 'center';
+}
+
+/** File attachment block properties. */
+export interface FileBlockProperties {
+  /** MIME type of the uploaded file. */
   fileType?: string;
-  /** File attachment: original file name. */
+  /** Original file name. */
   fileName?: string;
-  /** File attachment: file size in bytes. */
+  /** File size in bytes. */
   fileSize?: number;
-  /** File attachment: display mode — compact card or inline preview. */
+  /** Display mode: compact card or inline preview. */
   fileDisplayMode?: 'card' | 'preview';
-  /** File attachment: preview display width (px, legacy). Undefined = auto. */
+  /** Preview width in px (legacy). */
   fileWidth?: number;
-  /** File attachment: width as percentage of editor surface (0-100). Preferred. */
+  /** Width as percentage of editor surface (0-100). Preferred. */
   fileWidthPct?: number;
-  /** File attachment: preview area height (px, legacy). Undefined = auto. */
+  /** Preview height in px (legacy). */
   fileHeight?: number;
-  /** File attachment: height as percentage of editor surface (0-100). Preferred. */
+  /** Height as percentage of editor surface (0-100). Preferred. */
   fileHeightPct?: number;
-  /** File attachment: alignment. */
+  /** Horizontal alignment. */
   fileAlign?: 'left' | 'center';
-  /** Table block: serialized table structure. */
+}
+
+/** Table block properties. */
+export interface TableBlockProperties {
+  /** Serialized table structure (rows with cells). */
   tableData?: TableData;
-  /** Collapsible block: whether the body is expanded. */
+}
+
+/** Collapsible (toggle) block properties. */
+export interface CollapsibleBlockProperties {
+  /** Whether the body is expanded. */
   collapsibleOpen?: boolean;
-  /** Collapsible block: the always-visible summary/title text. */
+  /** Always-visible summary/title text. */
   collapsibleSummary?: string;
-  /** Collapsible block: serialized TipTap JSONContent[] of child nodes. */
+  /** Serialized TipTap JSONContent[] of child nodes. */
   collapsibleChildren?: unknown[];
+}
+
+/** Bullet/ordered list block properties. */
+export interface ListBlockProperties {
   /**
-   * Bullet / ordered list block: nested item tree.
+   * Nested item tree.
    *
    * Preferred over the flat `RichText[][]` stored in `Block.content`, which
    * cannot represent nested (indented) sub-lists. When present, this is the
@@ -79,41 +109,76 @@ export interface BlockProperties {
    * documents and non-editor consumers.
    */
   listItems?: ListItemData[];
-  /** Todo list block: items array, each with checked state and text content. */
+}
+
+/** Todo (task) list block properties. */
+export interface TodoBlockProperties {
+  /** Items array, each with checked state and richText content. */
   todoItems?: TodoItemData[];
-  /** Link block: target URL. */
+}
+
+/** Link preview block properties. */
+export interface LinkBlockProperties {
+  /** Target URL. */
   linkUrl?: string;
-  /** Link block: page title. */
+  /** Page title (from OG metadata or <title>). */
   linkTitle?: string;
-  /** Link block: meta description. */
+  /** Meta description. */
   linkDescription?: string;
-  /** Link block: favicon URL. */
+  /** Favicon URL. */
   linkFavicon?: string;
-  /** Link block: OpenGraph image URL. */
+  /** OpenGraph image URL. */
   linkOgImage?: string;
-  /** Link block: site name (from OG metadata). */
+  /** Site name (from OG metadata). */
   linkSiteName?: string;
-  /** Link block: display mode — card or inline preview. */
+  /** Display mode: card or inline preview. */
   linkDisplayMode?: 'card' | 'preview';
-  /** Link block: preview display width (px). Undefined = auto. */
+  /** Preview width in px. */
   linkWidth?: number;
-  /** Link block: width as percentage of editor surface (0-100). Preferred over px. */
+  /** Width as percentage of editor surface (0-100). Preferred over px. */
   linkWidthPct?: number;
-  /** Link block: alignment. */
+  /** Horizontal alignment. */
   linkAlign?: 'left' | 'center';
-  /** Diagram block: serialized excalidraw scene JSON string. */
+}
+
+/** Diagram (excalidraw) block properties. */
+export interface DiagramBlockProperties {
+  /** Serialized excalidraw scene JSON string. */
   diagramSnapshot?: string;
-  /** Diagram block: display width (px, legacy). Undefined = auto. */
+  /** Display width in px (legacy). */
   diagramWidth?: number;
-  /** Diagram block: width as percentage of editor surface (0-100). Preferred. */
+  /** Width as percentage of editor surface (0-100). Preferred. */
   diagramWidthPct?: number;
-  /** Diagram block: display height (px, legacy). Undefined = default 320. */
+  /** Display height in px (legacy). */
   diagramHeight?: number;
-  /** Diagram block: height as percentage of editor surface (0-100). Preferred. */
+  /** Height as percentage of editor surface (0-100). Preferred. */
   diagramHeightPct?: number;
-  /** Diagram block: alignment. */
+  /** Horizontal alignment. */
   diagramAlign?: 'left' | 'center';
 }
+
+/**
+ * Aggregate block properties type.
+ *
+ * Combines all specialized property interfaces. Each block type only uses
+ * a subset of these fields, but TypeScript doesn't enforce which subset
+ * corresponds to which block type. This is a trade-off for simplicity:
+ * the type system doesn't need to know the exact mapping, and the codebase
+ * already has runtime guards for block type.
+ *
+ * New block types should add their properties to the corresponding interface
+ * above, then include it in this aggregate type.
+ */
+export type BlockProperties =
+  & CodeBlockProperties
+  & ImageBlockProperties
+  & FileBlockProperties
+  & TableBlockProperties
+  & CollapsibleBlockProperties
+  & ListBlockProperties
+  & TodoBlockProperties
+  & LinkBlockProperties
+  & DiagramBlockProperties;
 
 export interface Block {
   id: string;

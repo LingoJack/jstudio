@@ -1,192 +1,45 @@
 /**
- * Data adapter — bidirectional conversion between our `Block[]` format
- * (Notion-like rich-text segments) and TipTap's `JSONContent[]` format
- * (ProseMirror-based document JSON).
+ * Block ↔ TipTap node JSON bidirectional conversion.
  *
- * This is the single source of truth for format translation. Neither the
- * editor nor the store ever needs to know about the other's internal
- * representation.
+ * Core conversion functions:
+ * - `ourBlockToTiptapJSON(block)` → single TipTap node
+ * - `tiptapJSONToOurBlock(node)` → single Block
+ * - `ourBlocksToTiptapJSON(blocks)` → TipTap document content array
+ * - `tiptapJSONToOurBlocks(nodes)` → Block array
  *
- * Mapping summary:
- *
- *   OUR BLOCK TYPES              →   TIPTAP NODE TYPES
- *   ─────────────────────────────────────────────────────────
- *   text                         →   paragraph
- *   heading-1/2/3                →   heading (attrs.level = 1/2/3)
- *   quote                        →   blockquote
- *   code                         →   codeBlock
- *   image                        →   image
- *   file                         →   fileBlock
- *   table                        →   table
- *   bullet-list                  →   bulletList
- *   ordered-list                 →   orderedList
- *   todo-list                    →   taskList
- *   divider                      →   horizontalRule
- *   collapsible                  →   collapsible
- *   diagram                      →   diagramBlock
- *
- *   OUR RICHTEXT ANNOTATIONS     →   TIPTAP MARKS
- *   ─────────────────────────────────────────────────────────
- *   bold                         →   bold
- *   italic                       →   italic
- *   underline                    →   underline
- *   strikethrough                →   strike
- *   code                         →   code
- *   color (≠ 'default')          →   textStyle (attrs.color)
- *   href                         →   link (attrs.href)
+ * Plus type mapping helpers:
+ * - `ourTypeToTiptapType(type)` → TipTap node type string
+ * - `tiptapTypeToOurType(nodeType, attrs)` → our BlockType
  */
 
 import type { JSONContent } from '@tiptap/react';
-
-import type { Block, BlockType, TableData, TableCellData, TableRowData, TodoItemData, ListItemData } from '../../types/document';
-import type { RichText, RichTextAnnotations } from '../../types/richText';
-import { isAssetPath } from './content/assetUrl';
+import type { Block, BlockType } from '../../../types/document';
+import type { RichText } from '../../../types/richText';
+import { isAssetPath } from '../content/assetUrl';
+import { richTextToTiptapInline, tiptapInlineToRichText } from './richText';
+import { tableDataToTiptap, tiptapToTableData } from './table';
+import { listItemToTiptap, tiptapToListItems, legacyFlatListToItems, listItemsToFlat } from './list';
+import { todoItemToTiptap, tiptapToTodoItems } from './todo';
 
 // ---------------------------------------------------------------------------
-// Types (local helpers)
+// Type mapping helpers
 // ---------------------------------------------------------------------------
 
-/** A TipTap mark with a concrete type and attrs. */
-interface TiptapMark {
-  type: string;
-  attrs?: Record<string, unknown>;
+/** Extract heading level from our heading-* type. */
+function headingLevel(type: BlockType): number {
+  switch (type) {
+    case 'heading-1':
+      return 1;
+    case 'heading-2':
+      return 2;
+    case 'heading-3':
+      return 3;
+    default:
+      return 1;
+  }
 }
 
-// ---------------------------------------------------------------------------
-// RichText[]  ⟷  TipTap inline JSONContent[]
-// ---------------------------------------------------------------------------
-
-/**
- * Build the list of TipTap marks for a single `RichText` segment based on its
- * annotations.
- *
- * Order matters for rendering consistency: we emit marks in a stable order
- * (bold, italic, underline, strike, code, textStyle, link).
- */
-function annotationsToMarks(ann: RichTextAnnotations): TiptapMark[] {
-  const marks: TiptapMark[] = [];
-
-  if (ann.bold) marks.push({ type: 'bold' });
-  if (ann.italic) marks.push({ type: 'italic' });
-  if (ann.underline) marks.push({ type: 'underline' });
-  if (ann.strikethrough) marks.push({ type: 'strike' });
-  if (ann.code) marks.push({ type: 'code' });
-
-  if (ann.color && ann.color !== 'default') {
-    marks.push({ type: 'textStyle', attrs: { color: ann.color } });
-  }
-
-  if (ann.href) {
-    marks.push({ type: 'link', attrs: { href: ann.href } });
-  }
-
-  return marks;
-}
-
-/**
- * Convert our `RichText[]` to an array of TipTap inline `JSONContent` nodes.
- *
- * Each `RichText` segment becomes a text node with the appropriate marks.
- * Empty segments are skipped. If the array is empty an empty array is
- * returned (the caller can decide whether to emit an empty paragraph).
- */
-export function richTextToTiptapInline(rich: RichText[]): JSONContent[] {
-  if (!rich || rich.length === 0) return [];
-
-  const result: JSONContent[] = [];
-
-  for (const seg of rich) {
-    if (!seg.text) continue;
-    const marks = annotationsToMarks(seg.annotations ?? {});
-    // A segment may contain soft line breaks (`\n`, from Shift+Enter). TipTap
-    // represents these as `hardBreak` atom nodes, not as `\n` inside a text
-    // node. Split on `\n` and interleave hardBreak nodes so the break
-    // survives the round-trip instead of being silently dropped.
-    const parts = seg.text.split('\n');
-    parts.forEach((part, i) => {
-      if (i > 0) result.push({ type: 'hardBreak' });
-      if (part) result.push({ type: 'text', text: part, marks });
-    });
-  }
-
-  return result;
-}
-
-/**
- * Convert an array of TipTap inline `JSONContent` nodes back to our
- * `RichText[]`.
- *
- * Handles text nodes and unwraps `link` nodes if present.
- */
-export function tiptapInlineToRichText(nodes: JSONContent[]): RichText[] {
-  if (!nodes || nodes.length === 0) return [];
-
-  const result: RichText[] = [];
-
-  for (const node of nodes) {
-    if (node.type === 'text') {
-      const marks = (node.marks ?? []) as TiptapMark[];
-      result.push({ text: node.text ?? '', annotations: marksToAnnotations(marks) });
-    } else if (node.type === 'hardBreak') {
-      // Soft line break (Shift+Enter). Encode as a `\n` segment so it
-      // round-trips back to a hardBreak on the next load.
-      result.push({ text: '\n', annotations: {} });
-    }
-    // Other inline types are ignored for now.
-  }
-
-  return result;
-}
-
-/** Map a list of TipTap marks back to our `RichTextAnnotations`. */
-function marksToAnnotations(marks: TiptapMark[]): RichTextAnnotations {
-  const annotations: RichTextAnnotations = {};
-
-  for (const mark of marks) {
-    switch (mark.type) {
-      case 'bold':
-        annotations.bold = true;
-        break;
-      case 'italic':
-        annotations.italic = true;
-        break;
-      case 'underline':
-        annotations.underline = true;
-        break;
-      case 'strike':
-        annotations.strikethrough = true;
-        break;
-      case 'code':
-        annotations.code = true;
-        break;
-      case 'textStyle': {
-        const color = mark.attrs?.color;
-        if (typeof color === 'string') {
-          annotations.color = color;
-        }
-        break;
-      }
-      case 'link': {
-        const href = mark.attrs?.href;
-        if (typeof href === 'string') {
-          annotations.href = href;
-        }
-        break;
-      }
-      default:
-        // Unknown marks are ignored.
-        break;
-    }
-  }
-
-  return annotations;
-}
-
-// ---------------------------------------------------------------------------
-// Block  ⟷  TipTap JSONContent
-// ---------------------------------------------------------------------------
-
-/** Map our BlockType to a TipTap node type string. */
+/** Map our `BlockType` to the corresponding TipTap node type string. */
 function ourTypeToTiptapType(type: BlockType): string {
   switch (type) {
     case 'text':
@@ -224,27 +77,17 @@ function ourTypeToTiptapType(type: BlockType): string {
   }
 }
 
-/** Extract heading level (1/2/3) from our block type. */
-function headingLevel(type: BlockType): 1 | 2 | 3 {
-  if (type === 'heading-1') return 1;
-  if (type === 'heading-2') return 2;
-  return 3;
-}
-
-/** Map a TipTap node type string back to our BlockType. */
-function tiptapTypeToOurType(
-  nodeType: string,
-  attrs?: Record<string, unknown>,
-): BlockType {
+/** Map a TipTap node type (and attrs) back to our `BlockType`. */
+function tiptapTypeToOurType(nodeType: string, attrs: Record<string, unknown>): BlockType {
   switch (nodeType) {
     case 'paragraph':
       return 'text';
-    case 'heading': {
-      const level = (attrs?.level as number) ?? 1;
-      if (level <= 1) return 'heading-1';
+    case 'heading':
+      const level = attrs.level as number | undefined;
+      if (level === 1) return 'heading-1';
       if (level === 2) return 'heading-2';
-      return 'heading-3';
-    }
+      if (level === 3) return 'heading-3';
+      return 'heading-1';
     case 'blockquote':
       return 'quote';
     case 'codeBlock':
@@ -275,214 +118,8 @@ function tiptapTypeToOurType(
 }
 
 // ---------------------------------------------------------------------------
-// Table helpers  (TableData  ⟷  TipTap table JSON)
+// Block → TipTap node
 // ---------------------------------------------------------------------------
-
-/**
- * Convert our `TableData` structure to TipTap nested table JSON.
- *
- * TableData.rows → tableNode.content: [
- *   { type: 'tableRow', content: [
- *     { type: 'tableHeader'|'tableCell', attrs: { colspan, rowspan },
- *       content: [ { type: 'paragraph', content: RichText→inline } ] }
- *   ]}
- * ]
- */
-function tableDataToTiptap(data: TableData): JSONContent[] {
-  return data.rows.map((row) => ({
-    type: 'tableRow',
-    content: row.cells.map((cell) => {
-      const cellType = row.isHeader ? 'tableHeader' : 'tableCell';
-      const cellNode: JSONContent = {
-        type: cellType,
-        content: cell.content.map((paragraph) => {
-          const paraNode: JSONContent = {
-            type: 'paragraph',
-            content: richTextToTiptapInline(paragraph),
-          };
-          if (cell.align) {
-            paraNode.attrs = { textAlign: cell.align };
-          }
-          return paraNode;
-        }),
-      };
-      const attrs: Record<string, number> = {};
-      if (cell.colspan && cell.colspan > 1) attrs.colspan = cell.colspan;
-      if (cell.rowspan && cell.rowspan > 1) attrs.rowspan = cell.rowspan;
-      if (Object.keys(attrs).length > 0) cellNode.attrs = attrs;
-      return cellNode;
-    }),
-  }));
-}
-
-/**
- * Convert TipTap nested table JSON back to our `TableData` structure.
- */
-function tiptapToTableData(node: JSONContent): TableData {
-  const rows: TableRowData[] = [];
-
-  for (const rowNode of node.content ?? []) {
-    if (rowNode.type !== 'tableRow') continue;
-
-    const cells: TableCellData[] = [];
-    let isHeader = false;
-
-    for (const cellNode of rowNode.content ?? []) {
-      if (cellNode.type === 'tableHeader') isHeader = true;
-      if (cellNode.type !== 'tableHeader' && cellNode.type !== 'tableCell') continue;
-
-      const paragraphs: RichText[][] = [];
-      let cellAlign: 'left' | 'center' | 'right' | undefined;
-      for (const child of cellNode.content ?? []) {
-        if (child.type === 'paragraph') {
-          paragraphs.push(tiptapInlineToRichText(child.content ?? []));
-          // Capture textAlign from the first paragraph that has it.
-          const ta = child.attrs?.textAlign;
-          if (
-            !cellAlign &&
-            (ta === 'left' || ta === 'center' || ta === 'right')
-          ) {
-            cellAlign = ta;
-          }
-        }
-      }
-      // Ensure at least one paragraph so empty cells stay editable.
-      if (paragraphs.length === 0) paragraphs.push([]);
-
-      const cell: TableCellData = { content: paragraphs };
-      const colspan = cellNode.attrs?.colspan;
-      const rowspan = cellNode.attrs?.rowspan;
-      if (typeof colspan === 'number' && colspan > 1) cell.colspan = colspan;
-      if (typeof rowspan === 'number' && rowspan > 1) cell.rowspan = rowspan;
-      if (cellAlign) cell.align = cellAlign;
-      cells.push(cell);
-    }
-
-    if (cells.length > 0) {
-      rows.push({ isHeader, cells });
-    }
-  }
-
-  return { rows };
-}
-
-// ---------------------------------------------------------------------------
-// List helpers  (ListItemData[]  ⟷  TipTap bulletList/orderedList JSON)
-//
-// TipTap nests lists as:  listItem > [paragraph, (bulletList|orderedList)?]
-// where the trailing sub-list holds the indented children. Our model mirrors
-// this with `ListItemData { content, children }`. The nested sub-list kind
-// follows the parent block type (we don't store a per-level kind).
-// ---------------------------------------------------------------------------
-
-/** Convert one `ListItemData` (and its descendants) to a TipTap `listItem`. */
-function listItemToTiptap(
-  item: ListItemData,
-  listType: 'bulletList' | 'orderedList',
-): JSONContent {
-  const inline = richTextToTiptapInline(item.content ?? []);
-  const content: JSONContent[] = [
-    {
-      type: 'paragraph',
-      ...(inline.length > 0 ? { content: inline } : {}),
-    },
-  ];
-  if (item.children && item.children.length > 0) {
-    content.push({
-      type: listType,
-      content: item.children.map((child) => listItemToTiptap(child, listType)),
-    });
-  }
-  return { type: 'listItem', content };
-}
-
-/** Read the children of a TipTap bulletList/orderedList node into our model. */
-function tiptapToListItems(node: JSONContent): ListItemData[] {
-  const items: ListItemData[] = [];
-  for (const listItem of node.content ?? []) {
-    if (listItem.type !== 'listItem') continue;
-
-    const paragraphs: RichText[] = [];
-    let children: ListItemData[] = [];
-    for (const child of listItem.content ?? []) {
-      if (child.type === 'paragraph') {
-        // Merge multiple paragraphs in one item with a soft break so no text
-        // is lost (rare, but possible after some edits / markdown imports).
-        if (paragraphs.length > 0) paragraphs.push({ text: '\n', annotations: {} });
-        paragraphs.push(...tiptapInlineToRichText(child.content ?? []));
-      } else if (child.type === 'bulletList' || child.type === 'orderedList') {
-        children = children.concat(tiptapToListItems(child));
-      }
-    }
-    items.push({ content: paragraphs, children });
-  }
-  return items;
-}
-
-/**
- * Read flat legacy list content (`RichText[][]`) into the nested model.
- * Used when a document predates `properties.listItems`.
- */
-function legacyFlatListToItems(flat: RichText[][]): ListItemData[] {
-  return flat.map((content) => ({ content }));
-}
-
-/** Flatten the nested model back to legacy `RichText[][]` (top level only). */
-function listItemsToFlat(items: ListItemData[]): RichText[][] {
-  return items.map((item) => item.content ?? []);
-}
-
-// ---------------------------------------------------------------------------
-// Todo helpers  (TodoItemData[]  ⟷  TipTap taskList JSON)
-//
-// TaskItem is configured `nested: true`, so TipTap nests as:
-//   taskItem > [paragraph, taskList > taskItem...]
-// We mirror that with `TodoItemData.children`.
-// ---------------------------------------------------------------------------
-
-/** Convert one `TodoItemData` (and descendants) to a TipTap `taskItem`. */
-function todoItemToTiptap(item: TodoItemData): JSONContent {
-  // Backward compat: old documents stored `text: string` instead of richText.
-  const legacyText = (item as { text?: string }).text;
-  const rich =
-    item.richText ??
-    (legacyText ? [{ text: legacyText, annotations: {} }] : []);
-  const inline = richTextToTiptapInline(rich);
-  const content: JSONContent[] = [
-    {
-      type: 'paragraph',
-      ...(inline.length > 0 ? { content: inline } : {}),
-    },
-  ];
-  if (item.children && item.children.length > 0) {
-    content.push({
-      type: 'taskList',
-      content: item.children.map(todoItemToTiptap),
-    });
-  }
-  return { type: 'taskItem', attrs: { checked: item.checked }, content };
-}
-
-/** Read the children of a TipTap taskList node into our model. */
-function tiptapToTodoItems(node: JSONContent): TodoItemData[] {
-  const items: TodoItemData[] = [];
-  for (const taskItem of node.content ?? []) {
-    if (taskItem.type !== 'taskItem') continue;
-    const checked = taskItem.attrs?.checked === true;
-    let richText: RichText[] = [];
-    let children: TodoItemData[] = [];
-    for (const child of taskItem.content ?? []) {
-      if (child.type === 'paragraph') {
-        if (richText.length > 0) richText.push({ text: '\n', annotations: {} });
-        richText = richText.concat(tiptapInlineToRichText(child.content ?? []));
-      } else if (child.type === 'taskList') {
-        children = children.concat(tiptapToTodoItems(child));
-      }
-    }
-    items.push({ checked, richText, children });
-  }
-  return items;
-}
 
 /**
  * Convert one of our `Block`s to a TipTap `JSONContent` node.
@@ -671,6 +308,10 @@ export function ourBlocksToTiptapJSON(blocks: Block[]): JSONContent[] {
   }
   return blocks.map(ourBlockToTiptapJSON);
 }
+
+// ---------------------------------------------------------------------------
+// TipTap node → Block
+// ---------------------------------------------------------------------------
 
 /**
  * Convert a single TipTap `JSONContent` node back to our `Block` format.
