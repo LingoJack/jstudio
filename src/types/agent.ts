@@ -37,6 +37,8 @@ export interface ToolExecResult {
  * A chat message in the agent session.
  */
 export interface ChatMessage {
+  /** Unique message id (for React key and stable tracking). */
+  id?: string;
   role: 'user' | 'assistant' | 'tool' | 'system';
   content: string;
   toolCalls?: ToolCallItem[];

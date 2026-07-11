@@ -1,16 +1,19 @@
 /**
  * AgentChat — 右侧聊天区域组件
- * 
- * 结构：
- * - 顶部标题栏：返回按钮、任务标题、操作图标（历史、分享、收藏等）
- * - 中央消息区：对话消息列表
- * - 底部输入区：引导标签、输入框、权限状态、发送按钮
- * - 状态栏：AI 免责声明、模型版本、语音输入
+ *
+ * 核心设计原则（参考 remote 模块的交互模式）：
+ * 1. 用户消息发送后立即显示气泡，无需等待后端确认
+ * 2. 工具调用有独立的气泡展示（可展开/折叠参数）
+ * 3. 工具结果以独立气泡展示（成功/失败状态清晰）
+ * 4. 支持文件选择（图片上传）
+ * 5. 消息永不覆盖——使用唯一 id 追踪每条消息
+ * 6. streaming 内容实时显示，flush 到消息列表后保留完整内容
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
+import { storage } from '../../lib/core/storage';
 import {
   ArrowLeft,
   History,
@@ -21,24 +24,36 @@ import {
   Send,
   Square,
   ChevronRight,
+  Paperclip,
+  Image,
+  X,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Ban,
+  Bot,
+  User,
+  ChevronDown,
 } from 'lucide-react';
 import MarkdownMessage from './MarkdownMessage';
 import { ModelSelector } from './ModelSelector';
 import type { AgentSession, ChatMessage, ToolCallItem, AgentRunState, AgentAskRequest, AskQuestion } from '../../types/agent';
 
 // ────────────────────────────────────────────────
-// 获取任务标题（用户第一条消息）
+// Helpers
 // ────────────────────────────────────────────────
 
+let _msgIdCounter = 0;
+function nextMsgId(): string {
+  return `msg-${Date.now()}-${++_msgIdCounter}`;
+}
+
 function getSessionTitle(session: AgentSession): string {
-  // 优先使用用户第一条消息作为标题
   const firstUserMessage = session.messages.find((m) => m.role === 'user');
   if (firstUserMessage?.content) {
     const content = firstUserMessage.content.trim();
-    // 截取前 50 个字符
     return content.length > 50 ? content.slice(0, 50) + '...' : content;
   }
-  // 回退到 session.title 或默认
   return session.title || 'New Task';
 }
 
@@ -53,7 +68,7 @@ interface TopBarProps {
 
 function TopBar({ session, onBack }: TopBarProps) {
   const { t } = useI18n();
-  const [isFavorite, setIsFavorite] = useState(false); // TODO: 从 session 读取
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const title = getSessionTitle(session);
 
@@ -65,7 +80,6 @@ function TopBar({ session, onBack }: TopBarProps) {
         borderBottom: '1px solid var(--vscode-widget-border)',
       }}
     >
-      {/* 左侧：返回 + 标题 */}
       <div className="flex items-center gap-3">
         {onBack && (
           <button
@@ -87,7 +101,6 @@ function TopBar({ session, onBack }: TopBarProps) {
         </div>
       </div>
 
-      {/* 右侧：操作图标 */}
       <div className="flex items-center gap-1">
         <button
           className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
@@ -168,176 +181,105 @@ function RunStateBadge({ state }: { state: AgentRunState }) {
 }
 
 // ────────────────────────────────────────────────
-// Message Bubble
+// User Message Bubble
 // ────────────────────────────────────────────────
 
-function MessageBubble({
-  message,
+function UserMessageBubble({ content, images }: { content: string; images?: { base64: string; mediaType: string }[] }) {
+  return (
+    <div className="flex justify-end px-2 py-1">
+      <div
+        className="rounded-2xl px-4 py-2.5 text-sm max-w-[75%] overflow-x-auto"
+        style={{
+          background: 'var(--vscode-button-background)',
+          color: 'var(--vscode-button-foreground)',
+        }}
+      >
+        {/* 图片预览 */}
+        {images && images.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {images.map((img, i) => (
+              <img
+                key={i}
+                src={`data:${img.mediaType};base64,${img.base64}`}
+                alt=""
+                className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
+              />
+            ))}
+          </div>
+        )}
+        <div className="whitespace-pre-wrap break-words">{content}</div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// Assistant Message Bubble
+// ────────────────────────────────────────────────
+
+function AssistantMessageBubble({
+  content,
+  reasoningContent,
   isStreaming,
 }: {
-  message: ChatMessage;
+  content: string;
+  reasoningContent?: string;
   isStreaming?: boolean;
 }) {
   const { t } = useI18n();
-  const isUser = message.role === 'user';
-  const isTool = message.role === 'tool';
-  const isSystem = message.role === 'system';
 
-  // System message (error notifications)
-  if (isSystem) {
-    return (
-      <div className="flex justify-center px-2 py-1">
-        <div
-          className="rounded-lg px-3 py-2 text-xs max-w-[80%]"
-          style={{
-            background: 'var(--vscode-editor-background)',
-            border: '1px solid var(--vscode-widget-border)',
-            color: message.content.startsWith('Error:')
-              ? 'var(--vscode-errorForeground)'
-              : 'var(--vscode-descriptionForeground)',
-          }}
-        >
-          {message.content}
-        </div>
-      </div>
-    );
-  }
-
-  // Tool result message
-  if (isTool) {
-    return <ToolResultBubble message={message} />;
-  }
+  // 空内容且不在 streaming 中时不渲染
+  if (!content.trim() && !reasoningContent && !isStreaming) return null;
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} px-2 py-1`}>
+    <div className="flex justify-start px-2 py-1">
       <div
-        className="rounded-lg px-3 py-2 text-sm max-w-[80%] overflow-x-auto"
+        className="rounded-2xl px-4 py-2.5 text-sm max-w-[80%] overflow-x-auto"
         style={{
-          background: isUser ? 'var(--vscode-button-background)' : 'var(--vscode-editor-background)',
-          color: isUser
-            ? 'var(--vscode-button-foreground)'
-            : 'var(--vscode-editor-foreground)',
-          border: isUser ? 'none' : '1px solid var(--vscode-widget-border)',
+          background: 'var(--vscode-editor-background)',
+          color: 'var(--vscode-editor-foreground)',
+          border: '1px solid var(--vscode-widget-border)',
         }}
       >
-        {/* Reasoning content (collapsible) */}
-        {message.reasoningContent && (
+        {/* 推理内容（可折叠） */}
+        {reasoningContent && (
           <details className="mb-2">
             <summary
-              className="text-xs cursor-pointer"
+              className="text-xs cursor-pointer select-none"
               style={{ color: 'var(--vscode-descriptionForeground)' }}
             >
               {t('agent.thinking')}
             </summary>
             <div
-              className="mt-1 text-xs whitespace-pre-wrap opacity-70"
-              style={{ color: 'var(--vscode-descriptionForeground)' }}
+              className="mt-1 text-xs whitespace-pre-wrap opacity-70 pl-3 border-l-2"
+              style={{
+                color: 'var(--vscode-descriptionForeground)',
+                borderColor: 'var(--vscode-terminal-ansiBlue)',
+              }}
             >
-              {message.reasoningContent}
+              {reasoningContent}
             </div>
           </details>
         )}
 
-        {/* Main content */}
-        {isUser ? (
-          <div
-            className={`whitespace-pre-wrap break-words ${isStreaming && !message.content ? 'animate-pulse' : ''}`}
-          >
-            {message.content || (isStreaming ? '' : '')}
-          </div>
-        ) : (
-          <MarkdownMessage>{message.content}</MarkdownMessage>
-        )}
-
-        {/* Streaming cursor */}
-        {isStreaming && !message.content && <span className="animate-pulse">▋</span>}
+        {/* 主要内容 */}
+        {content.trim() ? (
+          <MarkdownMessage>{content}</MarkdownMessage>
+        ) : isStreaming ? (
+          <span className="animate-pulse" style={{ color: 'var(--vscode-descriptionForeground)' }}>
+            ▋
+          </span>
+        ) : null}
       </div>
     </div>
   );
 }
 
 // ────────────────────────────────────────────────
-// Tool Result Bubble
+// Tool Call Bubble (独立气泡，参考 remote 的 ToolCallMsg)
 // ────────────────────────────────────────────────
 
-function ToolResultBubble({ message }: { message: ChatMessage }) {
-  const { t } = useI18n();
-  const isError = message.toolResult?.isError ?? false;
-  const status = message.toolResult?.status ?? 'executed';
-
-  const statusLabel = {
-    executed: t('agent.toolExecuted'),
-    failed: t('agent.toolFailed'),
-    rejected: t('agent.toolRejected'),
-    auto_approved: t('agent.toolAutoApproved'),
-  }[status] || status;
-
-  return (
-    <div className="flex justify-start px-2 py-1">
-      <div
-        className="rounded-lg px-3 py-2 text-xs max-w-[80%] overflow-hidden"
-        style={{
-          background: isError
-            ? 'var(--vscode-inputValidation-errorBackground, var(--vscode-editor-background))'
-            : 'var(--vscode-editor-background)',
-          border: isError
-            ? '1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground))'
-            : '1px solid var(--vscode-widget-border)',
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="font-medium" style={{ color: 'var(--vscode-foreground)' }}>
-            {t('agent.toolResult')}
-          </span>
-          <span
-            className="text-xs px-1.5 py-0.5 rounded"
-            style={{
-              background: isError
-                ? 'var(--vscode-inputValidation-errorBackground)'
-                : 'var(--vscode-button-background)',
-              color: isError
-                ? 'var(--vscode-errorForeground)'
-                : 'var(--vscode-button-foreground)',
-            }}
-          >
-            {statusLabel}
-          </span>
-        </div>
-
-        {/* Content */}
-        <pre
-          className="whitespace-pre-wrap break-words font-mono text-xs overflow-x-auto max-h-48"
-          style={{
-            color: isError ? 'var(--vscode-errorForeground)' : 'var(--vscode-descriptionForeground)',
-          }}
-        >
-          {message.content}
-        </pre>
-
-        {/* Images */}
-        {message.images && message.images.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {message.images.map((img, i) => (
-              <img
-                key={i}
-                src={`data:${img.mediaType};base64,${img.base64}`}
-                alt="Tool result image"
-                className="max-w-32 max-h-32 rounded"
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────
-// Tool Call Confirmation
-// ────────────────────────────────────────────────
-
-function ToolCallConfirm({
+function ToolCallBubble({
   toolCalls,
   sessionId,
   onApprove,
@@ -361,147 +303,313 @@ function ToolCallConfirm({
   // Plan review mode
   if (pendingPlan && toolCalls.some((tc) => tc.name === 'ExitPlanMode')) {
     return (
-      <div
-        className="rounded-lg px-4 py-3 max-w-[80%]"
-        style={{
-          background: 'var(--vscode-menu-background)',
-          border: '1px solid var(--vscode-menu-border)',
-        }}
-      >
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vscode-foreground)' }}>
-          {t('agent.planTitle')}
-        </div>
-        <pre
-          className="text-xs mb-3 whitespace-pre-wrap break-words font-mono overflow-x-auto max-h-48"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
+      <div className="flex justify-start px-2 py-1">
+        <div
+          className="rounded-xl px-4 py-3 max-w-[80%]"
+          style={{
+            background: 'var(--vscode-menu-background)',
+            border: '1px solid var(--vscode-menu-border)',
+          }}
         >
-          {pendingPlan.plan}
-        </pre>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onPlanDecision?.(sessionId, 'approve')}
-            className="px-3 py-1.5 rounded text-xs transition-colors"
+          <div className="flex items-center gap-2 mb-2">
+            <Bot className="w-4 h-4" style={{ color: 'var(--vscode-terminal-ansiBlue)' }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--vscode-foreground)' }}>
+              {t('agent.planTitle')}
+            </span>
+          </div>
+          <pre
+            className="text-xs mb-3 whitespace-pre-wrap break-words font-mono overflow-x-auto max-h-48 rounded-lg p-2"
             style={{
-              background: 'var(--vscode-button-background)',
-              color: 'var(--vscode-button-foreground)',
+              color: 'var(--vscode-descriptionForeground)',
+              background: 'var(--vscode-editor-background)',
+              border: '1px solid var(--vscode-widget-border)',
             }}
           >
-            {t('agent.planApprove')}
-          </button>
-          <button
-            onClick={() => onPlanDecision?.(sessionId, 'approveAndClearContext')}
-            className="px-3 py-1.5 rounded text-xs transition-colors"
-            style={{
-              background: 'var(--vscode-button-secondaryBackground)',
-              color: 'var(--vscode-button-secondaryForeground)',
-            }}
-          >
-            {t('agent.planApproveClear')}
-          </button>
-          <button
-            onClick={() => onPlanDecision?.(sessionId, 'reject')}
-            className="px-3 py-1.5 rounded text-xs transition-colors"
-            style={{
-              background: 'var(--vscode-inputValidation-errorBackground)',
-              color: 'var(--vscode-errorForeground)',
-            }}
-          >
-            {t('agent.planReject')}
-          </button>
+            {pendingPlan.plan}
+          </pre>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onPlanDecision?.(sessionId, 'approve')}
+              className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-90"
+              style={{
+                background: 'var(--vscode-button-background)',
+                color: 'var(--vscode-button-foreground)',
+              }}
+            >
+              {t('agent.planApprove')}
+            </button>
+            <button
+              onClick={() => onPlanDecision?.(sessionId, 'approveAndClearContext')}
+              className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-90"
+              style={{
+                background: 'var(--vscode-button-secondaryBackground)',
+                color: 'var(--vscode-button-secondaryForeground)',
+              }}
+            >
+              {t('agent.planApproveClear')}
+            </button>
+            <button
+              onClick={() => onPlanDecision?.(sessionId, 'reject')}
+              className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-90"
+              style={{
+                background: 'var(--vscode-inputValidation-errorBackground)',
+                color: 'var(--vscode-errorForeground)',
+              }}
+            >
+              {t('agent.planReject')}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Regular tool confirmation
   return (
-    <div
-      className="rounded-lg px-4 py-3 max-w-[80%]"
-      style={{
-        background: 'var(--vscode-menu-background)',
-        border: '1px solid var(--vscode-menu-border)',
-      }}
-    >
-      <div className="text-xs font-medium mb-2" style={{ color: 'var(--vscode-foreground)' }}>
-        {t('agent.toolCall')}
-      </div>
-      {toolCalls.map((tc) => {
-        const isDangerous = tc.isDangerous ?? tc.requiresConfirmation;
-        return (
-          <div key={tc.id} className="mb-3 last:mb-0">
-            {/* Tool header */}
-            <div
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => setExpandedTool(expandedTool === tc.id ? null : tc.id)}
-            >
-              <ChevronRight
-                className={`w-3 h-3 transition-transform ${expandedTool === tc.id ? 'rotate-90' : ''}`}
-                style={{ color: 'var(--vscode-descriptionForeground)' }}
-              />
-              <span
-                className="text-xs font-mono"
-                style={{ color: 'var(--vscode-textPreformat-foreground)' }}
+    <div className="flex justify-start px-2 py-1">
+      <div
+        className="rounded-xl px-4 py-3 max-w-[80%]"
+        style={{
+          background: 'var(--vscode-menu-background)',
+          border: '1px solid var(--vscode-menu-border)',
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Bot className="w-4 h-4" style={{ color: 'var(--vscode-terminal-ansiBlue)' }} />
+          <span className="text-xs font-medium" style={{ color: 'var(--vscode-foreground)' }}>
+            {t('agent.toolCall')}
+          </span>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full"
+            style={{
+              background: 'var(--vscode-badge-background)',
+              color: 'var(--vscode-badge-foreground)',
+            }}
+          >
+            {toolCalls.length}
+          </span>
+        </div>
+
+        {toolCalls.map((tc) => {
+          const isDangerous = tc.isDangerous ?? tc.requiresConfirmation;
+          const isExpanded = expandedTool === tc.id;
+
+          return (
+            <div key={tc.id} className="mb-2 last:mb-0">
+              {/* Tool header — 点击展开/折叠 */}
+              <button
+                onClick={() => setExpandedTool(isExpanded ? null : tc.id)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+                style={{ color: 'var(--vscode-foreground)' }}
               >
-                {tc.name}
-              </span>
-              {isDangerous && (
+                <ChevronRight
+                  className={`w-3 h-3 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                  style={{ color: 'var(--vscode-descriptionForeground)' }}
+                />
                 <span
-                  className="text-xs px-1.5 py-0.5 rounded"
+                  className="font-mono font-medium"
+                  style={{ color: 'var(--vscode-textPreformat-foreground)' }}
+                >
+                  {tc.name}
+                </span>
+                {isDangerous && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded ml-auto"
+                    style={{
+                      background: 'var(--vscode-inputValidation-warningBackground)',
+                      color: 'var(--vscode-inputValidation-warningForeground)',
+                    }}
+                  >
+                    {t('agent.toolDangerous')}
+                  </span>
+                )}
+              </button>
+
+              {/* Arguments — 展开时显示 */}
+              {isExpanded && (
+                <pre
+                  className="text-xs mt-1 ml-7 whitespace-pre-wrap break-words font-mono overflow-x-auto max-h-40 rounded-lg p-2"
                   style={{
-                    background: 'var(--vscode-inputValidation-warningBackground)',
-                    color: 'var(--vscode-inputValidation-warningForeground)',
+                    color: 'var(--vscode-descriptionForeground)',
+                    background: 'var(--vscode-editor-background)',
+                    border: '1px solid var(--vscode-widget-border)',
                   }}
                 >
-                  {t('agent.toolDangerous')}
-                </span>
+                  {tc.arguments}
+                </pre>
               )}
-            </div>
 
-            {/* Arguments */}
-            {expandedTool === tc.id && (
-              <pre
-                className="text-xs mt-1 ml-5 whitespace-pre-wrap break-words font-mono overflow-x-auto max-h-32"
-                style={{ color: 'var(--vscode-descriptionForeground)' }}
-              >
-                {tc.arguments}
-              </pre>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2 mt-2 ml-5">
-              <button
-                onClick={() =>
-                  onApprove(sessionId, tc.id, JSON.stringify({ approved: true }), false)
-                }
-                className="px-3 py-1 rounded text-xs transition-colors"
-                style={{
-                  background: 'var(--vscode-button-background)',
-                  color: 'var(--vscode-button-foreground)',
-                }}
-              >
-                {t('agent.approveTool')}
-              </button>
-              <button
-                onClick={() =>
-                  onReject(
-                    sessionId,
-                    tc.id,
-                    JSON.stringify({ approved: false, reason: 'user_rejected' }),
-                    true,
-                  )
-                }
-                className="px-3 py-1 rounded text-xs transition-colors"
-                style={{
-                  background: 'var(--vscode-button-secondaryBackground)',
-                  color: 'var(--vscode-button-secondaryForeground)',
-                }}
-              >
-                {t('agent.rejectTool')}
-              </button>
+              {/* 批准/拒绝按钮 */}
+              <div className="flex gap-2 mt-2 ml-7">
+                <button
+                  onClick={() =>
+                    onApprove(sessionId, tc.id, JSON.stringify({ approved: true }), false)
+                  }
+                  className="px-3 py-1 rounded-lg text-xs transition-colors hover:opacity-90"
+                  style={{
+                    background: 'var(--vscode-button-background)',
+                    color: 'var(--vscode-button-foreground)',
+                  }}
+                >
+                  {t('agent.approveTool')}
+                </button>
+                <button
+                  onClick={() =>
+                    onReject(
+                      sessionId,
+                      tc.id,
+                      JSON.stringify({ approved: false, reason: 'user_rejected' }),
+                      true,
+                    )
+                  }
+                  className="px-3 py-1 rounded-lg text-xs transition-colors hover:opacity-90"
+                  style={{
+                    background: 'var(--vscode-button-secondaryBackground)',
+                    color: 'var(--vscode-button-secondaryForeground)',
+                  }}
+                >
+                  {t('agent.rejectTool')}
+                </button>
+              </div>
             </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// Tool Result Bubble (独立气泡，参考 remote 的 ToolResultMsg)
+// ────────────────────────────────────────────────
+
+function ToolResultBubble({ message }: { message: ChatMessage }) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+
+  const isError = message.toolResult?.isError ?? false;
+  const status = message.toolResult?.status ?? 'executed';
+
+  const statusConfig = {
+    executed: { label: t('agent.toolExecuted'), icon: CheckCircle2, color: 'var(--vscode-terminal-ansiGreen)' },
+    failed: { label: t('agent.toolFailed'), icon: AlertCircle, color: 'var(--vscode-errorForeground)' },
+    rejected: { label: t('agent.toolRejected'), icon: Ban, color: 'var(--vscode-descriptionForeground)' },
+    auto_approved: { label: t('agent.toolAutoApproved'), icon: CheckCircle2, color: 'var(--vscode-terminal-ansiGreen)' },
+  }[status] || { label: status, icon: Loader2, color: 'var(--vscode-descriptionForeground)' };
+
+  const StatusIcon = statusConfig.icon;
+
+  // 内容为空且无图片时不渲染
+  if (!message.content.trim() && (!message.images || message.images.length === 0)) return null;
+
+  return (
+    <div className="flex justify-start px-2 py-1">
+      <div
+        className="rounded-xl px-4 py-3 max-w-[80%] overflow-hidden"
+        style={{
+          background: 'var(--vscode-editor-background)',
+          border: `1px solid ${
+            isError
+              ? 'var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground))'
+              : 'var(--vscode-widget-border)'
+          }`,
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-2">
+          <StatusIcon className="w-3.5 h-3.5" style={{ color: statusConfig.color }} />
+          <span className="text-xs font-medium" style={{ color: 'var(--vscode-foreground)' }}>
+            {t('agent.toolResult')}
+          </span>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full"
+            style={{
+              background: isError
+                ? 'var(--vscode-inputValidation-errorBackground)'
+                : 'var(--vscode-badge-background)',
+              color: isError
+                ? 'var(--vscode-errorForeground)'
+                : 'var(--vscode-badge-foreground)',
+            }}
+          >
+            {statusConfig.label}
+          </span>
+          {message.content.trim() && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="ml-auto flex items-center gap-1 text-[10px] hover:opacity-80"
+              style={{ color: 'var(--vscode-descriptionForeground)' }}
+            >
+              {expanded ? t('agent.cancel') : t('agent.history')}
+              <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            </button>
+          )}
+        </div>
+
+        {/* Content — 默认折叠，点击展开 */}
+        {expanded && message.content.trim() && (
+          <pre
+            className="whitespace-pre-wrap break-words font-mono text-xs overflow-x-auto max-h-48 rounded-lg p-2 mb-2"
+            style={{
+              color: isError ? 'var(--vscode-errorForeground)' : 'var(--vscode-descriptionForeground)',
+              background: 'var(--vscode-menu-background)',
+              border: '1px solid var(--vscode-widget-border)',
+            }}
+          >
+            {message.content}
+          </pre>
+        )}
+
+        {/* Images */}
+        {message.images && message.images.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {message.images.map((img, i) => (
+              <img
+                key={i}
+                src={`data:${img.mediaType};base64,${img.base64}`}
+                alt="Tool result"
+                className="max-w-32 max-h-32 rounded-lg object-cover"
+              />
+            ))}
           </div>
-        );
-      })}
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// System Message Bubble
+// ────────────────────────────────────────────────
+
+function SystemMessageBubble({ content }: { content: string }) {
+  const isError = content.startsWith('Error:');
+  return (
+    <div className="flex justify-center px-2 py-1">
+      <div
+        className="rounded-lg px-4 py-2 text-xs max-w-[80%]"
+        style={{
+          background: isError
+            ? 'var(--vscode-inputValidation-errorBackground)'
+            : 'var(--vscode-editor-background)',
+          border: `1px solid ${
+            isError
+              ? 'var(--vscode-inputValidation-errorBorder)'
+              : 'var(--vscode-widget-border)'
+          }`,
+          color: isError
+            ? 'var(--vscode-errorForeground)'
+            : 'var(--vscode-descriptionForeground)',
+        }}
+      >
+        {isError ? (
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>{content.replace(/^Error:\s*/, '')}</span>
+          </div>
+        ) : (
+          content
+        )}
+      </div>
     </div>
   );
 }
@@ -536,77 +644,82 @@ function AskConfirm({
   const allAnswered = askRequest.questions.every((_, idx) => answers[idx.toString()]);
 
   return (
-    <div
-      className="rounded-lg px-4 py-3 max-w-[80%]"
-      style={{
-        background: 'var(--vscode-menu-background)',
-        border: '1px solid var(--vscode-menu-border)',
-      }}
-    >
-      <div className="text-xs font-medium mb-3" style={{ color: 'var(--vscode-foreground)' }}>
-        {t('agent.askTitle')}
-      </div>
-      {askRequest.questions.map((q, idx) => (
-        <div key={idx} className="mb-4 last:mb-0">
-          <div className="text-xs mb-2" style={{ color: 'var(--vscode-foreground)' }}>
-            {q.question}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {q.options.map((opt, optIdx) => (
-              <button
-                key={optIdx}
-                onClick={() => handleOptionSelect(idx, opt.label)}
-                className={`px-3 py-1.5 rounded text-xs transition-colors ${
-                  answers[idx.toString()] === opt.label
-                    ? 'ring-1 ring-[var(--vscode-focusBorder)]'
-                    : ''
-                }`}
-                style={{
-                  background:
-                    answers[idx.toString()] === opt.label
-                      ? 'var(--vscode-button-background)'
-                      : 'var(--vscode-button-secondaryBackground)',
-                  color:
-                    answers[idx.toString()] === opt.label
-                      ? 'var(--vscode-button-foreground)'
-                      : 'var(--vscode-button-secondaryForeground)',
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-      <button
-        onClick={handleSubmit}
-        disabled={!allAnswered}
-        className="mt-2 px-3 py-1.5 rounded text-xs transition-colors disabled:opacity-40"
+    <div className="flex justify-start px-2 py-1">
+      <div
+        className="rounded-xl px-4 py-3 max-w-[80%]"
         style={{
-          background: 'var(--vscode-button-background)',
-          color: 'var(--vscode-button-foreground)',
+          background: 'var(--vscode-menu-background)',
+          border: '1px solid var(--vscode-menu-border)',
         }}
       >
-        {t('agent.askSubmit')}
-      </button>
+        <div className="flex items-center gap-2 mb-3">
+          <Bot className="w-4 h-4" style={{ color: 'var(--vscode-terminal-ansiBlue)' }} />
+          <span className="text-xs font-medium" style={{ color: 'var(--vscode-foreground)' }}>
+            {t('agent.askTitle')}
+          </span>
+        </div>
+        {askRequest.questions.map((q, idx) => (
+          <div key={idx} className="mb-4 last:mb-0">
+            <div className="text-xs mb-2" style={{ color: 'var(--vscode-foreground)' }}>
+              {q.question}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {q.options.map((opt, optIdx) => (
+                <button
+                  key={optIdx}
+                  onClick={() => handleOptionSelect(idx, opt.label)}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                    answers[idx.toString()] === opt.label ? 'ring-1 ring-[var(--vscode-focusBorder)]' : ''
+                  }`}
+                  style={{
+                    background:
+                      answers[idx.toString()] === opt.label
+                        ? 'var(--vscode-button-background)'
+                        : 'var(--vscode-button-secondaryBackground)',
+                    color:
+                      answers[idx.toString()] === opt.label
+                        ? 'var(--vscode-button-foreground)'
+                        : 'var(--vscode-button-secondaryForeground)',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <button
+          onClick={handleSubmit}
+          disabled={!allAnswered}
+          className="mt-2 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40 hover:opacity-90"
+          style={{
+            background: 'var(--vscode-button-background)',
+            color: 'var(--vscode-button-foreground)',
+          }}
+        >
+          {t('agent.askSubmit')}
+        </button>
+      </div>
     </div>
   );
 }
 
 // ────────────────────────────────────────────────
-// Input Area (Floating Glass Style - Simplified)
+// Input Area (Floating Glass Style)
 // ────────────────────────────────────────────────
 
 interface InputAreaProps {
   session: AgentSession;
-  onSend: (message: string) => void;
+  onSend: (message: string, images?: { base64: string; mediaType: string }[]) => void;
   onCancel: () => void;
 }
 
 function InputArea({ session, onSend, onCancel }: InputAreaProps) {
   const { t } = useI18n();
   const [input, setInput] = useState('');
+  const [images, setImages] = useState<{ base64: string; mediaType: string }[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
 
   const isRunning =
@@ -615,10 +728,11 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
     session.runState !== 'cancelled';
 
   const handleSend = useCallback(() => {
-    if (!input.trim()) return;
-    onSend(input.trim());
+    if (!input.trim() && images.length === 0) return;
+    onSend(input.trim(), images.length > 0 ? images : undefined);
     setInput('');
-  }, [input, onSend]);
+    setImages([]);
+  }, [input, images, onSend]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -630,9 +744,52 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
     [handleSend],
   );
 
+  const handleFileSelect = useCallback(async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        multiple: true,
+        filters: [
+          { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] },
+          { name: 'All files', extensions: ['*'] },
+        ],
+      });
+
+      if (!selected) return;
+      const files = Array.isArray(selected) ? selected : [selected];
+
+      for (const filePath of files) {
+        try {
+          const bytes = await storage.readFileBytes(filePath);
+          const ext = filePath.split('.').pop()?.toLowerCase() || 'png';
+          const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+          // Convert number[] to base64
+          const uint8 = new Uint8Array(bytes);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8.length; i += chunkSize) {
+            binary += String.fromCharCode(...uint8.slice(i, i + chunkSize));
+          }
+          const base64 = btoa(binary);
+          setImages((prev) => [
+            ...prev,
+            { base64, mediaType: mime },
+          ]);
+        } catch (e) {
+          console.error('Failed to read file:', e);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to open file picker:', e);
+    }
+  }, []);
+
+  const removeImage = useCallback((index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   return (
     <div className="shrink-0 px-4 pb-4">
-      {/* 悬浮液态玻璃块 */}
       <div
         className="relative rounded-2xl border border-[var(--vscode-menu-border)]"
         style={{
@@ -642,6 +799,31 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
           boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
         }}
       >
+        {/* 图片预览 */}
+        {images.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-4 pt-3">
+            {images.map((img, i) => (
+              <div key={i} className="relative group">
+                <img
+                  src={`data:${img.mediaType};base64,${img.base64}`}
+                  alt=""
+                  className="w-16 h-16 rounded-lg object-cover"
+                />
+                <button
+                  onClick={() => removeImage(i)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    background: 'var(--vscode-button-background)',
+                    color: 'var(--vscode-button-foreground)',
+                  }}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* 输入框 */}
         <textarea
           ref={inputRef}
@@ -657,36 +839,71 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
           }}
         />
 
-        {/* 底部状态栏：权限 + 取消按钮 + 发送按钮 */}
+        {/* 底部状态栏 */}
         <div
           className="flex items-center justify-between px-4 py-2 text-xs"
-          style={{
-            color: 'var(--vscode-descriptionForeground)',
-          }}
+          style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           <div className="flex items-center gap-2">
             <ModelSelector />
+            {/* 文件选择按钮 */}
+            <button
+              onClick={handleFileSelect}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+              title={t('agent.reference')}
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+            </button>
+            {/* 隐藏的文件输入 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const files = e.target.files;
+                if (!files) return;
+                for (let i = 0; i < files.length; i++) {
+                  const file = files[i];
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const result = reader.result as string;
+                    const base64 = result.split(',')[1];
+                    setImages((prev) => [
+                      ...prev,
+                      { base64, mediaType: file.type || 'image/png' },
+                    ]);
+                  };
+                  reader.readAsDataURL(file);
+                }
+                e.target.value = '';
+              }}
+            />
             <span>{session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}</span>
           </div>
           <div className="flex items-center gap-2">
             {isRunning && (
               <button
                 onClick={onCancel}
-                className="flex items-center gap-1 px-2 py-1 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:bg-[rgba(255,255,255,0.1)]"
                 style={{ color: 'var(--vscode-errorForeground)' }}
               >
                 <Square className="w-3 h-3" />
                 <span>{t('agent.cancel')}</span>
               </button>
             )}
-            {/* 发送按钮 - 右下角 */}
             <button
               onClick={handleSend}
-              disabled={!input.trim()}
-              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-30"
+              disabled={!input.trim() && images.length === 0}
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-30 hover:opacity-90"
               style={{
-                background: input.trim() ? 'var(--vscode-button-background)' : 'rgba(255,255,255,0.1)',
-                color: input.trim() ? 'var(--vscode-button-foreground)' : 'var(--vscode-descriptionForeground)',
+                background: input.trim() || images.length > 0
+                  ? 'var(--vscode-button-background)'
+                  : 'rgba(255,255,255,0.1)',
+                color: input.trim() || images.length > 0
+                  ? 'var(--vscode-button-foreground)'
+                  : 'var(--vscode-descriptionForeground)',
               }}
               title={t('agent.send')}
             >
@@ -697,6 +914,115 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
       </div>
     </div>
   );
+}
+
+// ────────────────────────────────────────────────
+// Streaming Message (独立组件，处理实时 streaming)
+// ────────────────────────────────────────────────
+
+function StreamingMessage({
+  content,
+  reasoningContent,
+  runState,
+}: {
+  content: string;
+  reasoningContent?: string;
+  runState: AgentRunState;
+}) {
+  const { t } = useI18n();
+
+  // 如果正在 streaming 且有内容，显示为 assistant 气泡
+  if (runState === 'streaming' && content.trim()) {
+    return <AssistantMessageBubble content={content} reasoningContent={reasoningContent} isStreaming />;
+  }
+
+  // 如果正在 thinking（还没有内容），显示 thinking 指示器
+  if (runState === 'thinking') {
+    return (
+      <div className="flex justify-start px-2 py-1">
+        <div
+          className="rounded-2xl px-4 py-2.5 text-sm"
+          style={{
+            background: 'var(--vscode-editor-background)',
+            border: '1px solid var(--vscode-widget-border)',
+            color: 'var(--vscode-descriptionForeground)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span className="text-xs">{t('agent.thinking')}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ────────────────────────────────────────────────
+// Status Indicator
+// ────────────────────────────────────────────────
+
+function StatusIndicator({ session }: { session: AgentSession }) {
+  const { t } = useI18n();
+  const { runState, retryInfo } = session;
+
+  if (runState === 'compacting') {
+    return (
+      <div className="flex justify-center px-2 py-1">
+        <div
+          className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg"
+          style={{
+            background: 'var(--vscode-editor-background)',
+            border: '1px solid var(--vscode-widget-border)',
+            color: 'var(--vscode-descriptionForeground)',
+          }}
+        >
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>{t('agent.compacting')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (runState === 'retrying' && retryInfo) {
+    return (
+      <div className="flex justify-center px-2 py-1">
+        <div
+          className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg"
+          style={{
+            background: 'var(--vscode-editor-background)',
+            border: '1px solid var(--vscode-widget-border)',
+            color: 'var(--vscode-descriptionForeground)',
+          }}
+        >
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>{t('agent.retrying')} ({retryInfo.attempt}/{retryInfo.maxAttempts})</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (runState === 'error') {
+    return (
+      <div className="flex justify-center px-2 py-1">
+        <div
+          className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg"
+          style={{
+            background: 'var(--vscode-inputValidation-errorBackground)',
+            border: '1px solid var(--vscode-inputValidation-errorBorder)',
+            color: 'var(--vscode-errorForeground)',
+          }}
+        >
+          <AlertCircle className="w-3 h-3" />
+          <span>{t('agent.error')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ────────────────────────────────────────────────
@@ -718,14 +1044,14 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
   const submitAgentPlanDecision = useStore((s) => s.submitAgentPlanDecision);
   const submitAgentAskAnswer = useStore((s) => s.submitAgentAskAnswer);
 
-  // Auto-scroll
+  // Auto-scroll to bottom whenever content changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session.messages, session.streamingContent]);
+  }, [session.messages, session.streamingContent, session.pendingToolCalls, session.pendingPlan, session.pendingAsk, session.runState]);
 
   const handleSend = useCallback(
-    (message: string) => {
-      sendAgentMessage(session.id, message);
+    (message: string, images?: { base64: string; mediaType: string }[]) => {
+      sendAgentMessage(session.id, message, images);
     },
     [session.id, sendAgentMessage],
   );
@@ -736,30 +1062,61 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* 顶部标题栏 */}
+      {/* Top bar */}
       <TopBar session={session} onBack={onBack} />
 
-      {/* 消息区 */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
-        {session.messages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} />
-        ))}
+      {/* Messages area */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
+        {session.messages.map((msg, i) => {
+          // 根据消息角色选择对应的气泡组件
+          switch (msg.role) {
+            case 'user':
+              return (
+                <UserMessageBubble
+                  key={msg.id || `msg-${i}`}
+                  content={msg.content}
+                  images={msg.images}
+                />
+              );
+            case 'assistant':
+              return (
+                <AssistantMessageBubble
+                  key={msg.id || `msg-${i}`}
+                  content={msg.content}
+                  reasoningContent={msg.reasoningContent}
+                />
+              );
+            case 'tool':
+              return (
+                <ToolResultBubble
+                  key={msg.id || `msg-${i}`}
+                  message={msg}
+                />
+              );
+            case 'system':
+              return (
+                <SystemMessageBubble
+                  key={msg.id || `msg-${i}`}
+                  content={msg.content}
+                />
+              );
+            default:
+              return null;
+          }
+        })}
 
-        {/* Streaming content */}
+        {/* Streaming message (实时显示 streaming 内容) */}
         {(session.runState === 'streaming' || session.runState === 'thinking') && (
-          <MessageBubble
-            message={{
-              role: 'assistant',
-              content: session.streamingContent,
-              reasoningContent: session.streamingReasoningContent || undefined,
-            }}
-            isStreaming
+          <StreamingMessage
+            content={session.streamingContent}
+            reasoningContent={session.streamingReasoningContent}
+            runState={session.runState}
           />
         )}
 
-        {/* Pending tool calls */}
+        {/* Pending tool calls (需要用户审批的工具) */}
         {session.pendingToolCalls.length > 0 && (
-          <ToolCallConfirm
+          <ToolCallBubble
             toolCalls={session.pendingToolCalls}
             sessionId={session.id}
             onApprove={submitAgentToolResult}
@@ -778,46 +1135,14 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
           />
         )}
 
-        {/* Status indicators */}
-        {session.runState === 'thinking' && (
-          <div
-            className="flex items-center gap-2 text-xs"
-            style={{ color: 'var(--vscode-descriptionForeground)' }}
-          >
-            <span className="animate-pulse">{t('agent.thinking')}</span>
-          </div>
-        )}
-        {session.runState === 'compacting' && (
-          <div
-            className="flex items-center gap-2 text-xs"
-            style={{ color: 'var(--vscode-descriptionForeground)' }}
-          >
-            <span>{t('agent.compacting')}</span>
-          </div>
-        )}
-        {session.runState === 'retrying' && session.retryInfo && (
-          <div
-            className="flex items-center gap-2 text-xs"
-            style={{ color: 'var(--vscode-descriptionForeground)' }}
-          >
-            <span>
-              {t('agent.retrying')} ({session.retryInfo.attempt}/{session.retryInfo.maxAttempts})
-            </span>
-          </div>
-        )}
-        {session.runState === 'error' && (
-          <div
-            className="flex items-center gap-2 text-xs"
-            style={{ color: 'var(--vscode-errorForeground)' }}
-          >
-            <span>{t('agent.error')}</span>
-          </div>
-        )}
+        {/* Status indicators (compacting, retrying, error) */}
+        <StatusIndicator session={session} />
 
+        {/* Invisible anchor for auto-scroll */}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 输入区 */}
+      {/* Input area */}
       <InputArea session={session} onSend={handleSend} onCancel={handleCancel} />
     </div>
   );

@@ -133,7 +133,9 @@ export function createAgentSlice(
       try {
         // Add user message locally (always, regardless of runState)
         // Backend handles queuing - if agent is running, message will be processed in next round
+        const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const userMsg: ChatMessage = {
+          id: msgId,
           role: 'user',
           content: text,
           images,
@@ -370,9 +372,15 @@ async function setupAgentEventListeners(
   const updateSession = (
     updater: (session: AgentSession) => Partial<AgentSession>,
   ) => {
+    // 使用 get() 获取最新 state，避免闭包过期
+    const currentState = get();
+    const currentSession = currentState.agentSessions.find((s) => s.id === sessionId);
+    if (!currentSession) return;
+
+    const updates = updater(currentSession);
     set((s) => ({
       agentSessions: s.agentSessions.map((session) =>
-        session.id === sessionId ? { ...session, ...updater(session) } : session,
+        session.id === sessionId ? { ...session, ...updates } : session,
       ),
     }));
   };
@@ -408,7 +416,9 @@ async function setupAgentEventListeners(
         const newMessages = [...session.messages];
         // Add streaming content as assistant message if any
         if (session.streamingContent.trim()) {
+          const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           newMessages.push({
+            id: msgId,
             role: 'assistant',
             content: session.streamingContent,
             reasoningContent: session.streamingReasoningContent || undefined,
@@ -434,7 +444,9 @@ async function setupAgentEventListeners(
 
       // Add tool result message to chat
       updateSession((session) => {
+        const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const toolMsg: ChatMessage = {
+          id: msgId,
           role: 'tool',
           content,
           toolCallId,
@@ -474,7 +486,9 @@ async function setupAgentEventListeners(
         const newMessages = [...session.messages];
         // Flush any remaining streaming content
         if (session.streamingContent.trim()) {
+          const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           newMessages.push({
+            id: msgId,
             role: 'assistant',
             content: session.streamingContent,
             reasoningContent: session.streamingReasoningContent || undefined,
