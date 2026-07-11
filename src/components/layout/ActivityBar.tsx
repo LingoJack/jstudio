@@ -41,10 +41,15 @@ export default function ActivityBar() {
   const isTerminalActive =
     !isSettingsOpen && activeSidebarView === 'terminal';
 
+  // Whether the agent icon should show as active (like terminal).
+  const isAgentActive =
+    !isSettingsOpen && activeSidebarView === 'agent';
+
   /** Determine whether a given entry should render as active. */
   function isActive(id: ActivityItemId): boolean {
     if (id === 'documents') return isDocsActive;
     if (id === 'terminal') return isTerminalActive;
+    if (id === 'agent') return isAgentActive;
     if (id === 'settings') return isSettingsOpen;
     return false;
   }
@@ -72,6 +77,10 @@ export default function ActivityBar() {
         // will auto-create the first session.
         setActiveSidebarView('terminal');
       }
+    } else if (id === 'agent') {
+      setSettingsOpen(false);
+      // Switch to agent view; AgentPanel will auto-create sessions on init.
+      setActiveSidebarView('agent');
     } else if (id === 'settings') {
       setSettingsOpen(true);
     }

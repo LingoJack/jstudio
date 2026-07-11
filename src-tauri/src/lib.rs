@@ -71,6 +71,15 @@ pub fn run() {
             commands::storage::settings::write_settings,
             commands::storage::settings::read_agent_config,
             commands::storage::settings::write_agent_config,
+            // ── agent (j-agent integration) ──
+            commands::agent::agent_list_sessions,
+            commands::agent::agent_create_session,
+            commands::agent::agent_load_session,
+            commands::agent::agent_delete_session,
+            commands::agent::agent_start_session,
+            commands::agent::agent_send_message,
+            commands::agent::agent_tool_result,
+            commands::agent::agent_cancel,
             // ── storage: assets ──
             commands::storage::assets::save_doc_asset,
             commands::storage::assets::delete_doc_asset,

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Document } from '../../types';
+import type { ChatMessage, ImageData, AgentSessionMeta } from '../../types/agent';
 import type { GlobalShortcutConfig } from '../shortcuts/globalShortcuts';
 
 /**
@@ -68,7 +69,7 @@ export type EditorCursorStyle = 'bar' | 'block' | 'underline';
  * Identifiers for items that can appear in the left Activity Bar.
  * The array order in `ActivityBarItemConfig[]` determines display order.
  */
-export type ActivityItemId = 'documents' | 'terminal' | 'settings';
+export type ActivityItemId = 'documents' | 'terminal' | 'agent' | 'settings';
 
 /**
  * Configuration for a single Activity Bar entry — visibility + position
@@ -83,6 +84,7 @@ export interface ActivityBarItemConfig {
 export const DEFAULT_ACTIVITY_BAR_ITEMS: ActivityBarItemConfig[] = [
   { id: 'documents', visible: true },
   { id: 'terminal', visible: true },
+  { id: 'agent', visible: true },
   { id: 'settings', visible: true },
 ];
 
@@ -452,6 +454,49 @@ export const storage = {
   /** Overwrite the entire folder index. */
   saveFolders: (folders: FolderMeta[]) =>
     invoke<void>('write_folders', { entries: folders }),
+
+  // ---- agent sessions (j-agent integration) ----
+
+  /** List all agent sessions from j-agent storage. */
+  agentListSessions: () =>
+    invoke<AgentSessionMeta[]>('agent_list_sessions'),
+
+  /** Create a new agent session. Returns the session id. */
+  agentCreateSession: (title?: string, workspace?: string) =>
+    invoke<string>('agent_create_session', { title: title ?? null, workspace: workspace ?? null }),
+
+  /** Load an existing session's messages. */
+  agentLoadSession: (sessionId: string) =>
+    invoke<ChatMessage[]>('agent_load_session', { sessionId }),
+
+  /** Delete a session (both from registry and storage). */
+  agentDeleteSession: (sessionId: string) =>
+    invoke<void>('agent_delete_session', { sessionId }),
+
+  /** Start or resume an agent session (creates backend handle). */
+  agentStartSession: (sessionId: string) =>
+    invoke<void>('agent_start_session', { sessionId }),
+
+  /** Send a user message to the agent session. */
+  agentSendMessage: (params: {
+    sessionId: string;
+    text: string;
+    images?: ImageData[];
+  }) => invoke<void>('agent_send_message', { params }),
+
+  /** Submit a tool result back to the agent. */
+  agentToolResult: (params: {
+    sessionId: string;
+    toolCallId: string;
+    result: string;
+    isError: boolean;
+    images?: ImageData[];
+    planDecision?: string;
+  }) => invoke<void>('agent_tool_result', { params }),
+
+  /** Cancel the current agent response. */
+  agentCancel: (sessionId: string) =>
+    invoke<void>('agent_cancel', { sessionId }),
 
   // ---- terminal (PTY) ----
 

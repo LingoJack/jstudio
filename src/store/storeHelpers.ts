@@ -12,6 +12,7 @@ import type {
 import type { ToastItem, ToastType } from './toastSlice';
 import type { SettingsSectionId } from './uiSlice';
 import type { UnifiedTab } from './workspaceSlice';
+import type { AgentSession } from '../types/agent';
 import { storage } from '../lib/core/storage';
 import { toast } from '../lib/toast';
 
@@ -131,7 +132,7 @@ export interface StoreState {
   editorCursorStyle: EditorCursorStyle;
   useSectionedEditor: boolean;
   sidebarWidth: number;
-  activeSidebarView: 'documents' | 'terminal';
+  activeSidebarView: 'documents' | 'terminal' | 'agent';
   settingsActiveSection: SettingsSectionId;
   terminalFontSize: number;
   terminalFontId: string;
@@ -148,6 +149,11 @@ export interface StoreState {
   activeGroupId: string | null;
   activeSessionId: string | null;
   recentDirs: string[];
+
+  // — agent state (agent slice) —
+  agentSessions: AgentSession[];
+  activeAgentSessionId: string | null;
+  agentUnsubscribes: (() => void)[];
 
   // — toast state (toast slice) —
   toasts: ToastItem[];
@@ -248,7 +254,7 @@ export interface StoreState {
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;
   setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
-  setActiveSidebarView: (view: 'documents' | 'terminal') => void;
+  setActiveSidebarView: (view: 'documents' | 'terminal' | 'agent') => void;
   setSettingsActiveSection: (section: SettingsSectionId) => void;
   setAppThemeIdDark: (id: string) => void;
   setAppThemeIdLight: (id: string) => void;
@@ -299,6 +305,26 @@ export interface StoreState {
   addToast: (type: ToastType, message: string, duration?: number) => void;
   removeToast: (id: string) => void;
   clearToasts: () => void;
+
+  // — agent ops (agent slice) —
+  initAgentSessions: () => Promise<void>;
+  createAgentSession: (title?: string, workspace?: string) => Promise<string>;
+  openAgentSession: (sessionId: string) => Promise<void>;
+  deleteAgentSession: (sessionId: string) => Promise<void>;
+  sendAgentMessage: (
+    sessionId: string,
+    text: string,
+    images?: { base64: string; mediaType: string }[],
+  ) => Promise<void>;
+  submitAgentToolResult: (
+    sessionId: string,
+    toolCallId: string,
+    result: string,
+    isError: boolean,
+    images?: { base64: string; mediaType: string }[],
+  ) => Promise<void>;
+  cancelAgent: (sessionId: string) => Promise<void>;
+  cleanupAgentListeners: () => void;
 
   // — workspace ops (workspace slice) —
   openDocumentTab: (docId: string) => void;

@@ -25,12 +25,14 @@ export const translations = {
     'app.documents': '文档',
     'app.settings': '设置',
     'app.terminal': '终端',
+    'app.agent': 'JSpirit',
 
     // ── Common ──
     'common.moveUp': '上移',
     'common.moveDown': '下移',
     'common.show': '显示',
     'common.hide': '隐藏',
+    'common.cancel': '取消',
 
     // ── SearchBar ──
     'search.placeholder': '搜索文档...',
@@ -152,6 +154,33 @@ export const translations = {
     'terminal.detachTab': '分离到新窗口',
     'terminal.releaseToDetach': '释放以分离到新窗口',
 
+    // ── Agent ──
+    'agent.newSession': '新建会话',
+    'agent.newTask': '新建任务',
+    'agent.taskName': '任务名称',
+    'agent.taskNamePlaceholder': '例如：重构登录模块',
+    'agent.workspace': '工作目录',
+    'agent.selectWorkspace': '选择工作目录...',
+    'agent.workspaceHint': 'Agent 将在此目录下执行操作（必选）',
+    'agent.createTask': '创建',
+    'agent.tasks': '任务',
+    'agent.noTasks': '暂无任务',
+    'agent.createFirstTask': '创建第一个任务',
+    'agent.deleteSession': '删除会话',
+    'agent.cancel': '停止',
+    'agent.thinking': '思考中',
+    'agent.streaming': '生成中',
+    'agent.toolCall': '工具调用',
+    'agent.compacting': '压缩上下文',
+    'agent.retrying': '重试中',
+    'agent.error': '出错',
+    'agent.cancelled': '已取消',
+    'agent.inputPlaceholder': '输入消息...',
+    'agent.noSessions': '暂无会话，点击 + 新建',
+    'agent.approveTool': '批准',
+    'agent.rejectTool': '拒绝',
+    'agent.untitled': 'AI 助手',
+
     // ── DocumentOutline ──
     'outline.title': '大纲',
     'outline.empty': '文档中暂无标题',
@@ -164,7 +193,7 @@ export const translations = {
     // ── Settings nav ──
     'settings.title': '设置',
     'settings.general': '通用',
-    'settings.agent': '模型能力',
+    'settings.agent': 'JSpirit',
     'settings.editor': '编辑器',
     'settings.terminal': '终端',
     'settings.about': '关于',
@@ -329,7 +358,7 @@ export const translations = {
 
     // Agent actions
     'agent.save': '保存',
-    'agent.cancel': '取消',
+    'agent.cancelAction': '取消',
     'agent.delete': '删除',
     'agent.edit': '编辑',
     'agent.showKey': '显示',
@@ -635,12 +664,14 @@ export const translations = {
     'app.documents': 'Documents',
     'app.settings': 'Settings',
     'app.terminal': 'Terminal',
+    'app.agent': 'JSpirit',
 
     // ── Common ──
     'common.moveUp': 'Move Up',
     'common.moveDown': 'Move Down',
     'common.show': 'Show',
     'common.hide': 'Hide',
+    'common.cancel': 'Cancel',
 
     // ── SearchBar ──
     'search.placeholder': 'Search documents...',
@@ -762,6 +793,33 @@ export const translations = {
     'terminal.detachTab': 'Detach to New Window',
     'terminal.releaseToDetach': 'Release to detach into a new window',
 
+    // ── Agent ──
+    'agent.newSession': 'New Chat',
+    'agent.newTask': 'New Task',
+    'agent.taskName': 'Task Name',
+    'agent.taskNamePlaceholder': 'e.g., Refactor login module',
+    'agent.workspace': 'Working Directory',
+    'agent.selectWorkspace': 'Select directory...',
+    'agent.workspaceHint': 'Agent will operate within this directory (required)',
+    'agent.createTask': 'Create',
+    'agent.tasks': 'Tasks',
+    'agent.noTasks': 'No tasks yet',
+    'agent.createFirstTask': 'Create your first task',
+    'agent.deleteSession': 'Delete Session',
+    'agent.cancel': 'Stop',
+    'agent.thinking': 'Thinking...',
+    'agent.streaming': 'Generating...',
+    'agent.toolCall': 'Tool Call',
+    'agent.compacting': 'Compacting context',
+    'agent.retrying': 'Retrying...',
+    'agent.error': 'Error',
+    'agent.cancelled': 'Cancelled',
+    'agent.inputPlaceholder': 'Type a message...',
+    'agent.noSessions': 'No sessions yet. Click + to start.',
+    'agent.approveTool': 'Approve',
+    'agent.rejectTool': 'Reject',
+    'agent.untitled': 'AI Agent',
+
     // ── DocumentOutline ──
     'outline.title': 'Outline',
     'outline.empty': 'No headings in this document',
@@ -774,7 +832,7 @@ export const translations = {
     // ── Settings nav ──
     'settings.title': 'Settings',
     'settings.general': 'General',
-    'settings.agent': 'AI Agent',
+    'settings.agent': 'JSpirit',
     'settings.editor': 'Editor',
     'settings.terminal': 'Terminal',
     'settings.about': 'About',
@@ -940,7 +998,7 @@ export const translations = {
 
     // Agent actions
     'agent.save': 'Save',
-    'agent.cancel': 'Cancel',
+    'agent.cancelAction': 'Cancel',
     'agent.delete': 'Delete',
     'agent.edit': 'Edit',
     'agent.showKey': 'Show',

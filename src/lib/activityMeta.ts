@@ -1,4 +1,4 @@
-import { PenLine, Terminal, Settings, type LucideIcon } from 'lucide-react';
+import { PenLine, Terminal, Bot, Settings, type LucideIcon } from 'lucide-react';
 import type { ActivityItemId } from './core/storage';
 import type { TranslationKey } from './core/i18n';
 
@@ -25,6 +25,8 @@ export const ACTIVITY_ITEM_META: Record<
   documents: { icon: PenLine, labelKey: 'app.documents' },
   /** 终端 — 终端图标，点击进入内置终端 */
   terminal: { icon: Terminal, labelKey: 'app.terminal' },
+  /** AI Agent — Bot 图标，点击进入 AI 助手聊天 */
+  agent: { icon: Bot, labelKey: 'app.agent' },
   /** 设置 — 齿轮图标，点击进入设置页 */
   settings: { icon: Settings, labelKey: 'app.settings' },
 };

@@ -25,6 +25,14 @@ serde_json = "1"
 dirs = "6"
 portable-pty = "0.8"
 
+# ── j-agent (Agent engine) ──
+j_agent = { path = "../jcli/j-agent", package = "j-agent" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+futures = "0.3"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+
 # ── document backup bundle (.jnote = zip) ──
 zip = { version = "2", default-features = false, features = ["deflate"] }
 

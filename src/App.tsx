@@ -17,6 +17,7 @@ import ActivityBar from './components/layout/ActivityBar';
 import DocumentList from './components/documents/DocumentList';
 import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
+import AgentPanel from './components/agent/AgentPanel';
 import BlockEditor from './components/editor/BlockEditor';
 import SectionedBlockEditor from './components/editor/sectionEditor/SectionedBlockEditor';
 import Settings from './components/settings/Settings';
@@ -180,6 +181,10 @@ export default function App() {
   const isTerminalView =
     !isSettingsOpen && activeSidebarView === 'terminal';
 
+  // Agent view: agent panel takes over the full editor area (like terminal).
+  const isAgentView =
+    !isSettingsOpen && activeSidebarView === 'agent';
+
   // hasTerminalTab is computed above via useStore, before the early return.
 
   return (
@@ -196,20 +201,17 @@ export default function App() {
         {/* Activity Bar (left-most) */}
         <ActivityBar />
 
-        {/* Secondary sidebar: hidden in terminal view and settings */}
-        {isSidebarOpen && !isSettingsOpen && !isTerminalView && (
+        {/* Secondary sidebar: hidden in terminal view, agent view, and settings */}
+        {isSidebarOpen && !isSettingsOpen && !isTerminalView && !isAgentView && (
           <DocumentList />
         )}
 
         {/* Main content area (right) */}
         <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative">
-          {/* Document Tab Bar —绝对定位悬浮在内容上方 */}
-          {!isSettingsOpen && !isTerminalView && <DocumentTabs />}
+          {/* Document Tab Bar */}
+          {!isSettingsOpen && !isTerminalView && !isAgentView && <DocumentTabs />}
 
-          {/* Terminal panel: mount when there are terminal tabs OR we're
-              in terminal view (so it can auto-create the first session).
-              Stays mounted (CSS-hidden) when switching to documents to
-              preserve xterm instances + PTY listeners + scrollback. */}
+          {/* Terminal panel: mount-once, CSS-hide */}
           {(hasTerminalTab || isTerminalView) && (
             <div
               className={`absolute inset-0 ${
@@ -220,10 +222,19 @@ export default function App() {
             </div>
           )}
 
+          {/* Agent panel: mount-once, CSS-hide */}
+          <div
+            className={`absolute inset-0 ${
+              isAgentView ? '' : 'hidden'
+            }`}
+          >
+            <AgentPanel hidden={!isAgentView} />
+          </div>
+
           {/* Settings / Editor / EmptyState overlaid on top */}
           {isSettingsOpen ? (
             <Settings />
-          ) : !isTerminalView ? (
+          ) : !isTerminalView && !isAgentView ? (
             hasActiveDoc ? (
               useSectionedEditor ? (
                 <SectionedBlockEditor />
