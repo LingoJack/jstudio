@@ -18,6 +18,7 @@ import {
 } from './BaseCursorTrail';
 import type { EditorCursorStyle } from '../../../lib/core/storage';
 import { logger } from '../../../lib/core/logger';
+import { firstCodePoint, lastCodePoint, appendSpan } from './trailMath';
 
 /** Longhand font properties of a glyph, used to re-draw it identically. */
 interface GlyphFont {
@@ -1298,8 +1299,8 @@ export class EditorCursorTrail extends BaseCursorTrail {
     // measure their advance widths (needed for block / underline shaping).
     const before = value.slice(0, caret);
     const after = value.slice(caret);
-    const afterCp = this.firstCodePoint(after);
-    const beforeCp = this.lastCodePoint(before);
+    const afterCp = firstCodePoint(after);
+    const beforeCp = lastCodePoint(before);
     const beforeHead = before.slice(0, before.length - beforeCp.length);
     const afterTail = after.slice(afterCp.length);
 
@@ -1307,9 +1308,9 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const mirror = this.syncTitleMirror(input, cs);
     mirror.textContent = '';
     if (beforeHead) mirror.appendChild(document.createTextNode(beforeHead));
-    const beforeSpan = beforeCp ? this.appendSpan(mirror, beforeCp) : null;
-    const marker = this.appendSpan(mirror, '\u200b');
-    const afterSpan = afterCp ? this.appendSpan(mirror, afterCp) : null;
+    const beforeSpan = beforeCp ? appendSpan(mirror, beforeCp) : null;
+    const marker = appendSpan(mirror, '\u200b');
+    const afterSpan = afterCp ? appendSpan(mirror, afterCp) : null;
     if (afterTail) mirror.appendChild(document.createTextNode(afterTail));
 
     const markerRect = marker.getBoundingClientRect();
@@ -1437,26 +1438,4 @@ export class EditorCursorTrail extends BaseCursorTrail {
     return m;
   }
 
-  private appendSpan(parent: HTMLElement, text: string): HTMLSpanElement {
-    const s = document.createElement('span');
-    s.textContent = text;
-    parent.appendChild(s);
-    return s;
-  }
-
-  /** First Unicode code point of a string (surrogate-pair aware), or ''. */
-  private firstCodePoint(s: string): string {
-    if (!s) return '';
-    const cp = s.codePointAt(0);
-    return cp === undefined ? '' : String.fromCodePoint(cp);
-  }
-
-  /** Last Unicode code point of a string (surrogate-pair aware), or ''. */
-  private lastCodePoint(s: string): string {
-    const len = s.length;
-    if (len === 0) return '';
-    const last = s.charCodeAt(len - 1);
-    if (len >= 2 && last >= 0xdc00 && last <= 0xdfff) return s.slice(len - 2);
-    return s.slice(len - 1);
-  }
 }
