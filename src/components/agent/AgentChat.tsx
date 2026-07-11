@@ -632,32 +632,30 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
     <div className="shrink-0 px-4 pb-4">
       {/* 悬浮液态玻璃块 */}
       <div
-        className="rounded-2xl overflow-hidden"
+        className="relative rounded-2xl overflow-hidden border border-[var(--vscode-menu-border)]"
         style={{
-          background: 'rgba(60, 60, 60, 0.6)',
+          background: 'rgba(255,255,255,0.06)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
         }}
       >
         {/* 输入框 */}
-        <div className="relative">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t('agent.inputPlaceholder')}
-            rows={2}
-            className="w-full resize-none bg-transparent px-4 py-3 text-sm outline-none"
-            style={{
-              color: 'var(--vscode-input-foreground)',
-              minHeight: '56px',
-            }}
-          />
-        </div>
+        <textarea
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={t('agent.inputPlaceholder')}
+          rows={2}
+          className="w-full resize-none bg-transparent px-4 py-3 text-sm outline-none"
+          style={{
+            color: 'var(--vscode-input-foreground)',
+            minHeight: '56px',
+          }}
+        />
 
-        {/* 底部状态：权限 + 取消按钮 */}
+        {/* 底部状态栏：权限 + 取消按钮 + 发送按钮 */}
         <div
           className="flex items-center justify-between px-4 py-2 text-xs"
           style={{
@@ -665,33 +663,32 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
           }}
         >
           <span>{session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}</span>
-          {isRunning && (
+          <div className="flex items-center gap-2">
+            {isRunning && (
+              <button
+                onClick={onCancel}
+                className="flex items-center gap-1 px-2 py-1 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
+                style={{ color: 'var(--vscode-errorForeground)' }}
+              >
+                <Square className="w-3 h-3" />
+                <span>{t('agent.cancel')}</span>
+              </button>
+            )}
+            {/* 发送按钮 - 右下角 */}
             <button
-              onClick={onCancel}
-              className="flex items-center gap-1 px-2 py-1 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
-              style={{ color: 'var(--vscode-errorForeground)' }}
+              onClick={handleSend}
+              disabled={!input.trim()}
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-30"
+              style={{
+                background: input.trim() ? 'var(--vscode-button-background)' : 'rgba(255,255,255,0.1)',
+                color: input.trim() ? 'var(--vscode-button-foreground)' : 'var(--vscode-descriptionForeground)',
+              }}
+              title={t('agent.send')}
             >
-              <Square className="w-3 h-3" />
-              <span>{t('agent.cancel')}</span>
+              <Send className="w-4 h-4" />
             </button>
-          )}
+          </div>
         </div>
-      </div>
-
-      {/* 发送按钮 - 界面最底层 */}
-      <div className="flex justify-center mt-3">
-        <button
-          onClick={handleSend}
-          disabled={!input.trim()}
-          className="flex items-center justify-center w-10 h-10 rounded-full transition-colors disabled:opacity-30"
-          style={{
-            background: input.trim() ? 'var(--vscode-button-background)' : 'rgba(255, 255, 255, 0.1)',
-            color: input.trim() ? 'var(--vscode-button-foreground)' : 'var(--vscode-descriptionForeground)',
-          }}
-          title={t('agent.send')}
-        >
-          <Send className="w-4 h-4" />
-        </button>
       </div>
     </div>
   );
