@@ -38,66 +38,8 @@ import type { Block } from '../../../types';
 import SectionEditor, { type SectionFocusHandle } from './SectionEditor';
 import SectionOutline from './SectionOutline';
 import { useCrossSectionSelection, type CrossSelectionContext } from './useCrossSectionSelection';
-
-/** Target number of top-level blocks per section. */
-const SECTION_SIZE = 30;
-/** A section is split when it grows beyond this (e.g. after inserting many
- *  blocks). Splitting keeps each ProseMirror instance small so typing stays
- *  fast. Set above SECTION_SIZE so a section isn't split the moment it's
- *  created (sections are created at exactly SECTION_SIZE). */
-const SECTION_MAX = Math.round(SECTION_SIZE * 1.6); // 48
-/** Two adjacent sections are merged when their combined size is at or below
- *  this (e.g. after deleting many blocks), avoiding a proliferation of tiny
- *  sections. Kept below SECTION_SIZE so a freshly-split section (~SECTION_SIZE
- *  each) isn't immediately re-merged. */
-const SECTION_MERGE_BELOW = Math.round(SECTION_SIZE * 0.5); // 15
-
-interface SectionState {
-  id: string;
-  blocks: Block[];
-  /** When set, after (re)mount this section joins the block at this index
-   *  into the previous one — used to complete a cross-section Backspace
-   *  merge with native ProseMirror semantics. */
-  pendingMergeBoundary?: number | null;
-}
-
-function splitIntoSections(blocks: Block[]): SectionState[] {
-  if (blocks.length === 0) {
-    return [{ id: 'sec-0', blocks: [] }];
-  }
-  const sections: SectionState[] = [];
-  for (let i = 0; i < blocks.length; i += SECTION_SIZE) {
-    sections.push({
-      id: `sec-${i / SECTION_SIZE}`,
-      blocks: blocks.slice(i, i + SECTION_SIZE),
-    });
-  }
-  return sections;
-}
-
-/** Skeleton overlay shown while section editors are loading content.
- *  Mirrors BlockEditor's EditorSkeleton — prevents the user from seeing
- *  empty editors / placeholder text during the load. OPAQUE: sits on top
- *  of the still-mounted editors. */
-function EditorSkeleton() {
-  return (
-    <div
-      className="absolute inset-0 z-10 overflow-hidden px-4 md:px-12 lg:px-20 pt-2 bg-[var(--vscode-editor-background)]"
-      aria-hidden="true"
-    >
-      <div className="space-y-3 animate-pulse">
-        <div className="h-4 w-3/4 rounded bg-[var(--vscode-input-background)]" />
-        <div className="h-4 w-11/12 rounded bg-[var(--vscode-input-background)]" />
-        <div className="h-4 w-2/3 rounded bg-[var(--vscode-input-background)]" />
-        <div className="h-4 w-5/6 rounded bg-[var(--vscode-input-background)]" />
-        <div className="mt-8 h-24 w-full rounded bg-[var(--vscode-input-background)]" />
-        <div className="mt-8 h-4 w-1/2 rounded bg-[var(--vscode-input-background)]" />
-        <div className="h-4 w-4/5 rounded bg-[var(--vscode-input-background)]" />
-        <div className="h-4 w-3/5 rounded bg-[var(--vscode-input-background)]" />
-      </div>
-    </div>
-  );
-}
+import { splitIntoSections, SECTION_SIZE, SECTION_MAX, SECTION_MERGE_BELOW, type SectionState } from '../../../lib/editor/sectioning';
+import { EditorSkeleton } from './SectionSkeleton';
 
 export default function SectionedBlockEditor() {
   const { t } = useI18n();
