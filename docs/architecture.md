@@ -17,21 +17,24 @@ src/
 ├── main.tsx / App.tsx
 ├── types/            # 全局类型（document/editor/richText/agent）
 ├── lib/              # 逻辑层
-│   ├── core/         # storage, i18n(+i18n/translations), commandRegistry, logger
+│   ├── core/         # storage, i18n(+i18n/translations.ts 数据), commandRegistry, logger
 │   ├── editor/
 │   │   ├── extensions/   # tiptap 扩展（含 node-view 配对 .tsx 例外）
 │   │   ├── slashMenu/    # 斜杠菜单逻辑（commands + suggestion plugin + UI 例外）
 │   │   ├── tiptapAdapter/ # 唯一转换源（blocks.ts 等）
 │   │   ├── content/      # 纯转换（assetUrl/blockContent/docxPreview/editorPasteDrop）
 │   │   ├── mermaid/      # mermaid 渲染逻辑
-│   │   └── sectioning.ts # 从 SectionedBlockEditor 提取的纯分段函数
+│   │   └── sectioning.ts # 纯分段函数（SECTION_SIZE/SECTION_MAX/SECTION_MERGE_BELOW/SectionState/splitIntoSections）
 │   ├── themes/ shortcuts/ documents/ terminal/ windows/ commandPalette/ ime/ constants/
 ├── components/        # 视图层
 │   ├── ui/ layout/ settings/ terminal/ windows/ agent/
-│   ├── documents/     # DocumentList + 拆出的 FolderTree/DocumentRow/Menus
+│   │   └── cursor/       # BaseCursorTrail, EditorCursorTrail, trailMath.ts（纯助手）
+│   ├── documents/     # DocumentList（计划拆 FolderTree/DocumentRow/Menus）
 │   └── editor/
-│       ├── BlockEditor.tsx / SectionedBlockEditor.tsx（拆薄后）
-│       ├── nodes/ sectionEditor/ hooks/ CommandPalette.tsx
+│       ├── BlockEditor.tsx / SectionedBlockEditor.tsx
+│       ├── nodes/        # 含 graph/（graphCanvasStyle.ts + ShapeGlyph.tsx 已拆出）
+│       ├── sectionEditor/ # SectionedBlockEditor + SectionSkeleton.tsx + SectionEditor + SectionOutline
+│       ├── hooks/ CommandPalette.tsx
 ├── store/            # Zustand（slice 模式）
 ├── data/ styles/     # 静态内容 / 全局样式
 ```

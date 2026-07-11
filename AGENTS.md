@@ -28,9 +28,9 @@ jstudio/
 │   ├── Cargo.toml
 │   └── target/release/j        # 构建产物（make build-jcli 生成）
 │
-├── src/                        # 前端源码
+├── src/                        # 前端源码（边界规则见 docs/architecture.md）
 │   ├── App.tsx                 # 根组件（三栏布局）
-│   ├── main.tsx                # React 入口
+│   ├── main.tsx                # React 入口（import 不带扩展名）
 │   ├── index.css               # Tailwind v4 入口
 │   │
 │   ├── types/                  # 类型定义
@@ -39,26 +39,31 @@ jstudio/
 │   │   ├── editor.ts           # 编辑器/插件/同步相关类型
 │   │   └── richText.ts         # RichText, RichTextAnnotations
 │   │
-│   ├── lib/                    # 工具库
+│   ├── lib/                    # 逻辑层（纯逻辑/扩展定义/转换，不含业务组件）
 │   │   ├── core/               # 核心基础设施
 │   │   │   ├── storage.ts      # 存储抽象层（封装所有 Tauri invoke 调用）
-│   │   │   ├── i18n.ts         # 国际化
+│   │   │   ├── i18n.ts         # 国际化逻辑（字典数据在 i18n/translations.ts）
 │   │   │   ├── commandRegistry.ts # 命令面板注册
-│   │   │   └── index.ts        # Barrel export
+│   │   │   └── index.ts        # Barrel export（未直接使用，可保留）
 │   │   │
-│   │   ├── editor/             # 编辑器相关
+│   │   ├── editor/             # 编辑器逻辑层
 │   │   │   ├── extensions/     # TipTap 扩展
-│   │   │   ├── content/        # 内容转换（richText ↔ HTML）
-│   │   │   ├── slashMenu/      # 斜杠菜单
-│   │   │   ├── tiptapAdapter.ts # TipTap ↔ Block 转换（唯一转换源）
-│   │   │   ├── fonts.ts        # 字体配置
-│   │   │   └── upload.ts       # 文件上传
+│   │   │   ├── content/        # 内容转换（assetUrl/blockContent/docxPreview/editorPasteDrop）
+│   │   │   ├── slashMenu/      # 斜杠菜单逻辑（commands + suggestion plugin + UI 例外）
+│   │   │   ├── tiptapAdapter/  # TipTap ↔ Block 转换（唯一转换源）
+│   │   │   ├── mermaid/        # mermaid 渲染逻辑
+│   │   │   ├── sectioning.ts   # 纯分段函数（从 SectionedBlockEditor 提取）
+│   │   │   ├── blockNavigation.ts / fileUtils.ts
+│   │   │   └── fonts.ts        # 字体配置
 │   │   │
 │   │   ├── themes/             # 主题系统（types.ts + 4 主题单文件 + registry.ts）
 │   │   ├── shortcuts/          # 快捷键
 │   │   ├── documents/          # 文档工具
 │   │   ├── terminal/           # 终端相关
 │   │   ├── windows/            # 窗口管理
+│   │   ├── commandPalette/     # 命令面板逻辑
+│   │   ├── constants/          # 常量（ui.ts 等）
+│   │   ├── ime/                # IME 输入法处理
 │   │   └── activityMeta.ts     # Activity Bar 元数据
 │   │
 │   ├── store/                  # Zustand 状态管理
@@ -71,6 +76,7 @@ jstudio/
 │   │   ├── foldersSlice.ts     # 文件夹管理
 │   │   ├── workspaceSlice.ts   # 工作区/标签页
 │   │   ├── terminalSlice.ts    # 终端状态
+│   │   ├── agentSlice.ts       # Agent 状态
 │   │   └── toastSlice.ts       # 轻提示状态
 │   │
 │   ├── data/
@@ -79,7 +85,7 @@ jstudio/
 │   ├── styles/
 │   │   └── vscode-theme.css    # VSCode 风格主题变量 + 全局样式
 │   │
-│   └── components/
+│   └── components/             # 视图层（React 组件）
 │       ├── layout/             # 布局组件
 │       │   ├── TitleBar.tsx    # 窗口标题栏
 │       │   ├── ActivityBar.tsx # 左侧活动栏
@@ -87,9 +93,9 @@ jstudio/
 │       │
 │       ├── editor/             # 编辑器组件
 │       │   ├── BlockEditor.tsx # 编辑器主体（单 TipTap 实例）
-│       │   ├── sectionEditor/  # 分段编辑器（高性能，N 个 TipTap 实例）
+│       │   ├── sectionEditor/  # 分段编辑器（SectionedBlockEditor + SectionSkeleton + SectionEditor + SectionOutline）
 │       │   ├── CommandPalette.tsx # 命令面板
-│       │   ├── nodes/          # 块节点视图
+│       │   ├── nodes/          # 块节点视图（含 graph/：graphCanvasStyle.ts + ShapeGlyph.tsx）
 │       │   └── hooks/          # 编辑器 hooks
 │       │
 │       ├── documents/          # 文档相关组件
@@ -99,23 +105,17 @@ jstudio/
 │       │
 │       ├── settings/           # 设置组件
 │       │   ├── Settings.tsx    # 设置页框架
-│       │   ├── GeneralSection.tsx # 通用设置
-│       │   ├── EditorSection.tsx  # 编辑器设置
-│       │   └── TerminalSection.tsx # 终端设置
+│       │   ├── GeneralSection.tsx / EditorSection.tsx / TerminalSection.tsx
+│       │   └── GlobalShortcutsSection.tsx / AboutSection.tsx / HelpSection.tsx / DebugSection.tsx / AgentModelSection.tsx
 │       │
 │       ├── terminal/           # 终端组件
-│       │
-│       ├── windows/            # 窗口组件
-│       │
+│       ├── windows/            # 多窗口入口（*WindowApp.tsx）
+│       ├── agent/              # Agent 面板
 │       └── ui/                 # 公共 UI 组件
-│           ├── IconButton.tsx  # 通用图标按钮
-│           ├── MenuList.tsx    # 菜单容器
-│           ├── Toast.tsx       # 轻提示
-│           ├── icons.tsx       # SVG 图标组件
-│           └── cursor/         # 光标特效
-│               ├── BaseCursorTrail.ts
-│               ├── EditorCursorTrail.ts
-│               └── shaders.ts
+│           ├── IconButton.tsx / MenuList.tsx / Toast.tsx / NavTree.tsx / SelectDropdown.tsx
+│           ├── TabBar.tsx / FontDropdown.tsx / BlockToolbar.tsx / Collapsible.tsx / EmptyState.tsx / ResizeHandle.tsx
+│           ├── useCollapsibleTree.ts
+│           └── cursor/         # 光标特效（BaseCursorTrail, EditorCursorTrail, trailMath.ts）
 │
 └── src-tauri/                  # Rust 后端
     ├── Cargo.toml
