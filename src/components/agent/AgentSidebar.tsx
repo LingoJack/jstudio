@@ -190,19 +190,14 @@ function SidebarMenuItem({ icon, label, active, onClick }: SidebarMenuItemProps)
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors rounded-md ${
+      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors rounded-md cursor-pointer ${
         active
-          ? 'bg-[var(--vscode-list-activeSelectionBackground)]'
-          : 'hover:bg-[var(--vscode-list-hoverBackground)]'
+          ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
+          : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
       }`}
-      style={{
-        color: active
-          ? 'var(--vscode-list-activeSelectionForeground)'
-          : 'var(--vscode-foreground)',
-      }}
     >
-      <span className="w-4 h-4 flex items-center justify-center shrink-0">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 truncate text-left">{label}</span>
     </button>
   );
 }
@@ -289,11 +284,11 @@ export function AgentSidebar({
 
       {/* 分隔线 */}
       <div
-        className="shrink-0 mx-3 h-px"
+        className="shrink-0 mx-2 h-px"
         style={{ background: 'var(--vscode-widget-border)' }}
       />
 
-      {/* 任务历史列表（合并了空间管理） */}
+      {/* 任务历史列表 */}
       <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
         <WorkspaceList
           groups={groups}

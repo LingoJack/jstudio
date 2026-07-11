@@ -82,11 +82,11 @@ export function NavRow({
 
   // Base layout — primary row
   const primaryBase =
-    'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer';
+    'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer rounded-md';
 
   // Base layout — secondary row
   const secondaryBase =
-    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-body transition-colors duration-150 cursor-pointer border-l-2';
+    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-body transition-colors duration-150 cursor-pointer rounded-md border-l-2';
 
   // Primary active/inactive
   let primaryState: string;

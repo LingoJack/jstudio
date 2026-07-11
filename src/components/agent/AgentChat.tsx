@@ -593,7 +593,7 @@ function AskConfirm({
 }
 
 // ────────────────────────────────────────────────
-// Input Area (Floating Glass Style)
+// Input Area (Floating Glass Style - Simplified)
 // ────────────────────────────────────────────────
 
 interface InputAreaProps {
@@ -629,7 +629,7 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
   );
 
   return (
-    <div className="shrink-0 px-4 py-3">
+    <div className="shrink-0 px-4 pb-4">
       {/* 悬浮液态玻璃块 */}
       <div
         className="rounded-2xl overflow-hidden"
@@ -640,26 +640,7 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
           boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)',
         }}
       >
-        {/* 引导标签 */}
-        <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-          <span className="text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-            {t('agent.nextSteps')}
-          </span>
-          <button
-            className="text-xs px-2 py-0.5 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
-            style={{ color: 'var(--vscode-textLink-foreground)' }}
-          >
-            @ {t('agent.reference')}
-          </button>
-          <button
-            className="text-xs px-2 py-0.5 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
-            style={{ color: 'var(--vscode-textLink-foreground)' }}
-          >
-            / {t('agent.skills')}
-          </button>
-        </div>
-
-        {/* 输入框 + 发送按钮 */}
+        {/* 输入框 */}
         <div className="relative">
           <textarea
             ref={inputRef}
@@ -668,37 +649,19 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
             onKeyDown={handleKeyDown}
             placeholder={t('agent.inputPlaceholder')}
             rows={2}
-            className="w-full resize-none bg-transparent px-4 pb-3 text-sm outline-none"
+            className="w-full resize-none bg-transparent px-4 py-3 text-sm outline-none"
             style={{
               color: 'var(--vscode-input-foreground)',
               minHeight: '56px',
             }}
           />
-          {/* 发送按钮 - 右下角 */}
-          <button
-            onClick={handleSend}
-            disabled={!input.trim()}
-            className="absolute right-3 bottom-3 flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-30"
-            style={{
-              background: input.trim() 
-                ? 'var(--vscode-button-background)' 
-                : 'rgba(255, 255, 255, 0.1)',
-              color: input.trim() 
-                ? 'var(--vscode-button-foreground)' 
-                : 'var(--vscode-descriptionForeground)',
-            }}
-            title={t('agent.send')}
-          >
-            <Send className="w-4 h-4" />
-          </button>
         </div>
 
-        {/* 底部状态 */}
+        {/* 底部状态：权限 + 取消按钮 */}
         <div
           className="flex items-center justify-between px-4 py-2 text-xs"
-          style={{ 
+          style={{
             color: 'var(--vscode-descriptionForeground)',
-            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
           }}
         >
           <span>{session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}</span>
@@ -713,6 +676,22 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
             </button>
           )}
         </div>
+      </div>
+
+      {/* 发送按钮 - 界面最底层 */}
+      <div className="flex justify-center mt-3">
+        <button
+          onClick={handleSend}
+          disabled={!input.trim()}
+          className="flex items-center justify-center w-10 h-10 rounded-full transition-colors disabled:opacity-30"
+          style={{
+            background: input.trim() ? 'var(--vscode-button-background)' : 'rgba(255, 255, 255, 0.1)',
+            color: input.trim() ? 'var(--vscode-button-foreground)' : 'var(--vscode-descriptionForeground)',
+          }}
+          title={t('agent.send')}
+        >
+          <Send className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

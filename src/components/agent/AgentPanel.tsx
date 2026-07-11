@@ -45,18 +45,7 @@ export default function AgentPanel({ hidden }: { hidden?: boolean }) {
       <div className="flex-1 min-w-0 flex flex-col">
         {activeSession ? (
           <AgentChat session={activeSession} />
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <span
-                className="text-sm"
-                style={{ color: 'var(--vscode-descriptionForeground)' }}
-              >
-                {t('agent.selectOrCreateTask')}
-              </span>
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -51,7 +51,7 @@ export function WorkspaceList({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 space-y-0.5">
+    <div className="flex-1 overflow-y-auto space-y-0.5">
       {groups.map((group) => (
         <WorkspaceGroupItem
           key={group.workspace}
@@ -221,20 +221,19 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
 
   return (
     <NavRow
-      level="secondary"
+      level="primary"
       active={active}
-      icon={<MessageSquare className="w-4 h-4 opacity-50 shrink-0" />}
+      icon={<MessageSquare className="w-4 h-4 shrink-0" style={{ color: 'var(--vscode-descriptionForeground)' }} />}
       onClick={() => onSelect(session.id)}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        // Show delete confirmation on right-click
         setConfirmDelete(true);
         setTimeout(() => setConfirmDelete(false), 2000);
       }}
       className="group"
     >
-      <span className="flex-1 truncate text-xs">{title}</span>
+      <span className="flex-1 truncate">{title}</span>
       {/* Delete button — visible on hover */}
       <button
         onClick={(e) => {
