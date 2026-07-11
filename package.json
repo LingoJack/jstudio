@@ -14,7 +14,8 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "knip": "knip",
-    "lint:tsc": "tsc --noEmit"
+    "lint:tsc": "tsc --noEmit",
+    "lint:struct": "npm run lint:tsc && npm run knip"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.1",
