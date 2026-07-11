@@ -80,4 +80,6 @@ allow:
 - Shell(git status:*)
 - Shell(rm -f:*)
 - Shell(cat node_modules/@tiptap/markdown/package.json:*)
+- Shell(j --version:*)
+- Shell(j version:*)
 deny: []

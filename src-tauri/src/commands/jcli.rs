@@ -92,7 +92,23 @@ fn bundled_j_path(app: &AppHandle) -> Option<PathBuf> {
 // ────────────────────────────────────────────────
 
 /// Try to get the version string from a `j` binary path.
+///
+/// `j` uses `j version` (subcommand) to display version info, not `j --version`.
+/// We try both for compatibility with other CLI tools that use `--version`.
 fn get_version(binary: &PathBuf) -> Option<String> {
+    // Try `j version` first — this is the canonical command for j-cli
+    let output = Command::new(binary).arg("version").output().ok()?;
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let trimmed = stdout.trim();
+        if !trimmed.is_empty() {
+            // Parse the kernel version from the table output.
+            // Format: "│ kernel   │ 12.11.5                            │"
+            return extract_kernel_version(trimmed);
+        }
+    }
+
+    // Fallback: try `--version` (common for many CLI tools)
     let output = Command::new(binary).arg("--version").output().ok()?;
     if !output.status.success() {
         return None;
@@ -111,7 +127,36 @@ fn get_version(binary: &PathBuf) -> Option<String> {
     Some(trimmed.to_string())
 }
 
+/// Extract the kernel version from `j version` table output.
+///
+/// The output format is a Unicode table like:
+/// ```
+/// │ kernel   │ 12.11.5                            │
+/// ```
+/// We parse the value in the "kernel" row.
+fn extract_kernel_version(table: &str) -> Option<String> {
+    // Find the line containing "kernel"
+    for line in table.lines() {
+        if line.contains("kernel") {
+            // Split by "│" (Unicode box-drawing character)
+            let parts: Vec<&str> = line.split('│').collect();
+            // parts[0] = "", parts[1] = " kernel   ", parts[2] = " 12.11.5  "
+            if parts.len() >= 3 {
+                let value = parts[2].trim();
+                if !value.is_empty() {
+                    return Some(value.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Check the current `j` status on the system PATH.
+///
+/// On macOS, GUI apps inherit a minimal PATH from launchd that typically
+/// lacks `/usr/local/bin`, `/opt/homebrew/bin`, etc.  So after the normal
+/// PATH lookup fails, we also probe well-known install locations directly.
 fn check_system_j() -> (bool, Option<String>, Option<String>) {
     let bin = if cfg!(windows) { "j.exe" } else { "j" };
 
@@ -125,8 +170,57 @@ fn check_system_j() -> (bool, Option<String>, Option<String>) {
             let path = which_j();
             (true, version, path)
         }
-        _ => (false, None, None),
+        _ => {
+            // PATH lookup failed — probe well-known locations.
+            check_j_at_known_locations()
+        }
     }
+}
+
+/// Probe well-known locations where `j` may be installed.
+///
+/// This is needed because macOS GUI apps (including Tauri) inherit a
+/// minimal PATH from launchd that typically does **not** include
+/// `/usr/local/bin` or `/opt/homebrew/bin`.
+fn check_j_at_known_locations() -> (bool, Option<String>, Option<String>) {
+    let candidates: Vec<PathBuf> = {
+        let mut list = vec![];
+
+        // ~/.jdata/bin/j — our own install target
+        list.push(jdata_bin_path());
+
+        // /usr/local/bin/j — traditional Unix global bin
+        #[cfg(unix)]
+        list.push(PathBuf::from("/usr/local/bin/j"));
+
+        // /opt/homebrew/bin/j — Apple Silicon Homebrew
+        #[cfg(target_os = "macos")]
+        list.push(PathBuf::from("/opt/homebrew/bin/j"));
+
+        // $HOME/.local/bin/j — user-local bin (XDG-style)
+        if let Some(home) = std::env::var_os("HOME") {
+            list.push(PathBuf::from(home).join(".local/bin/j"));
+        }
+
+        list
+    };
+
+    for candidate in candidates {
+        if !candidate.exists() {
+            continue;
+        }
+        if let Some(version) = get_version(&candidate) {
+            let path_str = candidate.to_string_lossy().to_string();
+            // Even though we found it at a known location, report as installed
+            // so the UI shows the correct status.
+            return (true, Some(version), Some(path_str));
+        }
+        // Binary exists but --version returned nothing — still installed
+        let path_str = candidate.to_string_lossy().to_string();
+        return (true, None, Some(path_str));
+    }
+
+    (false, None, None)
 }
 
 /// Try to resolve the absolute path of `j` on the current system.
