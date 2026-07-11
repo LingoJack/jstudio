@@ -23,6 +23,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import MarkdownMessage from './MarkdownMessage';
+import { ModelSelector } from './ModelSelector';
 import type { AgentSession, ChatMessage, ToolCallItem, AgentRunState, AgentAskRequest, AskQuestion } from '../../types/agent';
 
 // ────────────────────────────────────────────────
@@ -633,7 +634,7 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
     <div className="shrink-0 px-4 pb-4">
       {/* 悬浮液态玻璃块 */}
       <div
-        className="relative rounded-2xl overflow-hidden border border-[var(--vscode-menu-border)]"
+        className="relative rounded-2xl border border-[var(--vscode-menu-border)]"
         style={{
           background: `rgba(255,255,255,${tabBarGlassOpacity})`,
           backdropFilter: 'blur(20px)',
@@ -663,7 +664,10 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
             color: 'var(--vscode-descriptionForeground)',
           }}
         >
-          <span>{session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}</span>
+          <div className="flex items-center gap-2">
+            <ModelSelector />
+            <span>{session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}</span>
+          </div>
           <div className="flex items-center gap-2">
             {isRunning && (
               <button

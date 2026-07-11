@@ -210,6 +210,11 @@ export const translations = {
     'agent.voiceInput': '语音输入',
     'agent.autoApproveOn': '自动批准已开启',
     'agent.autoApproveOff': '默认权限',
+    'agent.newChat': '新建对话',
+    'agent.selectModel': '选择模型',
+    'agent.modelSwitched': '模型已切换',
+    'agent.sessionList': '会话列表',
+    'agent.configureModel': '配置模型',
 
     // ── DocumentOutline ──
     'outline.title': '大纲',
@@ -900,6 +905,11 @@ export const translations = {
     'agent.voiceInput': 'Voice input',
     'agent.autoApproveOn': 'Auto approve enabled',
     'agent.autoApproveOff': 'Default permissions',
+    'agent.newChat': 'New Chat',
+    'agent.selectModel': 'Select Model',
+    'agent.modelSwitched': 'Model switched',
+    'agent.sessionList': 'Session List',
+    'agent.configureModel': 'Configure Model',
 
     // ── DocumentOutline ──
     'outline.title': 'Outline',
