@@ -1,6 +1,6 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 import PreviewWindowApp from './components/windows/PreviewWindowApp';
 import DiagramWindowApp from './components/windows/DiagramWindowApp';
 import TerminalWindowApp from './components/terminal/TerminalWindowApp';
