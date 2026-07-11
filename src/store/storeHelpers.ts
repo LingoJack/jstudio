@@ -308,7 +308,7 @@ export interface StoreState {
 
   // — agent ops (agent slice) —
   initAgentSessions: () => Promise<void>;
-  createAgentSession: (title?: string, workspace?: string) => Promise<string>;
+  createAgentSession: (title: string, workspace: string) => Promise<string>;
   openAgentSession: (sessionId: string) => Promise<void>;
   deleteAgentSession: (sessionId: string) => Promise<void>;
   sendAgentMessage: (

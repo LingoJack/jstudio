@@ -34,9 +34,10 @@ interface WorkspaceGroup {
 function groupSessionsByWorkspace(sessions: AgentSession[]): WorkspaceGroup[] {
   const groups = new Map<string, AgentSession[]>();
 
+  // Only include sessions with workspace (GUI requires workspace)
   for (const session of sessions) {
-    // Use 'default' for sessions without workspace (don't skip them)
-    const key = session.workspace || 'default';
+    if (!session.workspace) continue; // Skip sessions without workspace
+    const key = session.workspace;
     if (!groups.has(key)) {
       groups.set(key, []);
     }
@@ -51,7 +52,7 @@ function groupSessionsByWorkspace(sessions: AgentSession[]): WorkspaceGroup[] {
   // Convert to array and sort by most recent session
   const result: WorkspaceGroup[] = [];
   for (const [workspace, groupSessions] of groups) {
-    const displayName = workspace === 'default' ? 'Default' : (workspace.split('/').pop() || workspace);
+    const displayName = workspace.split('/').pop() || workspace;
     result.push({
       workspace,
       displayName,
@@ -60,9 +61,6 @@ function groupSessionsByWorkspace(sessions: AgentSession[]): WorkspaceGroup[] {
   }
 
   result.sort((a, b) => {
-    // 'default' group always last
-    if (a.workspace === 'default') return 1;
-    if (b.workspace === 'default') return -1;
     const aLatest = a.sessions[0]?.updatedAt || 0;
     const bLatest = b.sessions[0]?.updatedAt || 0;
     return bLatest - aLatest;
@@ -185,12 +183,14 @@ function WorkspaceGroupItem({
   onDelete,
   activeId,
   onExpand,
+  onCreateInWorkspace,
 }: {
   group: WorkspaceGroup;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   activeId: string | null;
   onExpand: (group: WorkspaceGroup) => void;
+  onCreateInWorkspace: (workspace: string) => void;
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(true);
@@ -216,11 +216,22 @@ function WorkspaceGroupItem({
           {group.displayName}
         </span>
         <span
-          className="text-xs"
+          className="text-xs mr-1"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           {group.sessions.length}
         </span>
+        {/* + button to create task in this workspace */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateInWorkspace(group.workspace);
+          }}
+          className="flex items-center justify-center w-5 h-5 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
+          title={t('agent.newTask')}
+        >
+          <Plus className="w-3 h-3" style={{ color: 'var(--vscode-foreground)' }} />
+        </button>
       </div>
 
       {/* Sessions */}
@@ -253,22 +264,34 @@ function WorkspaceGroupItem({
 }
 
 // ────────────────────────────────────────────────
-// New Task Modal (select workspace + task name)
+// New Task Modal (floating glass-style input)
 // ────────────────────────────────────────────────
 
 function NewTaskModal({
   onClose,
   onCreate,
+  initialWorkspace,
+  existingWorkspaces,
 }: {
   onClose: () => void;
-  onCreate: (title: string, workspace?: string) => void;
+  onCreate: (title: string, workspace: string) => void;
+  initialWorkspace?: string;
+  existingWorkspaces?: string[];
 }) {
   const { t } = useI18n();
   const [title, setTitle] = useState('');
-  const [workspace, setWorkspace] = useState<string | undefined>(undefined);
-  const [workspaceName, setWorkspaceName] = useState('');
+  const [workspace, setWorkspace] = useState<string | undefined>(initialWorkspace);
+  const [showWorkspacePicker, setShowWorkspacePicker] = useState(false);
 
-  const handleSelectDir = useCallback(async () => {
+  // Get display name for workspace
+  const workspaceDisplayName = workspace ? workspace.split('/').pop() || workspace : '';
+
+  const handleSelectExisting = useCallback((ws: string) => {
+    setWorkspace(ws);
+    setShowWorkspacePicker(false);
+  }, []);
+
+  const handleSelectNewDir = useCallback(async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
@@ -278,142 +301,149 @@ function NewTaskModal({
       });
       if (selected && typeof selected === 'string') {
         setWorkspace(selected);
-        setWorkspaceName(selected.split('/').pop() || selected);
+        setShowWorkspacePicker(false);
       }
     } catch (e) {
       console.error('Failed to open directory picker:', e);
     }
   }, [t]);
 
-  const handleClearWorkspace = useCallback(() => {
-    setWorkspace(undefined);
-    setWorkspaceName('');
-  }, []);
-
-  const handleCreate = useCallback(() => {
-    if (!title.trim()) return;
+  const handleSubmit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !workspace) return;
     onCreate(title.trim(), workspace);
     onClose();
   }, [title, workspace, onCreate, onClose]);
 
+  // Can submit if title and workspace are set
+  const canSubmit = title.trim() && workspace;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(2px)' }}
       onClick={onClose}
     >
       <div
-        className="rounded-lg shadow-xl w-[420px] overflow-hidden flex flex-col"
+        className="rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         style={{
-          background: 'var(--vscode-menu-background)',
-          border: '1px solid var(--vscode-menu-border)',
+          background: 'rgba(60, 60, 60, 0.85)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          width: '400px',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Input area */}
+        <form onSubmit={handleSubmit} className="p-4">
+          <textarea
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t('agent.taskPlaceholder')}
+            className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              color: 'var(--vscode-input-foreground)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              minHeight: '80px',
+            }}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (canSubmit) {
+                  handleSubmit(e);
+                }
+              }
+            }}
+          />
+        </form>
+
+        {/* Bottom bar: workspace selector + submit */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-          style={{ borderColor: 'var(--vscode-widget-border)' }}
+          className="flex items-center justify-between px-4 py-3"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}
         >
-          <span className="text-sm font-medium" style={{ color: 'var(--vscode-foreground)' }}>
-            {t('agent.newTask')}
-          </span>
-          <button
-            onClick={onClose}
-            className="flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          >
-            <X className="w-3.5 h-3.5" style={{ color: 'var(--vscode-foreground)' }} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="px-4 py-4 space-y-4">
-          {/* Task name */}
-          <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--vscode-foreground)' }}>
-              {t('agent.taskName')}
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t('agent.taskNamePlaceholder')}
-              className="w-full rounded px-3 py-2 text-sm outline-none"
+          {/* Workspace selector (left) */}
+          <div className="relative">
+            <button
+              onClick={() => setShowWorkspacePicker(!showWorkspacePicker)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors"
               style={{
-                background: 'var(--vscode-input-background)',
-                color: 'var(--vscode-input-foreground)',
-                border: '1px solid var(--vscode-input-border)',
+                background: workspace ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                color: workspace ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)',
               }}
-              autoFocus
-            />
-          </div>
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span className="max-w-[150px] truncate">
+                {workspace ? workspaceDisplayName : t('agent.selectWorkspace')}
+              </span>
+              <ChevronRight
+                className={`w-3 h-3 transition-transform ${showWorkspacePicker ? 'rotate-90' : ''}`}
+              />
+            </button>
 
-          {/* Workspace selector (optional) */}
-          <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--vscode-foreground)' }}>
-              {t('agent.workspaceOptional')}
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={handleSelectDir}
-                className="flex-1 flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors"
+            {/* Dropdown picker */}
+            {showWorkspacePicker && (
+              <div
+                className="absolute left-0 bottom-full mb-1 rounded-lg shadow-xl overflow-hidden"
                 style={{
-                  background: 'var(--vscode-input-background)',
-                  border: '1px solid var(--vscode-input-border)',
-                  color: workspace ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)',
+                  background: 'rgba(40, 40, 40, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  minWidth: '200px',
                 }}
               >
-                <FolderOpen className="w-3.5 h-3.5" />
-                <span className="truncate flex-1 text-left">
-                  {workspace ? workspaceName : t('agent.selectWorkspaceOptional')}
-                </span>
-              </button>
-              {workspace && (
+                {/* Existing workspaces */}
+                {existingWorkspaces?.map((ws) => (
+                  <button
+                    key={ws}
+                    onClick={() => handleSelectExisting(ws)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                    style={{
+                      background: workspace === ws ? 'rgba(255,255,255,0.1)' : 'transparent',
+                      color: 'var(--vscode-foreground)',
+                    }}
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" style={{ color: 'var(--vscode-descriptionForeground)' }} />
+                    <span className="truncate flex-1">{ws.split('/').pop() || ws}</span>
+                    {workspace === ws && (
+                      <span style={{ color: 'var(--vscode-descriptionForeground)' }}>✓</span>
+                    )}
+                  </button>
+                ))}
+                
+                {/* Divider */}
+                {existingWorkspaces && existingWorkspaces.length > 0 && (
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }} />
+                )}
+                
+                {/* Open new directory */}
                 <button
-                  onClick={handleClearWorkspace}
-                  className="flex items-center justify-center w-8 h-8 rounded transition-colors"
-                  style={{
-                    background: 'var(--vscode-input-background)',
-                    border: '1px solid var(--vscode-input-border)',
-                    color: 'var(--vscode-descriptionForeground)',
-                  }}
-                  title={t('agent.clearWorkspace')}
+                  onClick={handleSelectNewDir}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                  style={{ color: 'var(--vscode-foreground)' }}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{t('agent.openNewDirectory')}</span>
                 </button>
-              )}
-            </div>
-            <p className="mt-1 text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-              {t('agent.workspaceOptionalHint')}
-            </p>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Footer */}
-        <div
-          className="flex justify-end gap-2 px-4 py-3 border-t"
-          style={{ borderColor: 'var(--vscode-widget-border)' }}
-        >
+          {/* Submit button (right) */}
           <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded text-sm transition-colors"
-            style={{
-              background: 'var(--vscode-button-secondaryBackground)',
-              color: 'var(--vscode-button-secondaryForeground)',
-            }}
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={!title.trim()}
-            className="px-3 py-1.5 rounded text-sm transition-colors disabled:opacity-40"
+            type="submit"
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
             style={{
               background: 'var(--vscode-button-background)',
               color: 'var(--vscode-button-foreground)',
             }}
           >
-            {t('agent.createTask')}
+            <Send className="w-3 h-3" />
+            <span>{t('agent.createTask')}</span>
           </button>
         </div>
       </div>
@@ -439,46 +469,27 @@ function AgentSessionList({
   const { t } = useI18n();
   const [expandGroup, setExpandGroup] = useState<WorkspaceGroup | null>(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [createWorkspace, setCreateWorkspace] = useState<string | undefined>(undefined);
 
   const handleCreateTask = useCallback(async (title: string, workspace: string) => {
     try {
       const id = await createAgentSession(title, workspace);
       onSelect(id);
+      setShowNewTaskModal(false);
+      setCreateWorkspace(undefined);
     } catch (e) {
       console.error('Failed to create task:', e);
     }
   }, [createAgentSession, onSelect]);
 
   const groups = groupSessionsByWorkspace(sessions);
+  
+  // Collect existing workspaces for the picker
+  const existingWorkspaces = groups.map(g => g.workspace);
 
   return (
     <div className="flex flex-col h-full w-full">
-      {/* Header + new task button */}
-      <div
-        className="flex items-center justify-between px-3 py-2 border-b shrink-0"
-        style={{ borderColor: 'var(--vscode-widget-border)' }}
-      >
-        <span
-          className="text-xs font-medium"
-          style={{ color: 'var(--vscode-descriptionForeground)' }}
-        >
-          {t('agent.tasks')}
-        </span>
-        <button
-          onClick={() => setShowNewTaskModal(true)}
-          className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors"
-          style={{
-            background: 'var(--vscode-button-background)',
-            color: 'var(--vscode-button-foreground)',
-          }}
-          title={t('agent.newTask')}
-        >
-          <Plus className="w-3 h-3" />
-          <span>{t('agent.newTask')}</span>
-        </button>
-      </div>
-
-      {/* Workspace groups */}
+      {/* Workspace groups (no header bar) */}
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-4 text-center gap-3">
@@ -505,6 +516,7 @@ function AgentSessionList({
               onSelect={onSelect}
               onDelete={onDelete}
               onExpand={setExpandGroup}
+              onCreateInWorkspace={setCreateWorkspace}
             />
           ))
         )}
@@ -524,8 +536,13 @@ function AgentSessionList({
       {/* New task modal */}
       {showNewTaskModal && (
         <NewTaskModal
-          onClose={() => setShowNewTaskModal(false)}
+          onClose={() => {
+            setShowNewTaskModal(false);
+            setCreateWorkspace(undefined);
+          }}
           onCreate={handleCreateTask}
+          initialWorkspace={createWorkspace}
+          existingWorkspaces={existingWorkspaces}
         />
       )}
     </div>
@@ -616,7 +633,7 @@ function ChatArea({ session }: { session: AgentSession }) {
     [handleSend],
   );
 
-  const isRunning = session.runState !== 'idle' && session.runState !== 'done' && session.runState !== 'error' && session.runState !== 'cancelled';
+  const isRunning = session.runState !== 'idle' && session.runState !== 'error' && session.runState !== 'cancelled';
 
   return (
     <div className="flex flex-col h-full w-full">

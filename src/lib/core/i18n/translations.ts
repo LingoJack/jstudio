@@ -183,6 +183,8 @@ export const translations = {
     'agent.noWorkspace': '无工作目录',
     'agent.askTitle': '请回答',
     'agent.askSubmit': '提交答案',
+    'agent.taskPlaceholder': '描述你的任务...',
+    'agent.openNewDirectory': '打开新目录',
 
     // ── DocumentOutline ──
     'outline.title': '大纲',
@@ -846,6 +848,8 @@ export const translations = {
     'agent.noWorkspace': 'No workspace',
     'agent.askTitle': 'Please answer',
     'agent.askSubmit': 'Submit',
+    'agent.taskPlaceholder': 'Describe your task...',
+    'agent.openNewDirectory': 'Open new directory',
 
     // ── DocumentOutline ──
     'outline.title': 'Outline',

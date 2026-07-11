@@ -24,6 +24,7 @@ export type ToolResultStatus = 'executed' | 'failed' | 'rejected' | 'auto_approv
  * Tool execution result for rendering.
  */
 export interface ToolExecResult {
+  sessionId: string;
   toolCallId: string;
   toolName: string;
   content: string;

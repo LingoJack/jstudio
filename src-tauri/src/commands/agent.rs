@@ -73,6 +73,8 @@ pub struct AgentSessionHandle {
     pub ask_response_tx: Mutex<Option<mpsc::Sender<String>>>,
     /// Whether the agent loop is currently running
     pub is_running: Mutex<bool>,
+    /// Workspace directory for file operations
+    pub workspace: Option<String>,
     /// Tool registry
     pub tool_registry: Arc<ToolRegistry>,
     /// Background manager
@@ -451,6 +453,18 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
     // Load existing messages
     let messages = load_display_session(&session_id);
 
+    // Load session meta to get workspace
+    let paths = SessionPaths::new(&session_id);
+    let meta_file = paths.meta_file();
+    let workspace = if meta_file.exists() {
+        let meta_content = std::fs::read_to_string(&meta_file).map_err(|e| e.to_string())?;
+        let meta: SessionMetaFile =
+            serde_json::from_str(&meta_content).map_err(|e| e.to_string())?;
+        meta.workspace
+    } else {
+        None
+    };
+
     // Create managers
     let background_manager = Arc::new(BackgroundManager::new());
     let task_manager = Arc::new(TaskManager::new_with_session(&session_id));
@@ -458,8 +472,7 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
     let invoked_skills = new_invoked_skills_map();
     let cancel_token = CancellationToken::new();
 
-    // Paths for todos
-    let paths = SessionPaths::new(&session_id);
+    // Todos file path
     let todos_file_path = paths.todos_file();
 
     // Create ToolRegistry with ask channel
@@ -495,6 +508,7 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
         ask_rx: Mutex::new(Some(ask_rx)),
         ask_response_tx: Mutex::new(None),
         is_running: Mutex::new(false),
+        workspace,
         tool_registry,
         background_manager,
         task_manager,
@@ -1077,6 +1091,7 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
                 handle.task_manager.clone(),
                 handle.hook_manager.clone(),
                 handle.invoked_skills.clone(),
+                handle.workspace.clone(),
             ),
         )
     };
@@ -1111,6 +1126,7 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         _task_manager,
         _hook_manager,
         invoked_skills,
+        workspace,
     ) = shared_state_components;
 
     // Spawn event listener
@@ -1152,6 +1168,7 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         session_loaded_deferred: Arc::new(Mutex::new(Vec::new())),
         tools_enabled: config.tools_enabled,
         sub_agent_metrics: Arc::new(Mutex::new(SubAgentMetrics::default())),
+        workspace,
     };
 
     // System prompt loader

@@ -62,19 +62,19 @@ export function createAgentSlice(
       }
     },
 
-    createAgentSession: async (title?: string, workspace?: string) => {
+    createAgentSession: async (title: string, workspace: string) => {
       try {
         const id = await storage.agentCreateSession(title, workspace);
         const session: AgentSession = {
           id,
-          title: title ?? '',
+          title,
           runState: 'idle',
           messages: [],
           streamingContent: '',
           streamingReasoningContent: '',
           pendingToolCalls: [],
           pendingPlan: undefined,
-          workspace,
+          workspace,  // Required in GUI
           autoApprove: false,
           createdAt: Date.now() / 1000,
           updatedAt: Date.now() / 1000,
