@@ -2,11 +2,9 @@
  * AgentSidebar — 左侧边栏组件
  * 
  * 结构（参考 WorkBuddy 设计）：
- * - 顶部：产品名称
  * - 功能菜单：新建任务、助理、技能等
  * - 空间管理：workspace 列表（可折叠）
  * - 任务历史：按 workspace 分组的 session 列表
- * - 底部：用户信息 / 设置入口
  */
 
 import { useState, useCallback } from 'react';
@@ -20,20 +18,14 @@ import {
   MoreHorizontal,
   FolderOpen,
   ChevronRight,
-  Settings,
-  User,
-  MessageSquare,
-  Trash2,
 } from 'lucide-react';
-import { NavBranch, NavRow } from '../ui/NavTree';
-import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
+import { NavRow } from '../ui/NavTree';
 import {
   WorkspaceList,
   WorkspaceExpandModal,
   groupSessionsByWorkspace,
   type WorkspaceGroup,
 } from './WorkspaceList';
-import type { AgentSession } from '../../types/agent';
 
 // ────────────────────────────────────────────────
 // Constants
@@ -42,32 +34,27 @@ import type { AgentSession } from '../../types/agent';
 const MAX_SESSIONS_PER_GROUP = 5;
 
 // ────────────────────────────────────────────────
-// New Task Modal
+// Workspace Select Modal (简化版：只选择 workspace)
 // ────────────────────────────────────────────────
 
-interface NewTaskModalProps {
+interface WorkspaceSelectModalProps {
   onClose: () => void;
-  onCreate: (title: string, workspace: string) => void;
+  onCreate: (workspace: string) => void;
   initialWorkspace?: string;
   existingWorkspaces?: string[];
 }
 
-export function NewTaskModal({
+function WorkspaceSelectModal({
   onClose,
   onCreate,
   initialWorkspace,
   existingWorkspaces,
-}: NewTaskModalProps) {
+}: WorkspaceSelectModalProps) {
   const { t } = useI18n();
-  const [title, setTitle] = useState('');
   const [workspace, setWorkspace] = useState<string | undefined>(initialWorkspace);
-  const [showWorkspacePicker, setShowWorkspacePicker] = useState(false);
-
-  const workspaceDisplayName = workspace ? workspace.split('/').pop() || workspace : '';
 
   const handleSelectExisting = useCallback((ws: string) => {
     setWorkspace(ws);
-    setShowWorkspacePicker(false);
   }, []);
 
   const handleSelectNewDir = useCallback(async () => {
@@ -80,24 +67,17 @@ export function NewTaskModal({
       });
       if (selected && typeof selected === 'string') {
         setWorkspace(selected);
-        setShowWorkspacePicker(false);
       }
     } catch (e) {
       console.error('Failed to open directory picker:', e);
     }
   }, [t]);
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!title.trim() || !workspace) return;
-      onCreate(title.trim(), workspace);
-      onClose();
-    },
-    [title, workspace, onCreate, onClose],
-  );
-
-  const canSubmit = title.trim() && workspace;
+  const handleCreate = useCallback(() => {
+    if (!workspace) return;
+    onCreate(workspace);
+    onClose();
+  }, [workspace, onCreate, onClose]);
 
   return (
     <div
@@ -106,123 +86,90 @@ export function NewTaskModal({
       onClick={onClose}
     >
       <div
-        className="rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        className="rounded-xl shadow-2xl overflow-hidden"
         style={{
-          background: 'rgba(60, 60, 60, 0.85)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          width: '400px',
+          background: 'var(--vscode-menu-background)',
+          border: '1px solid var(--vscode-menu-border)',
+          width: '320px',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Input area */}
-        <form onSubmit={handleSubmit} className="p-4">
-          <textarea
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={t('agent.taskPlaceholder')}
-            className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
-            style={{
-              background: 'rgba(255,255,255,0.08)',
-              color: 'var(--vscode-input-foreground)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              minHeight: '80px',
-            }}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (canSubmit) handleSubmit(e);
-              }
-            }}
-          />
-        </form>
-
-        {/* Bottom bar */}
+        {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}
+          className="px-4 py-3 text-sm font-medium"
+          style={{
+            color: 'var(--vscode-foreground)',
+            borderBottom: '1px solid var(--vscode-widget-border)',
+          }}
         >
-          {/* Workspace selector */}
-          <div className="relative">
+          {t('agent.selectWorkspace')}
+        </div>
+
+        {/* Workspace list */}
+        <div className="p-2 space-y-1">
+          {existingWorkspaces?.map((ws) => (
             <button
-              onClick={() => setShowWorkspacePicker(!showWorkspacePicker)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors"
+              key={ws}
+              onClick={() => handleSelectExisting(ws)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-colors"
               style={{
-                background: workspace ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
-                color: workspace
-                  ? 'var(--vscode-foreground)'
-                  : 'var(--vscode-descriptionForeground)',
+                background:
+                  workspace === ws ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
+                color:
+                  workspace === ws
+                    ? 'var(--vscode-list-activeSelectionForeground)'
+                    : 'var(--vscode-foreground)',
               }}
             >
-              <FolderOpen className="w-3.5 h-3.5" />
-              <span className="max-w-[150px] truncate">
-                {workspace ? workspaceDisplayName : t('agent.selectWorkspace')}
-              </span>
-              <ChevronRight
-                className={`w-3 h-3 transition-transform ${showWorkspacePicker ? 'rotate-90' : ''}`}
-              />
+              <FolderOpen className="w-4 h-4 shrink-0" />
+              <span className="truncate flex-1">{ws.split('/').pop() || ws}</span>
+              {workspace === ws && <span className="opacity-60">✓</span>}
             </button>
+          ))}
 
-            {/* Dropdown */}
-            {showWorkspacePicker && (
-              <div
-                className="absolute left-0 bottom-full mb-1 rounded-lg shadow-xl overflow-hidden"
-                style={{
-                  background: 'rgba(40, 40, 40, 0.95)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  minWidth: '200px',
-                }}
-              >
-                {existingWorkspaces?.map((ws) => (
-                  <button
-                    key={ws}
-                    onClick={() => handleSelectExisting(ws)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[rgba(255,255,255,0.1)] transition-colors"
-                    style={{
-                      background: workspace === ws ? 'rgba(255,255,255,0.1)' : 'transparent',
-                      color: 'var(--vscode-foreground)',
-                    }}
-                  >
-                    <FolderOpen
-                      className="w-3.5 h-3.5"
-                      style={{ color: 'var(--vscode-descriptionForeground)' }}
-                    />
-                    <span className="truncate flex-1">{ws.split('/').pop() || ws}</span>
-                    {workspace === ws && (
-                      <span style={{ color: 'var(--vscode-descriptionForeground)' }}>✓</span>
-                    )}
-                  </button>
-                ))}
-                {existingWorkspaces && existingWorkspaces.length > 0 && (
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }} />
-                )}
-                <button
-                  onClick={handleSelectNewDir}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[rgba(255,255,255,0.1)] transition-colors"
-                  style={{ color: 'var(--vscode-foreground)' }}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{t('agent.openNewDirectory')}</span>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Divider */}
+          {existingWorkspaces && existingWorkspaces.length > 0 && (
+            <div
+              style={{ borderTop: '1px solid var(--vscode-widget-border)', margin: '4px 0' }}
+            />
+          )}
 
-          {/* Submit */}
+          {/* Open new directory */}
           <button
-            type="submit"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
+            onClick={handleSelectNewDir}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+            style={{ color: 'var(--vscode-foreground)' }}
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>{t('agent.openNewDirectory')}</span>
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="px-4 py-3 flex justify-end gap-2"
+          style={{ borderTop: '1px solid var(--vscode-widget-border)' }}
+        >
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 rounded text-xs transition-colors"
+            style={{
+              background: 'var(--vscode-button-secondaryBackground)',
+              color: 'var(--vscode-button-secondaryForeground)',
+            }}
+          >
+            {t('agent.cancel')}
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={!workspace}
+            className="px-3 py-1.5 rounded text-xs transition-colors disabled:opacity-40"
             style={{
               background: 'var(--vscode-button-background)',
               color: 'var(--vscode-button-foreground)',
             }}
           >
-            <Plus className="w-3 h-3" />
-            <span>{t('agent.createTask')}</span>
+            {t('agent.createTask')}
           </button>
         </div>
       </div>
@@ -239,15 +186,16 @@ interface SidebarMenuItemProps {
   label: string;
   active?: boolean;
   onClick?: () => void;
-  badge?: string | number;
 }
 
-function SidebarMenuItem({ icon, label, active, onClick, badge }: SidebarMenuItemProps) {
+function SidebarMenuItem({ icon, label, active, onClick }: SidebarMenuItemProps) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors rounded-lg ${
-        active ? 'bg-[var(--vscode-list-activeSelectionBackground)]' : 'hover:bg-[var(--vscode-list-hoverBackground)]'
+        active
+          ? 'bg-[var(--vscode-list-activeSelectionBackground)]'
+          : 'hover:bg-[var(--vscode-list-hoverBackground)]'
       }`}
       style={{
         color: active
@@ -257,17 +205,6 @@ function SidebarMenuItem({ icon, label, active, onClick, badge }: SidebarMenuIte
     >
       <span className="w-5 h-5 flex items-center justify-center shrink-0">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
-      {badge && (
-        <span
-          className="text-xs px-1.5 py-0.5 rounded"
-          style={{
-            background: 'var(--vscode-badge-background)',
-            color: 'var(--vscode-badge-foreground)',
-          }}
-        >
-          {badge}
-        </span>
-      )}
     </button>
   );
 }
@@ -291,21 +228,23 @@ export function AgentSidebar({
   const sessions = useStore((s) => s.agentSessions);
   const createAgentSession = useStore((s) => s.createAgentSession);
 
-  const [activeView, setActiveView] = useState<'tasks' | 'assistant' | 'skills' | 'automation'>('tasks');
+  const [activeView, setActiveView] = useState<'tasks' | 'assistant' | 'skills' | 'automation'>(
+    'tasks',
+  );
   const [spacesExpanded, setSpacesExpanded] = useState(true);
   const [expandGroup, setExpandGroup] = useState<WorkspaceGroup | null>(null);
-  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [createWorkspace, setCreateWorkspace] = useState<string | undefined>(undefined);
 
   const groups = groupSessionsByWorkspace(sessions);
   const existingWorkspaces = groups.map((g) => g.workspace);
 
   const handleCreateTask = useCallback(
-    async (title: string, workspace: string) => {
+    async (workspace: string) => {
       try {
-        const id = await createAgentSession(title, workspace);
+        const id = await createAgentSession(workspace);
         onSelectSession(id);
-        setShowNewTaskModal(false);
+        setShowWorkspaceModal(false);
         setCreateWorkspace(undefined);
       } catch (e) {
         console.error('Failed to create task:', e);
@@ -323,27 +262,12 @@ export function AgentSidebar({
         borderRight: '1px solid var(--vscode-sideBar-border)',
       }}
     >
-      {/* 顶部：产品名称 */}
-      <div
-        className="shrink-0 px-4 py-3"
-        style={{
-          borderBottom: '1px solid var(--vscode-sideBarSectionHeader-border)',
-        }}
-      >
-        <span
-          className="text-sm font-semibold"
-          style={{ color: 'var(--vscode-sideBarTitle-foreground)' }}
-        >
-          JStudio Agent
-        </span>
-      </div>
-
       {/* 功能菜单 */}
       <div className="shrink-0 px-2 py-2 space-y-1">
         <SidebarMenuItem
           icon={<Plus className="w-4 h-4" />}
           label={t('agent.newTask')}
-          onClick={() => setShowNewTaskModal(true)}
+          onClick={() => setShowWorkspaceModal(true)}
         />
         <SidebarMenuItem
           icon={<Sparkles className="w-4 h-4" />}
@@ -363,10 +287,7 @@ export function AgentSidebar({
           active={activeView === 'automation'}
           onClick={() => setActiveView('automation')}
         />
-        <SidebarMenuItem
-          icon={<MoreHorizontal className="w-4 h-4" />}
-          label={t('agent.more')}
-        />
+        <SidebarMenuItem icon={<MoreHorizontal className="w-4 h-4" />} label={t('agent.more')} />
       </div>
 
       {/* 分隔线 */}
@@ -397,7 +318,11 @@ export function AgentSidebar({
                 key={group.workspace}
                 level="primary"
                 icon={<FolderOpen className="w-4 h-4 opacity-70 shrink-0" />}
-                onClick={() => setCreateWorkspace(group.workspace)}
+                onClick={() => {
+                  // 在该 workspace 下创建新任务
+                  setCreateWorkspace(group.workspace);
+                  setShowWorkspaceModal(true);
+                }}
               >
                 <span className="flex-1 truncate text-xs">{group.displayName}</span>
                 <span className="text-xs text-[var(--vscode-descriptionForeground)] mr-2">
@@ -417,33 +342,12 @@ export function AgentSidebar({
           onSelect={onSelectSession}
           onDelete={onDeleteSession}
           onExpand={setExpandGroup}
-          onCreateInWorkspace={setCreateWorkspace}
+          onCreateInWorkspace={(ws) => {
+            setCreateWorkspace(ws);
+            setShowWorkspaceModal(true);
+          }}
           maxSessionsPerGroup={MAX_SESSIONS_PER_GROUP}
         />
-      </div>
-
-      {/* 底部：用户信息 */}
-      <div
-        className="shrink-0 px-3 py-2 flex items-center gap-2"
-        style={{
-          borderTop: '1px solid var(--vscode-widget-border)',
-        }}
-      >
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center"
-          style={{ background: 'var(--vscode-badge-background)' }}
-        >
-          <User className="w-3.5 h-3.5" style={{ color: 'var(--vscode-badge-foreground)' }} />
-        </div>
-        <span className="text-xs flex-1 truncate" style={{ color: 'var(--vscode-foreground)' }}>
-          {t('agent.user')}
-        </span>
-        <button
-          className="flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.settings')}
-        >
-          <Settings className="w-3.5 h-3.5" style={{ color: 'var(--vscode-foreground)' }} />
-        </button>
       </div>
 
       {/* Expand modal */}
@@ -457,11 +361,11 @@ export function AgentSidebar({
         />
       )}
 
-      {/* New task modal */}
-      {showNewTaskModal && (
-        <NewTaskModal
+      {/* Workspace select modal */}
+      {showWorkspaceModal && (
+        <WorkspaceSelectModal
           onClose={() => {
-            setShowNewTaskModal(false);
+            setShowWorkspaceModal(false);
             setCreateWorkspace(undefined);
           }}
           onCreate={handleCreateTask}

@@ -62,12 +62,13 @@ export function createAgentSlice(
       }
     },
 
-    createAgentSession: async (title: string, workspace: string) => {
+    createAgentSession: async (workspace: string) => {
       try {
-        const id = await storage.agentCreateSession(title, workspace);
+        // 不需要 title，标题会在用户发送第一条消息时自动生成
+        const id = await storage.agentCreateSession('', workspace);
         const session: AgentSession = {
           id,
-          title,
+          title: '', // 空 title，等待第一条消息填充
           runState: 'idle',
           messages: [],
           streamingContent: '',
@@ -138,17 +139,25 @@ export function createAgentSlice(
           images,
         };
 
-        set((s) => ({
-          agentSessions: s.agentSessions.map((session) =>
-            session.id === sessionId
-              ? {
-                  ...session,
-                  messages: [...session.messages, userMsg],
-                  // Don't reset streamingContent if already streaming - user may be adding context mid-stream
-                }
-              : session,
-          ),
-        }));
+        set((s) => {
+          const session = s.agentSessions.find((s) => s.id === sessionId);
+          const isFirstMessage = session && session.messages.length === 0;
+          // 如果是第一条消息且标题为空，用消息内容作为标题
+          const newTitle = isFirstMessage && !session.title ? text.slice(0, 50) + (text.length > 50 ? '...' : '') : session?.title;
+
+          return {
+            agentSessions: s.agentSessions.map((session) =>
+              session.id === sessionId
+                ? {
+                    ...session,
+                    messages: [...session.messages, userMsg],
+                    title: newTitle || session.title,
+                    // Don't reset streamingContent if already streaming - user may be adding context mid-stream
+                  }
+                : session,
+            ),
+          };
+        });
 
         // Ensure event listeners are set up (idempotent - will only set up once)
         await ensureAgentEventListeners(sessionId, set, get);
