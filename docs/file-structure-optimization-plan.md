@@ -291,8 +291,7 @@ cat > knip.json <<'JSON'
     "src/globals.d.ts",
     "src/lib/shortcuts/globalShortcutActions.ts",
     "src/components/editor/nodes/TableSizeSelector.tsx"
-  ],
-  "ignoreDependencies": true
+  ]
 }
 JSON
 npx tsc --noEmit && echo "TSC_OK"

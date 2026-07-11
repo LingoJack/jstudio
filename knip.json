@@ -5,6 +5,5 @@
     "src/globals.d.ts",
     "src/lib/shortcuts/globalShortcutActions.ts",
     "src/components/editor/nodes/TableSizeSelector.tsx"
-  ],
-  "ignoreDependencies": true
+  ]
 }
