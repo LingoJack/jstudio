@@ -576,10 +576,11 @@ function ChatArea({ session }: { session: AgentSession }) {
   }, [session.messages, session.streamingContent]);
 
   const handleSend = useCallback(() => {
-    if (!input.trim() || session.runState !== 'idle') return;
+    if (!input.trim()) return;
+    // Like remote: don't check runState - backend handles queueing
     sendAgentMessage(session.id, input.trim());
     setInput('');
-  }, [input, session.id, session.runState, sendAgentMessage]);
+  }, [input, session.id, sendAgentMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

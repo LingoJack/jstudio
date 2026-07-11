@@ -130,12 +130,8 @@ export function createAgentSlice(
           ),
         }));
 
-        // Start listening for events before sending
-        const unsubscribes = await setupAgentEventListeners(sessionId, set, get);
-        // Store unsubscribe functions for cleanup
-        set((s) => ({
-          agentUnsubscribes: unsubscribes,
-        }));
+        // Ensure event listeners are set up (idempotent - will only set up once)
+        await ensureAgentEventListeners(sessionId, set, get);
 
         // Send to backend
         await storage.agentSendMessage({
@@ -222,9 +218,46 @@ export function createAgentSlice(
   };
 }
 
-// ────────────────────────────────────────────────
+// ——————————————————————————————————————————————
+// Persistent event listeners (aligned with remote pattern)
+// ——————————————————————————————————————————————
+
+let _currentSessionId: string | null = null;
+let _currentUnsubs: UnlistenFn[] = [];
+
+/**
+ * Ensure event listeners are set up for the session.
+ * This is idempotent - if already set up for this session, does nothing.
+ * If switching sessions, cleans up old listeners first.
+ */
+async function ensureAgentEventListeners(
+  sessionId: string,
+  set: (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void,
+  get: () => StoreState,
+): Promise<void> {
+  // Already set up for this session
+  if (_currentSessionId === sessionId && _currentUnsubs.length > 0) {
+    return;
+  }
+
+  // Clean up old listeners if switching sessions
+  if (_currentSessionId !== sessionId) {
+    _currentUnsubs.forEach((unsub) => unsub());
+    _currentUnsubs = [];
+    _currentSessionId = sessionId;
+  }
+
+  // Set up new listeners
+  const unsubs = await setupAgentEventListeners(sessionId, set, get);
+  _currentUnsubs = unsubs;
+  
+  // Also store in state for cleanup on app close
+  set({ agentUnsubscribes: unsubs });
+}
+
+// ——————————————————————————————————————————————
 // Event listeners
-// ────────────────────────────────────────────────
+// ——————————————————————————————————————————————
 
 /**
  * Set up Tauri event listeners for a given agent session.
@@ -327,15 +360,11 @@ async function setupAgentEventListeners(
           streamingContent: '',
           streamingReasoningContent: '',
           pendingToolCalls: [],
-          runState: 'done' as const,
+          runState: 'idle', // Reset to idle so next message can be sent
           updatedAt: Date.now() / 1000,
         };
       });
-
-      // Clean up listeners
-      setTimeout(() => {
-        get().cleanupAgentListeners();
-      }, 500);
+      // Don't cleanup listeners - keep them for next message (like remote)
     }),
   );
 
@@ -358,14 +387,11 @@ async function setupAgentEventListeners(
           streamingContent: '',
           streamingReasoningContent: '',
           pendingToolCalls: [],
-          runState: 'error' as const,
+          runState: 'idle', // Reset to idle so next message can be sent
           updatedAt: Date.now() / 1000,
         };
       });
-
-      setTimeout(() => {
-        get().cleanupAgentListeners();
-      }, 500);
+      // Don't cleanup listeners - keep them for next message
     }),
   );
 
@@ -374,13 +400,11 @@ async function setupAgentEventListeners(
     await listen<{ sessionId: string }>('agent:cancelled', (event) => {
       if (event.payload.sessionId !== sessionId) return;
       updateSession(() => ({
-        runState: 'cancelled' as const,
+        runState: 'idle', // Reset to idle so next message can be sent
         streamingContent: '',
         streamingReasoningContent: '',
       }));
-      setTimeout(() => {
-        get().cleanupAgentListeners();
-      }, 500);
+      // Don't cleanup listeners - keep them for next message
     }),
   );
 

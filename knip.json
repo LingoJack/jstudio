@@ -1,0 +1,10 @@
+{
+  "entry": ["src/main.tsx", "src/components/windows/*WindowApp.tsx"],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": [
+    "src/globals.d.ts",
+    "src/lib/shortcuts/globalShortcutActions.ts",
+    "src/components/editor/nodes/TableSizeSelector.tsx"
+  ],
+  "ignoreDependencies": true
+}
