@@ -109,7 +109,8 @@ export function createAgentSlice(
 
     sendAgentMessage: async (sessionId: string, text: string, images?: { base64: string; mediaType: string }[]) => {
       try {
-        // Add user message locally
+        // Add user message locally (always, regardless of runState)
+        // Backend handles queuing - if agent is running, message will be processed in next round
         const userMsg: ChatMessage = {
           role: 'user',
           content: text,
@@ -121,10 +122,7 @@ export function createAgentSlice(
               ? {
                   ...session,
                   messages: [...session.messages, userMsg],
-                  runState: 'thinking',
-                  streamingContent: '',
-                  streamingReasoningContent: '',
-                  pendingToolCalls: [],
+                  // Don't reset streamingContent if already streaming - user may be adding context mid-stream
                 }
               : session,
           ),
@@ -133,7 +131,7 @@ export function createAgentSlice(
         // Ensure event listeners are set up (idempotent - will only set up once)
         await ensureAgentEventListeners(sessionId, set, get);
 
-        // Send to backend
+        // Send to backend - backend handles queuing if agent is busy
         await storage.agentSendMessage({
           sessionId,
           text,
