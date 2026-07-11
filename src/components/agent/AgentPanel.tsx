@@ -659,7 +659,7 @@ function ChatArea({ session }: { session: AgentSession }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t('agent.inputPlaceholder')}
+            placeholder={isRunning ? t('agent.appendMessage') : t('agent.inputPlaceholder')}
             rows={1}
             className="flex-1 resize-none rounded-lg px-3 py-2 text-sm outline-none transition-colors"
             style={{
@@ -668,9 +668,17 @@ function ChatArea({ session }: { session: AgentSession }) {
               border: '1px solid var(--vscode-input-border)',
               maxHeight: '120px',
             }}
-            disabled={isRunning}
           />
-          {isRunning ? (
+          <button
+            onClick={handleSend}
+            disabled={!input.trim()}
+            className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-30"
+            style={{ background: 'var(--vscode-button-background)', color: 'var(--vscode-button-foreground)' }}
+            title={t('agent.send')}
+          >
+            <Send className="w-4 h-4" />
+          </button>
+          {isRunning && (
             <button
               onClick={() => cancelAgent(session.id)}
               className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
@@ -678,16 +686,6 @@ function ChatArea({ session }: { session: AgentSession }) {
               title={t('agent.cancel')}
             >
               <Square className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-40"
-              style={{ background: 'var(--vscode-button-background)', color: 'var(--vscode-button-foreground)' }}
-              title="Send"
-            >
-              <Send className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
