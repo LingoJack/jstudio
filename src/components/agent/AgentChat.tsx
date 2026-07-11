@@ -20,7 +20,6 @@ import {
   MoreHorizontal,
   Send,
   Square,
-  Mic,
   ChevronRight,
 } from 'lucide-react';
 import MarkdownMessage from './MarkdownMessage';
@@ -594,7 +593,7 @@ function AskConfirm({
 }
 
 // ────────────────────────────────────────────────
-// Input Area
+// Input Area (Floating Glass Style)
 // ────────────────────────────────────────────────
 
 interface InputAreaProps {
@@ -630,133 +629,90 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
   );
 
   return (
-    <div
-      className="shrink-0 px-4 py-3"
-      style={{
-        background: 'var(--vscode-editor-background)',
-        borderTop: '1px solid var(--vscode-widget-border)',
-      }}
-    >
-      {/* 引导标签 */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-          {t('agent.nextSteps')}
-        </span>
-        <div className="flex items-center gap-1">
+    <div className="shrink-0 px-4 py-3">
+      {/* 悬浮液态玻璃块 */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: 'rgba(60, 60, 60, 0.6)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)',
+        }}
+      >
+        {/* 引导标签 */}
+        <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+          <span className="text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
+            {t('agent.nextSteps')}
+          </span>
           <button
-            className="text-xs px-2 py-0.5 rounded transition-colors hover:bg-[var(--vscode-toolbar-hoverBackground)]"
+            className="text-xs px-2 py-0.5 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
             style={{ color: 'var(--vscode-textLink-foreground)' }}
           >
             @ {t('agent.reference')}
           </button>
           <button
-            className="text-xs px-2 py-0.5 rounded transition-colors hover:bg-[var(--vscode-toolbar-hoverBackground)]"
+            className="text-xs px-2 py-0.5 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
             style={{ color: 'var(--vscode-textLink-foreground)' }}
           >
             / {t('agent.skills')}
           </button>
         </div>
-      </div>
 
-      {/* 输入框 */}
-      <div className="flex items-end gap-2">
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t('agent.inputPlaceholder')}
-          rows={1}
-          className="flex-1 resize-none rounded-xl px-4 py-3 text-sm outline-none transition-colors"
-          style={{
-            background: 'var(--vscode-input-background)',
-            color: 'var(--vscode-input-foreground)',
-            border: '1px solid var(--vscode-input-border)',
-            maxHeight: '120px',
-          }}
-        />
-        <div className="flex items-center gap-1">
+        {/* 输入框 + 发送按钮 */}
+        <div className="relative">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t('agent.inputPlaceholder')}
+            rows={2}
+            className="w-full resize-none bg-transparent px-4 pb-3 text-sm outline-none"
+            style={{
+              color: 'var(--vscode-input-foreground)',
+              minHeight: '56px',
+            }}
+          />
+          {/* 发送按钮 - 右下角 */}
           <button
             onClick={handleSend}
             disabled={!input.trim()}
-            className="flex items-center justify-center w-9 h-9 rounded-full transition-colors disabled:opacity-30"
+            className="absolute right-3 bottom-3 flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-30"
             style={{
-              background: 'var(--vscode-button-background)',
-              color: 'var(--vscode-button-foreground)',
+              background: input.trim() 
+                ? 'var(--vscode-button-background)' 
+                : 'rgba(255, 255, 255, 0.1)',
+              color: input.trim() 
+                ? 'var(--vscode-button-foreground)' 
+                : 'var(--vscode-descriptionForeground)',
             }}
             title={t('agent.send')}
           >
             <Send className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* 底部状态 */}
+        <div
+          className="flex items-center justify-between px-4 py-2 text-xs"
+          style={{ 
+            color: 'var(--vscode-descriptionForeground)',
+            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          }}
+        >
+          <span>{session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}</span>
           {isRunning && (
             <button
               onClick={onCancel}
-              className="flex items-center justify-center w-9 h-9 rounded-full transition-colors"
-              style={{
-                background: 'var(--vscode-button-secondaryBackground)',
-                color: 'var(--vscode-button-secondaryForeground)',
-              }}
-              title={t('agent.cancel')}
+              className="flex items-center gap-1 px-2 py-1 rounded transition-colors hover:bg-[rgba(255,255,255,0.1)]"
+              style={{ color: 'var(--vscode-errorForeground)' }}
             >
-              <Square className="w-3.5 h-3.5" />
+              <Square className="w-3 h-3" />
+              <span>{t('agent.cancel')}</span>
             </button>
           )}
         </div>
-      </div>
-
-      {/* 权限状态 */}
-      <div className="flex items-center justify-between mt-2">
-        <span className="text-xs" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-          {session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────
-// Status Bar
-// ────────────────────────────────────────────────
-
-function StatusBar() {
-  const { t } = useI18n();
-
-  return (
-    <div
-      className="shrink-0 flex items-center justify-between px-4 py-1.5"
-      style={{
-        background: 'var(--vscode-statusBar-background)',
-        borderTop: '1px solid var(--vscode-statusBar-border)',
-      }}
-    >
-      {/* 左侧：免责声明 */}
-      <span
-        className="text-xs"
-        style={{ color: 'var(--vscode-statusBar-foreground)', opacity: 0.7 }}
-      >
-        {t('agent.disclaimer')}
-      </span>
-
-      {/* 右侧：模型版本 + 语音 */}
-      <div className="flex items-center gap-2">
-        <span
-          className="text-xs px-1.5 py-0.5 rounded"
-          style={{
-            background: 'var(--vscode-badge-background)',
-            color: 'var(--vscode-badge-foreground)',
-          }}
-        >
-          {t('agent.modelVersion')}
-        </span>
-        <button
-          className="flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.voiceInput')}
-        >
-          <Mic
-            className="w-3.5 h-3.5"
-            style={{ color: 'var(--vscode-statusBar-foreground)' }}
-          />
-        </button>
       </div>
     </div>
   );
@@ -882,9 +838,6 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
 
       {/* 输入区 */}
       <InputArea session={session} onSend={handleSend} onCancel={handleCancel} />
-
-      {/* 状态栏 */}
-      <StatusBar />
     </div>
   );
 }

@@ -17,9 +17,7 @@ import {
   Zap,
   MoreHorizontal,
   FolderOpen,
-  ChevronRight,
 } from 'lucide-react';
-import { NavRow } from '../ui/NavTree';
 import {
   WorkspaceList,
   WorkspaceExpandModal,
@@ -192,7 +190,7 @@ function SidebarMenuItem({ icon, label, active, onClick }: SidebarMenuItemProps)
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors rounded-lg ${
+      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors rounded-md ${
         active
           ? 'bg-[var(--vscode-list-activeSelectionBackground)]'
           : 'hover:bg-[var(--vscode-list-hoverBackground)]'
@@ -203,7 +201,7 @@ function SidebarMenuItem({ icon, label, active, onClick }: SidebarMenuItemProps)
           : 'var(--vscode-foreground)',
       }}
     >
-      <span className="w-5 h-5 flex items-center justify-center shrink-0">{icon}</span>
+      <span className="w-4 h-4 flex items-center justify-center shrink-0">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
     </button>
   );
@@ -231,7 +229,6 @@ export function AgentSidebar({
   const [activeView, setActiveView] = useState<'tasks' | 'assistant' | 'skills' | 'automation'>(
     'tasks',
   );
-  const [spacesExpanded, setSpacesExpanded] = useState(true);
   const [expandGroup, setExpandGroup] = useState<WorkspaceGroup | null>(null);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [createWorkspace, setCreateWorkspace] = useState<string | undefined>(undefined);
@@ -296,45 +293,7 @@ export function AgentSidebar({
         style={{ background: 'var(--vscode-widget-border)' }}
       />
 
-      {/* 空间管理（Workspace 列表） */}
-      <div className="shrink-0 px-2 py-1">
-        <button
-          onClick={() => setSpacesExpanded(!spacesExpanded)}
-          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs transition-colors hover:bg-[var(--vscode-list-hoverBackground)] rounded"
-          style={{ color: 'var(--vscode-sideBarSectionHeader-foreground)' }}
-        >
-          <ChevronRight
-            className={`w-3 h-3 transition-transform ${spacesExpanded ? 'rotate-90' : ''}`}
-          />
-          <span className="flex-1">
-            {t('agent.spaces')} ({groups.length})
-          </span>
-        </button>
-
-        {spacesExpanded && (
-          <div className="ml-4 mt-1 space-y-0.5">
-            {groups.map((group) => (
-              <NavRow
-                key={group.workspace}
-                level="primary"
-                icon={<FolderOpen className="w-4 h-4 opacity-70 shrink-0" />}
-                onClick={() => {
-                  // 在该 workspace 下创建新任务
-                  setCreateWorkspace(group.workspace);
-                  setShowWorkspaceModal(true);
-                }}
-              >
-                <span className="flex-1 truncate text-xs">{group.displayName}</span>
-                <span className="text-xs text-[var(--vscode-descriptionForeground)] mr-2">
-                  {group.sessions.length}
-                </span>
-              </NavRow>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 任务历史列表 */}
+      {/* 任务历史列表（合并了空间管理） */}
       <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
         <WorkspaceList
           groups={groups}
