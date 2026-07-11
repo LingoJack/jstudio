@@ -82,4 +82,5 @@ allow:
 - Shell(cat node_modules/@tiptap/markdown/package.json:*)
 - Shell(j --version:*)
 - Shell(j version:*)
+- Shell(find /Users/lingojack/dev_custom:*)
 deny: []
