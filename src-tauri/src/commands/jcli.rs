@@ -133,13 +133,16 @@ fn get_version(binary: &PathBuf) -> Option<String> {
 /// ```
 /// │ kernel   │ 12.11.5                            │
 /// ```
-/// We parse the value in the "kernel" row.
+/// The raw output may contain ANSI escape codes which must be stripped
+/// before parsing.
 fn extract_kernel_version(table: &str) -> Option<String> {
     // Find the line containing "kernel"
     for line in table.lines() {
         if line.contains("kernel") {
+            // Strip ANSI escape codes before splitting
+            let clean = strip_ansi_escapes(line);
             // Split by "│" (Unicode box-drawing character)
-            let parts: Vec<&str> = line.split('│').collect();
+            let parts: Vec<&str> = clean.split('│').collect();
             // parts[0] = "", parts[1] = " kernel   ", parts[2] = " 12.11.5  "
             if parts.len() >= 3 {
                 let value = parts[2].trim();
@@ -150,6 +153,34 @@ fn extract_kernel_version(table: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Strip ANSI escape sequences from a string.
+/// Handles CSI sequences like `\x1b[0m`, `\x1b[39m`, `\x1b[1;32m`, etc.
+fn strip_ansi_escapes(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.char_indices().peekable();
+    while let Some((_, ch)) = chars.next() {
+        if ch == '\x1b' {
+            // Check for CSI sequence: ESC [ ... (m | letter)
+            if let Some(&(_, next)) = chars.peek() {
+                if next == '[' {
+                    // Skip ESC and '['
+                    chars.next();
+                    // Skip until we find the terminating byte (0x40..=0x7E)
+                    while let Some(&(_, c)) = chars.peek() {
+                        chars.next();
+                        if ('\x40'..='\x7e').contains(&c) {
+                            break;
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
+        result.push(ch);
+    }
+    result
 }
 
 /// Check the current `j` status on the system PATH.
