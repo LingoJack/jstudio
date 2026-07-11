@@ -606,6 +606,7 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
   const { t } = useI18n();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
 
   const isRunning =
     session.runState !== 'idle' &&
@@ -634,7 +635,7 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
       <div
         className="relative rounded-2xl overflow-hidden border border-[var(--vscode-menu-border)]"
         style={{
-          background: 'rgba(255,255,255,0.06)',
+          background: `rgba(255,255,255,${tabBarGlassOpacity})`,
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
