@@ -498,6 +498,14 @@ export const storage = {
   agentCancel: (sessionId: string) =>
     invoke<void>('agent_cancel', { sessionId }),
 
+  /** Set auto-approve mode for a session. */
+  agentSetAutoApprove: (sessionId: string, enabled: boolean) =>
+    invoke<void>('agent_set_auto_approve', { sessionId, enabled }),
+
+  /** Submit answer for an Ask request. */
+  agentSubmitAskAnswer: (sessionId: string, answer: string) =>
+    invoke<void>('agent_submit_ask_answer', { sessionId, answer }),
+
   // ---- terminal (PTY) ----
 
   /** Spawn a new PTY shell session. Returns session id + default title. */

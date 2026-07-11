@@ -80,6 +80,8 @@ pub fn run() {
             commands::agent::agent_send_message,
             commands::agent::agent_tool_result,
             commands::agent::agent_cancel,
+            commands::agent::agent_set_auto_approve,
+            commands::agent::agent_submit_ask_answer,
             // ── storage: assets ──
             commands::storage::assets::save_doc_asset,
             commands::storage::assets::delete_doc_asset,

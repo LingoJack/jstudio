@@ -1,9 +1,26 @@
 /**
  * Agent slice — manages agent session state in Zustand.
  * Follows the same pattern as terminalSlice.ts.
+ *
+ * 2024-07 Rewrite improvements:
+ * - Tool results are visible (agent:tool-result event)
+ * - Safe tools auto-execute, dangerous tools require confirmation
+ * - Plan mode has dedicated review UI
+ * - Auto-approve switch for bypassing all confirmations
+ * - Compact event handling fixed
  */
 
-import type { AgentSession, AgentSessionMeta, ChatMessage, ToolCallItem } from '../types/agent';
+import type {
+  AgentSession,
+  AgentSessionMeta,
+  AgentPlanRequest,
+  AgentAskRequest,
+  AskQuestion,
+  ChatMessage,
+  ToolCallItem,
+  ToolExecResult,
+  ToolResultStatus,
+} from '../types/agent';
 import { storage } from '../lib/core/storage';
 import type { StoreState } from './storeHelpers';
 import type { UnlistenFn } from '@tauri-apps/api/event';
@@ -33,7 +50,9 @@ export function createAgentSlice(
           streamingContent: '',
           streamingReasoningContent: '',
           pendingToolCalls: [],
+          pendingPlan: undefined,
           workspace: m.workspace,
+          autoApprove: m.autoApprove ?? false,
           createdAt: m.updatedAt,
           updatedAt: m.updatedAt,
         }));
@@ -54,7 +73,9 @@ export function createAgentSlice(
           streamingContent: '',
           streamingReasoningContent: '',
           pendingToolCalls: [],
+          pendingPlan: undefined,
           workspace,
+          autoApprove: false,
           createdAt: Date.now() / 1000,
           updatedAt: Date.now() / 1000,
         };
@@ -114,6 +135,7 @@ export function createAgentSlice(
         const userMsg: ChatMessage = {
           role: 'user',
           content: text,
+          images,
         };
 
         set((s) => ({
@@ -155,41 +177,105 @@ export function createAgentSlice(
       result: string,
       isError: boolean,
       images?: { base64: string; mediaType: string }[],
+      planDecision?: 'approve' | 'reject' | 'approveAndClearContext',
     ) => {
       try {
         // Clear pending tool calls locally
         set((s) => ({
           agentSessions: s.agentSessions.map((session) =>
             session.id === sessionId
-              ? { ...session, pendingToolCalls: [], runState: 'thinking' as const }
+              ? {
+                  ...session,
+                  pendingToolCalls: [],
+                  pendingPlan: undefined,
+                  runState: 'thinking' as const,
+                }
               : session,
           ),
         }));
 
-        // Add tool result message
-        const toolMsg: ChatMessage = {
-          role: 'tool',
-          content: result,
-          toolCallId,
-        };
-        set((s) => ({
-          agentSessions: s.agentSessions.map((session) =>
-            session.id === sessionId
-              ? { ...session, messages: [...session.messages, toolMsg] }
-              : session,
-          ),
-        }));
-
-        // Send to backend
+        // Send to backend (backend will emit tool-result event)
         await storage.agentToolResult({
           sessionId,
           toolCallId,
           result,
           isError,
           images,
+          planDecision,
         });
       } catch (e) {
         console.error('Failed to submit tool result:', e);
+      }
+    },
+
+    submitAgentPlanDecision: async (
+      sessionId: string,
+      decision: 'approve' | 'reject' | 'approveAndClearContext',
+    ) => {
+      try {
+        const session = get().agentSessions.find((s) => s.id === sessionId);
+        const pendingPlan = session?.pendingPlan;
+        if (!pendingPlan) {
+          console.error('No pending plan to submit decision for');
+          return;
+        }
+
+        // Send to backend via tool_result with planDecision
+        await storage.agentToolResult({
+          sessionId,
+          toolCallId: 'plan-request', // Special ID for plan
+          result: decision,
+          isError: false,
+          planDecision: decision,
+        });
+
+        // Clear pending plan locally
+        set((s) => ({
+          agentSessions: s.agentSessions.map((session) =>
+            session.id === sessionId
+              ? {
+                  ...session,
+                  pendingPlan: undefined,
+                  runState: 'thinking' as const,
+                }
+              : session,
+          ),
+        }));
+      } catch (e) {
+        console.error('Failed to submit plan decision:', e);
+      }
+    },
+
+    setAgentAutoApprove: async (sessionId: string, enabled: boolean) => {
+      try {
+        await storage.agentSetAutoApprove(sessionId, enabled);
+        set((s) => ({
+          agentSessions: s.agentSessions.map((session) =>
+            session.id === sessionId
+              ? { ...session, autoApprove: enabled }
+              : session,
+          ),
+        }));
+      } catch (e) {
+        console.error('Failed to set auto-approve:', e);
+      }
+    },
+
+    submitAgentAskAnswer: async (sessionId: string, answer: Record<string, string>) => {
+      try {
+        // Clear pending ask locally
+        set((s) => ({
+          agentSessions: s.agentSessions.map((session) =>
+            session.id === sessionId
+              ? { ...session, pendingAsk: undefined, runState: 'thinking' as const }
+              : session,
+          ),
+        }));
+
+        // Send answer to backend
+        await storage.agentSubmitAskAnswer(sessionId, JSON.stringify(answer));
+      } catch (e) {
+        console.error('Failed to submit ask answer:', e);
       }
     },
 
@@ -212,6 +298,10 @@ export function createAgentSlice(
       const unsubscribes = get().agentUnsubscribes;
       unsubscribes.forEach((unsub) => unsub());
       set({ agentUnsubscribes: [] });
+      // Also clear module-level cache
+      _currentUnsubs.forEach((unsub) => unsub());
+      _currentUnsubs = [];
+      _currentSessionId = null;
     },
   };
 }
@@ -299,7 +389,7 @@ async function setupAgentEventListeners(
     }),
   );
 
-  // agent:tool-request — LLM wants to call tools
+  // agent:tool-request — LLM wants to call tools (only dangerous tools reach here)
   unsubs.push(
     await listen<{ sessionId: string; toolCalls: ToolCallItem[] }>('agent:tool-request', (event) => {
       if (event.payload.sessionId !== sessionId) return;
@@ -326,6 +416,46 @@ async function setupAgentEventListeners(
     }),
   );
 
+  // agent:tool-result — tool execution result (NEW: shows real output)
+  unsubs.push(
+    await listen<ToolExecResult>('agent:tool-result', (event) => {
+      if (event.payload.sessionId !== sessionId) return;
+
+      const { toolCallId, toolName, content, isError, status } = event.payload;
+
+      // Add tool result message to chat
+      updateSession((session) => {
+        const toolMsg: ChatMessage = {
+          role: 'tool',
+          content,
+          toolCallId,
+          toolResult: {
+            status: status as ToolResultStatus,
+            isError,
+          },
+          images: event.payload.images,
+        };
+        return {
+          messages: [...session.messages, toolMsg],
+          // Remove from pending if it was there
+          pendingToolCalls: session.pendingToolCalls.filter((tc) => tc.id !== toolCallId),
+        };
+      });
+    }),
+  );
+
+  // agent:plan-request — plan review (NEW)
+  unsubs.push(
+    await listen<AgentPlanRequest>('agent:plan-request', (event) => {
+      if (event.payload.sessionId !== sessionId) return;
+
+      updateSession(() => ({
+        pendingPlan: event.payload,
+        runState: 'plan_review',
+      }));
+    }),
+  );
+
   // agent:done — agent finished
   unsubs.push(
     await listen<{ sessionId: string }>('agent:done', (event) => {
@@ -341,23 +471,12 @@ async function setupAgentEventListeners(
             reasoningContent: session.streamingReasoningContent || undefined,
           });
         }
-        // Add tool result messages for completed tool calls
-        for (const tc of session.pendingToolCalls) {
-          // If there's no corresponding tool message, add a placeholder
-          const hasToolResult = newMessages.some((m) => m.toolCallId === tc.id);
-          if (!hasToolResult) {
-            newMessages.push({
-              role: 'tool',
-              content: '(executed)',
-              toolCallId: tc.id,
-            });
-          }
-        }
         return {
           messages: newMessages,
           streamingContent: '',
           streamingReasoningContent: '',
           pendingToolCalls: [],
+          pendingPlan: undefined,
           runState: 'idle', // Reset to idle so next message can be sent
           updatedAt: Date.now() / 1000,
         };
@@ -380,12 +499,18 @@ async function setupAgentEventListeners(
             reasoningContent: session.streamingReasoningContent || undefined,
           });
         }
+        // Add error message
+        newMessages.push({
+          role: 'system',
+          content: `Error: ${event.payload.error}`,
+        });
         return {
           messages: newMessages,
           streamingContent: '',
           streamingReasoningContent: '',
           pendingToolCalls: [],
-          runState: 'idle', // Reset to idle so next message can be sent
+          pendingPlan: undefined,
+          runState: 'error',
           updatedAt: Date.now() / 1000,
         };
       });
@@ -398,7 +523,7 @@ async function setupAgentEventListeners(
     await listen<{ sessionId: string }>('agent:cancelled', (event) => {
       if (event.payload.sessionId !== sessionId) return;
       updateSession(() => ({
-        runState: 'idle', // Reset to idle so next message can be sent
+        runState: 'cancelled',
         streamingContent: '',
         streamingReasoningContent: '',
       }));
@@ -433,6 +558,28 @@ async function setupAgentEventListeners(
     await listen<{ sessionId: string }>('agent:compacting', (event) => {
       if (event.payload.sessionId !== sessionId) return;
       updateSession(() => ({ runState: 'compacting' as const }));
+    }),
+  );
+
+  // agent:compacted — context compression done (FIXED: was not listening)
+  unsubs.push(
+    await listen<{ sessionId: string; messagesBefore: number }>('agent:compacted', (event) => {
+      if (event.payload.sessionId !== sessionId) return;
+      updateSession(() => ({
+        runState: 'streaming', // Resume streaming after compacting
+        // Optionally add a system message about compression
+      }));
+    }),
+  );
+
+  // agent:ask-request — Ask tool needs user input (NEW)
+  unsubs.push(
+    await listen<AgentAskRequest>('agent:ask-request', (event) => {
+      if (event.payload.sessionId !== sessionId) return;
+      updateSession(() => ({
+        pendingAsk: event.payload,
+        runState: 'tool_call' as const, // Reuse tool_call state for Ask UI
+      }));
     }),
   );
 

@@ -9,6 +9,27 @@ export interface ToolCallItem {
   id: string;
   name: string;
   arguments: string;
+  /** Whether this tool requires user confirmation (dangerous operations). */
+  requiresConfirmation?: boolean;
+  /** Whether this tool is considered dangerous (write/delete/shell). */
+  isDangerous?: boolean;
+}
+
+/**
+ * Tool execution status.
+ */
+export type ToolResultStatus = 'executed' | 'failed' | 'rejected' | 'auto_approved';
+
+/**
+ * Tool execution result for rendering.
+ */
+export interface ToolExecResult {
+  toolCallId: string;
+  toolName: string;
+  content: string;
+  isError: boolean;
+  status: ToolResultStatus;
+  images?: ImageData[];
 }
 
 /**
@@ -21,6 +42,13 @@ export interface ChatMessage {
   toolCallId?: string;
   reasoningContent?: string;
   senderName?: string;
+  /** Tool execution result (for tool role messages). */
+  toolResult?: {
+    status: ToolResultStatus;
+    isError: boolean;
+  };
+  /** Images attached to this message. */
+  images?: ImageData[];
 }
 
 /**
@@ -40,6 +68,8 @@ export interface AgentSessionMeta {
   messageCount: number;
   updatedAt: number;
   workspace?: string;
+  /** Auto-approve mode (bypass all tool confirmations). */
+  autoApprove?: boolean;
 }
 
 /**
@@ -49,12 +79,47 @@ export type AgentRunState =
   | 'idle'
   | 'thinking'
   | 'streaming'
-  | 'tool_call'
+  | 'tool_call'      // Waiting for dangerous tool confirmation
+  | 'plan_review'    // NEW: Waiting for plan approval
   | 'compacting'
   | 'retrying'
-  | 'done'
   | 'error'
   | 'cancelled';
+  // Removed 'done' (semantically unclear, use idle after done event)
+
+/**
+ * Plan request for user review.
+ */
+export interface AgentPlanRequest {
+  sessionId: string;
+  plan: string;
+}
+
+/**
+ * Ask question option.
+ */
+export interface AskOption {
+  label: string;
+  description: string;
+}
+
+/**
+ * Ask question for user input.
+ */
+export interface AskQuestion {
+  question: string;
+  header: string;
+  options: AskOption[];
+  multiSelect: boolean;
+}
+
+/**
+ * Ask request from agent (Ask tool).
+ */
+export interface AgentAskRequest {
+  sessionId: string;
+  questions: AskQuestion[];
+}
 
 /**
  * Agent session state in the frontend store.
@@ -74,6 +139,10 @@ export interface AgentSession {
   streamingReasoningContent: string;
   /** Pending tool calls waiting for user confirmation. */
   pendingToolCalls: ToolCallItem[];
+  /** Pending plan request waiting for user approval. */
+  pendingPlan?: AgentPlanRequest;
+  /** Pending Ask request waiting for user answer. */
+  pendingAsk?: AgentAskRequest;
   /** Retry info (if state === 'retrying'). */
   retryInfo?: {
     attempt: number;
@@ -81,8 +150,10 @@ export interface AgentSession {
     delayMs: number;
     error: string;
   };
-  /** Workspace path (used for grouping sessions). */
+  /** Workspace path (optional, used for file operations). */
   workspace?: string;
+  /** Auto-approve mode (bypass all tool confirmations). */
+  autoApprove: boolean;
   /** Created at timestamp (epoch seconds). */
   createdAt: number;
   /** Last updated timestamp (epoch seconds). */

@@ -10,12 +10,18 @@
 //! - Global AGENT_SESSIONS registry
 //! - Background thread for agent loop
 //! - Tauri events for streaming data
+//!
+//! Key improvements (2024-07 rewrite):
+//! - Tool results are visible to users (agent:tool-result event)
+//! - Safe tools auto-execute, dangerous tools require confirmation
+//! - Plan mode has dedicated review UI
+//! - Auto-approve switch for bypassing all confirmations
 
 use j_agent::agent::config::{AgentLoopConfig, AgentLoopSharedState};
 use j_agent::agent::{run_main_agent_loop, MainAgentLoopParams};
 use j_agent::context::compact::{new_invoked_skills_map, CompactConfig, InvokedSkillsMap};
 use j_agent::infra::hook::HookManager;
-use j_agent::message_types::{PlanDecision, StreamMsg, ToolResultMsg};
+use j_agent::message_types::{PlanDecision, StreamMsg, ToolResultMsg, ToolResultStatus};
 use j_agent::storage::session::{SessionMetaFile, SessionPaths};
 use j_agent::storage::types::{
     ChatMessage, DisplayHint, ImageData as StorageImageData, MessageRole, ToolCallItem,
@@ -61,6 +67,10 @@ pub struct AgentSessionHandle {
     pub tool_result_tx: Mutex<Option<mpsc::Sender<ToolResultMsg>>>,
     /// Receiver for stream messages (agent -> UI)
     pub stream_rx: Mutex<Option<mpsc::Receiver<StreamMsg>>>,
+    /// Ask request receiver (from j-agent Ask tool)
+    pub ask_rx: Mutex<Option<mpsc::Receiver<j_agent::message_types::AskRequest>>>,
+    /// Ask response sender (back to j-agent)
+    pub ask_response_tx: Mutex<Option<mpsc::Sender<String>>>,
     /// Whether the agent loop is currently running
     pub is_running: Mutex<bool>,
     /// Tool registry
@@ -118,6 +128,12 @@ pub struct ToolCallItemSer {
     pub id: String,
     pub name: String,
     pub arguments: String,
+    /// Whether this tool requires user confirmation (dangerous operations)
+    #[serde(rename = "requiresConfirmation")]
+    pub requires_confirmation: bool,
+    /// Whether this tool is considered dangerous (write/delete/shell)
+    #[serde(rename = "isDangerous")]
+    pub is_dangerous: bool,
 }
 
 impl From<ToolCallItem> for ToolCallItemSer {
@@ -126,7 +142,27 @@ impl From<ToolCallItem> for ToolCallItemSer {
             id: item.id,
             name: item.name,
             arguments: item.arguments,
+            requires_confirmation: false, // Will be set by caller based on tool registry
+            is_dangerous: false,          // Will be set by caller based on tool registry
         }
+    }
+}
+
+/// Create ToolCallItemSer with confirmation info from tool registry.
+fn tool_call_item_with_confirmation(
+    item: ToolCallItem,
+    tool_registry: &ToolRegistry,
+) -> ToolCallItemSer {
+    let tool = tool_registry.get(&item.name);
+    let requires_confirmation = tool.map(|t| t.requires_confirmation()).unwrap_or(false);
+    // Dangerous tools are those that modify state: shell, edit, write, delete
+    let is_dangerous = requires_confirmation;
+    ToolCallItemSer {
+        id: item.id,
+        name: item.name,
+        arguments: item.arguments,
+        requires_confirmation,
+        is_dangerous,
     }
 }
 
@@ -179,6 +215,56 @@ pub struct CompactedPayload {
     pub session_id: String,
     #[serde(rename = "messagesBefore")]
     pub messages_before: usize,
+}
+
+/// Payload for `agent:tool-result` event (NEW: shows real tool output).
+#[derive(Serialize, Clone)]
+pub struct ToolResultPayload {
+    #[serde(rename = "sessionId")]
+    pub session_id: String,
+    #[serde(rename = "toolCallId")]
+    pub tool_call_id: String,
+    #[serde(rename = "toolName")]
+    pub tool_name: String,
+    pub content: String,
+    #[serde(rename = "isError")]
+    pub is_error: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub images: Option<Vec<ImageDataPayload>>,
+    pub status: String, // "executed" | "failed" | "rejected" | "auto_approved"
+}
+
+/// Payload for `agent:plan-request` event (NEW: plan review UI).
+#[derive(Serialize, Clone)]
+pub struct PlanRequestPayload {
+    #[serde(rename = "sessionId")]
+    pub session_id: String,
+    pub plan: String,
+}
+
+/// Ask question option for `agent:ask-request` event.
+#[derive(Serialize, Clone)]
+pub struct AskOptionPayload {
+    pub label: String,
+    pub description: String,
+}
+
+/// Ask question for `agent:ask-request` event.
+#[derive(Serialize, Clone)]
+pub struct AskQuestionPayload {
+    pub question: String,
+    pub header: String,
+    pub options: Vec<AskOptionPayload>,
+    #[serde(rename = "multiSelect")]
+    pub multi_select: bool,
+}
+
+/// Payload for `agent:ask-request` event (NEW: Ask tool UI).
+#[derive(Serialize, Clone)]
+pub struct AskRequestPayload {
+    #[serde(rename = "sessionId")]
+    pub session_id: String,
+    pub questions: Vec<AskQuestionPayload>,
 }
 
 /// Image data payload for frontend (camelCase).
@@ -376,9 +462,8 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
     let paths = SessionPaths::new(&session_id);
     let todos_file_path = paths.todos_file();
 
-    // Create ToolRegistry with placeholder ask_tx (will be replaced in spawn_agent_loop)
-    // AskRequest channel is needed for Ask tool, but we handle Ask via frontend UI
-    let (ask_tx, _ask_rx) = mpsc::channel();
+    // Create ToolRegistry with ask channel
+    let (ask_tx, ask_rx) = mpsc::channel();
     let tool_registry = Arc::new(ToolRegistry::new(
         vec![], // skills - loaded dynamically
         ask_tx,
@@ -407,6 +492,8 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
         cancel_token,
         tool_result_tx: Mutex::new(None),
         stream_rx: Mutex::new(None),
+        ask_rx: Mutex::new(Some(ask_rx)),
+        ask_response_tx: Mutex::new(None),
         is_running: Mutex::new(false),
         tool_registry,
         background_manager,
@@ -542,35 +629,84 @@ pub fn agent_cancel(session_id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Set auto-approve mode for a session.
+/// When enabled, all tools execute without confirmation.
+#[tauri::command]
+pub fn agent_set_auto_approve(session_id: String, enabled: bool) -> Result<(), String> {
+    // Update session meta file
+    let paths = SessionPaths::new(&session_id);
+    let meta_path = paths.meta_file();
+
+    // Load existing meta
+    let mut meta: SessionMetaFile =
+        serde_json::from_str(&std::fs::read_to_string(&meta_path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+
+    // Update auto_approve
+    meta.auto_approve = enabled;
+
+    // Save back
+    let content = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
+    std::fs::write(&meta_path, content).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Submit answer for an Ask request.
+#[tauri::command]
+pub fn agent_submit_ask_answer(
+    session_id: String,
+    answer: String, // JSON string containing the answer
+) -> Result<(), String> {
+    let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
+    let handle = sessions.get(&session_id).ok_or("Session not found")?;
+
+    // Get ask_response_tx
+    let tx_guard = handle.ask_response_tx.lock().map_err(|e| e.to_string())?;
+    if let Some(tx) = tx_guard.as_ref() {
+        tx.send(answer).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
 // ────────────────────────────────────────────────
 // Internal helpers
 // ────────────────────────────────────────────────
 
-/// Spawn a thread that listens for StreamMsg and emits Tauri events.
+/// Spawn a thread that listens for StreamMsg and Ask requests, emits Tauri events.
 fn spawn_event_listener(
     session_id: String,
     app: AppHandle,
     streaming_content: Arc<Mutex<String>>,
     streaming_reasoning_content: Arc<Mutex<String>>,
     cancel_token: CancellationToken,
+    tool_registry: Arc<ToolRegistry>,
 ) {
     std::thread::spawn(move || {
-        // Get stream receiver from session
-        let stream_rx = {
+        // Get stream receiver and ask receiver from session
+        let (stream_rx, ask_rx) = {
             let sessions = AGENT_SESSIONS.lock().ok();
             if let Some(s) = sessions {
                 if let Some(h) = s.get(&session_id) {
                     let mut rx = h.stream_rx.lock().ok();
-                    if let Some(r) = rx.as_mut() {
+                    let mut ask = h.ask_rx.lock().ok();
+                    let stream = if let Some(r) = rx.as_mut() {
                         r.take()
                     } else {
                         None
-                    }
+                    };
+                    let ask = if let Some(a) = ask.as_mut() {
+                        a.take()
+                    } else {
+                        None
+                    };
+                    (stream, ask)
                 } else {
-                    None
+                    (None, None)
                 }
             } else {
-                None
+                (None, None)
             }
         };
 
@@ -578,131 +714,312 @@ fn spawn_event_listener(
             Some(rx) => rx,
             None => return,
         };
+        let ask_rx = match ask_rx {
+            Some(rx) => rx,
+            None => {
+                // Ask not needed for this session, just listen to stream
+                listen_stream_only(
+                    session_id,
+                    app,
+                    streaming_content,
+                    streaming_reasoning_content,
+                    cancel_token,
+                    tool_registry,
+                    stream_rx,
+                );
+                return;
+            }
+        };
 
-        loop {
-            if cancel_token.is_cancelled() {
+        // Create ask_response_tx and store it in session
+        let (ask_response_tx, ask_response_rx) = mpsc::channel::<String>();
+        {
+            let sessions = AGENT_SESSIONS.lock().ok();
+            if let Some(s) = sessions {
+                if let Some(h) = s.get(&session_id) {
+                    if let Ok(mut guard) = h.ask_response_tx.lock() {
+                        *guard = Some(ask_response_tx);
+                    }
+                }
+            }
+        }
+
+        // Spawn a separate thread for Ask handling (Ask is blocking)
+        std::thread::spawn({
+            let session_id = session_id.clone();
+            let app = app.clone();
+            move || {
+                listen_ask_requests(session_id, app, ask_rx, ask_response_rx);
+            }
+        });
+
+        // Listen to stream messages
+        listen_stream_only(
+            session_id,
+            app,
+            streaming_content,
+            streaming_reasoning_content,
+            cancel_token,
+            tool_registry,
+            stream_rx,
+        );
+    });
+}
+
+/// Listen to Ask requests from j-agent and emit Tauri events.
+fn listen_ask_requests(
+    session_id: String,
+    app: AppHandle,
+    ask_rx: mpsc::Receiver<j_agent::message_types::AskRequest>,
+    ask_response_rx: mpsc::Receiver<String>,
+) {
+    loop {
+        // Wait for Ask request
+        match ask_rx.recv() {
+            Ok(ask_request) => {
+                // Emit ask-request event
+                let questions: Vec<AskQuestionPayload> = ask_request
+                    .questions
+                    .iter()
+                    .map(|q| AskQuestionPayload {
+                        question: q.question.clone(),
+                        header: q.header.clone(),
+                        options: q
+                            .options
+                            .iter()
+                            .map(|o| AskOptionPayload {
+                                label: o.label.clone(),
+                                description: o.description.clone(),
+                            })
+                            .collect(),
+                        multi_select: q.multi_select,
+                    })
+                    .collect();
+
                 let _ = app.emit(
-                    "agent:cancelled",
-                    CancelledPayload {
+                    "agent:ask-request",
+                    AskRequestPayload {
                         session_id: session_id.clone(),
+                        questions,
                     },
                 );
-                mark_not_running(&session_id);
+
+                // Wait for answer from frontend
+                match ask_response_rx.recv() {
+                    Ok(_answer) => {
+                        // Answer was already sent via agent_submit_ask_answer
+                        // The ask_response_tx channel is used to signal that we got an answer
+                    }
+                    Err(mpsc::RecvError) => {
+                        // Channel closed
+                        break;
+                    }
+                }
+            }
+            Err(mpsc::RecvError) => {
+                // Channel closed
                 break;
             }
+        }
+    }
+}
 
-            match stream_rx.recv() {
-                Ok(msg) => match msg {
-                    StreamMsg::Chunk => {
-                        let content = streaming_content
-                            .lock()
-                            .map(|s| s.clone())
-                            .unwrap_or_default();
+/// Listen to StreamMsg only (for sessions without Ask or after Ask thread spawned).
+fn listen_stream_only(
+    session_id: String,
+    app: AppHandle,
+    streaming_content: Arc<Mutex<String>>,
+    streaming_reasoning_content: Arc<Mutex<String>>,
+    cancel_token: CancellationToken,
+    tool_registry: Arc<ToolRegistry>,
+    stream_rx: mpsc::Receiver<StreamMsg>,
+) {
+    loop {
+        if cancel_token.is_cancelled() {
+            let _ = app.emit(
+                "agent:cancelled",
+                CancelledPayload {
+                    session_id: session_id.clone(),
+                },
+            );
+            mark_not_running(&session_id);
+            break;
+        }
+
+        match stream_rx.recv() {
+            Ok(msg) => match msg {
+                StreamMsg::Chunk => {
+                    let content = streaming_content
+                        .lock()
+                        .map(|s| s.clone())
+                        .unwrap_or_default();
+                    let _ = app.emit(
+                        "agent:chunk",
+                        ChunkPayload {
+                            session_id: session_id.clone(),
+                            content,
+                        },
+                    );
+
+                    let reasoning = streaming_reasoning_content
+                        .lock()
+                        .map(|s| s.clone())
+                        .unwrap_or_default();
+                    if !reasoning.is_empty() {
                         let _ = app.emit(
-                            "agent:chunk",
-                            ChunkPayload {
+                            "agent:reasoning",
+                            ReasoningPayload {
                                 session_id: session_id.clone(),
-                                content,
+                                content: reasoning,
                             },
                         );
+                    }
+                }
+                StreamMsg::ToolCallRequest(calls) => {
+                    // Only dangerous tools reach here (safe tools auto-execute in j-agent)
+                    // Attach confirmation info to each tool call
+                    let tool_calls_with_info: Vec<ToolCallItemSer> = calls
+                        .into_iter()
+                        .map(|c| tool_call_item_with_confirmation(c, &tool_registry))
+                        .collect();
 
-                        let reasoning = streaming_reasoning_content
-                            .lock()
-                            .map(|s| s.clone())
-                            .unwrap_or_default();
-                        if !reasoning.is_empty() {
+                    // Check if any is ExitPlanMode - emit plan-request instead
+                    let has_plan_request = tool_calls_with_info
+                        .iter()
+                        .any(|c| c.name == "ExitPlanMode");
+
+                    if has_plan_request {
+                        // Extract plan content from arguments
+                        let plan_call = tool_calls_with_info
+                            .iter()
+                            .find(|c| c.name == "ExitPlanMode");
+                        if let Some(plan) = plan_call {
                             let _ = app.emit(
-                                "agent:reasoning",
-                                ReasoningPayload {
+                                "agent:plan-request",
+                                PlanRequestPayload {
                                     session_id: session_id.clone(),
-                                    content: reasoning,
+                                    plan: plan.arguments.clone(),
                                 },
                             );
                         }
-                    }
-                    StreamMsg::ToolCallRequest(calls) => {
+                    } else {
                         let _ = app.emit(
                             "agent:tool-request",
                             ToolRequestPayload {
                                 session_id: session_id.clone(),
-                                tool_calls: calls.into_iter().map(ToolCallItemSer::from).collect(),
+                                tool_calls: tool_calls_with_info,
                             },
                         );
                     }
-                    StreamMsg::Done => {
-                        let _ = app.emit(
-                            "agent:done",
-                            DonePayload {
-                                session_id: session_id.clone(),
-                            },
-                        );
-                        mark_not_running(&session_id);
-                        break;
-                    }
-                    StreamMsg::Error(e) => {
-                        let _ = app.emit(
-                            "agent:error",
-                            ErrorPayload {
-                                session_id: session_id.clone(),
-                                error: e.display_message(),
-                            },
-                        );
-                        mark_not_running(&session_id);
-                        break;
-                    }
-                    StreamMsg::Cancelled => {
-                        let _ = app.emit(
-                            "agent:cancelled",
-                            CancelledPayload {
-                                session_id: session_id.clone(),
-                            },
-                        );
-                        mark_not_running(&session_id);
-                        break;
-                    }
-                    StreamMsg::Retrying {
-                        attempt,
-                        max_attempts,
-                        delay_ms,
-                        error,
-                    } => {
-                        let _ = app.emit(
-                            "agent:retrying",
-                            RetryingPayload {
-                                session_id: session_id.clone(),
-                                attempt,
-                                max_attempts,
-                                delay_ms,
-                                error,
-                            },
-                        );
-                    }
-                    StreamMsg::Compacting => {
-                        let _ = app.emit(
-                            "agent:compacting",
-                            CompactingPayload {
-                                session_id: session_id.clone(),
-                            },
-                        );
-                    }
-                    StreamMsg::Compacted { messages_before } => {
-                        let _ = app.emit(
-                            "agent:compacted",
-                            CompactedPayload {
-                                session_id: session_id.clone(),
-                                messages_before,
-                            },
-                        );
-                    }
-                },
-                Err(mpsc::RecvError) => {
-                    // Channel closed, agent thread exited
+                }
+                StreamMsg::ToolResult(result) => {
+                    // NEW: Emit real tool output to frontend
+                    let status_str = match result.status {
+                        ToolResultStatus::Executed => "executed",
+                        ToolResultStatus::Failed => "failed",
+                        ToolResultStatus::Rejected => "rejected",
+                        ToolResultStatus::AutoApproved => "auto_approved",
+                    };
+                    let images = if result.images.is_empty() {
+                        None
+                    } else {
+                        Some(
+                            result
+                                .images
+                                .into_iter()
+                                .map(|img| ImageDataPayload {
+                                    base64: img.base64,
+                                    media_type: img.media_type,
+                                })
+                                .collect(),
+                        )
+                    };
+                    let _ = app.emit(
+                        "agent:tool-result",
+                        ToolResultPayload {
+                            session_id: session_id.clone(),
+                            tool_call_id: result.tool_call_id,
+                            tool_name: result.tool_name,
+                            content: result.content,
+                            is_error: result.is_error,
+                            images,
+                            status: status_str.to_string(),
+                        },
+                    );
+                }
+                StreamMsg::Done => {
+                    let _ = app.emit(
+                        "agent:done",
+                        DonePayload {
+                            session_id: session_id.clone(),
+                        },
+                    );
                     mark_not_running(&session_id);
                     break;
                 }
+                StreamMsg::Error(e) => {
+                    let _ = app.emit(
+                        "agent:error",
+                        ErrorPayload {
+                            session_id: session_id.clone(),
+                            error: e.display_message(),
+                        },
+                    );
+                    mark_not_running(&session_id);
+                    break;
+                }
+                StreamMsg::Cancelled => {
+                    let _ = app.emit(
+                        "agent:cancelled",
+                        CancelledPayload {
+                            session_id: session_id.clone(),
+                        },
+                    );
+                    mark_not_running(&session_id);
+                    break;
+                }
+                StreamMsg::Retrying {
+                    attempt,
+                    max_attempts,
+                    delay_ms,
+                    error,
+                } => {
+                    let _ = app.emit(
+                        "agent:retrying",
+                        RetryingPayload {
+                            session_id: session_id.clone(),
+                            attempt,
+                            max_attempts,
+                            delay_ms,
+                            error,
+                        },
+                    );
+                }
+                StreamMsg::Compacting => {
+                    let _ = app.emit(
+                        "agent:compacting",
+                        CompactingPayload {
+                            session_id: session_id.clone(),
+                        },
+                    );
+                }
+                StreamMsg::Compacted { messages_before } => {
+                    let _ = app.emit(
+                        "agent:compacted",
+                        CompactedPayload {
+                            session_id: session_id.clone(),
+                            messages_before,
+                        },
+                    );
+                }
+            },
+            Err(mpsc::RecvError) => {
+                // Channel closed, agent thread exited
+                mark_not_running(&session_id);
+                break;
             }
         }
-    });
+    }
 }
 
 /// Mark a session as not running.
@@ -803,6 +1120,7 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         streaming_content.clone(),
         streaming_reasoning_content.clone(),
         cancel_token.clone(),
+        tool_registry.clone(),
     );
 
     // Create agent loop config

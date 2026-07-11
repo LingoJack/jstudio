@@ -322,7 +322,17 @@ export interface StoreState {
     result: string,
     isError: boolean,
     images?: { base64: string; mediaType: string }[],
+    planDecision?: 'approve' | 'reject' | 'approveAndClearContext',
   ) => Promise<void>;
+  submitAgentPlanDecision: (
+    sessionId: string,
+    decision: 'approve' | 'reject' | 'approveAndClearContext',
+  ) => Promise<void>;
+  submitAgentAskAnswer: (
+    sessionId: string,
+    answer: Record<string, string>,
+  ) => Promise<void>;
+  setAgentAutoApprove: (sessionId: string, enabled: boolean) => Promise<void>;
   cancelAgent: (sessionId: string) => Promise<void>;
   cleanupAgentListeners: () => void;
 
