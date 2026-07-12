@@ -192,7 +192,7 @@ export default function App() {
       {/* ==============================
           Title Bar (full width, macOS traffic lights + global search)
          ============================== */}
-      <TitleBar />
+      <AppTitleBar />
 
       {/* ==============================
           Main row: Activity Bar + Sidebar + Content
