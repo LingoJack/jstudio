@@ -205,7 +205,7 @@ export default function Settings() {
   const setActiveSection = useStore((s) => s.setSettingsActiveSection);
   const ActiveSection = SECTIONS[activeSection];
 
-  // Collapsible nav state — shared hook also used by DocumentList folders.
+  // Collapsible nav state — shared hook also used by DocumentSidebar folders.
   const { toggle, expand, isExpanded } = useCollapsibleTree(
     new Set([
       activeSection,

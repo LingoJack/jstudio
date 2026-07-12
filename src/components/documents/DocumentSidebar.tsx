@@ -37,7 +37,7 @@ interface FolderMenuState {
   folderId: string;
 }
 
-export default function DocumentList() {
+export default function DocumentSidebar() {
   const { t } = useI18n();
   const documents = useStore((s) => s.documents);
   const docList = useStore((s) => s.docList);

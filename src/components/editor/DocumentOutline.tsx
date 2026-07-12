@@ -306,7 +306,7 @@ export default function DocumentOutline({ editor }: DocumentOutlineProps) {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// Tree rendering — mirrors the Settings/DocumentList NavTree pattern
+// Tree rendering — mirrors the Settings/DocumentSidebar NavTree pattern
 // ──────────────────────────────────────────────────────────────────
 
 /**

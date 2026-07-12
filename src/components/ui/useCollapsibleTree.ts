@@ -5,7 +5,7 @@ import { useState, useCallback, useMemo } from 'react';
  *
  * Used by:
  * - `Settings.tsx` — sidebar nav with expandable sections
- * - `DocumentList.tsx` — folder tree with expandable folders
+ * - `DocumentSidebar.tsx` — folder tree with expandable folders
  *
  * State is a `Set<string>` of expanded item ids.
  */

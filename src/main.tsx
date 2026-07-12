@@ -27,7 +27,7 @@ const USE_STRICT_MODE = !import.meta.env.DEV;
 // "Font", "Bold", etc. These are not appropriate for a polished desktop
 // app, so we swallow the native menu at the window level.
 //
-// Components that need a *custom* right-click menu (DocumentList,
+// Components that need a *custom* right-click menu (DocumentSidebar,
 // TerminalTabs, …) still work: they call e.preventDefault() themselves
 // and render a React overlay, which is independent of this handler.
 window.addEventListener('contextmenu', (e) => {

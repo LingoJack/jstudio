@@ -83,4 +83,5 @@ allow:
 - Shell(j --version:*)
 - Shell(j version:*)
 - Shell(find /Users/lingojack/dev_custom:*)
+- Shell(mv /Users/lingojack/dev_custom/jstudio/src/components/documents/DocumentList.tsx:*)
 deny: []

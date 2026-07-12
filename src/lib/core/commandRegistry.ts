@@ -113,7 +113,7 @@ export interface PaletteCommand {
 // Helpers
 // ──────────────────────────────────────────────────────────────────
 
-/** Triggers the markdown import file picker (same logic as DocumentList). */
+/** Triggers the markdown import file picker (same logic as DocumentSidebar). */
 async function importMarkdown(store: StoreState) {
   const { open } = await import('@tauri-apps/plugin-dialog');
   const filePath = await open({

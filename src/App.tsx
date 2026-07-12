@@ -14,7 +14,7 @@ import './lib/shortcuts/globalShortcutActions';
 
 import TitleBar from './components/layout/TitleBar';
 import ActivityBar from './components/layout/ActivityBar';
-import DocumentList from './components/documents/DocumentList';
+import DocumentSidebar from './components/documents/DocumentSidebar';
 import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import AgentPanel from './components/agent/AgentPanel';
@@ -203,7 +203,7 @@ export default function App() {
 
         {/* Secondary sidebar: hidden in terminal view, agent view, and settings */}
         {isSidebarOpen && !isSettingsOpen && !isTerminalView && !isAgentView && (
-          <DocumentList />
+          <DocumentSidebar />
         )}
 
         {/* Main content area (right) */}
