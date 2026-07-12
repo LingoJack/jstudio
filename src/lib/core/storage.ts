@@ -524,12 +524,23 @@ export const storage = {
   ptyKill: (sessionId: string) =>
     invoke<void>('pty_kill', { sessionId }),
 
+  /** Kill all PTY sessions. Used during app shutdown. */
+  ptyKillAll: () => invoke<void>('pty_kill_all'),
+
   /** Return all active sessions (id + title). */
   ptyList: () => invoke<TerminalSessionInfo[]>('pty_list'),
 
   /** Rename a session. */
   ptySetTitle: (sessionId: string, title: string) =>
     invoke<void>('pty_set_title', { sessionId, title }),
+
+  /** Write multiple chunks to the PTY in a single flush. */
+  ptyWriteBatch: (sessionId: string, chunks: string[]) =>
+    invoke<void>('pty_write_batch', { sessionId, chunks }),
+
+  /** Check if a PTY session exists and is alive. */
+  ptyIsAlive: (sessionId: string) =>
+    invoke<boolean>('pty_is_alive', { sessionId }),
 
   // ---- jcli (bundled CLI) ----
 

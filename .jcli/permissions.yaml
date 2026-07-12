@@ -84,4 +84,9 @@ allow:
 - Shell(j version:*)
 - Shell(find /Users/lingojack/dev_custom:*)
 - Shell(mv /Users/lingojack/dev_custom/jstudio/src/components/documents/DocumentList.tsx:*)
+- Shell(ls /Users/jacklingo/dev_custom/kitty/kitty/:*)
+- Shell(find /Users/jacklingo/dev_custom:*)
+- Shell(pnpm tsc:*)
+- Shell(ls package*.json:*)
+- Shell(cd /Users/jacklingo/dev_custom/jstudio/src-tauri:*)
 deny: []

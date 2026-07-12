@@ -105,10 +105,13 @@ pub fn run() {
             // ── terminal (PTY) ──
             commands::terminal::pty_create,
             commands::terminal::pty_write,
+            commands::terminal::pty_write_batch,
             commands::terminal::pty_resize,
             commands::terminal::pty_kill,
+            commands::terminal::pty_kill_all,
             commands::terminal::pty_list,
             commands::terminal::pty_set_title,
+            commands::terminal::pty_is_alive,
             // ── jcli ──
             commands::jcli::check_jcli,
             commands::jcli::install_jcli,
