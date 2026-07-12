@@ -18,8 +18,8 @@
 //! - Auto-approve switch for bypassing all confirmations
 
 use j_agent::agent::config::{AgentLoopConfig, AgentLoopSharedState};
-use j_agent::agent::{run_main_agent_loop, MainAgentLoopParams};
-use j_agent::context::compact::{new_invoked_skills_map, CompactConfig, InvokedSkillsMap};
+use j_agent::agent::{MainAgentLoopParams, run_main_agent_loop};
+use j_agent::context::compact::{CompactConfig, InvokedSkillsMap, new_invoked_skills_map};
 use j_agent::infra::hook::HookManager;
 use j_agent::message_types::{PlanDecision, StreamMsg, ToolResultMsg, ToolResultStatus};
 use j_agent::storage::session::{SessionMetaFile, SessionPaths};
@@ -27,9 +27,9 @@ use j_agent::storage::types::{
     ChatMessage, DisplayHint, ImageData as StorageImageData, MessageRole, ToolCallItem,
 };
 use j_agent::storage::{
-    agent_data_dir, append_session_event, delete_session, generate_session_id, list_sessions,
-    load_agent_config, load_display_session, load_system_prompt, save_session_meta_file,
-    SessionEvent,
+    SessionEvent, agent_data_dir, append_session_event, delete_session, generate_session_id,
+    list_sessions, load_agent_config, load_display_session, load_system_prompt,
+    save_session_meta_file,
 };
 use j_agent::tools::background::BackgroundManager;
 use j_agent::tools::definition::{ImageData as ToolsImageData, ToolRegistry};
@@ -37,7 +37,7 @@ use j_agent::tools::derived_shared::SubAgentMetrics;
 use j_agent::tools::task::TaskManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 use tokio_util::sync::CancellationToken;

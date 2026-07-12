@@ -340,9 +340,11 @@ export const translations = {
     'about.help.terminalTemplates': '终端模板',
     'about.help.terminalTemplatesDesc': '在「设置 → 终端 → 模板」中可创建终端模板，预设名称和工作目录，方便一键启动特定项目的终端。',
 
-    // ── jcli section ──
-    'jcli.title': 'JCLI 命令行工具',
-    'jcli.desc': '将 jcli 安装到系统，安装后可在终端中使用 j 命令',
+    // ── CLI mode (j command) ──
+    // JStudio and the `j` command are the same application in two forms:
+    // GUI (JStudio.app) and CLI (j). This section manages the CLI installation.
+    'jcli.title': 'CLI 模式',
+    'jcli.desc': 'JStudio 的命令行版本。安装后可在终端使用 `j` 命令，与 GUI 版共享同一核心能力。',
     'jcli.installed': '已安装',
     'jcli.notInstalled': '未安装',
     'jcli.version': '版本',
@@ -352,13 +354,13 @@ export const translations = {
     'jcli.reinstall': '重新安装',
     'jcli.installing': '安装中…',
     'jcli.uninstalling': '卸载中…',
-    'jcli.installSuccess': 'jcli 已成功安装',
+    'jcli.installSuccess': 'CLI 模式已安装，可在终端使用 `j` 命令',
     'jcli.installFailed': '安装失败',
-    'jcli.uninstallSuccess': 'jcli 已卸载',
+    'jcli.uninstallSuccess': 'CLI 模式已卸载',
     'jcli.uninstallFailed': '卸载失败',
     'jcli.bundled': '内置版本',
     'jcli.checking': '检查中…',
-    'jcli.notBundled': '当前应用未内置 jcli 二进制文件',
+    'jcli.notBundled': '当前应用未内置 CLI 二进制文件',
 
     // ── Agent Model section ──
     'agent.providers': '模型提供方',
@@ -1036,9 +1038,11 @@ export const translations = {
     'about.help.terminalTemplates': 'Terminal Templates',
     'about.help.terminalTemplatesDesc': 'Create terminal templates in Settings > Terminal > Templates with preset names and working directories for quick project launches.',
 
-    // ── jcli section ──
-    'jcli.title': 'JCLI Command Line Tool',
-    'jcli.desc': 'Install jcli to your system so you can use the j command in the terminal',
+    // ── CLI mode (j command) ──
+    // JStudio and the `j` command are the same application in two forms:
+    // GUI (JStudio.app) and CLI (j). This section manages the CLI installation.
+    'jcli.title': 'CLI Mode',
+    'jcli.desc': 'Command-line interface for JStudio. After installation, use the `j` command in your terminal — same core capabilities as the GUI.',
     'jcli.installed': 'Installed',
     'jcli.notInstalled': 'Not installed',
     'jcli.version': 'Version',
@@ -1048,13 +1052,13 @@ export const translations = {
     'jcli.reinstall': 'Reinstall',
     'jcli.installing': 'Installing…',
     'jcli.uninstalling': 'Uninstalling…',
-    'jcli.installSuccess': 'jcli installed successfully',
+    'jcli.installSuccess': 'CLI mode installed — use `j` command in terminal',
     'jcli.installFailed': 'Installation failed',
-    'jcli.uninstallSuccess': 'jcli uninstalled',
+    'jcli.uninstallSuccess': 'CLI mode uninstalled',
     'jcli.uninstallFailed': 'Uninstall failed',
     'jcli.bundled': 'Bundled version',
     'jcli.checking': 'Checking…',
-    'jcli.notBundled': 'This app does not include a bundled jcli binary',
+    'jcli.notBundled': 'This app does not include a bundled CLI binary',
 
     // ── Agent Model section ──
     'agent.providers': 'Model Providers',

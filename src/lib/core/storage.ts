@@ -160,6 +160,12 @@ export interface AppSettings {
    * Higher = more visible/solid; lower = more transparent/glass-like.
    */
   tabBarGlassOpacity?: number;
+  /**
+   * Whether JStudio has attempted to auto-install the CLI (`j` command).
+   * Used to prevent repeated installation prompts on every startup.
+   * Set to `true` after the first attempt (successful or failed).
+   */
+  jcliAutoInstallAttempted?: boolean;
   [key: string]: unknown;
 }
 

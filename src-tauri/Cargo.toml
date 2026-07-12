@@ -3,7 +3,7 @@ name = "jstudio"
 version = "0.1.0"
 description = "JStudio local knowledge graph desktop app"
 authors = ["Jack Lingo"]
-edition = "2021"
+edition = "2024"
 
 [workspace]
 
@@ -27,6 +27,7 @@ portable-pty = "0.8"
 
 # ── j-agent (Agent engine) ──
 j_agent = { path = "../jcli/j-agent", package = "j-agent" }
+
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 futures = "0.3"

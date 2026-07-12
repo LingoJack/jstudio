@@ -13,7 +13,7 @@
  */
 use aes::Aes128;
 use cbc::Decryptor;
-use cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
+use cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
 use pbkdf2::pbkdf2_hmac;
 use rusqlite::Connection;
 use serde::Serialize;

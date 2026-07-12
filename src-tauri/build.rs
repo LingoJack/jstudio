@@ -60,10 +60,8 @@ fn jcli_workspace_root() -> PathBuf {
 ///
 /// Strategy:
 ///   1. If `resources/bin/<j>` already exists (manually placed), use it.
-///   2. Else look for a freshly compiled binary at
-///      `../../target/release/j` (the jcli workspace target dir).
-///   3. Else look for a prebuilt copy at
-///      `../../target/release/j` — try `debug` as a last resort.
+///   2. If jcli workspace has a compiled binary, copy it.
+///   3. If neither exists, automatically compile jcli workspace and copy.
 fn stage_bundled_j() -> Result<(), String> {
     let bin_dir = resources_bin_dir();
     let bin_name = j_binary_name();
@@ -83,31 +81,18 @@ fn stage_bundled_j() -> Result<(), String> {
     std::fs::create_dir_all(&bin_dir)
         .map_err(|e| format!("create_dir_all {}: {}", bin_dir.display(), e))?;
 
-    // Case 2: compiled binary in the jcli workspace target dir.
+    // Case 2: check jcli workspace target dir for existing compiled binary.
     let ws_root = jcli_workspace_root();
-    let candidates = [
+    let ws_candidates = [
         ws_root.join("target").join("release").join(bin_name),
         ws_root.join("target").join("debug").join(bin_name),
     ];
 
-    for candidate in &candidates {
+    for candidate in &ws_candidates {
         if candidate.exists() {
-            std::fs::copy(candidate, &dest)
-                .map_err(|e| format!("copy {} → {}: {}", candidate.display(), dest.display(), e))?;
-
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let perms = std::fs::metadata(&dest)
-                    .map_err(|e| e.to_string())?
-                    .permissions();
-                let mut perms = perms.clone();
-                perms.set_mode(0o755);
-                std::fs::set_permissions(&dest, perms).map_err(|e| e.to_string())?;
-            }
-
+            copy_binary(&candidate, &dest)?;
             println!(
-                "cargo:warning=[jcli-bundle] Staged j from {} → {}",
+                "cargo:warning=[jcli-bundle] Staged j from jcli workspace {} → {}",
                 candidate.display(),
                 dest.display()
             );
@@ -115,12 +100,66 @@ fn stage_bundled_j() -> Result<(), String> {
         }
     }
 
+    // Case 3: no binary found, compile jcli automatically.
+    println!(
+        "cargo:warning=[jcli-bundle] No compiled `j` binary found, compiling jcli workspace..."
+    );
+
+    let profile = if env::var_os("CARGO_CFG_DEBUG").is_some() {
+        "debug"
+    } else {
+        "release"
+    };
+
+    let compile_output = std::process::Command::new("cargo")
+        .args(["build", "--profile", profile])
+        .current_dir(&ws_root)
+        .output()
+        .map_err(|e| format!("Failed to run cargo build in jcli workspace: {}", e))?;
+
+    if !compile_output.status.success() {
+        let stderr = String::from_utf8_lossy(&compile_output.stderr);
+        return Err(format!(
+            "jcli compilation failed: {}",
+            stderr.lines().take(10).collect::<Vec<_>>().join("\n")
+        ));
+    }
+
+    // After compilation, check for the binary again.
+    let compiled_binary = ws_root.join("target").join(profile).join(bin_name);
+    if compiled_binary.exists() {
+        copy_binary(&compiled_binary, &dest)?;
+        println!(
+            "cargo:warning=[jcli-bundle] Compiled and staged j from {} → {}",
+            compiled_binary.display(),
+            dest.display()
+        );
+        return Ok(());
+    }
+
     Err(format!(
-        "No compiled `j` binary found under {}. Run `cargo build --release` \
-         in the jcli workspace, or manually place a binary at {}",
-        ws_root.join("target").display(),
-        dest.display()
+        "jcli compilation succeeded but binary not found at {}",
+        compiled_binary.display()
     ))
+}
+
+/// Copy a binary file and set executable permissions on Unix.
+fn copy_binary(src: &PathBuf, dest: &PathBuf) -> Result<(), String> {
+    std::fs::copy(src, dest)
+        .map_err(|e| format!("copy {} → {}: {}", src.display(), dest.display(), e))?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::metadata(dest)
+            .map_err(|e| e.to_string())?
+            .permissions();
+        let mut perms = perms.clone();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(dest, perms).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 /// Inject the current git commit hash as `JSTUDIO_BUILD_COMMIT` so the Rust

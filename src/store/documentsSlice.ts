@@ -283,6 +283,42 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
           await get().gcDocAssets(d);
         }
       })();
+
+      // Auto-install CLI (`j` command) on first launch.
+      // JStudio and `j` are the same application in two forms — GUI and CLI.
+      // We attempt installation once; if it fails (e.g. user cancels the
+      // sudo prompt), we mark it as attempted and don't retry automatically.
+      void (async () => {
+        try {
+          const currentSettings = await storage.loadSettings();
+          const attempted = currentSettings?.jcliAutoInstallAttempted;
+          if (!attempted) {
+            const status = await storage.checkJcli();
+            if (!status.installed) {
+              const result = await storage.installJcli();
+              if (result) {
+                toast.success('CLI 模式已安装，你可以在终端使用 j 命令');
+              }
+            }
+            // Mark as attempted regardless of success/failure
+            await storage.saveSettings({
+              ...((await storage.loadSettings()) ?? {}),
+              jcliAutoInstallAttempted: true,
+            });
+          }
+        } catch (e) {
+          console.warn('Auto-install CLI skipped:', e);
+          // Mark as attempted even on error to avoid retrying every launch
+          try {
+            await storage.saveSettings({
+              ...((await storage.loadSettings()) ?? {}),
+              jcliAutoInstallAttempted: true,
+            });
+          } catch {
+            // ignore
+          }
+        }
+      })();
     } catch (e) {
       console.error('Store init failed:', e);
       toast.error('应用初始化失败');

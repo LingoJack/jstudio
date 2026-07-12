@@ -38,7 +38,7 @@ use tauri::{
     WindowBuilder, WindowEvent,
 };
 
-use super::link::{extract_domain, read_chrome_cookies_cached, BROWSER_UA};
+use super::link::{BROWSER_UA, extract_domain, read_chrome_cookies_cached};
 
 // ---------------------------------------------------------------------------
 // Constants
