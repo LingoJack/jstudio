@@ -1,7 +1,7 @@
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
@@ -277,5 +277,52 @@ pub fn pty_set_title(session_id: String, title: String) -> Result<(), String> {
         .get_mut(&session_id)
         .ok_or_else(|| format!("session not found: {session_id}"))?;
     session.title = title;
+    Ok(())
+}
+
+// ────────────────────────────────────────────────────────────────
+// Extended commands (kitty-inspired enhancements)
+// ────────────────────────────────────────────────────────────────
+
+/// Write multiple chunks to the PTY in a single syscall.
+///
+/// Inspired by kitty's `schedule_write_to_child` which batches writes
+/// into a single flush to reduce syscall overhead and latency.
+#[tauri::command]
+pub fn pty_write_batch(session_id: String, chunks: Vec<String>) -> Result<(), String> {
+    let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(&session_id)
+        .ok_or_else(|| format!("session not found: {session_id}"))?;
+    for chunk in &chunks {
+        session
+            .writer
+            .write_all(chunk.as_bytes())
+            .map_err(|e| e.to_string())?;
+    }
+    session.writer.flush().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Check if a PTY session exists and is alive.
+///
+/// Returns `true` if the session is registered. This is useful before
+/// attempting write operations to avoid "session not found" errors.
+#[tauri::command]
+pub fn pty_is_alive(session_id: String) -> Result<bool, String> {
+    let sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    Ok(sessions.contains_key(&session_id))
+}
+
+/// Kill all PTY sessions.
+///
+/// Used during app shutdown to cleanly terminate all shell processes.
+#[tauri::command]
+pub fn pty_kill_all() -> Result<(), String> {
+    let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
+    for (_, mut session) in sessions.drain() {
+        let _ = session.child.kill();
+        let _ = session.child.wait();
+    }
     Ok(())
 }
