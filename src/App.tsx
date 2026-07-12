@@ -17,7 +17,8 @@ import ActivityBar from './components/layout/ActivityBar';
 import DocumentSidebar from './components/documents/DocumentSidebar';
 import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
-import AgentPanel from './components/agent/AgentPanel';
+import AgentChatPanel from './components/agent/AgentChatPanel';
+import AgentSidebar from './components/agent/AgentSidebar';
 import EditorPanel from './components/editor/EditorPanel';
 import SectionedEditorPanel from './components/editor/sectionEditor/SectionedEditorPanel';
 import SettingsPanel from './components/settings/SettingsPanel';
@@ -201,10 +202,14 @@ export default function App() {
         {/* Activity Bar (left-most) */}
         <ActivityBar />
 
-        {/* Secondary sidebar: hidden in terminal view, agent view, and settings */}
+        {/* Secondary sidebar: hidden in terminal view and settings */}
+        {/* Document sidebar: shown when sidebar is open and not in terminal/agent/settings view */}
         {isSidebarOpen && !isSettingsOpen && !isTerminalView && !isAgentView && (
           <DocumentSidebar />
         )}
+
+        {/* Agent sidebar: shown when in agent view */}
+        {isAgentView && <AgentSidebar />}
 
         {/* Main content area (right) */}
         <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative">
@@ -222,13 +227,13 @@ export default function App() {
             </div>
           )}
 
-          {/* Agent panel: mount-once, CSS-hide */}
+          {/* Agent chat panel: mount-once, CSS-hide */}
           <div
             className={`absolute inset-0 ${
               isAgentView ? '' : 'hidden'
             }`}
           >
-            <AgentPanel hidden={!isAgentView} />
+            <AgentChatPanel hidden={!isAgentView} />
           </div>
 
           {/* SettingsPanel / EditorPanel / EmptyPanel overlaid on top */}

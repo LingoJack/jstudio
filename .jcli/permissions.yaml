@@ -84,4 +84,8 @@ allow:
 - Shell(j version:*)
 - Shell(find /Users/lingojack/dev_custom:*)
 - Shell(mv /Users/lingojack/dev_custom/jstudio/src/components/documents/DocumentList.tsx:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/src:*)
+- Shell(rm /Users/jacklingo/dev_custom/jstudio/src/components/agent/AgentPanel.tsx:*)
+- Shell(cd /Users/jacklingo/dev_custom/jstudio:*)
 deny: []

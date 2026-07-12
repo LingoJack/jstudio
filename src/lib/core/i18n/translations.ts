@@ -162,6 +162,7 @@ export const translations = {
     'agent.approveTool': '批准',
     'agent.rejectTool': '拒绝',
     'agent.untitled': 'AI 助手',
+    'agent.noActiveSession': '选择或创建一个任务开始',
 
     // Agent new keys (2024-07 rewrite)
     'agent.toolResult': '工具结果',
@@ -857,6 +858,7 @@ export const translations = {
     'agent.approveTool': 'Approve',
     'agent.rejectTool': 'Reject',
     'agent.untitled': 'AI Agent',
+    'agent.noActiveSession': 'Select or create a task to start',
 
     // Agent new keys (2024-07 rewrite)
     'agent.toolResult': 'Tool Result',
