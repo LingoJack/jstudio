@@ -3,7 +3,7 @@
  *
  * When the user drags a document tab out of the tab bar (or uses the
  * context-menu / shortcut), the document opens in a new OS window that
- * shows only the BlockEditor for that document — no sidebar, no terminal.
+ * shows only the EditorPanel for that document — no sidebar, no terminal.
  *
  * Because document data lives on disk, the child window simply loads the
  * document by ID from the file system. The only thing we need to pass

@@ -1,5 +1,5 @@
 /**
- * SectionedBlockEditor — high-performance editor that renders one document as
+ * SectionedEditorPanel — high-performance editor that renders one document as
  * N independent section editors to fix large-document typing lag.
  *
  * Strategy:
@@ -10,7 +10,7 @@
  *   - On a section edit, replace that section's slice and write the
  *     reassembled full Block[] back to the store (same debounced save path).
  *
- * Feature parity with BlockEditor:
+ * Feature parity with EditorPanel:
  *   - Shared GPU cursor trail (viewport-sized canvas)
  *   - Title input with Enter → insert paragraph, ArrowDown → enter editor
  *   - SectionOutline panel with toggle button
@@ -41,7 +41,7 @@ import { useCrossSectionSelection, type CrossSelectionContext } from './useCross
 import { splitIntoSections, SECTION_SIZE, SECTION_MAX, SECTION_MERGE_BELOW, type SectionState } from '../../../lib/editor/sectioning';
 import { EditorSkeleton } from './SectionSkeleton';
 
-export default function SectionedBlockEditor() {
+export default function SectionedEditorPanel() {
   const { t } = useI18n();
   const activeDocId = useStore((s) => s.activeDocId);
   const activeDocReloadNonce = useStore((s) => s.activeDocReloadNonce);
@@ -548,7 +548,7 @@ export default function SectionedBlockEditor() {
   }, []);
 
   // ── Title keydown: Enter → insert paragraph at doc start; ArrowDown → enter
-  //    the first section's editor. Mirrors BlockEditor's handleTitleKeyDown.
+  //    the first section's editor. Mirrors EditorPanel's handleTitleKeyDown.
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const el = e.currentTarget;
     const len = el.value.length;
@@ -602,7 +602,7 @@ export default function SectionedBlockEditor() {
   // ------------------------------------------------------------------
   // Click on blank area below editor content — focus end of the last section
   //
-  // Mirrors BlockEditor's handleBlankAreaClick: distinguish a genuine CLICK
+  // Mirrors EditorPanel's handleBlankAreaClick: distinguish a genuine CLICK
   // from a drag-selection by recording the mousedown position; if the mouse
   // moved more than a few pixels, treat it as a drag and do NOT refocus.
   // ------------------------------------------------------------------

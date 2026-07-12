@@ -6,13 +6,13 @@
  *   1. Retrieve the docId from the Rust memory payload.
  *   2. Run the same `init()` as the main window (settings, theme, etc.).
  *   3. Load the document by ID.
- *   4. Render BlockEditor fullscreen — no sidebar, no tab bar, no terminal.
+ *   4. Render EditorPanel fullscreen — no sidebar, no tab bar, no terminal.
  */
 
 import { useEffect, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { fetchDocumentDetachPayload } from '../../lib/windows/documentDetach';
-import BlockEditor from '../editor/BlockEditor';
+import EditorPanel from '../editor/EditorPanel';
 import { useI18n } from '../../lib/core/i18n';
 
 type Status = 'loading' | 'ready' | 'error';
@@ -73,7 +73,7 @@ export default function DocumentWindowApp() {
   return (
     <div className="w-screen h-screen overflow-hidden bg-[var(--vscode-editor-background)]">
       {/* Editor fills the entire window — no tab bar, no action bar */}
-      <BlockEditor />
+      <EditorPanel />
     </div>
   );
 }

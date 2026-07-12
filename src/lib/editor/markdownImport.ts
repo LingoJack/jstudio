@@ -38,7 +38,7 @@ function getHeadlessEditor(): Editor {
     extensions: [
       StarterKit.configure({
         codeBlock: false,
-        code: false, // replaced by custom Code (see comment in BlockEditor.tsx)
+        code: false, // replaced by custom Code (see comment in EditorPanel.tsx)
         // StarterKit v3 bundles `Link` + `Underline`; disable StarterKit's
         // link (we add our own below). Underline is left to StarterKit.
         link: false,
@@ -55,7 +55,7 @@ function getHeadlessEditor(): Editor {
       TableCell,
       // Register TaskList/TaskItem so Markdown task lists (`- [ ] item`) parse
       // into `taskList` nodes instead of being dropped/downgraded to plain
-      // bullet lists. Must mirror BlockEditor's config (`nested: true`).
+      // bullet lists. Must mirror EditorPanel's config (`nested: true`).
       TaskList,
       TaskItem.configure({ nested: true }),
       Markdown.configure({

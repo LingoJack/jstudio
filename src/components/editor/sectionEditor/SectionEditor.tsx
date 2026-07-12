@@ -182,7 +182,7 @@ export default function SectionEditor({
     }),
     // Initialize with a valid empty doc node (NOT the block array). The real
     // section content is loaded via setContent() once the editor is ready —
-    // this mirrors BlockEditor and avoids passing a bare JSONContent[] into
+    // this mirrors EditorPanel and avoids passing a bare JSONContent[] into
     // `content`, which can make ProseMirror build an invalid doc and throw
     // "config.doc.type.schema".
     content: { type: 'doc', content: [{ type: 'paragraph' }] },

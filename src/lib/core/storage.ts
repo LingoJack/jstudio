@@ -112,7 +112,7 @@ export interface AppSettings {
    * Use the sectioned (multi-instance) editor for better large-document
    * typing performance. The sectioned editor splits a document into N
    * independent ProseMirror instances (~30 blocks each).
-   * false (default) = monolithic BlockEditor; true = SectionedBlockEditor.
+   * false (default) = monolithic EditorPanel; true = SectionedEditorPanel.
    */
   useSectionedEditor?: boolean;
   /** Sidebar width in pixels (180–480) */

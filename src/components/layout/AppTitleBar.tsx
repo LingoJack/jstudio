@@ -14,7 +14,7 @@ import { PanelLeft } from 'lucide-react';
  * The whole bar is a Tauri drag region (except interactive elements), so the
  * user can grab anywhere to move the window.
  */
-export default function TitleBar() {
+export default function AppTitleBar() {
   const { t } = useI18n();
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const toggleSidebar = useStore((s) => s.toggleSidebar);

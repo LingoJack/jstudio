@@ -70,7 +70,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       activeTabId: tab.id,
     }));
 
-    // Sync active doc so BlockEditor renders it.
+    // Sync active doc so EditorPanel renders it.
     get().openDocument(docId);
   },
 
@@ -153,7 +153,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
         set({ activeSidebarView: 'terminal' });
       }
     } else {
-      // No active tab — clear the active document so the EmptyState shows.
+      // No active tab — clear the active document so the EmptyPanel shows.
       set({ activeDoc: null, activeDocId: '' });
     }
 
@@ -340,7 +340,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
           const nextIdx = Math.min(idx, docRemaining.length - 1);
           newActiveTabId = docRemaining[nextIdx].id;
         } else {
-          // No document tabs left — stay in documents view (EmptyState).
+          // No document tabs left — stay in documents view (EmptyPanel).
           newActiveTabId = null;
         }
       }
@@ -362,7 +362,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
         set({ activeSidebarView: 'terminal' });
       }
     } else {
-      // No active tab — clear the active document so the EmptyState shows.
+      // No active tab — clear the active document so the EmptyPanel shows.
       set({ activeDoc: null, activeDocId: '' });
     }
   },

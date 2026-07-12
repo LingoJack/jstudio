@@ -12,16 +12,16 @@ import { shortcutManager } from './lib/shortcuts/ShortcutManager';
 // Side-effect import: registers built-in action handlers for global shortcuts.
 import './lib/shortcuts/globalShortcutActions';
 
-import TitleBar from './components/layout/TitleBar';
+import AppTitleBar from './components/layout/AppTitleBar';
 import ActivityBar from './components/layout/ActivityBar';
 import DocumentSidebar from './components/documents/DocumentSidebar';
 import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import AgentPanel from './components/agent/AgentPanel';
-import BlockEditor from './components/editor/BlockEditor';
-import SectionedBlockEditor from './components/editor/sectionEditor/SectionedBlockEditor';
-import Settings from './components/settings/Settings';
-import EmptyState from './components/ui/EmptyState';
+import EditorPanel from './components/editor/EditorPanel';
+import SectionedEditorPanel from './components/editor/sectionEditor/SectionedEditorPanel';
+import SettingsPanel from './components/settings/SettingsPanel';
+import EmptyPanel from './components/ui/EmptyPanel';
 import CommandPalette from './components/editor/CommandPalette';
 import { ToastContainer } from './components/ui/Toast';
 
@@ -31,7 +31,7 @@ export default function App() {
   const isLoading = useStore((s) => s.isLoading);
   // Subscribe to a boolean only — NOT the activeDoc object reference.
   // setActiveDocBlocks() (fires on every 300ms debounce tick) replaces the
-  // activeDoc reference, which would re-render App and cascade to BlockEditor,
+  // activeDoc reference, which would re-render App and cascade to EditorPanel,
   // causing ProseMirror cursor lag (especially in code blocks).
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const useSectionedEditor = useStore((s) => s.useSectionedEditor);
@@ -231,18 +231,18 @@ export default function App() {
             <AgentPanel hidden={!isAgentView} />
           </div>
 
-          {/* Settings / Editor / EmptyState overlaid on top */}
+          {/* SettingsPanel / EditorPanel / EmptyPanel overlaid on top */}
           {isSettingsOpen ? (
-            <Settings />
+            <SettingsPanel />
           ) : !isTerminalView && !isAgentView ? (
             hasActiveDoc ? (
               useSectionedEditor ? (
-                <SectionedBlockEditor />
+                <SectionedEditorPanel />
               ) : (
-                <BlockEditor />
+                <EditorPanel />
               )
             ) : (
-              <EmptyState />
+              <EmptyPanel />
             )
           ) : null}
         </div>
@@ -259,4 +259,9 @@ export default function App() {
       <CommandPalette />
     </div>
   );
+}
+v>
+  );
+}
+);
 }

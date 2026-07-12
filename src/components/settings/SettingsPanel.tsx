@@ -199,7 +199,7 @@ function SubNode({
   );
 }
 
-export default function Settings() {
+export default function SettingsPanel() {
   const { t } = useI18n();
   const activeSection = useStore((s) => s.settingsActiveSection);
   const setActiveSection = useStore((s) => s.setSettingsActiveSection);
@@ -328,7 +328,7 @@ export default function Settings() {
 
       {/* ── Right content ── */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Help section renders as a full-width document via BlockEditor
+        {/* Help section renders as a full-width document via EditorPanel
             (which manages its own scrolling); other settings sections use
             a centered narrow column with external scroll. */}
         {activeSection === 'help' ? (

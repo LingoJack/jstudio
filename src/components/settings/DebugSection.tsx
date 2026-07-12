@@ -84,7 +84,7 @@ export default function DebugSection() {
           {t('debug.editorSwitchHint')}
         </p>
         <div className="space-y-2 text-sm">
-          {/* BlockEditor (main) */}
+          {/* EditorPanel (main) */}
           <button
             onClick={() => setUseSectionedEditor(false)}
             className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm transition-colors cursor-pointer border ${
@@ -109,7 +109,7 @@ export default function DebugSection() {
             )}
           </button>
 
-          {/* SectionedBlockEditor (POC) */}
+          {/* SectionedEditorPanel (POC) */}
           <button
             onClick={() => setUseSectionedEditor(true)}
             className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm transition-colors cursor-pointer border ${

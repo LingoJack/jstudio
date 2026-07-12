@@ -1,14 +1,14 @@
 /**
  * Shared TipTap extension factory for the SECTIONED editor POC.
  *
- * This deliberately MIRRORS the extension list in BlockEditor.tsx so each
+ * This deliberately MIRRORS the extension list in EditorPanel.tsx so each
  * section's independent editor behaves identically to the monolithic editor.
- * It is duplicated (rather than refactored out of BlockEditor) on purpose:
- * the POC must leave BlockEditor 100% untouched so we can A/B toggle and roll
+ * It is duplicated (rather than refactored out of EditorPanel) on purpose:
+ * the POC must leave EditorPanel 100% untouched so we can A/B toggle and roll
  * back instantly.
  *
  * If the sectioned approach proves out, this becomes the single source of
- * truth and BlockEditor is migrated to use it too.
+ * truth and EditorPanel is migrated to use it too.
  */
 
 import type { Extensions } from '@tiptap/react';

@@ -1,5 +1,5 @@
 /**
- * BlockEditor — the main document editing surface.
+ * EditorPanel — the main document editing surface.
  *
  * This is a TipTap-based editor. TipTap (via ProseMirror) handles all
  * contentEditable complexity (cursor, selection, undo/redo, paste, slash
@@ -70,7 +70,7 @@ import { CursorTrailProvider } from './CursorTrailContext';
 import type { Block } from '../../types';
 import { ListTree } from 'lucide-react';
 
-export interface BlockEditorProps {
+export interface EditorPanelProps {
   /** When provided, the editor renders this static document instead of the
    *  store's active document. Used by HelpSection. */
   doc?: { title: string; blocks: Block[] };
@@ -105,7 +105,7 @@ function EditorSkeleton() {
   );
 }
 
-export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
+export default function EditorPanel({ doc, readOnly }: EditorPanelProps = {}) {
   // ── Read-only / static-document mode ──────────────────────────────
   const isStatic = !!doc;
 
@@ -485,8 +485,8 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         try {
           targetEditor.commands.setContent(tiptapContent, { emitUpdate: false });
         } catch (e) {
-          console.error('[BlockEditor] setContent failed for static doc:', e);
-          console.error('[BlockEditor] tiptapContent that failed:', JSON.stringify(tiptapContent, null, 2));
+          console.error('[EditorPanel] setContent failed for static doc:', e);
+          console.error('[EditorPanel] tiptapContent that failed:', JSON.stringify(tiptapContent, null, 2));
         }
         requestAnimationFrame(() => {
           isReplacingRef.current = false;
@@ -568,7 +568,7 @@ export default function BlockEditor({ doc, readOnly }: BlockEditorProps = {}) {
         loadedEditorRef.current = targetEditor;
         setRenderedDocId(targetDocId);
       } catch (e) {
-        console.error('[BlockEditor] setContent failed for doc', targetDocId, e);
+        console.error('[EditorPanel] setContent failed for doc', targetDocId, e);
         // Recover to an empty body rather than displaying another document's
         // content. The title belongs to targetDocId, so a blank body is the
         // only non-misleading fallback. The user's data on disk is untouched.
