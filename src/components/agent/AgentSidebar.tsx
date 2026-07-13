@@ -1,5 +1,9 @@
 /**
- * AgentSidebar — 左侧边栏组件
+ * AgentSidebar — Agent 侧边栏组件
+ * 
+ * 与 DocumentSidebar 保持一致的架构：
+ * - 独立于 AgentChatPanel，在 App 层级渲染
+ * - 直接从 store 获取状态，不需要 props
  * 
  * 结构（参考 WorkBuddy 设计）：
  * - 功能菜单：新建任务、助理、技能等
@@ -7,7 +11,7 @@
  * - 任务历史：按 workspace 分组的 session 列表
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import {
@@ -206,20 +210,24 @@ function SidebarMenuItem({ icon, label, active, onClick }: SidebarMenuItemProps)
 // Agent Sidebar
 // ────────────────────────────────────────────────
 
-interface AgentSidebarProps {
-  onSelectSession: (id: string) => void;
-  activeSessionId: string | null;
-  onDeleteSession: (id: string) => void;
-}
-
-export function AgentSidebar({
-  onSelectSession,
-  activeSessionId,
-  onDeleteSession,
-}: AgentSidebarProps) {
+/**
+ * AgentSidebar — 独立的侧边栏组件
+ * 
+ * 与 DocumentSidebar 保持一致的架构：
+ * - 直接从 store 获取状态
+ * - 不需要任何 props
+ * - 在 App 层级渲染
+ */
+export default function AgentSidebar() {
   const { t } = useI18n();
+  
+  // 直接从 store 获取状态
   const sessions = useStore((s) => s.agentSessions);
+  const activeAgentSessionId = useStore((s) => s.activeAgentSessionId);
   const createAgentSession = useStore((s) => s.createAgentSession);
+  const openAgentSession = useStore((s) => s.openAgentSession);
+  const deleteAgentSession = useStore((s) => s.deleteAgentSession);
+  const initAgentSessions = useStore((s) => s.initAgentSessions);
 
   const [activeView, setActiveView] = useState<'tasks' | 'assistant' | 'skills' | 'automation'>(
     'tasks',
@@ -228,21 +236,39 @@ export function AgentSidebar({
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [createWorkspace, setCreateWorkspace] = useState<string | undefined>(undefined);
 
+  // Init sessions on mount
+  useEffect(() => {
+    initAgentSessions();
+  }, [initAgentSessions]);
+
   const groups = groupSessionsByWorkspace(sessions);
   const existingWorkspaces = groups.map((g) => g.workspace);
 
   const handleCreateTask = useCallback(
     async (workspace: string) => {
       try {
-        const id = await createAgentSession(workspace);
-        onSelectSession(id);
+        await createAgentSession(workspace);
         setShowWorkspaceModal(false);
         setCreateWorkspace(undefined);
       } catch (e) {
         console.error('Failed to create task:', e);
       }
     },
-    [createAgentSession, onSelectSession],
+    [createAgentSession],
+  );
+
+  const handleSelectSession = useCallback(
+    (sessionId: string) => {
+      openAgentSession(sessionId);
+    },
+    [openAgentSession],
+  );
+
+  const handleDeleteSession = useCallback(
+    (sessionId: string) => {
+      deleteAgentSession(sessionId);
+    },
+    [deleteAgentSession],
   );
 
   return (
@@ -292,9 +318,9 @@ export function AgentSidebar({
       <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
         <WorkspaceList
           groups={groups}
-          activeId={activeSessionId}
-          onSelect={onSelectSession}
-          onDelete={onDeleteSession}
+          activeId={activeAgentSessionId}
+          onSelect={handleSelectSession}
+          onDelete={handleDeleteSession}
           onExpand={setExpandGroup}
           onCreateInWorkspace={(ws) => {
             setCreateWorkspace(ws);
@@ -308,9 +334,9 @@ export function AgentSidebar({
       {expandGroup && (
         <WorkspaceExpandModal
           group={expandGroup}
-          activeId={activeSessionId}
-          onSelect={onSelectSession}
-          onDelete={onDeleteSession}
+          activeId={activeAgentSessionId}
+          onSelect={handleSelectSession}
+          onDelete={handleDeleteSession}
           onClose={() => setExpandGroup(null)}
         />
       )}

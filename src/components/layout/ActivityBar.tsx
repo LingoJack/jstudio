@@ -79,7 +79,7 @@ export default function ActivityBar() {
       }
     } else if (id === 'agent') {
       setSettingsOpen(false);
-      // Switch to agent view; AgentPanel will auto-create sessions on init.
+      // Switch to agent view; AgentChatPanel will auto-create sessions on init.
       setActiveSidebarView('agent');
     } else if (id === 'settings') {
       setSettingsOpen(true);

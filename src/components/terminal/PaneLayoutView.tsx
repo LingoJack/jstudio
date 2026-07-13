@@ -573,13 +573,18 @@ export default function PaneLayoutView({
   }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cleanup on unmount ───────────────────────────────────────────
+  // Use a ref so the cleanup closure always calls the latest destroyAll,
+  // while the effect itself only registers once (on mount).
+  const destroyAllRef = useRef(destroyAll);
+  destroyAllRef.current = destroyAll;
+
   useEffect(() => {
     return () => {
-      destroyAll();
+      destroyAllRef.current();
       initializedRef.current.clear();
       paneElsRef.current.clear();
     };
-  }, [destroyAll]);
+  }, []);
 
   // ── Cleanup dead sessions ────────────────────────────────────────
   useEffect(() => {
