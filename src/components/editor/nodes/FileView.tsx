@@ -48,7 +48,7 @@ import {
 } from '../../../lib/editor/fileUtils';
 import { docxToHtml } from '../../../lib/editor/docxPreview';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
-import { toDisplaySrc } from '../../../lib/editor/content/assetUrl';
+import { useAssetBlobUrl } from '../../../lib/editor/content/useAssetBlobUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
@@ -81,11 +81,17 @@ export default function FileView({
   const { src, fileName, fileSize, fileType, displayMode, width, widthPct, height, heightPct, align } =
     node.attrs as FileNodeAttributes;
 
-  // Resolve doc-relative asset paths (`assets/…`) to a loadable URL via the
-  // asset protocol; data:/http(s): srcs pass through unchanged.
   const studioRoot = useStore((s) => s.studioRoot);
   const activeDocId = useStore((s) => s.activeDocId);
-  const resolvedSrc = toDisplaySrc(src ?? '', studioRoot, activeDocId);
+
+  // Inline previews use a same-origin blob URL because Tauri's
+  // `asset://localhost` origin is treated as cross-origin to the page's
+  // `tauri://localhost` origin and gets blocked by WebKit.
+  const {
+    url: blobSrc,
+    loading: assetLoading,
+    error: assetError,
+  } = useAssetBlobUrl(src ?? '', studioRoot, activeDocId);
 
   // "Real" selection: only a genuine NodeSelection on THIS node counts as
   // selected — NOT a text selection that sweeps across the file block.
@@ -154,9 +160,9 @@ export default function FileView({
   /**
    * Patched src: ensures text-based data URLs include `charset=utf-8`
    * so HTML/SVG/text previews render correctly instead of mojibake.
-   * Operates on the resolved (asset-protocol) URL; a no-op for non-data URLs.
+   * Operates on the resolved blob URL; a no-op for non-data URLs.
    */
-  const safeSrc = useMemo(() => ensureUtf8Charset(resolvedSrc), [resolvedSrc]);
+  const safeSrc = useMemo(() => ensureUtf8Charset(blobSrc), [blobSrc]);
 
   // ── Native DOM iframe for HTML/SVG preview (React 19 sandbox workaround) ──
   // Create/update/remove the iframe via native DOM so React never traverses it.
@@ -202,12 +208,13 @@ export default function FileView({
   const handleOpenPreview = useCallback(() => {
     if (!src) return;
     openPreviewWindow({
-      src: resolvedSrc,
+      src, // portable `assets/…` path; preview window resolves via docContext
       fileName,
       fileSize,
       category: getPreviewCategory(fileType, fileName),
+      docContext: { studioRoot, docId: activeDocId },
     });
-  }, [src, resolvedSrc, fileName, fileSize, fileType]);
+  }, [src, fileName, fileSize, fileType, studioRoot, activeDocId]);
 
   /* -------------------------------------------------------------- */
   /* Upload handler                                                 */
@@ -498,80 +505,93 @@ export default function FileView({
                     block is selected the overlay is removed so the preview's
                     own controls (PDF page/zoom toolbar, media controls) are
                     immediately clickable without entering edit mode. */}
-                {!selected && (
+                {!selected && !assetLoading && !assetError && (
                   <div className="file-block-preview-overlay" />
                 )}
 
-                {/* HTML / SVG — native DOM iframe (React 19 sandbox workaround) */}
-                {/* The iframe is created/managed by useEffect above, not JSX.
-                    React 19 dev mode traverses DOM including sandboxed iframes,
-                    triggering SecurityError. Native DOM bypasses this.
-                    contentEditable={false} ensures ProseMirror ignores this container. */}
-                {category === 'html' && (
-                  <div
-                    ref={htmlIframeContainerRef}
-                    className="file-block-preview-frame-container"
-                    contentEditable={false}
-                  >
-                    {/* iframe inserted by useEffect, not JSX */}
+                {assetLoading ? (
+                  <div className="file-block-preview-loading">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span>{t('image.loading')}</span>
                   </div>
-                )}
-
-                {/* PDF — custom pdf.js viewer with zoom / pan controls */}
-                {category === 'pdf' && (
-                  <PdfPreview src={safeSrc} />
-                )}
-
-                {/* Image */}
-                {category === 'image' && (
-                  <div className="file-block-preview-image-wrap">
-                    <img
-                      src={safeSrc}
-                      alt={fileName}
-                      className="file-block-preview-image"
-                    />
+                ) : assetError ? (
+                  <div className="file-block-preview-loading">
+                    <span>{t('image.cannotRead')}</span>
                   </div>
-                )}
-
-                {/* Audio */}
-                {category === 'audio' && (
-                  <div className="file-block-preview-media">
-                    <audio src={safeSrc} controls className="file-block-preview-audio" />
-                  </div>
-                )}
-
-                {/* Video */}
-                {category === 'video' && (
-                  <div className="file-block-preview-media">
-                    <video
-                      src={safeSrc}
-                      controls
-                      className="file-block-preview-video"
-                    />
-                  </div>
-                )}
-
-                {/* DOCX */}
-                {category === 'docx' && (
-                  <div className="file-block-preview-docx">
-                    {docxLoading ? (
-                      <div className="file-block-preview-loading">
-                        <Loader2 size={20} className="animate-spin" />
-                        <span>{t('image.parsingDocx')}</span>
-                      </div>
-                    ) : (
+                ) : (
+                  <>
+                    {/* HTML / SVG — native DOM iframe (React 19 sandbox workaround) */}
+                    {/* The iframe is created/managed by useEffect above, not JSX.
+                        React 19 dev mode traverses DOM including sandboxed iframes,
+                        triggering SecurityError. Native DOM bypasses this.
+                        contentEditable={false} ensures ProseMirror ignores this container. */}
+                    {category === 'html' && (
                       <div
-                        className="file-block-preview-docx-content"
-                        dangerouslySetInnerHTML={{
-                          __html: docxHtml ?? `<p>${t('image.loading')}</p>`,
-                        }}
-                      />
+                        ref={htmlIframeContainerRef}
+                        className="file-block-preview-frame-container"
+                        contentEditable={false}
+                      >
+                        {/* iframe inserted by useEffect, not JSX */}
+                      </div>
                     )}
-                  </div>
-                )}
 
-                {/* Text */}
-                {category === 'text' && <FileTextPreview src={safeSrc} />}
+                    {/* PDF — custom pdf.js viewer with zoom / pan controls */}
+                    {category === 'pdf' && (
+                      <PdfPreview src={safeSrc} />
+                    )}
+
+                    {/* Image */}
+                    {category === 'image' && (
+                      <div className="file-block-preview-image-wrap">
+                        <img
+                          src={safeSrc}
+                          alt={fileName}
+                          className="file-block-preview-image"
+                        />
+                      </div>
+                    )}
+
+                    {/* Audio */}
+                    {category === 'audio' && (
+                      <div className="file-block-preview-media">
+                        <audio src={safeSrc} controls className="file-block-preview-audio" />
+                      </div>
+                    )}
+
+                    {/* Video */}
+                    {category === 'video' && (
+                      <div className="file-block-preview-media">
+                        <video
+                          src={safeSrc}
+                          controls
+                          className="file-block-preview-video"
+                        />
+                      </div>
+                    )}
+
+                    {/* DOCX */}
+                    {category === 'docx' && (
+                      <div className="file-block-preview-docx">
+                        {docxLoading ? (
+                          <div className="file-block-preview-loading">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span>{t('image.parsingDocx')}</span>
+                          </div>
+                        ) : (
+                          <div
+                            className="file-block-preview-docx-content"
+                            dangerouslySetInnerHTML={{
+                              __html: docxHtml ?? `<p>${t('image.loading')}</p>`,
+                            }}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Text */}
+                    {category === 'text' && <FileTextPreview src={safeSrc} />}
+                  </>
+                )}
               </div>
             )}
 

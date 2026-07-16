@@ -256,7 +256,13 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       const iframe = document.createElement('iframe');
       iframe.className = 'code-html-preview';
       iframe.title = t('code.previewHtml');
-      iframe.sandbox.add('allow-scripts', 'allow-forms', 'allow-popups', 'allow-modals');
+      iframe.sandbox.add(
+        'allow-scripts',
+        'allow-forms',
+        'allow-popups',
+        'allow-modals',
+        'allow-same-origin',
+      );
       iframe.srcdoc = htmlSource;
       container.appendChild(iframe);
       iframeRef.current = iframe;

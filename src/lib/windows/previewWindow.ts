@@ -30,6 +30,15 @@ export interface PreviewPayload {
    * `src` as a URL.
    */
   html?: string;
+  /**
+   * Document context needed to resolve a doc-relative asset path (`assets/…`)
+   * to a same-origin blob URL in the preview window. `src` should be the
+   * portable `assets/{name}` form when this is provided.
+   */
+  docContext?: {
+    studioRoot: string;
+    docId: string;
+  };
 }
 
 /* ------------------------------------------------------------------ */

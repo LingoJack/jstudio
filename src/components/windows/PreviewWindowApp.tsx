@@ -13,6 +13,7 @@ import { X, Loader2 } from 'lucide-react';
 
 import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../../lib/windows/previewWindow';
 import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../../lib/editor/fileUtils';
+import { useAssetBlobUrl } from '../../lib/editor/content/useAssetBlobUrl';
 import { docxToHtml } from '../../lib/editor/docxPreview';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import PdfPreview from '../editor/nodes/PdfPreview';
@@ -40,7 +41,6 @@ export default function PreviewWindowApp() {
   }
 
   const category = data.category as PreviewCategory;
-  const safeSrc = ensureUtf8Charset(data.src);
 
   return (
     <div className="preview-root">
@@ -55,7 +55,13 @@ export default function PreviewWindowApp() {
       </button>
 
       {/* Content */}
-      <PreviewContent src={safeSrc} category={category} fileName={data.fileName} html={data.html} />
+      <PreviewContent
+        src={data.src}
+        category={category}
+        fileName={data.fileName}
+        html={data.html}
+        docContext={data.docContext}
+      />
     </div>
   );
 }
@@ -69,14 +75,26 @@ function PreviewContent({
   category,
   fileName,
   html,
+  docContext,
 }: {
   src: string;
   category: PreviewCategory;
   fileName: string;
   /** Inline HTML source — when present, the html preview uses `srcDoc`. */
   html?: string;
+  /** Document context for resolving doc-relative assets to blob URLs. */
+  docContext?: PreviewPayload['docContext'];
 }) {
   const { t } = useI18n();
+
+  // Resolve local assets to same-origin blob URLs; non-asset / empty srcs pass through.
+  const { url: resolvedSrc, loading: assetLoading, error: assetError } = useAssetBlobUrl(
+    src,
+    docContext?.studioRoot ?? '',
+    docContext?.docId ?? '',
+  );
+  const safeSrc = ensureUtf8Charset(resolvedSrc);
+
   // ── Native DOM iframe for HTML preview (React 19 sandbox workaround) ──
   const htmlIframeRef = useRef<HTMLIFrameElement | null>(null);
   const htmlContainerRef = useRef<HTMLDivElement | null>(null);
@@ -99,7 +117,7 @@ function PreviewContent({
       if (html != null) {
         iframe.srcdoc = html;
       } else {
-        iframe.src = src;
+        iframe.src = safeSrc;
       }
       container.appendChild(iframe);
       htmlIframeRef.current = iframe;
@@ -111,11 +129,27 @@ function PreviewContent({
         iframe.srcdoc = html;
         iframe.removeAttribute('src');
       } else {
-        iframe.src = src;
+        iframe.src = safeSrc;
         iframe.removeAttribute('srcdoc');
       }
     }
-  }, [category, src, html, fileName]);
+  }, [category, safeSrc, html, fileName]);
+
+  if (assetLoading) {
+    return (
+      <div className="preview-loading-center">
+        <Loader2 size={24} className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (assetError) {
+    return (
+      <div className="preview-fallback">
+        {t('preview.notSupported')}
+      </div>
+    );
+  }
 
   switch (category) {
     case 'html':
@@ -124,22 +158,22 @@ function PreviewContent({
       );
 
     case 'pdf':
-      return <PdfPreview src={src} fillContainer />;
+      return <PdfPreview src={safeSrc} fillContainer />;
 
     case 'docx':
-      return <DocxPreview src={src} />;
+      return <DocxPreview src={safeSrc} />;
 
     case 'image':
-      return <ImageZoom src={src} />;
+      return <ImageZoom src={safeSrc} />;
 
     case 'audio':
-      return <MediaPreview src={src} kind="audio" />;
+      return <MediaPreview src={safeSrc} kind="audio" />;
 
     case 'video':
-      return <MediaPreview src={src} kind="video" />;
+      return <MediaPreview src={safeSrc} kind="video" />;
 
     case 'text':
-      return <TextPreview src={src} />;
+      return <TextPreview src={safeSrc} />;
 
     default:
       return <div className="preview-fallback">{t('preview.notSupported')}</div>;

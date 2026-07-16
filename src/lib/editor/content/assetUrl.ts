@@ -18,6 +18,22 @@ export function isAssetPath(src: string): boolean {
 }
 
 /**
+ * Resolve a doc-relative asset path to an absolute filesystem path.
+ *
+ * `studioRoot` may use OS-native separators (backslashes on Windows); we
+ * normalize to forward slashes. The returned path is suitable for passing
+ * to Tauri commands such as `storage.readFileBytes`.
+ */
+export function resolveAssetFilePath(
+  studioRoot: string,
+  docId: string,
+  relPath: string,
+): string {
+  const root = studioRoot.replace(/\\/g, '/');
+  return `${root}/documents/${docId}/${relPath}`;
+}
+
+/**
  * Resolve a doc-relative asset path to an asset-protocol URL.
  *
  * `studioRoot` may use OS-native separators (backslashes on Windows); we
@@ -28,8 +44,7 @@ export function resolveAssetUrl(
   docId: string,
   relPath: string,
 ): string {
-  const root = studioRoot.replace(/\\/g, '/');
-  return convertFileSrc(`${root}/documents/${docId}/${relPath}`);
+  return convertFileSrc(resolveAssetFilePath(studioRoot, docId, relPath));
 }
 
 /**

@@ -15,7 +15,7 @@ import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react'
 import { useStore } from '../../../store/useStore';
 import { storage } from '../../../lib/core/storage';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
-import { toDisplaySrc } from '../../../lib/editor/content/assetUrl';
+import { useAssetBlobUrl } from '../../../lib/editor/content/useAssetBlobUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
@@ -43,11 +43,17 @@ interface ImageNodeAttrs {
 export default function ImageView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const { src, alt, title, width, widthPct, height, heightPct, align } = node.attrs as ImageNodeAttrs;
 
-  // Resolve doc-relative asset paths (`assets/…`) to a loadable URL via the
-  // asset protocol; data:/http(s): srcs pass through unchanged.
+  // Resolve doc-relative asset paths (`assets/…`) to a same-origin blob URL.
+  // Tauri's `asset://localhost` URLs are treated as cross-origin to the page's
+  // `tauri://localhost` origin, so <img> requests are blocked. We read the file
+  // bytes and create a blob: URL instead.
   const studioRoot = useStore((s) => s.studioRoot);
   const activeDocId = useStore((s) => s.activeDocId);
-  const displaySrc = toDisplaySrc(src, studioRoot, activeDocId);
+  const { url: displaySrc, loading: assetLoading, error: assetError } = useAssetBlobUrl(
+    src,
+    studioRoot,
+    activeDocId,
+  );
 
   // "Real" selection: only a genuine NodeSelection on THIS node counts as
   // selected — NOT a text selection that merely sweeps across the image.
@@ -205,6 +211,16 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
               {loading ? '加载中…' : '点击选择图片'}
             </span>
           </button>
+        ) : assetLoading ? (
+          /* Asset bytes are being read from disk */
+          <div className="image-node-placeholder" aria-label="图片加载中">
+            <span className="image-node-placeholder-text">图片加载中…</span>
+          </div>
+        ) : assetError ? (
+          /* Failed to read the asset */
+          <div className="image-node-placeholder" aria-label="图片加载失败">
+            <span className="image-node-placeholder-text">图片加载失败</span>
+          </div>
         ) : (
           /* Loaded state */
           <div
