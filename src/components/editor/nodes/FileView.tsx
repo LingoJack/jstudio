@@ -279,14 +279,14 @@ export default function FileView({
       !docxLoading
     ) {
       setDocxLoading(true);
-      docxToHtml(resolvedSrc)
+      docxToHtml(safeSrc)
         .then((html) => setDocxHtml(html))
         .catch(() =>
           setDocxHtml(`<p style="color:#f85149;">${t('preview.docxError')}</p>`),
         )
         .finally(() => setDocxLoading(false));
     }
-  }, [category, isPreviewMode, src, resolvedSrc, docxHtml, docxLoading]);
+  }, [category, isPreviewMode, src, safeSrc, docxHtml, docxLoading, t]);
 
   /* -------------------------------------------------------------- */
   /* Resize: drag the bottom-right handle (via shared useNodeResize) */
