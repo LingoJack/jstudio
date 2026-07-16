@@ -4,7 +4,7 @@
 
 **离线优先的 Notion 风格本地笔记应用**
 
-基于 Tauri v2 + React 19 的桌面应用，所有数据存储在本地文件系统，无云端依赖。
+基于 Tauri v2 + React 19 的桌面应用，所有数据存储在本地（SQLite + 文件系统），无云端依赖。
 
 </div>
 
@@ -13,7 +13,7 @@
 ## 特性
 
 - **块编辑器** — Notion 风格的统一 surface 模式，支持文本、标题、Callout、Toggle、代码块、表格、图片、画布、白板、Web 嵌入、附件等多种块类型
-- **离线优先** — 全部数据以 JSON 文件形式存储在 `~/.jdata/studio/`，无数据库、无服务器、无云端同步
+- **离线优先** — 全部数据存储在本地 `~/.jdata/studio/`（SQLite 数据库 + 文件系统），无服务器、无云端同步
 - **内置终端** — 基于 xterm.js + portable-pty，可在应用内直接执行命令
 - **Markdown 快捷输入** — `# ` 自动转标题、`/` 唤出 Slash 命令菜单
 - **暗色 / 亮色主题** — VSCode 风格 CSS 变量体系
@@ -29,6 +29,8 @@
 | 状态管理 | Zustand (slice 模式) |
 | 样式 | Tailwind CSS v4 |
 | 编辑器内核 | TipTap v3 (ProseMirror) |
+| 画板/图表内核 | maxGraph（自研 `jgraph` 快照格式） |
+| 数据库 | SQLite (rusqlite, WAL 模式) |
 | 图标 | lucide-react |
 | 终端 | xterm.js + portable-pty |
 
@@ -82,39 +84,49 @@ make build
 
 ## 数据存储
 
+规范存储（canonical store）是本地 **SQLite** 数据库；大二进制资源与写前备份仍留在文件系统：
+
 ```
 ~/.jdata/studio/
-├── index.json              # 文档元数据索引（轻量数组，侧边栏瞬时渲染）
-├── settings.json           # 用户设置
+├── studio.db                # SQLite 数据库（WAL 模式）
+│   ├── documents            # 文档元数据 + 正文（body 列）
+│   ├── folders               # 文件夹树
+│   ├── settings               # 应用设置（key/value，value 为 JSON 字符串）
+│   ├── deleted_documents      # 已删除文档的墓碑记录
+│   └── trashed_assets         # 资源回收站记录
+├── *.json.bak                # 旧版 JSON 文件迁移后的备份（index/folders/settings）
 └── documents/
-    └── {docId}/            # 每篇文档独立文件夹
-        ├── document.json   # 完整文档内容（含 blocks 数组）
-        └── assets/         # 文档私有资源（图片等）
+    └── {docId}/              # 每篇文档独立文件夹
+        ├── document.json     # 遗留内容文件（迁移/灾难恢复回退路径，正文已迁至 DB）
+        ├── .backups/          # 写前自动快照（覆盖前备份，默认保留最近 50 份）
+        └── assets/            # 文档私有资源（图片等，不进数据库）
 ```
 
-- **索引与内容分离**，侧边栏不加载完整文档
-- **防抖写入**（500ms debounce），避免高频 IO
-- **无数据库** — 纯文件系统 JSON 存储
+- **数据库为规范存储**：文档正文、元数据、文件夹树、设置均以 SQLite 表持久化，启用 WAL 支持多窗口并发读，写路径使用事务保证一致性
+- **文件系统仅存二进制与备份**：文档私有资源（图片等）与写前备份留在文件系统，不适合塞进数据库行
+- **JSON 文件仅作迁移来源与回退路径**：应用首次启动时会将旧版 `index.json`/`folders.json`/`settings.json` 一次性导入数据库并重命名为 `*.json.bak`；`document.json` 在正文迁移前也作为 `read_document` 的回退路径
+- **孤儿文档自愈**：启动时会扫描 `documents/` 目录，找回存在于磁盘但未注册到数据库的文档（跳过用户已删除的墓碑 id）
 
 ## 项目结构
 
 ```
 jstudio/
 ├── src/                        # 前端源码 (React + TypeScript)
-│   ├── App.tsx                 # 根组件（三栏布局）
-│   ├── components/             # UI 组件
-│   │   ├── BlockEditor.tsx     # 编辑器主体
-│   │   ├── blocks/             # 块组件（Text/Heading/Image/Code/Table/...）
-│   │   ├── terminal/           # 内置终端
+│   ├── App.tsx                 # 根组件
+│   ├── components/              # 视图层：容器组件 / 节点视图 / 通用 UI
+│   │   ├── editor/              # 编辑器主体、节点视图（含 graph/ 画板）
+│   │   ├── documents/           # 文档侧边栏 / 文件夹树
+│   │   ├── terminal/            # 内置终端
 │   │   └── ...
 │   ├── store/                  # Zustand store (slice 模式)
-│   ├── lib/                    # 工具库（storage / i18n / migrate）
+│   ├── lib/                    # 逻辑层：core/storage、editor、documents、i18n 等
 │   └── types/                  # TypeScript 类型定义
 └── src-tauri/                  # Rust 后端
     ├── tauri.conf.json         # Tauri 配置
     └── src/
         ├── lib.rs              # 插件注册 + 命令绑定
-        └── commands/storage.rs # 14 个文件系统存储命令
+        ├── db/                 # SQLite 数据层（schema / connection / 迁移 / 孤儿回收）
+        └── commands/storage/   # 存储命令（documents/folders/settings 走 SQLite，assets/backups 走文件系统）
 ```
 
 > 完整的开发规范见 [AGENTS.md](./AGENTS.md)。
@@ -205,7 +217,7 @@ npm run tauri:build
 
 ## 开发规范
 
-- 前端禁止直接调用 `invoke`，所有 Tauri IPC 通过 `src/lib/storage.ts`
+- 前端禁止直接调用 `invoke`，所有 Tauri IPC 通过 `src/lib/core/storage.ts`
 - 状态管理通过 Zustand slice，不在组件内直接修改 store
 - 块组件只做展示，编辑逻辑在 `useSurfaceEditor` 统一处理
 - 使用 Tailwind CSS v4 + VSCode 主题 CSS 变量，不硬编码颜色

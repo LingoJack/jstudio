@@ -147,14 +147,6 @@ export const DEFAULT_LATIN_FONT_ID = 'monaco';
 export const DEFAULT_CJK_FONT_ID = 'pingfang';
 
 /**
- * @deprecated Use `resolveFontFamily(latinaId, cjkFontId)` instead.
- * Kept temporarily for backward compatibility — resolves the old
- * monolithic `fontId` which encoded both Latin + CJK in one stack.
- */
-export const FONT_PRESETS: FontPreset[] = LATIN_FONTS;
-export const DEFAULT_FONT_ID = DEFAULT_LATIN_FONT_ID;
-
-/**
  * Build a combined CSS `font-family` string from the selected Latin
  * and CJK preset ids. The Latin font is placed first so it takes
  * priority for Latin glyphs; the CJK font follows for Chinese

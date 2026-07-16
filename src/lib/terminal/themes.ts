@@ -235,9 +235,6 @@ export const DEFAULT_TERMINAL_THEME_ID_DARK = 'jstudio-dark';
 /** Default terminal theme for light mode. */
 export const DEFAULT_TERMINAL_THEME_ID_LIGHT = 'jstudio-light';
 
-/** @deprecated Use DEFAULT_TERMINAL_THEME_ID_DARK instead. */
-export const DEFAULT_TERMINAL_THEME_ID = DEFAULT_TERMINAL_THEME_ID_DARK;
-
 /** Legacy theme id aliases → current id. Keeps settings stored by older
  *  builds (e.g. "anthropic-dark") resolving to the renamed theme. */
 const THEME_ID_ALIASES: Record<string, string> = {

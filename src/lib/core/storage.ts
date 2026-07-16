@@ -118,21 +118,6 @@ export interface AppSettings {
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
   /**
-   * @deprecated Terminal theme now follows app theme (same IDs).
-   * Kept for backward compatibility but will be ignored.
-   */
-  terminalThemeIdDark?: string;
-  /**
-   * @deprecated Terminal theme now follows app theme (same IDs).
-   * Kept for backward compatibility but will be ignored.
-   */
-  terminalThemeIdLight?: string;
-  /**
-   * @deprecated Terminal theme now follows app theme (same IDs).
-   * Kept for backward compatibility but will be ignored.
-   */
-  terminalThemeId?: string;
-  /**
    * App UI color theme for dark mode — see lib/themes/registry.ts.
    * Terminal theme automatically uses the same ID (app theme = terminal theme).
    */

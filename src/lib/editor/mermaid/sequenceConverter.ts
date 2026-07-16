@@ -181,13 +181,6 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
       },
     });
 
-    // 处理激活框（简化实现：每个消息触发一次激活）
-    // 实际 mermaid 中激活/停用由 activate/deactivate 命令控制
-    // 这里简化为：如果消息是"调用"类型（实线箭头），则激活目标
-    // 如果消息是"返回"类型（虚线箭头），则停用目标
-
-    // 注意：这个简化实现可能不完全准确，实际需要解析 mermaid 的激活/停用指令
-    // 这里仅作为基础实现，后续可扩展
   }
 
   // 3. 处理注释 → note nodes

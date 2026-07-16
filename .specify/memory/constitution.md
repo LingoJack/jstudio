@@ -31,10 +31,9 @@
     - .codebuddy/commands/speckit.*.md — ✅ no outdated references found
 
   Follow-up TODOs:
-    - README.md still states "无数据库" / "纯文件系统 JSON 存储" —
-      this is now outdated given the SQLite migration and SHOULD be
-      corrected in a follow-up doc PR (not done here; out of scope for
-      constitution update, flagged for manual follow-up).
+    - README.md storage description synced to match Principle I
+      (SQLite as canonical store) in the same session — no longer
+      pending.
 -->
 
 # JStudio Constitution
@@ -198,8 +197,6 @@ MUST 以 Constitution 为准，或通过修正案程序正式修订。
 - **合规审查**：所有 PR / 代码审查 MUST 验证 Constitution 合规性；
   违规 MUST 在 Complexity Tracking 表中注明理由或阻止合并。
 - **运行时指导**：开发时参考 `README.md` 与 `docs/architecture.md`
-  获取目录边界与开发规范细节。**注意**：`README.md` 当前仍描述"无
-  数据库 / 纯 JSON 存储"，与本 Constitution 原则 I 不一致，已知
-  待修（TODO(README_SYNC): 需单独 PR 更新 README 的存储描述章节）。
+  获取目录边界与开发规范细节。
 
 **Version**: 2.0.0 | **Ratified**: 2026-07-16 | **Last Amended**: 2026-07-16
