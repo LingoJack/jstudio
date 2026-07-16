@@ -9,3 +9,4 @@ coverage/
 target/
 temp/
 src-tauri/resources/bin/
+example/
