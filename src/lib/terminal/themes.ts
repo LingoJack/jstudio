@@ -235,22 +235,6 @@ export const DEFAULT_TERMINAL_THEME_ID_DARK = 'jstudio-dark';
 /** Default terminal theme for light mode. */
 export const DEFAULT_TERMINAL_THEME_ID_LIGHT = 'jstudio-light';
 
-/** Legacy theme id aliases → current id. Keeps settings stored by older
- *  builds (e.g. "anthropic-dark") resolving to the renamed theme. */
-const THEME_ID_ALIASES: Record<string, string> = {
-  'anthropic-dark': 'ink-dark',
-  'anthropic-light': 'ink-light',
-};
-
-/** Find a theme by id, falling back to the dark default. */
-export function getTerminalTheme(id: string | undefined): TerminalTheme {
-  const resolved = id ? THEME_ID_ALIASES[id] ?? id : undefined;
-  return (
-    TERMINAL_THEMES.find((t) => t.id === resolved) ??
-    TERMINAL_THEMES.find((t) => t.id === DEFAULT_TERMINAL_THEME_ID_DARK)!
-  );
-}
-
 /**
  * Get the terminal theme that matches the current app theme.
  * App theme IDs and terminal theme IDs are the same (jstudio-dark, jstudio-light, ink-dark, ink-light),
@@ -272,12 +256,4 @@ export function getTerminalThemeFromAppTheme(
   // use the default for the current mode
   const defaultId = isDarkMode ? DEFAULT_TERMINAL_THEME_ID_DARK : DEFAULT_TERMINAL_THEME_ID_LIGHT;
   return TERMINAL_THEMES.find((t) => t.id === defaultId)!;
-}
-
-/**
- * Pick a sensible default terminal theme based on whether the app is in
- * dark or light mode. Used when the user selects "auto" behavior.
- */
-export function autoTerminalTheme(isDark: boolean): TerminalTheme {
-  return TERMINAL_THEMES.find((t) => t.isDark === isDark)!;
 }
