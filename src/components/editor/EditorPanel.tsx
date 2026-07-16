@@ -509,12 +509,39 @@ export default function EditorPanel({ doc, readOnly }: EditorPanelProps = {}) {
 
       const toStart = e.key === 'ArrowLeft';
       const extend = e.shiftKey;
-      // Use $head.start() / $head.end() (defaults to $head.depth) so that we
-      // always resolve to the **text block** boundary (paragraph/heading)
-      // rather than the top-level node. For list items the paragraph lives at
-      // depth 3 (doc > bulletList > listItem > paragraph); using depth 1 would
-      // jump to the start/end of the *entire list* instead of the current item.
-      const edge = toStart ? $head.start() : $head.end();
+      let edge: number;
+      // For multi-line code blocks, $head.start()/end() resolves to the WHOLE
+      // block boundary (codeBlock is a textblock), but macOS Cmd+Left/Right is
+      // expected to jump to the current LINE start/end (delimited by \n), not
+      // the block start/end. Compute the line boundary from the codeBlock text.
+      // For other text blocks (paragraph/heading/list item) $head.start()/end()
+      // is already the correct single-line boundary.
+      const inCodeBlock =
+        $head.depth > 0 && $head.parent.type.name === 'codeBlock';
+      if (inCodeBlock) {
+        const codeNode = $head.parent;
+        const blockStart = $head.start();
+        const blockEnd = blockStart + codeNode.content.size;
+        const text = codeNode.textContent;
+        const offset = $head.parentOffset;
+        if (toStart) {
+          // Current line start = char after the previous \n (or block start).
+          const prevNl = text.lastIndexOf('\n', Math.max(0, offset - 1));
+          edge = prevNl === -1 ? blockStart : blockStart + prevNl + 1;
+        } else {
+          // Current line end = char before the next \n (or block end).
+          const nextNl = text.indexOf('\n', offset);
+          edge = nextNl === -1 ? blockEnd : blockStart + nextNl;
+        }
+      } else {
+        // Use $head.start() / $head.end() (defaults to $head.depth) so that we
+        // always resolve to the **text block** boundary (paragraph/heading)
+        // rather than the top-level node. For list items the paragraph lives at
+        // depth 3 (doc > bulletList > listItem > paragraph); using depth 1
+        // would jump to the start/end of the *entire list* instead of the
+        // current item.
+        edge = toStart ? $head.start() : $head.end();
+      }
 
       const tr = extend
         ? state.tr.setSelection(

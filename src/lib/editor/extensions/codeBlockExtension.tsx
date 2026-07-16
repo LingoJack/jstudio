@@ -343,6 +343,23 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
   addKeyboardShortcuts() {
     return {
       ...this.parent?.(),
+      // Enter inside a code block inserts a newline ("\n") and stays inside
+      // the block. The base CodeBlock extension's Enter handler only acts
+      // when `exitOnTripleEnter` is true (to detect triple-Enter exit); with
+      // it disabled (our config) it returns false and ProseMirror's default
+      // splitBlock takes over, which splits/converts the block and ejects
+      // the cursor out of the code block. We explicitly insert "\n" so Enter
+      // never leaves the block. Users exit via Escape / ArrowDown (last
+      // line) / Mod-Enter / clicking outside, matching the existing design
+      // (exitOnTripleEnter is intentionally disabled).
+      Enter: () => {
+        const { state, view } = this.editor;
+        const { selection } = state;
+        const { $from, empty } = selection;
+        if (!empty || $from.parent.type.name !== this.name) return false;
+        view.dispatch(state.tr.insertText('\n'));
+        return true;
+      },
       Escape: () => {
         const { editor } = this;
         const { state } = editor;
