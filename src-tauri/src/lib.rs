@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 
+use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager};
 
 /// Handle window close requests (Cmd+W on macOS).
@@ -31,13 +32,123 @@ fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestAp
     let _ = window.app_handle().emit("window-close-requested", ());
 }
 
+/// Build the macOS app menu identical to Tauri's default, EXCEPT the Edit
+/// menu's "Select All" item is omitted.
+///
+/// Why: Tauri's default menu includes `PredefinedMenuItem::select_all` bound
+/// to Cmd+A. macOS dispatches Cmd+A to that menu item via
+/// `performKeyEquivalent:` BEFORE generating a DOM keydown event, so the
+/// editor's JS keyboard handlers (ProseMirror keymap AND window-capture
+/// listeners) never see Cmd+A — breaking in-code-block "select all" and any
+/// other Cmd+A handling. Removing the menu item lets Cmd+A flow through to
+/// the webview like any ordinary key (the same path Cmd+Arrow already takes;
+/// see docs/bug-graveyard.md #001). The structure mirrors Tauri 2.11's
+/// `Menu::default` (src/menu/menu.rs) item-for-item, minus that one item.
+#[cfg(target_os = "macos")]
+fn build_app_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
+    let pkg = app.package_info();
+    let about = AboutMetadata {
+        name: Some(pkg.name.clone()),
+        version: Some(pkg.version.to_string()),
+        ..Default::default()
+    };
+
+    let app_submenu = Submenu::with_items(
+        app,
+        pkg.name.as_str(),
+        true,
+        &[
+            &PredefinedMenuItem::about(app, None, Some(about))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, None)?,
+            &PredefinedMenuItem::hide_others(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::quit(app, None)?,
+        ],
+    )?;
+
+    let file_submenu = Submenu::with_items(
+        app,
+        "File",
+        true,
+        &[&PredefinedMenuItem::close_window(app, None)?],
+    )?;
+
+    // Edit menu — intentionally WITHOUT `select_all` (see fn doc above).
+    let edit_submenu = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+        ],
+    )?;
+
+    let view_submenu = Submenu::with_items(
+        app,
+        "View",
+        true,
+        &[&PredefinedMenuItem::fullscreen(app, None)?],
+    )?;
+
+    let window_submenu = Submenu::with_items(
+        app,
+        "Window",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, None)?,
+            &PredefinedMenuItem::maximize(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::close_window(app, None)?,
+        ],
+    )?;
+
+    let help_submenu = Submenu::with_items(app, "Help", true, &[])?;
+
+    Menu::with_items(
+        app,
+        &[
+            &app_submenu,
+            &file_submenu,
+            &edit_submenu,
+            &view_submenu,
+            &window_submenu,
+            &help_submenu,
+        ],
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Tauri's default macOS menu includes Edit > "Select All" (Cmd+A),
+        // which macOS intercepts via performKeyEquivalent: before any DOM
+        // keydown is generated — so the editor never sees Cmd+A. We disable
+        // the default menu and install a custom one (build_app_menu) that is
+        // identical except it omits the "Select All" item. Cmd+A then flows
+        // through to the webview like Cmd+Arrow. See build_app_menu + the
+        // window-capture handler in EditorPanel.tsx.
+        .enable_macos_default_menu(false)
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .setup(|app| {
+            // Install the custom macOS menu (default minus "Select All").
+            #[cfg(target_os = "macos")]
+            {
+                let menu = build_app_menu(app.handle())?;
+                app.set_menu(menu)?;
+            }
+            Ok(())
+        })
         // Intercept window close requests (Cmd+W on macOS) before WKWebView
         // closes the window. We emit an event to JS and let it decide.
         // Only the main window is intercepted; child windows close directly.

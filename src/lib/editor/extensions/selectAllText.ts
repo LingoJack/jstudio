@@ -12,7 +12,7 @@
  */
 
 import { Extension } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 
 export const SelectAllText = Extension.create({
   name: 'select-all-text',
@@ -22,22 +22,38 @@ export const SelectAllText = Extension.create({
         const { state, view } = editor;
         const { tr, doc, selection } = state;
 
-        // If the cursor is inside a code block, select only that code
-        // block's content instead of the entire document.
-        const { $from } = selection;
-        let codeBlockDepth = -1;
-        for (let d = $from.depth; d > 0; d--) {
-          if ($from.node(d).type.name === 'codeBlock') {
-            codeBlockDepth = d;
-            break;
+        // If the cursor is inside a code block — OR a code block node is
+        // selected (e.g. after triple-click) — select only that block's
+        // content instead of the entire document. NodeSelection must be
+        // handled separately because its $from.depth === 0, so the ancestor
+        // walk below would skip it and fall through to whole-doc selection.
+        let codeBlockRange: { from: number; to: number } | null = null;
+
+        if (
+          selection instanceof NodeSelection &&
+          selection.node.type.name === 'codeBlock'
+        ) {
+          // The code block node itself is selected.
+          const pos = selection.from;
+          const node = selection.node;
+          codeBlockRange = { from: pos + 1, to: pos + 1 + node.content.size };
+        } else {
+          // The caret is inside a code block — walk up the ancestors.
+          const { $from } = selection;
+          for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type.name === 'codeBlock') {
+              const start = $from.start(d);
+              const node = $from.node(d);
+              codeBlockRange = { from: start, to: start + node.content.size };
+              break;
+            }
           }
         }
 
-        if (codeBlockDepth >= 0) {
-          const codeBlockNode = $from.node(codeBlockDepth);
-          const start = $from.start(codeBlockDepth);
-          const end = start + codeBlockNode.content.size;
-          tr.setSelection(TextSelection.create(doc, start, end));
+        if (codeBlockRange) {
+          tr.setSelection(
+            TextSelection.create(doc, codeBlockRange.from, codeBlockRange.to),
+          );
           view.dispatch(tr);
           return true;
         }

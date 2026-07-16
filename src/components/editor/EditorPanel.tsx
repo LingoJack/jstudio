@@ -24,7 +24,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
-import { TextSelection } from '@tiptap/pm/state';
+import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Code from '@tiptap/extension-code';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -395,6 +395,73 @@ export default function EditorPanel({ doc, readOnly }: EditorPanelProps = {}) {
       // Cmd+Option+Arrow is the workspace tab-cycle shortcut — let it
       // pass through to the global handler in App.tsx.
       if (e.altKey) return;
+
+      // ── Cmd/Ctrl+A → "select all inside code block" ──
+      // macOS WKWebView natively handles Cmd+A ("Select All"). Before the
+      // Rust-side menu fix (see src-tauri/src/lib.rs `build_app_menu`),
+      // Tauri's default Edit > "Select All" menu item consumed Cmd+A via
+      // performKeyEquivalent: before any DOM keydown was generated, so
+      // neither ProseMirror's keymap nor this capture handler ever saw it.
+      // With that menu item removed, Cmd+A now reaches here like Cmd+Arrow
+      // (see docs/bug-graveyard.md #001), and we can scope the selection to
+      // the code block.
+      //
+      // Behaviour: if the caret is inside (or the node itself is) a code
+      // block, select ONLY that block's content and consume the event. For
+      // any other context we do NOT preventDefault — the normal
+      // whole-document select-all (ProseMirror / SelectAllText) is left to
+      // run.
+      if (e.key === 'a' || e.key === 'A') {
+        if (!editor) return;
+        const { state, view } = editor;
+        const { selection, doc, tr } = state;
+
+        // Never hijack Cmd+A while the title <input> is focused — let the
+        // browser select the title text natively.
+        const titleFocused =
+          titleInputRef.current &&
+          document.activeElement === titleInputRef.current;
+        if (titleFocused) return;
+
+        let codeBlockRange: { from: number; to: number } | null = null;
+
+        if (
+          selection instanceof NodeSelection &&
+          selection.node.type.name === 'codeBlock'
+        ) {
+          const pos = selection.from;
+          codeBlockRange = {
+            from: pos + 1,
+            to: pos + 1 + selection.node.content.size,
+          };
+        } else {
+          const { $from } = selection;
+          for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type.name === 'codeBlock') {
+              const start = $from.start(d);
+              codeBlockRange = {
+                from: start,
+                to: start + $from.node(d).content.size,
+              };
+              break;
+            }
+          }
+        }
+
+        if (codeBlockRange) {
+          tr.setSelection(
+            TextSelection.create(doc, codeBlockRange.from, codeBlockRange.to),
+          );
+          view.dispatch(tr);
+          view.focus();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        // Not in a code block → fall through (do nothing), letting the
+        // default document-wide select-all proceed.
+        return;
+      }
+
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
 
       // ── Title <input> branch ──
