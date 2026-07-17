@@ -35,7 +35,7 @@
 
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey, NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import { findChildren } from '@tiptap/core';
@@ -352,13 +352,24 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
       // never leaves the block. Users exit via Escape / ArrowDown (last
       // line) / Mod-Enter / clicking outside, matching the existing design
       // (exitOnTripleEnter is intentionally disabled).
-      Enter: () => {
-        const { state, view } = this.editor;
-        const { selection } = state;
+      Enter: ({ editor }) => {
+        const { selection } = editor.state;
         const { $from, empty } = selection;
         if (!empty || $from.parent.type.name !== this.name) return false;
-        view.dispatch(state.tr.insertText('\n'));
-        return true;
+        // Insert a newline and explicitly place the caret AFTER it (start of
+        // the new line). Use TipTap's command pipeline (not raw view.dispatch)
+        // so state synchronization and the editor's own update cycle run in
+        // the correct order — raw dispatch from inside a keymap shortcut can
+        // leave the DOM caret out of sync with the PM selection (caret
+        // visually lags one position behind). scrollIntoView keeps the new
+        // line on screen.
+        return editor.commands.command(({ tr }) => {
+          const pos = $from.pos;
+          tr.insertText('\n', pos);
+          tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+          tr.scrollIntoView();
+          return true;
+        });
       },
       Escape: () => {
         const { editor } = this;
