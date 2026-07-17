@@ -15,7 +15,8 @@
     "tauri:build": "tauri build",
     "knip": "knip",
     "lint:tsc": "tsc --noEmit",
-    "lint:struct": "npm run lint:tsc && npm run knip"
+    "lint:struct": "npm run lint:tsc && npm run knip",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.1",
@@ -75,6 +76,7 @@
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "knip": "^6.26.0",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2"

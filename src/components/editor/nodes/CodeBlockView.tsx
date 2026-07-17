@@ -36,6 +36,7 @@ import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeSelected } from '../hooks/useNodeSelected';
 import { openHtmlPreviewWindow } from '../../../lib/windows/previewWindow';
 import { useI18n } from '../../../lib/core/i18n';
+import { invoke } from '@tauri-apps/api/core';
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
@@ -106,6 +107,60 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // the caret is INSIDE the block (editing) is provided by CSS :focus-within,
   // so swapping the prop here does NOT lose the "active block" border.
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
+
+  // ── TEMP DIAG (round 2): caret VISUAL coords vs PM coords ──
+  // Previous diagnosis showed DOM selection == PM pos (realMatch=true), yet
+  // the caret still looks wrong. So the issue is the VISUAL caret position,
+  // not the selection mapping. We compare view.coordsAtPos(pmPos) (where PM
+  // thinks the caret is) with the browser's actual selection rect (where the
+  // caret is drawn). If they diverge, it's a WebKit caret-rendering issue.
+  useEffect(() => {
+    if (!editor) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const flush = () => {
+      const w = window as unknown as { __cursorSyncLog?: unknown[] };
+      invoke('write_diag_log', { content: JSON.stringify(w.__cursorSyncLog ?? [], null, 2) }).catch(() => {});
+    };
+    const tick = () => {
+      const sel = editor.state.selection;
+      const pos = typeof getPos === 'function' ? getPos() : null;
+      if (pos == null) return;
+      const inThis = sel.$from.pos >= pos && sel.$from.pos <= pos + node.nodeSize;
+      if (!inThis || !sel.empty) return;
+      let pmCoords: { top: number; left: number; bottom: number; right: number } | null = null;
+      try { pmCoords = editor.view.coordsAtPos(sel.from); } catch { pmCoords = null; }
+      const d = document.getSelection();
+      let selRect: { top: number; left: number; bottom: number; right: number } | null = null;
+      try {
+        if (d && d.rangeCount) selRect = d.getRangeAt(0).getBoundingClientRect();
+      } catch { selRect = null; }
+      const rectMatch = pmCoords && selRect
+        ? Math.abs(pmCoords.left - selRect.left) < 2 && Math.abs(pmCoords.top - selRect.top) < 2
+        : null;
+      const entry = {
+        t: Date.now(),
+        pmPos: sel.from,
+        pmParentOffset: sel.$from.parentOffset,
+        pmCoords: pmCoords ? { left: Math.round(pmCoords.left), top: Math.round(pmCoords.top) } : null,
+        selRect: selRect ? { left: Math.round(selRect.left), top: Math.round(selRect.top) } : null,
+        rectMatch,
+        domSelNode: d?.anchorNode?.nodeName,
+        domSelOffset: d?.anchorOffset,
+      };
+      const w = window as unknown as { __cursorSyncLog?: typeof entry[] };
+      w.__cursorSyncLog ??= [];
+      w.__cursorSyncLog.push(entry);
+      if (w.__cursorSyncLog.length > 200) w.__cursorSyncLog = w.__cursorSyncLog.slice(-200);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(flush, 300);
+    };
+    editor.on('selectionUpdate', tick);
+    return () => {
+      editor.off('selectionUpdate', tick);
+      if (timer) clearTimeout(timer);
+      flush();
+    };
+  }, [editor, getPos, node]);
 
   // Whether the code block has non-empty content (controls copy-button visibility)
   const hasContent = node.textContent.trim().length > 0;
