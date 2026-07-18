@@ -155,10 +155,6 @@ export const selectFontConfig = (state: StoreState) => ({
   editorCursorStyle: state.editorCursorStyle,
 });
 
-/** Check if sectioned editor is enabled. */
-export const selectUseSectionedEditor = (state: StoreState): boolean =>
-  state.useSectionedEditor;
-
 // ---------------------------------------------------------------------------
 // Terminal selectors
 // ---------------------------------------------------------------------------

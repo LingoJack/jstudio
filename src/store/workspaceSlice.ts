@@ -70,7 +70,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       activeTabId: tab.id,
     }));
 
-    // Sync active doc so EditorPanel renders it.
+    // Sync active doc so SectionedEditorPanel renders it.
     get().openDocument(docId);
   },
 

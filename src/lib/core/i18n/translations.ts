@@ -217,13 +217,13 @@ export const translations = {
     'agent.sessionList': '会话列表',
     'agent.configureModel': '配置模型',
 
-    // ── DocumentOutline ──
+    // ── SectionOutline ──
     'outline.title': '大纲',
     'outline.empty': '文档中暂无标题',
     'outline.show': '显示大纲',
     'outline.hide': '隐藏大纲',
 
-    // ── EditorPanel ──
+    // ── SectionedEditorPanel ──
     'editor.titlePlaceholder': '文档标题',
 
     // ── Settings nav ──
@@ -245,12 +245,6 @@ export const translations = {
     'debug.buildMode': '构建模式',
     'debug.buildModeDev': 'Debug (开发)',
     'debug.buildModeRelease': 'Release (生产)',
-    'debug.editorInUse': '当前编辑器',
-    'debug.editorMain': 'EditorPanel（主编辑器）',
-    'debug.editorMainDesc': '单实例 ProseMirror，功能完整',
-    'debug.editorSectioned': 'SectionedEditorPanel（高性能）',
-    'debug.editorSectionedDesc': '多实例 ProseMirror，大文档打字更流畅',
-    'debug.editorSwitchHint': '切换后自动保存，重新打开文档生效。大文档场景推荐使用高性能模式。',
 
     // ── General section ──
     'general.latinFont': '英文字体',
@@ -415,7 +409,7 @@ export const translations = {
     'bubble.strike': '删除线',
     'bubble.code': '行内代码',
 
-    // ── EditorPanel placeholder ──
+    // ── SectionedEditorPanel placeholder ──
     'editor.placeholder': '输入 / 唤起命令菜单…',
 
     // ── Slash Menu ──
@@ -915,13 +909,13 @@ export const translations = {
     'agent.sessionList': 'Session List',
     'agent.configureModel': 'Configure Model',
 
-    // ── DocumentOutline ──
+    // ── SectionOutline ──
     'outline.title': 'Outline',
     'outline.empty': 'No headings in this document',
     'outline.show': 'Show outline',
     'outline.hide': 'Hide outline',
 
-    // ── EditorPanel ──
+    // ── SectionedEditorPanel ──
     'editor.titlePlaceholder': 'Document title',
 
     // ── Settings nav ──
@@ -943,12 +937,6 @@ export const translations = {
     'debug.buildMode': 'Build Mode',
     'debug.buildModeDev': 'Debug (dev)',
     'debug.buildModeRelease': 'Release (production)',
-    'debug.editorInUse': 'Active Editor',
-    'debug.editorMain': 'EditorPanel (main)',
-    'debug.editorMainDesc': 'Single ProseMirror instance, full-featured',
-    'debug.editorSectioned': 'SectionedEditorPanel (high-perf)',
-    'debug.editorSectionedDesc': 'Multi-instance ProseMirror, smoother typing on large docs',
-    'debug.editorSwitchHint': 'Auto-saved on toggle. Reopen the document to take effect. High-perf mode recommended for large documents.',
 
     // ── General section ──
     'general.latinFont': 'Latin Font',
@@ -1114,7 +1102,7 @@ export const translations = {
     'bubble.strike': 'Strikethrough',
     'bubble.code': 'Inline code',
 
-    // ── EditorPanel placeholder ──
+    // ── SectionedEditorPanel placeholder ──
     'editor.placeholder': 'Type / for commands…',
 
     // ── Slash Menu ──

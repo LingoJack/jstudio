@@ -3,7 +3,7 @@
  *
  * The help content is defined as a `Block[]` in `data/helpDocument.ts`
  * (the same data model as any user-created document), then rendered by the
- * real `EditorPanel` component in read-only mode.
+ * real `SectionedEditorPanel` component in read-only mode.
  *
  * This guarantees that ANY change to the editor's rendering — extensions,
  * styles, layout, outline panel — is automatically reflected here.
@@ -11,7 +11,7 @@
  */
 
 import { useMemo } from 'react';
-import EditorPanel from '../editor/EditorPanel';
+import SectionedEditorPanel from '../editor/sectionEditor/SectionedEditorPanel';
 import { getHelpBlocks } from '../../data/helpDocument';
 import { useI18n } from '../../lib/core/i18n';
 
@@ -24,5 +24,5 @@ export default function HelpSection() {
     [t],
   );
 
-  return <EditorPanel doc={helpDoc} readOnly />;
+  return <SectionedEditorPanel doc={helpDoc} readOnly />;
 }

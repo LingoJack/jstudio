@@ -7,7 +7,7 @@ import { ChevronRight } from 'lucide-react';
 // Shared navigation tree primitives used across the app:
 // - `Settings.tsx` — sidebar settings nav (primary + secondary)
 // - `DocumentSidebar.tsx` — folder/document tree (primary + secondary)
-// - `DocumentOutline.tsx` — heading outline (primary + secondary)
+// - `SectionOutline.tsx` — heading outline (primary + secondary)
 //
 // All three consumers share the exact same visual spec via NavRow /
 // NavBranch, so there is a single place to update styles.

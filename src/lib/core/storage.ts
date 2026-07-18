@@ -108,13 +108,6 @@ export interface AppSettings {
   editorLineHeight?: number;
   /** Editor cursor shape — also drives the editor cursor trail shape */
   editorCursorStyle?: EditorCursorStyle;
-  /**
-   * Use the sectioned (multi-instance) editor for better large-document
-   * typing performance. The sectioned editor splits a document into N
-   * independent ProseMirror instances (~30 blocks each).
-   * false (default) = monolithic EditorPanel; true = SectionedEditorPanel.
-   */
-  useSectionedEditor?: boolean;
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
   /**

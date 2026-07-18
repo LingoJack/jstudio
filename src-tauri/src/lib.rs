@@ -134,7 +134,7 @@ pub fn run() {
         // the default menu and install a custom one (build_app_menu) that is
         // identical except it omits the "Select All" item. Cmd+A then flows
         // through to the webview like Cmd+Arrow. See build_app_menu + the
-        // window-capture handler in EditorPanel.tsx.
+        // window-capture handler in SectionedEditorPanel.tsx.
         .enable_macos_default_menu(false)
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())

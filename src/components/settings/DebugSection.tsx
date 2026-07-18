@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Bug, Terminal, GitCommit, CheckCircle2, Zap } from 'lucide-react';
+import { Bug, Terminal, GitCommit } from 'lucide-react';
 import { useI18n } from '../../lib/core/i18n';
-import { useStore } from '../../store/useStore';
 
 interface BuildInfo {
   commit: string;
@@ -12,8 +11,6 @@ interface BuildInfo {
 export default function DebugSection() {
   const { t } = useI18n();
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
-  const useSectionedEditor = useStore((s) => s.useSectionedEditor);
-  const setUseSectionedEditor = useStore((s) => s.setUseSectionedEditor);
 
   useEffect(() => {
     invoke<BuildInfo>('get_build_info')
@@ -72,67 +69,6 @@ export default function DebugSection() {
               )}
             </span>
           </div>
-        </div>
-      </section>
-
-      {/* ── Editor Selection ── */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-          {t('debug.editorInUse')}
-        </h3>
-        <p className="text-xs opacity-50 px-1">
-          {t('debug.editorSwitchHint')}
-        </p>
-        <div className="space-y-2 text-sm">
-          {/* EditorPanel (main) */}
-          <button
-            onClick={() => setUseSectionedEditor(false)}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm transition-colors cursor-pointer border ${
-              !useSectionedEditor
-                ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
-                : 'border-transparent bg-[var(--vscode-textBlockQuote-background)] hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]'
-            }`}
-          >
-            <CheckCircle2
-              className={`w-4 h-4 shrink-0 ${
-                !useSectionedEditor
-                  ? 'text-[var(--vscode-terminal-ansiGreen)]'
-                  : 'text-[var(--vscode-descriptionForeground)] opacity-40'
-              }`}
-            />
-            <div className="flex-1 text-left">
-              <div className="font-medium">{t('debug.editorMain')}</div>
-              <div className="text-xs opacity-60">{t('debug.editorMainDesc')}</div>
-            </div>
-            {!useSectionedEditor && (
-              <span className="text-xs text-[var(--vscode-terminal-ansiGreen)]">●</span>
-            )}
-          </button>
-
-          {/* SectionedEditorPanel (POC) */}
-          <button
-            onClick={() => setUseSectionedEditor(true)}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm transition-colors cursor-pointer border ${
-              useSectionedEditor
-                ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
-                : 'border-transparent bg-[var(--vscode-textBlockQuote-background)] hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]'
-            }`}
-          >
-            <Zap
-              className={`w-4 h-4 shrink-0 ${
-                useSectionedEditor
-                  ? 'text-[var(--vscode-terminal-ansiGreen)]'
-                  : 'text-[var(--vscode-descriptionForeground)] opacity-40'
-              }`}
-            />
-            <div className="flex-1 text-left">
-              <div className="font-medium">{t('debug.editorSectioned')}</div>
-              <div className="text-xs opacity-60">{t('debug.editorSectionedDesc')}</div>
-            </div>
-            {useSectionedEditor && (
-              <span className="text-xs text-[var(--vscode-terminal-ansiGreen)]">●</span>
-            )}
-          </button>
         </div>
       </section>
     </div>

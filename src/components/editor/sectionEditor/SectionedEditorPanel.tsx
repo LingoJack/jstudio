@@ -10,7 +10,8 @@
  *   - On a section edit, replace that section's slice and write the
  *     reassembled full Block[] back to the store (same debounced save path).
  *
- * Feature parity with EditorPanel:
+ * Feature set (ported from the retired single-editor implementation; see
+ * git history for the original EditorPanel.tsx):
  *   - Shared GPU cursor trail (viewport-sized canvas)
  *   - Title input with Enter → insert paragraph, ArrowDown → enter editor
  *   - SectionOutline panel with toggle button
@@ -18,6 +19,8 @@
  *   - Paste/drop handlers (image/file special handling)
  *   - BlockNavigation (Tab, Cmd+Enter, Backspace on empty codeBlock, etc.)
  *   - Cross-section caret navigation + Backspace merge
+ *   - Static/read-only rendering mode via `{ doc, readOnly }` props (used by
+ *     HelpSection)
  *
  * Known limitation:
  *   - No cross-section selection / Cmd+A / copy-paste across sections
@@ -26,6 +29,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
+import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { ListTree } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
@@ -41,8 +45,18 @@ import { useCrossSectionSelection, type CrossSelectionContext } from './useCross
 import { splitIntoSections, SECTION_SIZE, SECTION_MAX, SECTION_MERGE_BELOW, type SectionState } from '../../../lib/editor/sectioning';
 import { EditorSkeleton } from './SectionSkeleton';
 
-export default function SectionedEditorPanel() {
+export interface SectionedEditorPanelProps {
+  /** When provided, the editor renders this static document instead of the
+   *  store's active document. Used by HelpSection. */
+  doc?: { title: string; blocks: Block[] };
+  /** Render in read-only mode (no editing, no toolbar, no cursor trail). */
+  readOnly?: boolean;
+}
+
+export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorPanelProps = {}) {
   const { t } = useI18n();
+  // ── Read-only / static-document mode ──────────────────────────────
+  const isStatic = !!doc;
   const activeDocId = useStore((s) => s.activeDocId);
   const activeDocReloadNonce = useStore((s) => s.activeDocReloadNonce);
   const activeDocTitle = useStore((s) => s.activeDoc?.title ?? '');
@@ -64,6 +78,17 @@ export default function SectionedEditorPanel() {
    *  the outgoing doc. When a backup restore bumps the nonce without changing
    *  docId, this guard lets the load effect re-run. */
   const loadTriggerRef = useRef<string | null>(null);
+  /** Static-doc identity tracking (isStatic mode only). `doc` is recreated
+   *  (new object identity) whenever HelpSection's `useMemo` deps change, e.g.
+   *  on a locale switch — `loadedStaticDocRef` detects that and
+   *  `staticDocRevRef` produces a fresh key so SectionEditor instances remount
+   *  with the new content instead of keeping stale (previous-locale) text. */
+  const loadedStaticDocRef = useRef<{ title: string; blocks: Block[] } | undefined>(undefined);
+  const staticDocRevRef = useRef(0);
+  const [staticDocKey, setStaticDocKey] = useState<string | null>(null);
+  /** Unified doc identity used for SectionEditor `key`s and skeleton
+   *  comparisons — the static key in static mode, `activeDocId` otherwise. */
+  const docKey = isStatic ? staticDocKey : activeDocId;
   /** The doc id whose content has actually finished loading into all
    *  section editors. While this lags behind `activeDocId` we show a
    *  Skeleton overlay so the user doesn't see empty editors / placeholder
@@ -120,8 +145,212 @@ export default function SectionedEditorPanel() {
     });
   }, []);
 
+  // -----------------------------------------------------------------
+  // Cmd/Ctrl + ArrowLeft / ArrowRight → jump to block/line start / end.
+  // Cmd/Ctrl + A → scope "select all" to the current code block.
+  //
+  // Ported from the retired EditorPanel (see git history for the
+  // single-editor version). macOS WKWebView (Tauri's webview) intercepts
+  // Cmd+Left/Right and Cmd+A at the native level and calls preventDefault()
+  // before the event reaches ProseMirror's handleKeyDown, so we must listen
+  // at the window capture phase — the earliest point we can see the event —
+  // and handle it ourselves. This is the single-editor version's fix adapted
+  // to read whichever section currently has focus via `focusedEditorRef` (a ref, so
+  // no stale closures — always the live focused editor, no effect deps
+  // needed for it).
+  //
+  // NOTE: Cmd/Ctrl + ArrowUp/Down do NOT need this treatment — WKWebView
+  // does not intercept them, and SectionEditor's own `handleKeyDown` already
+  // routes them to `onJumpDocStart`/`onJumpDocEnd` at the normal DOM event
+  // phase (see SectionEditor.tsx).
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (readOnly) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      // Cmd+Option+Arrow is the workspace tab-cycle shortcut — let it
+      // pass through to the global handler in App.tsx.
+      if (e.altKey) return;
+
+      // ── Cmd/Ctrl+A → "select all inside code block" ──
+      // See the retired EditorPanel's equivalent handler / docs/bug-graveyard.md #001
+      // for why this reaches here instead of being consumed by the native
+      // Edit > Select All menu item.
+      //
+      // Behaviour: if the caret is inside (or the node itself is) a code
+      // block, select ONLY that block's content and consume the event. For
+      // any other context we do NOT preventDefault — the normal
+      // whole-section select-all is left to run (see the documented
+      // cross-section-selection limitation).
+      if (e.key === 'a' || e.key === 'A') {
+        const editor = focusedEditorRef.current;
+        if (!editor) return;
+        const { state, view } = editor;
+        const { selection, doc: pmDoc, tr } = state;
+
+        // Never hijack Cmd+A while the title <input> is focused — let the
+        // browser select the title text natively.
+        const titleFocused =
+          titleInputRef.current &&
+          document.activeElement === titleInputRef.current;
+        if (titleFocused) return;
+
+        let codeBlockRange: { from: number; to: number } | null = null;
+
+        if (
+          selection instanceof NodeSelection &&
+          selection.node.type.name === 'codeBlock'
+        ) {
+          const pos = selection.from;
+          codeBlockRange = {
+            from: pos + 1,
+            to: pos + 1 + selection.node.content.size,
+          };
+        } else {
+          const { $from } = selection;
+          for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type.name === 'codeBlock') {
+              const start = $from.start(d);
+              codeBlockRange = {
+                from: start,
+                to: start + $from.node(d).content.size,
+              };
+              break;
+            }
+          }
+        }
+
+        if (codeBlockRange) {
+          tr.setSelection(
+            TextSelection.create(pmDoc, codeBlockRange.from, codeBlockRange.to),
+          );
+          view.dispatch(tr);
+          view.focus();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        // Not in a code block → fall through (do nothing), letting the
+        // default selection behaviour proceed.
+        return;
+      }
+
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+
+      // ── Title <input> branch ──
+      // When the title input is focused, Cmd/Ctrl+Arrow should jump to the
+      // start / end of the title text (it is a single line), optionally
+      // extending the selection with Shift — NOT move into the sections
+      // below. WKWebView intercepts Cmd+Arrow natively, so we must drive the
+      // input's selection ourselves here at the window capture phase.
+      const titleEl = titleInputRef.current;
+      if (titleEl && document.activeElement === titleEl) {
+        const toStart = e.key === 'ArrowLeft';
+        const len = titleEl.value.length;
+        const target = toStart ? 0 : len;
+        if (e.shiftKey) {
+          // Keep the fixed (anchor) end and move the caret end to the edge.
+          const s = titleEl.selectionStart ?? 0;
+          const en = titleEl.selectionEnd ?? 0;
+          const anchor = titleEl.selectionDirection === 'backward' ? en : s;
+          titleEl.setSelectionRange(
+            Math.min(anchor, target),
+            Math.max(anchor, target),
+            target < anchor ? 'backward' : 'forward',
+          );
+        } else {
+          titleEl.setSelectionRange(target, target);
+        }
+        // The trail re-measures on the input's 'select' event; nudge it too
+        // in case the selection didn't actually change (already at the edge).
+        trailRef.current?.markDirty();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      const editor = focusedEditorRef.current;
+      if (!editor) return;
+
+      const view = editor.view;
+      const { state } = view;
+      const { selection } = state;
+      const $head = selection.$head;
+      if ($head.depth < 1) return;
+
+      const toStart = e.key === 'ArrowLeft';
+      const extend = e.shiftKey;
+      let edge: number;
+      // For multi-line code blocks, $head.start()/end() resolves to the WHOLE
+      // block boundary (codeBlock is a textblock), but macOS Cmd+Left/Right is
+      // expected to jump to the current LINE start/end (delimited by \n), not
+      // the block start/end. Compute the line boundary from the codeBlock text.
+      // For other text blocks (paragraph/heading/list item) $head.start()/end()
+      // is already the correct single-line boundary.
+      const inCodeBlock =
+        $head.depth > 0 && $head.parent.type.name === 'codeBlock';
+      if (inCodeBlock) {
+        const codeNode = $head.parent;
+        const blockStart = $head.start();
+        const blockEnd = blockStart + codeNode.content.size;
+        const text = codeNode.textContent;
+        const offset = $head.parentOffset;
+        if (toStart) {
+          // Current line start = char after the previous \n (or block start).
+          const prevNl = text.lastIndexOf('\n', Math.max(0, offset - 1));
+          edge = prevNl === -1 ? blockStart : blockStart + prevNl + 1;
+        } else {
+          // Current line end = char before the next \n (or block end).
+          const nextNl = text.indexOf('\n', offset);
+          edge = nextNl === -1 ? blockEnd : blockStart + nextNl;
+        }
+      } else {
+        // Use $head.start() / $head.end() (defaults to $head.depth) so that we
+        // always resolve to the **text block** boundary (paragraph/heading)
+        // rather than the top-level node. For list items the paragraph lives at
+        // depth 3 (doc > bulletList > listItem > paragraph); using depth 1
+        // would jump to the start/end of the *entire list* instead of the
+        // current item.
+        edge = toStart ? $head.start() : $head.end();
+      }
+
+      const tr = extend
+        ? state.tr.setSelection(
+            TextSelection.create(state.doc, selection.$anchor.pos, edge),
+          )
+        : state.tr.setSelection(TextSelection.create(state.doc, edge));
+      tr.setMeta('addToHistory', false);
+      view.dispatch(tr);
+      view.focus();
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [readOnly]);
+
   // ── Load / re-section when the active document changes ──
   useEffect(() => {
+    // Static document mode — split once per `doc` identity change. Skips all
+    // store reads/writes since the static doc isn't backed by the store.
+    if (isStatic) {
+      if (!doc || loadedStaticDocRef.current === doc) return;
+      loadedStaticDocRef.current = doc;
+      staticDocRevRef.current += 1;
+      const key = `__static__:${staticDocRevRef.current}`;
+      loadedDocIdRef.current = key;
+      loadTriggerRef.current = key;
+      loadedSectionCountRef.current = 0;
+      expectedSectionCountRef.current = 0;
+      const newSections = splitIntoSections(doc.blocks);
+      expectedSectionCountRef.current = newSections.length;
+      setVisibleCount(0);
+      setSections(newSections);
+      setStaticDocKey(key);
+      return;
+    }
+
     if (!hasActiveDoc) {
       loadedDocIdRef.current = null;
       loadTriggerRef.current = null;
@@ -174,7 +403,7 @@ export default function SectionedEditorPanel() {
     // instances at once (which blocks the main thread for large documents).
     setVisibleCount(0);
     setSections(newSections);
-  }, [activeDocId, hasActiveDoc, activeDocReloadNonce]);
+  }, [activeDocId, hasActiveDoc, activeDocReloadNonce, isStatic, doc]);
 
   // ── Progressive section mounting ──
   // Reveal sections a few at a time using requestIdleCallback (or setTimeout
@@ -221,6 +450,7 @@ export default function SectionedEditorPanel() {
 
   // ── Create the single shared cursor trail ──
   useEffect(() => {
+    if (readOnly) return; // no cursor trail in read-only mode
     if (!hasActiveDoc) return;
     const overlay = trailOverlayRef.current;
     const editorEl = sectionsWrapperRef.current;
@@ -284,11 +514,12 @@ export default function SectionedEditorPanel() {
       trailRef.current = null;
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
-  }, [hasActiveDoc, activeDocId]);
+  }, [readOnly, hasActiveDoc, activeDocId]);
 
   // ── Live theme update for cursor trail ──
   // When the app theme changes, update the cursor trail color from CSS variables.
   useEffect(() => {
+    if (readOnly) return;
     const trail = trailRef.current;
     if (!trail) return;
 
@@ -317,15 +548,17 @@ export default function SectionedEditorPanel() {
     });
 
     return () => observer.disconnect();
-  }, [activeDocId]); // Re-run when document changes (trail may be re-created)
+  }, [readOnly, activeDocId]); // Re-run when document changes (trail may be re-created)
 
   // Apply cursor style to the shared trail.
   useEffect(() => {
+    if (readOnly) return;
     trailRef.current?.setCursorStyle(editorCursorStyle);
-  }, [editorCursorStyle, activeDocId]);
+  }, [editorCursorStyle, activeDocId, readOnly]);
 
   // ── pagehide / beforeunload: flush pending edits + document saves ──
   useEffect(() => {
+    if (readOnly) return;
     const handleClose = () => {
       // Flush each section's pending debounce synchronously.
       const current = sectionsRef.current;
@@ -347,7 +580,7 @@ export default function SectionedEditorPanel() {
       window.removeEventListener('pagehide', handleClose);
       window.removeEventListener('beforeunload', handleClose);
     };
-  }, []);
+  }, [readOnly]);
 
   // A section reports new blocks → splice into the full array and persist.
   const handleSectionChange = useCallback(
@@ -548,7 +781,8 @@ export default function SectionedEditorPanel() {
   }, []);
 
   // ── Title keydown: Enter → insert paragraph at doc start; ArrowDown → enter
-  //    the first section's editor. Mirrors EditorPanel's handleTitleKeyDown.
+  //    the first section's editor. Ported from the retired EditorPanel's
+  //    handleTitleKeyDown.
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const el = e.currentTarget;
     const len = el.value.length;
@@ -602,7 +836,7 @@ export default function SectionedEditorPanel() {
   // ------------------------------------------------------------------
   // Click on blank area below editor content — focus end of the last section
   //
-  // Mirrors EditorPanel's handleBlankAreaClick: distinguish a genuine CLICK
+  // Ported from the retired EditorPanel's handleBlankAreaClick: distinguish a genuine CLICK
   // from a drag-selection by recording the mousedown position; if the mouse
   // moved more than a few pixels, treat it as a drag and do NOT refocus.
   // ------------------------------------------------------------------
@@ -641,8 +875,73 @@ export default function SectionedEditorPanel() {
   // Show skeleton when the editor body hasn't caught up with the active doc
   // (during a tab switch). renderedDocId is set only after the first batch of
   // visible sections has finished loading their content.
-  const showSkeleton = renderedDocId !== activeDocId;
+  const showSkeleton = renderedDocId !== docKey;
 
+  // ── Static / read-only mode ──
+  if (isStatic) {
+    if (!doc) return null;
+    return (
+      <div ref={rootRef} className="flex h-full bg-transparent overflow-hidden relative">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+        >
+          {/* Document Title (static text, not editable) */}
+          <div className="px-4 md:px-12 lg:px-20 pb-4">
+            <h1 className="text-4xl font-bold text-[var(--vscode-editor-foreground)] pb-1">
+              {doc.title}
+            </h1>
+          </div>
+
+          {/* One independent (read-only) editor per section — see the
+              progressive-mounting comment below for why only `visibleCount`
+              are rendered. */}
+          <div ref={sectionsWrapperRef} className="tiptap-editor-container relative min-h-[50vh]">
+            {renderSections.slice(0, visibleCount).map((s) => (
+              <SectionEditor
+                key={`${docKey}:${s.id}`}
+                sectionId={s.id}
+                initialBlocks={s.blocks}
+                onSectionChange={handleSectionChange}
+                registerFocus={registerFocus}
+                onCrossUp={handleCrossUp}
+                onCrossDown={handleCrossDown}
+                onJumpDocStart={handleJumpDocStart}
+                onJumpDocEnd={handleJumpDocEnd}
+                notifyCaret={notifyCaret}
+                onEditorReady={(ed) => handleEditorReady(s.id, ed)}
+                onSectionLoaded={handleSectionLoaded}
+                readOnly={readOnly}
+              />
+            ))}
+            {showSkeleton && <EditorSkeleton />}
+          </div>
+        </div>
+
+        {/* Outline panel (conditional) — same as editing mode, but sourced
+            from the static doc's blocks (not the store's activeDoc, which is
+            unrelated while viewing a static document like the help guide). */}
+        {isOutlineOpen && (
+          <SectionOutline
+            scrollContainerRef={scrollContainerRef}
+            sectionEditorsRef={sectionEditorsRef}
+            staticBlocks={doc.blocks}
+          />
+        )}
+
+        {/* Outline toggle icon */}
+        <button
+          onClick={toggleOutline}
+          title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
+          className="absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        >
+          <ListTree className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  // ── Normal editing mode ──
   if (!hasActiveDoc) return null;
 
   return (
@@ -674,7 +973,7 @@ export default function SectionedEditorPanel() {
         <div ref={sectionsWrapperRef} className="tiptap-editor-container relative">
           {renderSections.slice(0, visibleCount).map((s) => (
             <SectionEditor
-              key={`${activeDocId}:${s.id}`}
+              key={`${docKey}:${s.id}`}
               sectionId={s.id}
               initialBlocks={s.blocks}
               onSectionChange={handleSectionChange}
@@ -741,4 +1040,5 @@ export default function SectionedEditorPanel() {
       </button>
     </div>
   );
+
 }

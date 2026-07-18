@@ -27,7 +27,6 @@ export {
   selectSearchQuery,
   selectActiveSidebarView,
   selectFontConfig,
-  selectUseSectionedEditor,
   // Terminal selectors
   selectTerminalSessions,
   selectActiveTerminalSessionId,

@@ -22,6 +22,11 @@
  * SAME scroll container, and heading blocks carry a `data-block-id` attribute
  * (via BlockIdExtension). We locate the heading's DOM element by that id and
  * scroll it into view — no need to know which section it lives in.
+ *
+ * Static/read-only mode: when `staticBlocks` is passed, source (1) above is
+ * replaced with the given blocks instead of the store's `activeDoc.blocks`
+ * (there may be no active document in the store at all, or an unrelated one
+ * open in the background — e.g. HelpSection's static help document).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
@@ -90,20 +95,33 @@ interface SectionOutlineProps {
   scrollContainerRef: React.RefObject<HTMLElement | null>;
   /** Map of section id to its Editor instance, shared from parent. */
   sectionEditorsRef: RefObject<Map<string, Editor> | null>;
+  /**
+   * When provided, use these blocks instead of the store's
+   * `activeDoc.blocks`. Used for static/read-only documents that aren't
+   * backed by the store (e.g. HelpSection's help document) — without this,
+   * the outline would show headings from whatever real document happens to
+   * be open in the background instead of the static document being shown.
+   */
+  staticBlocks?: Block[];
 }
 
 export default function SectionOutline({
   scrollContainerRef,
   sectionEditorsRef,
+  staticBlocks,
 }: SectionOutlineProps) {
   const { t } = useI18n();
+  const isStatic = staticBlocks != null;
   // Subscribe to blocks (primary heading source — covers unmounted sections).
-  const blocks = useStore((s) => s.activeDoc?.blocks);
+  // Skipped in static mode (see `staticBlocks` doc above).
+  const storeBlocks = useStore((s) => (isStatic ? undefined : s.activeDoc?.blocks));
   // Subscribe to activeDocId so the outline re-extracts on document switch
   // even if the `blocks` reference happens to be reused (defensive — in
   // practice openDocument always sets a different doc with a different
   // blocks array, but this costs nothing and guards against edge cases).
-  const activeDocId = useStore((s) => s.activeDocId);
+  const storeActiveDocId = useStore((s) => (isStatic ? undefined : s.activeDocId));
+  const blocks = isStatic ? staticBlocks : storeBlocks;
+  const activeDocId = isStatic ? '__static__' : storeActiveDocId;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Bumped by section-editor event listeners to force re-extraction from
@@ -267,7 +285,7 @@ export default function SectionOutline({
   );
 }
 
-// Mirror of DocumentOutline's tree renderer (kept local to avoid coupling).
+// Renders the heading tree (kept local to avoid coupling).
 function renderTree(
   headings: HeadingItem[],
   level: number,

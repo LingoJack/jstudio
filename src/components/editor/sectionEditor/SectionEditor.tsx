@@ -103,6 +103,9 @@ interface SectionEditorProps {
    *  safe point to re-balance (split/merge) the section without disrupting an
    *  in-progress edit — the caret has already left this section. */
   onSectionBlur?: (sectionId: string) => void;
+  /** Render in read-only mode (no editing, no paste/drop, no onUpdate sync,
+   *  no native-caret hiding). Used by the static/help-document render path. */
+  readOnly?: boolean;
 }
 
 export default function SectionEditor({
@@ -122,6 +125,7 @@ export default function SectionEditor({
   onEditorReady,
   onSectionLoaded,
   onSectionBlur,
+  readOnly,
 }: SectionEditorProps) {
   const { t } = useI18n();
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -176,23 +180,25 @@ export default function SectionEditor({
         blockSeparator: '\n',
       },
     },
+    editable: !readOnly,
     extensions: createSectionExtensions({
       placeholder: t('editor.placeholder'),
       onExitToTitle: () => onExitToTitleRef.current?.(),
+      openOnClick: readOnly,
     }),
     // Initialize with a valid empty doc node (NOT the block array). The real
     // section content is loaded via setContent() once the editor is ready —
-    // this mirrors EditorPanel and avoids passing a bare JSONContent[] into
-    // `content`, which can make ProseMirror build an invalid doc and throw
+    // this avoids passing a bare JSONContent[] into `content`, which can
+    // make ProseMirror build an invalid doc and throw
     // "config.doc.type.schema".
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
-    onUpdate: handleChange,
+    onUpdate: readOnly ? undefined : handleChange,
     editorProps: {
       attributes: {
         class: 'max-w-none focus:outline-none px-4 md:px-12 lg:px-20',
       },
-      handlePaste: createPasteHandler(editorRef),
-      handleDrop: createDropHandler(editorRef),
+      handlePaste: readOnly ? undefined : createPasteHandler(editorRef),
+      handleDrop: readOnly ? undefined : createDropHandler(editorRef),
       // Cross-section caret navigation: when the caret is at the very top of
       // this section and ArrowUp/Left is pressed, hand focus to the previous
       // section's end; at the very bottom with ArrowDown/Right, hand to the
@@ -453,6 +459,7 @@ export default function SectionEditor({
   }, [editor]);
 
   useEffect(() => {
+    if (readOnly) return;
     const editorDom = editor?.view?.dom as HTMLElement | undefined;
     if (!editorDom) return;
     editorDom.style.caretColor = 'transparent';
@@ -463,7 +470,7 @@ export default function SectionEditor({
       editorDom.style.caretColor = '';
       editorDom.removeAttribute('data-section-id');
     };
-  }, [editor, sectionId]);
+  }, [editor, sectionId, readOnly]);
 
   return <EditorContent editor={editor} />;
 }

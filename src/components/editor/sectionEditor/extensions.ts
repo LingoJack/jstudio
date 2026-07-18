@@ -1,14 +1,9 @@
 /**
- * Shared TipTap extension factory for the SECTIONED editor POC.
+ * Shared TipTap extension factory for the sectioned editor.
  *
- * This deliberately MIRRORS the extension list in EditorPanel.tsx so each
- * section's independent editor behaves identically to the monolithic editor.
- * It is duplicated (rather than refactored out of EditorPanel) on purpose:
- * the POC must leave EditorPanel 100% untouched so we can A/B toggle and roll
- * back instantly.
- *
- * If the sectioned approach proves out, this becomes the single source of
- * truth and EditorPanel is migrated to use it too.
+ * Each section of a document gets its own independent TipTap editor
+ * instance; this factory ensures every section's extension list is
+ * identical so they all behave the same way.
  */
 
 import type { Extensions } from '@tiptap/react';
@@ -48,6 +43,9 @@ export interface SectionExtensionOptions {
    *  (ArrowUp/Left at doc start). The parent uses this to focus the document
    *  title input. */
   onExitToTitle?: () => void;
+  /** Whether links should open on click. Used to enable link clicks in
+   *  read-only mode. Defaults to false. */
+  openOnClick?: boolean;
 }
 
 export function createSectionExtensions(
@@ -82,7 +80,7 @@ export function createSectionExtensions(
           }),
         ];
       },
-    }).configure({ openOnClick: false, autolink: false }),
+    }).configure({ openOnClick: opts.openOnClick ?? false, autolink: false }),
     // NOTE: `Underline` comes from StarterKit v3 — do not re-add it.
     TextStyle,
     Color,

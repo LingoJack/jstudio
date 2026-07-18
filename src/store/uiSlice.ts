@@ -111,7 +111,6 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   fontSize: DEFAULT_FONT_SIZE,
   editorLineHeight: DEFAULT_LINE_HEIGHT,
   editorCursorStyle: DEFAULT_EDITOR_CURSOR_STYLE,
-  useSectionedEditor: false,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents' as 'documents' | 'terminal' | 'agent',
   settingsActiveSection: 'general',
@@ -198,11 +197,6 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setEditorCursorStyle: (style) => {
     set({ editorCursorStyle: style });
     storage.saveSettings({ editorCursorStyle: style }).catch(onSaveError('设置'));
-  },
-
-  setUseSectionedEditor: (enabled) => {
-    set({ useSectionedEditor: enabled });
-    storage.saveSettings({ useSectionedEditor: enabled }).catch(onSaveError('设置'));
   },
 
   setSidebarWidth: (width) => {

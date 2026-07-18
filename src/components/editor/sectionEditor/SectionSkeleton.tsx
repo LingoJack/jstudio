@@ -1,7 +1,6 @@
 /** Skeleton overlay shown while section editors are loading content.
- *  Mirrors EditorPanel's EditorSkeleton — prevents the user from seeing
- *  empty editors / placeholder text during the load. OPAQUE: sits on top
- *  of the still-mounted editors. */
+ *  Prevents the user from seeing empty editors / placeholder text during the
+ *  load. OPAQUE: sits on top of the still-mounted editors. */
 export function EditorSkeleton() {
   return (
     <div

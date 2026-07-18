@@ -1,5 +1,5 @@
 /**
- * BlockNavigation — unified arrow-key & Enter navigation for EditorPanel.
+ * BlockNavigation — unified arrow-key & Enter navigation for SectionedEditorPanel.
  *
  * The document title is a plain <input> that lives OUTSIDE the TipTap editor,
  * so ProseMirror has no built-in way to move the focus between the title and

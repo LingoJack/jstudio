@@ -19,7 +19,6 @@ import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import AgentChatPanel from './components/agent/AgentChatPanel';
 import AgentSidebar from './components/agent/AgentSidebar';
-import EditorPanel from './components/editor/EditorPanel';
 import SectionedEditorPanel from './components/editor/sectionEditor/SectionedEditorPanel';
 import SettingsPanel from './components/settings/SettingsPanel';
 import EmptyPanel from './components/ui/EmptyPanel';
@@ -32,10 +31,10 @@ export default function App() {
   const isLoading = useStore((s) => s.isLoading);
   // Subscribe to a boolean only — NOT the activeDoc object reference.
   // setActiveDocBlocks() (fires on every 300ms debounce tick) replaces the
-  // activeDoc reference, which would re-render App and cascade to EditorPanel,
-  // causing ProseMirror cursor lag (especially in code blocks).
+  // activeDoc reference, which would re-render App and cascade to
+  // SectionedEditorPanel, causing ProseMirror cursor lag (especially in
+  // code blocks).
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
-  const useSectionedEditor = useStore((s) => s.useSectionedEditor);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
@@ -236,16 +235,12 @@ export default function App() {
             <AgentChatPanel hidden={!isAgentView} />
           </div>
 
-          {/* SettingsPanel / EditorPanel / EmptyPanel overlaid on top */}
+          {/* SettingsPanel / SectionedEditorPanel / EmptyPanel overlaid on top */}
           {isSettingsOpen ? (
             <SettingsPanel />
           ) : !isTerminalView && !isAgentView ? (
             hasActiveDoc ? (
-              useSectionedEditor ? (
-                <SectionedEditorPanel />
-              ) : (
-                <EditorPanel />
-              )
+              <SectionedEditorPanel />
             ) : (
               <EmptyPanel />
             )
