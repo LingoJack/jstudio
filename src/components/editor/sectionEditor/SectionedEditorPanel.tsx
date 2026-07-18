@@ -494,6 +494,14 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     trail.resize();
     trail.start();
     trailRef.current = trail;
+    // TEMP DEBUG: expose the trail instance so CodeBlockView's diagnostic
+    // logger (__cursorSyncLog, written to /tmp/jstudio-cursor-diag.json) can
+    // pull the trail's own last-computed caret geometry alongside
+    // ProseMirror's coordsAtPos and the native DOM selection rect — lets us
+    // see, side by side, exactly which stage disagrees with the browser
+    // when the WebGL cursor visibly diverges. Remove once the code-block
+    // caret bug is fixed.
+    (window as unknown as { __editorCursorTrail?: EditorCursorTrail }).__editorCursorTrail = trail;
 
     // Register the title input so the trail can measure its caret too.
     const titleInput = titleInputRef.current;
@@ -531,6 +539,9 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       resizeObserver.disconnect();
       trail.dispose();
       trailRef.current = null;
+      if ((window as unknown as { __editorCursorTrail?: EditorCursorTrail }).__editorCursorTrail === trail) {
+        (window as unknown as { __editorCursorTrail?: EditorCursorTrail }).__editorCursorTrail = undefined;
+      }
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
   }, [readOnly, hasActiveDoc, activeDocId, editorCursorAnimationEnabled]);

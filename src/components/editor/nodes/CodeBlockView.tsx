@@ -137,6 +137,16 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       const rectMatch = pmCoords && selRect
         ? Math.abs(pmCoords.left - selRect.left) < 2 && Math.abs(pmCoords.top - selRect.top) < 2
         : null;
+      // TEMP DEBUG: pull the WebGL cursor trail's own last-computed caret
+      // geometry (bridged via window.__editorCursorTrail, see
+      // SectionedEditorPanel) so we can see, in the SAME log entry, what
+      // the trail thinks the caret rect is vs. what PM/the browser say it
+      // actually is. Remove once the code-block caret bug is fixed.
+      const trailDbg = (
+        window as unknown as {
+          __editorCursorTrail?: { getDebugSnapshot?: () => Record<string, unknown> | null };
+        }
+      ).__editorCursorTrail?.getDebugSnapshot?.() ?? null;
       const entry = {
         t: Date.now(),
         pmPos: sel.from,
@@ -146,6 +156,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         rectMatch,
         domSelNode: d?.anchorNode?.nodeName,
         domSelOffset: d?.anchorOffset,
+        trailDbg,
       };
       const w = window as unknown as { __cursorSyncLog?: typeof entry[] };
       w.__cursorSyncLog ??= [];

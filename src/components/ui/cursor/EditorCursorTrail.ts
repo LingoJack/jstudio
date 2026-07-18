@@ -233,6 +233,21 @@ export class EditorCursorTrail extends BaseCursorTrail {
   }
 
   /**
+   * TEMP DEBUG: snapshot of the most recent `<pre>` caret computation
+   * (raw rect, adjacent-glyph anchor, and final caret rect), regardless of
+   * whether that caret was clipped/hidden or actually drawn. Exposed so
+   * external diagnostics (see CodeBlockView's `__cursorSyncLog`) can log
+   * the WebGL trail's own numbers side-by-side with ProseMirror's
+   * `coordsAtPos` and the native DOM selection rect, to pinpoint exactly
+   * which stage disagrees with the browser when the two visibly diverge.
+   * Remove once the code-block caret bug is fixed.
+   */
+  getDebugSnapshot(): Record<string, unknown> | null {
+    if (!this.__dbgPreInfo) return null;
+    return { ...this.__dbgPreInfo, canvasLocalCachedRect: this.cachedRect };
+  }
+
+  /**
    * Make this trail appear INSTANTLY at the current caret, fully opaque and
    * snapped to position — skipping both the opacity fade-in and the comet
    * fly-in from the corners' previous resting place.
