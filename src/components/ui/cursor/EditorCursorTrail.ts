@@ -941,7 +941,23 @@ export class EditorCursorTrail extends BaseCursorTrail {
       caretLeft: +caretLeft.toFixed(1),
     };
 
-    if (caretTop + caretHeight <= preRect.top || caretTop >= preRect.bottom) {
+    // Horizontal counterpart of the vertical check above: `overflow: auto`
+    // on the <pre> means a long unwrapped line (e.g. `white-space: pre`
+    // with no spaces to break on, such as a single long JSON string value)
+    // can force the code block to scroll HORIZONTALLY too.
+    // `adjacentCharRect()` returns the glyph's real viewport position,
+    // which is only inside the <pre>'s visible band while that part of the
+    // line is actually scrolled into view — otherwise `caretLeft` lands
+    // outside [preRect.left, preRect.right] and, since the trail canvas is
+    // not clipped by the <pre>'s own overflow, the cursor floats past the
+    // code block's left/right edge instead of being hidden like the native
+    // caret would be.
+    if (
+      caretTop + caretHeight <= preRect.top ||
+      caretTop >= preRect.bottom ||
+      caretLeft < preRect.left ||
+      caretLeft > preRect.right
+    ) {
       // eslint-disable-next-line no-console
       logger.debug('[caret-dbg] CLIPPED → hidden', this.__dbgPreInfo);
       this.__dbgPreInfo = null;

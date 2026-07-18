@@ -108,6 +108,13 @@ export interface AppSettings {
   editorLineHeight?: number;
   /** Editor cursor shape — also drives the editor cursor trail shape */
   editorCursorStyle?: EditorCursorStyle;
+  /**
+   * Whether the editor uses the animated WebGL cursor trail (default true).
+   * When `false`, the native browser caret is used instead — no trail /
+   * breathing blink, but also immune to trail-specific caret-placement bugs
+   * (e.g. inside code blocks with long, horizontally-scrolled lines).
+   */
+  editorCursorAnimationEnabled?: boolean;
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
   /**

@@ -37,6 +37,9 @@ const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = 'underline';
 /** Default editor cursor shape — also drives the editor cursor trail shape. */
 const DEFAULT_EDITOR_CURSOR_STYLE: EditorCursorStyle = 'bar';
 
+/** Default: the animated WebGL cursor trail is on (native caret hidden). */
+const DEFAULT_EDITOR_CURSOR_ANIMATION_ENABLED = true;
+
 /** Tab bar glassmorphism opacity constraints. */
 const MIN_TAB_BAR_GLASS_OPACITY = 0.02;
 const MAX_TAB_BAR_GLASS_OPACITY = 0.15;
@@ -111,6 +114,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   fontSize: DEFAULT_FONT_SIZE,
   editorLineHeight: DEFAULT_LINE_HEIGHT,
   editorCursorStyle: DEFAULT_EDITOR_CURSOR_STYLE,
+  editorCursorAnimationEnabled: DEFAULT_EDITOR_CURSOR_ANIMATION_ENABLED,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   activeSidebarView: 'documents' as 'documents' | 'terminal' | 'agent',
   settingsActiveSection: 'general',
@@ -197,6 +201,11 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setEditorCursorStyle: (style) => {
     set({ editorCursorStyle: style });
     storage.saveSettings({ editorCursorStyle: style }).catch(onSaveError('设置'));
+  },
+
+  setEditorCursorAnimationEnabled: (enabled) => {
+    set({ editorCursorAnimationEnabled: enabled });
+    storage.saveSettings({ editorCursorAnimationEnabled: enabled }).catch(onSaveError('设置'));
   },
 
   setSidebarWidth: (width) => {

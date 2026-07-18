@@ -63,6 +63,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
   const editorCursorStyle = useStore((s) => s.editorCursorStyle);
+  const editorCursorAnimationEnabled = useStore((s) => s.editorCursorAnimationEnabled);
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
   const toggleOutline = useStore((s) => s.toggleOutline);
 
@@ -452,6 +453,12 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   useEffect(() => {
     if (readOnly) return; // no cursor trail in read-only mode
     if (!hasActiveDoc) return;
+    // The animation is opt-out: when disabled, skip creating the canvas /
+    // trail entirely and leave the native caret alone (SectionEditor only
+    // sets `caretColor: transparent` when this same flag is on — see its
+    // own effect). This is the "fall back to the native caret" escape
+    // hatch for the trail's known code-block caret-placement bugs.
+    if (!editorCursorAnimationEnabled) return;
     const overlay = trailOverlayRef.current;
     const editorEl = sectionsWrapperRef.current;
     const scrollContainer = scrollContainerRef.current;
@@ -499,7 +506,19 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     }
 
     const markDirty = () => trail.markDirty();
-    scrollContainer.addEventListener('scroll', markDirty, { passive: true });
+    // `scroll` events do NOT bubble, so a listener on `scrollContainer` only
+    // fires when `scrollContainer` itself is the scrolled element. Code
+    // blocks (and any other independently-scrollable NodeView, e.g. wide
+    // tables) have their OWN `overflow: auto` region nested inside the
+    // editor — scrolling one of those never reaches this listener. That
+    // left the cursor trail's cached rect stale whenever the user scrolled
+    // a code block directly (mouse wheel / scrollbar drag) without moving
+    // the selection, until the 400ms safety tick below happened to catch up.
+    // Listening in the CAPTURE phase fixes this: capture-phase listeners
+    // fire for events targeting ANY descendant, bubbling or not, so a
+    // scroll inside a nested code block now marks the trail dirty
+    // immediately instead of drifting for up to 400ms.
+    scrollContainer.addEventListener('scroll', markDirty, { passive: true, capture: true });
     const safetyTick = window.setInterval(() => {
       if (editorEl.contains(document.activeElement)) markDirty();
     }, 400);
@@ -508,13 +527,13 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
 
     return () => {
       window.clearInterval(safetyTick);
-      scrollContainer.removeEventListener('scroll', markDirty);
+      scrollContainer.removeEventListener('scroll', markDirty, { capture: true });
       resizeObserver.disconnect();
       trail.dispose();
       trailRef.current = null;
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
-  }, [readOnly, hasActiveDoc, activeDocId]);
+  }, [readOnly, hasActiveDoc, activeDocId, editorCursorAnimationEnabled]);
 
   // ── Live theme update for cursor trail ──
   // When the app theme changes, update the cursor trail color from CSS variables.

@@ -130,6 +130,7 @@ export interface StoreState {
   fontSize: number;
   editorLineHeight: number;
   editorCursorStyle: EditorCursorStyle;
+  editorCursorAnimationEnabled: boolean;
   sidebarWidth: number;
   activeSidebarView: 'documents' | 'terminal' | 'agent';
   settingsActiveSection: SettingsSectionId;
@@ -248,6 +249,7 @@ export interface StoreState {
   setFontSize: (size: number) => void;
   setEditorLineHeight: (lh: number) => void;
   setEditorCursorStyle: (style: EditorCursorStyle) => void;
+  setEditorCursorAnimationEnabled: (enabled: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;

@@ -153,6 +153,7 @@ export const selectFontConfig = (state: StoreState) => ({
   fontSize: state.fontSize,
   editorLineHeight: state.editorLineHeight,
   editorCursorStyle: state.editorCursorStyle,
+  editorCursorAnimationEnabled: state.editorCursorAnimationEnabled,
 });
 
 // ---------------------------------------------------------------------------

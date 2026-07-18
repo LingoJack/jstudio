@@ -19,6 +19,7 @@ import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { DOMSerializer } from '@tiptap/pm/model';
 
 import { useI18n } from '../../../lib/core/i18n';
+import { useStore } from '../../../store/useStore';
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
@@ -128,6 +129,7 @@ export default function SectionEditor({
   readOnly,
 }: SectionEditorProps) {
   const { t } = useI18n();
+  const cursorAnimationEnabled = useStore((s) => s.editorCursorAnimationEnabled);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isReplacingRef = useRef(false);
   const notifyCaretRef = useRef(notifyCaret);
@@ -460,6 +462,10 @@ export default function SectionEditor({
 
   useEffect(() => {
     if (readOnly) return;
+    // The shared trail draws the visible caret; when the user disables that
+    // animation (see EditorSection settings) we leave the native caret
+    // color alone instead of hiding it, so a real browser caret shows.
+    if (!cursorAnimationEnabled) return;
     const editorDom = editor?.view?.dom as HTMLElement | undefined;
     if (!editorDom) return;
     editorDom.style.caretColor = 'transparent';
@@ -470,7 +476,7 @@ export default function SectionEditor({
       editorDom.style.caretColor = '';
       editorDom.removeAttribute('data-section-id');
     };
-  }, [editor, sectionId, readOnly]);
+  }, [editor, sectionId, readOnly, cursorAnimationEnabled]);
 
   return <EditorContent editor={editor} />;
 }

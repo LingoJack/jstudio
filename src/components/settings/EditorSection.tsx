@@ -37,11 +37,13 @@ export default function EditorSection() {
   const fontSize = useStore((s) => s.fontSize);
   const editorLineHeight = useStore((s) => s.editorLineHeight);
   const editorCursorStyle = useStore((s) => s.editorCursorStyle);
+  const editorCursorAnimationEnabled = useStore((s) => s.editorCursorAnimationEnabled);
   const setFontId = useStore((s) => s.setFontId);
   const setCjkFontId = useStore((s) => s.setCjkFontId);
   const setFontSize = useStore((s) => s.setFontSize);
   const setEditorLineHeight = useStore((s) => s.setEditorLineHeight);
   const setEditorCursorStyle = useStore((s) => s.setEditorCursorStyle);
+  const setEditorCursorAnimationEnabled = useStore((s) => s.setEditorCursorAnimationEnabled);
 
   const previewFontFamily = resolveFontFamily(fontId, cjkFontId);
 
@@ -216,6 +218,37 @@ export default function EditorSection() {
             );
           })}
         </div>
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ── Cursor Animation ── */}
+      <div id="settings-editor-cursorAnimation" className="flex items-start justify-between gap-4">
+        <div>
+          <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+            {t('general.editorCursorAnimation')}
+          </label>
+          <p className="text-sm text-[var(--vscode-descriptionForeground)]">
+            {t('general.editorCursorAnimationDesc')}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditorCursorAnimationEnabled(!editorCursorAnimationEnabled)}
+          className={`relative w-8 h-5 rounded-full transition-colors flex-shrink-0 cursor-pointer ${
+            editorCursorAnimationEnabled
+              ? 'bg-[var(--vscode-button-background)]'
+              : 'bg-[var(--vscode-input-border)]'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
+              editorCursorAnimationEnabled
+                ? 'translate-x-3 bg-[var(--vscode-button-foreground)]'
+                : 'bg-[var(--vscode-descriptionForeground)]'
+            }`}
+          />
+        </button>
       </div>
     </div>
   );

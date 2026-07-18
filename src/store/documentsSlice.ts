@@ -53,6 +53,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalFontId: string | undefined;
       let terminalCursorStyle: TerminalCursorStyle | undefined;
       let editorCursorStyle: EditorCursorStyle | undefined;
+      let editorCursorAnimationEnabled: boolean | undefined;
       let tabBarGlassOpacity: number | undefined;
       let tabBarPosition: 'top' | 'bottom' | undefined;
       let terminalTemplatesRaw: unknown;
@@ -120,6 +121,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
           settings.editorCursorStyle === 'underline'
         ) {
           editorCursorStyle = settings.editorCursorStyle;
+        }
+        if (typeof settings.editorCursorAnimationEnabled === 'boolean') {
+          editorCursorAnimationEnabled = settings.editorCursorAnimationEnabled;
         }
         if (settings.terminalTemplates !== undefined) {
           terminalTemplatesRaw = settings.terminalTemplates;
@@ -243,6 +247,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
         ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
+        ...(editorCursorAnimationEnabled !== undefined ? { editorCursorAnimationEnabled } : {}),
         ...(tabBarGlassOpacity !== undefined ? { tabBarGlassOpacity } : {}),
         ...(tabBarPosition !== undefined ? { tabBarPosition } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
