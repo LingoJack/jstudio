@@ -112,6 +112,7 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
     // Ensure the shell runs in a UTF-8 capable environment so that
     // multibyte input/output (CJK, emoji, etc.) is handled correctly.
     cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
     cmd.env("LANG", "en_US.UTF-8");
     cmd.env("LC_ALL", "en_US.UTF-8");
 
