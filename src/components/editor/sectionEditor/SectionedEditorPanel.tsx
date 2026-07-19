@@ -19,11 +19,12 @@
  *   - Paste/drop handlers (image/file special handling)
  *   - BlockNavigation (Tab, Cmd+Enter, Backspace on empty codeBlock, etc.)
  *   - Cross-section caret navigation + Backspace merge
+ *   - Cross-section text selection (drag, Cmd+A, copy/cut/delete) via
+ *     `useCrossSectionSelection`
  *   - Static/read-only rendering mode via `{ doc, readOnly }` props (used by
  *     HelpSection)
  *
  * Known limitation:
- *   - No cross-section selection / Cmd+A / copy-paste across sections
  *   - Sections are recomputed only on document switch, not live re-balanced
  */
 
@@ -240,6 +241,11 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   const focusedEditorRef = useRef<Editor | null>(null);
   const [focusedEditor, setFocusedEditor] = useState<Editor | null>(null);
   const sectionEditorsRef = useRef<Map<string, Editor>>(new Map());
+  /** Latest `crossSel.selectAll` (declared further down, after the refs it
+   *  depends on). Populated on every render so the window-capture Cmd+A
+   *  handler below — which is defined earlier in this component and must
+   *  stay a stable effect — can always reach the current implementation. */
+  const crossSelectAllRef = useRef<(() => void) | null>(null);
 
   const handleEditorReady = useCallback((sectionId: string, ed: Editor) => {
     sectionEditorsRef.current.set(sectionId, ed);
@@ -288,16 +294,16 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       // pass through to the global handler in App.tsx.
       if (e.altKey) return;
 
-      // ── Cmd/Ctrl+A → "select all inside code block" ──
+      // ── Cmd/Ctrl+A → select-all, scoped correctly ──
       // See the retired EditorPanel's equivalent handler / docs/bug-graveyard.md #001
       // for why this reaches here instead of being consumed by the native
       // Edit > Select All menu item.
       //
       // Behaviour: if the caret is inside (or the node itself is) a code
-      // block, select ONLY that block's content and consume the event. For
-      // any other context we do NOT preventDefault — the normal
-      // whole-section select-all is left to run (see the documented
-      // cross-section-selection limitation).
+      // block, select ONLY that block's content. Otherwise select the whole
+      // document across every section via `crossSel.selectAll()` (see below)
+      // — letting the event fall through to ProseMirror's default Mod-a
+      // would only select the currently-focused SECTION, not the full doc.
       if (e.key === 'a' || e.key === 'A') {
         // Native inputs (title, portal-based language search, etc.) handle
         // Cmd/Ctrl+A themselves explicitly via `handleNativeSelectAll` in
@@ -344,9 +350,24 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
           view.focus();
           e.preventDefault();
           e.stopPropagation();
+          return;
         }
-        // Not in a code block → fall through (do nothing), letting the
-        // default selection behaviour proceed.
+
+        // Not in a code block → select the ENTIRE document across all
+        // sections. Each section is an independent ProseMirror instance with
+        // its own contenteditable; letting this event fall through to the
+        // default/native Mod-a handling would only select the CURRENTLY
+        // FOCUSED section's content (ProseMirror's own `select-all-text`
+        // keymap operates on that section's local `doc`, and the browser
+        // only ever has one native Selection, scoped to the focused editing
+        // host) — which is exactly the "select all only grabs part of the
+        // document" bug this branch fixes. `useCrossSectionSelection`
+        // already implements a real multi-section select-all (painting a
+        // highlight decoration on every section); we just need to trigger it
+        // here instead of doing nothing.
+        crossSelectAllRef.current?.();
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
 
@@ -846,6 +867,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     [],
   );
   const crossSel = useCrossSectionSelection(crossCtx, activeDocId);
+  crossSelectAllRef.current = crossSel.selectAll;
 
   // ── Cross-section find-in-document ──
   // Reuses the same `crossCtx` as the selection coordinator — both need to
