@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { storage } from '../../lib/core/storage';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folderTree';
 import {
@@ -663,6 +664,7 @@ export default function DocumentSidebar() {
             onClick={(e) => e.stopPropagation()}
             onBlur={commitRename}
             onKeyDown={(e) => {
+              if (handleNativeSelectAll(e)) return;
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') setRenamingId(null);
             }}
@@ -757,6 +759,7 @@ export default function DocumentSidebar() {
               onClick={(e) => e.stopPropagation()}
               onBlur={commitFolderRename}
               onKeyDown={(e) => {
+                if (handleNativeSelectAll(e)) return;
                 if (e.key === 'Enter') commitFolderRename();
                 if (e.key === 'Escape') setRenamingFolderId(null);
               }}

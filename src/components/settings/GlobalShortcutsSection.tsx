@@ -36,6 +36,7 @@ import {
   type GlobalShortcutConfig,
   type ActionParamField,
 } from '../../lib/shortcuts/globalShortcuts';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 
 // ════════════════════════════════════════════════════════════════════
 // Helpers
@@ -191,6 +192,9 @@ function ParamFieldEditor({
             type="text"
             value={currentValue}
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (handleNativeSelectAll(e)) return;
+            }}
             placeholder={field.placeholderKey ? t(field.placeholderKey as TranslationKey) : ''}
             className={inputClass}
           />
@@ -216,6 +220,9 @@ function ParamFieldEditor({
         type="text"
         value={(value as string) ?? ''}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (handleNativeSelectAll(e)) return;
+        }}
         placeholder={field.placeholderKey ? t(field.placeholderKey as TranslationKey) : ''}
         className={inputClass}
       />

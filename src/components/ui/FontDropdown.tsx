@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { useI18n } from '../../lib/core/i18n';
 import type { FontPreset } from '../../lib/editor/fonts';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 
 export interface FontDropdownProps {
   /** Available font presets to show in the list. */
@@ -147,6 +148,7 @@ export default function FontDropdown({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
+                if (handleNativeSelectAll(e)) return;
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
                   if (filtered.length === 0) return;

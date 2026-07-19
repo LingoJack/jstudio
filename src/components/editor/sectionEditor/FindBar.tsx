@@ -16,6 +16,7 @@ import { ChevronDown, ChevronUp, X, Search } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
+import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import type { UseCrossSectionFindReturn } from './useCrossSectionFind';
 
 export interface FindBarProps {
@@ -91,20 +92,9 @@ export default function FindBar({ find }: FindBarProps) {
       setFindBarOpen(false);
       return;
     }
-    // Cmd/Ctrl+A — select the input's own text.
-    //
-    // Can't rely on the browser's native select-all here: the app's custom
-    // macOS menu (see build_app_menu in src-tauri/src/lib.rs) omits Edit >
-    // Select All entirely so Cmd+A reaches the editor's contenteditable as
-    // a plain DOM keydown instead of being swallowed by the native menu
-    // key-equivalent — but that also means this plain <input> never gets
-    // the OS-driven "select all" action it would otherwise receive via
-    // that menu item. So we implement it directly.
-    if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'a') {
-      e.preventDefault();
-      e.currentTarget.select();
-      return;
-    }
+    // Cmd/Ctrl+A — select the input's own text. See nativeSelectAll.ts for
+    // why this can't be left to the browser's native handling here.
+    if (handleNativeSelectAll(e)) return;
   };
 
   const close = () => setFindBarOpen(false);

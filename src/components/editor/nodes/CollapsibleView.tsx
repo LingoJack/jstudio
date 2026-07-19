@@ -42,6 +42,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
+import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import {
   COLLAPSIBLE_WRAPPER_CLASS,
   COLLAPSIBLE_HEADER_CLASS,
@@ -167,6 +168,7 @@ export default function CollapsibleView({
             onChange={(e) => setLocalSummary(e.target.value)}
             onBlur={commitSummary}
             onKeyDown={(e) => {
+              if (handleNativeSelectAll(e)) return;
               if (e.key === 'Enter') {
                 e.preventDefault();
                 commitSummary();

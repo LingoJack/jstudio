@@ -11,6 +11,7 @@ import { FileDown, X, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react'
 import { convertMermaidToSnapshot } from '../../../../lib/editor/mermaid';
 import { IconButton } from '../../../ui/IconButton';
 import { useI18n } from '../../../../lib/core/i18n';
+import { handleNativeSelectAll } from '../../../../lib/shortcuts/nativeSelectAll';
 
 interface MermaidImportDialogProps {
   open: boolean;
@@ -164,6 +165,9 @@ export default function MermaidImportDialog({
             onChange={(e) => {
               setCode(e.target.value);
               setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (handleNativeSelectAll(e)) return;
             }}
             placeholder={t('mermaid.inputPlaceholder')}
             className="w-full h-[200px] px-3 py-2.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-sm text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] resize-none focus:outline-none focus:border-[var(--vscode-focusBorder)] font-mono"

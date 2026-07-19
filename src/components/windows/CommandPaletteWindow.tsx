@@ -29,6 +29,7 @@ import { emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { storage, type DocumentMeta, type TerminalSessionInfo } from '../../lib/core/storage';
 import { useI18n, type Language } from '../../lib/core/i18n';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { SettingsSectionId } from '../../store/uiSlice';
 import type { TranslationKey } from '../../lib/core/i18n';
 import {
@@ -299,6 +300,7 @@ export default function CommandPaletteWindow() {
 
   // ── 11. 键盘导航 ──
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (handleNativeSelectAll(e)) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       closeWindow();

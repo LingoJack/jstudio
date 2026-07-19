@@ -34,6 +34,7 @@ import { ListTree } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
+import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
@@ -298,8 +299,11 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       // whole-section select-all is left to run (see the documented
       // cross-section-selection limitation).
       if (e.key === 'a' || e.key === 'A') {
-        // Native inputs (including the portal-based language search) keep
-        // their own select-all behavior.
+        // Native inputs (title, portal-based language search, etc.) handle
+        // Cmd/Ctrl+A themselves explicitly via `handleNativeSelectAll` in
+        // their own onKeyDown — the browser's native select-all can't be
+        // relied on here since the app's menu omits Edit > Select All (see
+        // nativeSelectAll.ts). Bail out so we don't fight their handling.
         if (e.target === titleInputRef.current) return;
 
         const editor = editorForKeyboardTarget(e.target, sectionEditorsRef.current);
@@ -934,6 +938,8 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   //    the first section's editor. Ported from the retired EditorPanel's
   //    handleTitleKeyDown.
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (handleNativeSelectAll(e)) return;
+
     const el = e.currentTarget;
     const len = el.value.length;
     const isAtEnd =

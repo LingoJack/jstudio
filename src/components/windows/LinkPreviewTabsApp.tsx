@@ -23,6 +23,7 @@ import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useI18n } from '../../lib/core/i18n';
 import TabBar, { type TabItem } from '../ui/TabBar';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ export default function LinkPreviewTabsApp() {
   }, [state.tabs, state.active_tab_id]);
 
   const handleAddressKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (handleNativeSelectAll(e)) return;
     if (e.key === 'Enter') {
       navigateToUrl(addressBarUrl);
     } else if (e.key === 'Escape') {

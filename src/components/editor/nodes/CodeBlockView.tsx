@@ -38,6 +38,7 @@ import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useCodeBlockSelectionOverlay } from '../hooks/useCodeBlockSelectionOverlay';
 import { openHtmlPreviewWindow } from '../../../lib/windows/previewWindow';
 import { useI18n } from '../../../lib/core/i18n';
+import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
@@ -679,6 +680,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
+                    if (handleNativeSelectAll(e)) return;
                     if (e.key === 'ArrowDown') {
                       e.preventDefault();
                       if (filteredLanguages.length === 0) return;

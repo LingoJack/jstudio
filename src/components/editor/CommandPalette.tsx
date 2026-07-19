@@ -22,6 +22,7 @@ import {
   type ScoredCommand,
 } from '../../lib/core/commandRegistry';
 import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { DocumentMeta } from '../../lib/core/storage';
 import type { TerminalSession } from '../../store/terminalSlice';
 import type { SettingsSectionId } from '../../store/uiSlice';
@@ -266,6 +267,7 @@ export default function CommandPalette() {
 
   // ── Keyboard handling via input ──
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (handleNativeSelectAll(e)) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       setCommandPaletteOpen(false);

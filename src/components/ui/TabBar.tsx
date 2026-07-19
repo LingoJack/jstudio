@@ -32,6 +32,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import RippleButton from './RippleButton';
 
 export interface TabItem {
@@ -338,6 +339,7 @@ export default function TabBar({
                       onChange={(e) => onRenameChange?.(e.target.value)}
                       onKeyDown={(e) => {
                         e.stopPropagation();
+                        if (handleNativeSelectAll(e)) return;
                         if (e.key === 'Enter') onRenameConfirm?.();
                         else if (e.key === 'Escape') onRenameCancel?.();
                       }}

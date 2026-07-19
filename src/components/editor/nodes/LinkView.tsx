@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 
 import { storage, type LinkMetadata } from '../../../lib/core/storage';
+import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { ResizeHandle } from '../../ui/ResizeHandle';
@@ -477,6 +478,7 @@ export default function LinkView({
                     onKeyDown={(e) => {
                       // Stop propagation to prevent ProseMirror from handling keyboard events
                       e.stopPropagation();
+                      if (handleNativeSelectAll(e)) return;
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         submitUrl(inputUrl);
@@ -533,6 +535,7 @@ export default function LinkView({
                   onChange={(e) => setEditTitle(e.target.value)}
                   onKeyDown={(e) => {
                     e.stopPropagation();
+                    if (handleNativeSelectAll(e)) return;
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleSaveEdit();
@@ -554,6 +557,7 @@ export default function LinkView({
                   onChange={(e) => setEditUrl(e.target.value)}
                   onKeyDown={(e) => {
                     e.stopPropagation();
+                    if (handleNativeSelectAll(e)) return;
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleSaveEdit();
