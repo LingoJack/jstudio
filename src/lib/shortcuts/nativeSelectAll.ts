@@ -24,12 +24,15 @@ import type { KeyboardEvent } from 'react';
  * @returns true if the event was handled (Cmd/Ctrl+A) — caller should
  *          `return` immediately after.
  */
-export function handleNativeSelectAll(
-  e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-): boolean {
+export function handleNativeSelectAll(e: KeyboardEvent<Element>): boolean {
   if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'a') {
     e.preventDefault();
-    e.currentTarget.select();
+    // `select()` only exists on input/textarea; guard so the handler can be
+    // attached to any element (e.g. a palette root) without a type error.
+    const target = e.currentTarget as Partial<
+      HTMLInputElement & HTMLTextAreaElement
+    >;
+    target.select?.();
     return true;
   }
   return false;
