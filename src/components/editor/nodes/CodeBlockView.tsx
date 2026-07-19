@@ -603,16 +603,15 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   ) : null;
 
   // ---- Inline styles driven by displayWidth / displayHeight ----
-  // Default: full editor width, content-driven height (scroll past 60vh).
-  // After a resize: fixed pixel width / height.
+  // Source mode always grows to the exact wrapped-code height — no internal
+  // horizontal or vertical scrolling. A persisted height still applies to
+  // HTML/Mermaid preview mode, where the preview itself needs a viewport.
   const showAnyPreview = showHtmlPreview || showMermaidPreview;
   const figureStyle: React.CSSProperties = {
     width: displayWidth ? `${displayWidth}px` : '100%',
   };
   const bodyStyle: React.CSSProperties = {
-    overflowX: 'hidden',
-    overflowY: 'auto',
-    ...(displayHeight != null ? { height: `${displayHeight}px` } : { maxHeight: '60vh' }),
+    overflow: 'visible',
     ...(showAnyPreview ? { display: 'none' } : null),
   };
   const previewStyle: React.CSSProperties = {
