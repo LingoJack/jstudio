@@ -19,7 +19,7 @@ import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { DOMSerializer } from '@tiptap/pm/model';
 
 import { useI18n } from '../../../lib/core/i18n';
-import { useStore } from '../../../store/useStore';
+import { useCursorTrail } from '../CursorTrailContext';
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
@@ -129,7 +129,7 @@ export default function SectionEditor({
   readOnly,
 }: SectionEditorProps) {
   const { t } = useI18n();
-  const cursorAnimationEnabled = useStore((s) => s.editorCursorAnimationEnabled);
+  const cursorTrail = useCursorTrail();
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isReplacingRef = useRef(false);
   const notifyCaretRef = useRef(notifyCaret);
@@ -461,22 +461,32 @@ export default function SectionEditor({
   }, [editor]);
 
   useEffect(() => {
-    if (readOnly) return;
-    // The shared trail draws the visible caret; when the user disables that
-    // animation (see EditorSection settings) we leave the native caret
-    // color alone instead of hiding it, so a real browser caret shows.
-    if (!cursorAnimationEnabled) return;
     const editorDom = editor?.view?.dom as HTMLElement | undefined;
     if (!editorDom) return;
-    editorDom.style.caretColor = 'transparent';
-    // Tag the section's DOM root so the cross-section selection coordinator
-    // can map a mouse target back to its section id via closest().
+    // Cross-section selection needs this tag independently of cursor animation.
     editorDom.setAttribute('data-section-id', sectionId);
-    return () => {
-      editorDom.style.caretColor = '';
-      editorDom.removeAttribute('data-section-id');
-    };
-  }, [editor, sectionId, readOnly, cursorAnimationEnabled]);
+    return () => editorDom.removeAttribute('data-section-id');
+  }, [editor, sectionId]);
+
+  useEffect(() => {
+    if (readOnly || !editor || !cursorTrail) return;
+    const editorDom = editor.view.dom;
+    return cursorTrail.registerContentHost(editorDom, () => {
+      if (editor.isDestroyed || !editor.view.hasFocus()) return null;
+      const selection = editor.state.selection;
+      if (!selection.empty) return null;
+
+      const domSelection = editorDom.ownerDocument.getSelection();
+      const anchorNode = domSelection?.anchorNode;
+      if (!anchorNode || !editorDom.contains(anchorNode)) return null;
+
+      try {
+        return editor.view.coordsAtPos(selection.head);
+      } catch {
+        return null;
+      }
+    });
+  }, [editor, readOnly, cursorTrail]);
 
   return <EditorContent editor={editor} />;
 }

@@ -46,6 +46,10 @@ import { useCrossSectionFind } from './useCrossSectionFind';
 import FindBar from './FindBar';
 import { splitIntoSections, SECTION_SIZE, SECTION_MAX, SECTION_MERGE_BELOW, type SectionState } from '../../../lib/editor/sectioning';
 import { EditorSkeleton } from './SectionSkeleton';
+import {
+  CursorTrailProvider,
+  CursorTrailRegistry,
+} from '../CursorTrailContext';
 
 export interface SectionedEditorPanelProps {
   /** When provided, the editor renders this static document instead of the
@@ -107,18 +111,30 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
    *  main thread on large documents). */
   const [visibleCount, setVisibleCount] = useState(0);
 
-  // ── Title input ref (for trail registration + caretColor) ──
+  // ── Stable caret-host registry + single shared cursor trail ──
+  const cursorTrailRegistry = useMemo(() => new CursorTrailRegistry(), []);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const titleHostDisposerRef = useRef<(() => void) | null>(null);
+  const setTitleInputRef = useCallback((el: HTMLInputElement | null) => {
+    titleHostDisposerRef.current?.();
+    titleHostDisposerRef.current = null;
+    titleInputRef.current = el;
+    if (el) titleHostDisposerRef.current = cursorTrailRegistry.registerNativeHost(el);
+  }, [cursorTrailRegistry]);
 
-  // ── Single shared cursor trail ──
+  useEffect(() => () => {
+    titleHostDisposerRef.current?.();
+    cursorTrailRegistry.dispose();
+  }, [cursorTrailRegistry]);
+
   const rootRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sectionsWrapperRef = useRef<HTMLDivElement | null>(null);
   const trailOverlayRef = useRef<HTMLDivElement | null>(null);
   const trailRef = useRef<EditorCursorTrail | null>(null);
   const notifyCaret = useCallback(() => {
-    trailRef.current?.markDirty();
-  }, []);
+    cursorTrailRegistry.markDirty();
+  }, [cursorTrailRegistry]);
 
   // ── Track the currently focused section's editor for FormatBubbleMenu /
   //    TableControls. Each SectionEditor calls onEditorReady when its editor
@@ -266,7 +282,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
         }
         // The trail re-measures on the input's 'select' event; nudge it too
         // in case the selection didn't actually change (already at the edge).
-        trailRef.current?.markDirty();
+        cursorTrailRegistry.markDirty();
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -496,26 +512,9 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     trail.resize();
     trail.start();
     trailRef.current = trail;
-    // TEMP DEBUG: expose the trail instance so CodeBlockView's diagnostic
-    // logger (__cursorSyncLog, written to /tmp/jstudio-cursor-diag.json) can
-    // pull the trail's own last-computed caret geometry alongside
-    // ProseMirror's coordsAtPos and the native DOM selection rect — lets us
-    // see, side by side, exactly which stage disagrees with the browser
-    // when the WebGL cursor visibly diverges. Remove once the code-block
-    // caret bug is fixed.
-    (window as unknown as { __editorCursorTrail?: EditorCursorTrail }).__editorCursorTrail = trail;
+    cursorTrailRegistry.attachTrail(trail);
 
-    // Register the title input so the trail can measure its caret too.
-    const titleInput = titleInputRef.current;
-    if (titleInput) {
-      trail.setTitleEl(titleInput);
-      const titleEvents = ['input', 'keyup', 'click', 'focus', 'blur', 'select', 'scroll'] as const;
-      const markDirty = () => trail.markDirty();
-      for (const ev of titleEvents) titleInput.addEventListener(ev, markDirty);
-      titleInput.style.caretColor = 'transparent';
-    }
-
-    const markDirty = () => trail.markDirty();
+    const markDirty = () => cursorTrailRegistry.markDirty();
     // `scroll` events do NOT bubble, so a listener on `scrollContainer` only
     // fires when `scrollContainer` itself is the scrolled element. Code
     // blocks (and any other independently-scrollable NodeView, e.g. wide
@@ -539,14 +538,12 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       window.clearInterval(safetyTick);
       scrollContainer.removeEventListener('scroll', markDirty, { capture: true });
       resizeObserver.disconnect();
+      cursorTrailRegistry.attachTrail(null);
       trail.dispose();
       trailRef.current = null;
-      if ((window as unknown as { __editorCursorTrail?: EditorCursorTrail }).__editorCursorTrail === trail) {
-        (window as unknown as { __editorCursorTrail?: EditorCursorTrail }).__editorCursorTrail = undefined;
-      }
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
-  }, [readOnly, hasActiveDoc, activeDocId, editorCursorAnimationEnabled]);
+  }, [readOnly, hasActiveDoc, activeDocId, editorCursorAnimationEnabled, cursorTrailRegistry]);
 
   // ── Live theme update for cursor trail ──
   // When the app theme changes, update the cursor trail color from CSS variables.
@@ -995,7 +992,8 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   if (!hasActiveDoc) return null;
 
   return (
-    <div ref={rootRef} className="flex h-full overflow-hidden relative bg-[var(--vscode-editor-background)]">
+    <CursorTrailProvider registry={cursorTrailRegistry}>
+      <div ref={rootRef} className="flex h-full overflow-hidden relative bg-[var(--vscode-editor-background)]">
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto pb-8 md:pb-12 select-text"
@@ -1006,7 +1004,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
         {/* Document Title */}
         <div className="px-4 md:px-12 lg:px-20 pt-12 pb-4">
           <input
-            ref={titleInputRef}
+            ref={setTitleInputRef}
             type="text"
             value={activeDocTitle}
             onChange={(e) => updateDocumentMeta({ title: e.target.value })}
@@ -1091,7 +1089,8 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
 
       {/* Floating find-in-document bar (toggled by Cmd/Ctrl+F) */}
       <FindBar find={find} />
-    </div>
+      </div>
+    </CursorTrailProvider>
   );
 
 }

@@ -17,6 +17,7 @@
     "lint:tsc": "tsc --noEmit",
     "lint:struct": "npm run lint:tsc && npm run knip",
     "test:shortcuts": "tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts src/lib/core/commandRegistry.test.ts",
+    "test:cursor": "tsx --test src/components/editor/CursorTrailContext.test.ts",
     "postinstall": "patch-package"
   },
   "dependencies": {

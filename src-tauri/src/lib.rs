@@ -278,7 +278,6 @@ pub fn run() {
             // ── debug / build info ──
             commands::debug::get_build_info,
             commands::debug::open_devtools,
-            commands::debug::write_diag_log,
             // ── window control ──
             commands::window::close_window,
             commands::window::set_native_menu_accelerator,

@@ -48,6 +48,7 @@ import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import type { LinkNodeAttributes } from '../../../lib/editor/extensions/linkExtension';
+import { useCursorTrailHostRef } from '../CursorTrailContext';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -108,7 +109,11 @@ export default function LinkView({
   const [editTitle, setEditTitle] = useState('');
   const [editUrl, setEditUrl] = useState('');
   const editTitleRef = useRef<HTMLInputElement>(null);
+  const editUrlRef = useRef<HTMLInputElement>(null);
   const placeholderInputRef = useRef<HTMLInputElement>(null);
+  const editTitleTrailRef = useCursorTrailHostRef(editTitleRef);
+  const editUrlTrailRef = useCursorTrailHostRef(editUrlRef);
+  const placeholderTrailRef = useCursorTrailHostRef(placeholderInputRef);
 
   /* -------------------------------------------------------------- */
   /* Focus management                                                */
@@ -463,7 +468,7 @@ export default function LinkView({
                 <Link2 size={16} className="link-block-card-favicon-fallback" />
                 <div className="link-block-card-info">
                   <input
-                    ref={placeholderInputRef}
+                    ref={placeholderTrailRef}
                     type="url"
                     className="link-block-card-url-input"
                     placeholder="Paste a URL (e.g. https://github.com)"
@@ -520,7 +525,7 @@ export default function LinkView({
               <div className="link-block-edit-row">
                 <label className="link-block-edit-label">Name</label>
                 <input
-                  ref={editTitleRef}
+                  ref={editTitleTrailRef}
                   type="text"
                   className="link-block-edit-input"
                   value={editTitle}
@@ -541,6 +546,7 @@ export default function LinkView({
               <div className="link-block-edit-row">
                 <label className="link-block-edit-label">URL</label>
                 <input
+                  ref={editUrlTrailRef}
                   type="url"
                   className="link-block-edit-input"
                   value={editUrl}

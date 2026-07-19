@@ -27,12 +27,3 @@ pub fn open_devtools(app: tauri::AppHandle) {
         window.open_devtools();
     }
 }
-
-/// Write a temporary diagnostic log to /tmp/jstudio-cursor-diag.json.
-/// Overwrites each call. Returns the written path.
-#[tauri::command]
-pub fn write_diag_log(content: String) -> Result<String, String> {
-    let path = "/tmp/jstudio-cursor-diag.json";
-    std::fs::write(path, &content).map_err(|e| format!("failed to write diag log: {e}"))?;
-    Ok(path.to_string())
-}
