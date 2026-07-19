@@ -1384,7 +1384,7 @@ button {
   border: none;
   border-radius: 16px;
   background: transparent;
-  padding: 14px 16px;
+  padding: 12px 16px 14px;
   overflow-x: auto;
 }
 
@@ -1416,13 +1416,22 @@ button {
   padding: 0;
 }
 
-/* ---- 顶部工具条 (copy + language badge, top-right) ---- */
-
-.code-block-wrapper .code-toolbar {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+/* ---- 顶部 header 行 (操作按钮 left + 语言徽章 right) ----
+   一个独立行，不再用 absolute 浮在代码上方，避免与第一行代码相互遮挡。
+   两端对齐：操作按钮组固定在左侧，语言徽章固定在右侧。
+   底部 border 作为与代码内容的分割线。 */
+.code-block-wrapper .code-block-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
   z-index: 3;
+}
+
+.code-block-wrapper .code-header-actions {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -1593,7 +1602,7 @@ button {
 
 /* 复制按钮常驻低调可见，hover / 选中时加亮；不再依赖 :hover 才出现，
    规避 WKWebView 中 contentEditable 区域内 :hover 偶发不触发的问题。
-   工具条右对齐 (right: 8px)，按钮始终在徽章左侧，位置稳定。 */
+   按钮始终位于 header 行右侧，位置稳定。 */
 .code-block-wrapper .code-toolbar-reveal {
   opacity: 0.55;
   transition: opacity 0.15s ease, color 0.12s ease, background 0.12s ease;

@@ -1,18 +1,19 @@
 /**
  * CodeBlockView — React NodeView for the code block node.
  *
- * Layout — language badge pinned to the top-left, action toolbar pinned to the
- * top-right (same "one row of buttons" shape as the shared BlockToolbar):
+ * Layout — a dedicated header row sits above the code with the action
+ * toolbar pinned to the top-left and the language badge pinned to the
+ * top-right, so they never overlap the code:
  *   ┌────────────────────────────────────────┐
- *   │ [lang ▾]               [preview] [copy] │  ← badge left, toolbar right
- *   │  const x = 1;                           │
- *   │  console.log(x);                     ◯  │  ← corner resize handle
+ *   │ [preview] [copy]               [lang ▾] │  ← header row
+ *   │  const x = 1;                             │
+ *   │  console.log(x);                       ◯  │  ← corner resize handle
  *   └────────────────────────────────────────┘
  *
- * The language badge is pinned to the left corner and stays put; the toolbar
- * (preview toggle + copy button + open-window button) sits in the right corner.
- * The action buttons reuse the shared `block-toolbar-btn` skin so they match
- * Image / File / Diagram blocks.
+ * The header is a separate strip (not absolutely positioned over the code),
+ * eliminating the previous overlap between the top-right icons and the
+ * first line of source. The action buttons reuse the shared
+ * `block-toolbar-btn` skin so they match Image / File / Diagram blocks.
  *
  * Selection / resize chrome is unified with FileView:
  *   - The figure shows a focusBorder when the node is selected (NodeSelection)
@@ -496,8 +497,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // ---- Action buttons (HTML/Mermaid preview toggle + copy) ----
   // Both reuse the shared `block-toolbar-btn` skin (--sm size variant) so the
   // code block matches Image / File / Diagram toolbars. They live in the
-  // top-right toolbar, to the left of the language badge. Copy reveals on
-  // hover (`code-toolbar-reveal`); the preview toggle is always visible and
+  // right side of the header row. Copy reveals on hover
+  // (`code-toolbar-reveal`); the preview toggle is always visible and
   // gets `is-active` while previewing.
   const htmlPreviewBtn =
     isHtml && hasContent ? (
@@ -627,15 +628,18 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         }`}
         style={figureStyle}
       >
-        {/* Top-right toolbar — a single horizontal row: the preview toggle
-          and copy button sit to the left of the language badge. The badge
-          is pinned right (the toolbar is right-aligned) so revealing the
-          copy button on hover grows leftward without shifting the badge. */}
-        <div className="code-toolbar" contentEditable={false}>
-          {htmlPreviewBtn}
-          {mermaidPreviewBtn}
-          {openWindowBtn}
-          {copyBtn}
+        {/* Header row — a dedicated strip above the code, separated from the
+          source by a border-bottom divider. Action buttons are pinned to the
+          top-left, the language badge to the top-right. Keeping these in
+          their own row avoids overlapping the first line of code, which the
+          old absolutely-positioned toolbar suffered from. */}
+        <div className="code-block-header" contentEditable={false}>
+          <div className="code-header-actions">
+            {htmlPreviewBtn}
+            {mermaidPreviewBtn}
+            {openWindowBtn}
+            {copyBtn}
+          </div>
           <div
             ref={badgeRef}
             className="code-lang-badge"

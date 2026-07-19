@@ -33,5 +33,23 @@ export function splitIntoSections(blocks: Block[]): SectionState[] {
       blocks: blocks.slice(i, i + SECTION_SIZE),
     });
   }
+  // Fold a small trailing remainder into the previous section instead of
+  // leaving it as its own section. Without this, a document whose block
+  // count is just over a multiple of SECTION_SIZE (e.g. 31 blocks, ending
+  // in a lone trailing empty paragraph) produces a final section that is
+  // its own tiny/empty ProseMirror doc. TipTap's Placeholder extension then
+  // marks that section's editor as `is-editor-empty` (a doc with a single
+  // empty paragraph is "empty" from that section's own point of view) and
+  // renders the empty-document placeholder — even though the document as a
+  // whole clearly has content in the earlier sections. Merging the small
+  // tail avoids ever creating that misleading standalone-empty section.
+  if (sections.length > 1) {
+    const last = sections[sections.length - 1];
+    if (last.blocks.length <= SECTION_MERGE_BELOW) {
+      const prev = sections[sections.length - 2];
+      prev.blocks = [...prev.blocks, ...last.blocks];
+      sections.pop();
+    }
+  }
   return sections;
 }

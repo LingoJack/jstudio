@@ -761,6 +761,18 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
             blocks: sec.blocks.slice(i, i + SECTION_SIZE),
           });
         }
+        // Fold a small trailing remainder chunk into the previous one — see
+        // the matching comment in `splitIntoSections` (sectioning.ts) for
+        // why a tiny/lone leftover section renders a misleading empty-doc
+        // placeholder even though the rest of the section had real content.
+        if (chunks.length > 1) {
+          const lastChunk = chunks[chunks.length - 1];
+          if (lastChunk.blocks.length <= SECTION_MERGE_BELOW) {
+            const prevChunk = chunks[chunks.length - 2];
+            prevChunk.blocks = [...prevChunk.blocks, ...lastChunk.blocks];
+            chunks.pop();
+          }
+        }
         next = [...current.slice(0, idx), ...chunks, ...current.slice(idx + 1)];
       }
       // ── Merge: section shrank and can combine with the next one ──
