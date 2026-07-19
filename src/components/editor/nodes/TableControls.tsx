@@ -55,15 +55,15 @@ export default function TableControls({ editor }: TableControlsProps) {
   // -------------------------------------------------------------------------
   const updateAll = useCallback(() => {
     const { $from } = editor.state.selection;
-    let inTable = false;
+    let tablePos: number | null = null;
     for (let d = $from.depth; d > 0; d--) {
       if ($from.node(d).type.name === 'table') {
-        inTable = true;
+        tablePos = $from.before(d);
         break;
       }
     }
 
-    if (!inTable) {
+    if (tablePos === null) {
       // Avoid a pointless state update (which would re-render) when the
       // toolbar is already hidden — the overwhelmingly common case while
       // typing in a large doc full of non-table blocks.
@@ -71,8 +71,10 @@ export default function TableControls({ editor }: TableControlsProps) {
       return;
     }
 
-    const editorDom = editor.view.dom as HTMLElement;
-    const tableEl = editorDom.querySelector('table');
+    // Resolve the DOM node for THIS specific table (the one the selection is
+    // inside), not just the first `<table>` in the document — a document can
+    // contain multiple tables.
+    const tableEl = editor.view.nodeDOM(tablePos) as HTMLElement | null;
     if (!tableEl) {
       setToolbar((prev) => (prev === null ? prev : null));
       return;
