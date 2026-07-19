@@ -384,6 +384,15 @@ export const storage = {
     invoke<number[]>('read_file_bytes', { path }),
 
   /**
+   * Copy an image file straight to the OS clipboard. The read + decode +
+   * clipboard write all happen on the Rust side, so the image bytes never
+   * cross the IPC bridge as a JSON-serialized number array (which is slow
+   * for anything beyond a tiny image).
+   */
+  copyImageToClipboard: (path: string) =>
+    invoke<void>('copy_image_to_clipboard', { path }),
+
+  /**
    * Recursively list all Markdown files (and directories) inside `dir`.
    * Returns entries sorted so that any directory appears before the files
    * it contains.

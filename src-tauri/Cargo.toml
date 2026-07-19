@@ -16,6 +16,12 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["macos-private-api", "protocol-asset", "devtools", "unstable", "image-png"] }
+# Explicit format features so `tauri::image::Image::from_bytes` (used to decode
+# assets before writing them to the OS clipboard) can handle every format the
+# image-picker accepts, not just PNG. Cargo unifies features for a given crate
+# version across the whole dependency graph, so this also affects the `image`
+# crate instance that `tauri`/`arboard` pull in transitively.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-clipboard-manager = "2"

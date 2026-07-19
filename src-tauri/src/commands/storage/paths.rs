@@ -98,6 +98,43 @@ pub fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))
 }
 
+/// Copy an image file straight from disk onto the OS clipboard.
+///
+/// Does the file read + decode + clipboard write entirely on the Rust side,
+/// so the (potentially multi-megabyte) image bytes never cross the JS↔Rust
+/// IPC bridge as a JSON-serialized number array — that serialization is what
+/// made the earlier JS-side `writeImage(bytes)` approach slow for large
+/// images.
+///
+/// Two more perf traps this specifically avoids:
+/// - `tauri::image::Image::from_bytes()` decodes via `DynamicImage::pixels()`,
+///   a per-pixel iterator that is extremely slow on large images. We instead
+///   use `to_rgba8()`, which uses a dedicated bulk conversion.
+/// - This is an `async fn`, so Tauri runs it on a background runtime thread
+///   instead of the main/UI thread. A sync `#[tauri::command]` here would
+///   run the decode on the main thread and freeze the whole app (the
+///   spinning-cursor "beachball") while a large image is being decoded.
+#[tauri::command]
+pub async fn copy_image_to_clipboard(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+
+    let (rgba, width, height) = tauri::async_runtime::spawn_blocking(move || {
+        let bytes = fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))?;
+        let img = image::load_from_memory(&bytes)
+            .map_err(|e| format!("failed to decode image {path}: {e}"))?
+            .to_rgba8();
+        let (width, height) = (img.width(), img.height());
+        Ok::<_, String>((img.into_raw(), width, height))
+    })
+    .await
+    .map_err(|e| format!("decode task panicked: {e}"))??;
+
+    let image = tauri::image::Image::new_owned(rgba, width, height);
+    app.clipboard()
+        .write_image(&image)
+        .map_err(|e| format!("failed to write image to clipboard: {e}"))
+}
+
 // ---- internal helpers ----
 
 /// Cross-platform "reveal in file manager" helper.

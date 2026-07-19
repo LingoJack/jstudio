@@ -12,7 +12,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react';
 import { Copy, Check, Maximize2 } from 'lucide-react';
-import { writeImage } from '@tauri-apps/plugin-clipboard-manager';
 
 import { useStore } from '../../../store/useStore';
 import { storage } from '../../../lib/core/storage';
@@ -188,12 +187,11 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   const handleCopyImage = useCallback(async () => {
     if (!src || !studioRoot || !activeDocId) return;
     try {
-      // Assets are stored on disk; read the original file bytes and hand them
-      // directly to Tauri's clipboard writer. This avoids the canvas round-trip
-      // (which can fail for SVG, cross-origin images, or incomplete decodes).
+      // Let Rust read the file + write the clipboard image directly — this
+      // sends only a short path string over IPC instead of the full image
+      // bytes, which is what made the previous JS-side writeImage() slow.
       const filePath = resolveAssetFilePath(studioRoot, activeDocId, src);
-      const bytes = await storage.readFileBytes(filePath);
-      await writeImage(new Uint8Array(bytes));
+      await storage.copyImageToClipboard(filePath);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

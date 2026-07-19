@@ -191,6 +191,7 @@ pub fn run() {
             commands::storage::paths::open_doc_dir,
             commands::storage::paths::get_doc_path,
             commands::storage::paths::read_file_bytes,
+            commands::storage::paths::copy_image_to_clipboard,
             // ── storage: documents ──
             commands::storage::documents::read_index,
             commands::storage::documents::write_index,
