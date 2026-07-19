@@ -13,12 +13,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react';
 import { Copy, Check, Maximize2 } from 'lucide-react';
 import { writeImage } from '@tauri-apps/plugin-clipboard-manager';
-import { Image as TauriImage } from '@tauri-apps/api/image';
 
 import { useStore } from '../../../store/useStore';
 import { storage } from '../../../lib/core/storage';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
 import { useAssetBlobUrl } from '../../../lib/editor/content/useAssetBlobUrl';
+import { resolveAssetFilePath } from '../../../lib/editor/content/assetUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
@@ -186,24 +186,20 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   // -----------------------------------------------------------------------
 
   const handleCopyImage = useCallback(async () => {
-    const img = imgElRef.current;
-    if (!img || !img.naturalWidth || !img.naturalHeight) return;
+    if (!src || !studioRoot || !activeDocId) return;
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas 2D context unavailable');
-      ctx.drawImage(img, 0, 0);
-      const { data, width: w, height: h } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const tauriImage = await TauriImage.new(new Uint8Array(data), w, h);
-      await writeImage(tauriImage);
+      // Assets are stored on disk; read the original file bytes and hand them
+      // directly to Tauri's clipboard writer. This avoids the canvas round-trip
+      // (which can fail for SVG, cross-origin images, or incomplete decodes).
+      const filePath = resolveAssetFilePath(studioRoot, activeDocId, src);
+      const bytes = await storage.readFileBytes(filePath);
+      await writeImage(new Uint8Array(bytes));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
       addToast('error', t('image.copyFailed'));
     }
-  }, [addToast, t]);
+  }, [src, studioRoot, activeDocId, addToast, t]);
 
   // -----------------------------------------------------------------------
   // Open in a new independent OS window for enlarged preview
