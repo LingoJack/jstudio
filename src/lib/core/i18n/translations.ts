@@ -558,6 +558,8 @@ export const translations = {
     'image.zoomNewWindow': '放大预览（新窗口）',
     'image.parsingDocx': '正在解析 DOCX…',
   'image.cannotRead': '无法读取文件内容',
+  'image.copyImage': '复制图片',
+  'image.copyFailed': '复制图片失败',
 
   // ── TableControls ──
     'table.insertRowAbove': '上方插入行',
@@ -1263,6 +1265,8 @@ export const translations = {
     'image.zoomNewWindow': 'Zoom (new window)',
     'image.parsingDocx': 'Parsing DOCX…',
     'image.cannotRead': 'Cannot read file content',
+    'image.copyImage': 'Copy image',
+    'image.copyFailed': 'Failed to copy image',
 
     // ── TableControls ──
     'table.insertRowAbove': 'Insert row above',

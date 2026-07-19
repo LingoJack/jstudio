@@ -11,6 +11,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react';
+import { Copy, Check, Maximize2 } from 'lucide-react';
+import { writeImage } from '@tauri-apps/plugin-clipboard-manager';
+import { Image as TauriImage } from '@tauri-apps/api/image';
 
 import { useStore } from '../../../store/useStore';
 import { storage } from '../../../lib/core/storage';
@@ -22,8 +25,15 @@ import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
 import { UploadIcon } from '../../ui/icons';
-import { BlockToolbar, AlignButtonGroup } from '../../ui/BlockToolbar';
+import {
+  BlockToolbar,
+  AlignButtonGroup,
+  BlockToolbarButton,
+  BlockToolbarDivider,
+} from '../../ui/BlockToolbar';
 import { ResizeHandle } from '../../ui/ResizeHandle';
+import { openPreviewWindow } from '../../../lib/windows/previewWindow';
+import { useI18n } from '../../../lib/core/i18n';
 
 interface ImageNodeAttrs {
   src: string;
@@ -42,6 +52,7 @@ interface ImageNodeAttrs {
 
 export default function ImageView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const { src, alt, title, width, widthPct, height, heightPct, align } = node.attrs as ImageNodeAttrs;
+  const { t } = useI18n();
 
   // Resolve doc-relative asset paths (`assets/…`) to a same-origin blob URL.
   // Tauri's `asset://localhost` URLs are treated as cross-origin to the page's
@@ -49,6 +60,7 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   // bytes and create a blob: URL instead.
   const studioRoot = useStore((s) => s.studioRoot);
   const activeDocId = useStore((s) => s.activeDocId);
+  const addToast = useStore((s) => s.addToast);
   const { url: displaySrc, loading: assetLoading, error: assetError } = useAssetBlobUrl(
     src,
     studioRoot,
@@ -62,7 +74,7 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
   // Keyboard navigation for the floating toolbar (Tab/Enter/Esc)
-  const toolbarBtnCount = 2; // align-left, align-center
+  const toolbarBtnCount = 4; // align-left, align-center, copy, maximize
   const { activeIndex, registerButton } = useNodeToolbarNav(
     selected,
     (editor as Editor | null) ?? null,
@@ -74,6 +86,7 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   // -----------------------------------------------------------------------
 
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handlePlaceholderClick = useCallback(async () => {
@@ -169,6 +182,45 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   }, []);
 
   // -----------------------------------------------------------------------
+  // Copy image to system clipboard
+  // -----------------------------------------------------------------------
+
+  const handleCopyImage = useCallback(async () => {
+    const img = imgElRef.current;
+    if (!img || !img.naturalWidth || !img.naturalHeight) return;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D context unavailable');
+      ctx.drawImage(img, 0, 0);
+      const { data, width: w, height: h } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const tauriImage = await TauriImage.new(new Uint8Array(data), w, h);
+      await writeImage(tauriImage);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      addToast('error', t('image.copyFailed'));
+    }
+  }, [addToast, t]);
+
+  // -----------------------------------------------------------------------
+  // Open in a new independent OS window for enlarged preview
+  // -----------------------------------------------------------------------
+
+  const handleOpenPreview = useCallback(() => {
+    if (!src) return;
+    openPreviewWindow({
+      src,
+      fileName: alt || 'image',
+      fileSize: 0,
+      category: 'image',
+      docContext: { studioRoot, docId: activeDocId },
+    });
+  }, [src, alt, studioRoot, activeDocId]);
+
+  // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
 
@@ -234,6 +286,23 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
                 align={effectiveAlign}
                 onAlignChange={(a) => updateAttributes({ align: a })}
               />
+              <BlockToolbarDivider />
+              <BlockToolbarButton
+                nav={{ activeIndex, registerButton }}
+                index={2}
+                title={t('image.copyImage')}
+                onClick={handleCopyImage}
+              >
+                {copied ? <Check size={15} /> : <Copy size={15} />}
+              </BlockToolbarButton>
+              <BlockToolbarButton
+                nav={{ activeIndex, registerButton }}
+                index={3}
+                title={t('image.zoomNewWindow')}
+                onClick={handleOpenPreview}
+              >
+                <Maximize2 size={15} />
+              </BlockToolbarButton>
             </BlockToolbar>
 
             <img
