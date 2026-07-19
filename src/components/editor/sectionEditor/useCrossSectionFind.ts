@@ -12,8 +12,9 @@
  *   1. `rescan()` iterates `getOrder()`, calls `getEditor(id).state.doc.descendants()`
  *      on each section, and collects matches into a flat `SearchMatch[]`.
  *   2. The active match (indexed by `currentIndex`) is painted with a stronger
- *      highlight class, and its section's editor is focused + selection set
- *      so ProseMirror scrolls it into view.
+ *      highlight class, and its section is scrolled into view WITHOUT
+ *      stealing DOM focus, so the find bar input stays focused for
+ *      repeated Enter/Shift+Enter presses.
  *   3. `next()` / `prev()` cycle `currentIndex` within `[0, matches.length)`.
  *   4. Each editor's `update` event triggers a debounced `rescan()` so matches
  *      stay fresh as the user edits. Re-subscription timers catch sections
@@ -159,13 +160,14 @@ export function useCrossSectionFind(
     paintAll();
   }, [clearAllHighlights, paintAll]);
 
-  /** Focus the active match's section + scroll it into view. */
+  /** Scroll the active match's section into view WITHOUT stealing DOM focus,
+   *  so the find bar input stays focused across repeated Enter presses. */
   const focusActive = useCallback(() => {
     const cur = currentIndexRef.current;
     const m = matchesRef.current[cur];
     if (!m) return;
     const handle = ctxRef.current.getHandle(m.sectionId);
-    handle?.setTextSelection(m.from, m.to);
+    handle?.scrollToRange(m.from, m.to);
   }, []);
 
   const next = useCallback(() => {
