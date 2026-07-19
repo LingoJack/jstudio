@@ -59,6 +59,103 @@ export interface SectionedEditorPanelProps {
   readOnly?: boolean;
 }
 
+function editorForKeyboardTarget(
+  target: EventTarget | null,
+  editors: ReadonlyMap<string, Editor>,
+): Editor | null {
+  const node = target instanceof Node ? target : null;
+  const element = node instanceof Element ? node : node?.parentElement;
+  if (!element) return null;
+  if (element.closest('input, textarea, select, button, [contenteditable="false"]')) {
+    return null;
+  }
+
+  const editorDom = element.closest<HTMLElement>('[data-section-id]');
+  const sectionId = editorDom?.dataset.sectionId;
+  if (!editorDom || !sectionId) return null;
+
+  const editor = editors.get(sectionId);
+  if (!editor || editor.isDestroyed || editor.view.dom !== editorDom) return null;
+  return editorDom.contains(node) ? editor : null;
+}
+
+function logicalCodeLineBoundary(
+  text: string,
+  offset: number,
+  toStart: boolean,
+): number {
+  const safeOffset = Math.max(0, Math.min(offset, text.length));
+  if (toStart) {
+    const previousNewline =
+      safeOffset > 0 ? text.lastIndexOf('\n', safeOffset - 1) : -1;
+    return previousNewline === -1 ? 0 : previousNewline + 1;
+  }
+  const nextNewline = text.indexOf('\n', safeOffset);
+  return nextNewline === -1 ? text.length : nextNewline;
+}
+
+function visualCodeLineBoundary(
+  editor: Editor,
+  head: number,
+  blockStart: number,
+  blockEnd: number,
+  toStart: boolean,
+): number | null {
+  const { view } = editor;
+  const nativeSelection = view.dom.ownerDocument.getSelection();
+  if (
+    !nativeSelection ||
+    typeof nativeSelection.modify !== 'function' ||
+    typeof nativeSelection.setBaseAndExtent !== 'function' ||
+    !nativeSelection.anchorNode ||
+    !nativeSelection.focusNode ||
+    !view.dom.contains(nativeSelection.focusNode)
+  ) {
+    return null;
+  }
+
+  const saved = {
+    anchorNode: nativeSelection.anchorNode,
+    anchorOffset: nativeSelection.anchorOffset,
+    focusNode: nativeSelection.focusNode,
+    focusOffset: nativeSelection.focusOffset,
+    range: nativeSelection.rangeCount > 0
+      ? nativeSelection.getRangeAt(0).cloneRange()
+      : null,
+  };
+
+  try {
+    const nativeHead = view.posAtDOM(saved.focusNode, saved.focusOffset);
+    if (nativeHead !== head) return null;
+
+    nativeSelection.collapse(saved.focusNode, saved.focusOffset);
+    nativeSelection.modify('move', toStart ? 'left' : 'right', 'lineboundary');
+    const focusNode = nativeSelection.focusNode;
+    if (!focusNode || !view.dom.contains(focusNode)) return null;
+
+    const mapped = view.posAtDOM(
+      focusNode,
+      nativeSelection.focusOffset,
+      toStart ? -1 : 1,
+    );
+    return mapped >= blockStart && mapped <= blockEnd ? mapped : null;
+  } catch {
+    return null;
+  } finally {
+    try {
+      nativeSelection.setBaseAndExtent(
+        saved.anchorNode,
+        saved.anchorOffset,
+        saved.focusNode,
+        saved.focusOffset,
+      );
+    } catch {
+      nativeSelection.removeAllRanges();
+      if (saved.range) nativeSelection.addRange(saved.range);
+    }
+  }
+}
+
 export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorPanelProps = {}) {
   const { t } = useI18n();
   // ── Read-only / static-document mode ──────────────────────────────
@@ -173,10 +270,8 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   // Cmd+Left/Right and Cmd+A at the native level and calls preventDefault()
   // before the event reaches ProseMirror's handleKeyDown, so we must listen
   // at the window capture phase — the earliest point we can see the event —
-  // and handle it ourselves. This is the single-editor version's fix adapted
-  // to read whichever section currently has focus via `focusedEditorRef` (a ref, so
-  // no stale closures — always the live focused editor, no effect deps
-  // needed for it).
+  // and handle it ourselves. Route each event through its DOM target so a
+  // stale focused-editor ref cannot hijack title, portal, or toolbar inputs.
   //
   // NOTE: Cmd/Ctrl + ArrowUp/Down do NOT need this treatment — WKWebView
   // does not intercept them, and SectionEditor's own `handleKeyDown` already
@@ -203,17 +298,14 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       // whole-section select-all is left to run (see the documented
       // cross-section-selection limitation).
       if (e.key === 'a' || e.key === 'A') {
-        const editor = focusedEditorRef.current;
+        // Native inputs (including the portal-based language search) keep
+        // their own select-all behavior.
+        if (e.target === titleInputRef.current) return;
+
+        const editor = editorForKeyboardTarget(e.target, sectionEditorsRef.current);
         if (!editor) return;
         const { state, view } = editor;
         const { selection, doc: pmDoc, tr } = state;
-
-        // Never hijack Cmd+A while the title <input> is focused — let the
-        // browser select the title text natively.
-        const titleFocused =
-          titleInputRef.current &&
-          document.activeElement === titleInputRef.current;
-        if (titleFocused) return;
 
         let codeBlockRange: { from: number; to: number } | null = null;
 
@@ -263,7 +355,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       // below. WKWebView intercepts Cmd+Arrow natively, so we must drive the
       // input's selection ourselves here at the window capture phase.
       const titleEl = titleInputRef.current;
-      if (titleEl && document.activeElement === titleEl) {
+      if (titleEl && e.target === titleEl) {
         const toStart = e.key === 'ArrowLeft';
         const len = titleEl.value.length;
         const target = toStart ? 0 : len;
@@ -288,41 +380,43 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
         return;
       }
 
-      const editor = focusedEditorRef.current;
+      const editor = editorForKeyboardTarget(e.target, sectionEditorsRef.current);
       if (!editor) return;
 
       const view = editor.view;
       const { state } = view;
       const { selection } = state;
+      if (!(selection instanceof TextSelection)) return;
       const $head = selection.$head;
       if ($head.depth < 1) return;
 
       const toStart = e.key === 'ArrowLeft';
       const extend = e.shiftKey;
       let edge: number;
-      // For multi-line code blocks, $head.start()/end() resolves to the WHOLE
-      // block boundary (codeBlock is a textblock), but macOS Cmd+Left/Right is
-      // expected to jump to the current LINE start/end (delimited by \n), not
-      // the block start/end. Compute the line boundary from the codeBlock text.
-      // For other text blocks (paragraph/heading/list item) $head.start()/end()
-      // is already the correct single-line boundary.
+      // Code blocks wrap long lines. Ask WebKit for the current visual line
+      // boundary, then map that DOM caret back to a ProseMirror position.
+      // If the native selection cannot be measured safely, fall back to the
+      // source line delimited by \n.
       const inCodeBlock =
         $head.depth > 0 && $head.parent.type.name === 'codeBlock';
       if (inCodeBlock) {
         const codeNode = $head.parent;
         const blockStart = $head.start();
         const blockEnd = blockStart + codeNode.content.size;
-        const text = codeNode.textContent;
-        const offset = $head.parentOffset;
-        if (toStart) {
-          // Current line start = char after the previous \n (or block start).
-          const prevNl = text.lastIndexOf('\n', Math.max(0, offset - 1));
-          edge = prevNl === -1 ? blockStart : blockStart + prevNl + 1;
-        } else {
-          // Current line end = char before the next \n (or block end).
-          const nextNl = text.indexOf('\n', offset);
-          edge = nextNl === -1 ? blockEnd : blockStart + nextNl;
-        }
+        edge =
+          visualCodeLineBoundary(
+            editor,
+            selection.head,
+            blockStart,
+            blockEnd,
+            toStart,
+          ) ??
+          blockStart +
+            logicalCodeLineBoundary(
+              codeNode.textContent,
+              $head.parentOffset,
+              toStart,
+            );
       } else {
         // Use $head.start() / $head.end() (defaults to $head.depth) so that we
         // always resolve to the **text block** boundary (paragraph/heading)

@@ -721,21 +721,13 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             body is content-driven and scrolls past 60vh.
             NodeViewContent must stay mounted for ProseMirror, so in preview
             mode we hide the <pre> instead of unmounting it. */}
-        {/* `contentEditable={false}` here scopes the truly editable/selectable
-            region to just the NodeViewContent div below (re-enabled via its
-            own `contentEditable={true}`), NOT the full <pre> box. Without
-            this, when the block is resized taller than its text, the <pre>'s
-            leftover blank space inherits contentEditable from the ProseMirror
-            root, and WebKit (Tauri's WKWebView) extends the native selection
-            background-fill to cover that empty region too — the "selection
-            reaches past the actual text, all the way to the block's border"
-            bug. Confining contentEditable to the content div's own (content-
-            sized) box keeps the highlight tight around the real text. */}
-        <pre ref={codeRef} className="code-block-body" style={bodyStyle} contentEditable={false}>
+        {/* Keep NodeViewContent in the root ProseMirror editing host. A nested
+            contenteditable=false → true island makes WKWebView focus the inner
+            host, which breaks ProseMirror's DOM selection synchronization. */}
+        <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
           <NodeViewContent
             as="div"
             className={`hljs language-${language || 'plaintext'}`}
-            contentEditable
             style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
           />
         </pre>
