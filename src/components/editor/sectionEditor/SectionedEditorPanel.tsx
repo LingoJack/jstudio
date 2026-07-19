@@ -42,6 +42,8 @@ import type { Block } from '../../../types';
 import SectionEditor, { type SectionFocusHandle } from './SectionEditor';
 import SectionOutline from './SectionOutline';
 import { useCrossSectionSelection, type CrossSelectionContext } from './useCrossSectionSelection';
+import { useCrossSectionFind } from './useCrossSectionFind';
+import FindBar from './FindBar';
 import { splitIntoSections, SECTION_SIZE, SECTION_MAX, SECTION_MERGE_BELOW, type SectionState } from '../../../lib/editor/sectioning';
 import { EditorSkeleton } from './SectionSkeleton';
 
@@ -738,6 +740,21 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   );
   const crossSel = useCrossSectionSelection(crossCtx, activeDocId);
 
+  // ── Cross-section find-in-document ──
+  // Reuses the same `crossCtx` as the selection coordinator — both need to
+  // walk sections in document order and access each section's Editor / focus
+  // handle. `resetKey` is the active doc id (or null in static mode) so the
+  // matches clear on document switch; `query` is the live store value.
+  //
+  // Note on Cmd+F: macOS WKWebView intercepts Cmd+F at the native layer
+  // before any DOM keydown is generated. The native Edit > Find menu forwards
+  // the shared `app.find` command to the focused WebView, where
+  // ShortcutManager dispatches it through the same command registry as DOM
+  // shortcuts.
+  const findQuery = useStore((s) => s.findQuery);
+  const findResetKey = isStatic ? null : activeDocId;
+  const find = useCrossSectionFind(crossCtx, findResetKey, findQuery);
+
   const registerFocus = useCallback(
     (sectionId: string, handle: SectionFocusHandle | null) => {
       if (handle) focusHandlesRef.current.set(sectionId, handle);
@@ -967,6 +984,9 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
         >
           <ListTree className="w-4 h-4" />
         </button>
+
+        {/* Floating find-in-document bar (toggled by Cmd/Ctrl+F) */}
+        <FindBar find={find} />
       </div>
     );
   }
@@ -1068,6 +1088,9 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       >
         <ListTree className="w-4 h-4" />
       </button>
+
+      {/* Floating find-in-document bar (toggled by Cmd/Ctrl+F) */}
+      <FindBar find={find} />
     </div>
   );
 

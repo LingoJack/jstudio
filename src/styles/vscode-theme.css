@@ -753,6 +753,21 @@ pre[class*="language-"] {
 }
 
 /* ============================================
+   Search Match Highlights (FindBar)
+   ============================================
+   Painted by the SectionSearchHighlight ProseMirror plugin via inline
+   Decorations. Two classes: .search-match for all matches, .search-match-active
+   for the currently-focused match (the one Enter will jump to next). */
+.search-match {
+  background: var(--vscode-editor-findMatchBackground, rgba(234, 184, 60, 0.3));
+  border-radius: 2px;
+}
+.search-match-active {
+  background: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 184, 60, 0.6));
+  outline: 1px solid var(--vscode-editor-findMatchHighlightBorder, rgba(234, 184, 60, 0.8));
+}
+
+/* ============================================
    Link Styles
    ============================================ */
 

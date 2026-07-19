@@ -1,7 +1,7 @@
 mod commands;
 mod db;
 
-use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu};
+use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager};
 
 /// Handle window close requests (Cmd+W on macOS).
@@ -45,7 +45,9 @@ fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestAp
 /// see docs/bug-graveyard.md #001). The structure mirrors Tauri 2.11's
 /// `Menu::default` (src/menu/menu.rs) item-for-item, minus that one item.
 #[cfg(target_os = "macos")]
-fn build_app_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
+fn build_app_menu<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> tauri::Result<(Menu<R>, MenuItem<R>)> {
     let pkg = app.package_info();
     let about = AboutMetadata {
         name: Some(pkg.name.clone()),
@@ -77,6 +79,12 @@ fn build_app_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result
     )?;
 
     // Edit menu — intentionally WITHOUT `select_all` (see fn doc above).
+    // Find starts without an accelerator. After settings load, the frontend
+    // synchronizes the effective user binding through
+    // `set_native_menu_accelerator`; an explicit unbind therefore remains
+    // unbound instead of briefly restoring Cmd+F during startup.
+    let find_item = MenuItem::with_id(app, "app.find", "Find...", true, None::<&str>)?;
+
     let edit_submenu = Submenu::with_items(
         app,
         "Edit",
@@ -88,6 +96,8 @@ fn build_app_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result
             &PredefinedMenuItem::cut(app, None)?,
             &PredefinedMenuItem::copy(app, None)?,
             &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &find_item,
         ],
     )?;
 
@@ -112,7 +122,7 @@ fn build_app_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result
 
     let help_submenu = Submenu::with_items(app, "Help", true, &[])?;
 
-    Menu::with_items(
+    let menu = Menu::with_items(
         app,
         &[
             &app_submenu,
@@ -122,7 +132,9 @@ fn build_app_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result
             &window_submenu,
             &help_submenu,
         ],
-    )
+    )?;
+
+    Ok((menu, find_item))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -144,7 +156,8 @@ pub fn run() {
             // Install the custom macOS menu (default minus "Select All").
             #[cfg(target_os = "macos")]
             {
-                let menu = build_app_menu(app.handle())?;
+                let (menu, find_item) = build_app_menu(app.handle())?;
+                app.manage(commands::window::NativeMenuState { find_item });
                 app.set_menu(menu)?;
             }
             Ok(())
@@ -155,6 +168,20 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 on_window_close_requested(window, api);
+            }
+        })
+        // Native menu events use the same command IDs as DOM shortcuts. Send
+        // only to the focused WebView so detached document windows execute
+        // against their own store instead of opening UI in the main window.
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "app.find" {
+                if let Some((label, _)) = app
+                    .webview_windows()
+                    .into_iter()
+                    .find(|(_, window)| window.is_focused().unwrap_or(false))
+                {
+                    let _ = app.emit_to(label, "native-command", "app.find");
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -254,6 +281,7 @@ pub fn run() {
             commands::debug::write_diag_log,
             // ── window control ──
             commands::window::close_window,
+            commands::window::set_native_menu_accelerator,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

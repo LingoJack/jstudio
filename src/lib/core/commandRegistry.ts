@@ -47,6 +47,7 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: 'app.toggleSidebar', perform: (store) => store.toggleSidebar() },
   { id: 'app.toggleOutline', perform: (store) => store.toggleOutline() },
   { id: 'app.openSettings', perform: (store) => store.setSettingsOpen(true) },
+  { id: 'app.find', perform: (store) => store.setFindBarOpen(true) },
   { id: 'app.goToDocuments', perform: (store) => { store.setSettingsOpen(false); store.setActiveSidebarView('documents'); if (!store.isSidebarOpen) store.toggleSidebar(); } },
   { id: 'app.goToTerminal', perform: (store) => { store.setSettingsOpen(false); store.setActiveSidebarView('terminal'); if (!store.isSidebarOpen) store.toggleSidebar(); } },
   { id: 'app.cycleTabLeft', perform: (store) => store.cycleTab(-1) },
@@ -89,6 +90,17 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
 export function getShortcutAction(id: string): ((store: StoreState) => void) | null {
   const action = SHORTCUT_ACTIONS.find((a) => a.id === id);
   return action?.perform ?? null;
+}
+
+/** Execute a shortcut command through the shared action registry. */
+export function executeShortcutAction(id: string, store: StoreState): boolean {
+  const action = getShortcutAction(id);
+  if (!action) {
+    console.warn(`[CommandRegistry] No shortcut action registered for "${id}"`);
+    return false;
+  }
+  action(store);
+  return true;
 }
 
 // ──────────────────────────────────────────────────────────────────

@@ -112,6 +112,15 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'shortcut.app.openSettings',
     descKey: 'shortcut.app.openSettings.desc',
   },
+  {
+    id: 'app.find',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+f',
+    customizable: true,
+    labelKey: 'shortcut.app.find',
+    descKey: 'shortcut.app.find.desc',
+  },
 
   // ── Navigation ──
   {
@@ -565,8 +574,39 @@ export function checkBindingConflict(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// TipTap binding conversion
+// Native / TipTap binding conversion
 // ────────────────────────────────────────────────────────────────────────────
+
+/** Convert an internal binding to a Tauri menu accelerator. */
+export function toTauriAccelerator(binding: ShortcutBinding): string | null {
+  if (!binding) return null;
+
+  const keyMap: Record<string, string> = {
+    mod: 'CmdOrCtrl',
+    alt: 'Alt',
+    shift: 'Shift',
+    enter: 'Enter',
+    backspace: 'Backspace',
+    tab: 'Tab',
+    escape: 'Escape',
+    delete: 'Delete',
+    insert: 'Insert',
+    home: 'Home',
+    end: 'End',
+    pageup: 'PageUp',
+    pagedown: 'PageDown',
+    arrowup: 'ArrowUp',
+    arrowdown: 'ArrowDown',
+    arrowleft: 'ArrowLeft',
+    arrowright: 'ArrowRight',
+    space: 'Space',
+  };
+
+  return binding
+    .split('+')
+    .map((part) => keyMap[part] ?? (part.length === 1 ? part.toUpperCase() : part))
+    .join('+');
+}
 
 /**
  * Converts an internal binding string to TipTap's keymap format.

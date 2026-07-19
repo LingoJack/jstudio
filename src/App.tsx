@@ -8,6 +8,7 @@ import { storage } from './lib/core/storage';
 import { toast } from './lib/toast';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 import { shortcutManager } from './lib/shortcuts/ShortcutManager';
+import { resolveBinding, toTauriAccelerator } from './lib/shortcuts/keyboardShortcuts';
 
 // Side-effect import: registers built-in action handlers for global shortcuts.
 import './lib/shortcuts/globalShortcutActions';
@@ -38,6 +39,7 @@ export default function App() {
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
+  const keyboardShortcuts = useStore((s) => s.keyboardShortcuts);
 
   // Subscribe to a boolean only — NOT the tabs array reference.
   // Must be called BEFORE any early return to satisfy the Rules of Hooks.
@@ -56,6 +58,20 @@ export default function App() {
     shortcutManager.start();
     return () => shortcutManager.stop();
   }, []);
+
+  // Keep the macOS native Find menu accelerator aligned with the effective
+  // user binding. Other platforms accept this command as a no-op.
+  useEffect(() => {
+    if (isLoading) return;
+    const binding = resolveBinding('app.find', keyboardShortcuts);
+    const accelerator = toTauriAccelerator(binding);
+    invoke('set_native_menu_accelerator', {
+      commandId: 'app.find',
+      accelerator,
+    }).catch((error) => {
+      console.error('[App] Failed to sync native Find accelerator:', error);
+    });
+  }, [isLoading, keyboardShortcuts]);
 
   // ── Document abnormal-shrink detection ──
   // Backend emits this when `write_document` detects the new content is

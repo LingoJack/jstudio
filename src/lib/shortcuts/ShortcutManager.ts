@@ -13,22 +13,24 @@
  *   - editor: handled by TipTap, ShortcutManager skips
  */
 
+import { listen } from '@tauri-apps/api/event';
 import { useStore } from '../../store/useStore';
 import {
   eventToBinding,
   resolveBinding,
   SHORTCUTS,
   type ShortcutBinding,
+  type ShortcutOverrides,
   type ShortcutScope,
 } from './keyboardShortcuts';
-import { getShortcutAction } from '../core/commandRegistry';
+import { executeShortcutAction } from '../core/commandRegistry';
 
 /**
  * Editor-reserved bindings that should NOT be intercepted by ShortcutManager.
  * These are handled by TipTap's addKeyboardShortcuts.
  * Format: "mod+b", "mod+i", etc.
  */
-const EDITOR_RESERVED_BINDINGS = new Set<ShortcutBinding>([
+const FIXED_EDITOR_RESERVED_BINDINGS = new Set<ShortcutBinding>([
   'mod+b', // bold
   'mod+i', // italic
   'mod+u', // underline
@@ -37,9 +39,19 @@ const EDITOR_RESERVED_BINDINGS = new Set<ShortcutBinding>([
   'mod+z', // undo
   'mod+shift+z', // redo
   'mod+a', // select all
-  'mod+enter', // insert block below (TipTap extension)
-  'mod+shift+enter', // insert block above (TipTap extension)
 ]);
+
+export function isEditorReservedBinding(
+  binding: ShortcutBinding,
+  overrides: ShortcutOverrides | undefined,
+): boolean {
+  if (FIXED_EDITOR_RESERVED_BINDINGS.has(binding)) return true;
+  return SHORTCUTS.some(
+    (def) =>
+      def.scope === 'editor' &&
+      resolveBinding(def.id, overrides) === binding,
+  );
+}
 
 /**
  * Check if focus is inside an editor element.
@@ -59,6 +71,8 @@ function isEditorFocus(): boolean {
  */
 class ShortcutManager {
   private active: boolean = false;
+  private listenerGeneration = 0;
+  private unlistenNative: (() => void) | null = null;
 
   /**
    * Compute which scopes are currently active based on store state.
@@ -82,15 +96,16 @@ class ShortcutManager {
     const binding = eventToBinding(e);
     if (!binding) return;
 
-    // Editor conflict protection: if focus is in editor and binding is reserved,
-    // let TipTap handle it.
-    if (isEditorFocus() && EDITOR_RESERVED_BINDINGS.has(binding)) {
+    const store = useStore.getState();
+    const overrides = store.keyboardShortcuts;
+
+    // Editor conflict protection: fixed TipTap bindings and the current
+    // user-configured editor bindings must reach ProseMirror unchanged.
+    if (isEditorFocus() && isEditorReservedBinding(binding, overrides)) {
       return;
     }
 
-    const store = useStore.getState();
     const activeScopes = this.getActiveScopes(store);
-    const overrides = store.keyboardShortcuts;
 
     // Find matching shortcut definition
     for (const def of SHORTCUTS) {
@@ -105,18 +120,12 @@ class ShortcutManager {
       // Editor scope shortcuts are handled by TipTap — skip them here
       if (def.scope === 'editor') continue;
 
-      // Found a match — execute the action
+      const actionId = def.actionId ?? def.id;
+      if (!executeShortcutAction(actionId, store)) continue;
+
+      // Consume the event only after confirming the command exists.
       e.preventDefault();
       e.stopPropagation();
-
-      const actionId = def.actionId ?? def.id;
-      const action = getShortcutAction(actionId);
-
-      if (action) {
-        action(store);
-      } else {
-        console.warn(`[ShortcutManager] No action registered for "${actionId}"`);
-      }
 
       // Only one shortcut can match per keypress
       return;
@@ -129,7 +138,25 @@ class ShortcutManager {
   start(): void {
     if (this.active) return;
     this.active = true;
+    const generation = ++this.listenerGeneration;
     window.addEventListener('keydown', this.handleKeyDown, true);
+
+    void listen<string>('native-command', (event) => {
+      if (!this.active || generation !== this.listenerGeneration) return;
+      executeShortcutAction(event.payload, useStore.getState());
+    })
+      .then((unlisten) => {
+        if (!this.active || generation !== this.listenerGeneration) {
+          unlisten();
+          return;
+        }
+        this.unlistenNative = unlisten;
+      })
+      .catch((error) => {
+        if (this.active && generation === this.listenerGeneration) {
+          console.warn('[ShortcutManager] Failed to listen for native commands:', error);
+        }
+      });
   }
 
   /**
@@ -138,7 +165,10 @@ class ShortcutManager {
   stop(): void {
     if (!this.active) return;
     this.active = false;
+    this.listenerGeneration += 1;
     window.removeEventListener('keydown', this.handleKeyDown, true);
+    this.unlistenNative?.();
+    this.unlistenNative = null;
   }
 }
 

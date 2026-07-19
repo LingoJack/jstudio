@@ -15,12 +15,18 @@ import { useStore } from '../../store/useStore';
 import { fetchDocumentDetachPayload } from '../../lib/windows/documentDetach';
 import SectionedEditorPanel from '../editor/sectionEditor/SectionedEditorPanel';
 import { useI18n } from '../../lib/core/i18n';
+import { shortcutManager } from '../../lib/shortcuts/ShortcutManager';
 
 type Status = 'loading' | 'ready' | 'error';
 
 export default function DocumentWindowApp() {
   const [status, setStatus] = useState<Status>('loading');
   const { t } = useI18n();
+
+  useEffect(() => {
+    shortcutManager.start();
+    return () => shortcutManager.stop();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

@@ -223,6 +223,14 @@ export const translations = {
     'outline.show': '显示大纲',
     'outline.hide': '隐藏大纲',
 
+    // ── FindBar ──
+    'find.placeholder': '查找...',
+    'find.next': '下一个',
+    'find.previous': '上一个',
+    'find.close': '关闭',
+    'find.matchCount': '{current}/{total}',
+    'find.noResults': '无结果',
+
     // ── SectionedEditorPanel ──
     'editor.titlePlaceholder': '文档标题',
 
@@ -631,6 +639,8 @@ export const translations = {
     'shortcut.app.toggleSidebar.desc': '展开或收起侧边栏',
     'shortcut.app.toggleOutline': '切换大纲',
     'shortcut.app.toggleOutline.desc': '展开或收起文档大纲',
+    'shortcut.app.find': '查找',
+    'shortcut.app.find.desc': '在当前文档中查找',
     'shortcut.app.openSettings': '打开设置',
     'shortcut.app.openSettings.desc': '打开应用设置页面',
     'shortcut.app.importMarkdown': '导入 Markdown',
@@ -916,6 +926,14 @@ export const translations = {
     'outline.empty': 'No headings in this document',
     'outline.show': 'Show outline',
     'outline.hide': 'Hide outline',
+
+    // ── FindBar ──
+    'find.placeholder': 'Find...',
+    'find.next': 'Next',
+    'find.previous': 'Previous',
+    'find.close': 'Close',
+    'find.matchCount': '{current}/{total}',
+    'find.noResults': 'No results',
 
     // ── SectionedEditorPanel ──
     'editor.titlePlaceholder': 'Document title',
@@ -1326,6 +1344,8 @@ export const translations = {
     'shortcut.app.toggleSidebar.desc': 'Show or hide the sidebar',
     'shortcut.app.toggleOutline': 'Toggle outline',
     'shortcut.app.toggleOutline.desc': 'Show or hide the document outline',
+    'shortcut.app.find': 'Find',
+    'shortcut.app.find.desc': 'Find in current document',
     'shortcut.app.openSettings': 'Open settings',
     'shortcut.app.openSettings.desc': 'Open the application settings page',
     'shortcut.app.importMarkdown': 'Import Markdown',

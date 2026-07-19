@@ -26,11 +26,11 @@
  *          remove TAB_SPACES worth of literal spaces at the cursor.
  */
 
-import { Extension, type KeyboardShortcutCommand } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import { Extension, type Editor, type KeyboardShortcutCommand } from '@tiptap/core';
+import { Plugin, TextSelection } from '@tiptap/pm/state';
 
 import { slashMenuPluginKey } from './slashMenu';
-import { resolveBinding, toTiptapBinding } from '../shortcuts/keyboardShortcuts';
+import { eventToBinding, resolveBinding } from '../shortcuts/keyboardShortcuts';
 import { useStore } from '../../store/useStore';
 import { blockBehaviorRegistry } from './blockBehaviorRegistry';
 
@@ -48,6 +48,20 @@ const TAB_SPACES = '    ';
 
 /** Node type names whose Tab handling is owned by another extension. */
 const STRUCTURAL_TAB_TYPES = ['listItem', 'taskItem', 'tableCell', 'tableHeader'];
+
+function insertParagraphAdjacent(editor: Editor, above: boolean): boolean {
+  const { state, view } = editor;
+  if (!view.hasFocus()) return false;
+  const $head = state.selection.$head;
+  if ($head.depth < 1) return false;
+
+  const pos = above ? $head.before(1) : $head.after(1);
+  const tr = state.tr;
+  tr.insert(pos, state.schema.nodes.paragraph.create());
+  tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+  view.dispatch(tr);
+  return true;
+}
 
 export const BlockNavigation = Extension.create<BlockNavigationOptions>({
   name: 'blockNavigation',
@@ -166,44 +180,6 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
     };
 
     // -----------------------------------------------------------------
-    // Cmd/Ctrl+Enter — insert an empty paragraph BELOW the current block.
-    // -----------------------------------------------------------------
-    const onModEnter = () => {
-      const { state, view } = editor;
-      // If the editor doesn't have focus, let the browser handle the event.
-      if (!view.hasFocus()) return false;
-      const { selection } = state;
-      const $head = selection.$head;
-      if ($head.depth < 1) return false;
-      const after = $head.after(1);
-      const tr = state.tr;
-      const para = state.schema.nodes.paragraph.create();
-      tr.insert(after, para);
-      tr.setSelection(TextSelection.create(tr.doc, after + 1));
-      editor.view.dispatch(tr);
-      return true;
-    };
-
-    // -----------------------------------------------------------------
-    // Cmd/Ctrl+Shift+Enter — insert an empty paragraph ABOVE the current block.
-    // -----------------------------------------------------------------
-    const onModShiftEnter = () => {
-      const { state, view } = editor;
-      // If the editor doesn't have focus, let the browser handle the event.
-      if (!view.hasFocus()) return false;
-      const { selection } = state;
-      const $head = selection.$head;
-      if ($head.depth < 1) return false;
-      const blockPos = $head.before(1);
-      const tr = state.tr;
-      const para = state.schema.nodes.paragraph.create();
-      tr.insert(blockPos, para);
-      tr.setSelection(TextSelection.create(tr.doc, blockPos + 1));
-      editor.view.dispatch(tr);
-      return true;
-    };
-
-    // -----------------------------------------------------------------
     // Backspace — delegate to BlockBehaviorRegistry.
     //
     // Each block extension registers its own deletion logic (e.g.,
@@ -284,11 +260,6 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       return true;
     };
 
-    // Resolve user-customizable bindings from the shortcut registry.
-    const ov = useStore.getState().keyboardShortcuts;
-    const modEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockBelow', ov));
-    const modShiftEnterBinding = toTiptapBinding(resolveBinding('editor.insertBlockAbove', ov));
-
     const keymap: Record<string, KeyboardShortcutCommand> = {
       ArrowUp: onArrowUp,
       ArrowLeft: onArrowLeft,
@@ -297,8 +268,29 @@ export const BlockNavigation = Extension.create<BlockNavigationOptions>({
       Tab: onTab,
       'Shift-Tab': onShiftTab,
     };
-    keymap[modEnterBinding] = onModEnter;
-    keymap[modShiftEnterBinding] = onModShiftEnter;
     return keymap;
+  },
+
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    return [
+      new Plugin({
+        props: {
+          handleKeyDown: (_view, event) => {
+            const binding = eventToBinding(event);
+            if (!binding) return false;
+
+            const overrides = useStore.getState().keyboardShortcuts;
+            if (binding === resolveBinding('editor.insertBlockBelow', overrides)) {
+              return insertParagraphAdjacent(editor, false);
+            }
+            if (binding === resolveBinding('editor.insertBlockAbove', overrides)) {
+              return insertParagraphAdjacent(editor, true);
+            }
+            return false;
+          },
+        },
+      }),
+    ];
   },
 });

@@ -36,6 +36,7 @@ import { TaskListMarkdown } from '../../../lib/editor/extensions/taskListMarkdow
 import { SlashMenuExtension } from '../../../lib/editor/slashMenu';
 import { BlockNavigation } from '../../../lib/editor/blockNavigation';
 import { SectionHighlightSelection } from '../../../lib/editor/extensions/sectionHighlightSelection';
+import { SectionSearchHighlight } from '../../../lib/editor/extensions/sectionSearchHighlight';
 
 export interface SectionExtensionOptions {
   placeholder: string;
@@ -100,6 +101,7 @@ export function createSectionExtensions(
       onExitToTitle: opts.onExitToTitle,
     }),
     SectionHighlightSelection,
+    SectionSearchHighlight,
     Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
   ];
 }
