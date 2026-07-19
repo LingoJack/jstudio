@@ -12,9 +12,12 @@
  *   1. `rescan()` iterates `getOrder()`, calls `getEditor(id).state.doc.descendants()`
  *      on each section, and collects matches into a flat `SearchMatch[]`.
  *   2. The active match (indexed by `currentIndex`) is painted with a stronger
- *      highlight class, and its section is scrolled into view WITHOUT
- *      stealing DOM focus, so the find bar input stays focused for
- *      repeated Enter/Shift+Enter presses.
+ *      highlight class, and its section is scrolled into view via a DOM-level
+ *      `scrollIntoView()` — deliberately WITHOUT setting a ProseMirror
+ *      selection or DOM focus. Setting a real selection inside a
+ *      contenteditable region implicitly shifts DOM focus to it (stealing
+ *      focus from the find bar input, breaking repeated Enter) and also
+ *      makes FormatBubbleMenu's `shouldShow` fire on every match.
  *   3. `next()` / `prev()` cycle `currentIndex` within `[0, matches.length)`.
  *   4. Each editor's `update` event triggers a debounced `rescan()` so matches
  *      stay fresh as the user edits. Re-subscription timers catch sections
@@ -167,7 +170,7 @@ export function useCrossSectionFind(
     const m = matchesRef.current[cur];
     if (!m) return;
     const handle = ctxRef.current.getHandle(m.sectionId);
-    handle?.scrollToRange(m.from, m.to);
+    handle?.scrollToRange(m.from);
   }, []);
 
   const next = useCallback(() => {

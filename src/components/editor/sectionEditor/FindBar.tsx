@@ -45,19 +45,30 @@ export default function FindBar({ find }: FindBarProps) {
     return () => cancelAnimationFrame(raf);
   }, [isOpen]);
 
-  // ── Clear highlights when the bar closes ─────────────────────────────
-  // Listen for the open→false transition so we don't clear on every render.
-  // `find` is recreated on every parent render, so we keep its latest `clear`
-  // in a ref and depend only on `isOpen`.
+  // ── Clear highlights when the bar closes; re-scan when it reopens ────
+  // Listen for open<->close transitions so we don't run on every render.
+  // `find` is recreated on every parent render, so we keep its latest
+  // `clear`/`rescan` in refs and depend only on `isOpen`.
+  //
+  // Closing calls `clear()`, which wipes matches + highlights (e.g. so
+  // stale highlights don't linger while the bar is hidden and the doc is
+  // edited). Since the query text itself is preserved across close/reopen
+  // (see the JSDoc above), reopening must explicitly `rescan()` — the
+  // query string hasn't changed, so `useCrossSectionFind`'s
+  // query-change-triggered rescan effect won't fire on its own.
   const prevOpenRef = useRef(isOpen);
   const findClearRef = useRef(find.clear);
   findClearRef.current = find.clear;
+  const findRescanRef = useRef(find.rescan);
+  findRescanRef.current = find.rescan;
   useEffect(() => {
     if (prevOpenRef.current && !isOpen) {
       findClearRef.current();
+    } else if (!prevOpenRef.current && isOpen && findQuery) {
+      findRescanRef.current();
     }
     prevOpenRef.current = isOpen;
-  }, [isOpen]);
+  }, [isOpen, findQuery]);
 
   if (!isOpen) return null;
 

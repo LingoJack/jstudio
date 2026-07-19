@@ -42,10 +42,11 @@ export interface SectionFocusHandle {
   setTextSelection: (from: number, to: number) => void;
   /** Select the entire content of this section. Does NOT steal focus. */
   selectAll: () => void;
-  /** Set a text selection [from, to] and scroll it into view, WITHOUT
-   *  stealing DOM focus. Used by find-in-document navigation so the find
-   *  bar input keeps focus across repeated Enter presses. */
-  scrollToRange: (from: number, to: number) => void;
+  /** Scroll a doc position into view WITHOUT touching the editor's selection
+   *  or DOM focus. Used by find-in-document navigation so the find bar
+   *  input keeps focus across repeated Enter presses, and no selection
+   *  change is made that would pop the FormatBubbleMenu. */
+  scrollToRange: (from: number) => void;
   /** Collapse any selection in this section to a caret at its current pos. */
   clearSelection: () => void;
   /** Focus this section's editor (caret stays at its current pos). */
@@ -317,15 +318,20 @@ export default function SectionEditor({
         const size = editor.state.doc.content.size;
         editor.chain().setTextSelection({ from: 0, to: size }).run();
       },
-      scrollToRange: (from, to) => {
-        editor.chain().setTextSelection({ from, to }).run();
-        // NOTE: TipTap/ProseMirror's built-in `.scrollIntoView()` command
-        // resolves the scroll target from the browser's *native* DOM
-        // selection (`view.domSelectionRange().focusNode`) and bails out if
-        // that selection isn't inside this editor's DOM — which is exactly
-        // the case here, since we deliberately did NOT call `.focus()` (see
-        // setTextSelection above). So we scroll manually via the DOM node at
-        // `from`, which works regardless of focus.
+      scrollToRange: (from) => {
+        // Deliberately does NOT touch the editor's selection (contrast with
+        // setTextSelection above). Two reasons:
+        //   1. Setting a PM TextSelection inside a contenteditable region
+        //      implicitly shifts DOM focus to that element in WebKit/Chrome
+        //      (native "focus follows selection" behavior for editable
+        //      hosts) even without an explicit `.focus()` call — which stole
+        //      focus from the find bar's <input>, breaking native Cmd+A
+        //      select-all inside it.
+        //   2. A non-empty selection also makes FormatBubbleMenu's
+        //      `shouldShow` fire, popping the format toolbar over every
+        //      find match.
+        // So we resolve the DOM node at `from` directly and let the browser
+        // scroll it into view — no ProseMirror selection/focus involved.
         const { node } = editor.view.domAtPos(from);
         const el = node.nodeType === 1 ? (node as Element) : node.parentElement;
         el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
