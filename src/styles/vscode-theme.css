@@ -743,13 +743,21 @@ pre[class*="language-"] {
 }
 
 /* Cross-section selection highlight — painted by the section coordinator
-   (useCrossSectionSelection) on sections that are part of a cross-section
-   selection but do NOT hold the native Selection. The browser only keeps one
-   Selection, inside the focused anchor section; every other covered section
-   gets this class via a ProseMirror inline Decoration so the user sees a
-   continuous highlight across section boundaries. */
+   (useCrossSectionSelection) on every section that is part of a cross-section
+   selection. The anchor section also holds the native Selection (for copy/cut
+   keyboard events), but its native highlight is hidden via
+   `.cross-section-anchor-hide-selection ::selection` so the visual selection
+   is uniform across section boundaries. */
 .cross-section-selected {
   background: var(--vscode-editor-selectionBackground);
+}
+
+/* When a cross-section selection is active, the anchor section still holds the
+   native Selection (needed for copy/cut/keyboard events). Hide that native
+   highlight so the selection visually matches the other sections, which only
+   show the custom `.cross-section-selected` decoration. */
+.cross-section-anchor-hide-selection ::selection {
+  background: transparent !important;
 }
 
 /* ============================================

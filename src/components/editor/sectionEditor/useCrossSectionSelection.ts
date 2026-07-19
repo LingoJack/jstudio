@@ -105,7 +105,10 @@ export function useCrossSectionSelection(
   const clearHighlights = useCallback(() => {
     const order = ctxRef.current.getOrder();
     for (const id of order) {
-      setSectionHighlight(ctxRef.current.getEditor(id), null, null);
+      const editor = ctxRef.current.getEditor(id);
+      if (!editor) continue;
+      setSectionHighlight(editor, null, null);
+      editor.view.dom.classList.remove('cross-section-anchor-hide-selection');
     }
   }, []);
 
@@ -160,9 +163,17 @@ export function useCrossSectionSelection(
     return ranges;
   }, []);
 
-  /** Paint highlights + set the native selection on the anchor. */
+  /**
+   * Paint the cross-section highlight on every covered section and set the
+   * native selection on the anchor. The anchor also gets a CSS class that hides
+   * the native selection highlight so the visual selection is consistent across
+   * all sections (only the custom `.cross-section-selected` decoration shows).
+   */
   const apply = useCallback(
     (sel: ResolvedSelection) => {
+      // Clear previous paint first so sections that leave the selection do not
+      // keep stale highlights, and remove any old hide-selection class.
+      clearHighlights();
       const ranges = computeRanges(sel);
       rangesRef.current = ranges;
       selRef.current = sel;
@@ -175,10 +186,12 @@ export function useCrossSectionSelection(
           .current
           .getHandle(sel.anchorId)
           ?.setTextSelection(anchorRange.from, anchorRange.to);
+        const anchorEditor = ctxRef.current.getEditor(sel.anchorId);
+        anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
       }
       setActive(true);
     },
-    [computeRanges],
+    [clearHighlights, computeRanges],
   );
 
   const handleMove = useCallback(
@@ -271,6 +284,7 @@ export function useCrossSectionSelection(
   );
 
   const selectAll = useCallback(() => {
+    clearHighlights();
     const order = ctxRef.current.getOrder();
     if (order.length === 0) return;
     const ranges: SectionRange[] = order.map((id) => {
@@ -295,8 +309,10 @@ export function useCrossSectionSelection(
       setSectionHighlight(ctxRef.current.getEditor(r.id), r.from, r.to);
     }
     ctxRef.current.getHandle(firstId)?.setTextSelection(0, firstSize);
+    const anchorEditor = ctxRef.current.getEditor(firstId);
+    anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
     setActive(true);
-  }, []);
+  }, [clearHighlights]);
 
   /** Delete the selection across all covered sections, bottom-up. */
   const deleteSelection = useCallback(() => {
