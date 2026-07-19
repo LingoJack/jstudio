@@ -35,6 +35,7 @@ import { ResizeHandle } from '../../ui/ResizeHandle';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeSelected } from '../hooks/useNodeSelected';
+import { useCodeBlockSelectionOverlay } from '../hooks/useCodeBlockSelectionOverlay';
 import { openHtmlPreviewWindow } from '../../../lib/windows/previewWindow';
 import { useI18n } from '../../../lib/core/i18n';
 
@@ -98,6 +99,12 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const codeRef = useRef<HTMLPreElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // Custom selection-highlight overlay: native ::selection under
+  // white-space:pre-wrap over-extends to the full container width on
+  // wrapped lines (a Chromium/WebKit quirk). This hook computes tight,
+  // glyph-accurate rects via Range.getClientRects() instead. See
+  // useCodeBlockSelectionOverlay.ts for the full root-cause writeup.
+  const selectionOverlayRef = useCodeBlockSelectionOverlay(codeRef);
 
   // "Real" selection: only a genuine NodeSelection on THIS node counts as
   // selected — NOT a text selection that sweeps across the code block.
@@ -729,6 +736,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             contenteditable=false → true island makes WKWebView focus the inner
             host, which breaks ProseMirror's DOM selection synchronization. */}
         <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
+          <div ref={selectionOverlayRef} className="code-block-selection-overlay" aria-hidden="true" />
           <NodeViewContent
             as="div"
             className={`hljs language-${language || 'plaintext'}`}

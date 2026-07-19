@@ -1,0 +1,24 @@
+- generic [ref=e3]:
+  - button "收起侧边栏" [ref=e5] [cursor=pointer]:
+    - img [ref=e6]
+  - generic [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - button "文档" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - button "终端" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+        - button "JSpirit" [ref=e17] [cursor=pointer]:
+          - img [ref=e18]
+      - button "设置" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+    - generic [ref=e26]:
+      - button "更多操作" [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+      - paragraph [ref=e36]: 暂无匹配文档
+    - img [ref=e40]
+  - alert [ref=e44]:
+    - img [ref=e45]
+    - generic [ref=e49]: 应用初始化失败
+    - button "Close" [ref=e50] [cursor=pointer]:
+      - img [ref=e51]
