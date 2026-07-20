@@ -307,6 +307,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     customizable: true,
     labelKey: 'shortcut.editor.insertBlockAbove',
   },
+  {
+    id: 'editor.inlineCode',
+    category: 'editor-blocks',
+    scope: 'editor',
+    defaultBinding: 'mod+`',
+    customizable: true,
+    labelKey: 'shortcut.editor.inlineCode',
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -330,7 +338,7 @@ export const REFERENCE_SHORTCUTS: { category: string; items: ReferenceShortcut[]
       { labelKey: 'shortcut.ref.italic', binding: 'mod+i' },
       { labelKey: 'shortcut.ref.underline', binding: 'mod+u' },
       { labelKey: 'shortcut.ref.strikethrough', binding: 'mod+shift+s' },
-      { labelKey: 'shortcut.ref.inlineCode', binding: 'mod+e' },
+      { labelKey: 'shortcut.ref.inlineCode', binding: 'mod+`' },
       { labelKey: 'shortcut.ref.undo', binding: 'mod+z' },
       { labelKey: 'shortcut.ref.redo', binding: 'mod+shift+z' },
       { labelKey: 'shortcut.ref.selectAll', binding: 'mod+a' },

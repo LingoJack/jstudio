@@ -82,6 +82,7 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   // ── Editor Blocks ── (handled by TipTap, listed here for completeness)
   { id: 'editor.insertBlockBelow', perform: () => { /* TipTap handles */ } },
   { id: 'editor.insertBlockAbove', perform: () => { /* TipTap handles */ } },
+  { id: 'editor.inlineCode', perform: () => { /* TipTap handles via capture-phase */ } },
 ];
 
 /**

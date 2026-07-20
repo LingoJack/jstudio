@@ -36,6 +36,7 @@ import { ListTree } from 'lucide-react';
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
+import { eventToBinding, resolveBinding } from '../../../lib/shortcuts/keyboardShortcuts';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
@@ -369,6 +370,26 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
         e.preventDefault();
         e.stopPropagation();
         return;
+      }
+
+      // ── Cmd/Ctrl+` → toggle inline code (editor.inlineCode) ──
+      // macOS/WKWebView intercepts Cmd+` as the system "cycle window"
+      // accelerator via performKeyEquivalent:, marking defaultPrevented
+      // before ProseMirror's keymap runs (same family as bug-graveyard #001
+      // and the Cmd+A menu-item issue). Resolve the effective binding from
+      // the shortcut registry so user overrides are respected.
+      if (e.key === '`') {
+        const editor = editorForKeyboardTarget(e.target, sectionEditorsRef.current);
+        if (editor) {
+          const binding = eventToBinding(e);
+          const overrides = useStore.getState().keyboardShortcuts;
+          if (binding === resolveBinding('editor.inlineCode', overrides)) {
+            editor.chain().focus().toggleCode().run();
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
       }
 
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;

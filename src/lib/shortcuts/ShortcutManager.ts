@@ -35,7 +35,8 @@ const FIXED_EDITOR_RESERVED_BINDINGS = new Set<ShortcutBinding>([
   'mod+i', // italic
   'mod+u', // underline
   'mod+shift+s', // strikethrough
-  'mod+e', // inline code
+  'mod+e', // inline code (TipTap Code extension default — dead key on macOS)
+  'mod+`', // inline code (practical primary binding on macOS)
   'mod+z', // undo
   'mod+shift+z', // redo
   'mod+a', // select all

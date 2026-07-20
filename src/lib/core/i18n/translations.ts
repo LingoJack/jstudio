@@ -685,6 +685,7 @@ export const translations = {
     // Editor shortcuts
     'shortcut.editor.insertBlockBelow': '下方插入空行',
     'shortcut.editor.insertBlockAbove': '上方插入空行',
+    'shortcut.editor.inlineCode': '行内代码',
 
     // Reference shortcuts (read-only)
     'shortcut.ref.editorFormatting': '编辑器格式化',
@@ -1394,6 +1395,7 @@ export const translations = {
     // Editor shortcuts
     'shortcut.editor.insertBlockBelow': 'Insert block below',
     'shortcut.editor.insertBlockAbove': 'Insert block above',
+    'shortcut.editor.inlineCode': 'Inline code',
 
     // Reference shortcuts (read-only)
     'shortcut.ref.editorFormatting': 'Editor formatting',
