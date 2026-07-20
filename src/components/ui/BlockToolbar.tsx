@@ -38,7 +38,7 @@ interface BlockToolbarProps {
 export function BlockToolbar({ selected, children }: BlockToolbarProps) {
   if (!selected) return null;
   return (
-    <div className="block-toolbar" contentEditable={false}>
+    <div className="editor-toolbar block-toolbar" contentEditable={false}>
       {children}
     </div>
   );

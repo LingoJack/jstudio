@@ -325,7 +325,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       // appear at the wrong position — especially inside task lists
       // where mark toggles trigger a ProseMirror view update.
       updateDelay={100}
-      className="bubble-menu"
+      className="editor-toolbar bubble-menu"
     >
       <div className="flex items-center gap-0.5">
         {ITEMS.map(({ name, labelKey, Icon }, index) => {

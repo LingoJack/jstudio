@@ -171,7 +171,7 @@ export default function TableControls({ editor }: TableControlsProps) {
   return (
     <div
       data-table-control
-      className="fixed z-modal flex items-center rounded-md border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] py-0.5 shadow-lg"
+      className="editor-toolbar fixed"
       style={{
         left: `${toolbar.x}px`,
         top: `${toolbar.y}px`,
@@ -280,7 +280,7 @@ function Dropdown({ icon, isOpen, onHover, children }: DropdownProps) {
       {/* Dropdown panel */}
       {isOpen && (
         <div
-          className="absolute right-0 top-full z-[101] mt-1 min-w-[130px] rounded-md border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] py-1 shadow-xl"
+          className="editor-toolbar-menu absolute right-0 top-full z-[101] mt-1 min-w-[130px] py-1"
           onMouseEnter={onHover}
         >
           {children}

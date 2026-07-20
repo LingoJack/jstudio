@@ -1220,19 +1220,50 @@ button {
    ============================================ */
 
 /* Floating toolbar (top-center), visible only when the block is selected */
+/* BlockToolbar container (Image / File / Diagram / Link / Code blocks).
+   Positioned at top-center of the block; all chrome comes from
+   .editor-toolbar. */
 .block-toolbar {
   position: absolute;
   top: -40px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10;
+}
+
+/* ─── Editor Toolbar (unified container) ──────────────────────────────────
+   Single source of truth for the floating-editor toolbar container itself:
+   FormatBubbleMenu (.bubble-menu), BlockToolbar (.block-toolbar),
+   TableControls (.table-ctrl). Each variant class adds only positioning;
+   all padding / radius / border / shadow / bg visuals live here so the
+   three toolbars share one outer chrome. */
+.editor-toolbar {
   display: flex;
+  align-items: center;
   gap: 2px;
-  padding: 3px;
-  background: var(--vscode-menu-background, var(--vscode-editor-background, #1e1e1e));
-  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  background: var(--vscode-menu-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-menu-border, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  z-index: 100;
+}
+
+/* Secondary dropdown / flyout panel (e.g. TableControls row/column/align
+   menus). Shares the same chrome as the toolbar itself for visual
+   consistency — same border, radius, shadow, bg. */
+.editor-toolbar-menu {
+  background: var(--vscode-menu-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-menu-border, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+}
+
+/* Dark theme refinements (apply to every editor toolbar + flyout). */
+.dark .editor-toolbar,
+.dark .editor-toolbar-menu {
+  border-color: var(--vscode-menu-border, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Editor Toolbar Button (unified) ─────────────────────────────────────
@@ -1324,16 +1355,11 @@ button {
 }
 
 /* ─── BubbleMenu (selection formatting toolbar) ────────────────────────── */
+/* Outer chrome (padding / radius / border / shadow / bg) comes from the
+   shared .editor-toolbar class added in JSX. .bubble-menu is kept as an
+   alias for any code that selects it directly (e.g. dev tools, tests). */
 .bubble-menu {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  background: var(--vscode-menu-background, var(--vscode-editor-background));
-  border: 1px solid var(--vscode-menu-border, rgba(0, 0, 0, 0.12));
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  z-index: 100;
+  /* visual rules intentionally live on .editor-toolbar */
 }
 
 /* FormatBubbleMenu buttons: 28×28, 5px radius. Hover/focus/active/disabled
@@ -1342,12 +1368,6 @@ button {
   width: 28px;
   height: 28px;
   border-radius: 5px;
-}
-
-/* Dark theme refinements */
-.dark .bubble-menu {
-  border-color: var(--vscode-menu-border, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── End BubbleMenu ───────────────────────────────────────────────────── */
