@@ -1331,21 +1331,14 @@ button {
   transition: background 0.12s ease, color 0.12s ease;
 }
 
-/* Mouse hover and keyboard focus share the same hover background. Hover is
-   driven purely by CSS :hover so it survives React re-render storms triggered
-   by floating-ui repositioning in the sectioned editor — relying on React
-   state (activeIndex) for the hover visual was the source of the "hover gives
-   no feedback" regression. */
+/* Mouse hover and keyboard focus share the same visual treatment (background
+   + focus ring). Hover is driven purely by CSS :hover so it survives React
+   re-render storms triggered by floating-ui repositioning in the sectioned
+   editor — relying on React state (activeIndex) for the hover visual was the
+   source of the "hover gives no feedback" regression. */
 .bubble-menu-btn:hover,
 .bubble-menu-btn.is-focused {
   background: var(--vscode-list-hoverBackground);
-}
-
-/* The blue focus ring is a KEYBOARD-ONLY affordance (Tab/Shift+Tab roving
-   focus). Suppress it while the mouse is over the button — the background
-   highlight alone is enough for mouse users, and showing both the ring and
-   the background on hover looks noisy. */
-.bubble-menu-btn.is-focused:not(:hover) {
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: -1px;
 }
@@ -1353,7 +1346,7 @@ button {
 /* Active mark (e.g. bold text inside the selection) keeps its distinct
    background even while hovered or keyboard-focused. */
 .bubble-menu-btn.is-active:hover,
-.bubble-menu-btn.is-active.is-focused:not(:hover) {
+.bubble-menu-btn.is-active.is-focused {
   background: var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.2));
   color: var(--vscode-list-activeSelectionForeground, var(--vscode-editor-foreground));
 }
