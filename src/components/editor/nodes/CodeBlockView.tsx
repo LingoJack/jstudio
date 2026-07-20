@@ -13,7 +13,7 @@
  * The header is a separate strip (not absolutely positioned over the code),
  * eliminating the previous overlap between the top-right icons and the
  * first line of source. The action buttons reuse the shared
- * `block-toolbar-btn` skin so they match Image / File / Diagram blocks.
+ * `block-toolbar-btn` (composed with `editor-toolbar-btn`) skin so they match Image / File / Diagram blocks.
  *
  * Selection / resize chrome is unified with FileView:
  *   - The figure shows a focusBorder when the node is selected (NodeSelection)
@@ -530,7 +530,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   }, [highlightedIndex, dropdownOpen]);
 
   // ---- Action buttons (HTML/Mermaid preview toggle + copy) ----
-  // Both reuse the shared `block-toolbar-btn` skin (--sm size variant) so the
+  // Both reuse the shared `editor-toolbar-btn block-toolbar-btn` skin (--sm size variant) so the
   // code block matches Image / File / Diagram toolbars. They live in the
   // right side of the header row. Copy reveals on hover
   // (`code-toolbar-reveal`); the preview toggle is always visible and
