@@ -28,6 +28,8 @@ export type BlockType =
 export interface CodeBlockProperties {
   /** Syntax language for highlighting. */
   language?: string;
+  /** Whether the code body is collapsed (header still visible). */
+  codeCollapsed?: boolean;
   /** Whether HTML preview is shown instead of source. */
   codeHtmlPreview?: boolean;
   /** Max body height as viewport percentage (legacy). */

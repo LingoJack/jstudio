@@ -46,6 +46,8 @@ import { blockBehaviorRegistry } from '../blockBehaviorRegistry';
 
 export interface CodeBlockNodeAttributes {
   language?: string;
+  /** Whether the code body is collapsed (header + badge still visible). */
+  collapsed?: boolean;
   /** HTML code blocks: whether the rendered (iframe) preview is shown instead of the source. */
   htmlPreview?: boolean;
   /** Mermaid code blocks: whether the rendered SVG diagram is shown instead of the source. */
@@ -255,6 +257,14 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      collapsed: {
+        default: false,
+        parseHTML: (el) => el.getAttribute('data-collapsed') === 'true',
+        renderHTML: (attrs) => {
+          if (!attrs.collapsed) return {};
+          return { 'data-collapsed': 'true' };
+        },
+      },
       htmlPreview: {
         default: false,
         parseHTML: (el) => el.getAttribute('data-html-preview') === 'true',

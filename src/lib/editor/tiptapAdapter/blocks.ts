@@ -177,6 +177,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       json.attrs = {
         ...json.attrs,
         language: block.properties?.language ?? 'plaintext',
+        collapsed: block.properties?.codeCollapsed ?? false,
         htmlPreview: block.properties?.codeHtmlPreview ?? false,
         maxHeightPct: block.properties?.codeMaxHeightPct ?? null,
         width: block.properties?.codeWidth ?? null,
@@ -360,6 +361,7 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
       block.content = [{ text: codeText, annotations: {} }];
       block.properties = {
         language: (attrs.language as string) ?? 'plaintext',
+        codeCollapsed: attrs.collapsed === true ? true : undefined,
         codeHtmlPreview: attrs.htmlPreview === true ? true : undefined,
         codeMaxHeightPct:
           typeof attrs.maxHeightPct === 'number' ? attrs.maxHeightPct : undefined,

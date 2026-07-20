@@ -483,6 +483,8 @@ export const translations = {
     'code.previewMermaid': '预览 Mermaid',
     'code.previewNewWindow': '在新窗口预览',
     'code.dragResize': '拖拽调节大小，双击重置',
+    'code.collapse': '折叠代码',
+    'code.expand': '展开代码',
 
     // ── Mermaid Import Dialog ──
     'mermaid.title': '导入 Mermaid 图表',
@@ -1190,6 +1192,8 @@ export const translations = {
     'code.previewMermaid': 'Preview Mermaid',
     'code.previewNewWindow': 'Preview in new window',
     'code.dragResize': 'Drag to resize, double-click to reset',
+    'code.collapse': 'Collapse code',
+    'code.expand': 'Expand code',
 
     // ── Mermaid Import Dialog ──
     'mermaid.title': 'Import Mermaid Diagram',

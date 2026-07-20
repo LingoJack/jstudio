@@ -1399,6 +1399,20 @@ button {
   border-color: var(--vscode-focusBorder);
 }
 
+/* Collapsed: hide the header's bottom divider since there's no body below it. */
+.code-block-figure.is-collapsed .code-block-header {
+  border-bottom: none;
+}
+
+/* Collapse-toggle chevron: rotate 90° clockwise when expanded (pointing down
+   would conflict with the language-badge chevron, so we use right→down). */
+.code-collapse-chevron {
+  transition: transform 0.15s ease;
+}
+.code-collapse-chevron.is-open {
+  transform: rotate(90deg);
+}
+
 /* 选中代码块节点时隐藏 ProseMirror 默认的 block 级外框，
    只保留 code-block-figure 自身的 focusBorder 边框即可。
    与 image / file 节点同理，用 :has() 匹配。 */

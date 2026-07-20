@@ -29,7 +29,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
-import { Copy, Check, ChevronDown, Search, Eye, Code2, ExternalLink } from 'lucide-react';
+import { Copy, Check, ChevronDown, Search, Eye, Code2, ExternalLink, ChevronRight } from 'lucide-react';
 import mermaid from 'mermaid';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import { useNodeResize } from '../hooks/useNodeResize';
@@ -89,6 +89,7 @@ function getLanguageLabel(value: string): string {
 
 export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || '';
+  const collapsed = (node.attrs?.collapsed as boolean | undefined) === true;
   const { t } = useI18n();
   // Resize attributes (unified with FileView): width/height stored as a
   // percentage of the editor content width, with legacy px fallbacks.
@@ -258,6 +259,13 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // We render the iframe via native DOM so React never sees its internals.
   useEffect(() => {
     const container = previewContainerRef.current;
+    // When collapsed, the preview container is unmounted — drop the iframe
+    // so we don't keep a detached iframe (and its srcdoc) around.
+    if (collapsed && iframeRef.current) {
+      iframeRef.current.remove();
+      iframeRef.current = null;
+      return;
+    }
     if (!container) return;
 
     // If preview should be shown and iframe doesn't exist yet, create it.
@@ -287,7 +295,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     if (showHtmlPreview && iframeRef.current && iframeRef.current.srcdoc !== htmlSource) {
       iframeRef.current.srcdoc = htmlSource;
     }
-  }, [showHtmlPreview, htmlSource]);
+  }, [showHtmlPreview, htmlSource, collapsed]);
 
   /* -------------------------------------------------------------- */
   /* Resize: drag the bottom-right handle (shared useNodeResize)     */
@@ -389,6 +397,10 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       setTimeout(() => setCopied(false), 2000);
     });
   }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    updateAttributes({ collapsed: !collapsed });
+  }, [updateAttributes, collapsed]);
 
   const selectLanguage = useCallback(
     (value: string) => {
@@ -621,7 +633,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   };
   const bodyStyle: React.CSSProperties = {
     overflow: 'visible',
-    ...(showAnyPreview ? { display: 'none' } : null),
+    ...(showAnyPreview || collapsed ? { display: 'none' } : null),
   };
   const previewStyle: React.CSSProperties = {
     height: displayHeight != null ? `${displayHeight}px` : '320px',
@@ -633,16 +645,28 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         ref={setFigureRef}
         className={`code-block-figure ${selected ? 'is-selected' : ''} ${
           showAnyPreview ? 'is-preview' : ''
-        }`}
+        } ${collapsed ? 'is-collapsed' : ''}`}
         style={figureStyle}
       >
         {/* Header row — a dedicated strip above the code, separated from the
-          source by a border-bottom divider. Action buttons are pinned to the
-          top-left, the language badge to the top-right. Keeping these in
-          their own row avoids overlapping the first line of code, which the
-          old absolutely-positioned toolbar suffered from. */}
+          source by a border-bottom divider. The collapse toggle is pinned to
+          the far left, action buttons next to it, and the language badge to
+          the top-right. */}
         <div className="code-block-header" contentEditable={false}>
           <div className="code-header-actions">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
+              title={collapsed ? t('code.expand') : t('code.collapse')}
+              aria-label={collapsed ? t('code.expand') : t('code.collapse')}
+              aria-expanded={!collapsed}
+            >
+              <ChevronRight
+                size={14}
+                className={`code-collapse-chevron ${collapsed ? '' : 'is-open'}`}
+              />
+            </button>
             {htmlPreviewBtn}
             {mermaidPreviewBtn}
             {openWindowBtn}
@@ -769,7 +793,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             This crashes the entire reconciliation loop and blocks ALL user
             interactions. By using native DOM, React never sees the iframe's
             internal structure. */}
-        {isHtml && showHtmlPreview && (
+        {isHtml && showHtmlPreview && !collapsed && (
           <div
             ref={previewContainerRef}
             className="code-block-preview"
@@ -786,7 +810,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         {/* Mermaid live preview — rendered SVG diagram.
             When NOT selected a transparent overlay sits above the diagram so a
             click selects the node; once selected the overlay disappears. */}
-        {isMermaid && showMermaidPreview && (
+        {isMermaid && showMermaidPreview && !collapsed && (
           <div
             ref={mermaidPreviewRef}
             className="code-block-preview code-block-mermaid-preview"
@@ -813,12 +837,15 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
         {/* Resize handle — shared bottom-right circular handle (same as File /
             Image / Diagram). Drag to resize width + height, double-click to
-            reset. Revealed on hover / focus / selection (see CSS). */}
-        <ResizeHandle
-          onPointerDown={onResizeStart}
-          onDoubleClick={onSizeReset}
-          title={t('code.dragResize')}
-        />
+            reset. Revealed on hover / focus / selection (see CSS). Hidden
+            when the block is collapsed. */}
+        {!collapsed && (
+          <ResizeHandle
+            onPointerDown={onResizeStart}
+            onDoubleClick={onSizeReset}
+            title={t('code.dragResize')}
+          />
+        )}
       </div>
     </NodeViewWrapper>
   );
