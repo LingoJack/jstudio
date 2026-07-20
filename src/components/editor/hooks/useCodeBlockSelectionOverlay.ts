@@ -25,14 +25,24 @@
  * rect onto an absolutely-positioned overlay layer.
  *
  * A real `NodeSelection` on this node (e.g. clicking the HTML-preview
- * overlay) does not produce an intersecting native browser Range here, so
- * the overlay naturally stays empty in that case — matching the existing
- * "border-only, no text fill" NodeSelection chrome.
+ * overlay, or triple-clicking the block — see `handleTripleClickOn` in
+ * codeBlockExtension.tsx) is intended to show ONLY the existing
+ * "border-only, no text fill" NodeSelection chrome (`.is-selected` in
+ * vscode-theme.css). It does NOT, however, produce a *collapsed* native
+ * browser Selection: ProseMirror still syncs a native DOM Range spanning
+ * the whole node's content for a NodeSelection (needed for native
+ * copy/cut). Left unchecked, that Range intersects `contentEl` here and
+ * gets painted as one glyph-accurate rect per line — which, since most
+ * lines are close to full width, visually reproduces the exact "solid
+ * block" native-::selection look this overlay was built to avoid, just for
+ * a NodeSelection instead of the old ::selection quirk. `isNodeSelected`
+ * lets the caller (CodeBlockView) report that state so we can bail out and
+ * leave the border-only chrome as the only selected-state indicator.
  *
  * Usage
  * -----
  *   const codeRef = useRef<HTMLPreElement>(null);
- *   const selectionOverlayRef = useCodeBlockSelectionOverlay(codeRef);
+ *   const selectionOverlayRef = useCodeBlockSelectionOverlay(codeRef, () => selected);
  *   <pre ref={codeRef}>
  *     <div ref={selectionOverlayRef} className="code-block-selection-overlay" />
  *     <NodeViewContent .../>
@@ -43,14 +53,27 @@ import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
 export function useCodeBlockSelectionOverlay(
   codeRef: RefObject<HTMLElement | null>,
+  /** Live check: true when the block is currently NodeSelection-selected
+   *  (e.g. triple-click). Read via a ref so `update()` (invoked from the
+   *  `selectionchange` listener) always sees the current value regardless
+   *  of React's render/commit timing. */
+  isNodeSelected?: () => boolean,
 ): RefObject<HTMLDivElement | null> {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const isNodeSelectedRef = useRef(isNodeSelected);
+  isNodeSelectedRef.current = isNodeSelected;
 
   const update = useCallback(() => {
     const container = codeRef.current;
     const overlay = overlayRef.current;
     const contentEl = container?.querySelector('.hljs') as HTMLElement | null;
     if (!container || !overlay || !contentEl) return;
+
+    // Whole-block NodeSelection → border-only chrome, no text-fill overlay.
+    if (isNodeSelectedRef.current?.()) {
+      overlay.replaceChildren();
+      return;
+    }
 
     const sel = document.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
