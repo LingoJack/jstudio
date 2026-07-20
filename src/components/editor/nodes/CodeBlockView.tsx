@@ -60,6 +60,7 @@ const LANGUAGES: { value: string; label: string }[] = [
   { value: 'swift', label: 'Swift' },
   { value: 'kotlin', label: 'Kotlin' },
   { value: 'sql', label: 'SQL' },
+  { value: 'cql', label: 'CQL' },
   { value: 'bash', label: 'Bash' },
   { value: 'shell', label: 'Shell' },
   { value: 'makefile', label: 'Makefile' },

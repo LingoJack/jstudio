@@ -63,6 +63,9 @@ export const GRAMMAR_ALIASES: Record<string, string> = {
   jsx: 'javascript',
   tsx: 'typescript',
   toml: 'ini',
+  // CQL (Cassandra Query Language) has no dedicated highlight.js grammar;
+  // its syntax is SQL-like enough that the sql grammar highlights it well.
+  cql: 'sql',
   // common runtime / import aliases
   yml: 'yaml',
   py: 'python',
