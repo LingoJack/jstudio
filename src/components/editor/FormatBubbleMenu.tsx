@@ -344,7 +344,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
                 e.preventDefault();
                 toggleMark(name);
               }}
-              className={`bubble-menu-btn ${isActive ? 'is-active' : ''} ${
+              className={`editor-toolbar-btn bubble-menu-btn ${isActive ? 'is-active' : ''} ${
                 isFocused ? 'is-focused' : ''
               }`}
             >

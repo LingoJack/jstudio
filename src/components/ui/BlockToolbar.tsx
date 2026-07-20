@@ -74,6 +74,7 @@ export function BlockToolbarButton({
       type="button"
       ref={nav.registerButton(index)}
       className={[
+        'editor-toolbar-btn',
         'block-toolbar-btn',
         active ? 'is-active' : '',
         focused ? 'is-focused' : '',

@@ -540,7 +540,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       <button
         type="button"
         onClick={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
-        className={`block-toolbar-btn block-toolbar-btn--sm ${showHtmlPreview ? 'is-active' : ''}`}
+        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showHtmlPreview ? 'is-active' : ''}`}
         title={showHtmlPreview ? t('code.showCode') : t('code.previewHtml')}
         aria-label={showHtmlPreview ? t('code.showCode') : t('code.previewHtml')}
       >
@@ -553,7 +553,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       <button
         type="button"
         onClick={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
-        className={`block-toolbar-btn block-toolbar-btn--sm ${showMermaidPreview ? 'is-active' : ''}`}
+        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showMermaidPreview ? 'is-active' : ''}`}
         title={showMermaidPreview ? t('code.showCode') : t('code.previewMermaid')}
         aria-label={showMermaidPreview ? t('code.showCode') : t('code.previewMermaid')}
       >
@@ -568,7 +568,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       <button
         type="button"
         onClick={() => openHtmlPreviewWindow(htmlSource)}
-        className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+        className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
         title={t('code.previewNewWindow')}
         aria-label={t('code.previewNewWindow')}
       >
@@ -618,7 +618,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 </html>`;
           openHtmlPreviewWindow(htmlContent, 'Mermaid');
         }}
-        className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+        className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
         title={t('code.previewNewWindow')}
         aria-label={t('code.previewNewWindow')}
       >
@@ -630,7 +630,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     <button
       type="button"
       onClick={handleCopy}
-      className="block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+      className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
       title={t('code.copy')}
       aria-label={t('code.copy')}
     >
@@ -672,7 +672,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             <button
               type="button"
               onClick={toggleCollapsed}
-              className="block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
               title={collapsed ? t('code.expand') : t('code.collapse')}
               aria-label={collapsed ? t('code.expand') : t('code.collapse')}
               aria-expanded={!collapsed}

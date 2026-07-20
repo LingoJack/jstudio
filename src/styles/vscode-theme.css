@@ -1235,38 +1235,57 @@ button {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-.block-toolbar-btn {
-  display: flex;
+/* ─── Editor Toolbar Button (unified) ─────────────────────────────────────
+   Single source of truth for floating-editor toolbar buttons:
+   FormatBubbleMenu (.bubble-menu-btn), BlockToolbar / Image / File /
+   Diagram / Link / Code blocks (.block-toolbar-btn), TableControls
+   (.table-ctrl-btn). Each variant class adds only size/shape; all
+   hover/focus/active/disabled visuals live here. Mouse :hover and keyboard
+   .is-focused share the same visual treatment (background + 2px focusBorder
+   outline) so every floating-editor toolbar button in the app has one
+   hover language. */
+.editor-toolbar-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
   border: none;
   background: transparent;
-  color: var(--vscode-foreground);
-  border-radius: 4px;
+  color: var(--vscode-editor-foreground);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s ease, color 0.12s ease, outline 0.12s ease;
 }
 
-/* Hover and keyboard focus share the same visual treatment (background +
-   focus ring). Unified with .bubble-menu-btn and .table-ctrl-btn so every
-   floating-editor toolbar button in the app has one hover language. */
-.block-toolbar-btn:hover,
-.block-toolbar-btn.is-focused {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+.editor-toolbar-btn:hover,
+.editor-toolbar-btn.is-focused {
+  background: var(--vscode-list-hoverBackground);
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: -1px;
 }
 
-.block-toolbar-btn.is-active {
-  background: var(--vscode-list-activeSelectionBackground, rgba(14, 99, 156, 0.6));
-  color: var(--vscode-list-activeSelectionForeground, #fff);
+.editor-toolbar-btn.is-active {
+  background: var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.2));
+  color: var(--vscode-list-activeSelectionForeground, var(--vscode-editor-foreground));
 }
 
-.block-toolbar-btn:disabled {
+.editor-toolbar-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* ── Size/shape variants (compose with .editor-toolbar-btn) ─────────────── */
+
+/* BlockToolbar buttons (Image / File / Diagram / Link / Code blocks): 28×28, 4px radius. */
+.block-toolbar-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+}
+
+/* Compact modifier for the code-block header (tighter space): 26×26. */
+.block-toolbar-btn--sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
 }
 
 .block-toolbar-divider {
@@ -1317,38 +1336,12 @@ button {
   z-index: 100;
 }
 
+/* FormatBubbleMenu buttons: 28×28, 5px radius. Hover/focus/active/disabled
+   visuals come from the shared .editor-toolbar-btn base class. */
 .bubble-menu-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 28px;
   height: 28px;
-  border: none;
   border-radius: 5px;
-  background: transparent;
-  color: var(--vscode-editor-foreground);
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-/* Mouse hover and keyboard focus share the same visual treatment (background
-   + focus ring). Hover is driven purely by CSS :hover so it survives React
-   re-render storms triggered by floating-ui repositioning in the sectioned
-   editor — relying on React state (activeIndex) for the hover visual was the
-   source of the "hover gives no feedback" regression. */
-.bubble-menu-btn:hover,
-.bubble-menu-btn.is-focused {
-  background: var(--vscode-list-hoverBackground);
-  outline: 2px solid var(--vscode-focusBorder, #007fd4);
-  outline-offset: -1px;
-}
-
-/* Active mark (e.g. bold text inside the selection) keeps its distinct
-   background even while hovered or keyboard-focused. */
-.bubble-menu-btn.is-active:hover,
-.bubble-menu-btn.is-active.is-focused {
-  background: var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.2));
-  color: var(--vscode-list-activeSelectionForeground, var(--vscode-editor-foreground));
 }
 
 /* Dark theme refinements */
@@ -1360,17 +1353,10 @@ button {
 /* ─── End BubbleMenu ───────────────────────────────────────────────────── */
 
 /* ─── TableControls toolbar buttons ────────────────────────────────────── */
-/* Unified with .bubble-menu-btn and .block-toolbar-btn: same hover background
-   + same 2px focusBorder outline on :hover, so every floating-editor toolbar
-   button in the app shares one visual language. */
+/* Size/shape comes from Tailwind classes in the JSX (h-7 w-7 / h-7 px-1.5);
+   all hover/focus/active visuals are inherited from .editor-toolbar-btn. */
 .table-ctrl-btn {
-  transition: background 0.12s ease;
-}
-
-.table-ctrl-btn:hover {
-  background: var(--vscode-list-hoverBackground);
-  outline: 2px solid var(--vscode-focusBorder, #007fd4);
-  outline-offset: -1px;
+  /* no extra rules needed — composed with .editor-toolbar-btn in JSX */
 }
 
 /* ─── End TableControls ────────────────────────────────────────────────── */
@@ -1684,15 +1670,7 @@ button {
   text-align: center;
 }
 
-/* ---- 工具条内动作按钮 (复用 block-toolbar-btn 皮肤) ---- */
-
-/* 紧凑尺寸修饰符：代码块工具条空间有限，按钮收窄到 26px。
-   block-toolbar-btn 的视觉（hover / is-active / is-focused）全部沿用。 */
-.block-toolbar-btn--sm {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-}
+/* ---- 工具条内动作按钮 (复用 .editor-toolbar-btn + .block-toolbar-btn--sm) ---- */
 
 /* 复制按钮常驻低调可见，hover / 选中时加亮；不再依赖 :hover 才出现，
    规避 WKWebView 中 contentEditable 区域内 :hover 偶发不触发的问题。

@@ -247,7 +247,7 @@ export default function TableControls({ editor }: TableControlsProps) {
         type="button"
         title="删除表格"
         onClick={() => run(() => editor.commands.deleteTable())}
-        className="table-ctrl-btn flex h-7 items-center justify-center rounded px-1.5 text-[var(--vscode-errorForeground)]"
+        className="editor-toolbar-btn table-ctrl-btn flex h-7 items-center justify-center rounded px-1.5 text-[var(--vscode-errorForeground)]"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -272,7 +272,7 @@ function Dropdown({ icon, isOpen, onHover, children }: DropdownProps) {
       <button
         type="button"
         onMouseEnter={onHover}
-        className="table-ctrl-btn flex h-7 w-7 items-center justify-center rounded text-[var(--vscode-editor-foreground)]"
+        className="editor-toolbar-btn table-ctrl-btn flex h-7 w-7 items-center justify-center rounded text-[var(--vscode-editor-foreground)]"
       >
         {icon}
       </button>
