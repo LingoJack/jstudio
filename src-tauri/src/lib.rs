@@ -199,14 +199,13 @@ pub fn run() {
         // against their own store instead of opening UI in the main window.
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
-            if id == "app.find" || id == "editor.inlineCode" {
-                if let Some((label, _)) = app
+            if (id == "app.find" || id == "editor.inlineCode")
+                && let Some((label, _)) = app
                     .webview_windows()
                     .into_iter()
                     .find(|(_, window)| window.is_focused().unwrap_or(false))
-                {
-                    let _ = app.emit_to(label, "native-command", id.to_string());
-                }
+            {
+                let _ = app.emit_to(label, "native-command", id.to_string());
             }
         })
         .invoke_handler(tauri::generate_handler![
