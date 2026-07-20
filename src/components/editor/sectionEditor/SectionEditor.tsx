@@ -504,7 +504,18 @@ export default function SectionEditor({
       if (!anchorNode || !editorDom.contains(anchorNode)) return null;
 
       try {
-        return editor.view.coordsAtPos(selection.head);
+        // side=1 ("after" the position) instead of the default -1 ("before").
+        // At an ambiguous line-break boundary — e.g. right after Enter inside
+        // a code block inserts "\n" and moves the caret to the start of the
+        // new line — the default side=-1 resolves to the END of the
+        // PREVIOUS visual line instead of the start of the new one, so the
+        // WebGL trail renders stuck one line up until some unrelated event
+        // forces a re-measure. side=1 always resolves to the line the caret
+        // is actually about to type on. Same "before vs after a line break"
+        // ambiguity as the domFromPos side fix in
+        // patches/prosemirror-view+1.41.9.patch, just for reading coords
+        // instead of writing the DOM selection.
+        return editor.view.coordsAtPos(selection.head, 1);
       } catch {
         return null;
       }

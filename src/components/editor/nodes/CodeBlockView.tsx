@@ -742,7 +742,16 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
           <NodeViewContent
             as="div"
             className={`hljs language-${language || 'plaintext'}`}
-            style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+            // `overflow-wrap: anywhere` alone lets WebKit pick either visual
+            // line's rect for the caret at a forced (space-less) wrap point,
+            // which is what causes the "needs an extra arrow-key press, then
+            // lands too far right" symptom on long unbroken runs (tokens,
+            // base64, hashes). `word-break: break-all` reclassifies every
+            // character boundary as a real line-break opportunity instead of
+            // an ambiguous last-resort one, which WebKit's caret/rect hit
+            // -testing handles deterministically. Keep `overflowWrap` as a
+            // fallback for engines where `word-break` isn't applied.
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere' }}
           />
         </pre>
 

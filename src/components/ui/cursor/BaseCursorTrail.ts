@@ -99,6 +99,8 @@ export abstract class BaseCursorTrail {
   private running = false;
   /** Set once dispose() runs so a late wake() can't resurrect a dead trail. */
   private disposed = false;
+  /** Set once a frame throws, so we only log the first occurrence. */
+  private loggedError = false;
 
   // GL resources
   private program: WebGLProgram;
@@ -471,10 +473,29 @@ export abstract class BaseCursorTrail {
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
 
-    this.updateTarget();
-    this.updateCorners(dt);
-    this.updateOpacity(dt);
-    this.render();
+    try {
+      this.updateTarget();
+      this.updateCorners(dt);
+      this.updateOpacity(dt);
+      this.render();
+    } catch (err) {
+      // A single bad measurement (e.g. a transient DOM/ProseMirror race
+      // right after an edit — a split text node, a NodeView remount, etc.)
+      // must not permanently kill this loop: every registered host has its
+      // native caret hidden via `caretColor: transparent` for as long as the
+      // trail is attached, so an uncaught throw here silently leaves EVERY
+      // input/editor (title included, since they share one trail instance)
+      // with NO visible cursor at all — not just this frame, but forever,
+      // because `running` stays true and wake() then assumes the loop is
+      // still alive and does nothing. Log once for diagnosis, hide the
+      // cursor for this frame only, and keep scheduling so the next real
+      // caret event recovers it.
+      if (!this.loggedError) {
+        this.loggedError = true;
+        console.error('[CursorTrail] frame update failed, recovering', err);
+      }
+      this.cursorVisible = false;
+    }
 
     // ── Idle parking ──
     // When there is no animation left to run at all, park the loop so a
