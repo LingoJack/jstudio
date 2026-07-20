@@ -611,7 +611,8 @@ pre[class*="language-"] {
 
 /* ---- 函数名 / 方法名 ---- */
 .hljs-title,
-.hljs-title.function_ {
+.hljs-title.function_,
+.hljs-function {
   color: var(--vscode-token-function);
 }
 
@@ -648,6 +649,25 @@ pre[class*="language-"] {
 /* ---- 模板表达式 ---- */
 .hljs-subst {
   color: var(--vscode-token-variable);
+}
+
+/* ---- Shell/Bash 增强: hljs 未覆盖的构造 ----
+   仅作用于 enrichShellTokens 在裸文本段上补的 token，不与 hljs 已着色的
+   字符串/注释冲突。复用现有一套 --vscode-token-* 变量，明暗主题自动生效。 */
+.hljs-sh-variable {
+  color: var(--vscode-token-variable);
+}
+.hljs-sh-operator {
+  color: var(--vscode-token-operator);
+}
+.hljs-sh-flag {
+  color: var(--vscode-token-keyword);
+}
+.hljs-sh-subst {
+  color: var(--vscode-token-string);
+}
+.hljs-sh-number {
+  color: var(--vscode-token-number);
 }
 
 /* ---- 正则 ---- */

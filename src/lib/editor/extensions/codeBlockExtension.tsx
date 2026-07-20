@@ -40,6 +40,8 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import { findChildren } from '@tiptap/core';
 import CodeBlockView from '../../../components/editor/nodes/CodeBlockView';
+import { GRAMMAR_ALIASES } from './lowlight';
+import { enrichShellTokens } from './bashTokens';
 import { blockBehaviorRegistry } from '../blockBehaviorRegistry';
 
 export interface CodeBlockNodeAttributes {
@@ -116,7 +118,11 @@ function highlightBlockDecorations(
 ): Decoration[] {
   const decorations: Decoration[] = [];
   let from = block.pos + 1;
-  const language = (block.node.attrs?.language as string | undefined) || defaultLanguage;
+  // Resolve the stored/selected language to the grammar we can actually run
+  // (e.g. `shell` → `bash`, `html` → `xml`). Keeps the user-facing badge as-is
+  // while ensuring the content is highlighted with the nearest real grammar.
+  const rawLang = (block.node.attrs?.language as string | undefined) || defaultLanguage;
+  const language = (rawLang && GRAMMAR_ALIASES[rawLang]) || rawLang;
 
   let nodes: HlNode[];
   try {
@@ -133,7 +139,14 @@ function highlightBlockDecorations(
     nodes = getHlNodes(lowlight.highlightAuto(block.node.textContent));
   }
 
-  parseHlNodes(nodes).forEach((node) => {
+  // Flatten the lowlight tree, then — for shell content — re-tokenize the
+  // plain (uncoloured) segments so operators / flags / variable expansions /
+  // command substitution also get colour. Segments hljs already coloured are
+  // left untouched.
+  let segments = parseHlNodes(nodes);
+  if (language === 'bash') segments = enrichShellTokens(segments);
+
+  segments.forEach((node) => {
     const to = from + node.text.length;
     if (node.classes.length) {
       decorations.push(Decoration.inline(from, to, { class: node.classes.join(' ') }));
