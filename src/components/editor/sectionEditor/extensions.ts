@@ -60,7 +60,19 @@ export function createSectionExtensions(
       // (we configure our own below) and let StarterKit provide Underline.
       link: false,
     }),
-    Code.extend({ excludes: '' }),
+    Code.extend({
+      excludes: '',
+      // Add Cmd/Ctrl+` as an inline code toggle (Markdown code-span mnemonic).
+      // The Code extension's default Mod-e is kept via `this.parent?.()` —
+      // but on macOS Mod-e is the accent-character dead key, making it nearly
+      // unusable, so Mod-` is the practical primary binding.
+      addKeyboardShortcuts() {
+        return {
+          'Mod-`': () => this.editor.commands.toggleCode(),
+          ...this.parent?.(),
+        };
+      },
+    }),
     CodeBlockWithChrome.configure({
       lowlight,
       defaultLanguage: 'plaintext',

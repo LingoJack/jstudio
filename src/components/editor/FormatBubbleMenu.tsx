@@ -344,8 +344,6 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
                 e.preventDefault();
                 toggleMark(name);
               }}
-              onMouseEnter={() => setActiveIndex(index)}
-              onMouseLeave={() => setActiveIndex(-1)}
               className={`bubble-menu-btn ${isActive ? 'is-active' : ''} ${
                 isFocused ? 'is-focused' : ''
               }`}
