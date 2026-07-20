@@ -20,6 +20,7 @@ import type { StoreState } from '../../store/storeHelpers';
 import { storage } from './storage';
 import { ACTIVITY_ITEM_META } from '../activityMeta';
 import { createTerminalWindow } from '../windows/terminalDetach';
+import { getFocusedEditor } from '../editor/focusedEditorRegistry';
 
 // ──────────────────────────────────────────────────────────────────
 // Shortcut Action Registry
@@ -82,7 +83,19 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   // ── Editor Blocks ── (handled by TipTap, listed here for completeness)
   { id: 'editor.insertBlockBelow', perform: () => { /* TipTap handles */ } },
   { id: 'editor.insertBlockAbove', perform: () => { /* TipTap handles */ } },
-  { id: 'editor.inlineCode', perform: () => { /* TipTap handles via capture-phase */ } },
+  {
+    id: 'editor.inlineCode',
+    perform: () => {
+      // Triggered by the macOS native Format > Inline Code menu item
+      // (Cmd+` is bound there to prevent the OS from swallowing it as the
+      // system "cycle windows" accelerator — see docs/bug-graveyard.md #001
+      // for the same family of WKWebView quirk). Also fires when the user
+      // rebinds the shortcut and triggers it via the global ShortcutManager.
+      const editor = getFocusedEditor();
+      if (!editor || editor.isDestroyed) return;
+      editor.chain().focus().toggleCode().run();
+    },
+  },
 ];
 
 /**

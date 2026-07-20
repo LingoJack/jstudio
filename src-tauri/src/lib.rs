@@ -47,7 +47,7 @@ fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestAp
 #[cfg(target_os = "macos")]
 fn build_app_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
-) -> tauri::Result<(Menu<R>, MenuItem<R>)> {
+) -> tauri::Result<(Menu<R>, MenuItem<R>, MenuItem<R>)> {
     let pkg = app.package_info();
     let about = AboutMetadata {
         name: Some(pkg.name.clone()),
@@ -85,6 +85,25 @@ fn build_app_menu<R: tauri::Runtime>(
     // unbound instead of briefly restoring Cmd+F during startup.
     let find_item = MenuItem::with_id(app, "app.find", "Find...", true, None::<&str>)?;
 
+    // Inline code menu item — bound to Cmd+` by default.
+    //
+    // Why: macOS reserves Cmd+` for the system "Cycle Windows" accelerator.
+    // Without a menu item claiming that key equivalent, macOS swallows the
+    // event at performKeyEquivalent: time and no DOM keydown ever reaches
+    // the webview (same family as bug-graveyard.md #001). By installing a
+    // menu item with the Cmd+` accelerator, macOS routes the keypress to
+    // our item instead of the system, and we forward it to the focused
+    // webview via the `native-command` event. The accelerator is kept in
+    // sync with the user's customized binding via `set_native_menu_accelerator`
+    // (see App.tsx).
+    let inline_code_item = MenuItem::with_id(
+        app,
+        "editor.inlineCode",
+        "Inline Code",
+        true,
+        Some("CmdOrCtrl+`"),
+    )?;
+
     let edit_submenu = Submenu::with_items(
         app,
         "Edit",
@@ -98,6 +117,8 @@ fn build_app_menu<R: tauri::Runtime>(
             &PredefinedMenuItem::paste(app, None)?,
             &PredefinedMenuItem::separator(app)?,
             &find_item,
+            &PredefinedMenuItem::separator(app)?,
+            &inline_code_item,
         ],
     )?;
 
@@ -134,7 +155,7 @@ fn build_app_menu<R: tauri::Runtime>(
         ],
     )?;
 
-    Ok((menu, find_item))
+    Ok((menu, find_item, inline_code_item))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -156,8 +177,11 @@ pub fn run() {
             // Install the custom macOS menu (default minus "Select All").
             #[cfg(target_os = "macos")]
             {
-                let (menu, find_item) = build_app_menu(app.handle())?;
-                app.manage(commands::window::NativeMenuState { find_item });
+                let (menu, find_item, inline_code_item) = build_app_menu(app.handle())?;
+                app.manage(commands::window::NativeMenuState {
+                    find_item,
+                    inline_code_item,
+                });
                 app.set_menu(menu)?;
             }
             Ok(())
@@ -174,13 +198,14 @@ pub fn run() {
         // only to the focused WebView so detached document windows execute
         // against their own store instead of opening UI in the main window.
         .on_menu_event(|app, event| {
-            if event.id().as_ref() == "app.find" {
+            let id = event.id().as_ref();
+            if id == "app.find" || id == "editor.inlineCode" {
                 if let Some((label, _)) = app
                     .webview_windows()
                     .into_iter()
                     .find(|(_, window)| window.is_focused().unwrap_or(false))
                 {
-                    let _ = app.emit_to(label, "native-command", "app.find");
+                    let _ = app.emit_to(label, "native-command", id.to_string());
                 }
             }
         })

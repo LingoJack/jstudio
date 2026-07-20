@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager};
 #[cfg(target_os = "macos")]
 pub struct NativeMenuState {
     pub find_item: tauri::menu::MenuItem<tauri::Wry>,
+    pub inline_code_item: tauri::menu::MenuItem<tauri::Wry>,
 }
 
 /// Close the main window unconditionally.
@@ -24,6 +25,10 @@ pub fn close_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Update the accelerator of a native menu item at runtime.
+///
+/// Supported `command_id` values: `"app.find"`, `"editor.inlineCode"`.
+/// Keep in sync with the frontend caller in `App.tsx`.
 #[cfg(target_os = "macos")]
 #[tauri::command]
 pub fn set_native_menu_accelerator(
@@ -31,13 +36,13 @@ pub fn set_native_menu_accelerator(
     command_id: String,
     accelerator: Option<String>,
 ) -> Result<(), String> {
-    if command_id != "app.find" {
-        return Err(format!("Unsupported native menu command: {command_id}"));
-    }
+    let item = match command_id.as_str() {
+        "app.find" => &state.find_item,
+        "editor.inlineCode" => &state.inline_code_item,
+        other => return Err(format!("Unsupported native menu command: {other}")),
+    };
 
-    state
-        .find_item
-        .set_accelerator(accelerator.as_deref())
+    item.set_accelerator(accelerator.as_deref())
         .map_err(|error| error.to_string())
 }
 
@@ -47,7 +52,7 @@ pub fn set_native_menu_accelerator(
     command_id: String,
     _accelerator: Option<String>,
 ) -> Result<(), String> {
-    if command_id != "app.find" {
+    if !["app.find", "editor.inlineCode"].contains(&command_id.as_str()) {
         return Err(format!("Unsupported native menu command: {command_id}"));
     }
     Ok(())

@@ -37,6 +37,10 @@ import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { eventToBinding, resolveBinding } from '../../../lib/shortcuts/keyboardShortcuts';
+import {
+  setFocusedEditor as setFocusedEditorRegistry,
+  clearFocusedEditor as clearFocusedEditorRegistry,
+} from '../../../lib/editor/focusedEditorRegistry';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
@@ -254,6 +258,10 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     ed.on('focus', () => {
       focusedEditorRef.current = ed;
       setFocusedEditor(ed);
+      // Mirror to the module-level registry so commandRegistry can dispatch
+      // editor-scoped actions (e.g. editor.inlineCode from the macOS native
+      // Format menu) without DOM target context.
+      setFocusedEditorRegistry(ed);
     });
     // Clean up the map entry + focused refs when this editor is destroyed
     // (section unmounted, e.g. after a re-balance remount) so stale instances
@@ -266,6 +274,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
         focusedEditorRef.current = null;
         setFocusedEditor((prev) => (prev === ed ? null : prev));
       }
+      clearFocusedEditorRegistry(ed);
     });
   }, []);
 

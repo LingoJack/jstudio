@@ -73,6 +73,23 @@ export default function App() {
     });
   }, [isLoading, keyboardShortcuts]);
 
+  // Keep the macOS native "Inline Code" menu accelerator aligned with the
+  // effective user binding. The menu item claims the Cmd+` key equivalent
+  // so macOS doesn't swallow it as the system "Cycle Windows" accelerator
+  // (see src-tauri/src/lib.rs::build_app_menu + docs/bug-graveyard.md #001).
+  // Other platforms accept this command as a no-op.
+  useEffect(() => {
+    if (isLoading) return;
+    const binding = resolveBinding('editor.inlineCode', keyboardShortcuts);
+    const accelerator = toTauriAccelerator(binding);
+    invoke('set_native_menu_accelerator', {
+      commandId: 'editor.inlineCode',
+      accelerator,
+    }).catch((error) => {
+      console.error('[App] Failed to sync native Inline Code accelerator:', error);
+    });
+  }, [isLoading, keyboardShortcuts]);
+
   // ── Document abnormal-shrink detection ──
   // Backend emits this when `write_document` detects the new content is
   // suspiciously smaller than the old (e.g. a bug overwrote the doc with a
