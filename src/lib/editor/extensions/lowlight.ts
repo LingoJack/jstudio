@@ -20,8 +20,12 @@
 import { createLowlight, common } from 'lowlight';
 // `dockerfile` ships in highlight.js but is NOT part of lowlight's `common`
 // bundle — register it so the "Dockerfile" dropdown option actually highlights.
-// highlight.js language submodules are untyped.
-// @ts-expect-error -- highlight.js language submodules ship without .d.ts
+// highlight.js language submodules may or may not carry .d.ts depending on the
+// tsconfig in play (`tsc -b` resolves types, `tsc --noEmit` may not), so use a
+// self-suppressing dynamic-ish import guard instead of a directive that only one
+// mode considers "used".
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore -- highlight.js language submodules ship without reliable .d.ts
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
 
 export const lowlight = createLowlight(common);
