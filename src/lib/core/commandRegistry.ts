@@ -96,6 +96,30 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       editor.chain().focus().toggleCode().run();
     },
   },
+  {
+    id: 'editor.undo',
+    perform: () => {
+      // Triggered by the macOS native Edit > Undo menu item (Cmd+Z).
+      // PredefinedMenuItem::undo would call WKWebView's native undo, which
+      // tracks DOM `input` events (typing) but NOT ProseMirror transactions
+      // (e.g. paste via insertContent). We use a custom MenuItem so the
+      // event is forwarded here, letting us call ProseMirror's undo which
+      // covers ALL editor transactions.
+      const editor = getFocusedEditor();
+      if (!editor || editor.isDestroyed) return;
+      editor.chain().focus().undo().run();
+    },
+  },
+  {
+    id: 'editor.redo',
+    perform: () => {
+      // Triggered by the macOS native Edit > Redo menu item (Cmd+Shift+Z).
+      // Same rationale as editor.undo above.
+      const editor = getFocusedEditor();
+      if (!editor || editor.isDestroyed) return;
+      editor.chain().focus().redo().run();
+    },
+  },
 ];
 
 /**

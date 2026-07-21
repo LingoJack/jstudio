@@ -104,13 +104,29 @@ fn build_app_menu<R: tauri::Runtime>(
         Some("CmdOrCtrl+`"),
     )?;
 
+    // Undo / Redo menu items - custom MenuItem (NOT PredefinedMenuItem).
+    //
+    // Why: PredefinedMenuItem::undo/redo trigger the WKWebView's *native*
+    // undo/redo, which tracks DOM `input` events (typing) but is unaware of
+    // ProseMirror transactions. Pasted content inserted via
+    // `editor.commands.insertContent()` (after `preventDefault()` on the
+    // paste event) is never recorded in the native undo stack, so Cmd+Z
+    // could undo typing but NOT paste. By using custom MenuItems with the
+    // same accelerators, macOS still routes Cmd+Z / Cmd+Shift+Z to our
+    // menu items via `performKeyEquivalent:`, but instead of the native
+    // action we emit a `native-command` event that the frontend forwards
+    // to ProseMirror's `editor.commands.undo()/redo()`. Same pattern as
+    // `editor.inlineCode` (Cmd+`) above.
+    let undo_item = MenuItem::with_id(app, "editor.undo", "Undo", true, Some("CmdOrCtrl+Z"))?;
+    let redo_item = MenuItem::with_id(app, "editor.redo", "Redo", true, Some("CmdOrCtrl+Shift+Z"))?;
+
     let edit_submenu = Submenu::with_items(
         app,
         "Edit",
         true,
         &[
-            &PredefinedMenuItem::undo(app, None)?,
-            &PredefinedMenuItem::redo(app, None)?,
+            &undo_item,
+            &redo_item,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::cut(app, None)?,
             &PredefinedMenuItem::copy(app, None)?,
@@ -199,7 +215,10 @@ pub fn run() {
         // against their own store instead of opening UI in the main window.
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
-            if (id == "app.find" || id == "editor.inlineCode")
+            if (id == "app.find"
+                || id == "editor.inlineCode"
+                || id == "editor.undo"
+                || id == "editor.redo")
                 && let Some((label, _)) = app
                     .webview_windows()
                     .into_iter()
