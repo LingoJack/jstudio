@@ -8,12 +8,12 @@ import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folder
 import {
   FileText, Plus, MoreHorizontal, FileDown,
   FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
-  X, PackageOpen, Check, ArrowUpNarrowWide, ArrowDownWideNarrow,
+  X, PackageOpen, Check, ArrowUpNarrowWide, ArrowDownWideNarrow, ArrowDownUp,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import TrashDialog from './TrashDialog';
 import BackupRestoreDialog from './BackupRestoreDialog';
-import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
+import { MenuList, MenuItem, MenuDivider, SubMenu } from '../ui/MenuList';
 import { NavBranch, NavRow } from '../ui/NavTree';
 
 // ──────────────────────────────────────────────────────────────────
@@ -847,87 +847,95 @@ export default function DocumentSidebar() {
                 className="absolute left-0 top-full mt-1"
                 onClick={(e) => e.stopPropagation()}
               >
-                <MenuItem
-                  icon={<Plus />}
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    createDocument();
-                  }}
-                >
-                  {t('doclist.newDocument')}
-                </MenuItem>
-                <MenuItem
-                  icon={<FolderPlus />}
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    handleCreateFolder();
-                  }}
-                >
-                  {t('doclist.newFolder')}
-                </MenuItem>
+                <SubMenu label={t('doclist.new')} icon={<Plus />}>
+                  <MenuItem
+                    icon={<Plus />}
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      createDocument();
+                    }}
+                  >
+                    {t('doclist.newDocument')}
+                  </MenuItem>
+                  <MenuItem
+                    icon={<FolderPlus />}
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      handleCreateFolder();
+                    }}
+                  >
+                    {t('doclist.newFolder')}
+                  </MenuItem>
+                </SubMenu>
+                <SubMenu label={t('doclist.import')} icon={<FileDown />}>
+                  <MenuItem
+                    icon={<FileDown />}
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      handleImportMarkdown();
+                    }}
+                  >
+                    {t('doclist.importMarkdown')}
+                  </MenuItem>
+                  <MenuItem
+                    icon={<FolderDown />}
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      handleImportMarkdownDirectory();
+                    }}
+                  >
+                    {t('doclist.importDirectory')}
+                  </MenuItem>
+                  <MenuItem
+                    icon={<PackageOpen />}
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      handleImportBundle();
+                    }}
+                  >
+                    {t('doclist.importBundle')}
+                  </MenuItem>
+                </SubMenu>
                 <MenuDivider />
-                <MenuItem
-                  icon={<FileDown />}
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    handleImportMarkdown();
-                  }}
+                {/* ── Sort settings (nested submenu) ── */}
+                <SubMenu
+                  label={t('doclist.sortBy')}
+                  icon={<ArrowDownUp />}
                 >
-                  {t('doclist.importMarkdown')}
-                </MenuItem>
-                <MenuItem
-                  icon={<FolderDown />}
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    handleImportMarkdownDirectory();
-                  }}
-                >
-                  {t('doclist.importDirectory')}
-                </MenuItem>
-                <MenuItem
-                  icon={<PackageOpen />}
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    handleImportBundle();
-                  }}
-                >
-                  {t('doclist.importBundle')}
-                </MenuItem>
-                <MenuDivider />
-                {/* ── Sort settings ── */}
-                <MenuItem
-                  icon={docSortKey === 'created' ? <Check /> : <span className="w-4 h-4" />}
-                  onClick={() => {
-                    setDocSortKey('created');
-                  }}
-                >
-                  {t('doclist.sortByCreated')}
-                </MenuItem>
-                <MenuItem
-                  icon={docSortKey === 'title' ? <Check /> : <span className="w-4 h-4" />}
-                  onClick={() => {
-                    setDocSortKey('title');
-                  }}
-                >
-                  {t('doclist.sortByTitle')}
-                </MenuItem>
-                <MenuDivider />
-                <MenuItem
-                  icon={docSortDirection === 'asc' ? <ArrowUpNarrowWide /> : <span className="w-4 h-4" />}
-                  onClick={() => {
-                    setDocSortDirection('asc');
-                  }}
-                >
-                  {t('doclist.sortAscending')}
-                </MenuItem>
-                <MenuItem
-                  icon={docSortDirection === 'desc' ? <ArrowDownWideNarrow /> : <span className="w-4 h-4" />}
-                  onClick={() => {
-                    setDocSortDirection('desc');
-                  }}
-                >
-                  {t('doclist.sortDescending')}
-                </MenuItem>
+                  <MenuItem
+                    icon={docSortKey === 'created' ? <Check /> : <span className="w-4 h-4" />}
+                    onClick={() => {
+                      setDocSortKey('created');
+                    }}
+                  >
+                    {t('doclist.sortByCreated')}
+                  </MenuItem>
+                  <MenuItem
+                    icon={docSortKey === 'title' ? <Check /> : <span className="w-4 h-4" />}
+                    onClick={() => {
+                      setDocSortKey('title');
+                    }}
+                  >
+                    {t('doclist.sortByTitle')}
+                  </MenuItem>
+                  <MenuDivider />
+                  <MenuItem
+                    icon={docSortDirection === 'asc' ? <ArrowUpNarrowWide /> : <span className="w-4 h-4" />}
+                    onClick={() => {
+                      setDocSortDirection('asc');
+                    }}
+                  >
+                    {t('doclist.sortAscending')}
+                  </MenuItem>
+                  <MenuItem
+                    icon={docSortDirection === 'desc' ? <ArrowDownWideNarrow /> : <span className="w-4 h-4" />}
+                    onClick={() => {
+                      setDocSortDirection('desc');
+                    }}
+                  >
+                    {t('doclist.sortDescending')}
+                  </MenuItem>
+                </SubMenu>
                 <MenuDivider />
                 <MenuItem
                   icon={<Trash2 />}

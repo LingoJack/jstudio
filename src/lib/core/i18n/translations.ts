@@ -26,7 +26,9 @@ export const translations = {
     'doclist.moreActions': '更多操作',
     'doclist.noMatch': '暂无匹配文档',
     'doclist.untitled': '无标题',
+    'doclist.new': '新建',
     'doclist.newDocument': '新建文档',
+    'doclist.import': '导入',
     'doclist.importMarkdown': '导入 Markdown',
     'doclist.importDirectory': '导入目录',
     'doclist.importBundle': '导入备份 (.jnote)',
@@ -80,6 +82,7 @@ export const translations = {
     'doclist.batchClear': '取消选择',
 
     // ── Document List: Sort ──
+    'doclist.sortBy': '排序方式',
     'doclist.sortByCreated': '按创建时间',
     'doclist.sortByTitle': '按字母顺序',
     'doclist.sortAscending': '升序',
@@ -741,7 +744,9 @@ export const translations = {
     'doclist.moreActions': 'More Actions',
     'doclist.noMatch': 'No matching documents',
     'doclist.untitled': 'Untitled',
+    'doclist.new': 'New',
     'doclist.newDocument': 'New Document',
+    'doclist.import': 'Import',
     'doclist.importMarkdown': 'Import Markdown',
     'doclist.importDirectory': 'Import Directory',
     'doclist.importBundle': 'Import Backup (.jnote)',
@@ -795,6 +800,7 @@ export const translations = {
     'doclist.batchClear': 'Clear Selection',
 
     // ── Document List: Sort ──
+    'doclist.sortBy': 'Sort By',
     'doclist.sortByCreated': 'By Created Time',
     'doclist.sortByTitle': 'Alphabetical',
     'doclist.sortAscending': 'Ascending',

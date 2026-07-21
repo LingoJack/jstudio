@@ -1,5 +1,6 @@
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
  
 /**
  * Reusable VS Code-style menu primitives.
@@ -55,6 +56,67 @@ export function MenuItem({
       {icon && <span className="w-4 h-4 flex items-center justify-center opacity-70">{icon}</span>}
       <span>{children}</span>
     </button>
+  );
+}
+
+// ── SubMenu ───────────────────────────────────────────────
+
+interface SubMenuProps {
+  /** Label text for the parent item. */
+  label: React.ReactNode;
+  /** Optional icon node shown before the label. */
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+/**
+ * A menu item that opens a nested submenu panel on hover.
+ *
+ * The submenu appears to the right of the parent item by default, and
+ * automatically flips to the left when there is not enough space on the
+ * right edge of the viewport.
+ *
+ * Uses `mouseleave` (not `mouseout`) so moving the cursor from the trigger
+ * to the submenu panel never closes it prematurely.
+ */
+export function SubMenu({ label, icon, children }: SubMenuProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [flip, setFlip] = useState(false);
+
+  const handleEnter = () => {
+    const el = containerRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      // Flip when there's not enough room on the right (~220px estimate).
+      setFlip(rect.right + 220 > window.innerWidth);
+    }
+    setOpen(true);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+      onMouseEnter={handleEnter}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className={`${MENU_ITEM_BASE} ${MENU_ITEM_VARIANT.default}`}
+      >
+        {icon && <span className="w-4 h-4 flex items-center justify-center opacity-70">{icon}</span>}
+        <span className="flex-1">{label}</span>
+        <ChevronRight className="w-3.5 h-3.5 opacity-70" />
+      </button>
+      {open && (
+        <div
+          className={`absolute top-0 z-dropdown min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg ${flip ? 'right-full' : 'left-full'}`}
+        >
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
