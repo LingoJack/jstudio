@@ -1,5 +1,5 @@
 /**
- * CollapsibleView — React NodeView for the collapsible block.
+ * CollapsibleView - React NodeView for the collapsible block.
  *
  * Layout:
  *
@@ -18,17 +18,17 @@
  *
  * In WKWebView (Tauri/macOS), `contentEditable={false}` inside a
  * `contentEditable={true}` editor creates a "non-editable island". WebKit
- * blocks keyboard input to ALL form controls inside that island — the
+ * blocks keyboard input to ALL form controls inside that island - the
  * `<input>` can receive focus but no characters are inserted. This is a
  * browser-level behavior that JavaScript event shielding cannot override.
  *
  * Without `contentEditable={false}`, TipTap's `NodeView.stopEvent` handles
  * everything correctly:
- *   - Events from `<input>` (outside contentDOM): stopEvent returns true →
- *     ProseMirror ignores them → browser handles input normally.
+ *   - Events from `<input>` (outside contentDOM): stopEvent returns true ->
+ *     ProseMirror ignores them -> browser handles input normally.
  *   - Clicks on header background (isContentEditable=true): stopEvent returns
- *     false → ProseMirror handles → places NodeSelection (desired).
- *   - ProseMirror's mousedown handler calls preventDefault() → no stray
+ *     false -> ProseMirror handles -> places NodeSelection (desired).
+ *   - ProseMirror's mousedown handler calls preventDefault() -> no stray
  *     text caret appears in the header.
  *
  * ── Event shields (safety net) ──
@@ -40,13 +40,11 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { type NodeViewProps, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
+import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
-import {
-  COLLAPSIBLE_WRAPPER_CLASS,
-  COLLAPSIBLE_HEADER_CLASS,
-} from '../../ui/Collapsible';
+import { COLLAPSIBLE_HEADER_CLASS } from '../../ui/Collapsible';
+import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useCursorTrailHostRef } from '../CursorTrailContext';
 
 /** Tags that should be shielded from ProseMirror's event interception. */
@@ -55,11 +53,18 @@ const SHIELD_TAGS = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT']);
 export default function CollapsibleView({
   node,
   updateAttributes,
+  editor,
+  getPos,
 }: NodeViewProps) {
   const open = (node.attrs['open'] as boolean) ?? true;
   const summary = (node.attrs['summary'] as string) ?? '';
 
-  // Local state for editing — avoids ProseMirror re-render on every keystroke
+  // 是否真正被选中（NodeSelection 指向本节点）。
+  // 用 useNodeSelected 而非 NodeViewProps.selected：后者在文本选择扫过本块时
+  // 也会变 true，导致边框误高亮。与 CodeBlockView 保持一致。
+  const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
+
+  // Local state for editing - avoids ProseMirror re-render on every keystroke
   const [localSummary, setLocalSummary] = useState(summary);
   const inputRef = useRef<HTMLInputElement>(null);
   const cursorTrailInputRef = useCursorTrailHostRef(inputRef);
@@ -81,7 +86,7 @@ export default function CollapsibleView({
   };
 
   /**
-   * Native bubble-phase listeners — defense-in-depth safety net.
+   * Native bubble-phase listeners - defense-in-depth safety net.
    * Fires before events bubble to ProseMirror's listeners on view.dom.
    * For form-control events we stopPropagation so ProseMirror never sees them.
    */
@@ -110,7 +115,7 @@ export default function CollapsibleView({
       }
     };
 
-    // Shield beforeinput — prevents ProseMirror from calling preventDefault()
+    // Shield beforeinput - prevents ProseMirror from calling preventDefault()
     // on text insertion events from the <input>.
     const beforeinputShield = (e: InputEvent) => {
       if (isFormControl(e.target)) {
@@ -118,7 +123,7 @@ export default function CollapsibleView({
       }
     };
 
-    // Shield composition events — protects CJK IME input.
+    // Shield composition events - protects CJK IME input.
     const compositionShield = (e: CompositionEvent) => {
       if (isFormControl(e.target)) {
         e.stopPropagation();
@@ -142,14 +147,19 @@ export default function CollapsibleView({
   }, []);
 
   return (
-    <NodeViewWrapper className="my-3">
-      <div ref={wrapperRef} className={COLLAPSIBLE_WRAPPER_CLASS}>
+    <NodeViewWrapper className="collapsible-block-wrapper my-3">
+      <div
+        ref={wrapperRef}
+        className={`collapsible-block-figure ${selected ? 'is-selected' : ''} ${
+          open ? '' : 'is-collapsed'
+        }`}
+      >
         {/* ── Header row ── */}
-        {/* NO contentEditable={false} — WKWebView blocks keyboard input to
+        {/* NO contentEditable={false} - WKWebView blocks keyboard input to
             form controls inside contentEditable={false} islands. TipTap's
             stopEvent + the native shields below handle ProseMirror isolation. */}
         <div
-          className={COLLAPSIBLE_HEADER_CLASS}
+          className={`collapsible-block-header ${COLLAPSIBLE_HEADER_CLASS}`}
           onClick={(e) => {
             // Don't toggle when clicking the input itself.
             if ((e.target as HTMLElement).tagName === 'INPUT') return;

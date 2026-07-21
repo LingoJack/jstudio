@@ -1815,6 +1815,44 @@ button {
 }
 
 /* ============================================
+   Collapsible Block NodeView Styles
+   ============================================ */
+
+/* 折叠块外层方框 - 边框语言对齐 code-block-figure：
+   1px block-border + 16px 圆角，背景 editor-background。
+   选中(NodeSelection) / 光标在内(focus-within) 时高亮 focusBorder。
+   overflow:hidden 裁剪 header 背景以贴合外层圆角。 */
+.collapsible-block-figure {
+  border-radius: 16px;
+  border: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
+  background: var(--vscode-editor-background);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.collapsible-block-figure.is-selected,
+.collapsible-block-figure:focus-within {
+  border-color: var(--vscode-focusBorder);
+}
+
+/* header 底部分割线 - 对齐 code-block-header */
+.collapsible-block-header {
+  border-bottom: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
+}
+
+/* 收起(关闭)时隐藏 header 底部分割线，与 code-block is-collapsed 同理 */
+.collapsible-block-figure.is-collapsed .collapsible-block-header {
+  border-bottom: none;
+}
+
+/* 选中折叠块节点时隐藏 ProseMirror 默认的 block 级外框，
+   只保留 collapsible-block-figure 自身的 focusBorder 边框即可。
+   与 image / code-block / file 节点同理，用 :has() 匹配。 */
+.ProseMirror-selectednode:has(> .collapsible-block-wrapper) {
+  outline: none;
+}
+
+/* ============================================
    File Attachment NodeView Styles
    ============================================ */
 
