@@ -116,7 +116,7 @@ export default function BackupRestoreDialog({
       onClick={onClose}
     >
       <div
-        className="flex flex-col w-[min(960px,94vw)] h-[min(720px,90vh)] rounded-lg border bg-[var(--vscode-menu-background)] border-[var(--vscode-menu-border)] shadow-2xl overflow-hidden"
+        className="flex flex-col w-[min(1200px,96vw)] h-[min(860px,92vh)] rounded-lg border bg-[var(--vscode-menu-background)] border-[var(--vscode-menu-border)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
