@@ -307,6 +307,8 @@ export const translations = {
     'appearance.system': '跟随系统',
     'appearance.systemDesc': '自动匹配操作系统外观',
     
+    'appearance.activityBarBorder': '图标边框',
+    'appearance.activityBarBorderDesc': '在选中的侧边栏图标上显示彩色边框',
     'appearance.activityBarItems': '活动栏图标',
     'appearance.activityBarItemsDesc': '勾选以显示图标，拖拽手柄可调整顺序（设置始终位于底部）',
     'appearance.activityBarItem_documents': '文档',
@@ -784,6 +786,8 @@ export const translations = {
     'backup.preview': 'Preview',
     'backup.close': 'Close',
     'backup.loading': 'Loading...',
+    'backup.totalCount': '{count} backups total',
+    'backup.unknownTime': 'Unknown time',
 
     // ── DocumentList folders ──
     'doclist.newFolder': 'New Folder',
@@ -1185,6 +1189,8 @@ export const translations = {
     'slash.diagramDesc': 'Draw architecture, flow, or requirement diagrams',
     'slash.collapsible': 'Collapsible',
     'slash.collapsibleDesc': 'A foldable / expandable content region',
+    'collapsible.expand': 'Expand',
+    'collapsible.collapse': 'Collapse',
 
     // ── Terminal Window ──
     'terminal.loadError': 'Failed to load terminal session',
