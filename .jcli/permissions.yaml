@@ -90,4 +90,5 @@ allow:
 - Shell(rm /Users/jacklingo/dev_custom/jstudio/src/components/agent/AgentPanel.tsx:*)
 - Shell(cd /Users/jacklingo/dev_custom/jstudio:*)
 - Shell(ls /Users/lingojack/dev_custom/yiitap/:*)
+- Shell(cd /Users/jacklingo/dev_custom/jstudio/src-tauri:*)
 deny: []

@@ -117,7 +117,10 @@ export default function BackupRestoreDialog({
     }
   };
 
-  const formatDate = (ms: number) => new Date(ms).toLocaleString();
+  const formatDate = (ms: number) => {
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? t('backup.unknownTime') : d.toLocaleString();
+  };
 
   return createPortal(
     <div

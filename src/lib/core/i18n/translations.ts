@@ -62,6 +62,8 @@ export const translations = {
     'backup.preview': '预览',
     'backup.close': '关闭',
     'backup.loading': '加载中...',
+    'backup.totalCount': '共 {count} 个备份',
+    'backup.unknownTime': '未知时间',
 
     // ── DocumentList folders ──
     'doclist.newFolder': '新建文件夹',

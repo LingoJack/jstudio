@@ -152,6 +152,7 @@ fn prune_backups(dir: &std::path::Path) {
 /// Metadata for a single backup snapshot (no body — keeps the list payload
 /// small even for documents with hundreds of large backups).
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackupMeta {
     /// File name without extension, e.g. "1720472340000". Used as the id.
     pub id: String,
