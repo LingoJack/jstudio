@@ -51,7 +51,6 @@ export default function DocumentTabs() {
   const tabItems: TabItem[] = docTabs.map((tab) => ({
     id: tab.id,
     title: getDocTitle(tab),
-    icon: <FileText className="w-4 h-4 shrink-0 opacity-70" />,
     isActive: tab.id === activeTabId,
     canClose: allTabs.length > 1,
     canDrag: allTabs.length > 1,
@@ -126,3 +125,4 @@ export default function DocumentTabs() {
     />
   );
 }
+
