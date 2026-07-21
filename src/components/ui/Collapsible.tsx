@@ -25,11 +25,12 @@ export const COLLAPSIBLE_WRAPPER_CLASS =
   'rounded-lg border border-[var(--vscode-widget-border)] overflow-hidden';
 
 /**
- * Header row: hoverable, full-width, with background tint.
+ * Header row: hoverable, full-width.
+ * Transparent by default (matches code-block-header), light tint on hover.
  * Pair with a ChevronDown icon that rotates when `open`.
  */
 export const COLLAPSIBLE_HEADER_CLASS =
-  'w-full flex items-center gap-3 px-4 py-2.5 text-left bg-[var(--vscode-list-hoverBackground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] transition-colors duration-150 cursor-pointer';
+  'w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer';
 
 /**
  * Body container: padded content area shown when expanded.
