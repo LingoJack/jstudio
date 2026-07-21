@@ -6,25 +6,13 @@ import { useI18n } from '../../lib/core/i18n';
 import { storage, type DocBackup } from '../../lib/core/storage';
 import { toast } from '../../lib/toast';
 import { formatFileSize } from '../../lib/editor/fileUtils';
-import type { Block, Document } from '../../types';
+import type { Document } from '../../types';
+import SectionedEditorPanel from '../editor/sectionEditor/SectionedEditorPanel';
 
 interface BackupRestoreDialogProps {
   docId: string;
   docTitle: string;
   onClose: () => void;
-}
-
-/** Extract a plain-text preview from a document's blocks (best-effort). */
-function extractPreviewText(doc: Document): string {
-  const lines: string[] = [];
-  for (const block of doc.blocks) {
-    if (Array.isArray(block.content)) {
-      const text = block.content.map((r) => r.text ?? '').join('');
-      if (text.trim()) lines.push(text);
-    }
-  }
-  const joined = lines.join('\n');
-  return joined.length > 3000 ? joined.slice(0, 3000) + '\n…' : joined;
 }
 
 export default function BackupRestoreDialog({
@@ -36,7 +24,7 @@ export default function BackupRestoreDialog({
   const [backups, setBackups] = useState<DocBackup[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<DocBackup | null>(null);
-  const [preview, setPreview] = useState<string>('');
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
@@ -65,7 +53,7 @@ export default function BackupRestoreDialog({
   // Load preview when selection changes.
   useEffect(() => {
     if (!selected) {
-      setPreview('');
+      setPreviewDoc(null);
       return;
     }
     let cancelled = false;
@@ -74,11 +62,11 @@ export default function BackupRestoreDialog({
       .readDocBackup(docId, selected.id)
       .then((doc) => {
         if (cancelled) return;
-        setPreview(extractPreviewText(doc));
+        setPreviewDoc(doc);
       })
       .catch((e) => {
         if (!cancelled) {
-          setPreview('');
+          setPreviewDoc(null);
           console.error('Failed to read backup preview:', e);
         }
       })
@@ -187,7 +175,7 @@ export default function BackupRestoreDialog({
           </div>
 
           {/* Preview pane */}
-          <div className="flex-1 min-w-0 overflow-y-auto p-4">
+          <div className="flex-1 min-w-0 flex flex-col">
             {!selected ? (
               <div className="flex flex-col items-center justify-center h-full text-[var(--vscode-descriptionForeground)]">
                 <FileText className="w-8 h-8 mb-2 opacity-40" />
@@ -196,13 +184,20 @@ export default function BackupRestoreDialog({
                 </span>
               </div>
             ) : loadingPreview ? (
-              <div className="text-sm text-[var(--vscode-descriptionForeground)]">
+              <div className="flex items-center justify-center h-full text-sm text-[var(--vscode-descriptionForeground)]">
                 {t('backup.loading')}
               </div>
+            ) : previewDoc ? (
+              <SectionedEditorPanel
+                key={selected.id}
+                doc={{ title: previewDoc.title || docTitle, blocks: previewDoc.blocks }}
+                readOnly
+              />
             ) : (
-              <pre className="text-xs text-[var(--vscode-foreground)] whitespace-pre-wrap break-words font-mono leading-relaxed">
-                {preview || t('backup.noBackups')}
-              </pre>
+              <div className="flex flex-col items-center justify-center h-full text-[var(--vscode-descriptionForeground)]">
+                <FileText className="w-8 h-8 mb-2 opacity-40" />
+                <span className="text-sm">{t('backup.noBackups')}</span>
+              </div>
             )}
           </div>
         </div>
@@ -210,9 +205,7 @@ export default function BackupRestoreDialog({
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--vscode-widget-border)]">
           <span className="text-xs text-[var(--vscode-descriptionForeground)]">
-            {backups.length > 0
-              ? `${backups.length} ${t('backup.blockCount', { count: backups.length }).replace(' 个块', '').replace(' blocks', '')}`
-              : ''}
+            {backups.length > 0 ? t('backup.totalCount', { count: backups.length }) : ''}
           </span>
           <div className="flex items-center gap-2">
             <button
