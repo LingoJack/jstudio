@@ -170,14 +170,7 @@ export default function CollapsibleView({
         {/* NO contentEditable={false} - WKWebView blocks keyboard input to
             form controls inside contentEditable={false} islands. TipTap's
             stopEvent + the native shields below handle ProseMirror isolation. */}
-        <div
-          className={`collapsible-block-header ${COLLAPSIBLE_HEADER_CLASS}`}
-          onClick={(e) => {
-            // Don't toggle when clicking the input itself.
-            if ((e.target as HTMLElement).tagName === 'INPUT') return;
-            toggleOpen();
-          }}
-        >
+        <div className={`collapsible-block-header ${COLLAPSIBLE_HEADER_CLASS} !cursor-default`}>
           {/* Collapse toggle - real <button> so the browser focuses it (no
               stray caret in the contentEditable header) and ProseMirror ignores
               the click via stopEvent. Styling/logic mirror CodeBlockView. */}
