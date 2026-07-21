@@ -4,7 +4,7 @@
  * Layout:
  *
  *   ┌───────────────────────────────────────────────┐
- *   │  ▼  [Summary title input ........................]  │  ← header
+ *   │  ▶  [Summary title input ........................]  │  ← header
  *   ├───────────────────────────────────────────────┤
  *   │  <NodeViewContent>                              │  ← editable body (TipTap content)
  *   │  • paragraphs, headings, images, etc.           │
@@ -31,6 +31,16 @@
  *   - ProseMirror's mousedown handler calls preventDefault() -> no stray
  *     text caret appears in the header.
  *
+ * ── Toggle button ──
+ *
+ * The collapse chevron is a real <button> (reusing CodeBlockView's
+ * `.editor-toolbar-btn` / `.code-collapse-toggle` styling). A <button> is a
+ * form control: TipTap's stopEvent returns true for it (ProseMirror ignores
+ * the event) AND the browser focuses the button instead of placing a stray
+ * text caret in the contentEditable header - which is what previously
+ * happened when the chevron was a bare <svg> and the caret landed at the
+ * right edge of the title bar.
+ *
  * ── Event shields (safety net) ──
  *
  * Native bubble-phase listeners on the wrapper provide defense-in-depth.
@@ -41,8 +51,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
+import { useI18n } from '../../../lib/core/i18n';
 import { COLLAPSIBLE_HEADER_CLASS } from '../../ui/Collapsible';
 import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useCursorTrailHostRef } from '../CursorTrailContext';
@@ -63,6 +74,7 @@ export default function CollapsibleView({
   // 用 useNodeSelected 而非 NodeViewProps.selected：后者在文本选择扫过本块时
   // 也会变 true，导致边框误高亮。与 CodeBlockView 保持一致。
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
+  const { t } = useI18n();
 
   // Local state for editing - avoids ProseMirror re-render on every keystroke
   const [localSummary, setLocalSummary] = useState(summary);
@@ -166,11 +178,25 @@ export default function CollapsibleView({
             toggleOpen();
           }}
         >
-          <ChevronDown
-            className={`w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 transition-transform duration-200 ${
-              open ? 'rotate-180' : ''
-            }`}
-          />
+          {/* Collapse toggle - real <button> so the browser focuses it (no
+              stray caret in the contentEditable header) and ProseMirror ignores
+              the click via stopEvent. Styling/logic mirror CodeBlockView. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleOpen();
+            }}
+            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
+            title={open ? t('collapsible.collapse') : t('collapsible.expand')}
+            aria-label={open ? t('collapsible.collapse') : t('collapsible.expand')}
+            aria-expanded={open}
+          >
+            <ChevronRight
+              size={14}
+              className={`code-collapse-chevron ${open ? 'is-open' : ''}`}
+            />
+          </button>
           <input
             ref={cursorTrailInputRef}
             type="text"

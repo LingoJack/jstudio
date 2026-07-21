@@ -464,6 +464,8 @@ export const translations = {
     'slash.diagramDesc': '绘制架构图、流程图、需求图',
     'slash.collapsible': '折叠区域',
     'slash.collapsibleDesc': '可折叠/展开的内容区域',
+    'collapsible.expand': '展开',
+    'collapsible.collapse': '收起',
 
     // ── Terminal Window ──
     'terminal.loadError': '无法加载终端会话',
