@@ -170,10 +170,12 @@ export default function App() {
         }
       });
 
-      // Listen for window-close-requested events (Cmd+W on macOS).
-      // WKWebView intercepts Cmd+W before JS can handle it, so we intercept
-      // at the Rust layer and emit this event. Frontend decides: close tab
-      // if multiple tabs exist, or close window if it's the last tab.
+      // Listen for window-close-requested events (traffic-light close button
+      // on macOS). Cmd+W is now handled separately via the native menu event
+      // ("app.closeTab" -> executeShortcutAction), so this listener only
+      // fires when the user clicks the window's close button.
+      // Frontend decides: close tab if multiple tabs exist, or close window
+      // if it's the last tab.
       unlistenClose = await listen('window-close-requested', () => {
         const store = useStore.getState();
         const tabs = store.tabs;

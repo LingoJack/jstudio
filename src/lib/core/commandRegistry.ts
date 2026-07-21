@@ -21,6 +21,7 @@ import { storage } from './storage';
 import { ACTIVITY_ITEM_META } from '../activityMeta';
 import { createTerminalWindow } from '../windows/terminalDetach';
 import { getFocusedEditor } from '../editor/focusedEditorRegistry';
+import { invoke } from '@tauri-apps/api/core';
 
 // ──────────────────────────────────────────────────────────────────
 // Shortcut Action Registry
@@ -53,7 +54,24 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: 'app.goToTerminal', perform: (store) => { store.setSettingsOpen(false); store.setActiveSidebarView('terminal'); if (!store.isSidebarOpen) store.toggleSidebar(); } },
   { id: 'app.cycleTabLeft', perform: (store) => store.cycleTab(-1) },
   { id: 'app.cycleTabRight', perform: (store) => store.cycleTab(1) },
-  { id: 'app.closeTab', perform: (store) => { if (store.activeTabId) store.closeTab(store.activeTabId); } },
+  {
+    id: 'app.closeTab',
+    perform: (store) => {
+      // Triggered by the macOS native Window > Close Tab menu item (Cmd+W).
+      // PredefinedMenuItem::close_window would trigger the WKWebView's native
+      // window-close flow, requiring a separate on_window_event intercept.
+      // By using a custom MenuItem the keypress routes through on_menu_event
+      // -> "native-command" -> here, same pattern as editor.undo.
+      // When only one tab remains, close the entire window (matching the
+      // behavior of the window-close-requested handler in App.tsx).
+      if (!store.activeTabId) return;
+      if (store.tabs.length > 1) {
+        store.closeTab(store.activeTabId);
+      } else {
+        invoke('close_window').catch((err) => console.error('Failed to close window:', err));
+      }
+    },
+  },
   { id: 'app.toggleDarkMode', perform: (store) => store.toggleDarkMode() },
   { id: 'app.setDarkTheme', perform: (store) => store.setThemeMode('dark') },
   { id: 'app.setLightTheme', perform: (store) => store.setThemeMode('light') },

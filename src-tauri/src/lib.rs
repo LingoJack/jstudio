@@ -4,7 +4,7 @@ mod db;
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager};
 
-/// Handle window close requests (Cmd+W on macOS).
+/// Handle window close requests (traffic-light close button on macOS).
 ///
 /// Only intercepts close requests for the **main window**. Child windows
 /// (preview, diagram, terminal detach, document detach) are allowed to
@@ -13,6 +13,10 @@ use tauri::{Emitter, Manager};
 /// For the main window, we prevent the default action and emit an event
 /// to the frontend, letting it decide whether to close the current tab
 /// or the entire window.
+///
+/// Note: Cmd+W no longer triggers this path - it is handled via a custom
+/// MenuItem ("app.closeTab") that routes through on_menu_event. This
+/// handler only fires when the user clicks the window's close button.
 fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestApi) {
     // Only intercept close requests for the main window.
     // Child windows (preview, diagram, terminal, document) should close directly.
@@ -22,7 +26,7 @@ fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestAp
         return;
     }
 
-    // Prevent the default close action — we'll handle it in JS.
+    // Prevent the default close action - we'll handle it in JS.
     // The frontend will call `close_window` if it really wants to close.
     api.prevent_close();
 
@@ -39,7 +43,7 @@ fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestAp
 /// to Cmd+A. macOS dispatches Cmd+A to that menu item via
 /// `performKeyEquivalent:` BEFORE generating a DOM keydown event, so the
 /// editor's JS keyboard handlers (ProseMirror keymap AND window-capture
-/// listeners) never see Cmd+A — breaking in-code-block "select all" and any
+/// listeners) never see Cmd+A - breaking in-code-block "select all" and any
 /// other Cmd+A handling. Removing the menu item lets Cmd+A flow through to
 /// the webview like any ordinary key (the same path Cmd+Arrow already takes;
 /// see docs/bug-graveyard.md #001). The structure mirrors Tauri 2.11's
@@ -71,21 +75,15 @@ fn build_app_menu<R: tauri::Runtime>(
         ],
     )?;
 
-    let file_submenu = Submenu::with_items(
-        app,
-        "File",
-        true,
-        &[&PredefinedMenuItem::close_window(app, None)?],
-    )?;
-
-    // Edit menu — intentionally WITHOUT `select_all` (see fn doc above).
+    // ── Edit menu ──────────────────────────────────────────────────────
+    // Intentionally WITHOUT `select_all` (see fn doc above).
     // Find starts without an accelerator. After settings load, the frontend
     // synchronizes the effective user binding through
     // `set_native_menu_accelerator`; an explicit unbind therefore remains
     // unbound instead of briefly restoring Cmd+F during startup.
     let find_item = MenuItem::with_id(app, "app.find", "Find...", true, None::<&str>)?;
 
-    // Inline code menu item — bound to Cmd+` by default.
+    // Inline code menu item - bound to Cmd+` by default.
     //
     // Why: macOS reserves Cmd+` for the system "Cycle Windows" accelerator.
     // Without a menu item claiming that key equivalent, macOS swallows the
@@ -138,38 +136,37 @@ fn build_app_menu<R: tauri::Runtime>(
         ],
     )?;
 
-    let view_submenu = Submenu::with_items(
+    // ── Window menu ────────────────────────────────────────────────────
+    // All tab/window management in one menu. Custom MenuItems (NOT
+    // PredefinedMenuItem) so keypresses route through on_menu_event ->
+    // "native-command" -> executeShortcutAction, same pattern as the Edit
+    // menu items above. The traffic-light close button still triggers
+    // CloseRequested -> on_window_close_requested -> "window-close-requested"
+    // (see on_window_event in run()).
+    let new_terminal_tab_item = MenuItem::with_id(
         app,
-        "View",
+        "terminal.newTab",
+        "New Terminal Tab",
         true,
-        &[&PredefinedMenuItem::fullscreen(app, None)?],
+        Some("CmdOrCtrl+T"),
     )?;
+    let close_tab_item =
+        MenuItem::with_id(app, "app.closeTab", "Close Tab", true, Some("CmdOrCtrl+W"))?;
 
     let window_submenu = Submenu::with_items(
         app,
         "Window",
         true,
         &[
+            &new_terminal_tab_item,
+            &close_tab_item,
+            &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::minimize(app, None)?,
             &PredefinedMenuItem::maximize(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::close_window(app, None)?,
         ],
     )?;
 
-    let help_submenu = Submenu::with_items(app, "Help", true, &[])?;
-
-    let menu = Menu::with_items(
-        app,
-        &[
-            &app_submenu,
-            &file_submenu,
-            &edit_submenu,
-            &view_submenu,
-            &window_submenu,
-            &help_submenu,
-        ],
-    )?;
+    let menu = Menu::with_items(app, &[&app_submenu, &edit_submenu, &window_submenu])?;
 
     Ok((menu, find_item, inline_code_item))
 }
@@ -179,7 +176,7 @@ pub fn run() {
     tauri::Builder::default()
         // Tauri's default macOS menu includes Edit > "Select All" (Cmd+A),
         // which macOS intercepts via performKeyEquivalent: before any DOM
-        // keydown is generated — so the editor never sees Cmd+A. We disable
+        // keydown is generated - so the editor never sees Cmd+A. We disable
         // the default menu and install a custom one (build_app_menu) that is
         // identical except it omits the "Select All" item. Cmd+A then flows
         // through to the webview like Cmd+Arrow. See build_app_menu + the
@@ -202,9 +199,10 @@ pub fn run() {
             }
             Ok(())
         })
-        // Intercept window close requests (Cmd+W on macOS) before WKWebView
-        // closes the window. We emit an event to JS and let it decide.
-        // Only the main window is intercepted; child windows close directly.
+        // Intercept window close requests (traffic-light close button) before
+        // WKWebView closes the window. We emit an event to JS and let it
+        // decide. Only the main window is intercepted; child windows close
+        // directly. Cmd+W is handled separately via on_menu_event above.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 on_window_close_requested(window, api);
@@ -218,7 +216,9 @@ pub fn run() {
             if (id == "app.find"
                 || id == "editor.inlineCode"
                 || id == "editor.undo"
-                || id == "editor.redo")
+                || id == "editor.redo"
+                || id == "app.closeTab"
+                || id == "terminal.newTab")
                 && let Some((label, _)) = app
                     .webview_windows()
                     .into_iter()
