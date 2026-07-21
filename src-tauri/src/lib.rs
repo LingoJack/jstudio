@@ -230,7 +230,6 @@ fn build_app_menu<R: tauri::Runtime>(
             &close_tab_item,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
         ],
     )?;
 
