@@ -55,3 +55,8 @@ cipher = { version = "0.4", features = ["block-padding"] }
 urlencoding = "2"
 url = "2"
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+
+# ── macOS native menu cleanup (remove system-injected Edit items) ──
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem"] }

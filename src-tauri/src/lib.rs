@@ -4,6 +4,74 @@ mod db;
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager};
 
+#[cfg(target_os = "macos")]
+mod macos_menu_cleanup {
+    //! macOS automatically injects "AutoFill", "Start Dictation...", and
+    //! "Emoji & Symbols" items into any submenu named "Edit". These are
+    //! system items that Tauri/muda does not create and cannot remove via
+    //! its public API. We prune them by accessing the native NSMenu
+    //! directly and deleting every item beyond the ones we explicitly add.
+
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSMenu};
+    use std::ffi::c_void;
+
+    /// Items we explicitly add to the Edit menu:
+    /// Undo, Redo, separator, Cut, Copy, Paste, separator, Find, separator, Inline Code
+    const EDIT_MENU_ITEM_COUNT: isize = 10;
+
+    // dispatch_get_main_queue() is a C macro (not a real function) that
+    // expands to &_dispatch_main_q. We declare the global directly.
+    unsafe extern "C" {
+        static _dispatch_main_q: c_void;
+        fn dispatch_async_f(
+            queue: *mut c_void,
+            context: *mut c_void,
+            work: extern "C" fn(*mut c_void),
+        );
+    }
+
+    extern "C" fn prune(_ctx: *mut c_void) {
+        // SAFETY: runs on the main thread via dispatch_async_f.
+        let mtm = unsafe { MainThreadMarker::new_unchecked() };
+        let app = NSApplication::sharedApplication(mtm);
+        if let Some(main_menu) = app.mainMenu() {
+            // Edit menu is at index 1 (index 0 is the app menu).
+            if let Some(edit_item) = main_menu.itemAtIndex(1) {
+                if let Some(edit_menu) = edit_item.submenu() {
+                    remove_system_items(&edit_menu);
+                }
+            }
+        }
+    }
+
+    fn remove_system_items(edit_menu: &NSMenu) {
+        let count = edit_menu.numberOfItems();
+        // Remove all items beyond our explicit count. System items
+        // (AutoFill, Start Dictation, Emoji & Symbols) are appended
+        // after our items, often preceded by a separator.
+        if count > EDIT_MENU_ITEM_COUNT {
+            for i in (EDIT_MENU_ITEM_COUNT..count).rev() {
+                edit_menu.removeItemAtIndex(i);
+            }
+        }
+    }
+
+    /// Schedule the pruning on the next main-thread run-loop iteration.
+    /// The system items are injected during app launch, so we defer
+    /// slightly to ensure they exist before we remove them.
+    pub fn schedule() {
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            unsafe {
+                // dispatch_get_main_queue() expands to &_dispatch_main_q
+                let main_queue = &_dispatch_main_q as *const c_void as *mut c_void;
+                dispatch_async_f(main_queue, std::ptr::null_mut(), prune);
+            }
+        });
+    }
+}
+
 /// Handle window close requests (traffic-light close button on macOS).
 ///
 /// Only intercepts close requests for the **main window**. Child windows
@@ -196,6 +264,9 @@ pub fn run() {
                     inline_code_item,
                 });
                 app.set_menu(menu)?;
+                // Prune macOS system-injected Edit menu items (AutoFill,
+                // Start Dictation, Emoji & Symbols) after the menu is set.
+                macos_menu_cleanup::schedule();
             }
             Ok(())
         })
