@@ -1,7 +1,7 @@
 mod commands;
 mod db;
 
-use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager};
 
 #[cfg(target_os = "macos")]
@@ -121,23 +121,19 @@ fn build_app_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> tauri::Result<(Menu<R>, MenuItem<R>, MenuItem<R>)> {
     let pkg = app.package_info();
-    let about = AboutMetadata {
-        name: Some(pkg.name.clone()),
-        version: Some(pkg.version.to_string()),
-        ..Default::default()
-    };
 
     let app_submenu = Submenu::with_items(
         app,
         pkg.name.as_str(),
         true,
         &[
-            &PredefinedMenuItem::about(app, None, Some(about))?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::services(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::hide(app, None)?,
-            &PredefinedMenuItem::hide_others(app, None)?,
+            &MenuItem::with_id(
+                app,
+                "app.openSettings",
+                "Settings...",
+                true,
+                Some("CmdOrCtrl+,"),
+            )?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::quit(app, None)?,
         ],
@@ -284,6 +280,7 @@ pub fn run() {
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
             if (id == "app.find"
+                || id == "app.openSettings"
                 || id == "editor.inlineCode"
                 || id == "editor.undo"
                 || id == "editor.redo"
