@@ -1836,8 +1836,8 @@ button {
 }
 
 /* header 底部分割线 - 对齐 code-block-header。
-   背景由共享常量 COLLAPSIBLE_HEADER_CLASS 控制：默认透明（显露 figure 的
-   editor-background，与 code-block-header 一致），hover 轻微高亮。 */
+   背景由共享常量 COLLAPSIBLE_HEADER_CLASS 控制：透明（显露 figure 的
+   editor-background，与 code-block-header 一致），无 hover 着色。 */
 .collapsible-block-header {
   border-bottom: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
 }
