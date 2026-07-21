@@ -3,6 +3,12 @@ import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 import { onSaveError, type SliceCreator } from './storeHelpers';
 import {
+  type DocSortKey,
+  type DocSortDirection,
+  DEFAULT_DOC_SORT_KEY,
+  DEFAULT_DOC_SORT_DIRECTION,
+} from '../lib/documents/sortUtils';
+import {
   DEFAULT_LATIN_FONT_ID,
   DEFAULT_CJK_FONT_ID,
   DEFAULT_FONT_SIZE,
@@ -127,6 +133,8 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   tabBarPosition: DEFAULT_TAB_BAR_POSITION,
   keyboardShortcuts: {} as ShortcutOverrides,
   globalShortcuts: [] as GlobalShortcutConfig[],
+  docSortKey: DEFAULT_DOC_SORT_KEY,
+  docSortDirection: DEFAULT_DOC_SORT_DIRECTION,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -296,5 +304,15 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setGlobalShortcuts: (configs) => {
     set({ globalShortcuts: configs });
     storage.saveSettings({ globalShortcuts: configs }).catch(onSaveError('设置'));
+  },
+
+  setDocSortKey: (key: DocSortKey) => {
+    set({ docSortKey: key });
+    storage.saveSettings({ docSortKey: key }).catch(onSaveError('设置'));
+  },
+
+  setDocSortDirection: (dir: DocSortDirection) => {
+    set({ docSortDirection: dir });
+    storage.saveSettings({ docSortDirection: dir }).catch(onSaveError('设置'));
   },
 });

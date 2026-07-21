@@ -79,6 +79,12 @@ export const translations = {
     'doclist.batchDeleteConfirm': '确定删除选中的 {count} 篇文档吗？此操作不可撤销。',
     'doclist.batchClear': '取消选择',
 
+    // ── Document List: Sort ──
+    'doclist.sortByCreated': '按创建时间',
+    'doclist.sortByTitle': '按字母顺序',
+    'doclist.sortAscending': '升序',
+    'doclist.sortDescending': '降序',
+
     // ── Document List: Trash ──
     'doclist.trash': '回收站',
     'doclist.moveToTrash': '移入回收站',
@@ -787,6 +793,12 @@ export const translations = {
     'doclist.batchMove': 'Move Selected',
     'doclist.batchDeleteConfirm': 'Delete {count} selected documents? This action cannot be undone.',
     'doclist.batchClear': 'Clear Selection',
+
+    // ── Document List: Sort ──
+    'doclist.sortByCreated': 'By Created Time',
+    'doclist.sortByTitle': 'Alphabetical',
+    'doclist.sortAscending': 'Ascending',
+    'doclist.sortDescending': 'Descending',
 
     // ── Document List: Trash ──
     'doclist.trash': 'Trash',

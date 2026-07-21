@@ -11,6 +11,7 @@ import { gcDocumentAssets } from '../lib/documents/assetGc';
 import { toast } from '../lib/toast';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 import { applyAppTheme, getAppTheme, DEFAULT_APP_THEME_ID_DARK, DEFAULT_APP_THEME_ID_LIGHT } from '../lib/themes';
+import { coerceDocSortKey, coerceDocSortDirection, DEFAULT_DOC_SORT_KEY, DEFAULT_DOC_SORT_DIRECTION } from '../lib/documents/sortUtils';
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
@@ -60,6 +61,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
       let globalShortcuts: GlobalShortcutConfig[] | undefined;
+      let docSortKey = DEFAULT_DOC_SORT_KEY;
+      let docSortDirection = DEFAULT_DOC_SORT_DIRECTION;
       try {
         const settings = await storage.loadSettings();
         if (settings.theme === 'light' || settings.theme === 'system') {
@@ -147,6 +150,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         if (settings.tabBarPosition === 'top' || settings.tabBarPosition === 'bottom') {
           tabBarPosition = settings.tabBarPosition;
         }
+        // Load document list sort settings
+        docSortKey = coerceDocSortKey(settings.docSortKey);
+        docSortDirection = coerceDocSortDirection(settings.docSortDirection);
       } catch {
         // ignore
       }
@@ -252,6 +258,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(tabBarPosition !== undefined ? { tabBarPosition } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
+        docSortKey,
+        docSortDirection,
         isLoading: false,
       });
 

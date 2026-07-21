@@ -8,7 +8,7 @@ import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folder
 import {
   FileText, Plus, MoreHorizontal, FileDown,
   FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
-  X, PackageOpen,
+  X, PackageOpen, Check, ArrowUpNarrowWide, ArrowDownWideNarrow,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import TrashDialog from './TrashDialog';
@@ -64,6 +64,12 @@ export default function DocumentSidebar() {
   const toggleFolderCollapsed = useStore((s) => s.toggleFolderCollapsed);
   const moveDocumentToFolder = useStore((s) => s.moveDocumentToFolder);
   const moveDocumentsToFolder = useStore((s) => s.moveDocumentsToFolder);
+
+  // Sort settings
+  const docSortKey = useStore((s) => s.docSortKey);
+  const docSortDirection = useStore((s) => s.docSortDirection);
+  const setDocSortKey = useStore((s) => s.setDocSortKey);
+  const setDocSortDirection = useStore((s) => s.setDocSortDirection);
 
   const { onResizeStart } = useSidebarResize();
 
@@ -135,8 +141,8 @@ export default function DocumentSidebar() {
     [docList, searchQuery, isSearching],
   );
   const tree = useMemo(
-    () => buildFolderTree(folders, filteredDocs),
-    [folders, filteredDocs],
+    () => buildFolderTree(folders, filteredDocs, { sortKey: docSortKey, direction: docSortDirection }),
+    [folders, filteredDocs, docSortKey, docSortDirection],
   );
   const rootDocCount = tree.documents.length;
 
@@ -886,6 +892,41 @@ export default function DocumentSidebar() {
                   }}
                 >
                   {t('doclist.importBundle')}
+                </MenuItem>
+                <MenuDivider />
+                {/* ── Sort settings ── */}
+                <MenuItem
+                  icon={docSortKey === 'created' ? <Check /> : <span className="w-4 h-4" />}
+                  onClick={() => {
+                    setDocSortKey('created');
+                  }}
+                >
+                  {t('doclist.sortByCreated')}
+                </MenuItem>
+                <MenuItem
+                  icon={docSortKey === 'title' ? <Check /> : <span className="w-4 h-4" />}
+                  onClick={() => {
+                    setDocSortKey('title');
+                  }}
+                >
+                  {t('doclist.sortByTitle')}
+                </MenuItem>
+                <MenuDivider />
+                <MenuItem
+                  icon={docSortDirection === 'asc' ? <ArrowUpNarrowWide /> : <span className="w-4 h-4" />}
+                  onClick={() => {
+                    setDocSortDirection('asc');
+                  }}
+                >
+                  {t('doclist.sortAscending')}
+                </MenuItem>
+                <MenuItem
+                  icon={docSortDirection === 'desc' ? <ArrowDownWideNarrow /> : <span className="w-4 h-4" />}
+                  onClick={() => {
+                    setDocSortDirection('desc');
+                  }}
+                >
+                  {t('doclist.sortDescending')}
                 </MenuItem>
                 <MenuDivider />
                 <MenuItem

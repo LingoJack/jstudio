@@ -1,5 +1,6 @@
 import type { Document, Block, BlockType, RichText } from '../types';
 import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig, TrashedAsset } from '../lib/core/storage';
+import type { DocSortKey, DocSortDirection } from '../lib/documents/sortUtils';
 import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 import type {
@@ -143,6 +144,10 @@ export interface StoreState {
   tabBarPosition: 'top' | 'bottom';
   keyboardShortcuts: ShortcutOverrides;
   globalShortcuts: GlobalShortcutConfig[];
+  /** Document list sort key – `'created'` or `'title'` */
+  docSortKey: DocSortKey;
+  /** Document list sort direction – `'asc'` or `'desc'` */
+  docSortDirection: DocSortDirection;
 
   // — terminal state (terminal slice) —
   templates: TerminalTemplate[];
@@ -272,6 +277,8 @@ export interface StoreState {
   resetKeyboardShortcut: (id: string) => void;
   resetAllKeyboardShortcuts: () => void;
   setGlobalShortcuts: (configs: GlobalShortcutConfig[]) => void;
+  setDocSortKey: (key: DocSortKey) => void;
+  setDocSortDirection: (dir: DocSortDirection) => void;
 
   // — terminal ops (terminal slice) —
   initTemplates: (raw: unknown) => void;
