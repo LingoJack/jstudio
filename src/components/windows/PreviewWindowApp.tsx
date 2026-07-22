@@ -228,6 +228,13 @@ function ImageZoom({ src }: { src: string }) {
   const [ty, setTy] = useState(0);
   const dragRef = useRef<{ startX: number; startY: number; baseTx: number; baseTy: number } | null>(null);
 
+  // CSS object-fit:contain handles the initial fit; scale 1 = fitted.
+  const fit = useCallback(() => {
+    setScale(1);
+    setTx(0);
+    setTy(0);
+  }, []);
+
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -260,23 +267,6 @@ function ImageZoom({ src }: { src: string }) {
     } catch { /* ignore */ }
   }, []);
 
-  const fit = useCallback(() => {
-    const img = document.querySelector('.preview-image') as HTMLImageElement;
-    if (!img) return;
-    const container = img.parentElement;
-    if (!container) return;
-    const scaleX = (container.clientWidth * 0.9) / img.naturalWidth;
-    const scaleY = (container.clientHeight * 0.9) / img.naturalHeight;
-    setScale(Math.min(scaleX, scaleY, 3));
-    setTx(0);
-    setTy(0);
-  }, []);
-
-  // Auto fit on load
-  const onLoad = useCallback(() => {
-    setTimeout(fit, 50);
-  }, [fit]);
-
   return (
     <div className="preview-image-area">
       <img
@@ -288,7 +278,6 @@ function ImageZoom({ src }: { src: string }) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onLoad={onLoad}
         draggable={false}
       />
       <div className="preview-zoom">
