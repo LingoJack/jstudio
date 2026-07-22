@@ -20,9 +20,8 @@ import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import AgentChatPanel from './components/agent/AgentChatPanel';
 import AgentSidebar from './components/agent/AgentSidebar';
-import SectionedEditorPanel from './components/editor/sectionEditor/SectionedEditorPanel';
+import DeferredWorkspaceContent from './components/workspace/DeferredWorkspaceContent';
 import SettingsPanel from './components/settings/SettingsPanel';
-import EmptyPanel from './components/ui/EmptyPanel';
 import CommandPalette from './components/editor/CommandPalette';
 import { ToastContainer } from './components/ui/Toast';
 
@@ -30,12 +29,6 @@ export default function App() {
   const { t } = useI18n();
   const init = useStore((s) => s.init);
   const isLoading = useStore((s) => s.isLoading);
-  // Subscribe to a boolean only — NOT the activeDoc object reference.
-  // setActiveDocBlocks() (fires on every 300ms debounce tick) replaces the
-  // activeDoc reference, which would re-render App and cascade to
-  // SectionedEditorPanel, causing ProseMirror cursor lag (especially in
-  // code blocks).
-  const hasActiveDoc = useStore((s) => !!s.activeDoc);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
@@ -160,7 +153,7 @@ export default function App() {
         await win.setFocus();
         const store = useStore.getState();
         if (kind === 'document') {
-          store.openDocument(id);
+          store.openDocumentTab(id);
           store.setSearchQuery('');
         } else if (kind === 'session') {
           store.setActiveSession(id);
@@ -270,16 +263,13 @@ export default function App() {
             <AgentChatPanel hidden={!isAgentView} />
           </div>
 
-          {/* SettingsPanel / SectionedEditorPanel / EmptyPanel overlaid on top */}
-          {isSettingsOpen ? (
-            <SettingsPanel />
-          ) : !isTerminalView && !isAgentView ? (
-            hasActiveDoc ? (
-              <SectionedEditorPanel />
-            ) : (
-              <EmptyPanel />
-            )
-          ) : null}
+          {/* Keep workspace content mounted so concurrent tab transitions can finish safely. */}
+          <DeferredWorkspaceContent
+            visible={!isSettingsOpen && !isTerminalView && !isAgentView}
+          />
+
+          {/* Settings take priority over workspace content. */}
+          {isSettingsOpen && <SettingsPanel />}
         </div>
       </div>
 

@@ -27,7 +27,7 @@ export default function DocumentTabs() {
   const { t } = useI18n();
   const allTabs = useStore((s) => s.tabs);
   const activeTabId = useStore((s) => s.activeTabId);
-  const setActiveTab = useStore((s) => s.setActiveTab);
+  const selectTab = useStore((s) => s.selectTab);
   const closeTab = useStore((s) => s.closeTab);
   const closeOtherTabs = useStore((s) => s.closeOtherTabs);
   const docList = useStore((s) => s.docList);
@@ -114,7 +114,7 @@ export default function DocumentTabs() {
     <TabBar
       tabs={tabItems}
       activeTabId={activeTabId}
-      onTabClick={setActiveTab}
+      onTabClick={selectTab}
       onTabClose={closeTab}
       onNew={createDocument}
       onDetach={handleDetach}

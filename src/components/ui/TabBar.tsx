@@ -30,7 +30,7 @@
  *   />
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import RippleButton from './RippleButton';
@@ -110,12 +110,19 @@ export default function TabBar({
   const tabRefsRef = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // ── Apple-style sliding selection indicator ──────────────────────
-  const [indicatorPos, setIndicatorPos] = useState({ left: 0, width: 0 });
+  // Uses `transform: translateX()` (compositor-thread) instead of `left`
+  // (main-thread layout) so the slide stays smooth even when the main
+  // thread is blocked by heavy work (e.g. ProseMirror instance creation
+  // during a large-document tab switch). `useLayoutEffect` runs the
+  // position measurement BEFORE passive effects (where SectionEditor
+  // creates its ProseMirror instances), so the indicator is positioned
+  // and its transition starts before the blocking work begins.
+  const [indicatorLeft, setIndicatorLeft] = useState(0);
   // Stable signature of tab order/identity — avoids re-running the layout
   // effect on every parent render (tabs is a fresh array each render).
   const tabSignature = tabs.map((t) => t.id).join('|');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const activeEl = tabRefsRef.current.get(activeTabId ?? '');
     const scroller = scrollRef.current;
     if (!activeEl || !scroller) return;
@@ -124,10 +131,7 @@ export default function TabBar({
       const tabRect = activeEl.getBoundingClientRect();
       const scrollRect = scroller.getBoundingClientRect();
       const left = tabRect.left - scrollRect.left;
-      const width = tabRect.width;
-      setIndicatorPos((prev) =>
-        prev.left === left && prev.width === width ? prev : { left, width }
-      );
+      setIndicatorLeft((prev) => (prev === left ? prev : left));
     };
 
     updatePos();
@@ -308,15 +312,19 @@ export default function TabBar({
             className="flex items-center overflow-x-auto min-w-0 gap-0.5"
             style={{ scrollbarWidth: 'none' }}
           >
-            {/* Apple-style sliding selection indicator with glass glow */}
+            {/* Apple-style sliding selection indicator with glass glow.
+                Uses transform (compositor-thread) so the slide animation
+                stays smooth even when the main thread is blocked. */}
             <div
               className="absolute top-1.5 bottom-1.5 rounded-full pointer-events-none"
               style={{
-                left: `calc(8px + ${indicatorPos.left}px)`,
-                width: indicatorPos.width,
+                left: '8px',
+                width: '140px',
                 background: accentColor,
                 boxShadow: `0 0 12px 2px color-mix(in srgb, ${accentColor} 40%, transparent), 0 1px 2px rgba(0,0,0,0.08)`,
-                transition: 'left 220ms cubic-bezier(0.33, 1.15, 0.5, 1), width 220ms cubic-bezier(0.33, 1.15, 0.5, 1), box-shadow 180ms ease-out',
+                transform: `translateX(${indicatorLeft}px)`,
+                transition: 'transform 220ms cubic-bezier(0.33, 1.15, 0.5, 1), box-shadow 180ms ease-out',
+                willChange: 'transform',
               }}
             />
 

@@ -24,7 +24,7 @@ export default function ActivityBar() {
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
   const tabs = useStore((s) => s.tabs);
-  const setActiveTab = useStore((s) => s.setActiveTab);
+  const selectTab = useStore((s) => s.selectTab);
 
   const activeClass = 'text-[var(--vscode-foreground)]';
   const inactiveClass =
@@ -61,7 +61,7 @@ export default function ActivityBar() {
       // If there are document tabs, focus the most recent one.
       const lastDocTab = [...tabs].reverse().find((t) => t.kind === 'document');
       if (lastDocTab) {
-        setActiveTab(lastDocTab.id);
+        selectTab(lastDocTab.id);
       } else {
         // No document tabs — just switch the view.
         setActiveSidebarView('documents');
@@ -71,7 +71,7 @@ export default function ActivityBar() {
       // If there are terminal tabs, focus the most recent one.
       const lastTermTab = [...tabs].reverse().find((t) => t.kind === 'terminal');
       if (lastTermTab) {
-        setActiveTab(lastTermTab.id);
+        selectTab(lastTermTab.id);
       } else {
         // No terminal tabs — switch to terminal view; TerminalPanel
         // will auto-create the first session.

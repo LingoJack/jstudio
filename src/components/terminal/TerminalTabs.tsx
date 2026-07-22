@@ -91,13 +91,12 @@ export default function TerminalTabs() {
   const sessions = useStore((s) => s.sessions);
   const activeGroupId = useStore((s) => s.activeGroupId);
   const recentDirs = useStore((s) => s.recentDirs);
-  const setActiveSession = useStore((s) => s.setActiveSession);
   const closeSession = useStore((s) => s.closeSession);
   const createSession = useStore((s) => s.createSession);
   const renameSession = useStore((s) => s.renameSession);
   // Workspace: sync activeTabId when switching terminal groups.
   const wsTabs = useStore((s) => s.tabs);
-  const wsSetActiveTab = useStore((s) => s.setActiveTab);
+  const selectTab = useStore((s) => s.selectTab);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
   const tabBarPosition = useStore((s) => s.tabBarPosition);
 
@@ -109,24 +108,17 @@ export default function TerminalTabs() {
   const theme = getTerminalThemeFromAppTheme(appThemeId, isDarkMode);
 
   /**
-   * Switch to a terminal session AND sync the workspace active tab.
-   * This keeps DocumentTabs and TerminalTabs in agreement about which
-   * tab is focused, so the global cycle shortcut (Cmd+Option+←/→)
-   * knows the correct anchor point.
+   * Switch to a terminal group through its workspace tab.
+   * selectTab keeps workspace and terminal state in sync.
    */
-  const switchSession = useCallback(
-    (sessionId: string) => {
-      setActiveSession(sessionId);
-      // Find the workspace tab for the group that owns this session.
-      const group = groups.find((g) => g.activeSessionId === sessionId);
-      if (group) {
-        const wsTab = wsTabs.find(
-          (t) => t.kind === 'terminal' && t.groupId === group.id,
-        );
-        if (wsTab) wsSetActiveTab(wsTab.id);
-      }
+  const switchGroup = useCallback(
+    (groupId: string) => {
+      const wsTab = wsTabs.find(
+        (t) => t.kind === 'terminal' && t.groupId === groupId,
+      );
+      if (wsTab) selectTab(wsTab.id);
     },
-    [groups, wsTabs, setActiveSession, wsSetActiveTab]
+    [wsTabs, selectTab]
   );
 
   // ── Inline rename state ───────────────────────────────────────────
@@ -166,6 +158,12 @@ export default function TerminalTabs() {
   const historyBtnRef = useRef<HTMLButtonElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const historyCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (historyCloseTimer.current) clearTimeout(historyCloseTimer.current);
+    };
+  }, []);
 
   const openHistory = useCallback(() => {
     if (historyCloseTimer.current) {
@@ -298,10 +296,7 @@ export default function TerminalTabs() {
       <TabBar
         tabs={tabItems}
         activeTabId={activeGroupId}
-        onTabClick={(groupId) => {
-          const group = groups.find((g) => g.id === groupId);
-          if (group) switchSession(group.activeSessionId);
-        }}
+        onTabClick={switchGroup}
         onTabClose={(groupId) => {
           const group = groups.find((g) => g.id === groupId);
           if (group) closeSession(group.activeSessionId);

@@ -353,7 +353,8 @@ export interface StoreState {
   openTerminalTab: (groupId: string) => void;
   closeTab: (tabId: string) => void;
   closeOtherTabs: (keepTabId: string) => void;
-  setActiveTab: (tabId: string) => void;
+  selectTab: (tabId: string) => void;
+  commitTabContent: (tabId: string | null) => boolean;
   cycleTab: (direction: 1 | -1) => void;
   /** Called by terminalSlice: remove a terminal tab without killing PTYs. */
   removeTerminalTabByGroupId: (groupId: string) => void;

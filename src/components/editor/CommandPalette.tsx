@@ -225,7 +225,7 @@ export default function CommandPalette() {
         item.scored.command.perform(store);
         setCommandPaletteOpen(false);
       } else if (item.kind === 'document') {
-        useStore.getState().openDocument(item.doc.id);
+        useStore.getState().openDocumentTab(item.doc.id);
         useStore.getState().setSearchQuery('');
         setCommandPaletteOpen(false);
       } else if (item.kind === 'session') {

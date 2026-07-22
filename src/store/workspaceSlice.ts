@@ -43,8 +43,6 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
    * Open (or focus) a document tab.
    * If a tab for this docId already exists, switch to it.
    * Otherwise, create a new tab at the end and switch to it.
-   *
-   * Also syncs activeDoc/activeDocId via documentsSlice.openDocument.
    */
   openDocumentTab: (docId) => {
     const existing = get().tabs.find(
@@ -52,9 +50,7 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
     );
 
     if (existing) {
-      // Focus existing tab + sync active doc.
-      set({ activeTabId: existing.id });
-      get().openDocument(docId);
+      get().selectTab(existing.id);
       return;
     }
 
@@ -65,13 +61,8 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       docId,
     };
 
-    set((s) => ({
-      tabs: [...s.tabs, tab],
-      activeTabId: tab.id,
-    }));
-
-    // Sync active doc so SectionedEditorPanel renders it.
-    get().openDocument(docId);
+    set((s) => ({ tabs: [...s.tabs, tab] }));
+    get().selectTab(tab.id);
   },
 
   /**
@@ -85,10 +76,8 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       groupId,
     };
 
-    set((s) => ({
-      tabs: [...s.tabs, tab],
-      activeTabId: tab.id,
-    }));
+    set((s) => ({ tabs: [...s.tabs, tab] }));
+    get().selectTab(tab.id);
   },
 
   /**
@@ -137,24 +126,11 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       }
     }
 
-    set({ tabs: remaining, activeTabId: newActiveTabId });
-
-    // Activate the new active tab's content.
+    set({ tabs: remaining });
     if (newActiveTabId) {
-      const newActive = remaining.find((t) => t.id === newActiveTabId);
-      if (newActive?.kind === 'document' && newActive.docId) {
-        get().openDocument(newActive.docId);
-        set({ activeSidebarView: 'documents' });
-      } else if (newActive?.kind === 'terminal' && newActive.groupId) {
-        const group = get().groups.find((g) => g.id === newActive.groupId);
-        if (group) {
-          get().setActiveSession(group.activeSessionId);
-        }
-        set({ activeSidebarView: 'terminal' });
-      }
+      get().selectTab(newActiveTabId);
     } else {
-      // No active tab — clear the active document so the EmptyPanel shows.
-      set({ activeDoc: null, activeDocId: '' });
+      set({ activeTabId: null });
     }
 
     // If closing a terminal tab, kill the PTY sessions (fire-and-forget).
@@ -180,6 +156,9 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
 
     const toClose = state.tabs.filter((t) => t.id !== keepTabId);
 
+    set({ tabs: [keep] });
+    get().selectTab(keep.id);
+
     // Kill terminal tabs' PTYs (fire-and-forget).
     for (const tab of toClose) {
       if (tab.kind === 'terminal' && tab.groupId) {
@@ -189,44 +168,45 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
         }
       }
     }
-
-    set({ tabs: [keep], activeTabId: keep.id });
-
-    // Sync content for the kept tab.
-    if (keep.kind === 'document' && keep.docId) {
-      get().openDocument(keep.docId);
-      set({ activeSidebarView: 'documents' });
-    } else if (keep.kind === 'terminal' && keep.groupId) {
-      const group = get().groups.find((g) => g.id === keep.groupId);
-      if (group) {
-        get().setActiveSession(group.activeSessionId);
-      }
-      set({ activeSidebarView: 'terminal' });
-    }
   },
 
-  /**
-   * Switch the active tab.
-   * Also syncs the underlying document/session state.
-   */
-  setActiveTab: (tabId) => {
+  /** Select a tab without committing its underlying content. */
+  selectTab: (tabId) => {
     const tab = get().tabs.find((t) => t.id === tabId);
     if (!tab) return;
 
-    set({ activeTabId: tabId });
-
     if (tab.kind === 'document' && tab.docId) {
-      get().openDocument(tab.docId);
-      // Sync the view so the sidebar shows / hides correctly.
-      set({ activeSidebarView: 'documents' });
+      set({ activeTabId: tabId, activeSidebarView: 'documents' });
     } else if (tab.kind === 'terminal' && tab.groupId) {
       const group = get().groups.find((g) => g.id === tab.groupId);
-      if (group) {
-        get().setActiveSession(group.activeSessionId);
-      }
-      // Terminal tabs hide the sidebar.
-      set({ activeSidebarView: 'terminal' });
+      if (!group) return;
+      set({
+        activeTabId: tabId,
+        activeSidebarView: 'terminal',
+        activeGroupId: group.id,
+        activeSessionId: group.activeSessionId,
+      });
     }
+  },
+
+  /** Commit content only if the requested tab is still selected. */
+  commitTabContent: (tabId) => {
+    if (tabId !== get().activeTabId) return false;
+
+    if (tabId === null) {
+      set({ activeDoc: null, activeDocId: '' });
+      return true;
+    }
+
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (!tab) return false;
+
+    if (tab.kind === 'document') {
+      if (!tab.docId) return false;
+      get().openDocument(tab.docId);
+    }
+
+    return true;
   },
 
   /**
@@ -258,12 +238,12 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       const localIdx = sameKind.findIndex((t) => t.id === activeTabId);
       const nextLocal =
         (localIdx + direction + sameKind.length) % sameKind.length;
-      get().setActiveTab(sameKind[nextLocal].id);
+      get().selectTab(sameKind[nextLocal].id);
     } else {
       // Jump to the first tab of the other kind.
       const otherKind = tabs.filter((t) => t.kind !== activeTab.kind);
       if (otherKind.length > 0) {
-        get().setActiveTab(otherKind[0].id);
+        get().selectTab(otherKind[0].id);
       }
     }
   },
@@ -295,21 +275,11 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       }
     }
 
-    set({ tabs: remaining, activeTabId: newActiveTabId });
-
-    // Activate the new tab's content.
+    set({ tabs: remaining });
     if (newActiveTabId) {
-      const newActive = remaining.find((t) => t.id === newActiveTabId);
-      if (newActive?.kind === 'document' && newActive.docId) {
-        get().openDocument(newActive.docId);
-        set({ activeSidebarView: 'documents' });
-      } else if (newActive?.kind === 'terminal' && newActive.groupId) {
-        const group = get().groups.find((g) => g.id === newActive.groupId);
-        if (group) {
-          get().setActiveSession(group.activeSessionId);
-        }
-        set({ activeSidebarView: 'terminal' });
-      }
+      get().selectTab(newActiveTabId);
+    } else {
+      set({ activeTabId: null });
     }
   },
 
@@ -346,24 +316,11 @@ export const createWorkspaceSlice: SliceCreator = (set, get) => ({
       }
     }
 
-    set({ tabs: remaining, activeTabId: newActiveTabId });
-
-    // Activate the new tab's content.
+    set({ tabs: remaining });
     if (newActiveTabId) {
-      const newActive = remaining.find((t) => t.id === newActiveTabId);
-      if (newActive?.kind === 'document' && newActive.docId) {
-        get().openDocument(newActive.docId);
-        set({ activeSidebarView: 'documents' });
-      } else if (newActive?.kind === 'terminal' && newActive.groupId) {
-        const group = get().groups.find((g) => g.id === newActive.groupId);
-        if (group) {
-          get().setActiveSession(group.activeSessionId);
-        }
-        set({ activeSidebarView: 'terminal' });
-      }
+      get().selectTab(newActiveTabId);
     } else {
-      // No active tab — clear the active document so the EmptyPanel shows.
-      set({ activeDoc: null, activeDocId: '' });
+      set({ activeTabId: null });
     }
   },
 });

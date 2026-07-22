@@ -64,6 +64,8 @@ export interface SectionedEditorPanelProps {
   doc?: { title: string; blocks: Block[] };
   /** Render in read-only mode (no editing, no toolbar, no cursor trail). */
   readOnly?: boolean;
+  /** Document identity committed by the main-window transition boundary. */
+  contentDocId?: string;
 }
 
 function editorForKeyboardTarget(
@@ -163,14 +165,25 @@ function visualCodeLineBoundary(
   }
 }
 
-export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorPanelProps = {}) {
+export default function SectionedEditorPanel({
+  doc,
+  readOnly,
+  contentDocId,
+}: SectionedEditorPanelProps = {}) {
   const { t } = useI18n();
   // ── Read-only / static-document mode ──────────────────────────────
   const isStatic = !!doc;
-  const activeDocId = useStore((s) => s.activeDocId);
-  const activeDocReloadNonce = useStore((s) => s.activeDocReloadNonce);
-  const activeDocTitle = useStore((s) => s.activeDoc?.title ?? '');
-  const hasActiveDoc = useStore((s) => !!s.activeDoc);
+  const storeActiveDocId = useStore((s) => s.activeDocId);
+  const editorDocId = contentDocId ?? storeActiveDocId;
+  const activeDocReloadNonce = useStore((s) =>
+    s.activeDocId === editorDocId ? s.activeDocReloadNonce : 0,
+  );
+  const activeDocTitle = useStore(
+    (s) => s.documents.find((item) => item.id === editorDocId)?.title ?? '',
+  );
+  const hasActiveDoc = useStore((s) =>
+    s.documents.some((item) => item.id === editorDocId),
+  );
   const updateDocumentMeta = useStore((s) => s.updateDocumentMeta);
   const editorCursorStyle = useStore((s) => s.editorCursorStyle);
   const editorCursorAnimationEnabled = useStore((s) => s.editorCursorAnimationEnabled);
@@ -198,10 +211,10 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   const staticDocRevRef = useRef(0);
   const [staticDocKey, setStaticDocKey] = useState<string | null>(null);
   /** Unified doc identity used for SectionEditor `key`s and skeleton
-   *  comparisons — the static key in static mode, `activeDocId` otherwise. */
-  const docKey = isStatic ? staticDocKey : activeDocId;
+   *  comparisons — the static key in static mode, `editorDocId` otherwise. */
+  const docKey = isStatic ? staticDocKey : editorDocId;
   /** The doc id whose content has actually finished loading into all
-   *  section editors. While this lags behind `activeDocId` we show a
+   *  section editors. While this lags behind `editorDocId` we show a
    *  Skeleton overlay so the user doesn't see empty editors / placeholder
    *  text during the load. */
   const [renderedDocId, setRenderedDocId] = useState<string | null>(null);
@@ -529,7 +542,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     }
     // Guard on `${docId}:${nonce}` so a backup restore (which bumps the
     // nonce without changing docId) forces a reload.
-    const trigger = `${activeDocId}:${activeDocReloadNonce}`;
+    const trigger = `${editorDocId}:${activeDocReloadNonce}`;
     if (loadTriggerRef.current === trigger) return;
 
     // ── Flush the OUTGOING document's pending section edits ──
@@ -545,25 +558,26 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     //
     // Reading `editor.getJSON()` here would be a DATA-LOSS BUG: when the
     // active doc changes, the SectionEditor keys change
-    // (`${activeDocId}:${s.id}`), so React unmounts the old editors and mounts
+    // (`${editorDocId}:${s.id}`), so React unmounts the old editors and mounts
     // new ones. The newly-mounted editors start with an empty paragraph and
     // load real content via a deferred `setTimeout(0)` setContent — which runs
     // AFTER this passive effect. Calling getJSON() here captures that empty
     // initial state and overwrites the outgoing doc with a single blank block,
     // destroying all its content.
     const outgoingDocId = loadedDocIdRef.current;
-    if (outgoingDocId && outgoingDocId !== activeDocId) {
+    if (outgoingDocId && outgoingDocId !== editorDocId) {
       const current = sectionsRef.current;
       const full = current.flatMap((s) => s.blocks);
       useStore.getState().flushBlocksToDoc(outgoingDocId, full);
     }
 
     loadTriggerRef.current = trigger;
-    loadedDocIdRef.current = activeDocId;
+    loadedDocIdRef.current = editorDocId;
     // Reset loading counters — sections will report back as they finish.
     loadedSectionCountRef.current = 0;
     expectedSectionCountRef.current = 0;
-    const blocks = useStore.getState().activeDoc?.blocks ?? [];
+    const blocks =
+      useStore.getState().documents.find((item) => item.id === editorDocId)?.blocks ?? [];
     const newSections = splitIntoSections(blocks);
     expectedSectionCountRef.current = newSections.length;
     // Start with 0 visible sections — they will be progressively revealed
@@ -571,7 +585,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     // instances at once (which blocks the main thread for large documents).
     setVisibleCount(0);
     setSections(newSections);
-  }, [activeDocId, hasActiveDoc, activeDocReloadNonce, isStatic, doc]);
+  }, [editorDocId, hasActiveDoc, activeDocReloadNonce, isStatic, doc]);
 
   // ── Progressive section mounting ──
   // Reveal sections a few at a time using requestIdleCallback (or setTimeout
@@ -692,7 +706,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
       trailRef.current = null;
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
-  }, [readOnly, hasActiveDoc, activeDocId, editorCursorAnimationEnabled, cursorTrailRegistry]);
+  }, [readOnly, hasActiveDoc, editorDocId, editorCursorAnimationEnabled, cursorTrailRegistry]);
 
   // ── Live theme update for cursor trail ──
   // When the app theme changes, update the cursor trail color from CSS variables.
@@ -726,13 +740,13 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     });
 
     return () => observer.disconnect();
-  }, [readOnly, activeDocId]); // Re-run when document changes (trail may be re-created)
+  }, [readOnly, editorDocId]); // Re-run when document changes (trail may be re-created)
 
   // Apply cursor style to the shared trail.
   useEffect(() => {
     if (readOnly) return;
     trailRef.current?.setCursorStyle(editorCursorStyle);
-  }, [editorCursorStyle, activeDocId, readOnly]);
+  }, [editorCursorStyle, editorDocId, readOnly]);
 
   // ── pagehide / beforeunload: flush pending edits + document saves ──
   useEffect(() => {
@@ -896,7 +910,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
     }),
     [],
   );
-  const crossSel = useCrossSectionSelection(crossCtx, activeDocId);
+  const crossSel = useCrossSectionSelection(crossCtx, editorDocId);
   crossSelectAllRef.current = crossSel.selectAll;
 
   // ── Cross-section find-in-document ──
@@ -911,7 +925,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
   // ShortcutManager dispatches it through the same command registry as DOM
   // shortcuts.
   const findQuery = useStore((s) => s.findQuery);
-  const findResetKey = isStatic ? null : activeDocId;
+  const findResetKey = isStatic ? null : editorDocId;
   const find = useCrossSectionFind(crossCtx, findResetKey, findQuery);
 
   const registerFocus = useCallback(
@@ -1205,7 +1219,7 @@ export default function SectionedEditorPanel({ doc, readOnly }: SectionedEditorP
             />
           ))}
           {/* Skeleton overlay while sections are loading content.
-              renderedDocId lags behind activeDocId during load — when they
+              renderedDocId lags behind editorDocId during load — when they
               differ, the editors are still empty (content hasn't been
               setContent'd yet), so we cover them with a skeleton to prevent
               the user from seeing placeholder text / empty editors. */}
