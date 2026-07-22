@@ -17,6 +17,7 @@ import {
   type DiagramPayload,
 } from '../../lib/windows/diagramWindow';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
+import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import { useI18n } from '../../lib/core/i18n';
 
 export default function DiagramWindowApp() {
@@ -30,6 +31,8 @@ export default function DiagramWindowApp() {
 
   // Sync theme with main window (includes app theme colors)
   const isDark = useWindowThemeSync();
+  // Cmd+W (native "Close Tab" menu) should close this diagram window.
+  useCloseOnCmdW();
 
   useEffect(() => {
     let cancelled = false;

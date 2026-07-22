@@ -22,6 +22,7 @@ import { ACTIVITY_ITEM_META } from '../activityMeta';
 import { createTerminalWindow } from '../windows/terminalDetach';
 import { getFocusedEditor } from '../editor/focusedEditorRegistry';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 // ──────────────────────────────────────────────────────────────────
 // Shortcut Action Registry
@@ -62,8 +63,19 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       // window-close flow, requiring a separate on_window_event intercept.
       // By using a custom MenuItem the keypress routes through on_menu_event
       // -> "native-command" -> here, same pattern as editor.undo.
-      // When only one tab remains, close the entire window (matching the
-      // behavior of the window-close-requested handler in App.tsx).
+      //
+      // In a detached child window (e.g. a torn-off document window) there
+      // are no workspace tabs to manage — Cmd+W should close that window.
+      // `close_window` destroys whichever window invoked it, so in a child
+      // window it closes the child, not the main window.
+      const currentLabel = getCurrentWindow().label;
+      if (currentLabel !== 'main') {
+        invoke('close_window').catch((err) => console.error('Failed to close window:', err));
+        return;
+      }
+      // Main window: close the current tab, or the whole window when only
+      // one tab remains (matching the window-close-requested handler in
+      // App.tsx).
       if (!store.activeTabId) return;
       if (store.tabs.length > 1) {
         store.closeTab(store.activeTabId);

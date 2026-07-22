@@ -111,6 +111,9 @@ export default function TabBar({
 
   // ── Apple-style sliding selection indicator ──────────────────────
   const [indicatorPos, setIndicatorPos] = useState({ left: 0, width: 0 });
+  // Stable signature of tab order/identity — avoids re-running the layout
+  // effect on every parent render (tabs is a fresh array each render).
+  const tabSignature = tabs.map((t) => t.id).join('|');
 
   useEffect(() => {
     const activeEl = tabRefsRef.current.get(activeTabId ?? '');
@@ -122,20 +125,31 @@ export default function TabBar({
       const scrollRect = scroller.getBoundingClientRect();
       const left = tabRect.left - scrollRect.left;
       const width = tabRect.width;
-      setIndicatorPos({ left, width });
+      setIndicatorPos((prev) =>
+        prev.left === left && prev.width === width ? prev : { left, width }
+      );
     };
 
     updatePos();
 
+    // Throttle scroll-driven updates to one per frame.
+    let raf = 0;
+    const handleScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        updatePos();
+        raf = 0;
+      });
+    };
     const handleResize = () => updatePos();
-    const handleScroll = () => updatePos();
     window.addEventListener('resize', handleResize);
     scroller.addEventListener('scroll', handleScroll);
     return () => {
       window.removeEventListener('resize', handleResize);
       scroller.removeEventListener('scroll', handleScroll);
+      if (raf) cancelAnimationFrame(raf);
     };
-  }, [activeTabId, tabs]);
+  }, [activeTabId, tabSignature]);
 
   // ── Scroll active tab into view ──────────────────────────────────
   useEffect(() => {
@@ -301,8 +315,8 @@ export default function TabBar({
                 left: `calc(8px + ${indicatorPos.left}px)`,
                 width: indicatorPos.width,
                 background: accentColor,
-                boxShadow: `0 0 16px 3px color-mix(in srgb, ${accentColor} 50%, transparent), 0 1px 3px rgba(0,0,0,0.1)`,
-                transition: 'left 320ms cubic-bezier(0.34, 1.4, 0.64, 1), width 320ms cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 200ms ease-out',
+                boxShadow: `0 0 12px 2px color-mix(in srgb, ${accentColor} 40%, transparent), 0 1px 2px rgba(0,0,0,0.08)`,
+                transition: 'left 220ms cubic-bezier(0.33, 1.15, 0.5, 1), width 220ms cubic-bezier(0.33, 1.15, 0.5, 1), box-shadow 180ms ease-out',
               }}
             />
 
@@ -327,7 +341,7 @@ export default function TabBar({
                     e.stopPropagation();
                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                   }}
-                  className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-all duration-200 ${
+                  className={`group relative flex items-center gap-1.5 w-[140px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
                       : `text-[${textColor}] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--vscode-foreground)]`
@@ -353,18 +367,16 @@ export default function TabBar({
                   ) : (
                     <>
                       {tab.icon && (
-                        <span className={`shrink-0 transition-all duration-200 ${
-                          tab.isActive ? 'opacity-90 scale-[1.02]' : 'opacity-70 group-hover:opacity-80'
+                        <span className={`shrink-0 transition-opacity duration-150 ${
+                          tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className={`text-[13px] font-medium flex-1 min-w-0 truncate max-w-[140px] transition-all duration-200 ${
-                        tab.isActive ? 'tracking-wide' : ''
-                      }`}>
+                      <span className="text-[13px] font-medium flex-1 min-w-0 truncate text-center">
                         {tab.title}
                       </span>
 
                       {tab.paneCount && tab.paneCount > 1 && (
-                        <span className={`text-[11px] shrink-0 transition-all duration-200 ${
+                        <span className={`text-[11px] shrink-0 transition-opacity duration-150 ${
                           tab.isActive ? 'opacity-60' : 'opacity-50'
                         }`}>
                           {tab.paneCount}

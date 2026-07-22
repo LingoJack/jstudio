@@ -16,6 +16,7 @@ import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCatego
 import { useAssetBlobUrl } from '../../lib/editor/content/useAssetBlobUrl';
 import { docxToHtml } from '../../lib/editor/docxPreview';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
+import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import PdfPreview from '../editor/nodes/PdfPreview';
 import { useI18n } from '../../lib/core/i18n';
 
@@ -25,6 +26,8 @@ export default function PreviewWindowApp() {
 
   // Sync theme with main window (includes app theme colors)
   useWindowThemeSync();
+  // Cmd+W (native "Close Tab" menu) should close this preview window.
+  useCloseOnCmdW();
 
   useEffect(() => {
     fetchPreviewData().then((payload) => {

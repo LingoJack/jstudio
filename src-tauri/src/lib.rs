@@ -1,6 +1,8 @@
 mod commands;
 mod db;
 
+use std::sync::Mutex;
+
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager};
 
@@ -71,6 +73,15 @@ mod macos_menu_cleanup {
         });
     }
 }
+
+/// Tracks the label of the currently-focused window.
+///
+/// Updated from `WindowEvent::Focused` and read by `on_menu_event` to route
+/// native menu commands (Cmd+W, Cmd+F, …) to the focused window. Tauri's
+/// `Window::is_focused()` is unreliable for child windows — it can keep
+/// reporting the main window as focused after a child gains focus — so we
+/// track focus ourselves.
+struct FocusedWindow(Mutex<String>);
 
 /// Handle window close requests (traffic-light close button on macOS).
 ///
@@ -250,6 +261,11 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
+            // Track the focused window label so on_menu_event can route
+            // native menu commands (Cmd+W, etc.) to the correct window.
+            // Initialized to "main" — the main window is focused on launch.
+            app.manage(FocusedWindow(Mutex::new(String::from("main"))));
+
             // Install the custom macOS menu (default minus "Select All").
             #[cfg(target_os = "macos")]
             {
@@ -268,31 +284,59 @@ pub fn run() {
         // Intercept window close requests (traffic-light close button) before
         // WKWebView closes the window. We emit an event to JS and let it
         // decide. Only the main window is intercepted; child windows close
-        // directly. Cmd+W is handled separately via on_menu_event above.
+        // directly. Cmd+W is handled separately via on_menu_event below.
+        // We also track the focused window here (WindowEvent::Focused) so
+        // that on_menu_event can reliably route menu commands — Tauri's
+        // Window::is_focused() is unreliable for child windows.
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                on_window_close_requested(window, api);
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    on_window_close_requested(window, api);
+                }
+                tauri::WindowEvent::Focused(focused) if *focused => {
+                    // Record this window as the focused one. Used by
+                    // on_menu_event to route native menu commands.
+                    if let Some(state) = window.app_handle().try_state::<FocusedWindow>() {
+                        if let Ok(mut guard) = state.0.lock() {
+                            *guard = window.label().to_string();
+                        }
+                    }
+                }
+                _ => {}
             }
         })
-        // Native menu events use the same command IDs as DOM shortcuts. Send
-        // only to the focused WebView so detached document windows execute
-        // against their own store instead of opening UI in the main window.
+        // Native menu events use the same command IDs as DOM shortcuts. Route
+        // each command to the focused window so detached document/preview/
+        // terminal windows act on their own store instead of the main window.
+        // We prefer the FocusedWindow-tracked label (reliable) over
+        // Window::is_focused() (unreliable for child windows), falling back
+        // to is_focused() and finally "main" so a command is never dropped.
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
-            if (id == "app.find"
+            let routed = id == "app.find"
                 || id == "app.openSettings"
                 || id == "editor.inlineCode"
                 || id == "editor.undo"
                 || id == "editor.redo"
                 || id == "app.closeTab"
-                || id == "terminal.newTab")
-                && let Some((label, _)) = app
-                    .webview_windows()
-                    .into_iter()
-                    .find(|(_, window)| window.is_focused().unwrap_or(false))
-            {
-                let _ = app.emit_to(label, "native-command", id.to_string());
+                || id == "terminal.newTab";
+            if !routed {
+                return;
             }
+
+            let target = app
+                .try_state::<FocusedWindow>()
+                .and_then(|s| s.0.lock().ok().map(|g| g.clone()))
+                .filter(|label| app.get_webview_window(label).is_some())
+                .or_else(|| {
+                    app.webview_windows()
+                        .into_iter()
+                        .find(|(_, w)| w.is_focused().unwrap_or(false))
+                        .map(|(label, _)| label)
+                })
+                .unwrap_or_else(|| "main".to_string());
+
+            let _ = app.emit_to(target, "native-command", id.to_string());
         })
         .invoke_handler(tauri::generate_handler![
             // ── storage: paths ──

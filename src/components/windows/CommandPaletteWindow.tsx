@@ -30,6 +30,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { storage, type DocumentMeta, type TerminalSessionInfo } from '../../lib/core/storage';
 import { useI18n, type Language } from '../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
+import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import type { SettingsSectionId } from '../../store/uiSlice';
 import type { TranslationKey } from '../../lib/core/i18n';
 import {
@@ -67,6 +68,9 @@ function resolveDark(mode: string): boolean {
 export default function CommandPaletteWindow() {
   const { t, language } = useI18n();
   const lang = language as Language;
+
+  // Cmd+W (native "Close Tab" menu) should close this palette window.
+  useCloseOnCmdW();
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);

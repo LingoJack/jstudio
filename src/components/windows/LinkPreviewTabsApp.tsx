@@ -20,6 +20,7 @@ import { X, Loader2, ExternalLink, RefreshCw, Home, Globe } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
+import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import { useI18n } from '../../lib/core/i18n';
 import TabBar, { type TabItem } from '../ui/TabBar';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
@@ -55,6 +56,8 @@ export default function LinkPreviewTabsApp() {
 
   // Sync theme with main window (includes app theme colors)
   useWindowThemeSync();
+  // Cmd+W (native "Close Tab" menu) should close this link-preview window.
+  useCloseOnCmdW();
 
   // 初始化：获取标签列表
   useEffect(() => {
