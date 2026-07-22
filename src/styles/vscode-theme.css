@@ -133,6 +133,10 @@
   /* Block editing glow — vivid violet contrasts strongly with the blue
      selection color on light backgrounds. */
   --jstudio-editGlow: 139 92 246; /* Violet #8B5CF6 */
+
+  /* Table header background - neutral gray fallback (matches sideBarSectionHeader).
+     Overridden at runtime by --vscode-tableHeader-background from the active theme. */
+  --jstudio-tableHeader-background: #F0F0F0;
 }
 
 .dark {
@@ -255,6 +259,10 @@
   /* Block editing glow — hot pink/magenta contrasts strongly with the green
      selection color and naturally glows on dark backgrounds. */
   --jstudio-editGlow: 236 72 153; /* Pink #EC4899 */
+
+  /* Table header background - neutral gray fallback (matches textCodeBlock).
+     Overridden at runtime by --vscode-tableHeader-background from the active theme. */
+  --jstudio-tableHeader-background: #2B2B2B;
 }
 
 /* ============================================
@@ -2507,15 +2515,22 @@ button {
   overflow: hidden;
 }
 
-/* Header row — faint tint, no hard background block.
+/* Header row — clearly visible background band to distinguish header from body.
    A slim bottom border separates header from body. */
 .ProseMirror .tableWrapper th {
-  background: color-mix(in srgb, var(--vscode-editor-foreground, #cccccc) 4%, transparent);
   font-weight: 600;
   text-align: left;
   vertical-align: top;
   box-sizing: border-box;
   border-bottom: 1px solid var(--vscode-block-border, var(--vscode-widget-border, #E5E5E5));
+}
+
+/* Header background band - !important guards against runtime overrides.
+   The first-row td selector is a fallback for tables whose header cells
+   were parsed as td (not th) on import/paste. */
+.ProseMirror .tableWrapper th,
+.ProseMirror .tableWrapper tbody > tr:first-child > td {
+  background: var(--vscode-tableHeader-background, var(--jstudio-tableHeader-background)) !important;
 }
 
 /* Body cells — very light hairline grid lines */

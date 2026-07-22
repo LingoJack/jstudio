@@ -136,6 +136,9 @@ export const JSTUDIO_LIGHT: AppTheme = {
 
     // ── Edit glow (RGB tuple) ──
     'editGlow': '139 92 246', // Violet #8B5CF6
+
+    // ── Table header background (neutral gray, matches sideBarSectionHeader) ──
+    'tableHeader-background': '#F0F0F0',
   },
   tokens: {
     'comment': '#008000',

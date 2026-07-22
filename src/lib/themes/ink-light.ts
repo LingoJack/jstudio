@@ -101,6 +101,9 @@ export const INK_LIGHT: AppTheme = {
     'editorCursor-foreground': '#1a1612', // 深褐/黑色，与文字颜色一致
 
     'editGlow': '177 64 64', // Terracotta #b14040
+
+    // ── Table header background (neutral gray, matches sideBarSectionHeader) ──
+    'tableHeader-background': '#f0ebe3',
   },
   tokens: {
     'comment': '#8a7e72',

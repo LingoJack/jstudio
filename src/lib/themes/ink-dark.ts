@@ -100,6 +100,9 @@ export const INK_DARK: AppTheme = {
     'editorCursor-foreground': '#82aaff',
 
     'editGlow': '130 170 255', // Bright blue #82aaff
+
+    // ── Table header background (neutral gray, matches sideBarSectionHeader) ──
+    'tableHeader-background': '#1e2030',
   },
   tokens: {
     'comment': '#7f88b0',

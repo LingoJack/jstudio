@@ -100,6 +100,9 @@ export const JSTUDIO_DARK: AppTheme = {
     'editorCursor-foreground': '#07C160',
 
     'editGlow': '236 72 153', // Pink #EC4899
+
+    // ── Table header background (neutral gray, matches textCodeBlock) ──
+    'tableHeader-background': '#2B2B2B',
   },
   tokens: {
     'comment': '#6A9955',
