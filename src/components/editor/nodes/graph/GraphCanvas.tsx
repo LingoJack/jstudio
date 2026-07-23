@@ -818,7 +818,34 @@ export function GraphCanvas({
     };
     container.addEventListener('wheel', onWheel, { passive: false });
 
+    // 容器尺寸变化（窗口缩放、拖拽改大小等）时重新自适应内容。
+    // sizeDidChange 只更新内部尺寸追踪，不会调整视口；若不重新 fitCenter，
+    // 图形仍停留在旧视口比例，而容器已变小/变大，导致内容偏离最佳贴合位置。
+    let firstResize = true;
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const resizeObs = new ResizeObserver(() => {
+      graph.sizeDidChange();
+      // 跳过首次回调（observe 初始触发），保留快照恢复的视口；
+      // 仅在容器真正尺寸变化时重新 fitCenter。
+      if (firstResize) {
+        firstResize = false;
+        return;
+      }
+      // 防抖：连续缩放窗口时避免频繁 fitCenter。
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        const hasCells = graph.getChildVertices(graph.getDefaultParent()).length > 0;
+        if (hasCells) {
+          graph.getPlugin<FitPlugin>('fit')?.fitCenter({ margin: 24 });
+        }
+      }, 150);
+    });
+    resizeObs.observe(container);
+
     return () => {
+      resizeObs.disconnect();
+      if (resizeTimer) clearTimeout(resizeTimer);
       container.removeEventListener('wheel', onWheel);
       container.removeEventListener('mousedown', onMouseDown, true);
       container.removeEventListener('mousemove', onMouseMove, true);
