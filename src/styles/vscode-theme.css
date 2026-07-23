@@ -2997,9 +2997,9 @@ button {
   cursor: crosshair;
 }
 
-/* Alt/Option 按住态：光标变「复制」光标，提示此时拖动会复制（Mac Option 即 Alt）。
+/* Cmd/Ctrl 按住态：光标变「复制」光标，提示此时拖动会复制。
    非画图模式下生效；画图模式优先用十字光标。 */
-.jgraph-canvas-root.is-alt-held:not(.is-drawing) .jgraph-surface {
+.jgraph-canvas-root.is-clone-held:not(.is-drawing) .jgraph-surface {
   cursor: copy;
 }
 

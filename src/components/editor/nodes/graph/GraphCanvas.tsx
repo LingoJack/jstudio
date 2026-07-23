@@ -170,19 +170,18 @@ export function GraphCanvas({
   const darkModeRef = useRef(darkMode);
   darkModeRef.current = darkMode;
 
-  // Alt/Option 键按住态：用于切换「复制拖动」光标提示（Mac 的 Option 即 Alt，
-  // event.altKey 能正确反映）。给用户一个可见反馈，确认复制拖动已就绪。
-  const [altHeld, setAltHeld] = useState(false);
+  // Cmd/Ctrl 键按住态：用于切换「复制拖动」光标提示。给用户一个可见反馈，确认复制拖动已就绪。
+  const [cloneHeld, setCloneHeld] = useState(false);
   useEffect(() => {
     if (!editing) return;
     const onDown = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') setAltHeld(true);
+      if (e.key === 'Meta' || e.key === 'Control') setCloneHeld(true);
     };
     const onUp = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') setAltHeld(false);
+      if (e.key === 'Meta' || e.key === 'Control') setCloneHeld(false);
     };
     // 监听 window 而非 root：拖动开始后焦点可能在画布子元素上，
-    // window 级监听保证 Option 按下/抬起都能捕获到。
+    // window 级监听保证 Cmd/Ctrl 按下/抬起都能捕获到。
     window.addEventListener('keydown', onDown);
     window.addEventListener('keyup', onUp);
     window.addEventListener('blur', onUp as EventListener); // 切窗时复位
@@ -414,30 +413,29 @@ export function GraphCanvas({
       };
     }
 
-    // Alt/Option + 拖动 = 复制拖动（默认 isCloneEvent 判 Ctrl，这里改判 Alt，
-    // 让 Ctrl/Cmd 空出来给"平移画布"用）。Mac 的 Option 即 Alt，altKey 能正确反映。
+    // Cmd/Ctrl + 拖动 = 复制拖动（让 Alt/Option 空出来给"平移画布"用）。
     graph.isCloneEvent = (evt: MouseEvent) => {
-      const r = evt.altKey;
+      const r = evt.metaKey || evt.ctrlKey;
       // 诊断日志：确认 isCloneEvent 是否被调用、返回什么。排查复制不生效问题。
       // eslint-disable-next-line no-console
-      logger.debug('[GraphCanvas] isCloneEvent → altKey:', r);
+      logger.debug('[GraphCanvas] isCloneEvent → metaKey|ctrlKey:', r);
       return r;
     };
     // 必须启用 cellsCloneable，否则 isCloneEvent 返回 true 也不会触发复制
     graph.setCellsCloneable(true);
 
-    // 禁用 RubberBandHandler 的 Alt 强制框选行为（否则 Alt+拖动图形会变成框选而非克隆）
+    // 禁用 RubberBandHandler 的 Alt 强制框选行为（否则 Alt+拖动会变成框选而非平移画布）
     const rubberBandHandler = graph.getPlugin<RubberBandHandlerType>('RubberBandHandler');
     if (rubberBandHandler) {
       rubberBandHandler.isForceRubberbandEvent = () => false;
     }
 
-    // Cmd/Ctrl + 拖动 = 平移画布（即使按在图形上也平移，而非移动图形）。
+    // Alt/Option + 拖动 = 平移画布（即使按在图形上也平移，而非移动图形）。
     const panningHandler = graph.getPlugin<PanningHandler>('PanningHandler');
     if (panningHandler) {
       panningHandler.isForcePanningEvent = (me) => {
         const evt = me.getEvent() as MouseEvent;
-        return evt.metaKey || evt.ctrlKey;
+        return evt.altKey;
       };
     }
 
@@ -802,7 +800,7 @@ export function GraphCanvas({
       if (!g) return;
       const sel = g.getSelectionCells();
       // eslint-disable-next-line no-console
-      logger.debug('[GraphCanvas] mouseup | altKey:', e.altKey,
+      logger.debug('[GraphCanvas] mouseup | metaKey|ctrlKey:', e.metaKey || e.ctrlKey,
         '| selCount:', sel.length, '| isCloneEvent:', g.isCloneEvent(e));
     };
     container.addEventListener('mouseup', onMouseUpDiag, true);
@@ -1115,7 +1113,7 @@ export function GraphCanvas({
         editing ? 'is-editing' : 'is-readonly'
       } ${darkMode ? 'is-dark' : ''} ${pendingShape ? 'is-drawing' : ''} ${
         showGrid ? '' : 'is-grid-off'
-      } ${altHeld ? 'is-alt-held' : ''}`}
+      } ${cloneHeld ? 'is-clone-held' : ''}`}
       style={{
         width: '100%',
         height: '100%',
