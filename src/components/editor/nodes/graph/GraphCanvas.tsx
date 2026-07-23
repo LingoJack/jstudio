@@ -560,6 +560,14 @@ export function GraphCanvas({
       scheduleEmit();
     });
 
+    // 视口变化（缩放/平移/自适应）-> 防抖序列化回传，确保 fitCenter、zoomIn/Out
+    // 等操作后的视口比例能被持久化，下次打开文档时恢复正确比例。
+    // 注：初始灌入快照时 applyingRef.current===true，scheduleEmit 会直接 return，无副作用。
+    const view = graph.getView();
+    view.addListener(InternalEvent.SCALE, () => scheduleEmit());
+    view.addListener(InternalEvent.TRANSLATE, () => scheduleEmit());
+    view.addListener(InternalEvent.SCALE_AND_TRANSLATE, () => scheduleEmit());
+
     // 双击空白（未命中任何 cell）→ 自适应全图（draw.io 同款）。
     graph.addListener(InternalEvent.DOUBLE_CLICK, (_s: unknown, evt: EventObject) => {
       const cell = evt.getProperty('cell') as Cell | undefined;

@@ -92,4 +92,5 @@ allow:
 - Shell(ls /Users/lingojack/dev_custom/yiitap/:*)
 - Shell(cd /Users/jacklingo/dev_custom/jstudio/src-tauri:*)
 - Shell(curl -s:*)
+- Shell(awk 'NR>=558:*)
 deny: []
