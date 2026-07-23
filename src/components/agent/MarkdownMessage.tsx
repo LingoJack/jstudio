@@ -243,15 +243,7 @@ export default function MarkdownMessage({ children }: { children: string }) {
       
       // Blockquote
       blockquote: ({ children: bqChildren }: React.HTMLAttributes<HTMLQuoteElement>) => (
-        <blockquote
-          className="border-l-[3px] pl-3 my-1.5"
-          style={{
-            borderColor: 'var(--vscode-textBlockQuote-border)',
-            color: 'var(--vscode-textBlockQuote-foreground)',
-          }}
-        >
-          {bqChildren}
-        </blockquote>
+        <blockquote>{bqChildren}</blockquote>
       ),
       
       // Horizontal rule

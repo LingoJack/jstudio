@@ -822,11 +822,21 @@ a:hover {
    ============================================ */
 
 blockquote {
+  border: none;
+  border-left: 3px solid var(--vscode-textBlockQuote-border);
   background: var(--vscode-textBlockQuote-background);
-  border-left: 4px solid var(--vscode-textBlockQuote-border);
-  padding: 8px 16px;
-  margin: 0.75em 0;
-  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 1em 0;
+  border-radius: 0;
+  color: var(--vscode-descriptionForeground);
+}
+
+blockquote > :first-child {
+  margin-top: 0;
+}
+
+blockquote > :last-child {
+  margin-bottom: 0;
 }
 
 /* ============================================
@@ -984,14 +994,9 @@ button {
   font-size: inherit;
 }
 
-/* 引用块 */
+/* 引用块 - 继承通用 blockquote 样式，此处仅保留编辑器内特定调整 */
 .ProseMirror blockquote {
-  border-left: 3px solid var(--vscode-textBlockQuote-border);
-  color: var(--vscode-descriptionForeground);
-  background: var(--vscode-textBlockQuote-background);
-  padding: 8px 14px;
-  border-radius: 0 4px 4px 0;
-  margin: 0.75em 0;
+  /* 所有样式由通用 blockquote 规则统一控制 */
 }
 
 /* 分割线 */
