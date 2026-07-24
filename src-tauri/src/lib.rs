@@ -327,7 +327,14 @@ pub fn run() {
             let target = app
                 .try_state::<FocusedWindow>()
                 .and_then(|s| s.0.lock().ok().map(|g| g.clone()))
-                .filter(|label| app.get_webview_window(label).is_some())
+                .filter(|label| {
+                    // Use get_window (not get_webview_window) because the
+                    // link-preview window hosts multiple webviews whose
+                    // labels differ from the window label — get_webview_window
+                    // would return None for it and we'd fall back to "main",
+                    // causing Cmd+T/Cmd+W to always hit the main window.
+                    app.get_window(label).is_some() || app.get_webview_window(label).is_some()
+                })
                 .or_else(|| {
                     app.webview_windows()
                         .into_iter()
