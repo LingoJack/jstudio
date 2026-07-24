@@ -1,7 +1,7 @@
-import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/core/i18n';
-import { ACTIVITY_ITEM_META } from '../../lib/activityMeta';
-import type { ActivityItemId } from '../../lib/core/storage';
+import { useStore } from "../../store/useStore";
+import { useI18n } from "../../lib/core/i18n";
+import { ACTIVITY_ITEM_META } from "../../lib/activityMeta";
+import { storage, type ActivityItemId } from "../../lib/core/storage";
 
 /**
  * Activity Bar — the leftmost narrow strip (48px).
@@ -26,72 +26,74 @@ export default function ActivityBar() {
   const tabs = useStore((s) => s.tabs);
   const selectTab = useStore((s) => s.selectTab);
 
-  const activeClass = 'text-[var(--vscode-foreground)]';
+  const activeClass = "text-[var(--vscode-foreground)]";
   const inactiveClass =
-    'text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]';
+    "text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]";
 
   // Whether the documents icon should show as active.
   const isDocsActive =
-    !isSettingsOpen &&
-    isSidebarOpen &&
-    activeSidebarView === 'documents';
+    !isSettingsOpen && isSidebarOpen && activeSidebarView === "documents";
 
   // Whether the terminal icon should show as active (terminal view hides
   // the sidebar, so we only check view + not settings).
-  const isTerminalActive =
-    !isSettingsOpen && activeSidebarView === 'terminal';
+  const isTerminalActive = !isSettingsOpen && activeSidebarView === "terminal";
 
   // Whether the agent icon should show as active (like terminal).
-  const isAgentActive =
-    !isSettingsOpen && activeSidebarView === 'agent';
+  const isAgentActive = !isSettingsOpen && activeSidebarView === "agent";
 
   /** Determine whether a given entry should render as active. */
   function isActive(id: ActivityItemId): boolean {
-    if (id === 'documents') return isDocsActive;
-    if (id === 'terminal') return isTerminalActive;
-    if (id === 'agent') return isAgentActive;
-    if (id === 'settings') return isSettingsOpen;
+    if (id === "documents") return isDocsActive;
+    if (id === "terminal") return isTerminalActive;
+    if (id === "agent") return isAgentActive;
+    if (id === "browser") return false; // browser is a launcher, not a view toggle
+    if (id === "settings") return isSettingsOpen;
     return false;
   }
 
   /** Click handler for a given entry. */
   function handleClick(id: ActivityItemId) {
-    if (id === 'documents') {
+    if (id === "documents") {
       setSettingsOpen(false);
       // If there are document tabs, focus the most recent one.
-      const lastDocTab = [...tabs].reverse().find((t) => t.kind === 'document');
+      const lastDocTab = [...tabs].reverse().find((t) => t.kind === "document");
       if (lastDocTab) {
         selectTab(lastDocTab.id);
       } else {
         // No document tabs — just switch the view.
-        setActiveSidebarView('documents');
+        setActiveSidebarView("documents");
       }
-    } else if (id === 'terminal') {
+    } else if (id === "terminal") {
       setSettingsOpen(false);
       // If there are terminal tabs, focus the most recent one.
-      const lastTermTab = [...tabs].reverse().find((t) => t.kind === 'terminal');
+      const lastTermTab = [...tabs]
+        .reverse()
+        .find((t) => t.kind === "terminal");
       if (lastTermTab) {
         selectTab(lastTermTab.id);
       } else {
         // No terminal tabs — switch to terminal view; TerminalPanel
         // will auto-create the first session.
-        setActiveSidebarView('terminal');
+        setActiveSidebarView("terminal");
       }
-    } else if (id === 'agent') {
+    } else if (id === "agent") {
       setSettingsOpen(false);
       // Switch to agent view; AgentChatPanel will auto-create sessions on init.
-      setActiveSidebarView('agent');
-    } else if (id === 'settings') {
+      setActiveSidebarView("agent");
+    } else if (id === "browser") {
+      // Open or focus the built-in browser (link preview) window.
+      storage.openOrFocusLinkPreview().catch(console.error);
+    } else if (id === "settings") {
       setSettingsOpen(true);
     }
   }
 
   // Split config: top items vs. bottom (settings is always pinned to bottom).
   const topItems = activityBarItems.filter(
-    (item) => item.visible && item.id !== 'settings',
+    (item) => item.visible && item.id !== "settings",
   );
   const settingsItem = activityBarItems.find(
-    (item) => item.id === 'settings' && item.visible,
+    (item) => item.id === "settings" && item.visible,
   );
 
   /** Render a single activity bar entry. */
@@ -123,7 +125,7 @@ export default function ActivityBar() {
       {/* Bottom: settings (pinned) */}
       {settingsItem && (
         <div className="flex flex-col items-center gap-1">
-          {renderEntry('settings')}
+          {renderEntry("settings")}
         </div>
       )}
     </div>

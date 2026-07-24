@@ -1,175 +1,227 @@
 /**
- * LinkPreviewTabsApp — 链接预览窗口的标签页 UI。
+ * LinkPreviewTabsApp — link preview window tab strip UI (browser-like).
  *
- * 布局：
+ * Layout:
  *   ┌────────────────────────────────────────────────────┐
- *   │ 🏠 [https://example.com        ] 🔄 ↗ ← address bar │  ← UI webview 顶部
- *   │                                                    │
  *   │          ┌─────────────────────────────┐           │
- *   │          │ [Tab1] [Tab2] [+]  (glass)   │           │  ← 浮动 TabBar（底部）
+ *   │          │ [Tab1] [Tab2] [+]  (glass)   │           │  ← floating TabBar (top)
  *   │          └─────────────────────────────┘           │
+ *   │ [https://example.com        ] 🔄 ↗    address bar  │  ← bottom
  *   └────────────────────────────────────────────────────┘
- *   │  Content Webview (由 Rust 端管理，位于此 UI 下方)   │
+ *   │  Content Webview (managed by Rust, below this UI)   │
  *
- * UI webview 高度 90px（地址栏 ~38px + 浮动 tab 栏空间 ~52px），
- * content webview 从 Y=90 开始填充剩余空间。
+ * UI webview height 90px (floating tab bar ~52px + address bar ~38px).
+ * Content webview starts at Y=90, filling the rest.
+ *
+ * Keyboard shortcuts:
+ *   Cmd+T  new tab — handled on the Rust side (on_menu_event) to avoid
+ *          the event also reaching the main window's ShortcutManager.
+ *   Cmd+W  close tab (close window if last tab) — also Rust-side.
+ *   Cmd+R  refresh current tab — DOM keydown (not in macOS menu).
+ *   Cmd+L  focus address bar + select all — DOM keydown.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { X, Loader2, ExternalLink, RefreshCw, Home, Globe } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
-import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
-import { useI18n } from '../../lib/core/i18n';
-import TabBar, { type TabItem } from '../ui/TabBar';
-import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
-import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
-
-// ── Types ──────────────────────────────────────────────────────────────
-
-interface TabInfo {
-  id: string;
-  url: string;
-  title: string;
-  loading: boolean;
-}
-
-interface TabsState {
-  tabs: TabInfo[];
-  active_tab_id: string | null;
-}
+import { useEffect, useState, useCallback, useRef } from "react";
+import { X, Loader2, ExternalLink, RefreshCw, Globe } from "lucide-react";
+import { listen } from "@tauri-apps/api/event";
+import { useWindowThemeSync } from "../../lib/windows/useWindowThemeSync";
+import { useI18n } from "../../lib/core/i18n";
+import { storage, type LinkPreviewTabsState } from "../../lib/core/storage";
+import TabBar, { type TabItem } from "../ui/TabBar";
+import { MenuList, MenuItem, MenuDivider } from "../ui/MenuList";
+import { handleNativeSelectAll } from "../../lib/shortcuts/nativeSelectAll";
 
 // ── Main Component ─────────────────────────────────────────────────────
 
 export default function LinkPreviewTabsApp() {
-  // 从 URL 参数获取窗口标签
+  // Window label from URL param
   const [windowLabel] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('windowLabel');
+    return params.get("windowLabel");
   });
-  const [state, setState] = useState<TabsState>({ tabs: [], active_tab_id: null });
-  const [addressBarUrl, setAddressBarUrl] = useState('');
-  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+  const [state, setState] = useState<LinkPreviewTabsState>({
+    tabs: [],
+    activeTabId: null,
+  });
+  const [addressBarUrl, setAddressBarUrl] = useState("");
   const addressInputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
 
   // Sync theme with main window (includes app theme colors)
   useWindowThemeSync();
-  // Cmd+W (native "Close Tab" menu) should close this link-preview window.
-  useCloseOnCmdW();
 
-  // 初始化：获取标签列表
+  // Init: fetch tabs state
   useEffect(() => {
     if (!windowLabel) return;
-    invoke<TabsState>('get_link_preview_tabs_state', { windowLabel })
+    storage
+      .getLinkPreviewTabsState(windowLabel)
       .then(setState)
       .catch(console.error);
   }, [windowLabel]);
 
-  // 监听 Rust 端事件 — 统一通过 tabs-updated 同步全量状态
+  // Listen for Rust-side events — full state synced via tabs-updated
   useEffect(() => {
     if (!windowLabel) return;
-
-    const unlistenTabsUpdate = listen<TabsState>('link-preview:tabs-updated', (event) => {
-      setState(event.payload);
-    });
-
+    const unlisten = listen<LinkPreviewTabsState>(
+      "link-preview:tabs-updated",
+      (event) => {
+        setState(event.payload);
+      },
+    );
     return () => {
-      unlistenTabsUpdate.then((f) => f());
+      unlisten.then((f) => f());
     };
   }, [windowLabel]);
 
-  // 同步地址栏显示当前活动标签的 URL（about:blank 显示为空）
+  // Sync address bar to the active tab's URL (about:blank shows empty)
   useEffect(() => {
-    const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
-    const url = activeTab?.url ?? '';
-    setAddressBarUrl(url === 'about:blank' ? '' : url);
-  }, [state.active_tab_id, state.tabs]);
+    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
+    const url = activeTab?.url ?? "";
+    setAddressBarUrl(url === "about:blank" ? "" : url);
+  }, [state.activeTabId, state.tabs]);
+
+  // Auto-focus address bar on new tab (about:blank)
+  useEffect(() => {
+    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
+    if (activeTab?.url === "about:blank") {
+      requestAnimationFrame(() => addressInputRef.current?.focus());
+    }
+  }, [state.activeTabId, state.tabs]);
 
   // ── Actions ───────────────────────────────────────────────────────────
 
-  const switchTab = useCallback((tabId: string) => {
-    if (!windowLabel) return;
-    invoke('switch_link_preview_tab', { windowLabel, tabId }).catch(console.error);
-  }, [windowLabel]);
+  const switchTab = useCallback(
+    (tabId: string) => {
+      if (!windowLabel) return;
+      storage.switchLinkPreviewTab(windowLabel, tabId).catch(console.error);
+    },
+    [windowLabel],
+  );
 
-  const closeTab = useCallback((tabId: string) => {
-    if (!windowLabel) return;
-    invoke('close_link_preview_tab', { windowLabel, tabId }).catch(console.error);
-  }, [windowLabel]);
+  const closeTab = useCallback(
+    (tabId: string) => {
+      if (!windowLabel) return;
+      storage.closeLinkPreviewTab(windowLabel, tabId).catch(console.error);
+    },
+    [windowLabel],
+  );
 
   const addNewTab = useCallback(() => {
     if (!windowLabel) return;
-    invoke('add_link_preview_tab', { windowLabel, url: 'about:blank' }).catch(console.error);
+    storage.addLinkPreviewTab(windowLabel, "about:blank").catch(console.error);
   }, [windowLabel]);
 
-  const navigateToUrl = useCallback((url: string) => {
-    if (!url.trim() || !windowLabel) return;
+  const navigateToUrl = useCallback(
+    (url: string) => {
+      if (!url.trim() || !windowLabel) return;
 
-    // URL 规范化
-    let normalizedUrl = url.trim();
-    if (
-      !normalizedUrl.startsWith('http://') &&
-      !normalizedUrl.startsWith('https://') &&
-      !normalizedUrl.startsWith('about:')
-    ) {
-      // 如果看起来像域名（含点），加 https://；否则当作搜索
-      if (normalizedUrl.includes('.') && !normalizedUrl.includes(' ')) {
-        normalizedUrl = 'https://' + normalizedUrl;
-      } else {
-        normalizedUrl = 'https://www.google.com/search?q=' + encodeURIComponent(normalizedUrl);
+      // URL normalization
+      let normalizedUrl = url.trim();
+      if (
+        !normalizedUrl.startsWith("http://") &&
+        !normalizedUrl.startsWith("https://") &&
+        !normalizedUrl.startsWith("about:")
+      ) {
+        // Looks like a domain (contains dot) → add https://; else treat as search
+        if (normalizedUrl.includes(".") && !normalizedUrl.includes(" ")) {
+          normalizedUrl = "https://" + normalizedUrl;
+        } else {
+          normalizedUrl =
+            "https://www.google.com/search?q=" +
+            encodeURIComponent(normalizedUrl);
+        }
       }
-    }
 
-    const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
-    if (activeTab) {
-      setIsLoadingUrl(true);
-      invoke('navigate_link_preview_tab', { windowLabel, tabId: activeTab.id, url: normalizedUrl })
-        .catch(console.error)
-        .finally(() => setIsLoadingUrl(false));
-    } else {
-      setIsLoadingUrl(true);
-      invoke('add_link_preview_tab', { windowLabel, url: normalizedUrl })
-        .catch(console.error)
-        .finally(() => setIsLoadingUrl(false));
-    }
-  }, [windowLabel, state.tabs, state.active_tab_id]);
+      const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
+      if (activeTab) {
+        storage
+          .navigateLinkPreviewTab(windowLabel, activeTab.id, normalizedUrl)
+          .catch(console.error);
+      } else {
+        storage
+          .addLinkPreviewTab(windowLabel, normalizedUrl)
+          .catch(console.error);
+      }
+    },
+    [windowLabel, state.tabs, state.activeTabId],
+  );
 
   const refreshTab = useCallback(() => {
     if (!windowLabel) return;
-    const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
+    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
     if (activeTab) {
-      invoke('refresh_link_preview_tab', { windowLabel, tabId: activeTab.id }).catch(console.error);
+      storage
+        .refreshLinkPreviewTab(windowLabel, activeTab.id)
+        .catch(console.error);
     }
-  }, [windowLabel, state.tabs, state.active_tab_id]);
+  }, [windowLabel, state.tabs, state.activeTabId]);
 
   const openInBrowser = useCallback(() => {
-    const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
+    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
     if (activeTab) {
-      invoke('open_url_in_browser', { url: activeTab.url }).catch(console.error);
+      storage.openUrlInBrowser(activeTab.url).catch(console.error);
     }
-  }, [state.tabs, state.active_tab_id]);
+  }, [state.tabs, state.activeTabId]);
 
-  const handleAddressKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (handleNativeSelectAll(e)) return;
-    if (e.key === 'Enter') {
-      navigateToUrl(addressBarUrl);
-    } else if (e.key === 'Escape') {
-      const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
-      const url = activeTab?.url ?? '';
-      setAddressBarUrl(url === 'about:blank' ? '' : url);
-      addressInputRef.current?.blur();
-    }
-  }, [addressBarUrl, navigateToUrl, state.tabs]);
+  // ── Keyboard shortcuts ────────────────────────────────────────────────
+
+  // Cmd+T (new tab) and Cmd+W (close tab / window) are handled on the Rust
+  // side in lib.rs on_menu_event — when the link-preview window is focused,
+  // Rust calls add_tab_to_focused_preview / close_active_tab_in_focused_
+  // preview directly instead of emitting native-command. This avoids the
+  // event also reaching the main window's ShortcutManager (which listens
+  // for the same native-command event).
+  //
+  // Cmd+R / Cmd+L are NOT in the custom macOS menu, so DOM keydown fires
+  // normally. We handle them at the window level.
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        refreshTab();
+      } else if (e.key === "l" || e.key === "L") {
+        e.preventDefault();
+        const input = addressInputRef.current;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [refreshTab]);
+
+  const handleAddressKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (handleNativeSelectAll(e)) return;
+      if (e.key === "Enter") {
+        navigateToUrl(addressBarUrl);
+      } else if (e.key === "Escape") {
+        const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
+        const url = activeTab?.url ?? "";
+        setAddressBarUrl(url === "about:blank" ? "" : url);
+        addressInputRef.current?.blur();
+      }
+    },
+    [addressBarUrl, navigateToUrl, state.tabs, state.activeTabId],
+  );
 
   // ── Map TabInfo → TabItem (for shared TabBar component) ───────────────
 
   const tabItems: TabItem[] = state.tabs.map((tab) => ({
     id: tab.id,
-    title: tab.url === 'about:blank' ? 'New Tab' : (tab.title || tab.url || 'New Tab'),
-    isActive: tab.id === state.active_tab_id,
-    icon: tab.loading ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />,
+    title:
+      tab.url === "about:blank" ? "New Tab" : tab.title || tab.url || "New Tab",
+    isActive: tab.id === state.activeTabId,
+    icon: tab.loading ? (
+      <Loader2 size={14} className="animate-spin" />
+    ) : (
+      <Globe size={14} />
+    ),
     canClose: state.tabs.length > 1,
     canDrag: state.tabs.length > 1,
   }));
@@ -178,31 +230,33 @@ export default function LinkPreviewTabsApp() {
 
   const renderContextMenu = useCallback(
     (tabId: string, x: number, y: number, close: () => void) => {
-      const tab = state.tabs.find((t) => t.id === tabId);
+      const tab = state.tabs.find((tb) => tb.id === tabId);
       return (
         <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
           <MenuItem
             icon={<RefreshCw className="w-4 h-4" />}
             onClick={() => {
               if (windowLabel) {
-                invoke('refresh_link_preview_tab', { windowLabel, tabId }).catch(console.error);
+                storage
+                  .refreshLinkPreviewTab(windowLabel, tabId)
+                  .catch(console.error);
               }
               close();
             }}
           >
-            {t('linkPreview.refresh')}
+            {t("linkPreview.refresh")}
           </MenuItem>
 
           <MenuItem
             icon={<ExternalLink className="w-4 h-4" />}
             onClick={() => {
               if (tab) {
-                invoke('open_url_in_browser', { url: tab.url }).catch(console.error);
+                storage.openUrlInBrowser(tab.url).catch(console.error);
               }
               close();
             }}
           >
-            {t('linkPreview.openBrowser')}
+            {t("linkPreview.openBrowser")}
           </MenuItem>
 
           {state.tabs.length > 1 && <MenuDivider />}
@@ -216,26 +270,27 @@ export default function LinkPreviewTabsApp() {
                 close();
               }}
             >
-              {t('linkPreview.closeTab')}
+              {t("linkPreview.closeTab")}
             </MenuItem>
           )}
         </MenuList>
       );
     },
-    [state.tabs, windowLabel, closeTab, t]
+    [state.tabs, windowLabel, closeTab, t],
   );
 
-  const activeTab = state.tabs.find((t) => t.id === state.active_tab_id);
+  const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
+  const isLoading = activeTab?.loading ?? false;
 
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="link-preview-root">
-      {/* ── 浮动 TabBar (glassmorphism capsule, 顶部) ── */}
+      {/* ── Floating TabBar (glassmorphism capsule, top) ── */}
       {tabItems.length > 0 && (
         <TabBar
           tabs={tabItems}
-          activeTabId={state.active_tab_id}
+          activeTabId={state.activeTabId}
           onTabClick={switchTab}
           onTabClose={closeTab}
           onNew={addNewTab}
@@ -246,17 +301,8 @@ export default function LinkPreviewTabsApp() {
         />
       )}
 
-      {/* ── Address bar + toolbar (底部) ── */}
+      {/* ── Address bar + toolbar (bottom) ── */}
       <div className="link-preview-address-bar">
-        <button
-          type="button"
-          className="link-preview-toolbar-btn"
-          onClick={() => navigateToUrl('https://www.google.com')}
-          title={t('linkPreview.home')}
-        >
-          <Home size={14} />
-        </button>
-
         <input
           ref={addressInputRef}
           type="text"
@@ -264,13 +310,16 @@ export default function LinkPreviewTabsApp() {
           value={addressBarUrl}
           onChange={(e) => setAddressBarUrl(e.target.value)}
           onKeyDown={handleAddressKeyDown}
-          placeholder={t('linkPreview.urlPlaceholder')}
-          disabled={isLoadingUrl}
+          placeholder={t("linkPreview.urlPlaceholder")}
           onFocus={(e) => e.target.select()}
+          spellCheck={false}
         />
 
-        {isLoadingUrl && (
-          <Loader2 size={14} className="link-preview-address-loading animate-spin" />
+        {isLoading && (
+          <Loader2
+            size={14}
+            className="link-preview-address-loading animate-spin"
+          />
         )}
 
         <button
@@ -278,7 +327,7 @@ export default function LinkPreviewTabsApp() {
           className="link-preview-toolbar-btn"
           onClick={refreshTab}
           disabled={!activeTab}
-          title={t('linkPreview.refresh')}
+          title={t("linkPreview.refresh")}
         >
           <RefreshCw size={14} />
         </button>
@@ -288,7 +337,7 @@ export default function LinkPreviewTabsApp() {
           className="link-preview-toolbar-btn"
           onClick={openInBrowser}
           disabled={!activeTab}
-          title={t('linkPreview.openBrowser')}
+          title={t("linkPreview.openBrowser")}
         >
           <ExternalLink size={14} />
         </button>

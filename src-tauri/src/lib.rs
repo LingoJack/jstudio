@@ -336,6 +336,26 @@ pub fn run() {
                 })
                 .unwrap_or_else(|| "main".to_string());
 
+            // Link-preview window handles Cmd+T / Cmd+W natively on the
+            // Rust side — don't emit `native-command` for these, otherwise
+            // the main window's ShortcutManager also receives the event
+            // (because the link-preview window hosts multiple webviews and
+            // event scoping is unreliable), causing Cmd+T to fire in both
+            // windows simultaneously.
+            if commands::link_tabs::is_link_preview_window(&target) {
+                match id {
+                    "terminal.newTab" => {
+                        let _ = commands::link_tabs::add_tab_to_focused_preview(app);
+                        return;
+                    }
+                    "app.closeTab" => {
+                        let _ = commands::link_tabs::close_active_tab_in_focused_preview(app);
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+
             let _ = app.emit_to(target, "native-command", id.to_string());
         })
         .invoke_handler(tauri::generate_handler![
@@ -422,6 +442,7 @@ pub fn run() {
             commands::link_tabs::refresh_link_preview_tab,
             commands::link_tabs::open_url_in_browser,
             commands::link_tabs::get_current_window_label,
+            commands::link_tabs::open_or_focus_link_preview,
             // ── terminal detach (tear-off window mailbox) ──
             commands::detach::set_terminal_detach_payload,
             commands::detach::get_terminal_detach_payload,

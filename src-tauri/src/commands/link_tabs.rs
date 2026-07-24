@@ -54,6 +54,7 @@ const UI_HEIGHT: f64 = 90.0;
 
 /// Tab info sent to frontend for UI rendering.
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TabInfo {
     pub id: String,
     pub url: String,
@@ -63,6 +64,7 @@ pub struct TabInfo {
 
 /// Full tabs state (list + active) sent to frontend.
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TabsState {
     pub tabs: Vec<TabInfo>,
     pub active_tab_id: Option<String>,
@@ -72,6 +74,10 @@ pub struct TabsState {
 struct TabManager {
     /// Tabs by their ID.
     tabs: HashMap<String, Tab>,
+    /// Tab IDs in insertion order — used for stable tab-strip ordering and
+    /// for picking the adjacent tab when the active one closes. HashMap
+    /// iteration is random, so we keep this vec authoritative for order.
+    tab_order: Vec<String>,
     /// Currently active tab ID.
     active_tab_id: Option<String>,
 }
@@ -148,6 +154,7 @@ pub async fn open_link_preview_with_tabs(app: AppHandle, url: String) -> Result<
     // --- Create tab manager ---
     let manager = Arc::new(Mutex::new(TabManager {
         tabs: HashMap::new(),
+        tab_order: Vec::new(),
         active_tab_id: None,
     }));
 
@@ -248,9 +255,33 @@ pub async fn close_link_preview_tab(
         m.active_tab_id == Some(tab_id.clone())
     };
 
-    let removed = {
+    let (removed, next_id) = {
         let mut m = manager.lock().unwrap();
-        m.tabs.remove(&tab_id)
+        // Find the adjacent tab by insertion order BEFORE removing, so we
+        // know which neighbor to activate. Prefer the tab to the right; if
+        // the closed tab was last, fall back to the one before it.
+        let next_id = if was_active {
+            m.tab_order
+                .iter()
+                .position(|id| id == &tab_id)
+                .and_then(|idx| {
+                    m.tab_order
+                        .get(idx + 1)
+                        .or_else(|| {
+                            if idx > 0 {
+                                m.tab_order.get(idx - 1)
+                            } else {
+                                None
+                            }
+                        })
+                        .cloned()
+                })
+        } else {
+            None
+        };
+        let removed = m.tabs.remove(&tab_id);
+        m.tab_order.retain(|id| id != &tab_id);
+        (removed, next_id)
     };
 
     if let Some(tab) = removed {
@@ -260,15 +291,8 @@ pub async fn close_link_preview_tab(
         }
     }
 
-    // If the closed tab was active, switch to another
+    // If the closed tab was active, switch to the adjacent one (if any).
     if was_active {
-        let next_id = {
-            let m = manager.lock().unwrap();
-            // Pick the tab that was closest to the closed one (by insertion order is
-            // not tracked, so just take the first available)
-            m.tabs.keys().next().cloned()
-        };
-
         if let Some(next_id) = next_id {
             switch_tab_internal(&app, &manager, &window_label, &next_id)?;
             let mut m = manager.lock().unwrap();
@@ -384,6 +408,134 @@ pub async fn get_current_window_label(app: AppHandle) -> Result<String, String> 
     Err("no link preview tabs window found".to_string())
 }
 
+/// Open the link preview window, or focus it if one already exists.
+/// Called from the Activity Bar "browser" icon. If a window already
+/// exists, it's focused and a new about:blank tab is added; otherwise a
+/// fresh window is created.
+#[tauri::command]
+pub async fn open_or_focus_link_preview(app: AppHandle) -> Result<String, String> {
+    // Look for an existing link-preview-tabs window.
+    let existing = app
+        .windows()
+        .into_iter()
+        .find(|(label, _)| label.starts_with("link-preview-tabs-"))
+        .map(|(_, w)| w);
+
+    if let Some(window) = existing {
+        // Focus + unminimize the existing window, and add a fresh tab.
+        let _ = window.show();
+        let _ = window.set_focus();
+        let label = window.label().to_string();
+        if let Ok(manager) = get_manager(&label) {
+            let _ = add_tab_internal(&app, &manager, &label, "about:blank".to_string());
+        }
+        return Ok(label);
+    }
+
+    // No existing window — create a new one.
+    open_link_preview_with_tabs(app, "about:blank".to_string()).await
+}
+
+/// Check whether a window label belongs to a link-preview-tabs window.
+/// Used by lib.rs `on_menu_event` to route Cmd+T / Cmd+W natively.
+pub fn is_link_preview_window(label: &str) -> bool {
+    label.starts_with("link-preview-tabs-")
+}
+
+/// Add a new (about:blank) tab to the focused link-preview window.
+/// Called from `on_menu_event` when Cmd+T fires while a link-preview
+/// window is focused. Handling this on the Rust side (instead of emitting
+/// `native-command` to the frontend) avoids the event reaching both the
+/// link-preview UI webview AND the main window's ShortcutManager.
+pub fn add_tab_to_focused_preview(app: &AppHandle) -> Result<(), String> {
+    let window_label = app
+        .windows()
+        .into_iter()
+        .find(|(label, w)| is_link_preview_window(label) && w.is_focused().unwrap_or(false))
+        .map(|(label, _)| label);
+    let window_label = window_label.ok_or("no focused link preview window")?;
+    let manager = get_manager(&window_label)?;
+    add_tab_internal(app, &manager, &window_label, "about:blank".to_string())?;
+    Ok(())
+}
+
+/// Close the active tab in the focused link-preview window. If it's the
+/// last tab, close the whole window. Called from `on_menu_event` when
+/// Cmd+W fires while a link-preview window is focused.
+pub fn close_active_tab_in_focused_preview(app: &AppHandle) -> Result<(), String> {
+    let window_label = app
+        .windows()
+        .into_iter()
+        .find(|(label, w)| is_link_preview_window(label) && w.is_focused().unwrap_or(false))
+        .map(|(label, _)| label);
+    let window_label = window_label.ok_or("no focused link preview window")?;
+    let manager = get_manager(&window_label)?;
+
+    let (tab_count, active_id) = {
+        let m = manager.lock().unwrap();
+        (m.tab_order.len(), m.active_tab_id.clone())
+    };
+
+    if tab_count <= 1 {
+        // Last tab — close the whole window.
+        if let Some(window) = app.get_window(&window_label) {
+            let _ = window.close();
+        }
+        return Ok(());
+    }
+
+    if let Some(id) = active_id {
+        // Close the active tab; close_active_tab logic handles picking
+        // the adjacent tab and repositioning webviews.
+        // Reuse the command body by calling the internal pieces directly.
+        let was_active = true;
+        let (removed, next_id) = {
+            let mut m = manager.lock().unwrap();
+            let next_id = if was_active {
+                m.tab_order
+                    .iter()
+                    .position(|tid| tid == &id)
+                    .and_then(|idx| {
+                        m.tab_order
+                            .get(idx + 1)
+                            .or_else(|| {
+                                if idx > 0 {
+                                    m.tab_order.get(idx - 1)
+                                } else {
+                                    None
+                                }
+                            })
+                            .cloned()
+                    })
+            } else {
+                None
+            };
+            let removed = m.tabs.remove(&id);
+            m.tab_order.retain(|tid| tid != &id);
+            (removed, next_id)
+        };
+
+        if let Some(tab) = removed {
+            if let Some(wv) = app.get_webview(&tab.webview_label) {
+                let _ = wv.close();
+            }
+        }
+
+        if let Some(next_id) = next_id {
+            switch_tab_internal(app, &manager, &window_label, &next_id)?;
+            let mut m = manager.lock().unwrap();
+            m.active_tab_id = Some(next_id);
+        } else {
+            let mut m = manager.lock().unwrap();
+            m.active_tab_id = None;
+        }
+
+        emit_tabs_updated(app, &manager);
+    }
+
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -411,9 +563,13 @@ fn logical_window_size(window: &tauri::Window) -> Result<(f64, f64), String> {
 
 /// Build a TabsState snapshot from the manager (caller must hold the lock).
 fn build_tabs_state(m: &TabManager) -> TabsState {
-    let mut tabs: Vec<TabInfo> = m
-        .tabs
-        .values()
+    // Iterate in insertion order (tab_order) so the tab strip is stable.
+    // Previously this sorted by string ID, which broke after 10 tabs
+    // ("tab-1" < "tab-10" < "tab-2" lexicographically).
+    let tabs: Vec<TabInfo> = m
+        .tab_order
+        .iter()
+        .filter_map(|id| m.tabs.get(id))
         .map(|t| TabInfo {
             id: t.id.clone(),
             url: t.url.clone(),
@@ -421,8 +577,6 @@ fn build_tabs_state(m: &TabManager) -> TabsState {
             loading: t.loading,
         })
         .collect();
-    // Sort by tab ID for stable ordering
-    tabs.sort_by(|a, b| a.id.cmp(&b.id));
     TabsState {
         tabs,
         active_tab_id: m.active_tab_id.clone(),
@@ -508,10 +662,16 @@ fn add_tab_internal(
 
     // --- Parse URL + derive initial title ---
     let url_parsed = url::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
-    let initial_title = url_parsed
-        .host_str()
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "Loading...".to_string());
+    // about:blank has no host and never fires on_document_title_changed,
+    // so label it "New Tab" up front instead of leaving it on "Loading...".
+    let initial_title = if url == "about:blank" {
+        "New Tab".to_string()
+    } else {
+        url_parsed
+            .host_str()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "Loading...".to_string())
+    };
 
     // --- Window + content dimensions ---
     let window = app
@@ -522,6 +682,24 @@ fn add_tab_internal(
         let (w, h) = logical_window_size(&window)?;
         (w, (h - UI_HEIGHT).max(1.0))
     };
+
+    // --- Hide the currently-active content webview BEFORE creating the new
+    //     one. Doing this first guarantees old and new never overlap on
+    //     screen during the transition, even if the new webview's positioning
+    //     runs a frame late. We resolve the old label while holding the
+    //     manager lock, then move it off-screen.
+    let previous_active_label = {
+        let m = manager.lock().unwrap();
+        m.active_tab_id
+            .as_ref()
+            .and_then(|id| m.tabs.get(id))
+            .map(|t| t.webview_label.clone())
+    };
+    if let Some(label) = &previous_active_label {
+        if let Some(wv) = app.get_webview(label) {
+            let _ = wv.set_position(LogicalPosition::new(0.0, 9999.0));
+        }
+    }
 
     // --- Build content webview with event callbacks ---
     let app_for_title = app.clone();
@@ -586,8 +764,12 @@ fn add_tab_internal(
         webview_builder = webview_builder.initialization_script(&cookie_script);
     }
 
-    // Position: initially hidden off-screen, will be shown when switched to
-    window
+    // Create the content webview off-screen first. We capture the returned
+    // Webview and position it directly — relying on app.get_webview(label)
+    // immediately after add_child can race on macOS WKWebView (the webview
+    // isn't yet registered in Tauri's store), which left new tabs stranded
+    // at Y=9999 and was the root cause of "新标签页打不开".
+    let new_webview = window
         .add_child(
             webview_builder,
             LogicalPosition::new(0.0, 9999.0),
@@ -595,23 +777,30 @@ fn add_tab_internal(
         )
         .map_err(|e| format!("failed to add content webview: {e}"))?;
 
+    // Position the new webview into the content area immediately, using the
+    // Webview handle returned by add_child (no store lookup needed).
+    new_webview
+        .set_position(LogicalPosition::new(0.0, UI_HEIGHT))
+        .map_err(|e| format!("failed to position new webview: {e}"))?;
+    new_webview
+        .set_size(LogicalSize::new(content_width, content_height))
+        .map_err(|e| format!("failed to size new webview: {e}"))?;
+
     // --- Create tab record ---
     let tab = Tab {
         id: tab_id.clone(),
         webview_label: webview_label.clone(),
         url: url.clone(),
         title: initial_title.clone(),
-        loading: true,
+        loading: url != "about:blank",
     };
 
     {
         let mut m = manager.lock().unwrap();
         m.tabs.insert(tab_id.clone(), tab);
+        m.tab_order.push(tab_id.clone());
         m.active_tab_id = Some(tab_id.clone());
     }
-
-    // Show this tab (switch to it)
-    switch_tab_internal(app, manager, window_label, &tab_id)?;
 
     emit_tabs_updated(app, manager);
 
@@ -652,13 +841,17 @@ fn switch_tab_internal(
         }
     }
 
-    // Show new active tab (position + resize to fill content area)
-    if let Some(wv) = app.get_webview(&target_label) {
-        wv.set_position(LogicalPosition::new(0.0, UI_HEIGHT))
-            .map_err(|e| format!("failed to position webview: {e}"))?;
-        wv.set_size(LogicalSize::new(width, content_height))
-            .map_err(|e| format!("failed to resize webview: {e}"))?;
-    }
+    // Show new active tab (position + resize to fill content area).
+    // If the webview can't be found, surface an error rather than silently
+    // succeeding — a silent no-op here leaves the tab stranded off-screen
+    // (this was the secondary symptom of the new-tab race).
+    let wv = app
+        .get_webview(&target_label)
+        .ok_or_else(|| format!("webview not found for tab {}: {}", tab_id, target_label))?;
+    wv.set_position(LogicalPosition::new(0.0, UI_HEIGHT))
+        .map_err(|e| format!("failed to position webview: {e}"))?;
+    wv.set_size(LogicalSize::new(width, content_height))
+        .map_err(|e| format!("failed to resize webview: {e}"))?;
 
     Ok(())
 }
