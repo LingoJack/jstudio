@@ -72,8 +72,9 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   },
   {
     id: "app.goToBrowser",
-    perform: () => {
-      storage.openOrFocusLinkPreview().catch(console.error);
+    perform: (store) => {
+      store.setSettingsOpen(false);
+      store.setActiveSidebarView("browser");
     },
   },
   { id: "app.cycleTabLeft", perform: (store) => store.cycleTab(-1) },
@@ -331,8 +332,9 @@ export function buildCommands(): PaletteCommand[] {
       shortcutId: "app.goToBrowser",
       keywordsZh: ["浏览器", "网页", "链接", "预览"],
       keywordsEn: ["browser", "web", "link", "preview"],
-      perform: () => {
-        storage.openOrFocusLinkPreview().catch(console.error);
+      perform: (store) => {
+        store.setSettingsOpen(false);
+        store.setActiveSidebarView("browser");
       },
     },
     {

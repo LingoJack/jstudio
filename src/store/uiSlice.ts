@@ -96,7 +96,7 @@ export function applyLineHeight(lineHeight: number) {
 }
 
 /** Which sidebar panel is currently active. */
-export type SidebarView = 'documents' | 'terminal' | 'agent';
+export type SidebarView = 'documents' | 'terminal' | 'agent' | 'browser';
 
 /** Which settings section is currently displayed. Driven by store so palette can navigate. */
 export type SettingsSectionId = 'general' | 'agent' | 'editor' | 'terminal' | 'shortcuts' | 'help' | 'about' | 'debug';
@@ -124,7 +124,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   editorCursorStyle: DEFAULT_EDITOR_CURSOR_STYLE,
   editorCursorAnimationEnabled: DEFAULT_EDITOR_CURSOR_ANIMATION_ENABLED,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
-  activeSidebarView: 'documents' as 'documents' | 'terminal' | 'agent',
+  activeSidebarView: 'documents' as SidebarView,
   settingsActiveSection: 'general',
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,

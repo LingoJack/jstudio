@@ -22,7 +22,7 @@ export default function AppTitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="h-9 shrink-0 flex items-center justify-between bg-[var(--vscode-activityBar-background)] border-b border-[var(--vscode-panel-border)] px-3 select-none relative z-toolbar"
+      className="h-8 shrink-0 flex items-center justify-between bg-[var(--vscode-activityBar-background)] border-b border-[var(--vscode-panel-border)] px-3 select-none relative z-toolbar"
     >
       {/* Left: placeholder for traffic lights space */}
       <div className="w-[72px]" data-tauri-drag-region />
@@ -38,7 +38,7 @@ export default function AppTitleBar() {
         onClick={toggleSidebar}
         data-tauri-drag-region={false}
         title={isSidebarOpen ? t('titlebar.collapseSidebar') : t('titlebar.expandSidebar')}
-        className={`p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+        className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
           isSidebarOpen
             ? 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
             : 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'

@@ -28,7 +28,7 @@
  */
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
@@ -44,9 +44,18 @@ use super::link::{BROWSER_UA, extract_domain, read_chrome_cookies_cached};
 // Constants
 // ---------------------------------------------------------------------------
 
-/// UI webview height in logical pixels.
+/// UI webview height in logical pixels (standalone link-preview window only).
 /// Address bar (~38px) at top + floating glassmorphism tab bar (~52px area) at bottom.
+///
+/// For the inline browser panel in the main window, the content rect is
+/// provided dynamically by React via `update_browser_panel_rect` — this
+/// constant is NOT used for that path.
 const UI_HEIGHT: f64 = 90.0;
+
+/// Window label used when the browser is embedded as a panel in the main
+/// window (instead of a standalone link-preview window). The main window's
+/// `TabManager` is registered under this key.
+pub const MAIN_BROWSER_LABEL: &str = "main";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,8 +79,25 @@ pub struct TabsState {
     pub active_tab_id: Option<String>,
 }
 
+/// Geometry of the inline browser panel's webview area, in logical pixels,
+/// relative to the main window's top-left corner. Reported by the React
+/// `BrowserPanel` component via `ResizeObserver` so Rust can position child
+/// webviews on top of the React UI.
+#[derive(Serialize, Deserialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserPanelRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
 /// Per-window tab manager state.
 struct TabManager {
+    /// The window label this manager belongs to. Used to scope `emit_to`
+    /// so events for the standalone link-preview window don't reach the
+    /// main window's inline browser panel (and vice versa).
+    window_label: String,
     /// Tabs by their ID.
     tabs: HashMap<String, Tab>,
     /// Tab IDs in insertion order — used for stable tab-strip ordering and
@@ -99,8 +125,34 @@ struct Tab {
 static TAB_MANAGERS: OnceLock<Mutex<HashMap<String, Arc<Mutex<TabManager>>>>> = OnceLock::new();
 static TAB_COUNTER: AtomicU64 = AtomicU64::new(1);
 
+/// Geometry of the inline browser panel's webview area in the main window.
+/// Set by `update_browser_panel_rect` (called from React's `ResizeObserver`)
+/// and read by `get_content_rect` when positioning child webviews for the
+/// `"main"` window label.
+static BROWSER_PANEL_RECT: OnceLock<Mutex<Option<BrowserPanelRect>>> = OnceLock::new();
+
+/// Whether the inline browser panel is currently visible in the main window.
+/// Set by `show_browser_panel` / `hide_browser_panel`. Read by
+/// `on_menu_event` in lib.rs to decide whether Cmd+T / Cmd+W should act on
+/// the browser panel (vs. the main window's document tabs).
+static BROWSER_PANEL_VISIBLE: AtomicBool = AtomicBool::new(false);
+
 fn get_managers() -> &'static Mutex<HashMap<String, Arc<Mutex<TabManager>>>> {
     TAB_MANAGERS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn browser_panel_rect_cell() -> &'static Mutex<Option<BrowserPanelRect>> {
+    BROWSER_PANEL_RECT.get_or_init(|| Mutex::new(None))
+}
+
+/// Get the stored browser panel rect (if any).
+fn get_browser_panel_rect() -> Option<BrowserPanelRect> {
+    browser_panel_rect_cell().lock().ok()?.as_ref().copied()
+}
+
+/// Check whether the inline browser panel is currently visible.
+pub fn is_browser_panel_visible() -> bool {
+    BROWSER_PANEL_VISIBLE.load(Ordering::SeqCst)
 }
 
 /// Generate a globally unique ID (avoids timestamp collisions).
@@ -111,6 +163,25 @@ fn next_id() -> u64 {
 /// Derive the UI webview label for a given window (must be unique per window).
 fn ui_webview_label(window_label: &str) -> String {
     format!("ui-{}", window_label)
+}
+
+/// Resolve the content webview geometry (x, y, w, h) for a given window.
+///
+/// - For the `"main"` window (inline browser panel): uses the stored
+///   `BrowserPanelRect` reported by React's `ResizeObserver`. Returns
+///   `None` if the rect hasn't been set yet (caller should position
+///   off-screen and wait for `update_browser_panel_rect`).
+/// - For standalone link-preview windows: computes from the window's inner
+///   size minus `UI_HEIGHT`.
+fn get_content_rect(app: &AppHandle, window_label: &str) -> Option<(f64, f64, f64, f64)> {
+    if window_label == MAIN_BROWSER_LABEL {
+        let r = get_browser_panel_rect()?;
+        Some((r.x, r.y, r.width, r.height))
+    } else {
+        let window = app.get_window(window_label)?;
+        let (w, h) = logical_window_size(&window).ok()?;
+        Some((0.0, UI_HEIGHT, w, (h - UI_HEIGHT).max(1.0)))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +224,7 @@ pub async fn open_link_preview_with_tabs(app: AppHandle, url: String) -> Result<
 
     // --- Create tab manager ---
     let manager = Arc::new(Mutex::new(TabManager {
+        window_label: window_label.clone(),
         tabs: HashMap::new(),
         tab_order: Vec::new(),
         active_tab_id: None,
@@ -537,6 +609,219 @@ pub fn close_active_tab_in_focused_preview(app: &AppHandle) -> Result<(), String
 }
 
 // ---------------------------------------------------------------------------
+// Inline browser panel (embedded in the main window)
+// ---------------------------------------------------------------------------
+
+/// Show the inline browser panel in the main window. Ensures a `TabManager`
+/// for the `"main"` window label exists, marks the panel as visible (so
+/// `on_menu_event` routes Cmd+T / Cmd+W here instead of to document tabs),
+/// and adds a fresh `about:blank` tab if none exist.
+///
+/// The React `BrowserPanel` component calls this on mount, then calls
+/// `update_browser_panel_rect` via `ResizeObserver` to report the container
+/// bounds so content webviews can be positioned on top of the React UI.
+#[tauri::command]
+pub async fn show_browser_panel(app: AppHandle) -> Result<(), String> {
+    BROWSER_PANEL_VISIBLE.store(true, Ordering::SeqCst);
+
+    // Ensure a TabManager exists for the main window. If one already exists
+    // (panel was previously shown and hidden), reuse it — its tabs are
+    // preserved.
+    {
+        let mut managers = get_managers().lock().unwrap();
+        if !managers.contains_key(MAIN_BROWSER_LABEL) {
+            managers.insert(
+                MAIN_BROWSER_LABEL.to_string(),
+                Arc::new(Mutex::new(TabManager {
+                    window_label: MAIN_BROWSER_LABEL.to_string(),
+                    tabs: HashMap::new(),
+                    tab_order: Vec::new(),
+                    active_tab_id: None,
+                })),
+            );
+        }
+    }
+
+    let manager = get_manager(MAIN_BROWSER_LABEL)?;
+
+    // If no tabs exist, add a fresh about:blank tab. The webview is created
+    // off-screen (rect not yet reported) and will be positioned when
+    // update_browser_panel_rect arrives from React's ResizeObserver.
+    let has_tabs = {
+        let m = manager.lock().unwrap();
+        !m.tab_order.is_empty()
+    };
+    if !has_tabs {
+        add_tab_internal(
+            &app,
+            &manager,
+            MAIN_BROWSER_LABEL,
+            "about:blank".to_string(),
+        )?;
+    } else {
+        // Tabs already exist — reposition the active one into the content
+        // area (it was moved off-screen by hide_browser_panel).
+        layout_webviews(&app, &manager, MAIN_BROWSER_LABEL);
+        emit_tabs_updated(&app, &manager);
+    }
+
+    Ok(())
+}
+
+/// Hide the inline browser panel. Moves all content webviews off-screen and
+/// clears the visible flag so `on_menu_event` stops routing Cmd+T / Cmd+W
+/// here. The `TabManager` and its tabs are preserved so the user can return
+/// to the panel with their tabs intact.
+#[tauri::command]
+pub async fn hide_browser_panel(app: AppHandle) -> Result<(), String> {
+    BROWSER_PANEL_VISIBLE.store(false, Ordering::SeqCst);
+
+    if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
+        let labels: Vec<String> = {
+            let m = manager.lock().unwrap();
+            m.tabs.values().map(|t| t.webview_label.clone()).collect()
+        };
+        for label in labels {
+            if let Some(wv) = app.get_webview(&label) {
+                let _ = wv.set_position(LogicalPosition::new(0.0, 9999.0));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Update the inline browser panel's webview area geometry (called from
+/// React's `ResizeObserver`). Stores the rect and repositions the active
+/// content webview to match. This is how the native child webviews stay
+/// aligned with the React-rendered panel container as the sidebar opens /
+/// closes, the window resizes, etc.
+#[tauri::command]
+pub async fn update_browser_panel_rect(
+    app: AppHandle,
+    rect: BrowserPanelRect,
+) -> Result<(), String> {
+    // Store the rect
+    {
+        *browser_panel_rect_cell().lock().unwrap() = Some(rect);
+    }
+
+    // Reposition the active content webview using the new rect
+    if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
+        layout_webviews(&app, &manager, MAIN_BROWSER_LABEL);
+    }
+
+    Ok(())
+}
+
+/// Get the current tabs state for the inline browser panel (main window).
+/// Convenience wrapper around `get_link_preview_tabs_state` with the main
+/// window label filled in.
+#[tauri::command]
+pub async fn get_browser_panel_tabs_state() -> Result<TabsState, String> {
+    let manager = get_manager(MAIN_BROWSER_LABEL)?;
+    let m = manager.lock().unwrap();
+    Ok(build_tabs_state(&m))
+}
+
+/// Add a new (about:blank) tab to the inline browser panel. Called from
+/// `on_menu_event` when Cmd+T fires while the browser panel is visible in
+/// the main window.
+pub fn add_tab_to_main_browser(app: &AppHandle) -> Result<(), String> {
+    let manager = get_manager(MAIN_BROWSER_LABEL)?;
+    add_tab_internal(app, &manager, MAIN_BROWSER_LABEL, "about:blank".to_string())?;
+    Ok(())
+}
+
+/// Close the active tab in the inline browser panel. If it's the last tab,
+/// emit a `browser-panel:empty` event so React can switch back to the
+/// documents view (the panel shows an empty state otherwise). Called from
+/// `on_menu_event` when Cmd+W fires while the browser panel is visible.
+pub fn close_active_tab_in_main_browser(app: &AppHandle) -> Result<(), String> {
+    let manager = get_manager(MAIN_BROWSER_LABEL)?;
+
+    let (tab_count, active_id) = {
+        let m = manager.lock().unwrap();
+        (m.tab_order.len(), m.active_tab_id.clone())
+    };
+
+    if tab_count == 0 {
+        return Ok(());
+    }
+
+    if tab_count <= 1 {
+        // Last tab — close it and notify React to switch away from the
+        // browser view. We don't close the window (unlike the standalone
+        // link-preview path) because the main window hosts the editor.
+        if let Some(id) = active_id.clone() {
+            let (removed, _) = {
+                let mut m = manager.lock().unwrap();
+                let removed = m.tabs.remove(&id);
+                m.tab_order.retain(|tid| tid != &id);
+                (removed, None::<String>)
+            };
+            if let Some(tab) = removed {
+                if let Some(wv) = app.get_webview(&tab.webview_label) {
+                    let _ = wv.close();
+                }
+            }
+            {
+                let mut m = manager.lock().unwrap();
+                m.active_tab_id = None;
+            }
+            emit_tabs_updated(app, &manager);
+        }
+        // Notify React: panel has no tabs — switch to documents view.
+        let _ = app.emit_to(MAIN_BROWSER_LABEL, "browser-panel:empty", ());
+        return Ok(());
+    }
+
+    if let Some(id) = active_id {
+        let (removed, next_id) = {
+            let mut m = manager.lock().unwrap();
+            let next_id = m
+                .tab_order
+                .iter()
+                .position(|tid| tid == &id)
+                .and_then(|idx| {
+                    m.tab_order
+                        .get(idx + 1)
+                        .or_else(|| {
+                            if idx > 0 {
+                                m.tab_order.get(idx - 1)
+                            } else {
+                                None
+                            }
+                        })
+                        .cloned()
+                });
+            let removed = m.tabs.remove(&id);
+            m.tab_order.retain(|tid| tid != &id);
+            (removed, next_id)
+        };
+
+        if let Some(tab) = removed {
+            if let Some(wv) = app.get_webview(&tab.webview_label) {
+                let _ = wv.close();
+            }
+        }
+
+        if let Some(next_id) = next_id {
+            switch_tab_internal(app, &manager, MAIN_BROWSER_LABEL, &next_id)?;
+            let mut m = manager.lock().unwrap();
+            m.active_tab_id = Some(next_id);
+        } else {
+            let mut m = manager.lock().unwrap();
+            m.active_tab_id = None;
+        }
+
+        emit_tabs_updated(app, &manager);
+    }
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
@@ -583,34 +868,51 @@ fn build_tabs_state(m: &TabManager) -> TabsState {
     }
 }
 
-/// Emit the full tabs state to the frontend.
+/// Emit the full tabs state to the frontend, scoped to the window that owns
+/// this manager. Using `emit_to` (not `emit`) prevents cross-talk when both
+/// a standalone link-preview window and the inline browser panel are open —
+/// each window only receives events for its own tabs.
 fn emit_tabs_updated(app: &AppHandle, manager: &Arc<Mutex<TabManager>>) {
-    let state = {
+    let (state, window_label) = {
         let m = manager.lock().unwrap();
-        build_tabs_state(&m)
+        (build_tabs_state(&m), m.window_label.clone())
     };
-    let _ = app.emit("link-preview:tabs-updated", state);
+    let _ = app.emit_to(window_label, "link-preview:tabs-updated", state);
 }
 
 /// Re-layout the UI webview and the active content webview to fill the window.
 /// Called on window resize and scale-factor changes.
+///
+/// For standalone link-preview windows: resizes both the UI webview (tab strip
+/// + address bar, height = `UI_HEIGHT`) and the active content webview.
+/// For the inline browser panel in the main window: the UI is React (not a
+/// separate webview), so we only reposition the active content webview using
+/// the stored `BrowserPanelRect`. The UI webview resize is skipped because
+/// the main window has no `ui-main` webview.
 fn layout_webviews(app: &AppHandle, manager: &Arc<Mutex<TabManager>>, window_label: &str) {
-    let window = match app.get_window(window_label) {
-        Some(w) => w,
-        None => return,
-    };
+    // Resolve content geometry. For the main window this uses the stored
+    // ResizeObserver rect; for standalone windows it derives from window size.
+    let (content_x, content_y, content_width, content_height) =
+        match get_content_rect(app, window_label) {
+            Some(rect) => rect,
+            None => return,
+        };
 
-    let (width, height) = match logical_window_size(&window) {
-        Ok(dims) => dims,
-        Err(_) => return,
-    };
-
-    let content_height = (height - UI_HEIGHT).max(1.0);
-
-    // Resize UI webview
-    let ui_label = ui_webview_label(window_label);
-    if let Some(ui_wv) = app.get_webview(&ui_label) {
-        let _ = ui_wv.set_size(LogicalSize::new(width, UI_HEIGHT));
+    // Resize UI webview (standalone link-preview windows only — the main
+    // window's UI is React, not a separate ui-* webview).
+    if window_label != MAIN_BROWSER_LABEL {
+        let window = match app.get_window(window_label) {
+            Some(w) => w,
+            None => return,
+        };
+        let (width, _height) = match logical_window_size(&window) {
+            Ok(dims) => dims,
+            Err(_) => return,
+        };
+        let ui_label = ui_webview_label(window_label);
+        if let Some(ui_wv) = app.get_webview(&ui_label) {
+            let _ = ui_wv.set_size(LogicalSize::new(width, UI_HEIGHT));
+        }
     }
 
     // Resize + reposition the active content webview
@@ -624,8 +926,8 @@ fn layout_webviews(app: &AppHandle, manager: &Arc<Mutex<TabManager>>, window_lab
 
     if let Some(label) = active_label {
         if let Some(wv) = app.get_webview(&label) {
-            let _ = wv.set_position(LogicalPosition::new(0.0, UI_HEIGHT));
-            let _ = wv.set_size(LogicalSize::new(width, content_height));
+            let _ = wv.set_position(LogicalPosition::new(content_x, content_y));
+            let _ = wv.set_size(LogicalSize::new(content_width, content_height));
         }
     }
 }
@@ -678,10 +980,23 @@ fn add_tab_internal(
         .get_window(window_label)
         .ok_or_else(|| format!("window not found: {}", window_label))?;
 
-    let (content_width, content_height) = {
-        let (w, h) = logical_window_size(&window)?;
-        (w, (h - UI_HEIGHT).max(1.0))
-    };
+    // Resolve the content area geometry. For standalone link-preview windows
+    // this is derived from the window size (minus UI_HEIGHT). For the inline
+    // browser panel in the main window, it comes from the stored rect
+    // reported by React's ResizeObserver. If the rect isn't set yet (panel
+    // just opened), fall back to off-screen — update_browser_panel_rect will
+    // position the webview once React reports the container bounds.
+    let (content_x, content_y, content_width, content_height) =
+        match get_content_rect(app, window_label) {
+            Some(rect) => rect,
+            None => {
+                // Rect not available — create off-screen with a placeholder size.
+                // The webview will be repositioned when update_browser_panel_rect
+                // arrives with the real container bounds.
+                let (w, _h) = logical_window_size(&window)?;
+                (0.0, 9999.0, w, 600.0)
+            }
+        };
 
     // --- Hide the currently-active content webview BEFORE creating the new
     //     one. Doing this first guarantees old and new never overlap on
@@ -779,8 +1094,11 @@ fn add_tab_internal(
 
     // Position the new webview into the content area immediately, using the
     // Webview handle returned by add_child (no store lookup needed).
+    // We use content_x/content_y from get_content_rect so this works for both
+    // standalone link-preview windows (0, UI_HEIGHT) and the inline browser
+    // panel in the main window (rect.x, rect.y from ResizeObserver).
     new_webview
-        .set_position(LogicalPosition::new(0.0, UI_HEIGHT))
+        .set_position(LogicalPosition::new(content_x, content_y))
         .map_err(|e| format!("failed to position new webview: {e}"))?;
     new_webview
         .set_size(LogicalSize::new(content_width, content_height))
@@ -814,12 +1132,17 @@ fn switch_tab_internal(
     window_label: &str,
     tab_id: &str,
 ) -> Result<(), String> {
-    let window = app
-        .get_window(window_label)
-        .ok_or_else(|| format!("window not found: {}", window_label))?;
-
-    let (width, height) = logical_window_size(&window)?;
-    let content_height = (height - UI_HEIGHT).max(1.0);
+    // Resolve the content area geometry. For standalone link-preview windows
+    // this is derived from the window size; for the inline browser panel in
+    // the main window it comes from the stored ResizeObserver rect. If the
+    // rect isn't set yet (main window, panel just opened), skip positioning —
+    // the webview stays off-screen and update_browser_panel_rect will place
+    // it once React reports the container bounds.
+    let (content_x, content_y, content_width, content_height) =
+        match get_content_rect(app, window_label) {
+            Some(rect) => rect,
+            None => return Ok(()),
+        };
 
     let (current_active, target_label) = {
         let m = manager.lock().unwrap();
@@ -848,9 +1171,9 @@ fn switch_tab_internal(
     let wv = app
         .get_webview(&target_label)
         .ok_or_else(|| format!("webview not found for tab {}: {}", tab_id, target_label))?;
-    wv.set_position(LogicalPosition::new(0.0, UI_HEIGHT))
+    wv.set_position(LogicalPosition::new(content_x, content_y))
         .map_err(|e| format!("failed to position webview: {e}"))?;
-    wv.set_size(LogicalSize::new(width, content_height))
+    wv.set_size(LogicalSize::new(content_width, content_height))
         .map_err(|e| format!("failed to resize webview: {e}"))?;
 
     Ok(())

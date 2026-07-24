@@ -20,6 +20,7 @@ import DocumentTabs from './components/documents/DocumentTabs';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import AgentChatPanel from './components/agent/AgentChatPanel';
 import AgentSidebar from './components/agent/AgentSidebar';
+import BrowserPanel from './components/panels/BrowserPanel';
 import DeferredWorkspaceContent from './components/workspace/DeferredWorkspaceContent';
 import SettingsPanel from './components/settings/SettingsPanel';
 import CommandPalette from './components/editor/CommandPalette';
@@ -213,6 +214,12 @@ export default function App() {
   const isAgentView =
     !isSettingsOpen && activeSidebarView === 'agent';
 
+  // Browser view: inline browser panel takes over the full editor area
+  // (like terminal/agent). Native child webviews are positioned on top of
+  // the React UI via the ResizeObserver rect reported by BrowserPanel.
+  const isBrowserView =
+    !isSettingsOpen && activeSidebarView === 'browser';
+
   // hasTerminalTab is computed above via useStore, before the early return.
 
   return (
@@ -230,8 +237,8 @@ export default function App() {
         <ActivityBar />
 
         {/* Secondary sidebar: hidden in terminal view and settings */}
-        {/* Document sidebar: shown when sidebar is open and not in terminal/agent/settings view */}
-        {isSidebarOpen && !isSettingsOpen && !isTerminalView && !isAgentView && (
+        {/* Document sidebar: shown when sidebar is open and not in terminal/agent/browser/settings view */}
+        {isSidebarOpen && !isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView && (
           <DocumentSidebar />
         )}
 
@@ -241,7 +248,7 @@ export default function App() {
         {/* Main content area (right) */}
         <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative">
           {/* Document Tab Bar */}
-          {!isSettingsOpen && !isTerminalView && !isAgentView && <DocumentTabs />}
+          {!isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView && <DocumentTabs />}
 
           {/* Terminal panel: mount-once, CSS-hide */}
           {(hasTerminalTab || isTerminalView) && (
@@ -263,9 +270,18 @@ export default function App() {
             <AgentChatPanel hidden={!isAgentView} />
           </div>
 
+          {/* Browser panel: mount-once, CSS-hide */}
+          <div
+            className={`absolute inset-0 ${
+              isBrowserView ? '' : 'hidden'
+            }`}
+          >
+            <BrowserPanel hidden={!isBrowserView} />
+          </div>
+
           {/* Keep workspace content mounted so concurrent tab transitions can finish safely. */}
           <DeferredWorkspaceContent
-            visible={!isSettingsOpen && !isTerminalView && !isAgentView}
+            visible={!isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView}
           />
 
           {/* Settings take priority over workspace content. */}

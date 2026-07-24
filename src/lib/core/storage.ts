@@ -313,6 +313,20 @@ export interface LinkPreviewTabsState {
 }
 
 /**
+ * Geometry of the inline browser panel's webview area, in CSS pixels,
+ * relative to the main window's top-left corner. Reported by the React
+ * `BrowserPanel` component's `ResizeObserver` so Rust can position native
+ * child webviews on top of the React UI. Mirrors the Rust `BrowserPanelRect`
+ * struct in link_tabs.rs.
+ */
+export interface BrowserPanelRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
  * A single entry returned by `list_markdown_files` — mirrors the Rust
  * `MarkdownEntry` struct. Directories (`is_dir: true`) are included so the
  * frontend can recreate the folder hierarchy.
@@ -634,4 +648,38 @@ export const storage = {
   /** Open URL in system browser. */
   openUrlInBrowser: (url: string) =>
     invoke<void>("open_url_in_browser", { url }),
+
+  // ---- inline browser panel (embedded in the main window) ----
+
+  /**
+   * Show the inline browser panel in the main window. Ensures a tab manager
+   * exists for the `"main"` window label and adds a fresh about:blank tab
+   * if none exist. Called by `BrowserPanel` on mount.
+   */
+  showBrowserPanel: () => invoke<void>("show_browser_panel"),
+
+  /**
+   * Hide the inline browser panel. Moves all content webviews off-screen
+   * and clears the visible flag so Cmd+T / Cmd+W stop routing to the
+   * browser. Tabs are preserved so the user can return with their session
+   * intact. Called by `BrowserPanel` on unmount/hide.
+   */
+  hideBrowserPanel: () => invoke<void>("hide_browser_panel"),
+
+  /**
+   * Update the browser panel's webview area geometry (from React's
+   * `ResizeObserver`). Rust stores the rect and repositions the active
+   * content webview to match. This keeps native child webviews aligned
+   * with the React-rendered container as the sidebar opens/closes or the
+   * window resizes.
+   */
+  updateBrowserPanelRect: (rect: BrowserPanelRect) =>
+    invoke<void>("update_browser_panel_rect", { rect }),
+
+  /**
+   * Get the current tabs state for the inline browser panel. Convenience
+   * wrapper around the main-window tab manager.
+   */
+  getBrowserPanelTabsState: () =>
+    invoke<LinkPreviewTabsState>("get_browser_panel_tabs_state"),
 };

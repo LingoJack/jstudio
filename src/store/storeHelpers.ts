@@ -11,7 +11,7 @@ import type {
   PaneResizeState,
 } from './terminalSlice';
 import type { ToastItem, ToastType } from './toastSlice';
-import type { SettingsSectionId } from './uiSlice';
+import type { SettingsSectionId, SidebarView } from './uiSlice';
 import type { UnifiedTab } from './workspaceSlice';
 import type { AgentSession } from '../types/agent';
 import { storage } from '../lib/core/storage';
@@ -135,7 +135,7 @@ export interface StoreState {
   editorCursorStyle: EditorCursorStyle;
   editorCursorAnimationEnabled: boolean;
   sidebarWidth: number;
-  activeSidebarView: 'documents' | 'terminal' | 'agent';
+  activeSidebarView: SidebarView;
   settingsActiveSection: SettingsSectionId;
   terminalFontSize: number;
   terminalFontId: string;
@@ -264,7 +264,7 @@ export interface StoreState {
   setLanguage: (lang: Language) => void;
   setActivityBarBorder: (enabled: boolean) => void;
   setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
-  setActiveSidebarView: (view: 'documents' | 'terminal' | 'agent') => void;
+  setActiveSidebarView: (view: SidebarView) => void;
   setSettingsActiveSection: (section: SettingsSectionId) => void;
   setAppThemeIdDark: (id: string) => void;
   setAppThemeIdLight: (id: string) => void;

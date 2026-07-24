@@ -363,6 +363,26 @@ pub fn run() {
                 }
             }
 
+            // Inline browser panel in the main window: when visible, Cmd+T
+            // and Cmd+W should act on the browser tabs (not the editor's
+            // document tabs). The visible flag is set by show_browser_panel
+            // / hide_browser_panel. Handling this on the Rust side (instead
+            // of emitting native-command) keeps the editor's ShortcutManager
+            // from also receiving the event.
+            if target == "main" && commands::link_tabs::is_browser_panel_visible() {
+                match id {
+                    "terminal.newTab" => {
+                        let _ = commands::link_tabs::add_tab_to_main_browser(app);
+                        return;
+                    }
+                    "app.closeTab" => {
+                        let _ = commands::link_tabs::close_active_tab_in_main_browser(app);
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+
             let _ = app.emit_to(target, "native-command", id.to_string());
         })
         .invoke_handler(tauri::generate_handler![
@@ -450,6 +470,11 @@ pub fn run() {
             commands::link_tabs::open_url_in_browser,
             commands::link_tabs::get_current_window_label,
             commands::link_tabs::open_or_focus_link_preview,
+            // ── inline browser panel (main window) ──
+            commands::link_tabs::show_browser_panel,
+            commands::link_tabs::hide_browser_panel,
+            commands::link_tabs::update_browser_panel_rect,
+            commands::link_tabs::get_browser_panel_tabs_state,
             // ── terminal detach (tear-off window mailbox) ──
             commands::detach::set_terminal_detach_payload,
             commands::detach::get_terminal_detach_payload,

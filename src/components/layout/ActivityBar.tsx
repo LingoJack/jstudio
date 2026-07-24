@@ -1,10 +1,10 @@
 import { useStore } from "../../store/useStore";
 import { useI18n } from "../../lib/core/i18n";
 import { ACTIVITY_ITEM_META } from "../../lib/activityMeta";
-import { storage, type ActivityItemId } from "../../lib/core/storage";
+import { type ActivityItemId } from "../../lib/core/storage";
 
 /**
- * Activity Bar — the leftmost narrow strip (48px).
+ * Activity Bar — the leftmost narrow strip (40px).
  *
  * Renders entries dynamically based on the `activityBarItems` config from
  * the UI store. Each entry can be toggled visible/hidden and reordered.
@@ -41,12 +41,16 @@ export default function ActivityBar() {
   // Whether the agent icon should show as active (like terminal).
   const isAgentActive = !isSettingsOpen && activeSidebarView === "agent";
 
+  // Whether the browser icon should show as active (inline browser panel
+  // takes over the content area, like terminal/agent).
+  const isBrowserActive = !isSettingsOpen && activeSidebarView === "browser";
+
   /** Determine whether a given entry should render as active. */
   function isActive(id: ActivityItemId): boolean {
     if (id === "documents") return isDocsActive;
     if (id === "terminal") return isTerminalActive;
     if (id === "agent") return isAgentActive;
-    if (id === "browser") return false; // browser is a launcher, not a view toggle
+    if (id === "browser") return isBrowserActive;
     if (id === "settings") return isSettingsOpen;
     return false;
   }
@@ -81,8 +85,11 @@ export default function ActivityBar() {
       // Switch to agent view; AgentChatPanel will auto-create sessions on init.
       setActiveSidebarView("agent");
     } else if (id === "browser") {
-      // Open or focus the built-in browser (link preview) window.
-      storage.openOrFocusLinkPreview().catch(console.error);
+      // Switch to the inline browser panel view. BrowserPanel (mounted in
+      // App.tsx) calls showBrowserPanel on becoming visible, which adds a
+      // fresh about:blank tab if none exist.
+      setSettingsOpen(false);
+      setActiveSidebarView("browser");
     } else if (id === "settings") {
       setSettingsOpen(true);
     }
@@ -105,7 +112,7 @@ export default function ActivityBar() {
       <button
         key={id}
         onClick={() => handleClick(id)}
-        className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors duration-150 cursor-pointer ${
+        className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-150 cursor-pointer ${
           isActive(id) ? activeClass : inactiveClass
         }`}
         title={t(meta.labelKey)}
@@ -116,7 +123,7 @@ export default function ActivityBar() {
   }
 
   return (
-    <div className="w-12 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
+    <div className="w-11 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
       {/* Top: configurable entries (documents, terminal, …) */}
       <div className="flex flex-col items-center gap-1">
         {topItems.map((item) => renderEntry(item.id))}
