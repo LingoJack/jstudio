@@ -37,6 +37,7 @@ import {
   VertexHandler,
   CellState,
   type Cell,
+  type CellStyle,
   type ConnectionHandler,
   type EventObject,
   type SelectionHandler,
@@ -66,7 +67,7 @@ import {
   serializeGraphSnapshot,
   type GraphNodeShape,
 } from './graphSnapshot';
-import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
+import { applySnapshotToGraph, readSnapshotFromGraph, styleToNodeShape } from './graphModel';
 import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
 import MermaidImportDialog from './MermaidImportDialog';
 import {
@@ -959,6 +960,33 @@ export function GraphCanvas({
     
     const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
     edgeDefault.strokeColor = getEdgeColor(darkMode);
+
+    // 更新已存在 cell 的样式：让画板上的图形跟着主题变色。
+    // maxGraph 在 cell 创建时把样式烘焙到 cell 上，不会从默认 stylesheet 重新解析，
+    // 因此切换主题时必须主动遍历刷新。仅刷新颜色（fill/stroke/font），
+    // 保留结构属性（shape/rounded/edgeStyle/arrows 等）。
+    graph.batchUpdate(() => {
+      const parent = graph.getDefaultParent();
+      const cells = graph.getChildCells(parent, true, true);
+      for (const cell of cells) {
+        const oldStyle = (cell.getStyle() as CellStyle) ?? {};
+        if (cell.isVertex()) {
+          const shape = styleToNodeShape(oldStyle);
+          const pal = paletteFor(shape, darkMode);
+          graph.getDataModel().setStyle(cell, {
+            ...oldStyle,
+            fillColor: pal.fill,
+            strokeColor: pal.stroke,
+            fontColor: getFontColor(darkMode),
+          });
+        } else if (cell.isEdge()) {
+          graph.getDataModel().setStyle(cell, {
+            ...oldStyle,
+            strokeColor: getEdgeColor(darkMode),
+          });
+        }
+      }
+    });
 
     // 刷新视图让更改生效
     graph.getView().validate();
