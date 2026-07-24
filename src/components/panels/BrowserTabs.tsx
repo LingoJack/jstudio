@@ -15,6 +15,17 @@ export const BROWSER_WINDOW_LABEL = 'main';
 export interface BrowserTabsProps {
   tabs: LinkPreviewTabInfo[];
   activeTabId: string | null;
+  /**
+   * Explicit glass opacity, used by the standalone tab-bar overlay window
+   * (which doesn't share the main window's hydrated zustand store). Falls
+   * back to the global `tabBarGlassOpacity` setting when omitted.
+   */
+  glassOpacity?: number;
+  /**
+   * Explicit tab-bar position, used by the standalone tab-bar overlay
+   * window. Falls back to the global `tabBarPosition` setting when omitted.
+   */
+  position?: 'top' | 'bottom';
 }
 
 /**
@@ -31,10 +42,17 @@ export interface BrowserTabsProps {
  * Actions (switch / close / new / refresh) call the storage IPC layer
  * directly with the `"main"` window label.
  */
-export default function BrowserTabs({ tabs, activeTabId }: BrowserTabsProps) {
+export default function BrowserTabs({
+  tabs,
+  activeTabId,
+  glassOpacity,
+  position,
+}: BrowserTabsProps) {
   const { t } = useI18n();
-  const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
-  const tabBarPosition = useStore((s) => s.tabBarPosition);
+  const storeGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
+  const storePosition = useStore((s) => s.tabBarPosition);
+  const tabBarGlassOpacity = glassOpacity ?? storeGlassOpacity;
+  const tabBarPosition = position ?? storePosition;
 
   // ── Actions (storage IPC, scoped to the main window's tab manager) ──
 

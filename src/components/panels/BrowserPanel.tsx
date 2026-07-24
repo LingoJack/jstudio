@@ -7,23 +7,30 @@
  * main window and positioned on top of the React UI using a rect
  * reported by `ResizeObserver`.
  *
- * Layout (TabBar floats over the webview content):
+ * Layout (two native child webviews, content fills the full area):
  *   +----------------------------------------------------+
  *   | [address bar]                        refresh | open |  solid, top
  *   +----------------------------------------------------+
- *   | [Tab1] [Tab2] [+]   (floating glass TabBar)        |  absolute, z-20
- *   |                                                     |  (white bg from container
- *   | --- native webview starts below TabBar ----------- |   behind the TabBar)
- *   |                                                     |
- *   |  Native content webview                             |  positioned by Rust at
- *   |  (positioned at rect.y + TAB_BAR_HEIGHT)            |  the ResizeObserver rect
- *   |                                                     |
+ *   |  Native content webview (fills the whole area)      |
+ *   |   ...   [Tab1] [Tab2] [+]   ...                     |  <- floating tab-bar
+ *   |         ^ transparent overlay webview,                  overlay webview,
+ *   |           stacked ABOVE the content webview             re-raised above
+ *   |                                                          each new tab's
+ *   |                                                          content webview
  *   +----------------------------------------------------+
  *
- * The TabBar floats over the container's white background, which blends
- * seamlessly with the native webview's content below. The native webview
- * starts TAB_BAR_HEIGHT pixels below the container's top edge so it never
- * covers the TabBar.
+ * The content webview no longer reserves any space for the tab bar --
+ * it fills the entire container reported by `ResizeObserver`. The tab
+ * bar itself lives in a SEPARATE, transparent child webview (labeled
+ * `tabbar-main`, created/positioned by `update_browser_tabbar_rect`) that
+ * Rust keeps stacked on top of the content webview, so the tab pill
+ * genuinely floats over live page content instead of the content webview
+ * vacating a strip for it. Because native child webviews stack by
+ * add-order, Rust must re-add the overlay webview every time a new
+ * content webview is created (see `add_tab_internal` in `link_tabs.rs`)
+ * so it doesn't get buried underneath. The overlay's own React root is
+ * `BrowserTabsOverlayApp` (mounted via `index.html?window=browser-tabbar-overlay`),
+ * not this component -- this file only reports geometry for it.
  *
  * Lifecycle (mount-once + CSS-hide, same pattern as AgentChatPanel):
  *   - `hidden` false -> `showBrowserPanel()` + start ResizeObserver
@@ -48,7 +55,7 @@ import {
   type BrowserPanelRect,
 } from "../../lib/core/storage";
 import { TAB_BAR_OVERLAY_HEIGHT } from "../ui/TabBar";
-import BrowserTabs, { BROWSER_WINDOW_LABEL } from "./BrowserTabs";
+import { BROWSER_WINDOW_LABEL } from "./BrowserTabs";
 import { handleNativeSelectAll } from "../../lib/shortcuts/nativeSelectAll";
 
 export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
@@ -118,15 +125,11 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   // panel becomes visible -- keeping the webviews aligned with the
   // React-rendered container.
   //
-  // The TabBar floats over the container (absolute, z-20) at either the
-  // top or bottom depending on the global `tabBarPosition` setting. The
-  // native webview must NOT cover the TabBar, so we shrink the reported
-  // rect by the TabBar's overlay height on the side the TabBar occupies:
-  //   - 'top':    webview starts OVERLAY_HEIGHT below the container top
-  //   - 'bottom': webview ends OVERLAY_HEIGHT above the container bottom
-  // The container's white background shows through behind the floating
-  // TabBar, creating the illusion that the TabBar floats over the
-  // webview content.
+  // The content webview now fills the ENTIRE container -- no reserved
+  // strip. The floating tab bar lives in a separate overlay webview
+  // (see file header) whose rect we report alongside it, positioned at
+  // either the top or bottom edge (TAB_BAR_OVERLAY_HEIGHT tall) depending
+  // on the global `tabBarPosition` setting.
   useEffect(() => {
     if (hidden) return;
     const container = containerRef.current;
@@ -136,21 +139,28 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
       const rect = container.getBoundingClientRect();
       // Skip zero-size rects (panel hidden during layout transitions).
       if (rect.width === 0 || rect.height === 0) return;
-      // Reserve space for the floating TabBar on its occupied side.
-      // When no tabs exist, no offset is needed.
-      const strip = state.tabs.length > 0 ? TAB_BAR_OVERLAY_HEIGHT : 0;
-      const isTop = tabBarPosition === "top";
+
       const browserRect: BrowserPanelRect = {
         x: rect.x,
-        y: isTop ? rect.y + strip : rect.y,
+        y: rect.y,
         width: rect.width,
-        height: rect.height - strip,
+        height: rect.height,
       };
-      if (browserRect.width <= 0 || browserRect.height <= 0) return;
       storage.updateBrowserPanelRect(browserRect).catch(console.error);
+
+      if (state.tabs.length > 0) {
+        const isTop = tabBarPosition === "top";
+        const tabBarRect: BrowserPanelRect = {
+          x: rect.x,
+          y: isTop ? rect.y : rect.y + rect.height - TAB_BAR_OVERLAY_HEIGHT,
+          width: rect.width,
+          height: TAB_BAR_OVERLAY_HEIGHT,
+        };
+        storage.updateBrowserTabBarRect(tabBarRect).catch(console.error);
+      }
     };
 
-    // Report immediately so the webview is positioned without waiting
+    // Report immediately so the webviews are positioned without waiting
     // for the first ResizeObserver callback.
     updateRect();
     const observer = new ResizeObserver(updateRect);
@@ -325,18 +335,13 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
         </button>
       </div>
 
-      {/* -- Webview area (fills the rest) -- */}
-      {/* The container div (bg-white) fills this area. BrowserTabs renders
-          the floating TabBar (absolute, z-20) at the top or bottom based on
-          the global tabBarPosition setting. The ResizeObserver reserves
-          TAB_BAR_OVERLAY_HEIGHT on the TabBar's side so the native webview
-          never covers it -- the container's white background shows through
-          behind the TabBar, making it look like it floats over the webview
-          content. */}
+      {/* -- Webview area (fills the rest, full size, no reservation) -- */}
+      {/* The container div fills the entire remaining area for the native
+          content webview. The floating tab bar lives in a separate,
+          transparent overlay webview (label "tabbar-main") stacked above
+          this one -- created/positioned entirely from Rust via
+          update_browser_tabbar_rect, driven by the ResizeObserver above. */}
       <div className="flex-1 min-h-0 relative">
-        {/* Container -- white background fills the area behind the TabBar.
-            ResizeObserver measures this element and reserves the overlay
-            height so the native webview stays clear of the TabBar. */}
         <div ref={containerRef} className="absolute inset-0 bg-white">
           {state.tabs.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[var(--vscode-editor-background)]">
@@ -349,12 +354,6 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
             </div>
           )}
         </div>
-
-        {/* Floating TabBar (rendered by BrowserTabs). Position (top/bottom)
-            follows the global tabBarPosition setting. */}
-        {state.tabs.length > 0 && (
-          <BrowserTabs tabs={state.tabs} activeTabId={state.activeTabId} />
-        )}
       </div>
     </div>
   );

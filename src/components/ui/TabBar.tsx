@@ -42,12 +42,15 @@ import RippleButton from './RippleButton';
  * sliding indicator's width.
  *
  * `TAB_BAR_OVERLAY_HEIGHT` is the total vertical space the floating tab
- * bar occupies (outer padding + pill + a small buffer for its drop
- * shadow). BrowserPanel uses it to offset the native webview so the
- * webview never covers the floating tab bar.
+ * bar overlay webview occupies. It must comfortably fit the outer padding
+ * (pt-3/pb-3 = 12px) + the pill (py-1.5*2 + tab content + 1px border ≈
+ * 42-44px) + buffer for the pill's drop shadow and sub-pixel rendering.
+ * 64px gives ~8px of shadow/breathing room beyond the pill itself,
+ * preventing the glass capsule's rounded corners from being clipped by
+ * the overlay webview's bounds.
  */
 const TAB_WIDTH_PX = 130;
-export const TAB_BAR_OVERLAY_HEIGHT = 52;
+export const TAB_BAR_OVERLAY_HEIGHT = 64;
 
 /** Horizontal padding of the pill container (matches `px-2` below). */
 const PILL_PAD_X_PX = 8;

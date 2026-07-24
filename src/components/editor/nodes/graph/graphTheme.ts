@@ -28,10 +28,10 @@ export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
   lifeline: { fill: 'none', stroke: '#374151' },
   activation: { fill: '#F3F4F6', stroke: '#374151' },
   note: { fill: 'none', stroke: '#374151' },
-  'edge-line': { fill: 'none', stroke: '#3B82F6' },
-  'edge-ortho': { fill: 'none', stroke: '#3B82F6' },
-  'edge-dashed': { fill: 'none', stroke: '#3B82F6' },
-  'edge-no-arrow': { fill: 'none', stroke: '#3B82F6' },
+  'edge-line': { fill: 'none', stroke: '#0052D9' },
+  'edge-ortho': { fill: 'none', stroke: '#0052D9' },
+  'edge-dashed': { fill: 'none', stroke: '#0052D9' },
+  'edge-no-arrow': { fill: 'none', stroke: '#0052D9' },
 };
 
 /** 暗色模式：同样的白板风格，描边使用浅色以保证可见性。 */
@@ -47,16 +47,16 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
   lifeline: { fill: 'none', stroke: '#9CA3AF' },
   activation: { fill: '#374151', stroke: '#9CA3AF' },
   note: { fill: 'none', stroke: '#9CA3AF' },
-  'edge-line': { fill: 'none', stroke: '#60A5FA' },
-  'edge-ortho': { fill: 'none', stroke: '#60A5FA' },
-  'edge-dashed': { fill: 'none', stroke: '#60A5FA' },
-  'edge-no-arrow': { fill: 'none', stroke: '#60A5FA' },
+  'edge-line': { fill: 'none', stroke: '#07C160' },
+  'edge-ortho': { fill: 'none', stroke: '#07C160' },
+  'edge-dashed': { fill: 'none', stroke: '#07C160' },
+  'edge-no-arrow': { fill: 'none', stroke: '#07C160' },
 };
 
 export const FONT_LIGHT = '#374151';
 export const FONT_DARK = '#E5E7EB';
-export const EDGE_LIGHT = '#3B82F6'; // 与选中框/连接点同色，视觉统一
-export const EDGE_DARK = '#60A5FA';
+export const EDGE_LIGHT = '#0052D9'; // 浅色：主题蓝（--vscode-focusBorder）
+export const EDGE_DARK = '#07C160'; // 暗色：主题绿（--vscode-focusBorder）
 
 /**
  * 连线流动虚线 pattern。dash + gap 周期为 12（8+4），
@@ -70,9 +70,9 @@ export const SHAPE_STROKE_WIDTH = 1.5;
 export const SHAPE_FONT_SIZE = 13;
 export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
 
-/** 选中框样式 - 跟随主题 */
-export const SELECTION_COLOR_LIGHT = '#3B82F6'; // 蓝色选中框
-export const SELECTION_COLOR_DARK = '#60A5FA';
+/** 选中框样式 - 跟随主题（accent 色 = --vscode-focusBorder） */
+export const SELECTION_COLOR_LIGHT = '#0052D9'; // 浅色：主题蓝
+export const SELECTION_COLOR_DARK = '#07C160'; // 暗色：主题绿
 export const SELECTION_STROKE_WIDTH = 2;
 export const SELECTION_DASHED = false; // 实线更清晰
 
@@ -80,21 +80,21 @@ export const SELECTION_DASHED = false; // 实线更清晰
 export const HANDLE_SIZE = 7;
 export const HANDLE_FILL_COLOR_LIGHT = '#FFFFFF';
 export const HANDLE_FILL_COLOR_DARK = '#1F2937';
-export const HANDLE_STROKE_COLOR_LIGHT = '#3B82F6';
-export const HANDLE_STROKE_COLOR_DARK = '#60A5FA';
+export const HANDLE_STROKE_COLOR_LIGHT = '#0052D9';
+export const HANDLE_STROKE_COLOR_DARK = '#07C160';
 
 /** 连接点样式（悬停边缘时显示的锚点）- 跟随主题
  * 飞书风格：纯色小圆点，无填充，简洁优雅
  */
-export const CONNECTION_POINT_COLOR_LIGHT = '#3B82F6';
-export const CONNECTION_POINT_COLOR_DARK = '#60A5FA';
+export const CONNECTION_POINT_COLOR_LIGHT = '#0052D9';
+export const CONNECTION_POINT_COLOR_DARK = '#07C160';
 export const CONNECTION_POINT_SIZE = 10; // 精巧但清晰，在虚线生命线上可辨
 
-/** 拖动预览样式 - 跟随主题 */
-export const PREVIEW_FILL_COLOR_LIGHT = 'rgba(59, 130, 246, 0.1)';
-export const PREVIEW_STROKE_COLOR_LIGHT = '#3B82F6';
-export const PREVIEW_FILL_COLOR_DARK = 'rgba(96, 165, 250, 0.15)';
-export const PREVIEW_STROKE_COLOR_DARK = '#60A5FA';
+/** 拖动预览样式 - 跟随主题（accent 色 = --vscode-focusBorder） */
+export const PREVIEW_FILL_COLOR_LIGHT = 'rgba(0, 82, 217, 0.1)';
+export const PREVIEW_STROKE_COLOR_LIGHT = '#0052D9';
+export const PREVIEW_FILL_COLOR_DARK = 'rgba(7, 193, 96, 0.15)';
+export const PREVIEW_STROKE_COLOR_DARK = '#07C160';
 
 /** 取当前主题下某形状的配色。 */
 export function paletteFor(shape: GraphNodeShape, dark: boolean): ShapePalette {

@@ -3016,10 +3016,10 @@ button {
   overflow: visible;
 }
 
-/* 预览内部的几何形状（跟随主题） */
+/* 预览内部的几何形状（跟随主题 accent 色 = --vscode-focusBorder） */
 .jgraph-draw-preview-shape {
-  fill: rgba(59, 130, 246, 0.1);
-  stroke: var(--vscode-focusBorder, #3B82F6);
+  fill: rgba(0, 82, 217, 0.1);
+  stroke: var(--vscode-focusBorder, #0052D9);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
@@ -3027,17 +3027,17 @@ button {
 /* text 形状实际无边框，预览用虚线表示"文本区域" */
 .jgraph-draw-preview-shape.is-text-region {
   stroke-dasharray: 4 3;
-  fill: rgba(59, 130, 246, 0.04);
+  fill: rgba(0, 82, 217, 0.04);
 }
 
-/* 暗色模式下的预览形状 */
+/* 暗色模式下的预览形状（主题绿） */
 .jgraph-canvas-root.is-dark .jgraph-draw-preview-shape {
-  stroke: #60A5FA;
-  fill: rgba(96, 165, 250, 0.15);
+  stroke: var(--vscode-focusBorder, #07C160);
+  fill: rgba(7, 193, 96, 0.15);
 }
 
 .jgraph-canvas-root.is-dark .jgraph-draw-preview-shape.is-text-region {
-  fill: rgba(96, 165, 250, 0.06);
+  fill: rgba(7, 193, 96, 0.06);
 }
 
 /* maxGraph 渲染面 */

@@ -465,7 +465,7 @@ export function GraphCanvas({
     const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
     if (selectionHandler) {
       selectionHandler.guidesEnabled = true;
-      // 拖动预览颜色：跟随主题（浅色模式用蓝色，深色模式用浅蓝色）
+      // 拖动预览颜色：跟随主题 accent 色（--vscode-focusBorder）
       selectionHandler.previewColor = getSelectionColor(dark);
       // 启用 livePreview：移动图形时显示实际图形预览（而非矩形框）
       // maxLivePreview 默认为 0，需要设置一个较大值才能启用
@@ -1275,4 +1275,6 @@ export function GraphCanvas({
 }
 
 // 静态分析占位：保证 Cell 类型被引用（graphModel 中使用）。
+export type { Cell };
+
 export type { Cell };
