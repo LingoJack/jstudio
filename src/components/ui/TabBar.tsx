@@ -35,6 +35,23 @@ import { createPortal } from 'react-dom';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import RippleButton from './RippleButton';
 
+/**
+ * Tab geometry — single source of truth for tab sizing.
+ *
+ * `TAB_WIDTH_PX` must match the `w-[Npx]` class on each tab and the
+ * sliding indicator's width.
+ *
+ * `TAB_BAR_OVERLAY_HEIGHT` is the total vertical space the floating tab
+ * bar occupies (outer padding + pill + a small buffer for its drop
+ * shadow). BrowserPanel uses it to offset the native webview so the
+ * webview never covers the floating tab bar.
+ */
+const TAB_WIDTH_PX = 130;
+export const TAB_BAR_OVERLAY_HEIGHT = 52;
+
+/** Horizontal padding of the pill container (matches `px-2` below). */
+const PILL_PAD_X_PX = 8;
+
 export interface TabItem {
   id: string;
   title: string;
@@ -318,8 +335,8 @@ export default function TabBar({
             <div
               className="absolute top-1.5 bottom-1.5 rounded-full pointer-events-none"
               style={{
-                left: '8px',
-                width: '140px',
+                left: `${PILL_PAD_X_PX}px`,
+                width: `${TAB_WIDTH_PX}px`,
                 background: accentColor,
                 boxShadow: `0 0 12px 2px color-mix(in srgb, ${accentColor} 40%, transparent), 0 1px 2px rgba(0,0,0,0.08)`,
                 transform: `translateX(${indicatorLeft}px)`,
@@ -349,7 +366,7 @@ export default function TabBar({
                     e.stopPropagation();
                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                   }}
-                  className={`group relative flex items-center gap-1.5 w-[140px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
+                  className={`group relative flex items-center gap-1.5 w-[130px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
                       : `text-[${textColor}] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--vscode-foreground)]`
@@ -367,7 +384,7 @@ export default function TabBar({
                       }}
                       onBlur={onRenameConfirm}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-[13px] font-medium border rounded px-1.5 py-0.5 outline-none w-full text-center bg-[var(--vscode-editor-background)]"
+                      className="text-[12px] font-medium border rounded px-1.5 py-0.5 outline-none w-full text-center bg-[var(--vscode-editor-background)]"
                       style={{
                         borderColor: renameBorderColor ?? accentColor,
                       }}
@@ -379,7 +396,7 @@ export default function TabBar({
                           tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className="text-[13px] font-medium flex-1 min-w-0 truncate text-center">
+                      <span className="text-[12px] font-medium flex-1 min-w-0 truncate text-center">
                         {tab.title}
                       </span>
 

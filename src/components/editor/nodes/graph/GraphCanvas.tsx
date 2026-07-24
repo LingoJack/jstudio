@@ -89,6 +89,7 @@ import {
   PREVIEW_STROKE_COLOR_LIGHT,
   PREVIEW_FILL_COLOR_DARK,
   PREVIEW_STROKE_COLOR_DARK,
+  EDGE_DASH_PATTERN,
 } from './graphTheme';
 import { ShapeGlyph } from './ShapeGlyph';
 import {
@@ -264,6 +265,21 @@ export function GraphCanvas({
       RubberBandHandler,
     ]);
     graphRef.current = graph;
+
+    // 连线流动效果：在 cellRenderer.initializeShape（shape 创建唯一入口）处打标记，
+    // 给每条 edge 的 SVG <g> 加 class，供 CSS 驱动蚂蚁线流动动画。
+    // 新增 / undo 恢复 / 快照灌入都会经过此入口，保证所有 edge 都能命中。
+    {
+      const cellRenderer = graph.cellRenderer;
+      const origInitializeShape = cellRenderer.initializeShape.bind(cellRenderer);
+      cellRenderer.initializeShape = (state: CellState) => {
+        origInitializeShape(state);
+        const cell = state.cell;
+        if (cell && cell.isEdge() && state.shape?.node) {
+          state.shape.node.classList.add('jgraph-edge');
+        }
+      };
+    }
 
     // 注册自定义形状到全局 ShapeRegistry（UML 图表：用例图角色、时序图生命线等）
     registerCustomShapes();
@@ -465,14 +481,15 @@ export function GraphCanvas({
     vertexDefault.strokeWidth = SHAPE_STROKE_WIDTH;
     vertexDefault.fontSize = SHAPE_FONT_SIZE;
 
-    // 全局默认走正交连线（飞书手感：圆角折线 + 小箭头），线用中性灰细线。
+    // 全局默认走正交连线（飞书手感：圆角折线 + 小箭头），蓝色细线 + 蚂蚁线流动。
     const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
     edgeDefault.edgeStyle = 'orthogonalEdgeStyle';
     edgeDefault.rounded = true;
     edgeDefault.endArrow = 'classic';
     edgeDefault.strokeColor = getEdgeColor(dark);
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
-    edgeDefault.dashed = false; // 默认连线为实线，仅 edge-dashed 工具显式设为虚线
+    edgeDefault.dashed = true;
+    edgeDefault.dashPattern = EDGE_DASH_PATTERN;
 
     // 为每个节点提供固定连接点：悬停边缘时高亮圆点锚点，
     // 从精确点位拖出连线，而非只能从整体边缘任意点连。

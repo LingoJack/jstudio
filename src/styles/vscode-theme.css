@@ -3083,6 +3083,31 @@ button {
 }
 
 /* ============================================
+   连线流动效果（蚂蚁线）
+   - .jgraph-edge 由 GraphCanvas 重写 cellRenderer.initializeShape 打在每条 edge 的 <g> 上；
+   - 连线主体 path 由 maxGraph 按 style.dashed 渲染为虚线（dashPattern=EDGE_DASH_PATTERN='8 4'），
+     此处仅驱动 stroke-dashoffset 产生流动。箭头 marker 由 ConnectorShape.setDashed(false)
+     渲染为实线、无 dasharray，故 dashoffset 动画对其无视觉效果，保持实心。
+   - dashoffset 终值 -12 与 '8 4' 周期（8+4）一致，保证首尾无缝衔接。
+   ============================================ */
+.jgraph-edge path {
+  animation: jgraph-edge-flow 0.9s linear infinite;
+}
+
+@keyframes jgraph-edge-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+/* 尊重系统「减少动态效果」偏好：关闭流动，回到静态虚线 */
+@media (prefers-reduced-motion: reduce) {
+  .jgraph-edge path {
+    animation: none;
+  }
+}
+
+/* ============================================
    PDF Preview (react-pdf)
    ============================================ */
 

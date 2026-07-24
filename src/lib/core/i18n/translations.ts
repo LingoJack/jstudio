@@ -304,7 +304,7 @@ export const translations = {
     "general.tabBarGlassOpacityDesc":
       "控制浮动标签栏的背景透明度，数值越大越明显",
     "general.tabBarPosition": "标签栏位置",
-    "general.tabBarPositionDesc": "控制标签栏显示在内容区域的上方还是下方",
+    "general.tabBarPositionDesc": "控制标签栏显示在内容区域的上方还是下方（文档、终端、浏览器面板均生效）",
     "general.tabBarPosition_top": "上方",
     "general.tabBarPosition_bottom": "下方",
 
@@ -1070,7 +1070,7 @@ export const translations = {
       "Controls the background opacity of the floating tab bar; higher values make it more visible",
     "general.tabBarPosition": "Tab Bar Position",
     "general.tabBarPositionDesc":
-      "Controls whether the tab bar appears above or below the content area",
+      "Controls whether the tab bar appears above or below the content area (applies to documents, terminal, and the browser panel)",
     "general.tabBarPosition_top": "Top",
     "general.tabBarPosition_bottom": "Bottom",
 

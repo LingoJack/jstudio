@@ -24,6 +24,7 @@ import {
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
+  EDGE_DASH_PATTERN,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -70,15 +71,15 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 注释框：使用 rectangle + 圆角模拟折角效果
       // maxGraph 没有 note 形状，用圆角矩形代替
       return { ...base, shape: 'rectangle', rounded: true, arcSize: 5 };
-    // 连线类型（作为预设连线样式）
+    // 连线类型（作为预设连线样式）：蓝色虚线 + 蚂蚁线流动，与 graphCanvasStyle 保持一致。
     case 'edge-line':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'classic', endSize: 8 };
     case 'edge-ortho':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
     case 'edge-dashed':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: '4 4', endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'classic', endSize: 8 };
     case 'edge-no-arrow':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'none' };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'none' };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
@@ -120,7 +121,7 @@ function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
   return base;
 }
 
-/** 构建连线 CellStyle（中性灰细线 + 圆角折线 + 小箭头）。 */
+/** 构建连线 CellStyle（蓝色细线 + 圆角折线 + 小箭头 + 蚂蚁线流动）。 */
 function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   const style: CellStyle = {
     edgeStyle: edge.routing === 'straight' ? undefined : 'orthogonalEdgeStyle',
@@ -129,6 +130,8 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     startArrow: edge.startArrow ?? 'none',
     strokeColor: getEdgeColor(dark),
     strokeWidth: SHAPE_STROKE_WIDTH,
+    dashed: true,
+    dashPattern: EDGE_DASH_PATTERN,
   };
   const s = edge.style;
   if (s) {

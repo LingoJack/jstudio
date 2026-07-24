@@ -28,10 +28,10 @@ export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
   lifeline: { fill: 'none', stroke: '#374151' },
   activation: { fill: '#F3F4F6', stroke: '#374151' },
   note: { fill: 'none', stroke: '#374151' },
-  'edge-line': { fill: 'none', stroke: '#374151' },
-  'edge-ortho': { fill: 'none', stroke: '#374151' },
-  'edge-dashed': { fill: 'none', stroke: '#374151' },
-  'edge-no-arrow': { fill: 'none', stroke: '#374151' },
+  'edge-line': { fill: 'none', stroke: '#3B82F6' },
+  'edge-ortho': { fill: 'none', stroke: '#3B82F6' },
+  'edge-dashed': { fill: 'none', stroke: '#3B82F6' },
+  'edge-no-arrow': { fill: 'none', stroke: '#3B82F6' },
 };
 
 /** 暗色模式：同样的白板风格，描边使用浅色以保证可见性。 */
@@ -47,16 +47,23 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
   lifeline: { fill: 'none', stroke: '#9CA3AF' },
   activation: { fill: '#374151', stroke: '#9CA3AF' },
   note: { fill: 'none', stroke: '#9CA3AF' },
-  'edge-line': { fill: 'none', stroke: '#9CA3AF' },
-  'edge-ortho': { fill: 'none', stroke: '#9CA3AF' },
-  'edge-dashed': { fill: 'none', stroke: '#9CA3AF' },
-  'edge-no-arrow': { fill: 'none', stroke: '#9CA3AF' },
+  'edge-line': { fill: 'none', stroke: '#60A5FA' },
+  'edge-ortho': { fill: 'none', stroke: '#60A5FA' },
+  'edge-dashed': { fill: 'none', stroke: '#60A5FA' },
+  'edge-no-arrow': { fill: 'none', stroke: '#60A5FA' },
 };
 
 export const FONT_LIGHT = '#374151';
 export const FONT_DARK = '#E5E7EB';
-export const EDGE_LIGHT = '#6B7280';
-export const EDGE_DARK = '#9CA3AF';
+export const EDGE_LIGHT = '#3B82F6'; // 与选中框/连接点同色，视觉统一
+export const EDGE_DARK = '#60A5FA';
+
+/**
+ * 连线流动虚线 pattern。dash + gap 周期为 12（8+4），
+ * 须与 vscode-theme.css 中 @keyframes jgraph-edge-flow 的 stroke-dashoffset 终值（-12）匹配，
+ * 否则流动动画首尾无法无缝衔接。
+ */
+export const EDGE_DASH_PATTERN = '8 4';
 
 /** 图形样式 */
 export const SHAPE_STROKE_WIDTH = 1.5;

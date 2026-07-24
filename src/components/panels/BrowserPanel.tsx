@@ -1,5 +1,5 @@
 /**
- * BrowserPanel — inline browser panel embedded in the main window.
+ * BrowserPanel - inline browser panel embedded in the main window.
  *
  * This panel reuses the same Rust `TabManager` infrastructure as the
  * standalone link-preview window (`link_tabs.rs`), but registered under
@@ -7,32 +7,38 @@
  * main window and positioned on top of the React UI using a rect
  * reported by `ResizeObserver`.
  *
- * Layout:
- *   ┌──────────────────────────────────────────────────┐
- *   │  [Tab1] [Tab2] [+]   (floating glass TabBar)      │  ← TabBar area (52px)
- *   ├──────────────────────────────────────────────────┤
- *   │  [https://example.com      ] 🔄 ↗   address bar   │  ← address bar (~36px)
- *   ├──────────────────────────────────────────────────┤
- *   │                                                    │
- *   │  Native content webview (positioned by Rust at     │  ← webview container (flex-1)
- *   │  the rect reported by ResizeObserver)              │     ResizeObserver reports this rect
- *   │                                                    │
- *   └──────────────────────────────────────────────────┘
+ * Layout (TabBar floats over the webview content):
+ *   +----------------------------------------------------+
+ *   | [address bar]                        refresh | open |  solid, top
+ *   +----------------------------------------------------+
+ *   | [Tab1] [Tab2] [+]   (floating glass TabBar)        |  absolute, z-20
+ *   |                                                     |  (white bg from container
+ *   | --- native webview starts below TabBar ----------- |   behind the TabBar)
+ *   |                                                     |
+ *   |  Native content webview                             |  positioned by Rust at
+ *   |  (positioned at rect.y + TAB_BAR_HEIGHT)            |  the ResizeObserver rect
+ *   |                                                     |
+ *   +----------------------------------------------------+
+ *
+ * The TabBar floats over the container's white background, which blends
+ * seamlessly with the native webview's content below. The native webview
+ * starts TAB_BAR_HEIGHT pixels below the container's top edge so it never
+ * covers the TabBar.
  *
  * Lifecycle (mount-once + CSS-hide, same pattern as AgentChatPanel):
- *   - `hidden` false → `showBrowserPanel()` + start ResizeObserver
- *   - `hidden` true  → `hideBrowserPanel()` (webviews moved off-screen,
+ *   - `hidden` false -> `showBrowserPanel()` + start ResizeObserver
+ *   - `hidden` true  -> `hideBrowserPanel()` (webviews moved off-screen,
  *     tabs preserved so the user can return with their session intact)
  *
  * Keyboard:
- *   Cmd+T / Cmd+W — handled Rust-side in `on_menu_event` (routes to
+ *   Cmd+T / Cmd+W -- handled Rust-side in `on_menu_event` (routes to
  *     `add_tab_to_main_browser` / `close_active_tab_in_main_browser`
  *     when `is_browser_panel_visible()` is true).
- *   Cmd+R / Cmd+L — DOM keydown (not in the custom macOS menu).
+ *   Cmd+R / Cmd+L -- DOM keydown (not in the custom macOS menu).
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { X, Loader2, ExternalLink, RefreshCw, Globe } from "lucide-react";
+import { Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../../store/useStore";
 import { useI18n } from "../../lib/core/i18n";
@@ -41,12 +47,9 @@ import {
   type LinkPreviewTabsState,
   type BrowserPanelRect,
 } from "../../lib/core/storage";
-import TabBar, { type TabItem } from "../ui/TabBar";
-import { MenuList, MenuItem, MenuDivider } from "../ui/MenuList";
+import { TAB_BAR_OVERLAY_HEIGHT } from "../ui/TabBar";
+import BrowserTabs, { BROWSER_WINDOW_LABEL } from "./BrowserTabs";
 import { handleNativeSelectAll } from "../../lib/shortcuts/nativeSelectAll";
-
-/// Window label used by the Rust backend to key the main window's tab manager.
-const WINDOW_LABEL = "main";
 
 export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   const [state, setState] = useState<LinkPreviewTabsState>({
@@ -58,11 +61,12 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
+  const tabBarPosition = useStore((s) => s.tabBarPosition);
 
-  // ── Lifecycle: show / hide the browser panel ──────────────────────
+  // -- Lifecycle: show / hide the browser panel --
   // Tell Rust to mark the panel visible (so Cmd+T/Cmd+W route here) and
   // add a fresh about:blank tab if none exist. On hide, move all content
-  // webviews off-screen — tabs are preserved for the next show.
+  // webviews off-screen -- tabs are preserved for the next show.
   useEffect(() => {
     if (hidden) {
       storage.hideBrowserPanel().catch(console.error);
@@ -77,7 +81,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
       .catch(console.error);
   }, [hidden]);
 
-  // ── Listen for tab state updates from Rust ────────────────────────
+  // -- Listen for tab state updates from Rust --
   // Rust emits `link-preview:tabs-updated` scoped to the "main" window
   // via `emit_to`, so this listener only fires for the inline panel's
   // tabs (not the standalone link-preview window's tabs).
@@ -94,7 +98,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     };
   }, [hidden]);
 
-  // ── Listen for "last tab closed" → switch to documents view ───────
+  // -- Listen for "last tab closed" -> switch to documents view --
   // Rust emits `browser-panel:empty` when the last browser tab closes.
   // We switch back to the documents view so the user isn't stuck in an
   // empty browser panel.
@@ -108,11 +112,21 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     };
   }, [hidden, setActiveSidebarView]);
 
-  // ── ResizeObserver: report webview container rect to Rust ─────────
+  // -- ResizeObserver: report webview container rect to Rust --
   // Rust positions native child webviews at this rect. The observer
   // fires when the sidebar opens/closes, the window resizes, or the
-  // panel becomes visible — keeping the webviews aligned with the
+  // panel becomes visible -- keeping the webviews aligned with the
   // React-rendered container.
+  //
+  // The TabBar floats over the container (absolute, z-20) at either the
+  // top or bottom depending on the global `tabBarPosition` setting. The
+  // native webview must NOT cover the TabBar, so we shrink the reported
+  // rect by the TabBar's overlay height on the side the TabBar occupies:
+  //   - 'top':    webview starts OVERLAY_HEIGHT below the container top
+  //   - 'bottom': webview ends OVERLAY_HEIGHT above the container bottom
+  // The container's white background shows through behind the floating
+  // TabBar, creating the illusion that the TabBar floats over the
+  // webview content.
   useEffect(() => {
     if (hidden) return;
     const container = containerRef.current;
@@ -122,12 +136,17 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
       const rect = container.getBoundingClientRect();
       // Skip zero-size rects (panel hidden during layout transitions).
       if (rect.width === 0 || rect.height === 0) return;
+      // Reserve space for the floating TabBar on its occupied side.
+      // When no tabs exist, no offset is needed.
+      const strip = state.tabs.length > 0 ? TAB_BAR_OVERLAY_HEIGHT : 0;
+      const isTop = tabBarPosition === "top";
       const browserRect: BrowserPanelRect = {
         x: rect.x,
-        y: rect.y,
+        y: isTop ? rect.y + strip : rect.y,
         width: rect.width,
-        height: rect.height,
+        height: rect.height - strip,
       };
+      if (browserRect.width <= 0 || browserRect.height <= 0) return;
       storage.updateBrowserPanelRect(browserRect).catch(console.error);
     };
 
@@ -137,16 +156,16 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     const observer = new ResizeObserver(updateRect);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [hidden]);
+  }, [hidden, state.tabs.length, tabBarPosition]);
 
-  // ── Sync address bar to the active tab's URL ──────────────────────
+  // -- Sync address bar to the active tab's URL --
   useEffect(() => {
     const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
     const url = activeTab?.url ?? "";
     setAddressBarUrl(url === "about:blank" ? "" : url);
   }, [state.activeTabId, state.tabs]);
 
-  // ── Auto-focus address bar on new tab (about:blank) ───────────────
+  // -- Auto-focus address bar on new tab (about:blank) --
   useEffect(() => {
     if (hidden) return;
     const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
@@ -155,18 +174,14 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     }
   }, [state.activeTabId, state.tabs, hidden]);
 
-  // ── Actions ────────────────────────────────────────────────────────
-
-  const switchTab = useCallback((tabId: string) => {
-    storage.switchLinkPreviewTab(WINDOW_LABEL, tabId).catch(console.error);
-  }, []);
-
-  const closeTab = useCallback((tabId: string) => {
-    storage.closeLinkPreviewTab(WINDOW_LABEL, tabId).catch(console.error);
-  }, []);
+  // -- Actions --
+  // Tab switch / close / context menu live in BrowserTabs. The actions
+  // below are the ones this panel still needs directly: navigating the
+  // address bar, refreshing the active tab, opening externally, and the
+  // empty-state "New Tab" button.
 
   const addNewTab = useCallback(() => {
-    storage.addLinkPreviewTab(WINDOW_LABEL, "about:blank").catch(console.error);
+    storage.addLinkPreviewTab(BROWSER_WINDOW_LABEL, "about:blank").catch(console.error);
   }, []);
 
   const navigateToUrl = useCallback(
@@ -192,11 +207,11 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
       const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
       if (activeTab) {
         storage
-          .navigateLinkPreviewTab(WINDOW_LABEL, activeTab.id, normalizedUrl)
+          .navigateLinkPreviewTab(BROWSER_WINDOW_LABEL, activeTab.id, normalizedUrl)
           .catch(console.error);
       } else {
         storage
-          .addLinkPreviewTab(WINDOW_LABEL, normalizedUrl)
+          .addLinkPreviewTab(BROWSER_WINDOW_LABEL, normalizedUrl)
           .catch(console.error);
       }
     },
@@ -207,7 +222,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
     if (activeTab) {
       storage
-        .refreshLinkPreviewTab(WINDOW_LABEL, activeTab.id)
+        .refreshLinkPreviewTab(BROWSER_WINDOW_LABEL, activeTab.id)
         .catch(console.error);
     }
   }, [state.tabs, state.activeTabId]);
@@ -219,8 +234,8 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     }
   }, [state.tabs, state.activeTabId]);
 
-  // ── Keyboard shortcuts (Cmd+R, Cmd+L) ─────────────────────────────
-  // Cmd+T / Cmd+W are handled Rust-side in on_menu_event — when the
+  // -- Keyboard shortcuts (Cmd+R, Cmd+L) --
+  // Cmd+T / Cmd+W are handled Rust-side in on_menu_event -- when the
   // browser panel is visible, Rust calls add_tab_to_main_browser /
   // close_active_tab_in_main_browser directly instead of emitting
   // native-command. Cmd+R / Cmd+L are NOT in the custom macOS menu, so
@@ -261,101 +276,14 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     [addressBarUrl, navigateToUrl, state.tabs, state.activeTabId],
   );
 
-  // ── Map TabInfo → TabItem (for shared TabBar component) ────────────
-
-  const tabItems: TabItem[] = state.tabs.map((tab) => ({
-    id: tab.id,
-    title:
-      tab.url === "about:blank" ? "New Tab" : tab.title || tab.url || "New Tab",
-    isActive: tab.id === state.activeTabId,
-    icon: tab.loading ? (
-      <Loader2 size={14} className="animate-spin" />
-    ) : (
-      <Globe size={14} />
-    ),
-    canClose: state.tabs.length > 1,
-    canDrag: state.tabs.length > 1,
-  }));
-
-  // ── Context menu renderer ──────────────────────────────────────────
-
-  const renderContextMenu = useCallback(
-    (tabId: string, x: number, y: number, close: () => void) => {
-      const tab = state.tabs.find((tb) => tb.id === tabId);
-      return (
-        <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
-          <MenuItem
-            icon={<RefreshCw className="w-4 h-4" />}
-            onClick={() => {
-              storage
-                .refreshLinkPreviewTab(WINDOW_LABEL, tabId)
-                .catch(console.error);
-              close();
-            }}
-          >
-            {t("linkPreview.refresh")}
-          </MenuItem>
-
-          <MenuItem
-            icon={<ExternalLink className="w-4 h-4" />}
-            onClick={() => {
-              if (tab) {
-                storage.openUrlInBrowser(tab.url).catch(console.error);
-              }
-              close();
-            }}
-          >
-            {t("linkPreview.openBrowser")}
-          </MenuItem>
-
-          {state.tabs.length > 1 && <MenuDivider />}
-
-          {state.tabs.length > 1 && (
-            <MenuItem
-              variant="danger"
-              icon={<X className="w-4 h-4" />}
-              onClick={() => {
-                closeTab(tabId);
-                close();
-              }}
-            >
-              {t("linkPreview.closeTab")}
-            </MenuItem>
-          )}
-        </MenuList>
-      );
-    },
-    [state.tabs, closeTab, t],
-  );
-
   const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
   const isLoading = activeTab?.loading ?? false;
 
-  // ── Render ──────────────────────────────────────────────────────────
+  // -- Render --
 
   return (
     <div className="w-full h-full flex flex-col relative overflow-hidden bg-[var(--vscode-editor-background)]">
-      {/* ── TabBar area (fixed height — TabBar floats within) ── */}
-      {/* The content webview is positioned below this area (via the
-          ResizeObserver rect), so the floating TabBar is never covered
-          by the native webview. */}
-      <div className="relative h-[52px] shrink-0">
-        {tabItems.length > 0 && (
-          <TabBar
-            tabs={tabItems}
-            activeTabId={state.activeTabId}
-            onTabClick={switchTab}
-            onTabClose={closeTab}
-            onNew={addNewTab}
-            renderContextMenu={renderContextMenu}
-            rippleColor="rgba(255,255,255,0.2)"
-            glassOpacity={0.08}
-            position="top"
-          />
-        )}
-      </div>
-
-      {/* ── Address bar + toolbar ── */}
+      {/* -- Address bar + toolbar (top, solid) -- */}
       <div className="flex items-center gap-1.5 px-2.5 py-1.5 shrink-0 bg-[var(--vscode-sideBar-background)] border-b border-[var(--vscode-widget-border,#E5E5E5)]">
         <input
           ref={addressInputRef}
@@ -397,23 +325,35 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
         </button>
       </div>
 
-      {/* ── Webview container ── */}
-      {/* Rust positions native child webviews at this div's rect.
-          ResizeObserver reports getBoundingClientRect() to Rust so
-          webviews stay aligned as the sidebar/window resizes. */}
-      <div
-        ref={containerRef}
-        className="flex-1 min-h-0 relative bg-white"
-      >
-        {state.tabs.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--vscode-editor-background)]">
-            <button
-              onClick={addNewTab}
-              className="px-4 py-2 rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:opacity-90 transition-opacity text-sm"
-            >
-              {t("linkPreview.newTab")}
-            </button>
-          </div>
+      {/* -- Webview area (fills the rest) -- */}
+      {/* The container div (bg-white) fills this area. BrowserTabs renders
+          the floating TabBar (absolute, z-20) at the top or bottom based on
+          the global tabBarPosition setting. The ResizeObserver reserves
+          TAB_BAR_OVERLAY_HEIGHT on the TabBar's side so the native webview
+          never covers it -- the container's white background shows through
+          behind the TabBar, making it look like it floats over the webview
+          content. */}
+      <div className="flex-1 min-h-0 relative">
+        {/* Container -- white background fills the area behind the TabBar.
+            ResizeObserver measures this element and reserves the overlay
+            height so the native webview stays clear of the TabBar. */}
+        <div ref={containerRef} className="absolute inset-0 bg-white">
+          {state.tabs.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-[var(--vscode-editor-background)]">
+              <button
+                onClick={addNewTab}
+                className="px-4 py-2 rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:opacity-90 transition-opacity text-sm"
+              >
+                {t("linkPreview.newTab")}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Floating TabBar (rendered by BrowserTabs). Position (top/bottom)
+            follows the global tabBarPosition setting. */}
+        {state.tabs.length > 0 && (
+          <BrowserTabs tabs={state.tabs} activeTabId={state.activeTabId} />
         )}
       </div>
     </div>
