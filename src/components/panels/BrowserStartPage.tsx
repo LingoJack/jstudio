@@ -399,18 +399,3 @@ export default function BrowserStartPage() {
     </div>
   );
 }
- );
-}
-log ── */}
-      {dialog && (
-        <ShortcutDialog
-          initial={dialog.mode === "edit" ? dialog.shortcut : undefined}
-          onSave={handleDialogSave}
-          onClose={() => setDialog(null)}
-        />
-      )}
-    </div>
-  );
-}
- );
-}
