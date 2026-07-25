@@ -1,4 +1,4 @@
-import { storage, toMeta, DocumentMeta, type FolderMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/core/storage';
+import { storage, toMeta, DocumentMeta, type FolderMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS, normalizeActivityBarItems } from '../lib/core/storage';
 import { migrateFromLocalStorage } from '../lib/documents/migrate';
 import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
 import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/editor/fonts';
@@ -150,9 +150,19 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         if (typeof settings.browserSearchEngine === 'string' && settings.browserSearchEngine) {
           browserSearchEngine = settings.browserSearchEngine;
         }
-        // Load browser shortcuts
+        // Load browser shortcuts (validate each entry so corrupted rows
+        // can't crash the start page grid).
         if (Array.isArray(settings.browserShortcuts)) {
-          browserShortcuts = settings.browserShortcuts as BrowserShortcut[];
+          browserShortcuts = (settings.browserShortcuts as unknown[]).filter(
+            (s): s is BrowserShortcut =>
+              typeof s === 'object' &&
+              s !== null &&
+              typeof (s as BrowserShortcut).id === 'string' &&
+              typeof (s as BrowserShortcut).name === 'string' &&
+              typeof (s as BrowserShortcut).url === 'string' &&
+              typeof (s as BrowserShortcut).icon === 'string' &&
+              typeof (s as BrowserShortcut).color === 'string',
+          );
         }
       } catch {
         // ignore
