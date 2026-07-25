@@ -94,4 +94,5 @@ allow:
 - Shell(curl -s:*)
 - Shell(awk 'NR>=558:*)
 - Shell(cat /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core/package.json:*)
+- Shell(cd /Users/jacklingo/dev_custom/jstudio/jcli/j-agent:*)
 deny: []

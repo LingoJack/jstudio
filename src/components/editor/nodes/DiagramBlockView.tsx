@@ -30,7 +30,7 @@ import { useDiagramSize } from '../hooks/useDiagramSize';
 import { useDiagramEditMode } from '../hooks/useDiagramEditMode';
 import { useDiagramWindow } from '../hooks/useDiagramWindow';
 import { useDiagramRenderer } from '../hooks/useDiagramRenderer';
-import { useDarkMode } from '../hooks/useDarkMode';
+import { useStore, selectIsDarkMode } from '../../../store';
 import {
   BlockToolbar,
   AlignButtonGroup,
@@ -114,7 +114,7 @@ export default function DiagramBlockView({
   /* -------------------------------------------------------------- */
   /* Dark mode detection                                             */
   /* -------------------------------------------------------------- */
-  const isDark = useDarkMode();
+  const isDark = useStore(selectIsDarkMode);
 
   /* -------------------------------------------------------------- */
   /* Rendering kernel (excalidraw vs graph)                          */
