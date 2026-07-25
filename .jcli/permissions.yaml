@@ -95,4 +95,10 @@ allow:
 - Shell(awk 'NR>=558:*)
 - Shell(cat /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core/package.json:*)
 - Shell(cd /Users/jacklingo/dev_custom/jstudio/jcli/j-agent:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/jcli/assets/remote/:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/src/components/agent/:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/jcli/assets/remote/src/:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/src/lib/core/i18n:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core/dist:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core/lib/esm:*)
 deny: []

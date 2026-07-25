@@ -465,6 +465,16 @@ export function GraphCanvas({
       };
     }
 
+    // 时序图手绘体验增强：
+    //  - 消息线强制水平（Y 锁定起点）
+    //  - 从 lifeline 拖消息到 lifeline 后自动生成 activation
+    //  - 悬停 lifeline 时显示跟随鼠标的圆点
+    // 这些逻辑集中在 sequenceInteraction 模块，便于维护和独立测试。
+    let detachSequenceInteraction: (() => void) | null = null;
+    if (connectionHandler) {
+      detachSequenceInteraction = attachSequenceInteraction(graph, connectionHandler, container);
+    }
+
     // Cmd/Ctrl + 拖动 = 复制拖动（让 Alt/Option 空出来给"平移画布"用）。
     graph.isCloneEvent = (evt: MouseEvent) => {
       const r = evt.metaKey || evt.ctrlKey;
@@ -534,59 +544,36 @@ export function GraphCanvas({
       const cellStyle = graph.getCellStyle(terminal.cell);
       const shapeStyle = cellStyle?.shape;
 
-      // 时序图生命线 / 用例图角色：消息箭头沿中心虚线水平连接
-      // 连接点沿中心垂直线均匀分布，密度适中（每 60px 一个），避免一长串蓝点。
-      // 头部矩形补充顶部中点、左中、右中，让参与者块本身也能被连接。
+      // 时序图生命线 / 用例图角色：
+      // 生命线段（中心虚线）不返回离散锚点 —— 让 LifelinePerimeter 接管任意 Y 投影，
+      // 实现"悬停任意 Y 都能起线"的连续体验（配合 sequenceInteraction 的悬停圆点提示）。
+      // 头部矩形保留 4 个中点，供 actor→lifeline 关联使用。
       if (shapeStyle === 'lifeline' || shapeStyle === 'umlActor') {
         const nodeHeight = terminal.height ?? 150;
-        const lifelineHeight = nodeHeight - HEAD_HEIGHT;
-        const pointSpacing = 60;
-        const pointCount = Math.max(4, Math.floor(lifelineHeight / pointSpacing));
         const constraints: ConnectionConstraint[] = [];
-        for (let i = 0; i <= pointCount; i++) {
-          const yOffset = (HEAD_HEIGHT + (lifelineHeight * i) / pointCount) / nodeHeight;
-          constraints.push(new ConnectionConstraint(new Point(0.5, yOffset), true));
-        }
-        // 头部矩形连接点：顶部中点、左中、右中
+        // 头部矩形连接点：顶部中点、左中、右中、底部中点（头部和生命线段的衔接点）
         constraints.push(new ConnectionConstraint(new Point(0.5, 0), true));
         const headMidY = (HEAD_HEIGHT / 2) / nodeHeight;
         constraints.push(new ConnectionConstraint(new Point(0, headMidY), true));
         constraints.push(new ConnectionConstraint(new Point(1, headMidY), true));
+        constraints.push(new ConnectionConstraint(new Point(0.5, HEAD_HEIGHT / nodeHeight), true));
         return constraints;
       }
 
-      // 时序图激活框：消息箭头优先从左右边缘水平出入，同时保留上下边缘用于激活起止
-      // 左右边缘按高度每 24px 一个点，并补充四角与四边中点。
+      // 时序图激活框：保留少量锚点即可。
+      // 消息进出由 RectanglePerimeter 在边缘任意 Y 投影，无需密集锚点。
+      // 保留 4 角 + 上下中点 + 左右边中点，保证拖线时的可感知性。
       if (shapeStyle === 'umlActivation') {
-        const nodeHeight = terminal.height ?? 60;
-        const nodeWidth = terminal.width ?? 16;
-        const pointSpacing = 24;
-        const pointCount = Math.max(2, Math.floor(nodeHeight / pointSpacing));
-        const constraints: ConnectionConstraint[] = [];
-
-        for (let i = 0; i <= pointCount; i++) {
-          const y = i / pointCount;
-          constraints.push(new ConnectionConstraint(new Point(0, y), true));
-          constraints.push(new ConnectionConstraint(new Point(1, y), true));
-        }
-
-        // 四角
-        constraints.push(new ConnectionConstraint(new Point(0, 0), true));
-        constraints.push(new ConnectionConstraint(new Point(1, 0), true));
-        constraints.push(new ConnectionConstraint(new Point(0, 1), true));
-        constraints.push(new ConnectionConstraint(new Point(1, 1), true));
-
-        // 上下边中点（激活开始/结束）
-        constraints.push(new ConnectionConstraint(new Point(0.5, 0), true));
-        constraints.push(new ConnectionConstraint(new Point(0.5, 1), true));
-
-        // 当激活框较宽时，补充左右边的中点，确保任意高度都能吸附
-        if (nodeWidth >= 30) {
-          constraints.push(new ConnectionConstraint(new Point(0, 0.5), true));
-          constraints.push(new ConnectionConstraint(new Point(1, 0.5), true));
-        }
-
-        return constraints;
+        return [
+          new ConnectionConstraint(new Point(0, 0), true),
+          new ConnectionConstraint(new Point(0.5, 0), true),
+          new ConnectionConstraint(new Point(1, 0), true),
+          new ConnectionConstraint(new Point(0, 0.5), true),
+          new ConnectionConstraint(new Point(1, 0.5), true),
+          new ConnectionConstraint(new Point(0, 1), true),
+          new ConnectionConstraint(new Point(0.5, 1), true),
+          new ConnectionConstraint(new Point(1, 1), true),
+        ];
       }
 
       // 普通节点：四边中点连接点
@@ -929,6 +916,7 @@ export function GraphCanvas({
       container.removeEventListener('mouseup', finishDraw, true);
       container.removeEventListener('mouseup', onMouseUpDiag, true);
       preview.remove();
+      detachSequenceInteraction?.();
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         // 卸载前 flush 最后一次编辑，避免丢失。
@@ -1260,7 +1248,8 @@ export function GraphCanvas({
         { shape: 'swimlane-h' as const, title: '水平泳道' },
         // 时序图
         { shape: 'lifeline' as const, title: '生命线（时序图）' },
-        { shape: 'activation' as const, title: '激活框（时序图）' },
+        // activation 已从工具栏移除：手绘时序图时，从 lifelineA 拖消息到 lifelineB
+        // 会自动在 B 上生成 activation。shape 定义保留（AI 生成和旧数据仍能用）。
       ] satisfies { shape: GraphNodeShape; title: string }[],
     [],
   );
