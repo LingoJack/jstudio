@@ -1302,7 +1302,3 @@ export function GraphCanvas({
   );
 }
 
-// 静态分析占位：保证 Cell 类型被引用（graphModel 中使用）。
-export type { Cell };
-
-export type { Cell };
