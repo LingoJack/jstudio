@@ -38,6 +38,9 @@ function graphLog(msg: string): void {
   });
 }
 
+// 模块级日志：确认这个文件被加载了
+graphLog('sequenceInteraction module loaded');
+
 /* ------------------------------------------------------------------ */
 /* 类型判定                                                            */
 /* ------------------------------------------------------------------ */
@@ -323,9 +326,11 @@ export function attachSequenceInteraction(
   handler: ConnectionHandler,
   container: HTMLElement,
 ): () => void {
+  graphLog(`attachSequenceInteraction called, handler=${handler ? 'ok' : 'null'}, container=${container ? 'ok' : 'null'}`);
   const cleanup1 = attachHorizontalMessageConstraint(handler);
   const cleanup2 = attachAutoActivation(graph, handler);
   const cleanup3 = attachLifelineHoverDot(graph, container);
+  graphLog('attachSequenceInteraction done, 3 hooks installed');
 
   return () => {
     cleanup1();
