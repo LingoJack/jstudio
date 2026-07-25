@@ -159,17 +159,24 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     const targetGeo = target.getGeometry();
     if (!targetGeo) return;
 
-    // 消息 Y：handler.first 是 maxGraph 在 mouseDown 时记录的 graph 模型坐标，
-    // 直接用即可（不需要再 scale/translate 转换）。
-    // 由于我们在 updateCurrentState 里把目标 Y 锁定为起点 Y，handler.first.y
-    // 就是这条消息应该在 lifeline 上的 Y 坐标。
+    // 消息 Y：从 edge geometry 的 targetPoint 取（CONNECT 事件时 edge 已创建，geometry 已设置）。
+    // targetPoint 是 edge 连接到 target 的精确位置，比 handler.first（起点 Y）更准确，
+    // 因为 activation 在 target 端，应该用 target 端的 Y 坐标。
     let msgY: number;
-    if (handler.first) {
+    const edgeGeo = (cell as Cell).getGeometry();
+    if (edgeGeo?.targetPoint) {
+      msgY = edgeGeo.targetPoint.y;
+      graphLog(`msgY=${msgY} from edge.targetPoint (${edgeGeo.targetPoint.x}, ${edgeGeo.targetPoint.y})`);
+    } else if (edgeGeo?.sourcePoint) {
+      msgY = edgeGeo.sourcePoint.y;
+      graphLog(`msgY=${msgY} from edge.sourcePoint (${edgeGeo.sourcePoint.x}, ${edgeGeo.sourcePoint.y})`);
+    } else if (handler.first) {
       msgY = handler.first.y;
+      graphLog(`msgY=${msgY} from handler.first (${handler.first.x}, ${handler.first.y})`);
     } else {
       msgY = targetGeo.y + HEAD_HEIGHT + 30; // 默认放头部下方一点
+      graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
     }
-    graphLog(`msgY=${msgY}, handler.first=${handler.first ? `(${handler.first.x}, ${handler.first.y})` : 'null'}`);
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
     // activation 居中在 lifeline 上：中心 X = lifeline 中心 X，左右各延伸 8px。
