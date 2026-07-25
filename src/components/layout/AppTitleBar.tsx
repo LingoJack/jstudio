@@ -1,6 +1,7 @@
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { PanelLeft } from 'lucide-react';
+import BrowserDynamicIsland from './BrowserDynamicIsland';
 
 /**
  * macOS-style title bar spanning the full window width.
@@ -8,7 +9,9 @@ import { PanelLeft } from 'lucide-react';
  * - Left: traffic-light buttons (native, rendered by the OS in Overlay mode).
  *   We reserve horizontal space with `pl-[72px]` so the buttons sit inside this
  *   bar and never overlap the Activity Bar below.
- * - Center: app brand (optional).
+ * - Center: **Dynamic Island** – a context-sensitive zone. When the browser
+ *   sidebar view is active, the centre renders a compact address bar
+ *   (`BrowserDynamicIsland`). Otherwise it is an empty drag region.
  * - Right: a sidebar toggle button (VSCode-style).
  *
  * The whole bar is a Tauri drag region (except interactive elements), so the
@@ -18,6 +21,8 @@ export default function AppTitleBar() {
   const { t } = useI18n();
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
+  const activeSidebarView = useStore((s) => s.activeSidebarView);
+  const isBrowserView = activeSidebarView === 'browser';
 
   return (
     <div
@@ -27,9 +32,9 @@ export default function AppTitleBar() {
       {/* Left: placeholder for traffic lights space */}
       <div className="w-[72px]" data-tauri-drag-region />
 
-      {/* Center: brand or empty (drag region) */}
-      <div className="flex-1 flex justify-center" data-tauri-drag-region>
-        {/* 可选：品牌标识 */}
+      {/* Center: Dynamic Island (browser address bar) or empty drag region */}
+      <div className="flex-1 flex items-center" data-tauri-drag-region={!isBrowserView}>
+        {isBrowserView ? <BrowserDynamicIsland /> : null}
       </div>
 
       {/* Right: sidebar toggle */}

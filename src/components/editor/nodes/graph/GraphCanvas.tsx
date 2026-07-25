@@ -823,16 +823,42 @@ export function GraphCanvas({
     };
     container.addEventListener('mouseup', onMouseUpDiag, true);
 
-    // Ctrl/Cmd + 滚轮缩放（draw.io 同款）；普通滚轮保留为平移/滚动。
+    // 滚轮交互（draw.io / 飞书手感）：
+    //   - Ctrl/Cmd + 滚轮 → 缩放
+    //   - 普通滚轮 → 平移视图（垂直滚 → 上下平移；水平滚轮 / Shift+滚轮 → 左右平移）
+    // view.setTranslate 会触发 TRANSLATE 事件，上方已注册 listener 持久化视口。
+    // 方向约定：滚轮向下 (deltaY > 0) → 看下方内容 → translate.y 减小
+    //          （translate.y 是视口左上角对应的图坐标的相反数）
     const onWheel = (e: WheelEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      e.preventDefault();
       const g = graphRef.current;
       if (!g) return;
-      const next = e.deltaY < 0 ? g.view.scale * 1.15 : g.view.scale / 1.15;
-      if (next < ZOOM_MIN || next > ZOOM_MAX) return;
-      if (e.deltaY < 0) g.zoomIn();
-      else g.zoomOut();
+
+      // 缩放分支
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const next = e.deltaY < 0 ? g.view.scale * 1.15 : g.view.scale / 1.15;
+        if (next < ZOOM_MIN || next > ZOOM_MAX) return;
+        if (e.deltaY < 0) g.zoomIn();
+        else g.zoomOut();
+        return;
+      }
+
+      // 平移分支
+      e.preventDefault();
+      const view = g.getView();
+      const scale = view.scale;
+      // macOS 约定：Shift + 垂直滚轮 → 水平平移（仅在设备无原生水平滚轮时生效）
+      let dx = e.deltaX;
+      let dy = e.deltaY;
+      if (e.shiftKey && dx === 0) {
+        dx = e.deltaY;
+        dy = 0;
+      }
+      // 像素增量需换算为图坐标增量（除以 scale）。
+      view.setTranslate(
+        view.translate.x - dx / scale,
+        view.translate.y - dy / scale,
+      );
     };
     container.addEventListener('wheel', onWheel, { passive: false });
 

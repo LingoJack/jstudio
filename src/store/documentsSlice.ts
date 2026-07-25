@@ -10,6 +10,7 @@ import { migrateDocAssets } from '../lib/documents/migrateAssets';
 import { gcDocumentAssets } from '../lib/documents/assetGc';
 import { toast } from '../lib/toast';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
+import type { BrowserShortcut } from './browserSlice';
 import { applyAppTheme, getAppTheme, DEFAULT_APP_THEME_ID_DARK, DEFAULT_APP_THEME_ID_LIGHT } from '../lib/themes';
 import { coerceDocSortKey, coerceDocSortDirection, DEFAULT_DOC_SORT_KEY, DEFAULT_DOC_SORT_DIRECTION } from '../lib/documents/sortUtils';
 
@@ -61,6 +62,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
       let globalShortcuts: GlobalShortcutConfig[] | undefined;
+      let browserSearchEngine: string | undefined;
+      let browserShortcuts: BrowserShortcut[] | undefined;
       let docSortKey = DEFAULT_DOC_SORT_KEY;
       let docSortDirection = DEFAULT_DOC_SORT_DIRECTION;
       try {
@@ -153,6 +156,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         // Load document list sort settings
         docSortKey = coerceDocSortKey(settings.docSortKey);
         docSortDirection = coerceDocSortDirection(settings.docSortDirection);
+        // Load browser search engine preference
+        if (typeof settings.browserSearchEngine === 'string' && settings.browserSearchEngine) {
+          browserSearchEngine = settings.browserSearchEngine;
+        }
+        // Load browser shortcuts
+        if (Array.isArray(settings.browserShortcuts)) {
+          browserShortcuts = settings.browserShortcuts as BrowserShortcut[];
+        }
       } catch {
         // ignore
       }
@@ -258,6 +269,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(tabBarPosition !== undefined ? { tabBarPosition } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
+        ...(browserSearchEngine !== undefined ? { browserSearchEngine } : {}),
+        ...(browserShortcuts !== undefined ? { browserShortcuts } : {}),
         docSortKey,
         docSortDirection,
         isLoading: false,

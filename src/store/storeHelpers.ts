@@ -1,5 +1,5 @@
 import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig, TrashedAsset } from '../lib/core/storage';
+import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig, TrashedAsset, LinkPreviewTabInfo } from '../lib/core/storage';
 import type { DocSortKey, DocSortDirection } from '../lib/documents/sortUtils';
 import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
@@ -14,6 +14,7 @@ import type { ToastItem, ToastType } from './toastSlice';
 import type { SettingsSectionId, SidebarView } from './uiSlice';
 import type { UnifiedTab } from './workspaceSlice';
 import type { AgentSession } from '../types/agent';
+import type { BrowserShortcut } from './browserSlice';
 import { storage } from '../lib/core/storage';
 import { toast } from '../lib/toast';
 
@@ -360,6 +361,23 @@ export interface StoreState {
   removeTerminalTabByGroupId: (groupId: string) => void;
   /** Called by documentsSlice: remove a document tab without deleting the doc. */
   removeDocumentTabByDocId: (docId: string) => void;
+
+  // - browser state (browser slice) -
+  browserTabs: LinkPreviewTabInfo[];
+  browserActiveTabId: string | null;
+  browserAddressUrl: string;
+  browserSearchEngine: string;
+  browserShortcuts: BrowserShortcut[];
+
+  // - browser ops (browser slice) -
+  setBrowserTabsState: (state: { tabs: LinkPreviewTabInfo[]; activeTabId: string | null }) => void;
+  setBrowserAddressUrl: (url: string) => void;
+  setBrowserSearchEngine: (id: string) => void;
+  navigateBrowserUrl: (input: string) => void;
+  refreshBrowserTab: () => void;
+  openInExternalBrowser: () => void;
+  addBrowserTab: (url?: string) => void;
+  setBrowserShortcuts: (shortcuts: BrowserShortcut[]) => void;
 }
 
 /**

@@ -161,6 +161,12 @@ export interface AppSettings {
    * Set to `true` after the first attempt (successful or failed).
    */
   jcliAutoInstallAttempted?: boolean;
+
+  /** Browser start page: selected search engine id (see SEARCH_ENGINES). */
+  browserSearchEngine?: string;
+  /** Browser start page: quick-link shortcuts. */
+  browserShortcuts?: unknown;
+
   [key: string]: unknown;
 }
 
