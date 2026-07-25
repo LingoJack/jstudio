@@ -10,6 +10,7 @@
  */
 
 import type { Cell, CellStyle, Graph } from '@maxgraph/core';
+import { Point } from '@maxgraph/core';
 import type {
   GraphEdge,
   GraphNode,
@@ -173,7 +174,7 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot, dark = f
       const source = idToCell.get(edge.source);
       const target = idToCell.get(edge.target);
       if (!source || !target) continue; // 跳过悬空连线
-      graph.insertEdge({
+      const edgeCell = graph.insertEdge({
         parent,
         id: edge.id,
         value: edge.label ?? '',
@@ -181,6 +182,15 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot, dark = f
         target,
         style: buildEdgeStyle(edge, dark),
       });
+      // 应用 waypoints（时序图消息需要在特定 Y 坐标连接生命线）
+      if (edge.waypoints && edge.waypoints.length > 0) {
+        const geo = edgeCell.getGeometry();
+        if (geo) {
+          const newGeo = geo.clone();
+          newGeo.points = edge.waypoints.map((wp) => new Point(wp.x, wp.y));
+          graph.getDataModel().setGeometry(edgeCell, newGeo);
+        }
+      }
     }
   });
 
@@ -270,6 +280,13 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
     if (colorStr(style.strokeColor)) eStyle.stroke = colorStr(style.strokeColor);
     if (typeof style.strokeWidth === 'number') eStyle.strokeWidth = style.strokeWidth;
     if (Object.keys(eStyle).length > 0) edge.style = eStyle;
+
+    // 读回 waypoints（时序图消息的 Y 坐标信息）
+    const geo = cell.getGeometry();
+    if (geo?.points && geo.points.length > 0) {
+      edge.waypoints = geo.points.map((p) => ({ x: p.x, y: p.y }));
+    }
+
     outEdges.push(edge);
   }
 

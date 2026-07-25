@@ -80,6 +80,14 @@ export interface GraphEdge {
   startArrow?: string;
   endArrow?: string;
   style?: GraphEdgeStyle;
+  /**
+   * 边的途经点（waypoints），maxGraph geometry.points。
+   *
+   * 时序图场景下每条消息需要一个 waypoint 来指定其在生命线上的 Y 坐标，
+   * 否则同一对生命线之间的所有消息会叠在同一条线上。
+   * 坐标为画布绝对坐标。
+   */
+  waypoints?: Array<{ x: number; y: number }>;
 }
 
 /** 连线样式覆盖。 */

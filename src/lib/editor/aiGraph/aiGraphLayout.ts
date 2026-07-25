@@ -255,11 +255,52 @@ export function autoLayoutSequence(
     };
   });
 
-  // 8. 边强制 straight routing（时序图消息是水平箭头）
-  const laidOutEdges = edges.map((e) => ({
-    ...e,
-    routing: 'straight' as const,
-  }));
+  // 8. 为每条消息边计算 waypoints，保证消息按时间顺序垂直排列在生命线上
+  //
+  // 关键点：maxGraph 默认会把边路由到节点中心。对于同一对生命线之间的多条消息，
+  // 如果不设 waypoints，它们会全部叠在同一条水平线上。所以每条消息必须有一个
+  // waypoint 明确其 Y 坐标（画布绝对坐标）。
+  //
+  // 策略：遍历所有 messageEdges，按出现顺序分配 msgY = SEQ_MARGIN +
+  // SEQ_MESSAGE_START_Y + idx * SEQ_MESSAGE_SPACING。每条消息设 2 个 waypoints
+  // （源端点和目标端点在生命线中心线的对应 Y 上），这样 maxGraph 会画出
+  // 一条从 (srcX, msgY) 到 (dstX, msgY) 的水平线。
+  const messageEdgeIds = new Set(messageEdges.map((e) => e.id));
+  let msgIndex = 0;
+  const laidOutEdges = edges.map((e) => {
+    if (!messageEdgeIds.has(e.id)) {
+      // 非消息边（如 actor->lifeline 关联线）：仅强制 straight routing
+      return { ...e, routing: 'straight' as const };
+    }
+    const srcX = (lifelineX.get(e.source) ?? SEQ_MARGIN) + SEQ_PARTICIPANT_W / 2;
+    const dstX = (lifelineX.get(e.target) ?? SEQ_MARGIN) + SEQ_PARTICIPANT_W / 2;
+    const msgY = SEQ_MARGIN + SEQ_MESSAGE_START_Y + msgIndex * SEQ_MESSAGE_SPACING;
+    msgIndex += 1;
+
+    // 自消息（source === target）需要 3 个 waypoints，画一个向右的回路
+    if (e.source === e.target) {
+      const loopW = 40;
+      return {
+        ...e,
+        routing: 'straight' as const,
+        waypoints: [
+          { x: srcX, y: msgY },
+          { x: srcX + loopW, y: msgY },
+          { x: srcX + loopW, y: msgY + 20 },
+          { x: srcX, y: msgY + 20 },
+        ],
+      };
+    }
+
+    return {
+      ...e,
+      routing: 'straight' as const,
+      waypoints: [
+        { x: srcX, y: msgY },
+        { x: dstX, y: msgY },
+      ],
+    };
+  });
 
   return {
     nodes: [...laidOutLifelines, ...laidOutActivations, ...laidOutOthers],

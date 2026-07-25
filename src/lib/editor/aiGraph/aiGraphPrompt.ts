@@ -39,7 +39,11 @@ function schemaAndExampleBlock(): string {
       'Set w=100, h=300. Set x/y to 0 (auto-layouted horizontally).',
     '- Messages: edges with `routing: "straight"`. Use `style.dashed: true` for ' +
       'return/response messages.',
-    '- Activations: `activation` shape on a lifeline to show when a participant is busy.',
+    '- **Activations (REQUIRED for realism)**: for each participant that RECEIVES a request ' +
+      'and does processing before responding, add an `activation` node (w=16, h=40, empty label). ' +
+      'Connect the receiving lifeline to its activation with an edge (source=lifeline, ' +
+      'target=activation, no label, straight routing). This renders as a small vertical ' +
+      'rectangle on the lifeline showing the "busy processing" period.',
     '- Self-messages: edge where source===target (a participant calling itself).',
     '- Label each message with the action (e.g. "POST /login", "query DB").',
     '',
