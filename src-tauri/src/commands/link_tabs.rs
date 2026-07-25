@@ -641,7 +641,9 @@ pub fn close_active_tab_in_focused_preview(app: &AppHandle) -> Result<(), String
 /// Show the inline browser panel in the main window. Ensures a `TabManager`
 /// for the `"main"` window label exists, marks the panel as visible (so
 /// `on_menu_event` routes Cmd+T / Cmd+W here instead of to document tabs),
-/// and adds a fresh `about:blank` tab if none exist.
+/// and emits the current tabs state. When no tabs exist the React
+/// `BrowserPanel` renders a start page (Chrome-style new tab page) instead
+/// of an `about:blank` webview, so we deliberately do NOT auto-create a tab.
 ///
 /// The React `BrowserPanel` component calls this on mount, then calls
 /// `update_browser_panel_rect` via `ResizeObserver` to report the container
@@ -670,26 +672,19 @@ pub async fn show_browser_panel(app: AppHandle) -> Result<(), String> {
 
     let manager = get_manager(MAIN_BROWSER_LABEL)?;
 
-    // If no tabs exist, add a fresh about:blank tab. The webview is created
-    // off-screen (rect not yet reported) and will be positioned when
-    // update_browser_panel_rect arrives from React's ResizeObserver.
     let has_tabs = {
         let m = manager.lock().unwrap();
         !m.tab_order.is_empty()
     };
-    if !has_tabs {
-        add_tab_internal(
-            &app,
-            &manager,
-            MAIN_BROWSER_LABEL,
-            "about:blank".to_string(),
-        )?;
-    } else {
+    if has_tabs {
         // Tabs already exist — reposition the active one into the content
         // area (it was moved off-screen by hide_browser_panel).
         layout_webviews(&app, &manager, MAIN_BROWSER_LABEL);
-        emit_tabs_updated(&app, &manager);
     }
+    // Emit the tabs state in both cases: with no tabs this pushes an empty
+    // state to React so the start page renders deterministically instead of
+    // relying on a separate get_browser_panel_tabs_state round-trip.
+    emit_tabs_updated(&app, &manager);
 
     Ok(())
 }

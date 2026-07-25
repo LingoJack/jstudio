@@ -582,6 +582,13 @@ export const translations = {
     "linkPreview.openBrowser": "在浏览器中打开",
     "linkPreview.home": "首页",
     "linkPreview.urlPlaceholder": "输入 URL 并按 Enter...",
+    "linkPreview.startPage.searchPlaceholder": "使用 {engine} 搜索，或输入网址",
+    "linkPreview.startPage.addShortcut": "添加快捷方式",
+    "linkPreview.startPage.editShortcut": "编辑快捷方式",
+    "linkPreview.startPage.deleteShortcut": "删除快捷方式",
+    "linkPreview.startPage.nameLabel": "名称",
+    "linkPreview.startPage.urlLabel": "网址",
+    "linkPreview.startPage.save": "保存",
 
     // ── Command Palette Window ──
     "paletteWindow.loading": "加载中…",
@@ -1380,6 +1387,13 @@ export const translations = {
     "linkPreview.openBrowser": "Open in browser",
     "linkPreview.home": "Home",
     "linkPreview.urlPlaceholder": "Enter URL and press Enter...",
+    "linkPreview.startPage.searchPlaceholder": "Search {engine} or type a URL",
+    "linkPreview.startPage.addShortcut": "Add shortcut",
+    "linkPreview.startPage.editShortcut": "Edit shortcut",
+    "linkPreview.startPage.deleteShortcut": "Delete shortcut",
+    "linkPreview.startPage.nameLabel": "Name",
+    "linkPreview.startPage.urlLabel": "URL",
+    "linkPreview.startPage.save": "Save",
 
     // ── Command Palette Window ──
     "paletteWindow.loading": "Loading…",

@@ -52,21 +52,18 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../../store/useStore";
-import { useI18n } from "../../lib/core/i18n";
 import {
   storage,
   type LinkPreviewTabsState,
   type BrowserPanelRect,
 } from "../../lib/core/storage";
 import { TAB_BAR_OVERLAY_HEIGHT } from "../ui/TabBar";
+import BrowserStartPage from "./BrowserStartPage";
 
 export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
-  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
-  const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
   const tabBarPosition = useStore((s) => s.tabBarPosition);
   const browserTabs = useStore((s) => s.browserTabs);
-  const addBrowserTab = useStore((s) => s.addBrowserTab);
   const refreshBrowserTab = useStore((s) => s.refreshBrowserTab);
 
   // -- Lifecycle: show / hide the browser panel --
@@ -107,19 +104,13 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     };
   }, [hidden]);
 
-  // -- Listen for "last tab closed" -> switch to documents view --
+  // -- Listen for "last tab closed" --
   // Rust emits `browser-panel:empty` when the last browser tab closes.
-  // We switch back to the documents view so the user isn't stuck in an
-  // empty browser panel.
-  useEffect(() => {
-    if (hidden) return;
-    const unlisten = listen("browser-panel:empty", () => {
-      setActiveSidebarView("documents");
-    });
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, [hidden, setActiveSidebarView]);
+  // We no longer bounce the user back to the documents view -- the panel
+  // instead falls through to the Chrome-style start page (rendered below
+  // whenever `browserTabs.length === 0`). The listener is kept only so the
+  // event has a consumer and the tab-state sync (which already received an
+  // empty `tabs` array via `link-preview:tabs-updated`) drives the UI.
 
   // -- ResizeObserver: report webview container rect to Rust --
   // Rust positions native child webviews at this rect. The observer
@@ -200,16 +191,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
           in the title bar's BrowserDynamicIsland. */}
       <div className="flex-1 min-h-0 relative">
         <div ref={containerRef} className="absolute inset-0 bg-white">
-          {browserTabs.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[var(--vscode-editor-background)]">
-              <button
-                onClick={() => addBrowserTab()}
-                className="px-4 py-2 rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:opacity-90 transition-opacity text-sm"
-              >
-                {t("linkPreview.newTab")}
-              </button>
-            </div>
-          )}
+          {browserTabs.length === 0 && <BrowserStartPage />}
         </div>
       </div>
     </div>
