@@ -89,19 +89,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         if (settings.language === 'en' || settings.language === 'zh') {
           language = settings.language;
         }
-        if (Array.isArray(settings.activityBarItems)) {
-          // Merge with defaults so new items appear automatically
-          const knownIds = new Set(DEFAULT_ACTIVITY_BAR_ITEMS.map((d) => d.id));
-          const valid = settings.activityBarItems.filter(
-            (item) => item && knownIds.has(item.id) && typeof item.visible === 'boolean',
-          );
-          // Append any default items missing from saved config
-          const savedIds = new Set(valid.map((v) => v.id));
-          for (const def of DEFAULT_ACTIVITY_BAR_ITEMS) {
-            if (!savedIds.has(def.id)) valid.push({ ...def });
-          }
-          activityBarItems = valid;
-        }
+        // Merge with defaults so new items appear automatically.
+        // Normalization also pins settings to the bottom and forces it visible.
+        activityBarItems = normalizeActivityBarItems(settings.activityBarItems);
         if (typeof settings.appThemeIdDark === 'string' && settings.appThemeIdDark) {
           appThemeIdDark = settings.appThemeIdDark;
         }

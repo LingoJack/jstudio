@@ -313,10 +313,11 @@ export const translations = {
     "appearance.activityBarBorderDesc": "在选中的侧边栏图标上显示彩色边框",
     "appearance.activityBarItems": "活动栏图标",
     "appearance.activityBarItemsDesc":
-      "勾选以显示图标，拖拽手柄可调整顺序（设置始终位于底部）",
+      "勾选以显示图标，拖拽手柄可调整顺序（设置始终位于底部且不可隐藏）",
     "appearance.activityBarItem_documents": "文档",
     "appearance.activityBarItem_terminal": "终端",
     "appearance.activityBarItem_settings": "设置",
+    "appearance.activityBarItemSettingsLocked": "设置始终显示在底部，不可隐藏",
     "appearance.terminalTheme": "终端主题",
     "appearance.terminalThemeDesc": "选择终端配色方案（对齐 kitty 主题）",
     "appearance.terminalThemeDark": "深色终端主题",

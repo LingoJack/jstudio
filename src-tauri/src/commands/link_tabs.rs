@@ -443,6 +443,10 @@ pub async fn navigate_link_preview_tab(
         .navigate(url_parsed)
         .map_err(|e| format!("failed to navigate: {e}"))?;
 
+    // If this tab was showing the React start page (blank webview parked
+    // off-screen), reposition the now-navigated webview into the content area.
+    layout_webviews(&app, &manager, &window_label);
+
     emit_tabs_updated(&app, &manager);
     Ok(())
 }
@@ -1064,21 +1068,37 @@ fn layout_webviews(app: &AppHandle, manager: &Arc<Mutex<TabManager>>, window_lab
         }
     }
 
-    // Resize + reposition the active content webview
-    let active_label = {
+    // Resize + reposition the active content webview. For the inline browser
+    // panel we also need the tab's URL: an active `about:blank` tab means the
+    // React start page is showing, so the native webview must be parked
+    // off-screen (native webviews stack above the React DOM and would
+    // otherwise cover it).
+    let active = {
         let m = manager.lock().unwrap();
         m.active_tab_id
             .as_ref()
             .and_then(|id| m.tabs.get(id))
-            .map(|t| t.webview_label.clone())
+            .map(|t| (t.webview_label.clone(), t.url.clone()))
     };
 
-    if let Some(label) = active_label {
+    if let Some((label, url)) = active {
         if let Some(wv) = app.get_webview(&label) {
-            let _ = wv.set_position(LogicalPosition::new(content_x, content_y));
-            let _ = wv.set_size(LogicalSize::new(content_width, content_height));
+            let show_start_page = window_label == MAIN_BROWSER_LABEL && is_blank_url(&url);
+            if show_start_page {
+                let _ = wv.set_position(LogicalPosition::new(-10000.0, -10000.0));
+            } else {
+                let _ = wv.set_position(LogicalPosition::new(content_x, content_y));
+                let _ = wv.set_size(LogicalSize::new(content_width, content_height));
+            }
         }
     }
+}
+
+/// A tab counts as "blank" (show the React start page instead of the native
+/// webview) when its URL is empty or any `about:blank` variant.
+fn is_blank_url(url: &str) -> bool {
+    let u = url.trim();
+    u.is_empty() || u.eq_ignore_ascii_case("about:blank")
 }
 
 /// Create a new tab with the given URL, add its content webview, and switch to it.
@@ -1257,12 +1277,24 @@ fn add_tab_internal(
     // We use content_x/content_y from get_content_rect so this works for both
     // standalone link-preview windows (0, UI_HEIGHT) and the inline browser
     // panel in the main window (rect.x, rect.y from ResizeObserver).
-    new_webview
-        .set_position(LogicalPosition::new(content_x, content_y))
-        .map_err(|e| format!("failed to position new webview: {e}"))?;
-    new_webview
-        .set_size(LogicalSize::new(content_width, content_height))
-        .map_err(|e| format!("failed to size new webview: {e}"))?;
+    //
+    // Exception: in the inline browser panel a fresh `about:blank` tab shows
+    // the React start page, not the native webview -- keep it parked
+    // off-screen (it gets positioned by layout_webviews once it navigates to
+    // a real URL).
+    let park_offscreen = window_label == MAIN_BROWSER_LABEL && is_blank_url(&url);
+    if park_offscreen {
+        new_webview
+            .set_position(LogicalPosition::new(-10000.0, -10000.0))
+            .map_err(|e| format!("failed to park blank webview: {e}"))?;
+    } else {
+        new_webview
+            .set_position(LogicalPosition::new(content_x, content_y))
+            .map_err(|e| format!("failed to position new webview: {e}"))?;
+        new_webview
+            .set_size(LogicalSize::new(content_width, content_height))
+            .map_err(|e| format!("failed to size new webview: {e}"))?;
+    }
 
     // --- Re-raise the tab-bar overlay above the just-added content webview ---
     // Child webviews stack by add-order (later add_child calls render on
@@ -1352,10 +1384,22 @@ fn switch_tab_internal(
         }
     }
 
-    // Show new active tab (position + resize to fill content area).
-    // If the webview can't be found, surface an error rather than silently
-    // succeeding — a silent no-op here leaves the tab stranded off-screen
-    // (this was the secondary symptom of the new-tab race).
+    // Show new active tab. For the inline browser panel we delegate to
+    // layout_webviews so the blank-tab / start-page rule (park about:blank
+    // off-screen) is applied consistently. Standalone link-preview windows
+    // don't have a start page, so position directly as before.
+    if window_label == MAIN_BROWSER_LABEL {
+        // active_tab_id is updated by the caller *after* switch_tab_internal
+        // returns, so set it here first for layout_webviews to see the new
+        // active tab.
+        {
+            let mut m = manager.lock().unwrap();
+            m.active_tab_id = Some(tab_id.to_string());
+        }
+        layout_webviews(app, manager, window_label);
+        return Ok(());
+    }
+
     let wv = app
         .get_webview(&target_label)
         .ok_or_else(|| format!("webview not found for tab {}: {}", tab_id, target_label))?;
