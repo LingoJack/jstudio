@@ -3,7 +3,6 @@
  * browser panel has no tabs open.
  *
  * Layout (centered, top-weighted like Chrome's NTP):
- *   - Title
  *   - Large search box with a search-engine selector (favicon + dropdown)
  *   - Shortcuts grid (quick links) with an "add" tile and a right-click
  *     context menu (edit / delete) per shortcut
@@ -15,7 +14,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import appIcon from "../../assets/app-icon.png";
 import { useI18n } from "../../lib/core/i18n";
 import { useStore } from "../../store/useStore";
 import {
@@ -244,13 +242,13 @@ export default function BrowserStartPage() {
               <button
                 type="button"
                 onClick={() => setEngineMenuOpen((v) => !v)}
-                className="flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-full hover:bg-[var(--vscode-menu-hoverBackground)] transition-colors"
+                className="flex items-center gap-1.5 pl-1 pr-1.5 py-1.5 rounded-full hover:bg-[var(--vscode-menu-hoverBackground)] transition-colors"
                 title={engine.name}
               >
                 <img
                   src={getSearchEngineFaviconUrl(engine.id)}
                   alt={engine.name}
-                  className="w-4 h-4 rounded-sm"
+                  className="w-5 h-5 rounded-sm"
                   draggable={false}
                   onError={(e) => {
                     // Fall back to the glyph if the favicon fails to load.
@@ -259,10 +257,10 @@ export default function BrowserStartPage() {
                     el.nextElementSibling?.classList.remove("hidden");
                   }}
                 />
-                <span className="hidden w-4 h-4 items-center justify-center text-xs font-medium">
+                <span className="hidden w-5 h-5 items-center justify-center text-sm font-medium">
                   {engine.glyph}
                 </span>
-                <ChevronDown className="w-3 h-3 opacity-60" />
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
               </button>
 
               {engineMenuOpen && (
@@ -398,19 +396,4 @@ export default function BrowserStartPage() {
       )}
     </div>
   );
-}
- );
-}
-log ── */}
-      {dialog && (
-        <ShortcutDialog
-          initial={dialog.mode === "edit" ? dialog.shortcut : undefined}
-          onSave={handleDialogSave}
-          onClose={() => setDialog(null)}
-        />
-      )}
-    </div>
-  );
-}
- );
 }
