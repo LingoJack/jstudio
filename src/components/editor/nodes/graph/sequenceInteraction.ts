@@ -16,8 +16,9 @@ import {
   type AbstractGraph,
   type Cell,
   type CellState,
+  type ConnectionHandler,
+  type InternalMouseEvent,
 } from '@maxgraph/core';
-import type ConnectionHandler from '@maxgraph/core/lib/esm/view/plugin/ConnectionHandler.js';
 import { HEAD_HEIGHT } from './customShapes';
 
 /* ------------------------------------------------------------------ */
@@ -59,7 +60,7 @@ export function attachHorizontalMessageConstraint(handler: ConnectionHandler): (
   const origUpdateEdgeState = handler.updateEdgeState.bind(handler);
 
   // updateCurrentState: 处理目标识别 + 预览更新
-  handler.updateCurrentState = (me: InternalEvent, point: Point) => {
+  handler.updateCurrentState = (me: InternalMouseEvent, point: Point) => {
     if (handler.first && handler.previous) {
       const sourceCell = handler.previous.cell;
       if (sourceCell && isSequenceNode(sourceCell)) {
@@ -119,8 +120,8 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     if (!edge || !edge.isEdge()) return;
 
     const model = graph.getDataModel();
-    const source = model.getTerminal(edge, true);
-    const target = model.getTerminal(edge, false);
+    const source = edge.getTerminal(true);
+    const target = edge.getTerminal(false);
     if (!source || !target) return;
 
     // 只处理"目标端需要生成 activation"的场景

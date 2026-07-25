@@ -102,6 +102,7 @@ import {
   MIN_DRAW_SIZE,
   CONNECTION_POINTS,
 } from './graphCanvasStyle';
+import { attachSequenceInteraction } from './sequenceInteraction';
 
 /* ------------------------------------------------------------------ */
 /* Props — 必须与 ExcalidrawCanvasProps 完全一致                       */

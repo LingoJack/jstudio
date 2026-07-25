@@ -3345,6 +3345,22 @@ button {
 }
 
 /* ============================================
+   时序图生命线悬停圆点
+   - .jgraph-lifeline-hover-dot 由 sequenceInteraction.ts 创建，
+     是覆盖在 graph 容器上的 <svg><circle>，
+     跟随鼠标 Y 移动，提示"这条虚线上任意 Y 都可以起线"。
+   - fill/stroke 在 JS 里 inline 设置，这里只控制过渡和主题感。
+   ============================================ */
+.jgraph-lifeline-hover-dot circle {
+  transition: opacity 0.12s ease-out;
+  filter: drop-shadow(0 0 3px rgba(74, 144, 226, 0.5));
+}
+
+.jgraph-canvas-root.is-dark .jgraph-lifeline-hover-dot circle {
+  filter: drop-shadow(0 0 4px rgba(74, 144, 226, 0.8));
+}
+
+/* ============================================
    PDF Preview (react-pdf)
    ============================================ */
 
