@@ -3,7 +3,7 @@
  * browser panel has no tabs open.
  *
  * Layout (centered, top-weighted like Chrome's NTP):
- *   - App icon + title
+ *   - Title
  *   - Large search box with a search-engine selector (favicon + dropdown)
  *   - Shortcuts grid (quick links) with an "add" tile and a right-click
  *     context menu (edit / delete) per shortcut
@@ -65,11 +65,11 @@ function ShortcutDialog({ initial, onSave, onClose }: ShortcutDialogProps) {
       onMouseDown={onClose}
     >
       <div
-        className="w-80 rounded-xl border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-xl p-4 space-y-3"
+        className="w-[28rem] rounded-xl border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-xl p-6 space-y-4"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-[var(--vscode-foreground)]">
+          <h3 className="text-base font-medium text-[var(--vscode-foreground)]">
             {initial
               ? t("linkPreview.startPage.editShortcut")
               : t("linkPreview.startPage.addShortcut")}
@@ -77,13 +77,13 @@ function ShortcutDialog({ initial, onSave, onClose }: ShortcutDialogProps) {
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-[var(--vscode-menu-hoverBackground)] opacity-70"
+            className="p-1.5 rounded hover:bg-[var(--vscode-menu-hoverBackground)] opacity-70"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <label className="block space-y-1">
+        <label className="block space-y-1.5">
           <span className="text-xs opacity-70 text-[var(--vscode-foreground)]">
             {t("linkPreview.startPage.nameLabel")}
           </span>
@@ -92,11 +92,11 @@ function ShortcutDialog({ initial, onSave, onClose }: ShortcutDialogProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            className="w-full px-2.5 py-1.5 rounded-md text-sm bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-input-border)] outline-none focus:border-[var(--vscode-focusBorder)]"
+            className="w-full px-3 py-2 rounded-md text-sm bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-input-border)] outline-none focus:border-[var(--vscode-focusBorder)]"
           />
         </label>
 
-        <label className="block space-y-1">
+        <label className="block space-y-1.5">
           <span className="text-xs opacity-70 text-[var(--vscode-foreground)]">
             {t("linkPreview.startPage.urlLabel")}
           </span>
@@ -105,15 +105,15 @@ function ShortcutDialog({ initial, onSave, onClose }: ShortcutDialogProps) {
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             placeholder="https://"
-            className="w-full px-2.5 py-1.5 rounded-md text-sm bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-input-border)] outline-none focus:border-[var(--vscode-focusBorder)]"
+            className="w-full px-3 py-2 rounded-md text-sm bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] border border-[var(--vscode-input-border)] outline-none focus:border-[var(--vscode-focusBorder)]"
           />
         </label>
 
-        <div className="flex justify-end gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded-md text-sm text-[var(--vscode-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
+            className="px-4 py-2 rounded-md text-sm text-[var(--vscode-foreground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
           >
             {t("common.cancel")}
           </button>
@@ -121,7 +121,7 @@ function ShortcutDialog({ initial, onSave, onClose }: ShortcutDialogProps) {
             type="button"
             onClick={handleSubmit}
             disabled={!canSave}
-            className="px-3 py-1.5 rounded-md text-sm bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:opacity-90 disabled:opacity-40"
+            className="px-4 py-2 rounded-md text-sm bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:opacity-90 disabled:opacity-40"
           >
             {t("linkPreview.startPage.save")}
           </button>
@@ -236,22 +236,16 @@ export default function BrowserStartPage() {
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[var(--vscode-editor-background)]">
       <div className="min-h-full flex flex-col items-center px-8 pt-[14vh] pb-12">
-        {/* ── Logo ── */}
-        <div className="flex flex-col items-center gap-4 mb-10 select-none">
-          <img
-            src={appIcon}
-            alt="JStudio"
-            className="w-20 h-20 rounded-2xl object-cover"
-            draggable={false}
-          />
+        {/* ── Title ── */}
+        <div className="flex flex-col items-center mb-10 select-none">
           <h1 className="text-xl font-semibold tracking-tight text-[var(--vscode-foreground)] opacity-90">
             JStudio
           </h1>
         </div>
 
         {/* ── Search box ── */}
-        <div className="w-full max-w-xl mb-12">
-          <div className="flex items-center gap-2 h-12 px-4 rounded-full border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] shadow-sm focus-within:border-[var(--vscode-focusBorder)] transition-colors">
+        <div className="w-full max-w-2xl mb-12">
+          <div className="flex items-center gap-3 h-14 px-5 rounded-full border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] shadow-sm focus-within:border-[var(--vscode-focusBorder)] transition-colors">
             {/* Engine selector */}
             <div ref={engineMenuRef} className="relative shrink-0">
               <button
