@@ -1,5 +1,5 @@
 import { storage, type LinkPreviewTabsState } from '../lib/core/storage';
-import { onSaveError, type SetState, type GetState } from './storeHelpers';
+import { onSaveError, type SliceCreator } from './storeHelpers';
 
 // ────────────────────────────────────────────────
 // Constants
@@ -101,7 +101,7 @@ export function getSearchEngineFaviconUrl(engineId: string): string {
 // Slice
 // ────────────────────────────────────────────────
 
-export function createBrowserSlice(set: SetState, get: GetState) {
+export const createBrowserSlice: SliceCreator = (set, get) => {
   return {
     // ── State ──
     browserTabs: [],

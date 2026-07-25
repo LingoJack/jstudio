@@ -7,6 +7,12 @@ export const translations = {
     "app.agent": "JSpirit",
     "app.browser": "浏览器",
 
+    // ── Browser panel ──
+    "browser.searchEngine": "搜索引擎",
+    "browser.addressPlaceholder": "输入网址或搜索内容…",
+    "browser.refresh": "刷新",
+    "browser.openExternal": "在外部浏览器打开",
+
     // ── Common ──
     "common.moveUp": "上移",
     "common.moveDown": "下移",
@@ -781,6 +787,12 @@ export const translations = {
     "app.terminal": "Terminal",
     "app.agent": "JSpirit",
     "app.browser": "Browser",
+
+    // ── Browser panel ──
+    "browser.searchEngine": "Search engine",
+    "browser.addressPlaceholder": "Enter URL or search…",
+    "browser.refresh": "Refresh",
+    "browser.openExternal": "Open in external browser",
 
     // ── Common ──
     "common.moveUp": "Move Up",
