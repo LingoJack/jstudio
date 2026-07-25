@@ -1,10 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import {
-  SEARCH_ENGINES,
-  getSearchEngineFaviconUrl,
-} from '../../store/browserSlice';
 import { RefreshCw, ExternalLink, Loader2, X, Search } from 'lucide-react';
 
 /**
@@ -13,7 +9,6 @@ import { RefreshCw, ExternalLink, Loader2, X, Search } from 'lucide-react';
  * When the browser sidebar view is active, this compact pill replaces the
  * empty drag-region in the title bar's centre area. It provides:
  *
- * - A search-engine selector (click the favicon)
  * - A URL / search input (Enter to navigate, ⌘L to focus)
  * - A refresh button (spins while the active tab is loading)
  * - An open-in-external-browser button
@@ -28,17 +23,13 @@ export default function BrowserDynamicIsland() {
   const browserTabs = useStore((s) => s.browserTabs);
   const browserActiveTabId = useStore((s) => s.browserActiveTabId);
   const browserAddressUrl = useStore((s) => s.browserAddressUrl);
-  const browserSearchEngine = useStore((s) => s.browserSearchEngine);
   const setBrowserAddressUrl = useStore((s) => s.setBrowserAddressUrl);
-  const setBrowserSearchEngine = useStore((s) => s.setBrowserSearchEngine);
   const navigateBrowserUrl = useStore((s) => s.navigateBrowserUrl);
   const refreshBrowserTab = useStore((s) => s.refreshBrowserTab);
   const openInExternalBrowser = useStore((s) => s.openInExternalBrowser);
 
   // ── Local state ──
   const addressInputRef = useRef<HTMLInputElement>(null);
-  const [engineDropdownOpen, setEngineDropdownOpen] = useState(false);
-  const engineDropdownRef = useRef<HTMLDivElement>(null);
 
   const activeTab = browserTabs.find((tb) => tb.id === browserActiveTabId);
   const isLoading = activeTab?.loading ?? false;
@@ -56,18 +47,6 @@ export default function BrowserDynamicIsland() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
-
-  // ── Close engine dropdown on outside click ──
-  useEffect(() => {
-    if (!engineDropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (engineDropdownRef.current && !engineDropdownRef.current.contains(e.target as Node)) {
-        setEngineDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [engineDropdownOpen]);
 
   // ── Handlers ──
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -93,52 +72,6 @@ export default function BrowserDynamicIsland() {
       className="flex items-center gap-1 flex-1 max-w-[640px] mx-auto px-1"
       data-tauri-drag-region={false}
     >
-      {/* Search engine selector */}
-      <div className="relative shrink-0" ref={engineDropdownRef}>
-        <button
-          type="button"
-          onClick={() => setEngineDropdownOpen((v) => !v)}
-          title={t('browser.searchEngine')}
-          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer"
-        >
-          <img
-            src={getSearchEngineFaviconUrl(browserSearchEngine)}
-            alt=""
-            className="w-4 h-4 rounded-sm"
-          />
-        </button>
-
-        {engineDropdownOpen && (
-          <div className="absolute top-full left-0 mt-1 min-w-[160px] bg-[var(--vscode-quickInput-background)] border border-[var(--vscode-panel-border)] rounded-md shadow-lg py-1 z-50">
-            {SEARCH_ENGINES.map((engine) => (
-              <button
-                key={engine.id}
-                type="button"
-                onClick={() => {
-                  setBrowserSearchEngine(engine.id);
-                  setEngineDropdownOpen(false);
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-left hover:bg-[var(--vscode-list-hoverBackground)] transition-colors cursor-pointer ${
-                  engine.id === browserSearchEngine
-                    ? 'text-[var(--vscode-list-activeSelectionForeground)]'
-                    : 'text-[var(--vscode-foreground)]'
-                }`}
-              >
-                <img
-                  src={getSearchEngineFaviconUrl(engine.id)}
-                  alt=""
-                  className="w-4 h-4 rounded-sm shrink-0"
-                />
-                <span className="truncate">{engine.name}</span>
-                {engine.id === browserSearchEngine && (
-                  <span className="ml-auto text-[var(--vscode-textLink-foreground)]">✓</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Address / search input */}
       <div className="flex-1 relative flex items-center">
         <Search className="absolute left-2.5 w-3 h-3 text-[var(--vscode-input-placeholderForeground)] pointer-events-none" />
