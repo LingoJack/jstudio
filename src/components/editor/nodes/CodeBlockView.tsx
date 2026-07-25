@@ -26,73 +26,168 @@
  *     click select the node, mirroring FileView's iframe preview box.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
-import { NodeSelection } from '@tiptap/pm/state';
-import { Copy, Check, ChevronDown, Search, Eye, Code2, ExternalLink, ChevronRight } from 'lucide-react';
-import mermaid from 'mermaid';
-import { ResizeHandle } from '../../ui/ResizeHandle';
-import { useNodeResize } from '../hooks/useNodeResize';
-import { useEditorWidth } from '../hooks/useEditorWidth';
-import { useNodeSelected } from '../hooks/useNodeSelected';
-import { useCodeBlockSelectionOverlay } from '../hooks/useCodeBlockSelectionOverlay';
-import { openHtmlPreviewWindow } from '../../../lib/windows/previewWindow';
-import { useI18n } from '../../../lib/core/i18n';
-import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  type NodeViewProps,
+  NodeViewWrapper,
+  NodeViewContent,
+  type Editor,
+} from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
+import {
+  Copy,
+  Check,
+  ChevronDown,
+  Search,
+  Eye,
+  Code2,
+  ExternalLink,
+  ChevronRight,
+} from "lucide-react";
+import mermaid from "mermaid";
+import { ResizeHandle } from "../../ui/ResizeHandle";
+import { useNodeResize } from "../hooks/useNodeResize";
+import { useEditorWidth } from "../hooks/useEditorWidth";
+import { useNodeSelected } from "../hooks/useNodeSelected";
+import { useCodeBlockSelectionOverlay } from "../hooks/useCodeBlockSelectionOverlay";
+import { openHtmlPreviewWindow } from "../../../lib/windows/previewWindow";
+import { useI18n } from "../../../lib/core/i18n";
+import { handleNativeSelectAll } from "../../../lib/shortcuts/nativeSelectAll";
+import { useStore } from "../../../store/useStore";
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
-  { value: '', label: 'Plain Text' },
-  { value: 'javascript', label: 'JavaScript' },
-  { value: 'typescript', label: 'TypeScript' },
-  { value: 'jsx', label: 'JSX' },
-  { value: 'tsx', label: 'TSX' },
-  { value: 'python', label: 'Python' },
-  { value: 'java', label: 'Java' },
-  { value: 'c', label: 'C' },
-  { value: 'cpp', label: 'C++' },
-  { value: 'csharp', label: 'C#' },
-  { value: 'go', label: 'Go' },
-  { value: 'rust', label: 'Rust' },
-  { value: 'ruby', label: 'Ruby' },
-  { value: 'php', label: 'PHP' },
-  { value: 'swift', label: 'Swift' },
-  { value: 'kotlin', label: 'Kotlin' },
-  { value: 'sql', label: 'SQL' },
-  { value: 'cql', label: 'CQL' },
-  { value: 'bash', label: 'Bash' },
-  { value: 'shell', label: 'Shell' },
-  { value: 'makefile', label: 'Makefile' },
-  { value: 'html', label: 'HTML' },
-  { value: 'css', label: 'CSS' },
-  { value: 'scss', label: 'SCSS' },
-  { value: 'json', label: 'JSON' },
-  { value: 'yaml', label: 'YAML' },
-  { value: 'xml', label: 'XML' },
-  { value: 'markdown', label: 'Markdown' },
-  { value: 'dockerfile', label: 'Dockerfile' },
-  { value: 'graphql', label: 'GraphQL' },
-  { value: 'toml', label: 'TOML' },
-  { value: 'diff', label: 'Diff' },
-  { value: 'ini', label: 'INI' },
-  { value: 'lua', label: 'Lua' },
-  { value: 'r', label: 'R' },
-  { value: 'perl', label: 'Perl' },
-  { value: 'arduino', label: 'Arduino' },
-  { value: 'mermaid', label: 'Mermaid' },
+  { value: "", label: "Plain Text" },
+  { value: "javascript", label: "JavaScript" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "jsx", label: "JSX" },
+  { value: "tsx", label: "TSX" },
+  { value: "python", label: "Python" },
+  { value: "java", label: "Java" },
+  { value: "c", label: "C" },
+  { value: "cpp", label: "C++" },
+  { value: "csharp", label: "C#" },
+  { value: "go", label: "Go" },
+  { value: "rust", label: "Rust" },
+  { value: "ruby", label: "Ruby" },
+  { value: "php", label: "PHP" },
+  { value: "swift", label: "Swift" },
+  { value: "kotlin", label: "Kotlin" },
+  { value: "sql", label: "SQL" },
+  { value: "cql", label: "CQL" },
+  { value: "bash", label: "Bash" },
+  { value: "shell", label: "Shell" },
+  { value: "makefile", label: "Makefile" },
+  { value: "html", label: "HTML" },
+  { value: "css", label: "CSS" },
+  { value: "scss", label: "SCSS" },
+  { value: "json", label: "JSON" },
+  { value: "yaml", label: "YAML" },
+  { value: "xml", label: "XML" },
+  { value: "markdown", label: "Markdown" },
+  { value: "dockerfile", label: "Dockerfile" },
+  { value: "graphql", label: "GraphQL" },
+  { value: "toml", label: "TOML" },
+  { value: "diff", label: "Diff" },
+  { value: "ini", label: "INI" },
+  { value: "lua", label: "Lua" },
+  { value: "r", label: "R" },
+  { value: "perl", label: "Perl" },
+  { value: "arduino", label: "Arduino" },
+  { value: "mermaid", label: "Mermaid" },
 ];
 
 /** Display label for a language value (e.g. "typescript" → "TypeScript"). */
 function getLanguageLabel(value: string): string {
   const found = LANGUAGES.find((l) => l.value === value);
-  return found ? found.label : value || 'Plain Text';
+  return found ? found.label : value || "Plain Text";
 }
 
-export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
-  const language = (node.attrs?.language as string | undefined) || '';
+/**
+ * Mermaid themeVariables for light / dark modes. The accent blue (#4A90D9) is
+ * shared; only backgrounds and text colours flip. Selected to match the
+ * VSCode-style dark palette in `vscode-theme.css` (#1e1e1e bg / #d4d4d4 fg).
+ */
+const MERMAID_THEME_LIGHT = {
+  primaryColor: "#4A90D9",
+  primaryTextColor: "#333",
+  primaryBorderColor: "#2B5F8E",
+  lineColor: "#5A5A5A",
+  secondaryColor: "#E8F4FD",
+  tertiaryColor: "#F5F5F5",
+  background: "#FFFFFF",
+  mainBkg: "#FFFFFF",
+  nodeBorder: "#4A90D9",
+  clusterBkg: "#F0F4F8",
+  clusterBorder: "#4A90D9",
+  titleColor: "#333",
+  edgeLabelBackground: "#FFFFFF",
+  actorBkg: "#E8F4FD",
+  actorBorder: "#4A90D9",
+  actorTextColor: "#333",
+  actorLineColor: "#5A5A5A",
+  signalColor: "#4A90D9",
+  signalTextColor: "#333",
+  labelBoxBkg: "#E8F4FD",
+  labelBoxBorderColor: "#4A90D9",
+  labelTextColor: "#333",
+  loopTextColor: "#333",
+  noteBorderColor: "#4A90D9",
+  noteBkgColor: "#FFF9E6",
+  noteTextColor: "#333",
+  activationBorderColor: "#4A90D9",
+  activationBkgColor: "#E8F4FD",
+  sequenceNumberColor: "#FFFFFF",
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+};
+
+const MERMAID_THEME_DARK = {
+  primaryColor: "#4A90D9",
+  primaryTextColor: "#d4d4d4",
+  primaryBorderColor: "#5B9FE0",
+  lineColor: "#9aa0a6",
+  secondaryColor: "#1e3a5f",
+  tertiaryColor: "#2d2d30",
+  background: "#1e1e1e",
+  mainBkg: "#1e1e1e",
+  nodeBorder: "#4A90D9",
+  clusterBkg: "#252526",
+  clusterBorder: "#4A90D9",
+  titleColor: "#d4d4d4",
+  edgeLabelBackground: "#1e1e1e",
+  actorBkg: "#1e3a5f",
+  actorBorder: "#4A90D9",
+  actorTextColor: "#d4d4d4",
+  actorLineColor: "#9aa0a6",
+  signalColor: "#4A90D9",
+  signalTextColor: "#d4d4d4",
+  labelBoxBkg: "#1e3a5f",
+  labelBoxBorderColor: "#4A90D9",
+  labelTextColor: "#d4d4d4",
+  loopTextColor: "#d4d4d4",
+  noteBorderColor: "#4A90D9",
+  noteBkgColor: "#3d3520",
+  noteTextColor: "#d4d4d4",
+  activationBorderColor: "#4A90D9",
+  activationBkgColor: "#1e3a5f",
+  sequenceNumberColor: "#FFFFFF",
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+};
+
+export default function CodeBlockView({
+  node,
+  updateAttributes,
+  editor,
+  getPos,
+}: NodeViewProps) {
+  const language = (node.attrs?.language as string | undefined) || "";
   const collapsed = (node.attrs?.collapsed as boolean | undefined) === true;
   const { t } = useI18n();
+  // Subscribe to the primitive (per CODEBUDDY.md gotcha — never the object ref).
+  const isDarkMode = useStore((s) => s.isDarkMode);
   // Resize attributes (unified with FileView): width/height stored as a
   // percentage of the editor content width, with legacy px fallbacks.
   const widthPct = node.attrs?.widthPct as number | null | undefined;
@@ -126,11 +221,14 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // above) so it's always in sync at the moment `selectionchange` fires,
   // regardless of React's render/commit timing.
   const isNodeSelected = useCallback(() => {
-    const pos = typeof getPos === 'function' ? getPos() : null;
+    const pos = typeof getPos === "function" ? getPos() : null;
     const sel = editor.state.selection;
     return pos != null && sel instanceof NodeSelection && sel.from === pos;
   }, [editor, getPos]);
-  const selectionOverlayRef = useCodeBlockSelectionOverlay(codeRef, isNodeSelected);
+  const selectionOverlayRef = useCodeBlockSelectionOverlay(
+    codeRef,
+    isNodeSelected,
+  );
 
   // Whether the code block has non-empty content (controls copy-button visibility)
   const hasContent = node.textContent.trim().length > 0;
@@ -139,8 +237,9 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // For HTML code blocks we offer a toggle that renders the source in a
   // sandboxed iframe so users can see the result without leaving the editor.
   // The choice (source vs rendered) is persisted via the `htmlPreview` attr.
-  const isHtml = language === 'html';
-  const showHtmlPreview = isHtml && (node.attrs?.htmlPreview as boolean | undefined) === true;
+  const isHtml = language === "html";
+  const showHtmlPreview =
+    isHtml && (node.attrs?.htmlPreview as boolean | undefined) === true;
   // The current code text, used as the iframe `srcDoc`. Reading
   // `node.textContent` on every render keeps the preview in sync with edits.
   const htmlSource = node.textContent;
@@ -148,55 +247,27 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // ---- Mermaid live preview ----
   // For Mermaid code blocks we offer a toggle that renders the diagram.
   // The choice (source vs rendered) is persisted via the `mermaidPreview` attr.
-  const isMermaid = language === 'mermaid';
-  const showMermaidPreview = isMermaid && (node.attrs?.mermaidPreview as boolean | undefined) === true;
+  const isMermaid = language === "mermaid";
+  const showMermaidPreview =
+    isMermaid && (node.attrs?.mermaidPreview as boolean | undefined) === true;
   const mermaidSource = node.textContent;
   const [mermaidSvg, setMermaidSvg] = useState<string | null>(null);
   const [mermaidError, setMermaidError] = useState<string | null>(null);
   const mermaidPreviewRef = useRef<HTMLDivElement>(null);
 
-  // Initialize mermaid with high-quality rendering settings
+  // Initialize mermaid with high-quality rendering settings. Re-runs when the
+  // app toggles dark mode so the global mermaid config picks up the new
+  // themeVariables before the render effect below regenerates the SVG.
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
-      securityLevel: 'loose', // Allow click events in diagrams
-      theme: 'base', // Use base theme for customization
-      themeVariables: {
-        primaryColor: '#4A90D9',
-        primaryTextColor: '#333',
-        primaryBorderColor: '#2B5F8E',
-        lineColor: '#5A5A5A',
-        secondaryColor: '#E8F4FD',
-        tertiaryColor: '#F5F5F5',
-        background: '#FFFFFF',
-        mainBkg: '#FFFFFF',
-        nodeBorder: '#4A90D9',
-        clusterBkg: '#F0F4F8',
-        clusterBorder: '#4A90D9',
-        titleColor: '#333',
-        edgeLabelBackground: '#FFFFFF',
-        actorBkg: '#E8F4FD',
-        actorBorder: '#4A90D9',
-        actorTextColor: '#333',
-        actorLineColor: '#5A5A5A',
-        signalColor: '#4A90D9',
-        signalTextColor: '#333',
-        labelBoxBkg: '#E8F4FD',
-        labelBoxBorderColor: '#4A90D9',
-        labelTextColor: '#333',
-        loopTextColor: '#333',
-        noteBorderColor: '#4A90D9',
-        noteBkgColor: '#FFF9E6',
-        noteTextColor: '#333',
-        activationBorderColor: '#4A90D9',
-        activationBkgColor: '#E8F4FD',
-        sequenceNumberColor: '#FFFFFF',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      },
+      securityLevel: "loose", // Allow click events in diagrams
+      theme: "base", // Use base theme for customization
+      themeVariables: isDarkMode ? MERMAID_THEME_DARK : MERMAID_THEME_LIGHT,
       flowchart: {
         useMaxWidth: false, // Generate fixed-size SVG for proper scaling
         htmlLabels: true,
-        curve: 'basis', // Smooth curved lines
+        curve: "basis", // Smooth curved lines
         padding: 15,
         nodeSpacing: 50,
         rankSpacing: 50,
@@ -235,7 +306,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         useMaxWidth: false,
       },
     });
-  }, []);
+  }, [isDarkMode]);
 
   // Render mermaid diagram when preview is shown
   useEffect(() => {
@@ -253,20 +324,28 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         setMermaidSvg(svg);
         setMermaidError(null);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
         setMermaidError(errorMsg);
         setMermaidSvg(null);
       }
     };
 
     renderMermaid();
-  }, [showMermaidPreview, mermaidSource]);
+  }, [showMermaidPreview, mermaidSource, isDarkMode]);
 
   // Clear the persisted preview flag when the language changes away from HTML/Mermaid.
   useEffect(() => {
-    if (!isHtml && node.attrs?.htmlPreview) updateAttributes({ htmlPreview: false });
-    if (!isMermaid && node.attrs?.mermaidPreview) updateAttributes({ mermaidPreview: false });
-  }, [isHtml, isMermaid, node.attrs?.htmlPreview, node.attrs?.mermaidPreview, updateAttributes]);
+    if (!isHtml && node.attrs?.htmlPreview)
+      updateAttributes({ htmlPreview: false });
+    if (!isMermaid && node.attrs?.mermaidPreview)
+      updateAttributes({ mermaidPreview: false });
+  }, [
+    isHtml,
+    isMermaid,
+    node.attrs?.htmlPreview,
+    node.attrs?.mermaidPreview,
+    updateAttributes,
+  ]);
 
   // ── Native DOM iframe management (React 19 sandbox workaround) ──
   // React 19's development-mode reconciliation traverses DOM trees including
@@ -285,15 +364,15 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
     // If preview should be shown and iframe doesn't exist yet, create it.
     if (showHtmlPreview && !iframeRef.current) {
-      const iframe = document.createElement('iframe');
-      iframe.className = 'code-html-preview';
-      iframe.title = t('code.previewHtml');
+      const iframe = document.createElement("iframe");
+      iframe.className = "code-html-preview";
+      iframe.title = t("code.previewHtml");
       iframe.sandbox.add(
-        'allow-scripts',
-        'allow-forms',
-        'allow-popups',
-        'allow-modals',
-        'allow-same-origin',
+        "allow-scripts",
+        "allow-forms",
+        "allow-popups",
+        "allow-modals",
+        "allow-same-origin",
       );
       iframe.srcdoc = htmlSource;
       container.appendChild(iframe);
@@ -307,7 +386,11 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     }
 
     // Update srcdoc when htmlSource changes (only if iframe exists).
-    if (showHtmlPreview && iframeRef.current && iframeRef.current.srcdoc !== htmlSource) {
+    if (
+      showHtmlPreview &&
+      iframeRef.current &&
+      iframeRef.current.srcdoc !== htmlSource
+    ) {
       iframeRef.current.srcdoc = htmlSource;
     }
   }, [showHtmlPreview, htmlSource, collapsed]);
@@ -322,49 +405,67 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
   // Pixel width/height from the preferred pct attrs (fallback to legacy px).
   const widthPx =
-    widthPct != null ? Math.round((widthPct * editorWidth) / 100) : widthAttr ?? null;
+    widthPct != null
+      ? Math.round((widthPct * editorWidth) / 100)
+      : (widthAttr ?? null);
   const heightPx =
-    heightPct != null ? Math.round((heightPct * editorWidth) / 100) : heightAttr ?? null;
+    heightPct != null
+      ? Math.round((heightPct * editorWidth) / 100)
+      : (heightAttr ?? null);
 
   // Separate ref for reading the DOM inside maxWidth (before the hook call).
   const figureRefInternal = useRef<HTMLDivElement>(null);
 
-  const { ref: figureRef, displayWidth, displayHeight, onResizeStart } =
-    useNodeResize<HTMLDivElement>({
-      width: widthPx,
-      height: heightPx,
-      updateAttributes,
-      minWidth: 240,
-      minHeight: 80,
-      fallbackWidth: editorWidth,
-      fallbackHeight: 200,
-      maxWidth: () => {
-        const el = figureRefInternal.current;
-        const editorSurface = el?.closest('.ProseMirror') as HTMLElement | null;
-        if (editorSurface) {
-          const style = getComputedStyle(editorSurface);
-          const padX =
-            (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-          return editorSurface.clientWidth - padX;
-        }
-        return window.innerWidth - 24;
-      },
-      onCommit: (finalWidth, finalHeight) => {
-        const pct =
+  const {
+    ref: figureRef,
+    displayWidth,
+    displayHeight,
+    onResizeStart,
+  } = useNodeResize<HTMLDivElement>({
+    width: widthPx,
+    height: heightPx,
+    updateAttributes,
+    minWidth: 240,
+    minHeight: 80,
+    fallbackWidth: editorWidth,
+    fallbackHeight: 200,
+    maxWidth: () => {
+      const el = figureRefInternal.current;
+      const editorSurface = el?.closest(".ProseMirror") as HTMLElement | null;
+      if (editorSurface) {
+        const style = getComputedStyle(editorSurface);
+        const padX =
+          (parseFloat(style.paddingLeft) || 0) +
+          (parseFloat(style.paddingRight) || 0);
+        return editorSurface.clientWidth - padX;
+      }
+      return window.innerWidth - 24;
+    },
+    onCommit: (finalWidth, finalHeight) => {
+      const pct =
+        editorWidth > 0
+          ? Math.min(
+              100,
+              Math.max(1, Math.round((finalWidth / editorWidth) * 100)),
+            )
+          : 100;
+      const attrs: Record<string, number | null> = {
+        widthPct: pct,
+        width: null,
+      };
+      if (finalHeight !== null) {
+        attrs.heightPct =
           editorWidth > 0
-            ? Math.min(100, Math.max(1, Math.round((finalWidth / editorWidth) * 100)))
-            : 100;
-        const attrs: Record<string, number | null> = { widthPct: pct, width: null };
-        if (finalHeight !== null) {
-          attrs.heightPct =
-            editorWidth > 0
-              ? Math.min(200, Math.max(1, Math.round((finalHeight / editorWidth) * 100)))
-              : null;
-          attrs.height = null;
-        }
-        return attrs;
-      },
-    });
+            ? Math.min(
+                200,
+                Math.max(1, Math.round((finalHeight / editorWidth) * 100)),
+              )
+            : null;
+        attrs.height = null;
+      }
+      return attrs;
+    },
+  });
 
   // Merge the hook's ref + internal ref onto the same DOM element.
   const setFigureRef = useCallback(
@@ -377,7 +478,12 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
   // Double-click the handle to reset to the default (full width, auto height).
   const onSizeReset = useCallback(() => {
-    updateAttributes({ width: null, widthPct: null, height: null, heightPct: null });
+    updateAttributes({
+      width: null,
+      widthPct: null,
+      height: null,
+      heightPct: null,
+    });
   }, [updateAttributes]);
 
   // Select this code block as a node (mirrors FileView): clicking the preview
@@ -386,7 +492,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const selectNode = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const pos = typeof getPos === 'function' ? getPos() : null;
+      const pos = typeof getPos === "function" ? getPos() : null;
       if (pos == null) return;
       editor.commands.setNodeSelection(pos);
     },
@@ -395,9 +501,12 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
 
   // ---- Language dropdown state ----
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    right: 0,
+  });
   const badgeRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -405,8 +514,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const savedSelectionRef = useRef<number | null>(null);
 
   const handleCopy = useCallback(() => {
-    const codeEl = codeRef.current?.querySelector('.hljs');
-    const text = codeEl?.textContent ?? '';
+    const codeEl = codeRef.current?.querySelector(".hljs");
+    const text = codeEl?.textContent ?? "";
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -421,7 +530,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     (value: string) => {
       updateAttributes({ language: value });
       setDropdownOpen(false);
-      setSearchQuery('');
+      setSearchQuery("");
       setHighlightedIndex(0);
 
       // Restore editor focus after the dropdown closes. Use a microtask
@@ -432,7 +541,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         if (savedPos != null) {
           // Place cursor at the saved position (clamped to the code block).
           try {
-            const codeBlockPos = typeof getPos === 'function' ? getPos() : null;
+            const codeBlockPos = typeof getPos === "function" ? getPos() : null;
             if (codeBlockPos != null) {
               const nodeStart = codeBlockPos + 1; // +1 to enter the node
               const nodeEnd = nodeStart + node.content.size;
@@ -460,27 +569,27 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         !dropdownRef.current.contains(e.target as Node)
       ) {
         setDropdownOpen(false);
-        setSearchQuery('');
+        setSearchQuery("");
         setHighlightedIndex(0);
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setDropdownOpen(false);
-        setSearchQuery('');
+        setSearchQuery("");
         setHighlightedIndex(0);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
     // Focus search input when opened
     requestAnimationFrame(() => searchInputRef.current?.focus());
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [dropdownOpen]);
 
@@ -505,7 +614,9 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   const filteredLanguages = searchQuery
     ? LANGUAGES.filter(({ label, value }) => {
         const q = searchQuery.toLowerCase();
-        return label.toLowerCase().includes(q) || value.toLowerCase().includes(q);
+        return (
+          label.toLowerCase().includes(q) || value.toLowerCase().includes(q)
+        );
       })
     : LANGUAGES;
 
@@ -525,7 +636,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     if (!list) return;
     const item = list.children[highlightedIndex] as HTMLElement | undefined;
     if (item) {
-      item.scrollIntoView({ block: 'nearest' });
+      item.scrollIntoView({ block: "nearest" });
     }
   }, [highlightedIndex, dropdownOpen]);
 
@@ -540,9 +651,11 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       <button
         type="button"
         onClick={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
-        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showHtmlPreview ? 'is-active' : ''}`}
-        title={showHtmlPreview ? t('code.showCode') : t('code.previewHtml')}
-        aria-label={showHtmlPreview ? t('code.showCode') : t('code.previewHtml')}
+        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showHtmlPreview ? "is-active" : ""}`}
+        title={showHtmlPreview ? t("code.showCode") : t("code.previewHtml")}
+        aria-label={
+          showHtmlPreview ? t("code.showCode") : t("code.previewHtml")
+        }
       >
         {showHtmlPreview ? <Code2 size={14} /> : <Eye size={14} />}
       </button>
@@ -552,10 +665,16 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
     isMermaid && hasContent ? (
       <button
         type="button"
-        onClick={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
-        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showMermaidPreview ? 'is-active' : ''}`}
-        title={showMermaidPreview ? t('code.showCode') : t('code.previewMermaid')}
-        aria-label={showMermaidPreview ? t('code.showCode') : t('code.previewMermaid')}
+        onClick={() =>
+          updateAttributes({ mermaidPreview: !showMermaidPreview })
+        }
+        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showMermaidPreview ? "is-active" : ""}`}
+        title={
+          showMermaidPreview ? t("code.showCode") : t("code.previewMermaid")
+        }
+        aria-label={
+          showMermaidPreview ? t("code.showCode") : t("code.previewMermaid")
+        }
       >
         {showMermaidPreview ? <Code2 size={14} /> : <Eye size={14} />}
       </button>
@@ -569,8 +688,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
         type="button"
         onClick={() => openHtmlPreviewWindow(htmlSource)}
         className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-        title={t('code.previewNewWindow')}
-        aria-label={t('code.previewNewWindow')}
+        title={t("code.previewNewWindow")}
+        aria-label={t("code.previewNewWindow")}
       >
         <ExternalLink size={14} />
       </button>
@@ -616,11 +735,11 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   </script>
 </body>
 </html>`;
-          openHtmlPreviewWindow(htmlContent, 'Mermaid');
+          openHtmlPreviewWindow(htmlContent, "Mermaid");
         }}
         className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-        title={t('code.previewNewWindow')}
-        aria-label={t('code.previewNewWindow')}
+        title={t("code.previewNewWindow")}
+        aria-label={t("code.previewNewWindow")}
       >
         <ExternalLink size={14} />
       </button>
@@ -631,8 +750,8 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
       type="button"
       onClick={handleCopy}
       className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-      title={t('code.copy')}
-      aria-label={t('code.copy')}
+      title={t("code.copy")}
+      aria-label={t("code.copy")}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </button>
@@ -644,23 +763,23 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
   // HTML/Mermaid preview mode, where the preview itself needs a viewport.
   const showAnyPreview = showHtmlPreview || showMermaidPreview;
   const figureStyle: React.CSSProperties = {
-    width: displayWidth ? `${displayWidth}px` : '100%',
+    width: displayWidth ? `${displayWidth}px` : "100%",
   };
   const bodyStyle: React.CSSProperties = {
-    overflow: 'visible',
-    ...(showAnyPreview || collapsed ? { display: 'none' } : null),
+    overflow: "visible",
+    ...(showAnyPreview || collapsed ? { display: "none" } : null),
   };
   const previewStyle: React.CSSProperties = {
-    height: displayHeight != null ? `${displayHeight}px` : '320px',
+    height: displayHeight != null ? `${displayHeight}px` : "320px",
   };
 
   return (
     <NodeViewWrapper as="div" className="code-block-wrapper">
       <div
         ref={setFigureRef}
-        className={`code-block-figure ${selected ? 'is-selected' : ''} ${
-          showAnyPreview ? 'is-preview' : ''
-        } ${collapsed ? 'is-collapsed' : ''}`}
+        className={`code-block-figure ${selected ? "is-selected" : ""} ${
+          showAnyPreview ? "is-preview" : ""
+        } ${collapsed ? "is-collapsed" : ""}`}
         style={figureStyle}
       >
         {/* Header row — a dedicated strip above the code, separated from the
@@ -673,13 +792,13 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
               type="button"
               onClick={toggleCollapsed}
               className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
-              title={collapsed ? t('code.expand') : t('code.collapse')}
-              aria-label={collapsed ? t('code.expand') : t('code.collapse')}
+              title={collapsed ? t("code.expand") : t("code.collapse")}
+              aria-label={collapsed ? t("code.expand") : t("code.collapse")}
               aria-expanded={!collapsed}
             >
               <ChevronRight
                 size={14}
-                className={`code-collapse-chevron ${collapsed ? '' : 'is-open'}`}
+                className={`code-collapse-chevron ${collapsed ? "" : "is-open"}`}
               />
             </button>
             {htmlPreviewBtn}
@@ -694,7 +813,9 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             role="button"
             tabIndex={0}
           >
-            <span className="code-lang-label">{getLanguageLabel(language)}</span>
+            <span className="code-lang-label">
+              {getLanguageLabel(language)}
+            </span>
             <ChevronDown size={12} className="code-lang-chevron" />
           </div>
         </div>
@@ -706,7 +827,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
               ref={dropdownRef}
               className="code-lang-dropdown code-lang-dropdown-portal"
               style={{
-                position: 'fixed',
+                position: "fixed",
                 top: dropdownPosition.top,
                 right: dropdownPosition.right,
               }}
@@ -720,36 +841,38 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (handleNativeSelectAll(e)) return;
-                    if (e.key === 'ArrowDown') {
+                    if (e.key === "ArrowDown") {
                       e.preventDefault();
                       if (filteredLanguages.length === 0) return;
                       setHighlightedIndex((prev) =>
                         prev >= filteredLanguages.length - 1 ? 0 : prev + 1,
                       );
-                    } else if (e.key === 'ArrowUp') {
+                    } else if (e.key === "ArrowUp") {
                       e.preventDefault();
                       if (filteredLanguages.length === 0) return;
                       setHighlightedIndex((prev) =>
                         prev <= 0 ? filteredLanguages.length - 1 : prev - 1,
                       );
-                    } else if (e.key === 'Enter') {
+                    } else if (e.key === "Enter") {
                       e.preventDefault();
-                      const item = filteredLanguages[highlightedIndex] ?? filteredLanguages[0];
+                      const item =
+                        filteredLanguages[highlightedIndex] ??
+                        filteredLanguages[0];
                       if (item) selectLanguage(item.value);
-                    } else if (e.key === 'Escape') {
+                    } else if (e.key === "Escape") {
                       e.preventDefault();
                       setDropdownOpen(false);
-                      setSearchQuery('');
+                      setSearchQuery("");
                       setHighlightedIndex(0);
                     }
                   }}
-                  placeholder={t('code.searchLang')}
+                  placeholder={t("code.searchLang")}
                   className="code-lang-search-input"
                 />
               </div>
               <div ref={listRef} className="code-lang-list">
                 {filteredLanguages.length === 0 ? (
-                  <div className="code-lang-empty">{t('code.noLangMatch')}</div>
+                  <div className="code-lang-empty">{t("code.noLangMatch")}</div>
                 ) : (
                   filteredLanguages.map(({ value, label }, index) => (
                     <button
@@ -757,7 +880,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
                       type="button"
                       onClick={() => selectLanguage(value)}
                       onMouseEnter={() => setHighlightedIndex(index)}
-                      className={`code-lang-option ${value === language ? 'is-active' : ''} ${index === highlightedIndex ? 'is-highlighted' : ''}`}
+                      className={`code-lang-option ${value === language ? "is-active" : ""} ${index === highlightedIndex ? "is-highlighted" : ""}`}
                     >
                       {label}
                     </button>
@@ -777,10 +900,14 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             contenteditable=false → true island makes WKWebView focus the inner
             host, which breaks ProseMirror's DOM selection synchronization. */}
         <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
-          <div ref={selectionOverlayRef} className="code-block-selection-overlay" aria-hidden="true" />
+          <div
+            ref={selectionOverlayRef}
+            className="code-block-selection-overlay"
+            aria-hidden="true"
+          />
           <NodeViewContent
             as="div"
-            className={`hljs language-${language || 'plaintext'}`}
+            className={`hljs language-${language || "plaintext"}`}
             // `overflow-wrap: anywhere` alone lets WebKit pick either visual
             // line's rect for the caret at a forced (space-less) wrap point,
             // which is what causes the "needs an extra arrow-key press, then
@@ -790,7 +917,11 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             // an ambiguous last-resort one, which WebKit's caret/rect hit
             // -testing handles deterministically. Keep `overflowWrap` as a
             // fallback for engines where `word-break` isn't applied.
-            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere' }}
+            style={{
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
+              overflowWrap: "anywhere",
+            }}
           />
         </pre>
 
@@ -816,7 +947,10 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             style={previewStyle}
           >
             {!selected && (
-              <div className="code-block-preview-overlay" onMouseDown={selectNode} />
+              <div
+                className="code-block-preview-overlay"
+                onMouseDown={selectNode}
+              />
             )}
             {/* iframe inserted by useEffect below, not JSX */}
           </div>
@@ -833,11 +967,14 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
             style={previewStyle}
           >
             {!selected && (
-              <div className="code-block-preview-overlay" onMouseDown={selectNode} />
+              <div
+                className="code-block-preview-overlay"
+                onMouseDown={selectNode}
+              />
             )}
             {mermaidError && (
               <div className="code-block-mermaid-error">
-                <p>{t('mermaid.renderError')}</p>
+                <p>{t("mermaid.renderError")}</p>
                 <pre>{mermaidError}</pre>
               </div>
             )}
@@ -858,7 +995,7 @@ export default function CodeBlockView({ node, updateAttributes, editor, getPos }
           <ResizeHandle
             onPointerDown={onResizeStart}
             onDoubleClick={onSizeReset}
-            title={t('code.dragResize')}
+            title={t("code.dragResize")}
           />
         )}
       </div>
