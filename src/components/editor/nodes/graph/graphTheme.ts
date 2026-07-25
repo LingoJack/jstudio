@@ -58,13 +58,6 @@ export const FONT_DARK = '#E5E7EB';
 export const EDGE_LIGHT = '#0052D9'; // 浅色：主题蓝（--vscode-focusBorder）
 export const EDGE_DARK = '#07C160'; // 暗色：主题绿（--vscode-focusBorder）
 
-/**
- * 连线流动虚线 pattern。dash + gap 周期为 12（8+4），
- * 须与 vscode-theme.css 中 @keyframes jgraph-edge-flow 的 stroke-dashoffset 终值（-12）匹配，
- * 否则流动动画首尾无法无缝衔接。
- */
-export const EDGE_DASH_PATTERN = '8 4';
-
 /** 图形样式 */
 export const SHAPE_STROKE_WIDTH = 1.5;
 export const SHAPE_FONT_SIZE = 13;

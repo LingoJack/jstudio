@@ -57,6 +57,7 @@ import {
   Maximize,
   Grid3x3,
   FileDown,
+  Sparkles,
 } from 'lucide-react';
 
 import { logger } from '../../../../lib/core/logger';
@@ -70,6 +71,7 @@ import {
 import { applySnapshotToGraph, readSnapshotFromGraph, styleToNodeShape } from './graphModel';
 import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
 import MermaidImportDialog from './MermaidImportDialog';
+import AIGraphImportDialog from './AIGraphImportDialog';
 import {
   paletteFor,
   getSelectionColor,
@@ -90,7 +92,6 @@ import {
   PREVIEW_STROKE_COLOR_LIGHT,
   PREVIEW_FILL_COLOR_DARK,
   PREVIEW_STROKE_COLOR_DARK,
-  EDGE_DASH_PATTERN,
 } from './graphTheme';
 import { ShapeGlyph } from './ShapeGlyph';
 import {
@@ -205,6 +206,8 @@ export function GraphCanvas({
 
   // Mermaid 导入对话框状态
   const [mermaidDialogOpen, setMermaidDialogOpen] = useState(false);
+  // AI 生成图表对话框状态
+  const [aiGraphDialogOpen, setAiGraphDialogOpen] = useState(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -268,7 +271,7 @@ export function GraphCanvas({
     graphRef.current = graph;
 
     // 连线流动效果：在 cellRenderer.initializeShape（shape 创建唯一入口）处打标记，
-    // 给每条 edge 的 SVG <g> 加 class，供 CSS 驱动蚂蚁线流动动画。
+    // 给每条 edge 的 SVG <g> 加 class。流动圆点的 <use> 注入在 doRedrawShape 中完成。
     // 新增 / undo 恢复 / 快照灌入都会经过此入口，保证所有 edge 都能命中。
     {
       const cellRenderer = graph.cellRenderer;
@@ -278,6 +281,38 @@ export function GraphCanvas({
         const cell = state.cell;
         if (cell && cell.isEdge() && state.shape?.node) {
           state.shape.node.classList.add('jgraph-edge');
+        }
+      };
+
+      // doRedrawShape 在每次重绘时调用，其内部 state.shape.redraw() -> clear() 会清空
+      // <g> 的所有子元素，因此每次重绘后需要重新注入流动点。
+      // 方案：创建 <circle> + <animateMotion>，用 SMIL 让圆点沿 path 的 d 属性运动。
+      // SMIL animateMotion 直接引用 path data，无需 CSS 动画，兼容性可靠（Chromium 原生支持）。
+      const origDoRedrawShape = cellRenderer.doRedrawShape.bind(cellRenderer);
+      cellRenderer.doRedrawShape = (state: CellState) => {
+        origDoRedrawShape(state);
+        const cell = state.cell;
+        if (cell && cell.isEdge() && state.shape?.node) {
+          const g = state.shape.node;
+          const mainPath = g.querySelector('path');
+          if (mainPath) {
+            const d = mainPath.getAttribute('d');
+            const stroke = mainPath.getAttribute('stroke');
+            if (d && stroke) {
+              const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+              dot.setAttribute('r', '2.5');
+              dot.setAttribute('fill', stroke);
+              dot.classList.add('jgraph-edge-dot');
+
+              const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+              animate.setAttribute('dur', '1.4s');
+              animate.setAttribute('repeatCount', 'indefinite');
+              animate.setAttribute('path', d);
+
+              dot.appendChild(animate);
+              g.appendChild(dot);
+            }
+          }
         }
       };
     }
@@ -482,15 +517,13 @@ export function GraphCanvas({
     vertexDefault.strokeWidth = SHAPE_STROKE_WIDTH;
     vertexDefault.fontSize = SHAPE_FONT_SIZE;
 
-    // 全局默认走正交连线（飞书手感：圆角折线 + 小箭头），蓝色细线 + 蚂蚁线流动。
+    // 全局默认走正交连线（飞书手感：圆角折线 + 小箭头），蓝色细线 + 圆点流动。
     const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
     edgeDefault.edgeStyle = 'orthogonalEdgeStyle';
     edgeDefault.rounded = true;
     edgeDefault.endArrow = 'classic';
     edgeDefault.strokeColor = getEdgeColor(dark);
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
-    edgeDefault.dashed = true;
-    edgeDefault.dashPattern = EDGE_DASH_PATTERN;
 
     // 为每个节点提供固定连接点：悬停边缘时高亮圆点锚点，
     // 从精确点位拖出连线，而非只能从整体边缘任意点连。
@@ -1155,8 +1188,9 @@ export function GraphCanvas({
     }
   }, []);
 
-  // Mermaid 导入处理：将转换后的快照应用到画板
-  const handleMermaidImport = useCallback((snapshotJson: string) => {
+  // 把导入的快照应用到画板——Mermaid 导入与 AI 生成共用。
+  // parse → batchUpdate 灌入 → fitCenter 自适应 → 同步 lastEmitted/onChange。
+  const applyImportedSnapshot = useCallback((snapshotJson: string) => {
     const graph = graphRef.current;
     if (!graph) return;
     const parsed = parseGraphSnapshot(snapshotJson);
@@ -1176,6 +1210,18 @@ export function GraphCanvas({
       applyingRef.current = false;
     }
   }, []);
+
+  // Mermaid 导入处理
+  const handleMermaidImport = useCallback(
+    (snapshotJson: string) => applyImportedSnapshot(snapshotJson),
+    [applyImportedSnapshot],
+  );
+
+  // AI 生成图表导入处理
+  const handleAiGraphImport = useCallback(
+    (snapshotJson: string) => applyImportedSnapshot(snapshotJson),
+    [applyImportedSnapshot],
+  );
 
   /* -------------------------------------------------------------- */
   /* 工具栏按钮定义                                                  */
@@ -1302,6 +1348,14 @@ export function GraphCanvas({
           >
             <FileDown size={16} />
           </button>
+          <button
+            type="button"
+            className="jgraph-tool-btn"
+            title="AI 生成图表"
+            onClick={() => setAiGraphDialogOpen(true)}
+          >
+            <Sparkles size={16} />
+          </button>
         </div>
       )}
 
@@ -1310,6 +1364,13 @@ export function GraphCanvas({
         open={mermaidDialogOpen}
         onClose={() => setMermaidDialogOpen(false)}
         onImport={handleMermaidImport}
+      />
+
+      {/* AI 生成图表对话框 */}
+      <AIGraphImportDialog
+        open={aiGraphDialogOpen}
+        onClose={() => setAiGraphDialogOpen(false)}
+        onImport={handleAiGraphImport}
       />
 
       {/* maxGraph 渲染容器 */}

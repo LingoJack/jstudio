@@ -548,6 +548,27 @@ export const translations = {
     "mermaid.syntax3": "标签：A-->|标签|B 或 A--> B : 标签",
     "mermaid.renderError": "渲染错误",
 
+    // ── AI Graph Import Dialog ──
+    "aiGraph.title": "AI 生成图表",
+    "aiGraph.description":
+      "输入图表描述（如「订单处理流程图」），AI 会自动生成。需先在设置里配置 Agent 模型。",
+    "aiGraph.inputPlaceholder": "描述你想要的图表，例如：\n订单处理流程：开始 → 校验库存 → 发货 / 缺货通知",
+    "aiGraph.generate": "生成",
+    "aiGraph.generating": "生成中...",
+    "aiGraph.cancel": "取消",
+    "aiGraph.close": "关闭",
+    "aiGraph.emptyPrompt": "请输入图表描述",
+    "aiGraph.copyExamplePrompt": "复制示例 Prompt",
+    "aiGraph.promptCopied": "已复制",
+    "aiGraph.noProvider":
+      "未配置 AI 模型。请到「设置 → Agent 模型」添加 OpenAI-compatible 提供商。",
+    "aiGraph.networkError": "请求失败：{error}",
+    "aiGraph.parseError": "AI 返回的内容无法解析为 JSON",
+    "aiGraph.validationError": "数据校验失败：{error}",
+    "aiGraph.emptyResponse": "AI 返回了空内容",
+    "aiGraph.generateError": "生成失败",
+    "aiGraph.importButton": "AI 生成图表",
+
     // ── Link Preview Tabs ──
     "linkPreview.closeTab": "关闭标签",
     "linkPreview.newTab": "新建标签",
@@ -1318,6 +1339,27 @@ export const translations = {
       "Edges: --> solid arrow, --- solid no-arrow, -.-> dotted arrow",
     "mermaid.syntax3": "Labels: A-->|label|B or A--> B : label",
     "mermaid.renderError": "Render error",
+
+    // ── AI Graph Import Dialog ──
+    "aiGraph.title": "AI Generate Diagram",
+    "aiGraph.description":
+      "Describe a diagram (e.g. \"order processing flowchart\") and AI will generate it. Requires an Agent model configured in Settings.",
+    "aiGraph.inputPlaceholder": "Describe the diagram you want, e.g.:\nOrder flow: start → check stock → ship / out-of-stock notice",
+    "aiGraph.generate": "Generate",
+    "aiGraph.generating": "Generating...",
+    "aiGraph.cancel": "Cancel",
+    "aiGraph.close": "Close",
+    "aiGraph.emptyPrompt": "Please enter a diagram description",
+    "aiGraph.copyExamplePrompt": "Copy example prompt",
+    "aiGraph.promptCopied": "Copied",
+    "aiGraph.noProvider":
+      "No AI model configured. Add an OpenAI-compatible provider in Settings → Agent Model.",
+    "aiGraph.networkError": "Request failed: {error}",
+    "aiGraph.parseError": "AI response could not be parsed as JSON",
+    "aiGraph.validationError": "Validation failed: {error}",
+    "aiGraph.emptyResponse": "AI returned an empty response",
+    "aiGraph.generateError": "Generation failed",
+    "aiGraph.importButton": "AI Generate Diagram",
 
     // ── Link Preview Tabs ──
     "linkPreview.closeTab": "Close tab",

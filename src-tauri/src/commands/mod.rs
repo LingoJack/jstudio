@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod ai_graph;
 pub mod bundle;
 pub mod debug;
 pub mod detach;

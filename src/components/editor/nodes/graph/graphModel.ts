@@ -24,7 +24,6 @@ import {
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
-  EDGE_DASH_PATTERN,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -71,15 +70,15 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 注释框：使用 rectangle + 圆角模拟折角效果
       // maxGraph 没有 note 形状，用圆角矩形代替
       return { ...base, shape: 'rectangle', rounded: true, arcSize: 5 };
-    // 连线类型（作为预设连线样式）：蓝色虚线 + 蚂蚁线流动，与 graphCanvasStyle 保持一致。
+    // 连线类型（作为预设连线样式）：实线 + 圆点流动，与 graphCanvasStyle 保持一致。
     case 'edge-line':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
     case 'edge-ortho':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
     case 'edge-dashed':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
     case 'edge-no-arrow':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'none' };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'none' };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
@@ -121,7 +120,7 @@ function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
   return base;
 }
 
-/** 构建连线 CellStyle（蓝色细线 + 圆角折线 + 小箭头 + 蚂蚁线流动）。 */
+/** 构建连线 CellStyle（蓝色细线 + 圆角折线 + 小箭头 + 圆点流动）。 */
 function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   const style: CellStyle = {
     edgeStyle: edge.routing === 'straight' ? undefined : 'orthogonalEdgeStyle',
@@ -130,14 +129,11 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     startArrow: edge.startArrow ?? 'none',
     strokeColor: getEdgeColor(dark),
     strokeWidth: SHAPE_STROKE_WIDTH,
-    dashed: true,
-    dashPattern: EDGE_DASH_PATTERN,
   };
   const s = edge.style;
   if (s) {
     if (s.stroke !== undefined) style.strokeColor = s.stroke;
     if (s.strokeWidth !== undefined) style.strokeWidth = s.strokeWidth;
-    if (s.dashed !== undefined) style.dashed = s.dashed;
   }
   return style;
 }
@@ -273,7 +269,6 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
     const eStyle: GraphEdge['style'] = {};
     if (colorStr(style.strokeColor)) eStyle.stroke = colorStr(style.strokeColor);
     if (typeof style.strokeWidth === 'number') eStyle.strokeWidth = style.strokeWidth;
-    if (typeof style.dashed === 'boolean') eStyle.dashed = style.dashed;
     if (Object.keys(eStyle).length > 0) edge.style = eStyle;
     outEdges.push(edge);
   }

@@ -5,7 +5,6 @@ import {
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
-  EDGE_DASH_PATTERN,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -88,16 +87,16 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     case 'note':
       // 注释框：使用自定义 note 形状（右上角折角的便利贴风格）
       return { ...base, shape: 'note' };
-    // 连线类型：统一蓝色虚线 + 蚂蚁线流动（流动由 CSS 动画驱动，见 vscode-theme.css）。
-    // 箭头 marker 由 ConnectorShape.setDashed(false) 渲染为实线，不受虚线/流动影响。
+    // 连线类型：统一实线 + 圆点流动（流动由 CSS 动画驱动，见 vscode-theme.css）。
+    // 箭头 marker 由 ConnectorShape.setDashed(false) 渲染为实线，不受流动影响。
     case 'edge-line':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
     case 'edge-ortho':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
     case 'edge-dashed':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
     case 'edge-no-arrow':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, dashed: true, dashPattern: EDGE_DASH_PATTERN, endArrow: 'none' };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'none' };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
