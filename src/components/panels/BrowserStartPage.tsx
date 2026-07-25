@@ -235,14 +235,7 @@ export default function BrowserStartPage() {
 
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[var(--vscode-editor-background)]">
-      <div className="min-h-full flex flex-col items-center px-8 pt-[14vh] pb-12">
-        {/* ── Title ── */}
-        <div className="flex flex-col items-center mb-10 select-none">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--vscode-foreground)] opacity-90">
-            JStudio
-          </h1>
-        </div>
-
+      <div className="min-h-full flex flex-col items-center px-8 pt-[22vh] pb-12">
         {/* ── Search box ── */}
         <div className="w-full max-w-2xl mb-12">
           <div className="flex items-center gap-3 h-14 px-5 rounded-full border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] shadow-sm focus-within:border-[var(--vscode-focusBorder)] transition-colors">
@@ -310,16 +303,16 @@ export default function BrowserStartPage() {
                 engine: engine.name,
               })}
               autoFocus
-              className="flex-1 min-w-0 bg-transparent outline-none text-sm text-[var(--vscode-input-foreground)] placeholder:opacity-50"
+              className="flex-1 min-w-0 bg-transparent outline-none text-base text-[var(--vscode-input-foreground)] placeholder:opacity-50"
             />
 
             {query.trim() && (
               <button
                 type="button"
                 onClick={handleSearch}
-                className="shrink-0 p-1.5 rounded-full text-[var(--vscode-button-background)] hover:bg-[var(--vscode-menu-hoverBackground)] transition-colors"
+                className="shrink-0 p-2 rounded-full text-[var(--vscode-button-background)] hover:bg-[var(--vscode-menu-hoverBackground)] transition-colors"
               >
-                <Search className="w-4 h-4" />
+                <Search className="w-5 h-5" />
               </button>
             )}
           </div>
@@ -405,4 +398,19 @@ export default function BrowserStartPage() {
       )}
     </div>
   );
+}
+ );
+}
+log ── */}
+      {dialog && (
+        <ShortcutDialog
+          initial={dialog.mode === "edit" ? dialog.shortcut : undefined}
+          onSave={handleDialogSave}
+          onClose={() => setDialog(null)}
+        />
+      )}
+    </div>
+  );
+}
+ );
 }
