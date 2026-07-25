@@ -51,6 +51,7 @@ export function looksLikeMarkdown(text: string): boolean {
     /^\|.+\|.*\n\|[-:\s|]+\|/m, // | GFM table |
     /^-{3,}$|^\*{3,}$/m, // --- Horizontal rule
     /^!\[.*\]\(.*\)/m, // ![alt](url) image
+    /^\$\$[\s\S]+?\$\$/m, // $$ Math block $$
   ];
 
   return blockPatterns.some((re) => re.test(text));
