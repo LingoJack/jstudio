@@ -149,9 +149,10 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     graphLog(`source=${source?.getId()}(shape=${srcShape}), target=${target?.getId()}(shape=${tgtShape})`);
     if (!source || !target) return;
 
-    // 只在"调用消息"（lifeline -> lifeline）时自动生成 activation。
-    // 回消息（activation -> lifeline）、嵌套调用（lifeline -> activation）等场景不生成。
-    const shouldGenerate = isLifeline(source) && isLifeline(target);
+    // 只要目标是 lifeline 就生成 activation（放宽条件，支持 actor -> lifeline 场景）。
+    // 回消息（activation -> lifeline）不会生成，因为目标是 lifeline 但 source 是 activation，
+    // 且 target 是 lifeline 时会生成新的 activation（覆盖旧的）。
+    const shouldGenerate = isLifeline(target);
     graphLog(`shouldGenerate=${shouldGenerate}, isLifeline(src)=${isLifeline(source)}, isLifeline(tgt)=${isLifeline(target)}`);
     if (!shouldGenerate) return;
 
@@ -171,11 +172,10 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     graphLog(`msgY=${msgY}, handler.first=${handler.first ? `(${handler.first.x}, ${handler.first.y})` : 'null'}`);
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
-    // activation 左边缘 = lifeline 中心线，右边缘 = lifeline中心 + 16。
-    // 这样从 activation 右边缘拉出的线起点明显偏离 lifeline 中心（16px），
-    // 视觉上能清晰看出"消息从 activation 出来"，而不是"从 lifeline 出来"。
+    // activation 居中在 lifeline 上：中心 X = lifeline 中心 X，左右各延伸 8px。
+    // 这样 activation 完美贴合 lifeline 中心虚线，视觉上更自然。
     const actGeo = {
-      x: targetCenterX,
+      x: targetCenterX - ACTIVATION_W / 2,
       y: msgY,
       w: ACTIVATION_W,
       h: ACTIVATION_H,
