@@ -116,17 +116,20 @@ fn on_window_close_requested(window: &tauri::Window, api: &tauri::CloseRequestAp
 }
 
 /// Build the macOS app menu identical to Tauri's default, EXCEPT the Edit
-/// menu's "Select All" item is omitted.
+/// menu's "Select All" item is a custom `MenuItem` (not
+/// `PredefinedMenuItem::select_all`) so the keypress is forwarded to the
+/// frontend via `native-command` instead of triggering WKWebView's native
+/// select-all.
 ///
-/// Why: Tauri's default menu includes `PredefinedMenuItem::select_all` bound
-/// to Cmd+A. macOS dispatches Cmd+A to that menu item via
-/// `performKeyEquivalent:` BEFORE generating a DOM keydown event, so the
-/// editor's JS keyboard handlers (ProseMirror keymap AND window-capture
-/// listeners) never see Cmd+A - breaking in-code-block "select all" and any
-/// other Cmd+A handling. Removing the menu item lets Cmd+A flow through to
-/// the webview like any ordinary key (the same path Cmd+Arrow already takes;
-/// see docs/bug-graveyard.md #001). The structure mirrors Tauri 2.11's
-/// `Menu::default` (src/menu/menu.rs) item-for-item, minus that one item.
+/// Why: `PredefinedMenuItem::select_all` calls WKWebView's native
+/// `selectAll:`, which selects all text in the focused editing host. For the
+/// sectioned editor this only grabs the CURRENT section — not the whole
+/// document — and ignores code-block scoping. By using a custom `MenuItem`
+/// with the same Cmd+A accelerator, macOS still routes the keypress through
+/// `performKeyEquivalent:` → `on_menu_event`, but instead of the native
+/// action we emit a `native-command` event (`"app.selectAll"`) that the
+/// frontend dispatches via `commandRegistry` → `selectAllRegistry`. Same
+/// pattern as `editor.undo` / `editor.redo` / `editor.inlineCode`.
 #[cfg(target_os = "macos")]
 fn build_app_menu<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -151,12 +154,30 @@ fn build_app_menu<R: tauri::Runtime>(
     )?;
 
     // ── Edit menu ──────────────────────────────────────────────────────
-    // Intentionally WITHOUT `select_all` (see fn doc above).
     // Find starts without an accelerator. After settings load, the frontend
     // synchronizes the effective user binding through
     // `set_native_menu_accelerator`; an explicit unbind therefore remains
     // unbound instead of briefly restoring Cmd+F during startup.
     let find_item = MenuItem::with_id(app, "app.find", "Find...", true, None::<&str>)?;
+
+    // Select All menu item — custom MenuItem (NOT PredefinedMenuItem).
+    //
+    // Why: PredefinedMenuItem::select_all triggers WKWebView's native
+    // select-all, which only selects the currently-focused editing host
+    // (one section in the sectioned editor) and ignores code-block scoping.
+    // By using a custom MenuItem, macOS routes Cmd+A through
+    // `performKeyEquivalent:` → `on_menu_event` → `native-command`
+    // ("app.selectAll"), and the frontend's `commandRegistry` dispatches it
+    // to the appropriate handler (input.select(), editor code-block-scoped
+    // / cross-section select-all, or browser content webview). Same pattern
+    // as editor.undo / editor.redo / editor.inlineCode above.
+    let select_all_item = MenuItem::with_id(
+        app,
+        "app.selectAll",
+        "Select All",
+        true,
+        Some("CmdOrCtrl+A"),
+    )?;
 
     // Inline code menu item - bound to Cmd+` by default.
     //
@@ -204,6 +225,7 @@ fn build_app_menu<R: tauri::Runtime>(
             &PredefinedMenuItem::cut(app, None)?,
             &PredefinedMenuItem::copy(app, None)?,
             &PredefinedMenuItem::paste(app, None)?,
+            &select_all_item,
             &PredefinedMenuItem::separator(app)?,
             &find_item,
             &PredefinedMenuItem::separator(app)?,
@@ -248,13 +270,17 @@ fn build_app_menu<R: tauri::Runtime>(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Tauri's default macOS menu includes Edit > "Select All" (Cmd+A),
-        // which macOS intercepts via performKeyEquivalent: before any DOM
-        // keydown is generated - so the editor never sees Cmd+A. We disable
-        // the default menu and install a custom one (build_app_menu) that is
-        // identical except it omits the "Select All" item. Cmd+A then flows
-        // through to the webview like Cmd+Arrow. See build_app_menu + the
-        // window-capture handler in SectionedEditorPanel.tsx.
+        // Tauri's default macOS menu includes Edit > "Select All" (Cmd+A)
+        // via PredefinedMenuItem::select_all, which triggers WKWebView's
+        // native select-all — that only grabs the focused editing host (one
+        // section in the sectioned editor) and ignores code-block scoping.
+        // We disable the default menu and install a custom one (build_app_menu)
+        // that replaces "Select All" with a custom MenuItem bound to the same
+        // Cmd+A accelerator. macOS still routes the keypress through
+        // performKeyEquivalent: → on_menu_event, but instead of the native
+        // action we emit a `native-command` ("app.selectAll") that the
+        // frontend dispatches via commandRegistry → selectAllRegistry (same
+        // forwarding pattern as editor.undo / editor.redo / editor.inlineCode).
         .enable_macos_default_menu(false)
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -319,7 +345,8 @@ pub fn run() {
                 || id == "editor.undo"
                 || id == "editor.redo"
                 || id == "app.closeTab"
-                || id == "terminal.newTab";
+                || id == "terminal.newTab"
+                || id == "app.selectAll";
             if !routed {
                 return;
             }
@@ -381,6 +408,37 @@ pub fn run() {
                     }
                     _ => {}
                 }
+            }
+
+            // ── app.selectAll: forward to the focused webview ──
+            // The main window and detached document windows run ShortcutManager,
+            // which listens for `native-command` and dispatches via
+            // `commandRegistry` (handles inputs, editor code-block scoping /
+            // cross-section select-all, and browser content webviews).
+            //
+            // Other detached windows (link-preview, preview, diagram,
+            // command-palette, terminal) don't run ShortcutManager, so we
+            // eval_js a select-all script directly into their webviews. For
+            // link-preview windows this covers both the UI webview (address
+            // bar) and the active content webview (external page).
+            if id == "app.selectAll" {
+                if commands::link_tabs::is_link_preview_window(&target) {
+                    let _ = commands::link_tabs::select_all_in_link_preview(app, &target);
+                    return;
+                }
+                if target != "main" && !target.starts_with("document-") {
+                    // Detached window without ShortcutManager — eval_js
+                    // select-all directly.
+                    let script = "(function(){var el=document.activeElement;\
+                        if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'))el.select();\
+                        else document.execCommand('selectAll')})()";
+                    if let Some(wv) = app.get_webview(&target) {
+                        let _ = wv.eval(script);
+                    }
+                    return;
+                }
+                // Main + document windows: fall through to emit_to below
+                // (ShortcutManager handles it).
             }
 
             let _ = app.emit_to(target, "native-command", id.to_string());
@@ -478,6 +536,7 @@ pub fn run() {
             commands::link_tabs::update_browser_panel_rect,
             commands::link_tabs::update_browser_tabbar_rect,
             commands::link_tabs::get_browser_panel_tabs_state,
+            commands::link_tabs::select_all_in_active_browser_tab,
             // ── terminal detach (tear-off window mailbox) ──
             commands::detach::set_terminal_detach_payload,
             commands::detach::get_terminal_detach_payload,

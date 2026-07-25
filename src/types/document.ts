@@ -18,7 +18,8 @@ export type BlockType =
   | 'divider'
   | 'collapsible'
   | 'link'
-  | 'diagram';
+  | 'diagram'
+  | 'math';
 
 // ---------------------------------------------------------------------------
 // Block property interfaces (split by block type for better organization)
@@ -159,6 +160,12 @@ export interface DiagramBlockProperties {
   diagramAlign?: 'left' | 'center';
 }
 
+/** Math (LaTeX formula) block properties. */
+export interface MathBlockProperties {
+  /** LaTeX source string rendered via KaTeX. */
+  mathLatex?: string;
+}
+
 /**
  * Aggregate block properties type.
  *
@@ -180,7 +187,8 @@ export type BlockProperties =
   & ListBlockProperties
   & TodoBlockProperties
   & LinkBlockProperties
-  & DiagramBlockProperties;
+  & DiagramBlockProperties
+  & MathBlockProperties;
 
 export interface Block {
   id: string;

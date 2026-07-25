@@ -3,6 +3,9 @@
 /* excalidraw canvas library — required for diagram block rendering */
 @import "@excalidraw/excalidraw/index.css";
 
+/* KaTeX - required for math formula block rendering */
+@import "katex/dist/katex.min.css";
+
 /* Tailwind v4: 使 dark: 变体基于 .dark 类而非 prefers-color-scheme 媒体查询，
    与 App.tsx 中在 <html> 上切换 .dark 类的逻辑保持一致 */
 @custom-variant dark (&:where(.dark, .dark *));

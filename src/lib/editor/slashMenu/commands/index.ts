@@ -15,6 +15,7 @@ import { tableCommand } from './table';
 import { dividerCommand } from './divider';
 import { diagramCommand } from './diagram';
 import { collapsibleCommand } from './collapsible';
+import { mathCommand } from './math';
 
 /**
  * Ordered list of every slash-menu command.
@@ -38,6 +39,7 @@ export const slashCommands: SlashCommandItem[] = [
   dividerCommand,
   diagramCommand,
   collapsibleCommand,
+  mathCommand,
 ];
 
 /**

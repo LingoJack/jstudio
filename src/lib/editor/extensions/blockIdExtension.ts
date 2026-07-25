@@ -21,6 +21,7 @@ export const BlockIdExtension = Extension.create({
           'fileBlock',
           'linkBlock',
           'diagramBlock',
+          'mathBlock',
           'table',
           'bulletList',
           'orderedList',

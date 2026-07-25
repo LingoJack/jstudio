@@ -21,6 +21,7 @@ import { storage } from "./storage";
 import { ACTIVITY_ITEM_META } from "../activityMeta";
 import { createTerminalWindow } from "../windows/terminalDetach";
 import { getFocusedEditor } from "../editor/focusedEditorRegistry";
+import { getSelectAllHandler } from "../editor/selectAllRegistry";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -194,6 +195,44 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       const editor = getFocusedEditor();
       if (!editor || editor.isDestroyed) return;
       editor.chain().focus().redo().run();
+    },
+  },
+  {
+    id: "app.selectAll",
+    perform: (store) => {
+      // Triggered by the macOS native Edit > Select All menu item (Cmd+A),
+      // forwarded via `native-command`. The custom menu item (NOT
+      // PredefinedMenuItem::select_all) lets us dispatch to the right handler
+      // based on focus:
+      //   1. Native <input>/<textarea> (address bar, title, search fields,
+      //      etc.) → el.select()
+      //   2. TipTap/ProseMirror editor → code-block-scoped select or
+      //      cross-section select-all (registered by SectionedEditorPanel via
+      //      selectAllRegistry)
+      //   3. Browser content webview (child WKWebView has focus) → Rust
+      //      eval_js on the active browser content webview
+      //   4. Fallback → document.execCommand('selectAll')
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement
+      ) {
+        active.select();
+        return;
+      }
+      const editor = getFocusedEditor();
+      if (editor && !editor.isDestroyed) {
+        const handler = getSelectAllHandler();
+        if (handler) {
+          handler();
+          return;
+        }
+      }
+      if (store.activeSidebarView === "browser") {
+        invoke("select_all_in_active_browser_tab").catch(console.error);
+        return;
+      }
+      document.execCommand("selectAll");
     },
   },
 ];

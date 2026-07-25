@@ -15,6 +15,7 @@ import { FileExtension } from '../../../lib/editor/extensions/fileExtension';
 import { LinkExtension } from '../../../lib/editor/extensions/linkExtension';
 import { CollapsibleExtension } from '../../../lib/editor/extensions/collapsibleExtension';
 import { DiagramExtension } from '../../../lib/editor/extensions/diagramExtension';
+import { MathBlockExtension } from '../../../lib/editor/extensions/mathBlockExtension';
 import Link from '@tiptap/extension-link';
 import { customLinkAutolink } from '../../../lib/editor/extensions/customLinkAutolink';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -84,6 +85,7 @@ export function createSectionExtensions(
     LinkExtension,
     CollapsibleExtension,
     DiagramExtension,
+    MathBlockExtension,
     Link.extend({
       addProseMirrorPlugins() {
         return [

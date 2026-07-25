@@ -72,6 +72,8 @@ function ourTypeToTiptapType(type: BlockType): string {
       return 'linkBlock';
     case 'diagram':
       return 'diagramBlock';
+    case 'math':
+      return 'mathBlock';
     default:
       return 'paragraph';
   }
@@ -112,6 +114,8 @@ function tiptapTypeToOurType(nodeType: string, attrs: Record<string, unknown>): 
       return 'link';
     case 'diagramBlock':
       return 'diagram';
+    case 'mathBlock':
+      return 'math';
     default:
       return 'text';
   }
@@ -244,6 +248,13 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         height: block.properties?.diagramHeight ?? null,
         heightPct: block.properties?.diagramHeightPct ?? null,
         align: block.properties?.diagramAlign ?? 'center',
+      };
+      break;
+    }
+    case 'math': {
+      json.attrs = {
+        ...json.attrs,
+        latex: block.properties?.mathLatex ?? '',
       };
       break;
     }
@@ -457,6 +468,13 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
           attrs.align === 'left' || attrs.align === 'center'
             ? attrs.align
             : 'center',
+      };
+      break;
+    }
+    case 'math': {
+      block.content = [];
+      block.properties = {
+        mathLatex: typeof attrs.latex === 'string' ? attrs.latex : '',
       };
       break;
     }

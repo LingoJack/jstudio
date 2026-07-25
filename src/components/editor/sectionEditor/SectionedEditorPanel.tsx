@@ -40,7 +40,9 @@ import { eventToBinding, resolveBinding } from '../../../lib/shortcuts/keyboardS
 import {
   setFocusedEditor as setFocusedEditorRegistry,
   clearFocusedEditor as clearFocusedEditorRegistry,
+  getFocusedEditor as getFocusedEditorRegistry,
 } from '../../../lib/editor/focusedEditorRegistry';
+import { registerSelectAllHandler } from '../../../lib/editor/selectAllRegistry';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
@@ -293,15 +295,20 @@ export default function SectionedEditorPanel({
 
   // -----------------------------------------------------------------
   // Cmd/Ctrl + ArrowLeft / ArrowRight → jump to block/line start / end.
-  // Cmd/Ctrl + A → scope "select all" to the current code block.
   //
   // Ported from the retired EditorPanel (see git history for the
   // single-editor version). macOS WKWebView (Tauri's webview) intercepts
-  // Cmd+Left/Right and Cmd+A at the native level and calls preventDefault()
+  // Cmd+Left/Right at the native level and calls preventDefault()
   // before the event reaches ProseMirror's handleKeyDown, so we must listen
   // at the window capture phase — the earliest point we can see the event —
   // and handle it ourselves. Route each event through its DOM target so a
   // stale focused-editor ref cannot hijack title, portal, or toolbar inputs.
+  //
+  // Cmd/Ctrl+A (select-all) was previously handled here too, but is now
+  // forwarded through the macOS "Select All" menu item → `native-command`
+  // → `commandRegistry` ("app.selectAll") → `selectAllRegistry` handler
+  // registered above. Same pattern as Cmd+Z/Cmd+Shift+Z (undo/redo) and
+  // Cmd+` (inline code).
   //
   // NOTE: Cmd/Ctrl + ArrowUp/Down do NOT need this treatment — WKWebView
   // does not intercept them, and SectionEditor's own `handleKeyDown` already
@@ -316,83 +323,6 @@ export default function SectionedEditorPanel({
       // Cmd+Option+Arrow is the workspace tab-cycle shortcut — let it
       // pass through to the global handler in App.tsx.
       if (e.altKey) return;
-
-      // ── Cmd/Ctrl+A → select-all, scoped correctly ──
-      // See the retired EditorPanel's equivalent handler / docs/bug-graveyard.md #001
-      // for why this reaches here instead of being consumed by the native
-      // Edit > Select All menu item.
-      //
-      // Behaviour: if the caret is inside (or the node itself is) a code
-      // block, select ONLY that block's content. Otherwise select the whole
-      // document across every section via `crossSel.selectAll()` (see below)
-      // — letting the event fall through to ProseMirror's default Mod-a
-      // would only select the currently-focused SECTION, not the full doc.
-      if (e.key === 'a' || e.key === 'A') {
-        // Native inputs (title, portal-based language search, etc.) handle
-        // Cmd/Ctrl+A themselves explicitly via `handleNativeSelectAll` in
-        // their own onKeyDown — the browser's native select-all can't be
-        // relied on here since the app's menu omits Edit > Select All (see
-        // nativeSelectAll.ts). Bail out so we don't fight their handling.
-        if (e.target === titleInputRef.current) return;
-
-        const editor = editorForKeyboardTarget(e.target, sectionEditorsRef.current);
-        if (!editor) return;
-        const { state, view } = editor;
-        const { selection, doc: pmDoc, tr } = state;
-
-        let codeBlockRange: { from: number; to: number } | null = null;
-
-        if (
-          selection instanceof NodeSelection &&
-          selection.node.type.name === 'codeBlock'
-        ) {
-          const pos = selection.from;
-          codeBlockRange = {
-            from: pos + 1,
-            to: pos + 1 + selection.node.content.size,
-          };
-        } else {
-          const { $from } = selection;
-          for (let d = $from.depth; d > 0; d--) {
-            if ($from.node(d).type.name === 'codeBlock') {
-              const start = $from.start(d);
-              codeBlockRange = {
-                from: start,
-                to: start + $from.node(d).content.size,
-              };
-              break;
-            }
-          }
-        }
-
-        if (codeBlockRange) {
-          tr.setSelection(
-            TextSelection.create(pmDoc, codeBlockRange.from, codeBlockRange.to),
-          );
-          view.dispatch(tr);
-          view.focus();
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-
-        // Not in a code block → select the ENTIRE document across all
-        // sections. Each section is an independent ProseMirror instance with
-        // its own contenteditable; letting this event fall through to the
-        // default/native Mod-a handling would only select the CURRENTLY
-        // FOCUSED section's content (ProseMirror's own `select-all-text`
-        // keymap operates on that section's local `doc`, and the browser
-        // only ever has one native Selection, scoped to the focused editing
-        // host) — which is exactly the "select all only grabs part of the
-        // document" bug this branch fixes. `useCrossSectionSelection`
-        // already implements a real multi-section select-all (painting a
-        // highlight decoration on every section); we just need to trigger it
-        // here instead of doing nothing.
-        crossSelectAllRef.current?.();
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
 
       // ── Cmd/Ctrl+` → toggle inline code (editor.inlineCode) ──
       // macOS/WKWebView intercepts Cmd+` as the system "cycle window"
@@ -912,6 +842,59 @@ export default function SectionedEditorPanel({
   );
   const crossSel = useCrossSectionSelection(crossCtx, editorDocId);
   crossSelectAllRef.current = crossSel.selectAll;
+
+  // ── Register the editor's Cmd+A select-all handler ──
+  // The macOS "Select All" menu item (Cmd+A) is forwarded to the frontend
+  // via `native-command` → `commandRegistry` ("app.selectAll"). The action
+  // checks inputs/textareas first, then calls this handler for the editor
+  // case (code-block scoping + cross-section select-all), then falls back
+  // to browser content / native select-all. See `selectAllRegistry.ts`.
+  useEffect(() => {
+    registerSelectAllHandler(() => {
+      const editor = getFocusedEditorRegistry();
+      if (!editor || editor.isDestroyed) return;
+      const { state, view } = editor;
+      const { selection, doc: pmDoc, tr } = state;
+
+      // If the caret is inside (or the node itself is) a code block, select
+      // ONLY that block's content.
+      let codeBlockRange: { from: number; to: number } | null = null;
+      if (
+        selection instanceof NodeSelection &&
+        selection.node.type.name === 'codeBlock'
+      ) {
+        const pos = selection.from;
+        codeBlockRange = {
+          from: pos + 1,
+          to: pos + 1 + selection.node.content.size,
+        };
+      } else {
+        const { $from } = selection;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === 'codeBlock') {
+            const start = $from.start(d);
+            codeBlockRange = {
+              from: start,
+              to: start + $from.node(d).content.size,
+            };
+            break;
+          }
+        }
+      }
+      if (codeBlockRange) {
+        tr.setSelection(
+          TextSelection.create(pmDoc, codeBlockRange.from, codeBlockRange.to),
+        );
+        view.dispatch(tr);
+        view.focus();
+        return;
+      }
+
+      // Not in a code block → select the ENTIRE document across all sections.
+      crossSelectAllRef.current?.();
+    });
+    return () => registerSelectAllHandler(null);
+  }, []);
 
   // ── Cross-section find-in-document ──
   // Reuses the same `crossCtx` as the selection coordinator — both need to

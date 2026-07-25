@@ -22,6 +22,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { Markdown } from '@tiptap/markdown';
+import { MathBlockExtension } from './extensions/mathBlockExtension';
 import { tiptapJSONToOurBlocks } from './tiptapAdapter';
 import type { Block } from '../../types';
 import type { JSONContent } from '@tiptap/core';
@@ -58,6 +59,7 @@ function getHeadlessEditor(): Editor {
       // bullet lists. Must mirror SectionedEditorPanel's config (`nested: true`).
       TaskList,
       TaskItem.configure({ nested: true }),
+      MathBlockExtension,
       Markdown.configure({
         markedOptions: { gfm: true, breaks: true },
       }),

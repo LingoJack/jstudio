@@ -802,6 +802,71 @@ pub async fn get_browser_panel_tabs_state() -> Result<TabsState, String> {
     Ok(build_tabs_state(&m))
 }
 
+/// JavaScript snippet that performs a select-all in whichever webview it's
+/// eval'd in. Used by `select_all_in_active_browser_tab` and
+/// `select_all_in_link_preview` to forward Cmd+A (intercepted by the macOS
+/// "Select All" menu item) into browser content webviews that don't run the
+/// app's React frontend.
+const SELECT_ALL_JS: &str = "(function(){\
+    var el=document.activeElement;\
+    if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'))el.select();\
+    else document.execCommand('selectAll')\
+})()";
+
+/// Select all text in the inline browser panel's active content webview.
+/// Called from the frontend's `commandRegistry` ("app.selectAll" action) when
+/// the browser panel is visible and the main React webview doesn't have focus
+/// (i.e. the child WKWebView loading the external page has focus). The macOS
+/// "Select All" menu item intercepts Cmd+A app-wide, so the content webview's
+/// own DOM never sees the keydown — we eval_js the select-all directly.
+#[tauri::command]
+pub async fn select_all_in_active_browser_tab(app: AppHandle) -> Result<(), String> {
+    let manager = get_manager(MAIN_BROWSER_LABEL)?;
+    let active_label = {
+        let m = manager.lock().unwrap();
+        m.active_tab_id
+            .as_ref()
+            .and_then(|id| m.tabs.get(id))
+            .map(|t| t.webview_label.clone())
+    };
+    if let Some(label) = active_label {
+        if let Some(wv) = app.get_webview(&label) {
+            let _ = wv.eval(SELECT_ALL_JS);
+        }
+    }
+    Ok(())
+}
+
+/// Select all text in a standalone link-preview window. Eval_js's the
+/// select-all script into BOTH the UI webview (address bar) and the active
+/// content webview (external page). The script checks `document.activeElement`
+/// so only the webview that actually has focus performs the select-all — the
+/// other is a no-op. Called from `on_menu_event` for `app.selectAll` when the
+/// focused window is a link-preview window (which doesn't run ShortcutManager).
+pub fn select_all_in_link_preview(app: &AppHandle, window_label: &str) -> Result<(), String> {
+    // UI webview (address bar)
+    let ui_label = ui_webview_label(window_label);
+    if let Some(wv) = app.get_webview(&ui_label) {
+        let _ = wv.eval(SELECT_ALL_JS);
+    }
+    // Active content webview (external page)
+    if let Ok(manager) = get_manager(window_label) {
+        let active_label = {
+            let m = manager.lock().unwrap();
+            m.active_tab_id
+                .as_ref()
+                .and_then(|id| m.tabs.get(id))
+                .map(|t| t.webview_label.clone())
+        };
+        if let Some(label) = active_label {
+            if let Some(wv) = app.get_webview(&label) {
+                let _ = wv.eval(SELECT_ALL_JS);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Add a new (about:blank) tab to the inline browser panel. Called from
 /// `on_menu_event` when Cmd+T fires while the browser panel is visible in
 /// the main window.
@@ -1174,31 +1239,6 @@ fn add_tab_internal(
                 });
                 NewWindowResponse::Deny
             });
-
-    // Cmd+A select-all compensation: the custom macOS menu removes the Edit >
-    // "Select All" item app-wide (see lib.rs::build_app_menu) so that Cmd+A
-    // reaches the main editor's JS handler. That fix is app-wide, so these
-    // external content webviews also lose WKWebView's native Cmd+A (the
-    // `selectAll:` responder-chain action is no longer routed to a menu item,
-    // and WKWebView does not synthesize a keydown that triggers select-all).
-    // Inject a capture-phase keydown listener that performs select-all via
-    // `el.select()` for inputs/textareas and `document.execCommand('selectAll')`
-    // for everything else.
-    webview_builder = webview_builder.initialization_script(
-        r#"
-document.addEventListener('keydown', function(e) {
-  if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
-    var el = document.activeElement;
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
-      el.select();
-    } else {
-      document.execCommand('selectAll');
-    }
-    e.preventDefault();
-  }
-}, true);
-"#,
-    );
 
     if !cookie_script.is_empty() {
         webview_builder = webview_builder.initialization_script(&cookie_script);

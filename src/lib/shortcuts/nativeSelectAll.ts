@@ -4,22 +4,18 @@ import type { KeyboardEvent } from 'react';
  * handleNativeSelectAll — explicit Cmd/Ctrl+A handling for plain
  * `<input>`/`<textarea>` elements.
  *
- * Why this exists: the app's custom macOS menu (see `build_app_menu` in
- * `src-tauri/src/lib.rs`) deliberately omits Edit > Select All so that
- * Cmd+A reaches the ProseMirror editor as a plain DOM keydown instead of
- * being swallowed by the native menu key-equivalent (see
- * `docs/bug-graveyard.md` #001 for the same class of WKWebView quirk).
+ * Historical context: the app's custom macOS menu previously omitted Edit >
+ * Select All so that Cmd+A reached the editor as a plain DOM keydown. Plain
+ * inputs lost the OS-driven select-all as a side effect, so each input called
+ * this helper in its `onKeyDown` to compensate.
  *
- * Side effect: plain `<input>`/`<textarea>` elements outside the editor no
- * longer receive the OS-driven "select all" action either, since that
- * action was tied to the very same menu item. Call this at the top of an
- * input's `onKeyDown` to restore select-all explicitly.
- *
- * Usage:
- *   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
- *     if (handleNativeSelectAll(e)) return;
- *     ...
- *   };
+ * Current architecture: the menu now includes a custom "Select All" MenuItem
+ * (Cmd+A) that forwards via `native-command` → `commandRegistry`
+ * ("app.selectAll"), which checks `document.activeElement` and calls
+ * `el.select()` for inputs. The keydown path no longer fires for Cmd+A (the
+ * menu item intercepts it at `performKeyEquivalent:` time), so these calls are
+ * now legacy fallbacks — kept for safety in case the menu forwarding is ever
+ * bypassed.
  *
  * @returns true if the event was handled (Cmd/Ctrl+A) — caller should
  *          `return` immediately after.
