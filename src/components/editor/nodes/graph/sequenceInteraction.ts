@@ -109,7 +109,8 @@ function genActivationId(): string {
  *  - source=lifeline, target=lifeline：在 target lifeline 的消息 Y 位置生成
  *    一个 activation（w=16, h=40），并把这条 edge 的 target 改为新生成的 activation
  *  - source=lifeline, target=activation：不生成（用户拖到了一个已存在的 activation 上）
- *  - source=activation, target=lifeline：回消息，同样生成一个新 activation 在 target 上
+ *  - source=activation, target=lifeline：回消息，不生成（避免错误地在 lifeline 上
+ *    又生成一个 activation）
  *  - source=activation, target=activation：不生成
  *
  * 所有修改包在 batchUpdate 里，undo 一次回滚消息 + activation。
@@ -124,31 +125,31 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     const target = edge.getTerminal(false);
     if (!source || !target) return;
 
-    // 只处理"目标端需要生成 activation"的场景
-    const shouldGenerate = isLifeline(target);
+    // 只在"调用消息"（lifeline -> lifeline）时自动生成 activation。
+    // 回消息（activation -> lifeline）、嵌套调用（lifeline -> activation）等场景不生成。
+    const shouldGenerate = isLifeline(source) && isLifeline(target);
     if (!shouldGenerate) return;
 
     const targetGeo = target.getGeometry();
     if (!targetGeo) return;
 
-    // 消息 Y：优先取 edge 的 waypoints[0].y，否则取 first.y（拖线起点）
-    let msgY = 0;
-    const edgeGeo = edge.getGeometry();
-    if (edgeGeo?.points && edgeGeo.points.length > 0) {
-      msgY = edgeGeo.points[0].y;
-    } else if (handler.first) {
-      // handler.first 是视图坐标（scaled），需要转换为模型坐标
-      const view = graph.getView();
-      const scale = view.scale;
-      const tr = view.translate;
-      msgY = handler.first.y / scale - tr.y;
+    // 消息 Y：handler.first 是 maxGraph 在 mouseDown 时记录的 graph 模型坐标，
+    // 直接用即可（不需要再 scale/translate 转换）。
+    // 由于我们在 updateCurrentState 里把目标 Y 锁定为起点 Y，handler.first.y
+    // 就是这条消息应该在 lifeline 上的 Y 坐标。
+    let msgY: number;
+    if (handler.first) {
+      msgY = handler.first.y;
     } else {
       msgY = targetGeo.y + HEAD_HEIGHT + 30; // 默认放头部下方一点
     }
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
+    // activation 左边缘 = lifeline 中心线，右边缘 = lifeline中心 + 16。
+    // 这样从 activation 右边缘拉出的线起点明显偏离 lifeline 中心（16px），
+    // 视觉上能清晰看出"消息从 activation 出来"，而不是"从 lifeline 出来"。
     const actGeo = {
-      x: targetCenterX - ACTIVATION_W / 2,
+      x: targetCenterX,
       y: msgY,
       w: ACTIVATION_W,
       h: ACTIVATION_H,

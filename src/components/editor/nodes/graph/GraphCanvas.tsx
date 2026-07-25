@@ -38,6 +38,7 @@ import {
   CellState,
   type Cell,
   type CellStyle,
+  type InternalMouseEvent,
   type ConnectionHandler,
   type EventObject,
   type SelectionHandler,
@@ -391,17 +392,50 @@ export function GraphCanvas({
     // maxGraph 中 pointImage / highlightColor 是 ConstraintHandler 实例属性（非静态），需取实例设置。
     const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
     if (connectionHandler?.constraintHandler) {
-      connectionHandler.constraintHandler.pointImage = new ImageBox(
+      const defaultPointImage = new ImageBox(
         createConnectionPointSVG(dark),
         CONNECTION_POINT_SIZE,
         CONNECTION_POINT_SIZE,
       );
+      // lifeline 专用小锚点（4px）：生命线段锚点密集，用小尺寸避免视觉突兀
+      const lifelinePointImage = new ImageBox(
+        createConnectionPointSVG(dark, 4),
+        4,
+        4,
+      );
+      connectionHandler.constraintHandler.pointImage = defaultPointImage;
       connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
+
+      // 按 shape 返回不同的锚点图：lifeline 用小点，其他 shape 用默认尺寸
+      connectionHandler.constraintHandler.getImageForConstraint = (
+        state: CellState,
+        _constraint: ConnectionConstraint,
+        _point: Point,
+      ) => {
+        const shape = (state.style as CellStyle)?.shape;
+        if (shape === 'lifeline' || shape === 'umlActor') {
+          return lifelinePointImage;
+        }
+        return defaultPointImage;
+      };
+
       // 关键：缩小连接点判定容差，让拉线判定不那么灵敏。
       // getTolerance 控制"鼠标离连接点多近才算悬停在连接点上"进而进入拉线模式。
       // 默认逻辑返回较大值（基于连接点图像尺寸），导致边缘附近按下容易误判为拉线而非拖动图形。
       // 覆写该方法返回固定 4 像素，只有鼠标几乎精确落在连接点上才触发连线（优先判定为拖动图形）。
-      connectionHandler.constraintHandler.getTolerance = () => 2;
+      // lifeline 用小锚点 + 密集分布，tolerance 放宽到 6px 让用户更容易命中。
+      connectionHandler.constraintHandler.getTolerance = (me: InternalMouseEvent) => {
+        // 通过 me.getCell() 判断当前悬停的 cell
+        const cell = me.getCell();
+        if (cell) {
+          const state = graph.getView().getState(cell);
+          const shape = state ? (state.style as CellStyle)?.shape : undefined;
+          if (shape === 'lifeline' || shape === 'umlActor') {
+            return 6;
+          }
+        }
+        return 2;
+      };
       // 重写 createHighlightShape：悬停连接点时显示一个比锚点略大的半透明填充圆，
       // 与飞书风格一致，避免默认矩形高亮造成的"方形边框"感。
       const ch = connectionHandler.constraintHandler;
@@ -546,9 +580,10 @@ export function GraphCanvas({
       const shapeStyle = cellStyle?.shape;
 
       // 时序图生命线 / 用例图角色：
-      // 生命线段（中心虚线）不返回离散锚点 —— 让 LifelinePerimeter 接管任意 Y 投影，
-      // 实现"悬停任意 Y 都能起线"的连续体验（配合 sequenceInteraction 的悬停圆点提示）。
       // 头部矩形保留 4 个中点，供 actor→lifeline 关联使用。
+      // 生命线段：给密集锚点（每 10px 一个），让任意 Y 都能拉出消息。
+      // 视觉上用 hover 圆点（sequenceInteraction）提示"任意位置可起线"，
+      // 密集锚点本身尺寸调小（4px）不显突兀。
       if (shapeStyle === 'lifeline' || shapeStyle === 'umlActor') {
         const nodeHeight = terminal.height ?? 150;
         const constraints: ConnectionConstraint[] = [];
@@ -558,6 +593,14 @@ export function GraphCanvas({
         constraints.push(new ConnectionConstraint(new Point(0, headMidY), true));
         constraints.push(new ConnectionConstraint(new Point(1, headMidY), true));
         constraints.push(new ConnectionConstraint(new Point(0.5, HEAD_HEIGHT / nodeHeight), true));
+
+        // 生命线段：每 10px 一个锚点，从头部下方 8px 开始，直到节点底部 8px 前
+        const SPACING = 10;
+        const startY = HEAD_HEIGHT + 8;
+        const endY = nodeHeight - 8;
+        for (let absY = startY; absY <= endY; absY += SPACING) {
+          constraints.push(new ConnectionConstraint(new Point(0.5, absY / nodeHeight), true));
+        }
         return constraints;
       }
 

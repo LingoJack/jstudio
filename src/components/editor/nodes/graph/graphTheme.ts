@@ -166,15 +166,19 @@ export function getFontColor(dark: boolean): string {
 /** 创建连接点 SVG 图标（飞书风格）
  *  设计：白底圆环 + 蓝色实心圆心的"靶心"，Base64 编码保证所有浏览器/缩放级别都清晰渲染，
  *  避免 data URI 的字符编码问题导致显示为方块或缺失。
+ *
+ *  @param dark 是否暗色主题
+ *  @param size SVG 边长（默认 CONNECTION_POINT_SIZE）。lifeline 生命线段锚点密集，
+ *              用小尺寸（4px）避免视觉突兀。
  */
-export function createConnectionPointSVG(dark: boolean): string {
+export function createConnectionPointSVG(dark: boolean, size = CONNECTION_POINT_SIZE): string {
   const color = getConnectionPointColor(dark);
   const bgColor = dark ? '#1F2937' : '#FFFFFF';
-  const size = CONNECTION_POINT_SIZE;
   const cx = size / 2;
   const cy = size / 2;
   const rOuter = size / 2 - 1;
-  const rInner = 2.5;
+  // 内圆半径随外圆缩放：默认 14px 时 rInner=2.5；4px 时 rInner≈0.7（保持比例）
+  const rInner = Math.max(0.7, size * (2.5 / CONNECTION_POINT_SIZE));
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">\n    <circle cx="${cx}" cy="${cy}" r="${rOuter}"\n      fill="${bgColor}" stroke="${color}" stroke-width="1.5"/>\n    <circle cx="${cx}" cy="${cy}" r="${rInner}"\n      fill="${color}" stroke="none"/>\n  </svg>`;
   const base64 = btoa(
     encodeURIComponent(svg).replace(
