@@ -83,6 +83,7 @@ import {
   getEdgeDotColor,
   getFontColor,
   createConnectionPointSVG,
+  createInvisibleConnectionPointSVG,
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
@@ -397,16 +398,19 @@ export function GraphCanvas({
         CONNECTION_POINT_SIZE,
         CONNECTION_POINT_SIZE,
       );
-      // lifeline 专用小锚点（4px）：生命线段锚点密集，用小尺寸避免视觉突兀
+      // lifeline 专用透明锚点（1px 全透明）：生命线段锚点密集（每 10px 一个），
+      // 用可见的小蓝点会太乱。constraint 保留（功能上能识别"任意 Y 都能拉线"），
+      // 但图片改成全透明（视觉上看不见）。hover 时的视觉反馈由
+      // sequenceInteraction.ts 的自定义 SVG overlay（跟随鼠标的圆点）提供。
       const lifelinePointImage = new ImageBox(
-        createConnectionPointSVG(dark, 4),
-        4,
-        4,
+        createInvisibleConnectionPointSVG(),
+        1,
+        1,
       );
       connectionHandler.constraintHandler.pointImage = defaultPointImage;
       connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
 
-      // 按 shape 返回不同的锚点图：lifeline 用小点，其他 shape 用默认尺寸
+      // 按 shape 返回不同的锚点图：lifeline 用透明点，其他 shape 用默认尺寸
       connectionHandler.constraintHandler.getImageForConstraint = (
         state: CellState,
         _constraint: ConnectionConstraint,

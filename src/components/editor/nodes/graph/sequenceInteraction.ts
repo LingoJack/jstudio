@@ -220,13 +220,17 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
 const HOVER_DOT_CLASS = 'jgraph-lifeline-hover-dot';
 
 /**
- * 悬停 lifeline 时显示跟随鼠标的圆点。
+ * 悬停 lifeline 时整条中心虚线高亮（粗蓝线覆盖）。
  *
  * 实现：在 graph 容器上监听 mousemove，判断鼠标下方 cell 是不是 lifeline，
- * 是的话把圆点定位到 (lifeline 中心 X, 鼠标 Y)，否则隐藏。
+ * 是的话在 lifeline 中心虚线位置画一条 3px 粗的半透明蓝线（从头部底部到 lifeline 底部），
+ * 否则隐藏。
+ *
+ * 视觉反馈：让用户明确知道"这一整条线都可以拉"，配合密集的 constraint（每 10px 一个，
+ * 图片透明）实现"任意位置都能拉"的体验。
  */
 export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElement): () => void {
-  // 创建 SVG 圆点
+  // 创建 SVG 高亮线
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', HOVER_DOT_CLASS);
   svg.style.position = 'absolute';
@@ -238,14 +242,14 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
   svg.style.zIndex = '10';
   svg.style.overflow = 'visible';
 
-  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  dot.setAttribute('r', '5');
-  dot.setAttribute('fill', '#4A90E2');
-  dot.setAttribute('stroke', '#fff');
-  dot.setAttribute('stroke-width', '2');
-  dot.style.display = 'none';
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('stroke', '#4A90E2');
+  line.setAttribute('stroke-width', '3');
+  line.setAttribute('stroke-opacity', '0.6');
+  line.setAttribute('stroke-linecap', 'round');
+  line.style.display = 'none';
 
-  svg.appendChild(dot);
+  svg.appendChild(line);
 
   // graph 容器需要 position:relative 才能定位子元素
   const prevPosition = container.style.position;
@@ -255,7 +259,7 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
   container.appendChild(svg);
 
   function hide() {
-    dot.style.display = 'none';
+    line.style.display = 'none';
   }
 
   function onMouseMove(e: MouseEvent) {
@@ -280,12 +284,17 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
         // 只在生命线段（Y > headHeight）显示
         if (graphY > geo.y + HEAD_HEIGHT && graphY < geo.y + geo.height) {
           const centerX = geo.x + geo.width / 2;
+          const startY = geo.y + HEAD_HEIGHT;
+          const endY = geo.y + geo.height;
           // 转回视图坐标（SVG 在容器上用像素定位）
           const viewX = (centerX + tr.x) * scale;
-          const viewY = (graphY + tr.y) * scale;
-          dot.setAttribute('cx', String(viewX));
-          dot.setAttribute('cy', String(viewY));
-          dot.style.display = '';
+          const viewStartY = (startY + tr.y) * scale;
+          const viewEndY = (endY + tr.y) * scale;
+          line.setAttribute('x1', String(viewX));
+          line.setAttribute('y1', String(viewStartY));
+          line.setAttribute('x2', String(viewX));
+          line.setAttribute('y2', String(viewEndY));
+          line.style.display = '';
           return;
         }
       }

@@ -188,3 +188,21 @@ export function createConnectionPointSVG(dark: boolean, size = CONNECTION_POINT_
   );
   return `data:image/svg+xml;base64,${base64}`;
 }
+
+/** 创建透明的连接点 SVG（1px 全透明）。
+ *
+ *  用途：lifeline 生命线段需要密集的 constraint（每 10px 一个）才能让 maxGraph
+ *  识别"任意 Y 都能拉线"，但密集的小蓝点视觉上太乱。
+ *  解决方案：constraint 保留（功能上能识别），但锚点图片改成全透明（视觉上看不见）。
+ *  hover 时的视觉反馈由 sequenceInteraction.ts 的自定义 SVG overlay 提供。
+ */
+export function createInvisibleConnectionPointSVG(): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1">\n    <circle cx="0.5" cy="0.5" r="0.5" fill="transparent" stroke="none"/>\n  </svg>`;
+  const base64 = btoa(
+    encodeURIComponent(svg).replace(
+      /%([0-9A-F]{2})/g,
+      (_match, p1: string) => String.fromCharCode(Number.parseInt(p1, 16)),
+    ),
+  );
+  return `data:image/svg+xml;base64,${base64}`;
+}
