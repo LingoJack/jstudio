@@ -1101,6 +1101,7 @@ export const translations = {
     "appearance.activityBarItem_documents": "Documents",
     "appearance.activityBarItem_terminal": "Terminal",
     "appearance.activityBarItem_settings": "Settings",
+    "appearance.activityBarItemSettingsLocked": "Settings is always shown at the bottom and cannot be hidden",
     "appearance.terminalTheme": "Terminal Theme",
     "appearance.terminalThemeDesc":
       "Choose a terminal color scheme (matches kitty themes)",
