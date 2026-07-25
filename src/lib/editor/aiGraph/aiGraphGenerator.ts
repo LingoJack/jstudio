@@ -18,7 +18,7 @@
 import { storage, type AiGraphFetchRequest } from '../../core/storage';
 import { serializeGraphSnapshot } from '../../../components/editor/nodes/graph/graphSnapshot';
 import { validateAiGraph } from './aiGraphValidator';
-import { autoLayoutGraph } from './aiGraphLayout';
+import { autoLayoutByType } from './aiGraphLayout';
 import { buildSystemPrompt } from './aiGraphPrompt';
 
 /* ------------------------------------------------------------------ */
@@ -252,7 +252,7 @@ export async function generateGraphFromAI(
   }
 
   // 5. 自动布局
-  const { nodes, edges } = autoLayoutGraph(
+  const { nodes, edges } = autoLayoutByType(
     validation.snapshot.nodes,
     validation.snapshot.edges,
   );

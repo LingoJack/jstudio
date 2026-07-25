@@ -211,3 +211,25 @@ export const AI_GRAPH_EXAMPLE = {
     { id: 'e4', source: 'n3', target: 'n5', label: '否' },
   ],
 } as const;
+
+/**
+ * 时序图示例：3 个参与者（lifeline）+ 4 条消息（含返回消息）。
+ *
+ * lifeline 节点的 x/y 设为 0，由布局器水平排列。
+ * 消息用 straight routing，返回消息用 dashed 样式。
+ */
+export const AI_GRAPH_EXAMPLE_SEQUENCE = {
+  kind: JGRAPH_KIND,
+  version: JGRAPH_VERSION,
+  nodes: [
+    { id: 'n1', shape: 'lifeline', x: 0, y: 0, w: 100, h: 300, label: '用户' },
+    { id: 'n2', shape: 'lifeline', x: 0, y: 0, w: 100, h: 300, label: '浏览器' },
+    { id: 'n3', shape: 'lifeline', x: 0, y: 0, w: 100, h: 300, label: '服务器' },
+  ],
+  edges: [
+    { id: 'e1', source: 'n1', target: 'n2', label: '输入账号密码', routing: 'straight' },
+    { id: 'e2', source: 'n2', target: 'n3', label: 'POST /login', routing: 'straight' },
+    { id: 'e3', source: 'n3', target: 'n2', label: '返回 token', routing: 'straight', style: { dashed: true } },
+    { id: 'e4', source: 'n2', target: 'n1', label: '登录成功', routing: 'straight', style: { dashed: true } },
+  ],
+} as const;

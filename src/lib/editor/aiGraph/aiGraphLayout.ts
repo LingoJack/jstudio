@@ -131,3 +131,157 @@ export function autoLayoutGraph(
 
   return { nodes: laidOutNodes, edges };
 }
+
+/* ------------------------------------------------------------------ */
+/* 时序图布局                                                          */
+/* ------------------------------------------------------------------ */
+
+/** 时序图布局常量（与 mermaid/sequenceConverter.ts 保持一致）。 */
+const SEQ_PARTICIPANT_W = 100;
+const SEQ_PARTICIPANT_SPACING = 150;
+const SEQ_HEAD_HEIGHT = 50;
+const SEQ_MESSAGE_SPACING = 40;
+const SEQ_MESSAGE_START_Y = SEQ_HEAD_HEIGHT + 20;
+const SEQ_MARGIN = 50;
+const SEQ_ACTIVATION_W = 16;
+const SEQ_ACTIVATION_H = 40;
+
+/**
+ * 时序图布局：lifeline 水平排列，消息按出现顺序垂直递增。
+ *
+ * 参照 `mermaid/sequenceConverter.ts` 的布局逻辑，但直接作用于
+ * AI 输出的 `GraphNode[]` / `GraphEdge[]`。
+ *
+ * @param nodes 原始节点
+ * @param edges 边列表
+ * @returns 新的节点 + 边数组（不修改输入）
+ */
+export function autoLayoutSequence(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  if (nodes.length === 0) return { nodes, edges };
+
+  // 1. 分类节点
+  const lifelines = nodes.filter((n) => n.shape === 'lifeline');
+  const activations = nodes.filter((n) => n.shape === 'activation');
+  const others = nodes.filter(
+    (n) => n.shape !== 'lifeline' && n.shape !== 'activation',
+  );
+
+  // 没有 lifeline -> 降级为流程图布局
+  if (lifelines.length === 0) return autoLayoutGraph(nodes, edges);
+
+  // 2. 统计 lifeline 之间的消息数（用于计算生命线高度）
+  const lifelineIds = new Set(lifelines.map((n) => n.id));
+  const messageEdges = edges.filter(
+    (e) => lifelineIds.has(e.source) && lifelineIds.has(e.target),
+  );
+  const numMessages = Math.max(messageEdges.length, 1);
+
+  // 3. 计算生命线高度
+  const lifelineH = Math.max(
+    200,
+    SEQ_MESSAGE_START_Y + numMessages * SEQ_MESSAGE_SPACING + SEQ_MARGIN,
+  );
+
+  // 4. 水平排列 lifeline
+  const lifelineX = new Map<string, number>();
+  const laidOutLifelines = lifelines.map((node, i) => {
+    const x = SEQ_MARGIN + i * SEQ_PARTICIPANT_SPACING;
+    lifelineX.set(node.id, x);
+    return {
+      ...node,
+      x,
+      y: SEQ_MARGIN,
+      w: SEQ_PARTICIPANT_W,
+      h: lifelineH,
+    };
+  });
+
+  // 5. 构建邻接表：activation / other -> 关联的 lifeline
+  const edgesByNode = new Map<string, { source: string; target: string }[]>();
+  for (const e of edges) {
+    for (const id of [e.source, e.target]) {
+      if (!edgesByNode.has(id)) edgesByNode.set(id, []);
+      edgesByNode.get(id)!.push({ source: e.source, target: e.target });
+    }
+  }
+
+  /** 找到节点通过边关联的 lifeline id（优先作为 source，其次 target）。 */
+  function findConnectedLifeline(nodeId: string): string | undefined {
+    const conns = edgesByNode.get(nodeId) ?? [];
+    for (const c of conns) {
+      if (c.source === nodeId && lifelineIds.has(c.target)) return c.target;
+      if (c.target === nodeId && lifelineIds.has(c.source)) return c.source;
+    }
+    return undefined;
+  }
+
+  // 6. 排列 activation：贴在对应 lifeline 中心线上，按索引垂直递增
+  const activationCountByLifeline = new Map<string, number>();
+  const laidOutActivations = activations.map((node) => {
+    const llId = findConnectedLifeline(node.id) ?? lifelines[0].id;
+    const llX = lifelineX.get(llId) ?? SEQ_MARGIN;
+    const llW = SEQ_PARTICIPANT_W;
+    const idx = activationCountByLifeline.get(llId) ?? 0;
+    activationCountByLifeline.set(llId, idx + 1);
+
+    return {
+      ...node,
+      x: llX + (llW - SEQ_ACTIVATION_W) / 2,
+      y: SEQ_MARGIN + SEQ_MESSAGE_START_Y + idx * SEQ_ACTIVATION_H,
+      w: SEQ_ACTIVATION_W,
+      h: SEQ_ACTIVATION_H,
+    };
+  });
+
+  // 7. 排列其他节点（actor / note 等）：放在关联 lifeline 上方
+  const otherCountByLifeline = new Map<string, number>();
+  const laidOutOthers = others.map((node) => {
+    const llId = findConnectedLifeline(node.id) ?? lifelines[0].id;
+    const llX = lifelineX.get(llId) ?? SEQ_MARGIN;
+    const idx = otherCountByLifeline.get(llId) ?? 0;
+    otherCountByLifeline.set(llId, idx + 1);
+
+    const nodeW = node.w || 80;
+    const nodeH = node.h || 48;
+    return {
+      ...node,
+      x: llX + (SEQ_PARTICIPANT_W - nodeW) / 2,
+      y: SEQ_MARGIN - nodeH - 10 - idx * (nodeH + 10),
+      w: nodeW,
+      h: nodeH,
+    };
+  });
+
+  // 8. 边强制 straight routing（时序图消息是水平箭头）
+  const laidOutEdges = edges.map((e) => ({
+    ...e,
+    routing: 'straight' as const,
+  }));
+
+  return {
+    nodes: [...laidOutLifelines, ...laidOutActivations, ...laidOutOthers],
+    edges: laidOutEdges,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* 类型分发                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 根据 AI 输出的节点形状自动选择布局算法。
+ *
+ * - 含 `lifeline` 节点 -> 时序图布局（水平生命线 + 垂直消息流）
+ * - 否则 -> 流程图布局（BFS 自上而下分层）
+ */
+export function autoLayoutByType(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const hasLifeline = nodes.some((n) => n.shape === 'lifeline');
+  if (hasLifeline) return autoLayoutSequence(nodes, edges);
+  return autoLayoutGraph(nodes, edges);
+}
