@@ -189,15 +189,18 @@ export function createConnectionPointSVG(dark: boolean, size = CONNECTION_POINT_
   return `data:image/svg+xml;base64,${base64}`;
 }
 
-/** 创建透明的连接点 SVG（1px 全透明）。
+/** 创建半透明的 lifeline 锚点 SVG（2px 半透明蓝点）。
  *
  *  用途：lifeline 生命线段需要密集的 constraint（每 10px 一个）才能让 maxGraph
- *  识别"任意 Y 都能拉线"，但密集的小蓝点视觉上太乱。
- *  解决方案：constraint 保留（功能上能识别），但锚点图片改成全透明（视觉上看不见）。
- *  hover 时的视觉反馈由 sequenceInteraction.ts 的自定义 SVG overlay 提供。
+ *  识别"任意 Y 都能拉线"。但完全透明的图片会导致 constraintHandler 无法识别 hover，
+ *  鼠标按下时 fallback 到 getCellAt() 返回错误的 cell（比如 actor）。
+ *  解决方案：constraint 图片改成半透明的小点，既能被识别，又不太突兀。
+ *  hover 时的视觉反馈由 sequenceInteraction.ts 的自定义 SVG overlay（整条线高亮）提供。
  */
-export function createInvisibleConnectionPointSVG(): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1">\n    <circle cx="0.5" cy="0.5" r="0.5" fill="transparent" stroke="none"/>\n  </svg>`;
+export function createLifelineConnectionPointSVG(dark: boolean): string {
+  const size = 2;
+  const color = dark ? '#7aa2f7' : '#4A90E2';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">\n    <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${color}" fill-opacity="0.3" stroke="none"/>\n  </svg>`;
   const base64 = btoa(
     encodeURIComponent(svg).replace(
       /%([0-9A-F]{2})/g,

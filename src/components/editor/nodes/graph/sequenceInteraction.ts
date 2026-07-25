@@ -163,7 +163,7 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     // targetPoint 是 edge 连接到 target 的精确位置，比 handler.first（起点 Y）更准确，
     // 因为 activation 在 target 端，应该用 target 端的 Y 坐标。
     let msgY: number;
-    const edgeGeo = (cell as Cell).getGeometry();
+    const edgeGeo = edge.getGeometry();
     if (edgeGeo?.targetPoint) {
       msgY = edgeGeo.targetPoint.y;
       graphLog(`msgY=${msgY} from edge.targetPoint (${edgeGeo.targetPoint.x}, ${edgeGeo.targetPoint.y})`);
