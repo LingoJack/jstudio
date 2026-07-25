@@ -6,6 +6,7 @@ import {
   getSearchEngineFaviconUrl,
 } from '../../store/browserSlice';
 import { RefreshCw, ExternalLink, Loader2, X, Search } from 'lucide-react';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 
 /**
  * Dynamic-Island-style address bar rendered inside AppTitleBar.
@@ -71,6 +72,9 @@ export default function BrowserDynamicIsland() {
 
   // ── Handlers ──
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Cmd/Ctrl+A — the app's custom macOS menu omits Edit > "Select All"
+    // (see nativeSelectAll.ts), so plain inputs must handle it explicitly.
+    if (handleNativeSelectAll(e)) return;
     if (e.key === 'Enter') {
       navigateBrowserUrl(browserAddressUrl);
       addressInputRef.current?.blur();
