@@ -10,34 +10,28 @@
  * 6. streaming 内容实时显示，flush 到消息列表后保留完整内容
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { storage } from '../../lib/core/storage';
 import {
   ArrowLeft,
-  History,
-  Share2,
-  Star,
-  StarOff,
-  MoreHorizontal,
   Send,
   Square,
   ChevronRight,
   Paperclip,
-  Image,
   X,
   Loader2,
   CheckCircle2,
   AlertCircle,
   Ban,
   Bot,
-  User,
   ChevronDown,
+  ArrowDown,
 } from 'lucide-react';
 import MarkdownMessage from './MarkdownMessage';
-import { ModelSelector } from './ModelSelector';
-import type { AgentSession, ChatMessage, ToolCallItem, AgentRunState, AgentAskRequest, AskQuestion } from '../../types/agent';
+import { ModelSelector, useActiveProvider } from './ModelSelector';
+import type { AgentSession, ChatMessage, ToolCallItem, AgentRunState, AgentAskRequest } from '../../types/agent';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 
 // ────────────────────────────────────────────────
@@ -69,7 +63,7 @@ interface TopBarProps {
 
 function TopBar({ session, onBack }: TopBarProps) {
   const { t } = useI18n();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const activeProvider = useActiveProvider();
 
   const title = getSessionTitle(session);
 
@@ -81,17 +75,17 @@ function TopBar({ session, onBack }: TopBarProps) {
         borderBottom: '1px solid var(--vscode-widget-border)',
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         {onBack && (
           <button
             onClick={onBack}
-            className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
+            className="shrink-0 flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
             title={t('agent.back')}
           >
             <ArrowLeft className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
           </button>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <span
             className="text-sm font-medium truncate max-w-[300px]"
             style={{ color: 'var(--vscode-foreground)' }}
@@ -102,36 +96,26 @@ function TopBar({ session, onBack }: TopBarProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        <button
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.history')}
-        >
-          <History className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-        </button>
-        <button
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.share')}
-        >
-          <Share2 className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-        </button>
-        <button
-          onClick={() => setIsFavorite(!isFavorite)}
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={isFavorite ? t('agent.unfavorite') : t('agent.favorite')}
-        >
-          {isFavorite ? (
-            <StarOff className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-          ) : (
-            <Star className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-          )}
-        </button>
-        <button
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.more')}
-        >
-          <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-        </button>
+      {/* 右侧信息区 — 仿 remote header：模型名 · autoApprove 指示 · 消息数 */}
+      <div
+        className="shrink-0 flex items-center gap-2 text-xs"
+        style={{ color: 'var(--vscode-descriptionForeground)' }}
+      >
+        {activeProvider && (
+          <span className="truncate max-w-[140px]" title={activeProvider.model}>
+            {activeProvider.name}
+          </span>
+        )}
+        {session.autoApprove && (
+          <span
+            className="font-mono font-semibold"
+            style={{ color: 'var(--vscode-inputValidation-warningForeground, #cca700)' }}
+            title={t('agent.autoApproveOn')}
+          >
+            &gt;&gt;
+          </span>
+        )}
+        <span>{t('agent.msgCount', { count: session.messages.length })}</span>
       </div>
     </div>
   );
