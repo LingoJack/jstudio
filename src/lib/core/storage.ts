@@ -298,6 +298,34 @@ export interface LinkMetadata {
 }
 
 /**
+ * AI graph HTTP proxy request — mirrors the Rust `AiGraphFetchRequest` struct.
+ * Used by `ai_graph_fetch` to bypass webview CORS restrictions.
+ */
+export interface AiGraphFetchRequest {
+  /** Full target URL (scheme + host + path). */
+  url: string;
+  /** Request headers map (e.g. Authorization, Content-Type). */
+  headers: Record<string, string>;
+  /** Request body as a JSON string. Empty string = no body. */
+  body: string;
+  /** Timeout in seconds. 0 = use default 60s. */
+  timeoutSecs?: number;
+}
+
+/**
+ * AI graph HTTP proxy response — mirrors the Rust `AiGraphFetchResponse` struct.
+ * Returned by `ai_graph_fetch`.
+ */
+export interface AiGraphFetchResponse {
+  /** HTTP status code (e.g. 200, 400, 401). */
+  status: number;
+  /** Whether the response is 2xx. */
+  ok: boolean;
+  /** Response body as text (JSON string from the LLM API). */
+  body: string;
+}
+
+/**
  * Link preview tab info — mirrors the Rust `TabInfo` struct in link_tabs.rs.
  * One per open tab in the link-preview window.
  */
@@ -611,6 +639,15 @@ export const storage = {
 
   /** Open a native WebviewWindow loading the real URL with Chrome cookies injected. */
   openLinkPreview: (url: string) => invoke<void>("open_link_preview", { url }),
+
+  // ---- AI graph HTTP proxy (bypasses webview CORS) ----
+
+  /**
+   * Proxy an HTTP POST request through Rust to bypass webview CORS restrictions.
+   * Used by the AI graph generator to call OpenAI-compatible chat completions.
+   */
+  aiGraphFetch: (request: AiGraphFetchRequest) =>
+    invoke<AiGraphFetchResponse>("ai_graph_fetch", { request }),
 
   // ---- link preview tabs (multi-webview browser) ----
 

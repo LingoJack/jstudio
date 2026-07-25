@@ -1,32 +1,29 @@
 /**
  * aiGraphGenerator — LLM 调用编排。
  *
- * 流程：读 agent 配置 → 取 active provider → fetch OpenAI-compatible
- * chat completions → 抽 content → JSON.parse → 校验 → 自动布局 → 序列化。
+ * 流程：读 agent 配置 → 取 active provider → 通过 Rust 代理转发到
+ * OpenAI-compatible chat completions（绕过 webview CORS）→ 抽 content
+ * → JSON.parse → 校验 → 自动布局 → 序列化。
  *
- * 错误分流：
- *   - 未配置 provider / api_key / model / api_base
- *   - 网络错误（含超时）
- *   - HTTP 非 2xx
- *   - 响应解析失败（含 ```json fence 容错）
- *   - Schema 校验失败
+ * 为什么走 Rust 代理：
+ *   Tauri v2 WKWebView 跨域 fetch 带 `Authorization` 头会触发 CORS
+ *   preflight，远端不返回 `Access-Control-Allow-Headers: Authorization`
+ *   就会被拦截。Rust 端用 reqwest 转发完全绕过此限制。见
+ *   `src-tauri/src/commands/ai_graph.rs`。
  *
  * `response_format: {type:'json_object'}` 兼容性：OpenAI/DeepSeek 支持，
  * 部分兼容层不支持（返回 400）。先尝试带该字段，遇 400 降级重试不带。
  */
 
-import { storage } from '../../core/storage';
+import { storage, type AiGraphFetchRequest } from '../../core/storage';
 import { serializeGraphSnapshot } from '../../../components/editor/nodes/graph/graphSnapshot';
 import { validateAiGraph } from './aiGraphValidator';
 import { autoLayoutGraph } from './aiGraphLayout';
 import { buildSystemPrompt } from './aiGraphPrompt';
 
 /* ------------------------------------------------------------------ */
-/* 常量                                                                */
+/* 类型                                                                */
 /* ------------------------------------------------------------------ */
-
-/** 请求超时（毫秒）。LLM 生成图表通常 10-30s，给足余量。 */
-const REQUEST_TIMEOUT_MS = 60_000;
 
 /** 错误码——对话框层据此查 i18n 并插值。 */
 export type AiGraphErrorCode =
@@ -112,45 +109,54 @@ function buildRequestBody(
   return body;
 }
 
-/** 单次 fetch 尝试。返回 { ok, status, content }。 */
+/** 单次代理调用尝试。返回 { ok, status, content }。 */
 async function callOnce(
   apiBase: string,
   apiKey: string,
   body: Record<string, unknown>,
-  signal: AbortSignal,
 ): Promise<{ ok: boolean; status: number; content: string }> {
   // api_base 形如 "https://api.openai.com/v1" — 拼上 /chat/completions
   const url = apiBase.replace(/\/+$/, '') + '/chat/completions';
 
-  const res = await fetch(url, {
-    method: 'POST',
+  const request: AiGraphFetchRequest = {
+    url,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
-    signal,
-  });
+    timeoutSecs: 60,
+  };
 
-  if (!res.ok) {
+  // Rust 代理转发，绕过 webview CORS
+  const resp = await storage.aiGraphFetch(request);
+
+  if (!resp.ok) {
+    // 尝试从响应体抽错误信息
     let errText = '';
     try {
-      const errBody = await res.json();
+      const errBody = JSON.parse(resp.body);
       errText = errBody?.error?.message ?? errBody?.message ?? '';
     } catch {
       /* ignore */
     }
     return {
       ok: false,
-      status: res.status,
-      content: errText || `HTTP ${res.status}`,
+      status: resp.status,
+      content: errText || `HTTP ${resp.status}`,
     };
   }
 
-  const data = await res.json();
+  let data: unknown;
+  try {
+    data = JSON.parse(resp.body);
+  } catch {
+    return { ok: false, status: 200, content: 'Invalid JSON response' };
+  }
+
   const content =
-    data?.choices?.[0]?.message?.content ??
-    data?.choices?.[0]?.text ??
+    (data as any)?.choices?.[0]?.message?.content ??
+    (data as any)?.choices?.[0]?.text ??
     '';
   if (!content) {
     return { ok: false, status: 200, content: 'Empty response content' };
@@ -193,10 +199,7 @@ export async function generateGraphFromAI(
     return { success: false, errorCode: 'aiGraph.noProvider' };
   }
 
-  // 2. 调用 LLM（带超时）
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
+  // 2. 调用 LLM（通过 Rust 代理）
   let result;
   try {
     // 第一次尝试：带 response_format: json_object
@@ -204,7 +207,6 @@ export async function generateGraphFromAI(
       provider.api_base,
       provider.api_key,
       buildRequestBody(provider.model, userPrompt, true),
-      controller.signal,
     );
 
     // 400 降级：某些 OpenAI-compatible 端点不支持 response_format
@@ -213,25 +215,15 @@ export async function generateGraphFromAI(
         provider.api_base,
         provider.api_key,
         buildRequestBody(provider.model, userPrompt, false),
-        controller.signal,
       );
     }
   } catch (e) {
-    clearTimeout(timeoutId);
-    if (e instanceof DOMException && e.name === 'AbortError') {
-      return {
-        success: false,
-        errorCode: 'aiGraph.networkError',
-        errorDetail: 'Request timed out',
-      };
-    }
     return {
       success: false,
       errorCode: 'aiGraph.networkError',
       errorDetail: e instanceof Error ? e.message : String(e),
     };
   }
-  clearTimeout(timeoutId);
 
   if (!result.ok) {
     return {
