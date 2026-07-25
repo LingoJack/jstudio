@@ -19,7 +19,24 @@ import {
   type ConnectionHandler,
   type InternalMouseEvent,
 } from '@maxgraph/core';
+import { invoke } from '@tauri-apps/api/core';
 import { HEAD_HEIGHT } from './customShapes';
+
+/* ------------------------------------------------------------------ */
+/* 调试日志：写到 ~/Library/Application Support/jstudio/ai_graph.log    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 把一行调试日志写入文件（通过 Tauri command）。
+ * fire-and-forget：不等待结果，避免阻塞交互。
+ * 同时保留 console.log 方便开发者工具直接看。
+ */
+function graphLog(msg: string): void {
+  console.log(`[autoActivation] ${msg}`);
+  invoke('write_graph_log', { msg }).catch(() => {
+    // 忽略写日志失败（比如非 Tauri 环境下测试）
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* 类型判定                                                            */
@@ -118,16 +135,21 @@ function genActivationId(): string {
 export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHandler): () => void {
   const listener = (_sender: unknown, evt: { getProperty: (key: string) => unknown }) => {
     const edge = evt.getProperty('cell') as Cell | null;
+    graphLog(`CONNECT fired, edge=${edge?.getId()}, isEdge=${edge?.isEdge()}`);
     if (!edge || !edge.isEdge()) return;
 
     const model = graph.getDataModel();
     const source = edge.getTerminal(true);
     const target = edge.getTerminal(false);
+    const srcShape = source?.getStyle()?.shape;
+    const tgtShape = target?.getStyle()?.shape;
+    graphLog(`source=${source?.getId()}(shape=${srcShape}), target=${target?.getId()}(shape=${tgtShape})`);
     if (!source || !target) return;
 
     // 只在"调用消息"（lifeline -> lifeline）时自动生成 activation。
     // 回消息（activation -> lifeline）、嵌套调用（lifeline -> activation）等场景不生成。
     const shouldGenerate = isLifeline(source) && isLifeline(target);
+    graphLog(`shouldGenerate=${shouldGenerate}, isLifeline(src)=${isLifeline(source)}, isLifeline(tgt)=${isLifeline(target)}`);
     if (!shouldGenerate) return;
 
     const targetGeo = target.getGeometry();
@@ -143,6 +165,7 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     } else {
       msgY = targetGeo.y + HEAD_HEIGHT + 30; // 默认放头部下方一点
     }
+    graphLog(`msgY=${msgY}, handler.first=${handler.first ? `(${handler.first.x}, ${handler.first.y})` : 'null'}`);
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
     // activation 左边缘 = lifeline 中心线，右边缘 = lifeline中心 + 16。

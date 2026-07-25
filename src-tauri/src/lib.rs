@@ -519,6 +519,7 @@ pub fn run() {
             commands::link::open_link_preview,
             // ── AI graph HTTP proxy (bypasses webview CORS) ──
             commands::ai_graph::ai_graph_fetch,
+            commands::ai_graph::write_graph_log,
             // ── link preview tabs (multi-webview) ──
             commands::link_tabs::open_link_preview_with_tabs,
             commands::link_tabs::get_link_preview_tabs_state,

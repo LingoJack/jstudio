@@ -15,6 +15,40 @@ import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/toast';
 
 // ────────────────────────────────────────────────────────
+// Shared hook — 当前激活的模型 provider
+//
+// 通过自定义事件与 ModelSelector 的切换保持同步：
+// selectProvider 保存成功后 dispatch AGENT_CONFIG_CHANGED_EVENT，
+// 所有使用此 hook 的组件（如 TopBar 的模型名显示）会自动刷新。
+// ────────────────────────────────────────────────────────
+
+const AGENT_CONFIG_CHANGED_EVENT = 'jstudio:agent-config-changed';
+
+export function useActiveProvider(): ModelProvider | null {
+  const [activeProvider, setActiveProvider] = useState<ModelProvider | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const raw = await storage.loadAgentConfig();
+        const providers = Array.isArray(raw.providers)
+          ? (raw.providers as ModelProvider[])
+          : [];
+        const activeIndex = typeof raw.active_index === 'number' ? raw.active_index : 0;
+        setActiveProvider(providers[activeIndex] ?? null);
+      } catch (e) {
+        console.error('Failed to load agent config:', e);
+      }
+    };
+    load();
+    window.addEventListener(AGENT_CONFIG_CHANGED_EVENT, load);
+    return () => window.removeEventListener(AGENT_CONFIG_CHANGED_EVENT, load);
+  }, []);
+
+  return activeProvider;
+}
+
+// ────────────────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────────────────
 
@@ -82,6 +116,7 @@ export function ModelSelector() {
         await storage.saveAgentConfig(next);
         setConfig(next);
         setOpen(false);
+        window.dispatchEvent(new Event(AGENT_CONFIG_CHANGED_EVENT));
         toast.success(t('agent.modelSwitched'));
       } catch (e) {
         toast.error(t('agent.saveFailed', { error: String(e) }));

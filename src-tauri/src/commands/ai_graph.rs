@@ -148,3 +148,14 @@ pub async fn ai_graph_fetch(request: AiGraphFetchRequest) -> Result<AiGraphFetch
     ));
     Ok(AiGraphFetchResponse { status, ok, body })
 }
+
+/// 前端图表交互日志写入（通用）。
+///
+/// 用于调试时序图等图表的手绘交互（hover / drag / connect 等）。
+/// TS 端通过 `invoke('write_graph_log', { msg })` 调用。
+/// 日志追加到 `<app_data_dir>/jstudio/ai_graph.log`（与 ai_graph_fetch 共用文件）。
+#[tauri::command]
+pub fn write_graph_log(msg: String) -> Result<(), String> {
+    log_to_file(&format!("[graph-ui] {msg}"));
+    Ok(())
+}
