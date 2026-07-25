@@ -106,4 +106,6 @@ allow:
 - Shell(ls node_modules/lucide-react/dist/esm/icons/:*)
 - Shell(find /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core:*)
 - Shell(grep -n:*)
+- Shell(tail -5:*)
+- Shell(head -3:*)
 deny: []
