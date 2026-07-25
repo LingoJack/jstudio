@@ -213,9 +213,10 @@ export const AI_GRAPH_EXAMPLE = {
 } as const;
 
 /**
- * 时序图示例：3 个参与者（lifeline）+ 4 条消息（含返回消息）。
+ * 时序图示例：3 个参与者（lifeline）+ 4 条消息（含返回消息）+ 2 个 activation。
  *
  * lifeline 节点的 x/y 设为 0，由布局器水平排列。
+ * activation 节点表示参与者处理请求的时间段，会由布局器贴在对应生命线上。
  * 消息用 straight routing，返回消息用 dashed 样式。
  */
 export const AI_GRAPH_EXAMPLE_SEQUENCE = {
@@ -225,10 +226,17 @@ export const AI_GRAPH_EXAMPLE_SEQUENCE = {
     { id: 'n1', shape: 'lifeline', x: 0, y: 0, w: 100, h: 300, label: '用户' },
     { id: 'n2', shape: 'lifeline', x: 0, y: 0, w: 100, h: 300, label: '浏览器' },
     { id: 'n3', shape: 'lifeline', x: 0, y: 0, w: 100, h: 300, label: '服务器' },
+    // 浏览器和服务器在处理请求期间的激活期
+    { id: 'a1', shape: 'activation', x: 0, y: 0, w: 16, h: 40, label: '' },
+    { id: 'a2', shape: 'activation', x: 0, y: 0, w: 16, h: 40, label: '' },
   ],
   edges: [
     { id: 'e1', source: 'n1', target: 'n2', label: '输入账号密码', routing: 'straight' },
+    // 浏览器开始处理
+    { id: 'ea1', source: 'n2', target: 'a1', routing: 'straight' },
     { id: 'e2', source: 'n2', target: 'n3', label: 'POST /login', routing: 'straight' },
+    // 服务器开始处理
+    { id: 'ea2', source: 'n3', target: 'a2', routing: 'straight' },
     { id: 'e3', source: 'n3', target: 'n2', label: '返回 token', routing: 'straight', style: { dashed: true } },
     { id: 'e4', source: 'n2', target: 'n1', label: '登录成功', routing: 'straight', style: { dashed: true } },
   ],
