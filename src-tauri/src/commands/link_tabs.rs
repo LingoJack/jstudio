@@ -1153,16 +1153,52 @@ fn add_tab_internal(
                     changed
                 });
             })
-            // window.open() → open as new tab instead of popup
+            // window.open() / target="_blank" → open as new tab instead of popup.
+            //
+            // The tab creation is deferred to the next run-loop iteration via
+            // `run_on_main_thread`. Creating a new WKWebView synchronously
+            // inside WKUIDelegate's `createWebViewWithConfiguration:` callback
+            // causes a reentrancy issue on macOS where the new webview never
+            // finishes initializing — the user clicks a target="_blank" link
+            // and nothing happens. Deferring lets the delegate callback return
+            // `Deny` first, then the new tab is created cleanly.
             .on_new_window(move |new_url, _features| {
-                let _ = add_tab_internal(
-                    &app_for_new_window,
-                    &manager_for_new_window,
-                    &window_label_for_new_window,
-                    new_url.as_str().to_string(),
-                );
+                let app = app_for_new_window.clone();
+                let manager = manager_for_new_window.clone();
+                let window_label = window_label_for_new_window.clone();
+                let url = new_url.as_str().to_string();
+                let _ = app_for_new_window.run_on_main_thread(move || {
+                    if let Err(e) = add_tab_internal(&app, &manager, &window_label, url) {
+                        eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
+                    }
+                });
                 NewWindowResponse::Deny
             });
+
+    // Cmd+A select-all compensation: the custom macOS menu removes the Edit >
+    // "Select All" item app-wide (see lib.rs::build_app_menu) so that Cmd+A
+    // reaches the main editor's JS handler. That fix is app-wide, so these
+    // external content webviews also lose WKWebView's native Cmd+A (the
+    // `selectAll:` responder-chain action is no longer routed to a menu item,
+    // and WKWebView does not synthesize a keydown that triggers select-all).
+    // Inject a capture-phase keydown listener that performs select-all via
+    // `el.select()` for inputs/textareas and `document.execCommand('selectAll')`
+    // for everything else.
+    webview_builder = webview_builder.initialization_script(
+        r#"
+document.addEventListener('keydown', function(e) {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+    var el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+      el.select();
+    } else {
+      document.execCommand('selectAll');
+    }
+    e.preventDefault();
+  }
+}, true);
+"#,
+    );
 
     if !cookie_script.is_empty() {
         webview_builder = webview_builder.initialization_script(&cookie_script);

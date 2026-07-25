@@ -55,8 +55,43 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
 
 export const FONT_LIGHT = '#374151';
 export const FONT_DARK = '#E5E7EB';
-export const EDGE_LIGHT = '#0052D9'; // 浅色：主题蓝（--vscode-focusBorder）
-export const EDGE_DARK = '#07C160'; // 暗色：主题绿（--vscode-focusBorder）
+export const EDGE_LIGHT = '#0052D9'; // 浅色 fallback：主题蓝（--vscode-focusBorder）
+export const EDGE_DARK = '#07C160'; // 暗色 fallback：主题绿（--vscode-focusBorder）
+
+/**
+ * 运行时读取主题 accent 色（--vscode-focusBorder）。
+ * applyAppTheme 在主题切换时更新 <html> 上的 CSS 变量，本函数每次调用都
+ * 读取最新值，保证连线 / 选中框 / 连接点等跟随当前主题（含 ink-light、
+ * ink-dark 等非默认主题）。读取失败时 fallback 到 EDGE_LIGHT / EDGE_DARK
+ * 硬编码常量，兼容初始化时序与 SSR。
+ */
+function readThemeAccentColor(dark: boolean): string {
+  if (typeof window !== 'undefined') {
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue('--vscode-focusBorder')
+      .trim();
+    if (v) return v;
+  }
+  return dark ? EDGE_DARK : EDGE_LIGHT;
+}
+
+/**
+ * 把 hex 颜色向白色混合（提亮）。amount=0 不变，amount=1 全白。
+ * 用于流动圆点：比线条色更亮的同色系，在线条上跳出但不破坏主题色和谐。
+ */
+function lightenHex(hex: string, amount: number): string {
+  const m = hex.replace(/^#/, '');
+  if (m.length !== 6) return hex;
+  const r = Number.parseInt(m.slice(0, 2), 16);
+  const g = Number.parseInt(m.slice(2, 4), 16);
+  const b = Number.parseInt(m.slice(4, 6), 16);
+  if ([r, g, b].some((v) => Number.isNaN(v))) return hex;
+  const mix = (v: number) =>
+    Math.min(255, Math.round(v + (255 - v) * amount))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${mix(r)}${mix(g)}${mix(b)}`;
+}
 
 /** 图形样式 */
 export const SHAPE_STROKE_WIDTH = 1.5;
@@ -64,8 +99,6 @@ export const SHAPE_FONT_SIZE = 13;
 export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
 
 /** 选中框样式 - 跟随主题（accent 色 = --vscode-focusBorder） */
-export const SELECTION_COLOR_LIGHT = '#0052D9'; // 浅色：主题蓝
-export const SELECTION_COLOR_DARK = '#07C160'; // 暗色：主题绿
 export const SELECTION_STROKE_WIDTH = 2;
 export const SELECTION_DASHED = false; // 实线更清晰
 
@@ -73,30 +106,31 @@ export const SELECTION_DASHED = false; // 实线更清晰
 export const HANDLE_SIZE = 7;
 export const HANDLE_FILL_COLOR_LIGHT = '#FFFFFF';
 export const HANDLE_FILL_COLOR_DARK = '#1F2937';
-export const HANDLE_STROKE_COLOR_LIGHT = '#0052D9';
-export const HANDLE_STROKE_COLOR_DARK = '#07C160';
 
 /** 连接点样式（悬停边缘时显示的锚点）- 跟随主题
  * 飞书风格：纯色小圆点，无填充，简洁优雅
  */
-export const CONNECTION_POINT_COLOR_LIGHT = '#0052D9';
-export const CONNECTION_POINT_COLOR_DARK = '#07C160';
 export const CONNECTION_POINT_SIZE = 10; // 精巧但清晰，在虚线生命线上可辨
-
-/** 拖动预览样式 - 跟随主题（accent 色 = --vscode-focusBorder） */
-export const PREVIEW_FILL_COLOR_LIGHT = 'rgba(0, 82, 217, 0.1)';
-export const PREVIEW_STROKE_COLOR_LIGHT = '#0052D9';
-export const PREVIEW_FILL_COLOR_DARK = 'rgba(7, 193, 96, 0.15)';
-export const PREVIEW_STROKE_COLOR_DARK = '#07C160';
 
 /** 取当前主题下某形状的配色。 */
 export function paletteFor(shape: GraphNodeShape, dark: boolean): ShapePalette {
-  return (dark ? SHAPE_PALETTE_DARK : SHAPE_PALETTE_LIGHT)[shape];
+  const pal = (dark ? SHAPE_PALETTE_DARK : SHAPE_PALETTE_LIGHT)[shape];
+  // 连线类形状的描边跟随主题 accent 色（--vscode-focusBorder），
+  // 其余形状保持中性灰描边（白板风格）。
+  if (
+    shape === 'edge-line' ||
+    shape === 'edge-ortho' ||
+    shape === 'edge-dashed' ||
+    shape === 'edge-no-arrow'
+  ) {
+    return { fill: pal.fill, stroke: readThemeAccentColor(dark) };
+  }
+  return pal;
 }
 
-/** 获取选中框颜色 */
+/** 获取选中框颜色 — 跟随主题 accent 色 */
 export function getSelectionColor(dark: boolean): string {
-  return dark ? SELECTION_COLOR_DARK : SELECTION_COLOR_LIGHT;
+  return readThemeAccentColor(dark);
 }
 
 /** 获取手柄填充颜色 */
@@ -104,19 +138,24 @@ export function getHandleFillColor(dark: boolean): string {
   return dark ? HANDLE_FILL_COLOR_DARK : HANDLE_FILL_COLOR_LIGHT;
 }
 
-/** 获取手柄描边颜色 */
+/** 获取手柄描边颜色 — 跟随主题 accent 色 */
 export function getHandleStrokeColor(dark: boolean): string {
-  return dark ? HANDLE_STROKE_COLOR_DARK : HANDLE_STROKE_COLOR_LIGHT;
+  return readThemeAccentColor(dark);
 }
 
-/** 获取连接点颜色 */
+/** 获取连接点颜色 — 跟随主题 accent 色 */
 export function getConnectionPointColor(dark: boolean): string {
-  return dark ? CONNECTION_POINT_COLOR_DARK : CONNECTION_POINT_COLOR_LIGHT;
+  return readThemeAccentColor(dark);
 }
 
-/** 获取连线颜色 */
+/** 获取连线颜色 — 跟随主题 accent 色（动画圆点继承连线 stroke，自动跟随） */
 export function getEdgeColor(dark: boolean): string {
-  return dark ? EDGE_DARK : EDGE_LIGHT;
+  return readThemeAccentColor(dark);
+}
+
+/** 获取连线流动圆点颜色 — 主题 accent 色提亮 40%，比线条更亮，在连线上跳出明显 */
+export function getEdgeDotColor(dark: boolean): string {
+  return lightenHex(readThemeAccentColor(dark), 0.4);
 }
 
 /** 获取字体颜色 */

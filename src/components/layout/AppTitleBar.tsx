@@ -32,8 +32,12 @@ export default function AppTitleBar() {
       {/* Left: placeholder for traffic lights space */}
       <div className="w-[72px]" data-tauri-drag-region />
 
-      {/* Center: Dynamic Island (browser address bar) or empty drag region */}
-      <div className="flex-1 flex items-center" data-tauri-drag-region={!isBrowserView}>
+      {/* Center: Dynamic Island (browser address bar) or empty drag region.
+          Always a drag region — when the browser is active, the pill itself
+          (BrowserDynamicIsland root) has `data-tauri-drag-region={false}` to
+          exclude itself, so the empty space around the pill remains draggable
+          (needed for double-click-to-maximize on macOS). */}
+      <div className="flex-1 flex items-center" data-tauri-drag-region>
         {isBrowserView ? <BrowserDynamicIsland /> : null}
       </div>
 

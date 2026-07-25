@@ -9,8 +9,6 @@
  *
  * Layout (two native child webviews, content fills the full area):
  *   +----------------------------------------------------+
- *   | [address bar]                        refresh | open |  solid, top
- *   +----------------------------------------------------+
  *   |  Native content webview (fills the whole area)      |
  *   |   ...   [Tab1] [Tab2] [+]   ...                     |  <- floating tab-bar
  *   |         ^ transparent overlay webview,                  overlay webview,
@@ -32,6 +30,11 @@
  * `BrowserTabsOverlayApp` (mounted via `index.html?window=browser-tabbar-overlay`),
  * not this component -- this file only reports geometry for it.
  *
+ * The address bar / toolbar (search engine, URL input, refresh,
+ * open-external) lives in the title bar's `BrowserDynamicIsland`, which
+ * is driven by the same `browserSlice` store this panel feeds. We do NOT
+ * render a second address bar here.
+ *
  * Lifecycle (mount-once + CSS-hide, same pattern as AgentChatPanel):
  *   - `hidden` false -> `showBrowserPanel()` + start ResizeObserver
  *   - `hidden` true  -> `hideBrowserPanel()` (webviews moved off-screen,
@@ -41,11 +44,12 @@
  *   Cmd+T / Cmd+W -- handled Rust-side in `on_menu_event` (routes to
  *     `add_tab_to_main_browser` / `close_active_tab_in_main_browser`
  *     when `is_browser_panel_visible()` is true).
- *   Cmd+R / Cmd+L -- DOM keydown (not in the custom macOS menu).
+ *   Cmd+R -- DOM keydown (not in the custom macOS menu); refreshes the
+ *     active tab. (Cmd+L focuses the title-bar address bar, handled by
+ *     `BrowserDynamicIsland`.)
  */
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { Loader2, ExternalLink, RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../../store/useStore";
 import { useI18n } from "../../lib/core/i18n";
@@ -55,20 +59,15 @@ import {
   type BrowserPanelRect,
 } from "../../lib/core/storage";
 import { TAB_BAR_OVERLAY_HEIGHT } from "../ui/TabBar";
-import { BROWSER_WINDOW_LABEL } from "./BrowserTabs";
-import { handleNativeSelectAll } from "../../lib/shortcuts/nativeSelectAll";
 
 export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
-  const [state, setState] = useState<LinkPreviewTabsState>({
-    tabs: [],
-    activeTabId: null,
-  });
-  const [addressBarUrl, setAddressBarUrl] = useState("");
-  const addressInputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
+  const containerRef = useRef<HTMLDivElement>(null);
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
   const tabBarPosition = useStore((s) => s.tabBarPosition);
+  const browserTabs = useStore((s) => s.browserTabs);
+  const addBrowserTab = useStore((s) => s.addBrowserTab);
+  const refreshBrowserTab = useStore((s) => s.refreshBrowserTab);
 
   // -- Lifecycle: show / hide the browser panel --
   // Tell Rust to mark the panel visible (so Cmd+T/Cmd+W route here) and
@@ -81,23 +80,26 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     }
     storage.showBrowserPanel().catch(console.error);
     // Fetch current tabs state (covers the case where tabs were preserved
-    // from a previous show/hide cycle).
+    // from a previous show/hide cycle) and feed the shared browserSlice so
+    // the title-bar address bar reflects the live tabs.
     storage
       .getBrowserPanelTabsState()
-      .then(setState)
+      .then((state) => useStore.getState().setBrowserTabsState(state))
       .catch(console.error);
   }, [hidden]);
 
   // -- Listen for tab state updates from Rust --
   // Rust emits `link-preview:tabs-updated` scoped to the "main" window
-  // via `emit_to`, so this listener only fires for the inline panel's
-  // tabs (not the standalone link-preview window's tabs).
+  // via `emit_to`. We forward every update into the shared `browserSlice`
+  // store so the title-bar `BrowserDynamicIsland` (address bar, refresh,
+  // open-external) stays in sync with the active tab. This panel no longer
+  // keeps its own copy of the tab state.
   useEffect(() => {
     if (hidden) return;
     const unlisten = listen<LinkPreviewTabsState>(
       "link-preview:tabs-updated",
       (event) => {
-        setState(event.payload);
+        useStore.getState().setBrowserTabsState(event.payload);
       },
     );
     return () => {
@@ -148,7 +150,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
       };
       storage.updateBrowserPanelRect(browserRect).catch(console.error);
 
-      if (state.tabs.length > 0) {
+      if (browserTabs.length > 0) {
         const isTop = tabBarPosition === "top";
         const tabBarRect: BrowserPanelRect = {
           x: rect.x,
@@ -166,90 +168,11 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     const observer = new ResizeObserver(updateRect);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [hidden, state.tabs.length, tabBarPosition]);
+  }, [hidden, browserTabs.length, tabBarPosition]);
 
-  // -- Sync address bar to the active tab's URL --
-  useEffect(() => {
-    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
-    const url = activeTab?.url ?? "";
-    setAddressBarUrl(url === "about:blank" ? "" : url);
-  }, [state.activeTabId, state.tabs]);
-
-  // -- Auto-focus address bar on new tab (about:blank) --
-  useEffect(() => {
-    if (hidden) return;
-    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
-    if (activeTab?.url === "about:blank") {
-      requestAnimationFrame(() => addressInputRef.current?.focus());
-    }
-  }, [state.activeTabId, state.tabs, hidden]);
-
-  // -- Actions --
-  // Tab switch / close / context menu live in BrowserTabs. The actions
-  // below are the ones this panel still needs directly: navigating the
-  // address bar, refreshing the active tab, opening externally, and the
-  // empty-state "New Tab" button.
-
-  const addNewTab = useCallback(() => {
-    storage.addLinkPreviewTab(BROWSER_WINDOW_LABEL, "about:blank").catch(console.error);
-  }, []);
-
-  const navigateToUrl = useCallback(
-    (url: string) => {
-      if (!url.trim()) return;
-
-      // URL normalization (same logic as LinkPreviewTabsApp)
-      let normalizedUrl = url.trim();
-      if (
-        !normalizedUrl.startsWith("http://") &&
-        !normalizedUrl.startsWith("https://") &&
-        !normalizedUrl.startsWith("about:")
-      ) {
-        if (normalizedUrl.includes(".") && !normalizedUrl.includes(" ")) {
-          normalizedUrl = "https://" + normalizedUrl;
-        } else {
-          normalizedUrl =
-            "https://www.google.com/search?q=" +
-            encodeURIComponent(normalizedUrl);
-        }
-      }
-
-      const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
-      if (activeTab) {
-        storage
-          .navigateLinkPreviewTab(BROWSER_WINDOW_LABEL, activeTab.id, normalizedUrl)
-          .catch(console.error);
-      } else {
-        storage
-          .addLinkPreviewTab(BROWSER_WINDOW_LABEL, normalizedUrl)
-          .catch(console.error);
-      }
-    },
-    [state.tabs, state.activeTabId],
-  );
-
-  const refreshTab = useCallback(() => {
-    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
-    if (activeTab) {
-      storage
-        .refreshLinkPreviewTab(BROWSER_WINDOW_LABEL, activeTab.id)
-        .catch(console.error);
-    }
-  }, [state.tabs, state.activeTabId]);
-
-  const openInBrowser = useCallback(() => {
-    const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
-    if (activeTab) {
-      storage.openUrlInBrowser(activeTab.url).catch(console.error);
-    }
-  }, [state.tabs, state.activeTabId]);
-
-  // -- Keyboard shortcuts (Cmd+R, Cmd+L) --
-  // Cmd+T / Cmd+W are handled Rust-side in on_menu_event -- when the
-  // browser panel is visible, Rust calls add_tab_to_main_browser /
-  // close_active_tab_in_main_browser directly instead of emitting
-  // native-command. Cmd+R / Cmd+L are NOT in the custom macOS menu, so
-  // DOM keydown fires normally.
+  // -- Keyboard: Cmd+R refreshes the active tab --
+  // Cmd+L (focus address bar) is handled by BrowserDynamicIsland in the
+  // title bar. Cmd+T / Cmd+W are routed Rust-side in on_menu_event.
   useEffect(() => {
     if (hidden) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -257,96 +180,30 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
       if (!mod) return;
       if (e.key === "r" || e.key === "R") {
         e.preventDefault();
-        refreshTab();
-      } else if (e.key === "l" || e.key === "L") {
-        e.preventDefault();
-        const input = addressInputRef.current;
-        if (input) {
-          input.focus();
-          input.select();
-        }
+        refreshBrowserTab();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [refreshTab, hidden]);
-
-  const handleAddressKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (handleNativeSelectAll(e)) return;
-      if (e.key === "Enter") {
-        navigateToUrl(addressBarUrl);
-      } else if (e.key === "Escape") {
-        const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
-        const url = activeTab?.url ?? "";
-        setAddressBarUrl(url === "about:blank" ? "" : url);
-        addressInputRef.current?.blur();
-      }
-    },
-    [addressBarUrl, navigateToUrl, state.tabs, state.activeTabId],
-  );
-
-  const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
-  const isLoading = activeTab?.loading ?? false;
+  }, [hidden, refreshBrowserTab]);
 
   // -- Render --
 
   return (
     <div className="w-full h-full flex flex-col relative overflow-hidden bg-[var(--vscode-editor-background)]">
-      {/* -- Address bar + toolbar (top, solid) -- */}
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 shrink-0 bg-[var(--vscode-sideBar-background)] border-b border-[var(--vscode-widget-border,#E5E5E5)]">
-        <input
-          ref={addressInputRef}
-          type="text"
-          className="flex-1 px-2 py-1 text-[13px] rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-[var(--vscode-input-foreground)] outline-none focus:border-[var(--vscode-focusBorder)] transition-colors"
-          value={addressBarUrl}
-          onChange={(e) => setAddressBarUrl(e.target.value)}
-          onKeyDown={handleAddressKeyDown}
-          placeholder={t("linkPreview.urlPlaceholder")}
-          onFocus={(e) => e.target.select()}
-          spellCheck={false}
-        />
-
-        {isLoading && (
-          <Loader2
-            size={14}
-            className="text-[var(--vscode-icon-foreground)] opacity-70 animate-spin"
-          />
-        )}
-
-        <button
-          type="button"
-          className="flex items-center justify-center p-1 rounded bg-transparent text-[var(--vscode-icon-foreground)] opacity-70 cursor-pointer hover:opacity-100 hover:bg-[var(--vscode-list-hoverBackground)] transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
-          onClick={refreshTab}
-          disabled={!activeTab}
-          title={t("linkPreview.refresh")}
-        >
-          <RefreshCw size={14} />
-        </button>
-
-        <button
-          type="button"
-          className="flex items-center justify-center p-1 rounded bg-transparent text-[var(--vscode-icon-foreground)] opacity-70 cursor-pointer hover:opacity-100 hover:bg-[var(--vscode-list-hoverBackground)] transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
-          onClick={openInBrowser}
-          disabled={!activeTab}
-          title={t("linkPreview.openBrowser")}
-        >
-          <ExternalLink size={14} />
-        </button>
-      </div>
-
-      {/* -- Webview area (fills the rest, full size, no reservation) -- */}
-      {/* The container div fills the entire remaining area for the native
-          content webview. The floating tab bar lives in a separate,
-          transparent overlay webview (label "tabbar-main") stacked above
-          this one -- created/positioned entirely from Rust via
-          update_browser_tabbar_rect, driven by the ResizeObserver above. */}
+      {/* -- Webview area (fills the whole panel, no address bar) -- */}
+      {/* The container div fills the entire area for the native content
+          webview. The floating tab bar lives in a separate, transparent
+          overlay webview (label "tabbar-main") stacked above this one --
+          created/positioned entirely from Rust via update_browser_tabbar_rect,
+          driven by the ResizeObserver above. The address bar / toolbar lives
+          in the title bar's BrowserDynamicIsland. */}
       <div className="flex-1 min-h-0 relative">
         <div ref={containerRef} className="absolute inset-0 bg-white">
-          {state.tabs.length === 0 && (
+          {browserTabs.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[var(--vscode-editor-background)]">
               <button
-                onClick={addNewTab}
+                onClick={() => addBrowserTab()}
                 className="px-4 py-2 rounded-md bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)] hover:opacity-90 transition-opacity text-sm"
               >
                 {t("linkPreview.newTab")}

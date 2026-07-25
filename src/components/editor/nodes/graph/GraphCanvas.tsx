@@ -79,6 +79,7 @@ import {
   getHandleStrokeColor,
   getConnectionPointColor,
   getEdgeColor,
+  getEdgeDotColor,
   getFontColor,
   createConnectionPointSVG,
   SHAPE_STROKE_WIDTH,
@@ -88,10 +89,6 @@ import {
   SELECTION_STROKE_WIDTH,
   SELECTION_DASHED,
   CONNECTION_POINT_SIZE,
-  PREVIEW_FILL_COLOR_LIGHT,
-  PREVIEW_STROKE_COLOR_LIGHT,
-  PREVIEW_FILL_COLOR_DARK,
-  PREVIEW_STROKE_COLOR_DARK,
 } from './graphTheme';
 import { ShapeGlyph } from './ShapeGlyph';
 import {
@@ -297,11 +294,14 @@ export function GraphCanvas({
           const mainPath = g.querySelector('path');
           if (mainPath) {
             const d = mainPath.getAttribute('d');
-            const stroke = mainPath.getAttribute('stroke');
-            if (d && stroke) {
+            if (d) {
+              // 圆点颜色比线条更亮（主题 accent 色提亮 40%），在连线上跳出明显；
+              // 不读 mainPath.getAttribute('stroke') —— maxGraph 在 style 变更后
+              // 可能用 inline CSS 而非 stroke 属性更新颜色，会导致圆点滞后于主题切换。
+              const dotColor = getEdgeDotColor(darkModeRef.current);
               const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
               dot.setAttribute('r', '2.5');
-              dot.setAttribute('fill', stroke);
+              dot.setAttribute('fill', dotColor);
               dot.classList.add('jgraph-edge-dot');
 
               const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
@@ -979,29 +979,31 @@ export function GraphCanvas({
     graph.setCellsLocked(!editing);
   }, [editing]);
 
-  // 暗色模式切换时更新所有跟随主题的颜色
-  useEffect(() => {
+  // 主题色刷新：暗色切换 / 同模式下切换主题（jstudio-light → ink-light）都走这条路径。
+  // 读 darkModeRef.current 以保证事件回调里拿到最新值（事件触发时组件未必重渲染）。
+  const applyThemeColors = useCallback(() => {
     const graph = graphRef.current;
     if (!graph) return;
+    const dark = darkModeRef.current;
 
-    const color = getSelectionColor(darkMode);
+    const color = getSelectionColor(dark);
 
     // 更新选中框颜色
     VertexHandlerConfig.selectionColor = color;
-    
+
     // 更新手柄颜色
-    HandleConfig.fillColor = getHandleFillColor(darkMode);
-    HandleConfig.strokeColor = getHandleStrokeColor(darkMode);
-    
+    HandleConfig.fillColor = getHandleFillColor(dark);
+    HandleConfig.strokeColor = getHandleStrokeColor(dark);
+
     // 更新连接点样式（maxGraph 中为 ConstraintHandler 实例属性）
     const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
     if (connectionHandler?.constraintHandler) {
       connectionHandler.constraintHandler.pointImage = new ImageBox(
-        createConnectionPointSVG(darkMode),
+        createConnectionPointSVG(dark),
         CONNECTION_POINT_SIZE,
         CONNECTION_POINT_SIZE,
       );
-      connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(darkMode);
+      connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
     }
 
     // 更新拖动预览颜色（SelectionHandler）
@@ -1011,14 +1013,14 @@ export function GraphCanvas({
     }
 
     // 更新默认样式（影响新建图形）
-    const defaultPal = paletteFor('rectangle', darkMode);
+    const defaultPal = paletteFor('rectangle', dark);
     const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
     vertexDefault.fillColor = defaultPal.fill;
     vertexDefault.strokeColor = defaultPal.stroke;
-    vertexDefault.fontColor = getFontColor(darkMode);
-    
+    vertexDefault.fontColor = getFontColor(dark);
+
     const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
-    edgeDefault.strokeColor = getEdgeColor(darkMode);
+    edgeDefault.strokeColor = getEdgeColor(dark);
 
     // 更新已存在 cell 的样式：让画板上的图形跟着主题变色。
     // maxGraph 在 cell 创建时把样式烘焙到 cell 上，不会从默认 stylesheet 重新解析，
@@ -1031,17 +1033,17 @@ export function GraphCanvas({
         const oldStyle = (cell.getStyle() as CellStyle) ?? {};
         if (cell.isVertex()) {
           const shape = styleToNodeShape(oldStyle);
-          const pal = paletteFor(shape, darkMode);
+          const pal = paletteFor(shape, dark);
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,
             fillColor: pal.fill,
             strokeColor: pal.stroke,
-            fontColor: getFontColor(darkMode),
+            fontColor: getFontColor(dark),
           });
         } else if (cell.isEdge()) {
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,
-            strokeColor: getEdgeColor(darkMode),
+            strokeColor: getEdgeColor(dark),
           });
         }
       }
@@ -1050,7 +1052,21 @@ export function GraphCanvas({
     // 刷新视图让更改生效
     graph.getView().validate();
     graph.refresh();
-  }, [darkMode]);
+  }, []);
+
+  // 暗色模式切换时刷新所有跟随主题的颜色
+  useEffect(() => {
+    applyThemeColors();
+  }, [darkMode, applyThemeColors]);
+
+  // 同模式下切换主题（jstudio-light → ink-light）：applyAppTheme 更新 <html> 上的
+  // CSS 变量后派发 'apptheme-change' 事件，这里监听并重新读取 accent 色。
+  // darkMode 未变，但 --vscode-focusBorder 已更新，需重新刷一遍连线/选中/连接点。
+  useEffect(() => {
+    const handler = () => applyThemeColors();
+    window.addEventListener('apptheme-change', handler);
+    return () => window.removeEventListener('apptheme-change', handler);
+  }, [applyThemeColors]);
 
   /* -------------------------------------------------------------- */
   /* 键盘：Del 删除 / Cmd+Z 撤销 / Cmd+C·V·D 复制粘贴克隆 / 方向键微移 */

@@ -43,4 +43,12 @@ export function applyAppTheme(theme: AppTheme): void {
 
   // Toggle .dark class for Tailwind dark mode
   root.classList.toggle('dark', theme.isDark);
+
+  // Notify listeners that the active theme's CSS variables changed.
+  // Used by graph canvas (and other consumers that read --vscode-* vars at
+  // runtime) to re-resolve accent colors when the user switches themes within
+  // the same mode (e.g. jstudio-light → ink-light), since isDarkMode is unchanged.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('apptheme-change'));
+  }
 }
