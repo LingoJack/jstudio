@@ -178,8 +178,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   },
 
   setActivityBarItems: (items: ActivityBarItemConfig[]) => {
-    set({ activityBarItems: items });
-    storage.saveSettings({ activityBarItems: items }).catch(onSaveError('设置'));
+    // Normalize on every write so settings always stays visible and pinned to the bottom.
+    const normalized = normalizeActivityBarItems(items);
+    set({ activityBarItems: normalized });
+    storage.saveSettings({ activityBarItems: normalized }).catch(onSaveError('设置'));
   },
 
   setFontId: (id) => {

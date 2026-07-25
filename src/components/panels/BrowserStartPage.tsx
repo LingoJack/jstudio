@@ -202,18 +202,32 @@ export default function BrowserStartPage() {
   };
 
   // Close the engine dropdown / shortcut context menu on outside click.
+  //
+  // We listen on `mousedown` so the menu closes before focus shifts, but we
+  // must NOT close when the press lands inside the menu itself -- otherwise
+  // the menu unmounts before the MenuItem's own click fires and the action
+  // (delete / edit) silently does nothing. Both containers therefore get a
+  // ref and are excluded from the "outside" test.
   const engineMenuRef = useRef<HTMLDivElement>(null);
+  const shortcutMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!engineMenuOpen && !shortcutMenu) return;
     const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
       if (
         engineMenuOpen &&
         engineMenuRef.current &&
-        !engineMenuRef.current.contains(e.target as Node)
+        !engineMenuRef.current.contains(target)
       ) {
         setEngineMenuOpen(false);
       }
-      if (shortcutMenu) setShortcutMenu(null);
+      if (
+        shortcutMenu &&
+        shortcutMenuRef.current &&
+        !shortcutMenuRef.current.contains(target)
+      ) {
+        setShortcutMenu(null);
+      }
     };
     window.addEventListener("mousedown", onMouseDown);
     return () => window.removeEventListener("mousedown", onMouseDown);
@@ -360,11 +374,12 @@ export default function BrowserStartPage() {
 
       {/* ── Shortcut context menu ── */}
       {shortcutMenu && (
-        <MenuList
-          x={shortcutMenu.x}
-          y={shortcutMenu.y}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div ref={shortcutMenuRef}>
+          <MenuList
+            x={shortcutMenu.x}
+            y={shortcutMenu.y}
+            onClick={(e) => e.stopPropagation()}
+          >
           <MenuItem
             icon={<Pencil className="w-3.5 h-3.5" />}
             onClick={() => {
@@ -382,7 +397,8 @@ export default function BrowserStartPage() {
           >
             {t("linkPreview.startPage.deleteShortcut")}
           </MenuItem>
-        </MenuList>
+          </MenuList>
+        </div>
       )}
 
       {/* ── Add / edit dialog ── */}

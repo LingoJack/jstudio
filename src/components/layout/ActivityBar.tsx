@@ -99,8 +99,10 @@ export default function ActivityBar() {
   const topItems = activityBarItems.filter(
     (item) => item.visible && item.id !== "settings",
   );
+  // Settings is always rendered regardless of the stored visible flag —
+  // it cannot be hidden (enforced by normalizeActivityBarItems).
   const settingsItem = activityBarItems.find(
-    (item) => item.id === "settings" && item.visible,
+    (item) => item.id === "settings",
   );
 
   /** Render a single activity bar entry. */

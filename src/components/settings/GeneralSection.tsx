@@ -775,16 +775,28 @@ function ActivityBarItemsSection() {
               </span>
 
               {/* Visibility toggle — stop pointer propagation so it
-                  doesn't initiate a drag */}
+                  doesn't initiate a drag.
+                  The off state uses an inset box-shadow instead of a real
+                  border so the track keeps the same box size in both states
+                  and the knob stays vertically centered. */}
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => handleToggle(item.id)}
-                className={`relative w-9 h-5 rounded-full transition-colors duration-200 shrink-0 cursor-pointer ${
+                disabled={isFixed}
+                className={`relative w-9 h-5 rounded-full transition-colors duration-200 shrink-0 ${
+                  isFixed ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                } ${
                   item.visible
                     ? 'bg-[var(--vscode-button-background)]'
-                    : 'bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)]'
+                    : 'bg-[var(--vscode-input-background)] shadow-[inset_0_0_0_1px_var(--vscode-input-border)]'
                 }`}
-                title={item.visible ? t('common.hide') : t('common.show')}
+                title={
+                  isFixed
+                    ? t('appearance.activityBarItemSettingsLocked')
+                    : item.visible
+                      ? t('common.hide')
+                      : t('common.show')
+                }
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-200 ${
