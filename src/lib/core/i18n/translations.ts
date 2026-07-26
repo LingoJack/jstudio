@@ -200,7 +200,7 @@ export const translations = {
     "agent.selectWorkspaceOptional": "选择工作目录（可选）",
     "agent.workspaceOptional": "工作目录（可选）",
     "agent.workspaceOptionalHint": "不设置工作目录时 Agent 将在默认位置操作",
-    "agent.clearWorkspace": "清除",
+    "agent.clearWorkspace": "清除工作目录",
     "agent.noWorkspace": "无工作目录",
     "agent.askTitle": "请回答",
     "agent.askSubmit": "提交答案",
@@ -246,6 +246,20 @@ export const translations = {
     "agent.yesterday": "昨天",
     "agent.daysAgo": "{n} 天前",
     "agent.running": "运行中",
+
+    // Agent workspace
+    "agent.currentWorkspace": "当前工作目录",
+    "agent.selectWorkspacePrompt": "选择工作目录",
+    "agent.noWorkspaceSelected": "未选择工作目录",
+    "agent.selectWorkspaceToStart": "Agent 需要一个工作目录来读取和操作文件",
+    "agent.selectWorkspaceBtn": "选择工作目录",
+    "agent.recentTasks": "最近任务",
+    "agent.otherWorkspaces": "其他目录",
+    "agent.openDirectory": "打开目录...",
+    "agent.setAsCurrentWorkspace": "设为当前工作目录",
+    "agent.workspaceChanged": "工作目录已切换",
+    "agent.switchWorkspace": "切换工作目录",
+    "agent.workspaces": "工作目录",
 
     // ── SectionOutline ──
     "outline.title": "大纲",
@@ -1000,7 +1014,7 @@ export const translations = {
     "agent.workspaceOptional": "Working Directory (optional)",
     "agent.workspaceOptionalHint":
       "Agent will operate in the default location if not set",
-    "agent.clearWorkspace": "Clear",
+    "agent.clearWorkspace": "Clear Workspace",
     "agent.noWorkspace": "No workspace",
     "agent.askTitle": "Please answer",
     "agent.askSubmit": "Submit",
@@ -1046,6 +1060,20 @@ export const translations = {
     "agent.yesterday": "yesterday",
     "agent.daysAgo": "{n} days ago",
     "agent.running": "running",
+
+    // Agent workspace
+    "agent.currentWorkspace": "Current Workspace",
+    "agent.selectWorkspacePrompt": "Select Workspace",
+    "agent.noWorkspaceSelected": "No workspace selected",
+    "agent.selectWorkspaceToStart": "Agent needs a workspace to read and modify files",
+    "agent.selectWorkspaceBtn": "Select Workspace",
+    "agent.recentTasks": "Recent Tasks",
+    "agent.otherWorkspaces": "Other Workspaces",
+    "agent.openDirectory": "Open Directory...",
+    "agent.setAsCurrentWorkspace": "Set as Current Workspace",
+    "agent.workspaceChanged": "Workspace changed",
+    "agent.switchWorkspace": "Switch Workspace",
+    "agent.workspaces": "Workspaces",
 
     // ── SectionOutline ──
     "outline.title": "Outline",

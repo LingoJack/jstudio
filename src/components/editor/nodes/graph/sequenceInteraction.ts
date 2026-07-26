@@ -220,9 +220,27 @@ export function attachAutoActivation(
       model.setTerminal(edge, actCell, false);
 
       // 修改 edge 的 style：强制 straight + 结束箭头
-      // 同时把 target perimeter 留给 umlActivation 的默认 RectanglePerimeter
+      // 关键：清除 target 侧的 entry 约束（entryX/entryY 等）。
+      // 这些约束是 ConnectionHandler.connect() 在创建边时，根据原 target（生命线）
+      // 的 bounds 设置的相对坐标（0~1）。现在 target 已改为活动块（16×40px），
+      // 如果不清除，entryX=0.5 等值会映射到活动块水平中心（内部）而非边缘，
+      // 导致箭头端点落在活动块内部。清除后 maxGraph 回退到 ActivationPerimeter，
+      // 正确地将端点投影到活动块左右边缘。
+      //
+      // 保留 source 侧的 exit 约束（exitX/exitY）：source（生命线）未变，
+      // 且 exitY 记录了正确的消息 Y 位置。ActivationPerimeter 会用 source 端点
+      // 作为 next 点来确定方向和 Y，确保箭头水平指向活动块边缘。
+      //
+      // 使用 model.setStyle() 而非 edge.setStyle()，确保样式变更经过 model
+      // 变更追踪，视图能在 endUpdate 时正确重验证。
       const style = edge.getStyle() ?? {};
-      edge.setStyle({ ...style, edgeStyle: undefined, endArrow: 'classic' });
+      const cleaned: Record<string, unknown> = { ...style };
+      delete cleaned.entryX;
+      delete cleaned.entryY;
+      delete cleaned.entryPerimeter;
+      delete cleaned.entryDx;
+      delete cleaned.entryDy;
+      model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'classic' });
 
       // 强制水平：清除 sourcePoint / targetPoint 的 Y 偏差。
       // 因为 source 和 target 都是节点，edge 会走 perimeter 计算端点。

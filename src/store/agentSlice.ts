@@ -37,6 +37,7 @@ export function createAgentSlice(
     // — agent state —
     agentSessions: [],
     activeAgentSessionId: null,
+    activeAgentWorkspace: null,
 
     // — agent ops —
     initAgentSessions: async () => {
@@ -57,9 +58,26 @@ export function createAgentSlice(
           updatedAt: m.updatedAt,
         }));
         set({ agentSessions: sessions });
+
+        // Load active workspace from settings
+        try {
+          const settings = await storage.loadSettings();
+          if (settings.agentActiveWorkspace) {
+            set({ activeAgentWorkspace: settings.agentActiveWorkspace as string });
+          }
+        } catch {
+          // ignore settings load error
+        }
       } catch (e) {
         console.error('Failed to init agent sessions:', e);
       }
+    },
+
+    setActiveAgentWorkspace: (workspace: string) => {
+      set({ activeAgentWorkspace: workspace });
+      storage.saveSettings({ agentActiveWorkspace: workspace }).catch((e) => {
+        console.error('Failed to save active workspace:', e);
+      });
     },
 
     createAgentSession: async (workspace: string) => {

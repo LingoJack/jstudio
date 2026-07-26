@@ -42,20 +42,24 @@ export interface WorkspaceGroup {
 interface WorkspaceListProps {
   groups: WorkspaceGroup[];
   activeId: string | null;
+  activeWorkspace: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onExpand: (group: WorkspaceGroup) => void;
   onCreateInWorkspace: (workspace: string) => void;
+  onSetWorkspace: (workspace: string) => void;
   maxSessionsPerGroup?: number;
 }
 
 export function WorkspaceList({
   groups,
   activeId,
+  activeWorkspace,
   onSelect,
   onDelete,
   onExpand,
   onCreateInWorkspace,
+  onSetWorkspace,
   maxSessionsPerGroup = 5,
 }: WorkspaceListProps) {
   const { t } = useI18n();
@@ -76,20 +80,75 @@ export function WorkspaceList({
     );
   }
 
+  // Split groups: current workspace group vs other groups
+  const currentGroup = activeWorkspace
+    ? groups.find((g) => g.workspace === activeWorkspace)
+    : null;
+  const otherGroups = activeWorkspace
+    ? groups.filter((g) => g.workspace !== activeWorkspace)
+    : groups;
+
   return (
     <div className="flex-1 overflow-y-auto space-y-0.5">
-      {groups.map((group) => (
-        <WorkspaceGroupItem
-          key={group.workspace}
-          group={group}
-          activeId={activeId}
-          onSelect={onSelect}
-          onDelete={onDelete}
-          onExpand={onExpand}
-          onCreateInWorkspace={onCreateInWorkspace}
-          maxSessions={maxSessionsPerGroup}
-        />
-      ))}
+      {/* Current workspace sessions - flat list */}
+      {currentGroup && currentGroup.sessions.length > 0 && (
+        <div className="mb-2">
+          <div
+            className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider select-none"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          >
+            {t('agent.recentTasks')}
+          </div>
+          <div className="space-y-0.5">
+            {currentGroup.sessions.slice(0, maxSessionsPerGroup).map((session) => (
+              <SessionItem
+                key={session.id}
+                session={session}
+                active={session.id === activeId}
+                onSelect={onSelect}
+                onDelete={onDelete}
+              />
+            ))}
+            {currentGroup.sessions.length > maxSessionsPerGroup && (
+              <NavRow
+                level="primary"
+                onClick={() => onExpand(currentGroup)}
+                icon={<span className="text-xs text-[var(--vscode-descriptionForeground)]">+{currentGroup.sessions.length - maxSessionsPerGroup}</span>}
+              >
+                {t('agent.moreSessions')}
+              </NavRow>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Other workspaces - collapsible groups */}
+      {otherGroups.length > 0 && (
+        <div className={currentGroup ? 'mt-3' : ''}>
+          {currentGroup && (
+            <div
+              className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider select-none"
+              style={{ color: 'var(--vscode-descriptionForeground)' }}
+            >
+              {t('agent.otherWorkspaces')}
+            </div>
+          )}
+          {otherGroups.map((group) => (
+            <WorkspaceGroupItem
+              key={group.workspace}
+              group={group}
+              activeId={activeId}
+              isActiveWorkspace={false}
+              onSelect={onSelect}
+              onDelete={onDelete}
+              onExpand={onExpand}
+              onCreateInWorkspace={onCreateInWorkspace}
+              onSetWorkspace={onSetWorkspace}
+              maxSessions={maxSessionsPerGroup}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -101,20 +160,24 @@ export function WorkspaceList({
 interface WorkspaceGroupItemProps {
   group: WorkspaceGroup;
   activeId: string | null;
+  isActiveWorkspace: boolean;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onExpand: (group: WorkspaceGroup) => void;
   onCreateInWorkspace: (workspace: string) => void;
+  onSetWorkspace: (workspace: string) => void;
   maxSessions: number;
 }
 
 function WorkspaceGroupItem({
   group,
   activeId,
+  isActiveWorkspace,
   onSelect,
   onDelete,
   onExpand,
   onCreateInWorkspace,
+  onSetWorkspace,
   maxSessions,
 }: WorkspaceGroupItemProps) {
   const { t } = useI18n();
@@ -193,8 +256,13 @@ function WorkspaceGroupItem({
           x={contextMenu.x}
           y={contextMenu.y}
           workspace={group.workspace}
+          isActiveWorkspace={isActiveWorkspace}
           onCreateSession={() => {
             onCreateInWorkspace(group.workspace);
+            setContextMenu(null);
+          }}
+          onSetWorkspace={() => {
+            onSetWorkspace(group.workspace);
             setContextMenu(null);
           }}
           onClose={() => setContextMenu(null)}
@@ -212,11 +280,13 @@ interface WorkspaceGroupMenuProps {
   x: number;
   y: number;
   workspace: string;
+  isActiveWorkspace: boolean;
   onCreateSession: () => void;
+  onSetWorkspace: () => void;
   onClose: () => void;
 }
 
-function WorkspaceGroupMenu({ x, y, workspace, onCreateSession, onClose }: WorkspaceGroupMenuProps) {
+function WorkspaceGroupMenu({ x, y, isActiveWorkspace, onCreateSession, onSetWorkspace, onClose }: WorkspaceGroupMenuProps) {
   const { t } = useI18n();
 
   return (
@@ -229,6 +299,17 @@ function WorkspaceGroupMenu({ x, y, workspace, onCreateSession, onClose }: Works
         }}
       >
         {t('agent.newTask')}
+      </MenuItem>
+      <MenuDivider />
+      <MenuItem
+        icon={<FolderOpen className="w-4 h-4" />}
+        disabled={isActiveWorkspace}
+        onClick={() => {
+          onSetWorkspace();
+          onClose();
+        }}
+      >
+        {t('agent.setAsCurrentWorkspace')}
       </MenuItem>
     </MenuList>
   );

@@ -1,5 +1,5 @@
 /**
- * AgentSidebar — Agent 侧边栏组件
+ * AgentSidebar - Agent 侧边栏组件
  * 
  * 与 DocumentSidebar 保持一致的架构：
  * - 独立于 AgentChatPanel，在 App 层级渲染
@@ -7,13 +7,22 @@
  * 
  * 结构：
  * - 功能菜单：新建任务
+ * - 工作目录栏：显示/切换当前工作目录
  * - 任务历史：按 workspace 分组的 session 列表（可折叠）
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { Plus, FolderOpen, ChevronRight } from 'lucide-react';
+import {
+  Plus,
+  FolderOpen,
+  ChevronRight,
+  ChevronDown,
+  Check,
+  Folder,
+  X,
+} from 'lucide-react';
 import {
   WorkspaceList,
   WorkspaceExpandModal,
@@ -28,7 +37,161 @@ import {
 const MAX_SESSIONS_PER_GROUP = 5;
 
 // ────────────────────────────────────────────────
-// Workspace Select Modal (简化版：只选择 workspace)
+// Helpers
+// ────────────────────────────────────────────────
+
+/** Extract a short display name from a workspace path */
+function workspaceDisplayName(ws: string): string {
+  return ws.split('/').pop() || ws;
+}
+
+// ────────────────────────────────────────────────
+// Workspace Dropdown
+// ────────────────────────────────────────────────
+
+interface WorkspaceDropdownProps {
+  activeWorkspace: string | null;
+  workspaces: string[];
+  onSwitch: (ws: string) => void;
+  onOpenDirectory: () => void;
+  onClear: () => void;
+  onClose: () => void;
+}
+
+function WorkspaceDropdown({
+  activeWorkspace,
+  workspaces,
+  onSwitch,
+  onOpenDirectory,
+  onClear,
+  onClose,
+}: WorkspaceDropdownProps) {
+  const { t } = useI18n();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    // Use setTimeout to avoid the opening click immediately closing it
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute left-2 right-2 top-full mt-1 z-40 rounded-lg overflow-hidden shadow-xl"
+      style={{
+        background: 'var(--vscode-menu-background)',
+        border: '1px solid var(--vscode-menu-border)',
+      }}
+    >
+      {/* Workspace list */}
+      {workspaces.length > 0 && (
+        <div className="p-1.5 max-h-[200px] overflow-y-auto">
+          <div
+            className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          >
+            {t('agent.workspaces')}
+          </div>
+          {workspaces.map((ws) => {
+            const isActive = ws === activeWorkspace;
+            return (
+              <button
+                key={ws}
+                onClick={() => {
+                  onSwitch(ws);
+                  onClose();
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors"
+                style={{
+                  background: isActive
+                    ? 'var(--vscode-list-activeSelectionBackground)'
+                    : 'transparent',
+                  color: isActive
+                    ? 'var(--vscode-list-activeSelectionForeground)'
+                    : 'var(--vscode-foreground)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background =
+                      'var(--vscode-list-hoverBackground)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
+                title={ws}
+              >
+                <Folder
+                  className="w-3.5 h-3.5 shrink-0"
+                  style={{
+                    color: isActive
+                      ? 'var(--vscode-list-activeSelectionForeground)'
+                      : 'var(--vscode-descriptionForeground)',
+                  }}
+                />
+                <span className="truncate flex-1">{workspaceDisplayName(ws)}</span>
+                {isActive && <Check className="w-3.5 h-3.5 shrink-0 opacity-80" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Divider */}
+      {workspaces.length > 0 && (
+        <div
+          className="h-px mx-1.5"
+          style={{ background: 'var(--vscode-widget-border)' }}
+        />
+      )}
+
+      {/* Actions */}
+      <div className="p-1.5">
+        <button
+          onClick={() => {
+            onOpenDirectory();
+            onClose();
+          }}
+          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+          style={{ color: 'var(--vscode-foreground)' }}
+        >
+          <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+          <span>{t('agent.openDirectory')}</span>
+        </button>
+
+        {activeWorkspace && (
+          <button
+            onClick={() => {
+              onClear();
+              onClose();
+            }}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+            style={{ color: 'var(--vscode-foreground)' }}
+          >
+            <X className="w-3.5 h-3.5 shrink-0" />
+            <span>{t('agent.clearWorkspace')}</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// Workspace Select Modal (for creating task without active workspace)
 // ────────────────────────────────────────────────
 
 interface WorkspaceSelectModalProps {
@@ -116,7 +279,7 @@ function WorkspaceSelectModal({
               }}
             >
               <FolderOpen className="w-4 h-4 shrink-0" />
-              <span className="truncate flex-1">{ws.split('/').pop() || ws}</span>
+              <span className="truncate flex-1">{workspaceDisplayName(ws)}</span>
               {workspace === ws && <span className="opacity-60">✓</span>}
             </button>
           ))}
@@ -176,7 +339,7 @@ function WorkspaceSelectModal({
 // ────────────────────────────────────────────────
 
 /**
- * AgentSidebar — 独立的侧边栏组件
+ * AgentSidebar - 独立的侧边栏组件
  * 
  * 与 DocumentSidebar 保持一致的架构：
  * - 直接从 store 获取状态
@@ -189,6 +352,8 @@ export default function AgentSidebar() {
   // 直接从 store 获取状态
   const sessions = useStore((s) => s.agentSessions);
   const activeAgentSessionId = useStore((s) => s.activeAgentSessionId);
+  const activeAgentWorkspace = useStore((s) => s.activeAgentWorkspace);
+  const setActiveAgentWorkspace = useStore((s) => s.setActiveAgentWorkspace);
   const createAgentSession = useStore((s) => s.createAgentSession);
   const openAgentSession = useStore((s) => s.openAgentSession);
   const deleteAgentSession = useStore((s) => s.deleteAgentSession);
@@ -197,6 +362,7 @@ export default function AgentSidebar() {
   const [expandGroup, setExpandGroup] = useState<WorkspaceGroup | null>(null);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [createWorkspace, setCreateWorkspace] = useState<string | undefined>(undefined);
+  const [showWorkspaceDropdown, setShowWorkspaceDropdown] = useState(false);
 
   // Init sessions on mount
   useEffect(() => {
@@ -204,20 +370,57 @@ export default function AgentSidebar() {
   }, [initAgentSessions]);
 
   const groups = groupSessionsByWorkspace(sessions);
-  const existingWorkspaces = groups.map((g) => g.workspace);
+  const existingWorkspaces = useMemo(() => groups.map((g) => g.workspace), [groups]);
+
+  // ── Handlers ──
+
+  const handleOpenDirectory = useCallback(async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t('agent.selectWorkspace'),
+      });
+      if (selected && typeof selected === 'string') {
+        setActiveAgentWorkspace(selected);
+      }
+    } catch (e) {
+      console.error('Failed to open directory picker:', e);
+    }
+  }, [t, setActiveAgentWorkspace]);
+
+  const handleClearWorkspace = useCallback(() => {
+    setActiveAgentWorkspace('');
+  }, [setActiveAgentWorkspace]);
 
   const handleCreateTask = useCallback(
     async (workspace: string) => {
       try {
         await createAgentSession(workspace);
+        // Also set as active workspace
+        setActiveAgentWorkspace(workspace);
         setShowWorkspaceModal(false);
         setCreateWorkspace(undefined);
       } catch (e) {
         console.error('Failed to create task:', e);
       }
     },
-    [createAgentSession],
+    [createAgentSession, setActiveAgentWorkspace],
   );
+
+  /** Click "new task" button: if workspace is set, create directly; otherwise show modal */
+  const handleNewTaskClick = useCallback(async () => {
+    if (activeAgentWorkspace) {
+      try {
+        await createAgentSession(activeAgentWorkspace);
+      } catch (e) {
+        console.error('Failed to create task:', e);
+      }
+    } else {
+      setShowWorkspaceModal(true);
+    }
+  }, [activeAgentWorkspace, createAgentSession]);
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
@@ -242,10 +445,10 @@ export default function AgentSidebar() {
         borderRight: '1px solid var(--vscode-sideBar-border)',
       }}
     >
-      {/* 功能菜单 */}
+      {/* 新建任务按钮 */}
       <div className="shrink-0 px-2 pt-2 pb-1.5">
         <button
-          onClick={() => setShowWorkspaceModal(true)}
+          onClick={handleNewTaskClick}
           className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition-all hover:brightness-110"
           style={{
             background: 'var(--vscode-button-background)',
@@ -256,6 +459,65 @@ export default function AgentSidebar() {
           <span className="flex-1 text-left">{t('agent.newTask')}</span>
           <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-50" />
         </button>
+      </div>
+
+      {/* 工作目录栏 */}
+      <div className="shrink-0 px-2 pb-1.5 relative">
+        <button
+          onClick={() => setShowWorkspaceDropdown((v) => !v)}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors"
+          style={{
+            background: showWorkspaceDropdown
+              ? 'var(--vscode-list-activeSelectionBackground)'
+              : 'var(--vscode-textBlockQuote-background, rgba(128,128,128,0.08))',
+            color: 'var(--vscode-foreground)',
+          }}
+          onMouseEnter={(e) => {
+            if (!showWorkspaceDropdown) {
+              e.currentTarget.style.background = 'var(--vscode-list-hoverBackground)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!showWorkspaceDropdown) {
+              e.currentTarget.style.background =
+                'var(--vscode-textBlockQuote-background, rgba(128,128,128,0.08))';
+            }
+          }}
+          title={activeAgentWorkspace || t('agent.noWorkspaceSelected')}
+        >
+          <FolderOpen
+            className="w-3.5 h-3.5 shrink-0"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          />
+          <span
+            className="flex-1 text-left truncate"
+            style={{
+              color: activeAgentWorkspace
+                ? 'var(--vscode-foreground)'
+                : 'var(--vscode-descriptionForeground)',
+            }}
+          >
+            {activeAgentWorkspace
+              ? workspaceDisplayName(activeAgentWorkspace)
+              : t('agent.noWorkspaceSelected')}
+          </span>
+          <ChevronDown
+            className="w-3 h-3 shrink-0 opacity-60 transition-transform"
+            style={{ transform: showWorkspaceDropdown ? 'rotate(180deg)' : 'none' }}
+          />
+        </button>
+
+        {/* Dropdown */}
+        {showWorkspaceDropdown && (
+          <WorkspaceDropdown
+            activeWorkspace={activeAgentWorkspace}
+            workspaces={existingWorkspaces}
+            onSwitch={setActiveAgentWorkspace}
+            onOpenDirectory={handleOpenDirectory}
+            onClear={handleClearWorkspace}
+            onClose={() => setShowWorkspaceDropdown(false)}
+          />
+        )}
       </div>
 
       {/* 分隔线 */}
@@ -269,6 +531,8 @@ export default function AgentSidebar() {
         <WorkspaceList
           groups={groups}
           activeId={activeAgentSessionId}
+          activeWorkspace={activeAgentWorkspace}
+          onSetWorkspace={setActiveAgentWorkspace}
           onSelect={handleSelectSession}
           onDelete={handleDeleteSession}
           onExpand={setExpandGroup}

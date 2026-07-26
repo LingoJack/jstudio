@@ -161,6 +161,7 @@ export interface StoreState {
   // — agent state (agent slice) —
   agentSessions: AgentSession[];
   activeAgentSessionId: string | null;
+  activeAgentWorkspace: string | null;
   agentUnsubscribes: (() => void)[];
 
   // — toast state (toast slice) —
@@ -321,6 +322,7 @@ export interface StoreState {
 
   // — agent ops (agent slice) —
   initAgentSessions: () => Promise<void>;
+  setActiveAgentWorkspace: (workspace: string) => void;
   createAgentSession: (workspace: string) => Promise<string>;
   openAgentSession: (sessionId: string) => Promise<void>;
   deleteAgentSession: (sessionId: string) => Promise<void>;

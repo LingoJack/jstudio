@@ -29,6 +29,7 @@ import {
   Bot,
   ChevronDown,
   ArrowDown,
+  FolderOpen,
 } from 'lucide-react';
 import MarkdownMessage from './MarkdownMessage';
 import { ModelSelector, useActiveProvider } from './ModelSelector';
@@ -67,6 +68,7 @@ function TopBar({ session, onBack }: TopBarProps) {
   const activeProvider = useActiveProvider();
 
   const title = getSessionTitle(session);
+  const wsName = session.workspace ? session.workspace.split('/').pop() : null;
 
   return (
     <div
@@ -76,7 +78,7 @@ function TopBar({ session, onBack }: TopBarProps) {
         borderBottom: '1px solid var(--vscode-widget-border)',
       }}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0">
         {onBack && (
           <button
             onClick={onBack}
@@ -88,12 +90,26 @@ function TopBar({ session, onBack }: TopBarProps) {
         )}
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className="text-sm font-medium truncate max-w-[300px]"
+            className="text-sm font-medium truncate max-w-[260px]"
             style={{ color: 'var(--vscode-foreground)' }}
           >
             {title}
           </span>
           {session.runState !== 'idle' && <RunStateBadge state={session.runState} />}
+          {/* 工作目录 badge */}
+          {wsName && (
+            <span
+              className="hidden sm:inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full shrink-0"
+              style={{
+                background: 'var(--vscode-editor-inactiveSelectionBackground)',
+                color: 'var(--vscode-descriptionForeground)',
+              }}
+              title={session.workspace}
+            >
+              <FolderOpen className="w-2.5 h-2.5" />
+              <span className="max-w-[120px] truncate">{wsName}</span>
+            </span>
+          )}
         </div>
       </div>
 

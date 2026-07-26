@@ -194,6 +194,9 @@ export interface AppSettings {
   /** Browser start page: quick-link shortcuts. */
   browserShortcuts?: unknown;
 
+  /** Agent active workspace path (persisted across sessions). */
+  agentActiveWorkspace?: string;
+
   [key: string]: unknown;
 }
 

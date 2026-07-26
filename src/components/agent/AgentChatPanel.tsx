@@ -15,7 +15,7 @@ import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { AgentChat } from './AgentChat';
 import { useActiveProvider } from './ModelSelector';
 import { groupSessionsByWorkspace } from './WorkspaceList';
-import { Bot, Code2, FunctionSquare, BookOpen, Bug, ArrowUpRight } from 'lucide-react';
+import { Bot, Code2, FunctionSquare, BookOpen, Bug, ArrowUpRight, FolderOpen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface SuggestionCard {
@@ -56,6 +56,7 @@ export default function AgentChatPanel({ hidden }: { hidden?: boolean }) {
   const { t } = useI18n();
   const agentSessions = useStore((s) => s.agentSessions);
   const activeAgentSessionId = useStore((s) => s.activeAgentSessionId);
+  const activeAgentWorkspace = useStore((s) => s.activeAgentWorkspace);
   const createAgentSession = useStore((s) => s.createAgentSession);
   const sendAgentMessage = useStore((s) => s.sendAgentMessage);
   const activeProvider = useActiveProvider();
@@ -64,12 +65,11 @@ export default function AgentChatPanel({ hidden }: { hidden?: boolean }) {
 
   const handleSuggestionClick = useCallback(
     async (prompt: string) => {
-      const groups = groupSessionsByWorkspace(agentSessions);
-      const workspace = groups[0]?.workspace ?? 'default';
-      const id = await createAgentSession(workspace);
+      const ws = activeAgentWorkspace ?? groupSessionsByWorkspace(agentSessions)[0]?.workspace ?? '';
+      const id = await createAgentSession(ws);
       await sendAgentMessage(id, prompt);
     },
-    [agentSessions, createAgentSession, sendAgentMessage],
+    [agentSessions, activeAgentWorkspace, createAgentSession, sendAgentMessage],
   );
 
   if (hidden) {
@@ -98,11 +98,26 @@ export default function AgentChatPanel({ hidden }: { hidden?: boolean }) {
           {t('agent.welcomeTitle')}
         </h2>
         <p
-          className="text-sm text-center max-w-md mb-8"
+          className="text-sm text-center max-w-md mb-3"
           style={{ color: 'var(--vscode-descriptionForeground)' }}
         >
           {t('agent.welcomeSubtitle')}
         </p>
+
+        {/* 当前工作目录 badge */}
+        {activeAgentWorkspace && (
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs mb-8"
+            style={{
+              background: 'var(--vscode-editor-inactiveSelectionBackground)',
+              color: 'var(--vscode-descriptionForeground)',
+            }}
+          >
+            <FolderOpen className="w-3 h-3" />
+            <span className="max-w-[200px] truncate">{activeAgentWorkspace.split('/').pop()}</span>
+          </div>
+        )}
+        {!activeAgentWorkspace && <div className="mb-8" />}
 
         {/* 快捷操作建议卡片 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
