@@ -64,7 +64,20 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tabBarPosition = useStore((s) => s.tabBarPosition);
   const browserTabs = useStore((s) => s.browserTabs);
+  const browserActiveTabId = useStore((s) => s.browserActiveTabId);
   const refreshBrowserTab = useStore((s) => s.refreshBrowserTab);
+
+  // Show the Chrome-style start page when there are no tabs at all, or when
+  // the active tab is still on `about:blank` (a freshly opened tab). Rust
+  // parks the blank native webview off-screen in that case, so the React
+  // start page underneath is visible.
+  const activeTab = browserTabs.find((t) => t.id === browserActiveTabId);
+  const showStartPage =
+    browserTabs.length === 0 ||
+    !browserActiveTabId ||
+    !activeTab ||
+    activeTab.url.trim() === "" ||
+    activeTab.url.trim().toLowerCase() === "about:blank";
 
   // -- Lifecycle: show / hide the browser panel --
   // Tell Rust to mark the panel visible (so Cmd+T/Cmd+W route here) and
@@ -191,7 +204,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
           in the title bar's BrowserDynamicIsland. */}
       <div className="flex-1 min-h-0 relative">
         <div ref={containerRef} className="absolute inset-0 bg-white">
-          {browserTabs.length === 0 && <BrowserStartPage />}
+          {showStartPage && <BrowserStartPage />}
         </div>
       </div>
     </div>

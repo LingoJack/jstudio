@@ -101,4 +101,11 @@ allow:
 - Shell(ls /Users/jacklingo/dev_custom/jstudio/src/lib/core/i18n:*)
 - Shell(find /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core/dist:*)
 - Shell(find /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core/lib/esm:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core/lib/esm/view/event:*)
+- Shell(cd /Users/lingojack/dev_custom/jstudio:*)
+- Shell(ls node_modules/lucide-react/dist/esm/icons/:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/node_modules/@maxgraph/core:*)
+- Shell(grep -n:*)
+- Shell(tail -5:*)
+- Shell(head -3:*)
 deny: []

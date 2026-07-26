@@ -10,34 +10,28 @@
  * 6. streaming 内容实时显示，flush 到消息列表后保留完整内容
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { storage } from '../../lib/core/storage';
 import {
   ArrowLeft,
-  History,
-  Share2,
-  Star,
-  StarOff,
-  MoreHorizontal,
   Send,
   Square,
   ChevronRight,
   Paperclip,
-  Image,
   X,
   Loader2,
   CheckCircle2,
   AlertCircle,
   Ban,
   Bot,
-  User,
   ChevronDown,
+  ArrowDown,
 } from 'lucide-react';
 import MarkdownMessage from './MarkdownMessage';
-import { ModelSelector } from './ModelSelector';
-import type { AgentSession, ChatMessage, ToolCallItem, AgentRunState, AgentAskRequest, AskQuestion } from '../../types/agent';
+import { ModelSelector, useActiveProvider } from './ModelSelector';
+import type { AgentSession, ChatMessage, ToolCallItem, AgentRunState, AgentAskRequest } from '../../types/agent';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 
 // ────────────────────────────────────────────────
@@ -69,7 +63,7 @@ interface TopBarProps {
 
 function TopBar({ session, onBack }: TopBarProps) {
   const { t } = useI18n();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const activeProvider = useActiveProvider();
 
   const title = getSessionTitle(session);
 
@@ -81,17 +75,17 @@ function TopBar({ session, onBack }: TopBarProps) {
         borderBottom: '1px solid var(--vscode-widget-border)',
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         {onBack && (
           <button
             onClick={onBack}
-            className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
+            className="shrink-0 flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
             title={t('agent.back')}
           >
             <ArrowLeft className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
           </button>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <span
             className="text-sm font-medium truncate max-w-[300px]"
             style={{ color: 'var(--vscode-foreground)' }}
@@ -102,36 +96,26 @@ function TopBar({ session, onBack }: TopBarProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        <button
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.history')}
-        >
-          <History className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-        </button>
-        <button
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.share')}
-        >
-          <Share2 className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-        </button>
-        <button
-          onClick={() => setIsFavorite(!isFavorite)}
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={isFavorite ? t('agent.unfavorite') : t('agent.favorite')}
-        >
-          {isFavorite ? (
-            <StarOff className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-          ) : (
-            <Star className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-          )}
-        </button>
-        <button
-          className="flex items-center justify-center w-7 h-7 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)] transition-colors"
-          title={t('agent.more')}
-        >
-          <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-        </button>
+      {/* 右侧信息区 — 仿 remote header：模型名 · autoApprove 指示 · 消息数 */}
+      <div
+        className="shrink-0 flex items-center gap-2 text-xs"
+        style={{ color: 'var(--vscode-descriptionForeground)' }}
+      >
+        {activeProvider && (
+          <span className="truncate max-w-[140px]" title={activeProvider.model}>
+            {activeProvider.name}
+          </span>
+        )}
+        {session.autoApprove && (
+          <span
+            className="font-mono font-semibold"
+            style={{ color: 'var(--vscode-inputValidation-warningForeground, #cca700)' }}
+            title={t('agent.autoApproveOn')}
+          >
+            &gt;&gt;
+          </span>
+        )}
+        <span>{t('agent.msgCount', { count: session.messages.length })}</span>
       </div>
     </div>
   );
@@ -483,12 +467,13 @@ function ToolCallBubble({
 // Tool Result Bubble (独立气泡，参考 remote 的 ToolResultMsg)
 // ────────────────────────────────────────────────
 
-function ToolResultBubble({ message }: { message: ChatMessage }) {
+function ToolResultBubble({ message, toolName }: { message: ChatMessage; toolName?: string }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
   const isError = message.toolResult?.isError ?? false;
   const status = message.toolResult?.status ?? 'executed';
+  const displayName = message.toolResult?.toolName ?? toolName;
 
   const statusConfig = {
     executed: { label: t('agent.toolExecuted'), icon: CheckCircle2, color: 'var(--vscode-terminal-ansiGreen)' },
@@ -501,6 +486,12 @@ function ToolResultBubble({ message }: { message: ChatMessage }) {
 
   // 内容为空且无图片时不渲染
   if (!message.content.trim() && (!message.images || message.images.length === 0)) return null;
+
+  // 折叠时的一行预览（仿 remote 的 preview）
+  const preview = (() => {
+    const text = message.content.replace(/\n/g, ' ').trim();
+    return text.length > 80 ? text.slice(0, 80) + '…' : text;
+  })();
 
   return (
     <div className="flex justify-start px-2 py-1">
@@ -516,13 +507,19 @@ function ToolResultBubble({ message }: { message: ChatMessage }) {
         }}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 mb-2">
-          <StatusIcon className="w-3.5 h-3.5" style={{ color: statusConfig.color }} />
-          <span className="text-xs font-medium" style={{ color: 'var(--vscode-foreground)' }}>
-            {t('agent.toolResult')}
-          </span>
+        <div className="flex items-center gap-2 mb-1">
+          <StatusIcon className="w-3.5 h-3.5 shrink-0" style={{ color: statusConfig.color }} />
+          {displayName && (
+            <span
+              className="text-xs font-mono font-medium truncate max-w-[180px]"
+              style={{ color: 'var(--vscode-textPreformat-foreground)' }}
+              title={displayName}
+            >
+              {displayName}
+            </span>
+          )}
           <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full"
+            className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full"
             style={{
               background: isError
                 ? 'var(--vscode-inputValidation-errorBackground)'
@@ -537,19 +534,30 @@ function ToolResultBubble({ message }: { message: ChatMessage }) {
           {message.content.trim() && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="ml-auto flex items-center gap-1 text-[10px] hover:opacity-80"
+              className="ml-auto shrink-0 flex items-center gap-1 text-[10px] hover:opacity-80"
               style={{ color: 'var(--vscode-descriptionForeground)' }}
             >
-              {expanded ? t('agent.cancel') : t('agent.history')}
+              {expanded ? t('agent.collapse') : t('agent.expand')}
               <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
             </button>
           )}
         </div>
 
+        {/* 折叠时的一行预览 */}
+        {!expanded && message.content.trim() && (
+          <div
+            className="text-[11px] font-mono truncate"
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+            title={message.content.slice(0, 500)}
+          >
+            {preview}
+          </div>
+        )}
+
         {/* Content — 默认折叠，点击展开 */}
         {expanded && message.content.trim() && (
           <pre
-            className="whitespace-pre-wrap break-words font-mono text-xs overflow-x-auto max-h-48 rounded-lg p-2 mb-2"
+            className="whitespace-pre-wrap break-words font-mono text-xs overflow-x-auto max-h-48 rounded-lg p-2 mt-1 mb-1"
             style={{
               color: isError ? 'var(--vscode-errorForeground)' : 'var(--vscode-descriptionForeground)',
               background: 'var(--vscode-menu-background)',
@@ -562,7 +570,7 @@ function ToolResultBubble({ message }: { message: ChatMessage }) {
 
         {/* Images */}
         {message.images && message.images.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mt-1">
             {message.images.map((img, i) => (
               <img
                 key={i}
@@ -572,6 +580,72 @@ function ToolResultBubble({ message }: { message: ChatMessage }) {
               />
             ))}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// Completed Tool Call Bubble (历史 tool_call 只读展示，仿 remote session_sync)
+// ────────────────────────────────────────────────
+
+function CompletedToolCallBubble({ toolCall }: { toolCall: ToolCallItem }) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="flex justify-start px-2 py-1">
+      <div
+        className="rounded-xl px-4 py-2.5 max-w-[80%] overflow-hidden"
+        style={{
+          background: 'var(--vscode-menu-background)',
+          border: '1px solid var(--vscode-menu-border)',
+        }}
+      >
+        {/* Header — 点击展开/折叠参数 */}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center gap-2 text-xs text-left transition-colors hover:opacity-80"
+          style={{ color: 'var(--vscode-foreground)' }}
+        >
+          <CheckCircle2
+            className="w-3.5 h-3.5 shrink-0"
+            style={{ color: 'var(--vscode-terminal-ansiGreen)' }}
+          />
+          <span
+            className="font-mono font-medium truncate"
+            style={{ color: 'var(--vscode-textPreformat-foreground)' }}
+          >
+            {toolCall.name}
+          </span>
+          <span
+            className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full"
+            style={{
+              background: 'var(--vscode-badge-background)',
+              color: 'var(--vscode-badge-foreground)',
+            }}
+          >
+            {t('agent.toolCompleted')}
+          </span>
+          <ChevronRight
+            className={`w-3 h-3 shrink-0 ml-auto transition-transform ${expanded ? 'rotate-90' : ''}`}
+            style={{ color: 'var(--vscode-descriptionForeground)' }}
+          />
+        </button>
+
+        {/* Arguments — 展开时显示 */}
+        {expanded && toolCall.arguments && (
+          <pre
+            className="text-xs mt-2 whitespace-pre-wrap break-words font-mono overflow-x-auto max-h-40 rounded-lg p-2"
+            style={{
+              color: 'var(--vscode-descriptionForeground)',
+              background: 'var(--vscode-editor-background)',
+              border: '1px solid var(--vscode-widget-border)',
+            }}
+          >
+            {toolCall.arguments}
+          </pre>
         )}
       </div>
     </div>
@@ -722,22 +796,45 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
+  const setAgentAutoApprove = useStore((s) => s.setAgentAutoApprove);
+
+  // IME 合成状态（中文输入法选字时按 Enter 不应发送）— 仿 remote 的 composingRef
+  const composingRef = useRef(false);
 
   const isRunning =
     session.runState !== 'idle' &&
     session.runState !== 'error' &&
     session.runState !== 'cancelled';
 
+  // textarea 自动增高（上限 140px）— 仿 remote 的 autoResize
+  const autoResize = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [input, autoResize]);
+
   const handleSend = useCallback(() => {
     if (!input.trim() && images.length === 0) return;
     onSend(input.trim(), images.length > 0 ? images : undefined);
     setInput('');
     setImages([]);
+    // 发送后重置高度
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) el.style.height = 'auto';
+    });
   }, [input, images, onSend]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (handleNativeSelectAll(e)) return;
+      // IME 合成中（中文/日文/韩文输入法选字）不触发发送
+      if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -792,6 +889,13 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
 
   return (
     <div className="shrink-0 px-4 pb-4">
+      {/* HintBar — 快捷键提示（仿 remote 的 hint-bar） */}
+      <div
+        className="px-2 pb-1 text-[10px] select-none"
+        style={{ color: 'var(--vscode-descriptionForeground)' }}
+      >
+        {t('agent.hintKeys')}
+      </div>
       <div
         className="relative rounded-2xl border border-[var(--vscode-menu-border)]"
         style={{
@@ -832,12 +936,19 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={t('agent.inputPlaceholder')}
-          rows={2}
-          className="w-full resize-none bg-transparent px-4 py-3 text-sm outline-none"
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false;
+          }}
+          placeholder={isRunning ? t('agent.appendMessage') : t('agent.inputPlaceholder')}
+          rows={1}
+          className="w-full resize-none bg-transparent px-4 py-3 text-sm outline-none overflow-y-auto"
           style={{
             color: 'var(--vscode-input-foreground)',
-            minHeight: '56px',
+            minHeight: '40px',
+            maxHeight: '140px',
           }}
         />
 
@@ -882,7 +993,35 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
                 e.target.value = '';
               }}
             />
-            <span>{session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}</span>
+            {/* 自动批准开关 — 可点击切换（仿 remote 的 autoApprove switch） */}
+            <button
+              onClick={() => setAgentAutoApprove(session.id, !session.autoApprove)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+              title={t('agent.autoApprove')}
+            >
+              <span
+                className="relative inline-block w-6 h-3.5 rounded-full transition-colors"
+                style={{
+                  background: session.autoApprove
+                    ? 'var(--vscode-button-background)'
+                    : 'var(--vscode-input-background)',
+                  border: '1px solid var(--vscode-widget-border)',
+                }}
+              >
+                <span
+                  className="absolute top-[1px] w-2.5 h-2.5 rounded-full transition-all"
+                  style={{
+                    left: session.autoApprove ? '12px' : '1px',
+                    background: session.autoApprove
+                      ? 'var(--vscode-button-foreground)'
+                      : 'var(--vscode-descriptionForeground)',
+                  }}
+                />
+              </span>
+              <span>
+                {session.autoApprove ? t('agent.autoApproveOn') : t('agent.autoApproveOff')}
+              </span>
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {isRunning && (
@@ -1038,7 +1177,13 @@ interface AgentChatProps {
 
 export function AgentChat({ session, onBack }: AgentChatProps) {
   const { t } = useI18n();
+  const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 智能自动滚动 — 仿 remote 的 autoScrollRef：
+  // 仅当用户停留在底部附近时才跟随新内容滚动，上翻阅读历史时不打扰
+  const autoScrollRef = useRef(true);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   const sendAgentMessage = useStore((s) => s.sendAgentMessage);
   const cancelAgent = useStore((s) => s.cancelAgent);
@@ -1046,21 +1191,71 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
   const submitAgentPlanDecision = useStore((s) => s.submitAgentPlanDecision);
   const submitAgentAskAnswer = useStore((s) => s.submitAgentAskAnswer);
 
-  // Auto-scroll to bottom whenever content changes
+  const isNearBottom = useCallback(() => {
+    const c = scrollRef.current;
+    if (!c) return true;
+    return c.scrollHeight - c.scrollTop - c.clientHeight < 80;
+  }, []);
+
+  const scrollToBottom = useCallback((force = false) => {
+    if (!force && !autoScrollRef.current) return;
+    requestAnimationFrame(() => {
+      const c = scrollRef.current;
+      if (c) c.scrollTop = c.scrollHeight;
+    });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const near = isNearBottom();
+    autoScrollRef.current = near;
+    setShowScrollBottom(!near);
+  }, [isNearBottom]);
+
+  // 内容变化时跟随滚动（仅当在底部附近）
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session.messages, session.streamingContent, session.pendingToolCalls, session.pendingPlan, session.pendingAsk, session.runState]);
+    scrollToBottom();
+  }, [session.messages, session.streamingContent, session.pendingToolCalls, session.pendingPlan, session.pendingAsk, session.runState, scrollToBottom]);
+
+  // 切换 session 时强制回到底部
+  useEffect(() => {
+    autoScrollRef.current = true;
+    setShowScrollBottom(false);
+    scrollToBottom(true);
+  }, [session.id, scrollToBottom]);
+
+  // 历史消息中 toolCallId → toolName 的映射（补齐 tool 结果气泡的工具名）
+  // 仿 remote 的 toolNameMap
+  const toolNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const msg of session.messages) {
+      if (msg.role === 'assistant' && msg.toolCalls) {
+        for (const tc of msg.toolCalls) {
+          map.set(tc.id, tc.name);
+        }
+      }
+    }
+    return map;
+  }, [session.messages]);
 
   const handleSend = useCallback(
     (message: string, images?: { base64: string; mediaType: string }[]) => {
+      // 发送时强制回到底部并恢复自动滚动
+      autoScrollRef.current = true;
+      scrollToBottom(true);
       sendAgentMessage(session.id, message, images);
     },
-    [session.id, sendAgentMessage],
+    [session.id, sendAgentMessage, scrollToBottom],
   );
 
   const handleCancel = useCallback(() => {
     cancelAgent(session.id);
   }, [session.id, cancelAgent]);
+
+  const isEmpty =
+    session.messages.length === 0 &&
+    !session.streamingContent &&
+    session.runState !== 'thinking' &&
+    session.runState !== 'streaming';
 
   return (
     <div className="h-full flex flex-col">
@@ -1068,7 +1263,27 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
       <TopBar session={session} onBack={onBack} />
 
       {/* Messages area */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="relative flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2"
+      >
+        {/* 空会话提示 */}
+        {isEmpty && (
+          <div className="h-full flex flex-col items-center justify-center gap-2 select-none">
+            <Bot
+              className="w-8 h-8"
+              style={{ color: 'var(--vscode-descriptionForeground)' }}
+            />
+            <span
+              className="text-sm"
+              style={{ color: 'var(--vscode-descriptionForeground)' }}
+            >
+              {t('agent.startChat')}
+            </span>
+          </div>
+        )}
+
         {session.messages.map((msg, i) => {
           // 根据消息角色选择对应的气泡组件
           switch (msg.role) {
@@ -1082,17 +1297,26 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
               );
             case 'assistant':
               return (
-                <AssistantMessageBubble
-                  key={msg.id || `msg-${i}`}
-                  content={msg.content}
-                  reasoningContent={msg.reasoningContent}
-                />
+                <div key={msg.id || `msg-${i}`}>
+                  {/* 历史 tool_call 气泡（只读，仿 remote session_sync） */}
+                  {msg.toolCalls?.map((tc) => (
+                    <CompletedToolCallBubble key={tc.id} toolCall={tc} />
+                  ))}
+                  {/* assistant 文本内容（可能为空，例如纯 tool_call 消息） */}
+                  {msg.content.trim() && (
+                    <AssistantMessageBubble
+                      content={msg.content}
+                      reasoningContent={msg.reasoningContent}
+                    />
+                  )}
+                </div>
               );
             case 'tool':
               return (
                 <ToolResultBubble
                   key={msg.id || `msg-${i}`}
                   message={msg}
+                  toolName={msg.toolCallId ? toolNameMap.get(msg.toolCallId) : undefined}
                 />
               );
             case 'system':
@@ -1143,6 +1367,27 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
         {/* Invisible anchor for auto-scroll */}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* 回到底部浮动按钮 — 用户上翻时显示（仿 remote 的 scroll-bottom-btn） */}
+      {showScrollBottom && !isEmpty && (
+        <div className="relative">
+          <button
+            onClick={() => {
+              autoScrollRef.current = true;
+              setShowScrollBottom(false);
+              scrollToBottom(true);
+            }}
+            className="absolute right-6 -top-12 z-10 flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-opacity hover:opacity-90"
+            style={{
+              background: 'var(--vscode-button-background)',
+              color: 'var(--vscode-button-foreground)',
+            }}
+            title={t('agent.scrollToBottom')}
+          >
+            <ArrowDown className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Input area */}
       <InputArea session={session} onSend={handleSend} onCancel={handleCancel} />

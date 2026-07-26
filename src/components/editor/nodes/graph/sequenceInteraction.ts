@@ -19,7 +19,27 @@ import {
   type ConnectionHandler,
   type InternalMouseEvent,
 } from '@maxgraph/core';
+import { invoke } from '@tauri-apps/api/core';
 import { HEAD_HEIGHT } from './customShapes';
+
+/* ------------------------------------------------------------------ */
+/* 调试日志：写到 ~/Library/Application Support/jstudio/ai_graph.log    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 把一行调试日志写入文件（通过 Tauri command）。
+ * fire-and-forget：不等待结果，避免阻塞交互。
+ * 同时保留 console.log 方便开发者工具直接看。
+ */
+function graphLog(msg: string): void {
+  console.log(`[autoActivation] ${msg}`);
+  invoke('write_graph_log', { msg }).catch(() => {
+    // 忽略写日志失败（比如非 Tauri 环境下测试）
+  });
+}
+
+// 模块级日志：确认这个文件被加载了
+graphLog('sequenceInteraction module loaded');
 
 /* ------------------------------------------------------------------ */
 /* 类型判定                                                            */
@@ -126,29 +146,44 @@ export function attachAutoActivation(
 ): () => void {
   const listener = (_sender: unknown, evt: { getProperty: (key: string) => unknown }) => {
     const edge = evt.getProperty('cell') as Cell | null;
+    graphLog(`CONNECT fired, edge=${edge?.getId()}, isEdge=${edge?.isEdge()}`);
     if (!edge || !edge.isEdge()) return;
 
     const model = graph.getDataModel();
     const source = edge.getTerminal(true);
     const target = edge.getTerminal(false);
+    const srcShape = source?.getStyle()?.shape;
+    const tgtShape = target?.getStyle()?.shape;
+    graphLog(`source=${source?.getId()}(shape=${srcShape}), target=${target?.getId()}(shape=${tgtShape})`);
     if (!source || !target) return;
 
     // 只要目标是 lifeline 就生成 activation（放宽条件，支持 actor -> lifeline 场景）。
+    // 回消息（activation -> lifeline）不会生成，因为目标是 lifeline 但 source 是 activation，
+    // 且 target 是 lifeline 时会生成新的 activation（覆盖旧的）。
     const shouldGenerate = isLifeline(target);
+    graphLog(`shouldGenerate=${shouldGenerate}, isLifeline(src)=${isLifeline(source)}, isLifeline(tgt)=${isLifeline(target)}`);
     if (!shouldGenerate) return;
 
     const targetGeo = target.getGeometry();
     if (!targetGeo) return;
 
-    // 消息 Y：handler.first 是 maxGraph 在 mouseDown 时记录的 graph 模型坐标，
-    // 直接用即可（不需要再 scale/translate 转换）。
-    // 由于我们在 updateCurrentState 里把目标 Y 锁定为起点 Y，handler.first.y
-    // 就是这条消息应该在 lifeline 上的 Y 坐标。
+    // 消息 Y：从 edge geometry 的 targetPoint 取（CONNECT 事件时 edge 已创建，geometry 已设置）。
+    // targetPoint 是 edge 连接到 target 的精确位置，比 handler.first（起点 Y）更准确，
+    // 因为 activation 在 target 端，应该用 target 端的 Y 坐标。
     let msgY: number;
-    if (handler.first) {
+    const edgeGeo = edge.getGeometry();
+    if (edgeGeo?.targetPoint) {
+      msgY = edgeGeo.targetPoint.y;
+      graphLog(`msgY=${msgY} from edge.targetPoint (${edgeGeo.targetPoint.x}, ${edgeGeo.targetPoint.y})`);
+    } else if (edgeGeo?.sourcePoint) {
+      msgY = edgeGeo.sourcePoint.y;
+      graphLog(`msgY=${msgY} from edge.sourcePoint (${edgeGeo.sourcePoint.x}, ${edgeGeo.sourcePoint.y})`);
+    } else if (handler.first) {
       msgY = handler.first.y;
+      graphLog(`msgY=${msgY} from handler.first (${handler.first.x}, ${handler.first.y})`);
     } else {
       msgY = targetGeo.y + HEAD_HEIGHT + 30; // 默认放头部下方一点
+      graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
     }
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
@@ -203,13 +238,17 @@ export function attachAutoActivation(
 const HOVER_DOT_CLASS = 'jgraph-lifeline-hover-dot';
 
 /**
- * 悬停 lifeline 时显示跟随鼠标的圆点。
+ * 悬停 lifeline 时整条中心虚线高亮（粗蓝线覆盖）。
  *
  * 实现：在 graph 容器上监听 mousemove，判断鼠标下方 cell 是不是 lifeline，
- * 是的话把圆点定位到 (lifeline 中心 X, 鼠标 Y)，否则隐藏。
+ * 是的话在 lifeline 中心虚线位置画一条 3px 粗的半透明蓝线（从头部底部到 lifeline 底部），
+ * 否则隐藏。
+ *
+ * 视觉反馈：让用户明确知道"这一整条线都可以拉"，配合密集的 constraint（每 10px 一个，
+ * 图片透明）实现"任意位置都能拉"的体验。
  */
 export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElement): () => void {
-  // 创建 SVG 圆点
+  // 创建 SVG 高亮线
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', HOVER_DOT_CLASS);
   svg.style.position = 'absolute';
@@ -221,14 +260,14 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
   svg.style.zIndex = '10';
   svg.style.overflow = 'visible';
 
-  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  dot.setAttribute('r', '5');
-  dot.setAttribute('fill', '#4A90E2');
-  dot.setAttribute('stroke', '#fff');
-  dot.setAttribute('stroke-width', '2');
-  dot.style.display = 'none';
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('stroke', '#4A90E2');
+  line.setAttribute('stroke-width', '3');
+  line.setAttribute('stroke-opacity', '0.6');
+  line.setAttribute('stroke-linecap', 'round');
+  line.style.display = 'none';
 
-  svg.appendChild(dot);
+  svg.appendChild(line);
 
   // graph 容器需要 position:relative 才能定位子元素
   const prevPosition = container.style.position;
@@ -238,7 +277,7 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
   container.appendChild(svg);
 
   function hide() {
-    dot.style.display = 'none';
+    line.style.display = 'none';
   }
 
   function onMouseMove(e: MouseEvent) {
@@ -263,12 +302,17 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
         // 只在生命线段（Y > headHeight）显示
         if (graphY > geo.y + HEAD_HEIGHT && graphY < geo.y + geo.height) {
           const centerX = geo.x + geo.width / 2;
+          const startY = geo.y + HEAD_HEIGHT;
+          const endY = geo.y + geo.height;
           // 转回视图坐标（SVG 在容器上用像素定位）
           const viewX = (centerX + tr.x) * scale;
-          const viewY = (graphY + tr.y) * scale;
-          dot.setAttribute('cx', String(viewX));
-          dot.setAttribute('cy', String(viewY));
-          dot.style.display = '';
+          const viewStartY = (startY + tr.y) * scale;
+          const viewEndY = (endY + tr.y) * scale;
+          line.setAttribute('x1', String(viewX));
+          line.setAttribute('y1', String(viewStartY));
+          line.setAttribute('x2', String(viewX));
+          line.setAttribute('y2', String(viewEndY));
+          line.style.display = '';
           return;
         }
       }
@@ -335,10 +379,12 @@ export function attachSequenceInteraction(
   container: HTMLElement,
   activationStyleProvider?: () => Record<string, unknown>,
 ): () => void {
+  graphLog(`attachSequenceInteraction called, handler=${handler ? 'ok' : 'null'}, container=${container ? 'ok' : 'null'}`);
   const cleanup1 = attachHorizontalMessageConstraint(handler);
   const cleanup2 = attachAutoActivation(graph, handler, activationStyleProvider);
   const cleanup3 = attachLifelineHoverDot(graph, container);
   const cleanup4 = attachActorSourceBlock(graph);
+  graphLog('attachSequenceInteraction done, 4 hooks installed');
 
   return () => {
     cleanup1();

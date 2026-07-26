@@ -1,4 +1,4 @@
-import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS } from '../lib/core/storage';
+import { storage, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS, normalizeActivityBarItems } from '../lib/core/storage';
 import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
 import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 import { onSaveError, type SliceCreator } from './storeHelpers';
@@ -178,8 +178,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   },
 
   setActivityBarItems: (items: ActivityBarItemConfig[]) => {
-    set({ activityBarItems: items });
-    storage.saveSettings({ activityBarItems: items }).catch(onSaveError('设置'));
+    // Normalize on every write so settings always stays visible and pinned to the bottom.
+    const normalized = normalizeActivityBarItems(items);
+    set({ activityBarItems: normalized });
+    storage.saveSettings({ activityBarItems: normalized }).catch(onSaveError('设置'));
   },
 
   setFontId: (id) => {

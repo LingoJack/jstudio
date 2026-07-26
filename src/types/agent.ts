@@ -49,6 +49,7 @@ export interface ChatMessage {
   toolResult?: {
     status: ToolResultStatus;
     isError: boolean;
+    toolName?: string;
   };
   /** Images attached to this message. */
   images?: ImageData[];

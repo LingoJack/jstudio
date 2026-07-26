@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, ArrowDownToLine, ArrowUpFromLine, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, ArrowDownToLine, ArrowUpFromLine, Pin, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/core/storage';
 import type { JcliStatus, ActivityItemId } from '../../lib/core/storage';
 import { ACTIVITY_ITEM_META } from '../../lib/activityMeta';
@@ -586,6 +586,8 @@ function ActivityBarItemsSection() {
   itemsRef.current = activityBarItems;
 
   const handleToggle = (id: ActivityItemId) => {
+    // Settings is pinned to the bottom and always visible — not toggleable.
+    if (id === 'settings') return;
     const next = activityBarItems.map((item) =>
       item.id === id ? { ...item, visible: !item.visible } : item,
     );
@@ -775,25 +777,39 @@ function ActivityBarItemsSection() {
               </span>
 
               {/* Visibility toggle — stop pointer propagation so it
-                  doesn't initiate a drag */}
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => handleToggle(item.id)}
-                className={`relative w-9 h-5 rounded-full transition-colors duration-200 shrink-0 cursor-pointer ${
-                  item.visible
-                    ? 'bg-[var(--vscode-button-background)]'
-                    : 'bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)]'
-                }`}
-                title={item.visible ? t('common.hide') : t('common.show')}
-              >
+                  doesn't initiate a drag.
+                  The off state uses an inset box-shadow instead of a real
+                  border so the track keeps the same box size in both states
+                  and the knob stays vertically centered.
+                  Settings is not a toggle at all — it shows a pin icon to
+                  communicate "always visible, pinned to the bottom". */}
+              {isFixed ? (
                 <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-200 ${
+                  className="w-9 h-5 flex items-center justify-center shrink-0 text-[var(--vscode-descriptionForeground)]"
+                  title={t('appearance.activityBarItemSettingsLocked')}
+                >
+                  <Pin className="w-3.5 h-3.5" />
+                </span>
+              ) : (
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => handleToggle(item.id)}
+                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 shrink-0 cursor-pointer ${
                     item.visible
-                      ? 'translate-x-4 bg-[var(--vscode-button-foreground)]'
-                      : 'bg-[var(--vscode-descriptionForeground)]'
+                      ? 'bg-[var(--vscode-button-background)]'
+                      : 'bg-[var(--vscode-input-background)] shadow-[inset_0_0_0_1px_var(--vscode-input-border)]'
                   }`}
-                />
-              </button>
+                  title={item.visible ? t('common.hide') : t('common.show')}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-200 ${
+                      item.visible
+                        ? 'translate-x-4 bg-[var(--vscode-button-foreground)]'
+                        : 'bg-[var(--vscode-descriptionForeground)]'
+                    }`}
+                  />
+                </button>
+              )}
             </div>
           );
         })}

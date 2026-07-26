@@ -98,6 +98,33 @@ export const DEFAULT_ACTIVITY_BAR_ITEMS: ActivityBarItemConfig[] = [
   { id: "settings", visible: true },
 ];
 
+/**
+ * Normalizes the Activity Bar config. Guarantees the invariants:
+ * 1. Unknown / malformed / duplicate entries are dropped; missing defaults are appended.
+ * 2. "settings" is always present, always visible, and always pinned to the bottom.
+ */
+export function normalizeActivityBarItems(
+  items: ActivityBarItemConfig[] | undefined,
+): ActivityBarItemConfig[] {
+  const knownIds = new Set(DEFAULT_ACTIVITY_BAR_ITEMS.map((d) => d.id));
+  const seen = new Set<string>();
+  const result: ActivityBarItemConfig[] = [];
+
+  for (const item of Array.isArray(items) ? items : []) {
+    if (!item || !knownIds.has(item.id) || typeof item.visible !== "boolean") continue;
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    result.push({ id: item.id, visible: item.visible });
+  }
+  for (const def of DEFAULT_ACTIVITY_BAR_ITEMS) {
+    if (!seen.has(def.id)) result.push({ ...def });
+  }
+
+  // Pin settings to the bottom and force it visible.
+  const settings = result.find((i) => i.id === "settings")!;
+  return [...result.filter((i) => i.id !== "settings"), { ...settings, visible: true }];
+}
+
 export interface AppSettings {
   theme?: ThemeMode;
   /** UI display language — 'zh' (default) or 'en' */

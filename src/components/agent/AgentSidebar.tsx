@@ -5,23 +5,15 @@
  * - 独立于 AgentChatPanel，在 App 层级渲染
  * - 直接从 store 获取状态，不需要 props
  * 
- * 结构（参考 WorkBuddy 设计）：
- * - 功能菜单：新建任务、助理、技能等
- * - 空间管理：workspace 列表（可折叠）
- * - 任务历史：按 workspace 分组的 session 列表
+ * 结构：
+ * - 功能菜单：新建任务
+ * - 任务历史：按 workspace 分组的 session 列表（可折叠）
  */
 
 import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import {
-  Plus,
-  Sparkles,
-  Puzzle,
-  Zap,
-  MoreHorizontal,
-  FolderOpen,
-} from 'lucide-react';
+import { Plus, FolderOpen } from 'lucide-react';
 import {
   WorkspaceList,
   WorkspaceExpandModal,
@@ -229,9 +221,6 @@ export default function AgentSidebar() {
   const deleteAgentSession = useStore((s) => s.deleteAgentSession);
   const initAgentSessions = useStore((s) => s.initAgentSessions);
 
-  const [activeView, setActiveView] = useState<'tasks' | 'assistant' | 'skills' | 'automation'>(
-    'tasks',
-  );
   const [expandGroup, setExpandGroup] = useState<WorkspaceGroup | null>(null);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [createWorkspace, setCreateWorkspace] = useState<string | undefined>(undefined);
@@ -287,25 +276,6 @@ export default function AgentSidebar() {
           label={t('agent.newTask')}
           onClick={() => setShowWorkspaceModal(true)}
         />
-        <SidebarMenuItem
-          icon={<Sparkles className="w-4 h-4" />}
-          label={t('agent.assistant')}
-          active={activeView === 'assistant'}
-          onClick={() => setActiveView('assistant')}
-        />
-        <SidebarMenuItem
-          icon={<Puzzle className="w-4 h-4" />}
-          label={t('agent.skills')}
-          active={activeView === 'skills'}
-          onClick={() => setActiveView('skills')}
-        />
-        <SidebarMenuItem
-          icon={<Zap className="w-4 h-4" />}
-          label={t('agent.automation')}
-          active={activeView === 'automation'}
-          onClick={() => setActiveView('automation')}
-        />
-        <SidebarMenuItem icon={<MoreHorizontal className="w-4 h-4" />} label={t('agent.more')} />
       </div>
 
       {/* 分隔线 */}

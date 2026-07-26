@@ -50,16 +50,13 @@ export const SEARCH_ENGINES: SearchEngine[] = [
 
 export const DEFAULT_SEARCH_ENGINE_ID = 'google';
 
-export const DEFAULT_BROWSER_SHORTCUTS: BrowserShortcut[] = [
-  { id: 'google', name: 'Google', url: 'https://www.google.com', icon: '🔍', color: '#4285F4' },
-  { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com', icon: '▶️', color: '#FF0000' },
-  { id: 'github', name: 'GitHub', url: 'https://github.com', icon: '🐙', color: '#181717' },
-  { id: 'stackoverflow', name: 'Stack Overflow', url: 'https://stackoverflow.com', icon: '📚', color: '#F48024' },
-  { id: 'wikipedia', name: 'Wikipedia', url: 'https://www.wikipedia.org', icon: '📖', color: '#000000' },
-  { id: 'mdn', name: 'MDN', url: 'https://developer.mozilla.org', icon: '📘', color: '#000000' },
-  { id: 'bilibili', name: '哔哩哔哩', url: 'https://www.bilibili.com', icon: '📺', color: '#FB7299' },
-  { id: 'zhihu', name: '知乎', url: 'https://www.zhihu.com', icon: '💡', color: '#0084FF' },
-];
+/**
+ * The start page ships with NO preset shortcuts — the grid starts empty and
+ * only shows links the user explicitly added. User shortcuts are persisted
+ * via `setBrowserShortcuts` (SQLite settings, see `storage.saveSettings`)
+ * and restored on startup in `documentsSlice.init`.
+ */
+export const DEFAULT_BROWSER_SHORTCUTS: BrowserShortcut[] = [];
 
 // ────────────────────────────────────────────────
 // Helpers

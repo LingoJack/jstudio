@@ -453,6 +453,7 @@ async function setupAgentEventListeners(
           toolResult: {
             status: status as ToolResultStatus,
             isError,
+            toolName,
           },
           images: event.payload.images,
         };
