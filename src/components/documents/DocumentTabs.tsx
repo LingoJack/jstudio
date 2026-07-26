@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { createDocumentWindow } from '../../lib/windows/documentDetach';
@@ -6,6 +6,7 @@ import { X, FileText, ExternalLink } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 import TabBar, { type TabItem } from '../ui/TabBar';
 import type { UnifiedTab } from '../../store/workspaceSlice';
+import OpenDocumentDialog from './OpenDocumentDialog';
 
 /**
  * DocumentTabs — tab bar for document tabs only.
@@ -20,7 +21,7 @@ import type { UnifiedTab } from '../../store/workspaceSlice';
  *   - Close button (X) on each tab (hidden when only 1 remains)
  *   - Right-click → context menu (Detach / Close / Close Others)
  *   - Drag a tab outside → tear off into a new OS window
- *   - `+` button → new document
+ *   - `+` button -> open search dialog to find/open existing documents
  *   - Apple-style sliding indicator + ripple effect on `+`
  */
 export default function DocumentTabs() {
@@ -31,9 +32,10 @@ export default function DocumentTabs() {
   const closeTab = useStore((s) => s.closeTab);
   const closeOtherTabs = useStore((s) => s.closeOtherTabs);
   const docList = useStore((s) => s.docList);
-  const createDocument = useStore((s) => s.createDocument);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
   const tabBarPosition = useStore((s) => s.tabBarPosition);
+
+  const [isOpenDocDialogOpen, setIsOpenDocDialogOpen] = useState(false);
 
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
@@ -111,18 +113,24 @@ export default function DocumentTabs() {
   if (docTabs.length === 0) return null;
 
   return (
-    <TabBar
-      tabs={tabItems}
-      activeTabId={activeTabId}
-      onTabClick={selectTab}
-      onTabClose={closeTab}
-      onNew={createDocument}
-      onDetach={handleDetach}
-      renderContextMenu={renderContextMenu}
-      rippleColor="rgba(255,255,255,0.25)"
-      glassOpacity={tabBarGlassOpacity}
-      position={tabBarPosition}
-    />
+    <>
+      <TabBar
+        tabs={tabItems}
+        activeTabId={activeTabId}
+        onTabClick={selectTab}
+        onTabClose={closeTab}
+        onNew={() => setIsOpenDocDialogOpen(true)}
+        onDetach={handleDetach}
+        renderContextMenu={renderContextMenu}
+        rippleColor="rgba(255,255,255,0.25)"
+        glassOpacity={tabBarGlassOpacity}
+        position={tabBarPosition}
+      />
+      <OpenDocumentDialog
+        open={isOpenDocDialogOpen}
+        onClose={() => setIsOpenDocDialogOpen(false)}
+      />
+    </>
   );
 }
 

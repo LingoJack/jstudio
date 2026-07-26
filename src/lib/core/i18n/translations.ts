@@ -662,6 +662,12 @@ export const translations = {
     "palette.noResults": "无匹配结果",
     "palette.footer": "↑↓ 导航 · Enter 执行 · Esc 关闭",
 
+    // ── Open Document Dialog ──
+    "openDoc.placeholder": "搜索文档…",
+    "openDoc.noResults": "未找到匹配的文档",
+    "openDoc.createNew": "新建文档",
+    "openDoc.footer": "↑↓ 导航 · Enter 打开 · Esc 关闭",
+
     // ── CodeBlockView ──
     "code.copy": "复制代码",
     "code.searchLang": "搜索语言…",
@@ -1507,6 +1513,12 @@ export const translations = {
     "palette.shortcutHint": "⌘P",
     "palette.noResults": "No matching results",
     "palette.footer": "↑↓ Navigate · Enter Select · Esc Close",
+
+    // ── Open Document Dialog ──
+    "openDoc.placeholder": "Search documents…",
+    "openDoc.noResults": "No matching documents found",
+    "openDoc.createNew": "New Document",
+    "openDoc.footer": "↑↓ Navigate · Enter Open · Esc Close",
 
     // ── CodeBlockView ──
     "code.copy": "Copy code",

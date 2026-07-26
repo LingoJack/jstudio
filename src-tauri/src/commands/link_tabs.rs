@@ -45,12 +45,12 @@ use super::link::{BROWSER_UA, extract_domain, read_chrome_cookies_cached};
 // ---------------------------------------------------------------------------
 
 /// JavaScript injected into every content webview to intercept `target="_blank"`
-/// links and `window.open()` calls. Instead of relying on WKWebView's
-/// `createWebViewWithConfiguration` UI delegate (which has reentrancy issues
-/// when creating a new WKWebView inside the callback), we override these APIs
-/// in JavaScript and signal the Rust backend via a hidden iframe navigating to
-/// the `newtab:` custom scheme. The `on_navigation` handler intercepts this
-/// scheme and creates a new tab.
+/// links, `window.open()` calls, and `<form target="_blank">` submissions.
+/// Instead of relying on WKWebView's `createWebViewWithConfiguration` UI
+/// delegate (which has reentrancy issues when creating a new WKWebView inside
+/// the callback), we override these APIs in JavaScript and signal the Rust
+/// backend via a hidden iframe navigating to the `newtab:` custom scheme.
+/// The `on_navigation` handler intercepts this scheme and creates a new tab.
 const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
     function openAsTab(url){
         if(!url||url==='about:blank'||url==='')return;
@@ -69,6 +69,24 @@ const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
     document.addEventListener('click',function(e){
         var a=e.target.closest('a[target="_blank"]');
         if(a&&a.href){e.preventDefault();e.stopPropagation();openAsTab(a.href);return false}
+    },true);
+    document.addEventListener('submit',function(e){
+        var form=e.target;
+        if(!form||form.tagName!=='FORM')return;
+        var t=form.target;
+        if(t==='_blank'||t==='_new'){
+            e.preventDefault();e.stopPropagation();
+            try{
+                var url=new URL(form.action||window.location.href,window.location.href).href;
+                var m=(form.method||'get').toLowerCase();
+                if(m==='get'){
+                    var p=new URLSearchParams(new FormData(form)).toString();
+                    if(p)url+=(url.indexOf('?')>=0?'&':'?')+p;
+                }
+                openAsTab(url);
+            }catch(err){openAsTab(form.action)}
+            return false;
+        }
     },true);
 })()"#;
 
