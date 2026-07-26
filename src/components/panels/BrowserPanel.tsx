@@ -7,28 +7,20 @@
  * main window and positioned on top of the React UI using a rect
  * reported by `ResizeObserver`.
  *
- * Layout (two native child webviews, content fills the full area):
+ * Layout (inline tab bar reserves space, content webview fills the rest):
  *   +----------------------------------------------------+
- *   |  Native content webview (fills the whole area)      |
- *   |   ...   [Tab1] [Tab2] [+]   ...                     |  <- floating tab-bar
- *   |         ^ transparent overlay webview,                  overlay webview,
- *   |           stacked ABOVE the content webview             re-raised above
- *   |                                                          each new tab's
- *   |                                                          content webview
+ *   |  [Tab1] [Tab2] [+]                        (tab bar)  |
+ *   +----------------------------------------------------+
+ *   |  Native content webview (fills remaining area)      |
+ *   |                                                     |
  *   +----------------------------------------------------+
  *
- * The content webview no longer reserves any space for the tab bar --
- * it fills the entire container reported by `ResizeObserver`. The tab
- * bar itself lives in a SEPARATE, transparent child webview (labeled
- * `tabbar-main`, created/positioned by `update_browser_tabbar_rect`) that
- * Rust keeps stacked on top of the content webview, so the tab pill
- * genuinely floats over live page content instead of the content webview
- * vacating a strip for it. Because native child webviews stack by
- * add-order, Rust must re-add the overlay webview every time a new
- * content webview is created (see `add_tab_internal` in `link_tabs.rs`)
- * so it doesn't get buried underneath. The overlay's own React root is
- * `BrowserTabsOverlayApp` (mounted via `index.html?window=browser-tabbar-overlay`),
- * not this component -- this file only reports geometry for it.
+ * The tab bar is rendered inline in the main window's React DOM (not in
+ * a separate overlay webview). The content webview's rect excludes the
+ * tab bar strip, so the two never overlap. This avoids the flicker that
+ * the previous overlay approach caused: Tauri child webviews stack by
+ * add-order, so every new content webview buried the overlay, forcing a
+ * close+re-add cycle that briefly hid the tab bar.
  *
  * The address bar / toolbar (search engine, URL input, refresh,
  * open-external) lives in the title bar's `BrowserDynamicIsland`, which
@@ -58,6 +50,7 @@ import {
   type BrowserPanelRect,
 } from "../../lib/core/storage";
 import { TAB_BAR_OVERLAY_HEIGHT } from "../ui/TabBar";
+import BrowserTabs from "./BrowserTabs";
 import BrowserStartPage from "./BrowserStartPage";
 
 export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
@@ -131,11 +124,11 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   // panel becomes visible -- keeping the webviews aligned with the
   // React-rendered container.
   //
-  // The content webview now fills the ENTIRE container -- no reserved
-  // strip. The floating tab bar lives in a separate overlay webview
-  // (see file header) whose rect we report alongside it, positioned at
-  // either the top or bottom edge (TAB_BAR_OVERLAY_HEIGHT tall) depending
-  // on the global `tabBarPosition` setting.
+  // The content webview fills the content area, which excludes the
+  // inline tab bar strip (TAB_BAR_OVERLAY_HEIGHT tall, at the top or
+  // bottom depending on `tabBarPosition`). The tab bar itself is
+  // rendered in the main window's React DOM -- no separate overlay
+  // webview is needed.
   useEffect(() => {
     if (hidden) return;
     const container = containerRef.current;
@@ -153,17 +146,6 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
         height: rect.height,
       };
       storage.updateBrowserPanelRect(browserRect).catch(console.error);
-
-      if (browserTabs.length > 0) {
-        const isTop = tabBarPosition === "top";
-        const tabBarRect: BrowserPanelRect = {
-          x: rect.x,
-          y: isTop ? rect.y : rect.y + rect.height - TAB_BAR_OVERLAY_HEIGHT,
-          width: rect.width,
-          height: TAB_BAR_OVERLAY_HEIGHT,
-        };
-        storage.updateBrowserTabBarRect(tabBarRect).catch(console.error);
-      }
     };
 
     // Report immediately so the webviews are positioned without waiting
@@ -193,20 +175,47 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
 
   // -- Render --
 
+  const hasTabs = browserTabs.length > 0;
+  const isTop = tabBarPosition === "top";
+
   return (
     <div className="w-full h-full flex flex-col relative overflow-hidden bg-[var(--vscode-editor-background)]">
-      {/* -- Webview area (fills the whole panel, no address bar) -- */}
-      {/* The container div fills the entire area for the native content
-          webview. The floating tab bar lives in a separate, transparent
-          overlay webview (label "tabbar-main") stacked above this one --
-          created/positioned entirely from Rust via update_browser_tabbar_rect,
-          driven by the ResizeObserver above. The address bar / toolbar lives
-          in the title bar's BrowserDynamicIsland. */}
+      {/* -- Inline tab bar (top position) -- */}
+      {hasTabs && isTop && (
+        <div
+          className="shrink-0 relative"
+          style={{ height: TAB_BAR_OVERLAY_HEIGHT }}
+        >
+          <BrowserTabs
+            tabs={browserTabs}
+            activeTabId={browserActiveTabId}
+          />
+        </div>
+      )}
+
+      {/* -- Webview area (fills the remaining space) -- */}
+      {/* The container div fills the area NOT taken by the tab bar.
+          Rust positions the native content webview at this rect.
+          The address bar / toolbar lives in the title bar's
+          BrowserDynamicIsland. */}
       <div className="flex-1 min-h-0 relative">
         <div ref={containerRef} className="absolute inset-0 bg-white">
           {showStartPage && <BrowserStartPage />}
         </div>
       </div>
+
+      {/* -- Inline tab bar (bottom position) -- */}
+      {hasTabs && !isTop && (
+        <div
+          className="shrink-0 relative"
+          style={{ height: TAB_BAR_OVERLAY_HEIGHT }}
+        >
+          <BrowserTabs
+            tabs={browserTabs}
+            activeTabId={browserActiveTabId}
+          />
+        </div>
+      )}
     </div>
   );
 }

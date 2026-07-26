@@ -131,13 +131,6 @@ static TAB_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// `"main"` window label.
 static BROWSER_PANEL_RECT: OnceLock<Mutex<Option<BrowserPanelRect>>> = OnceLock::new();
 
-/// Geometry of the floating tab-bar overlay webview (main window only),
-/// reported by React whenever the panel container resizes or the tab-bar
-/// position/height changes. Set by `update_browser_tabbar_rect` and read
-/// by `add_tab_internal` when re-raising the overlay above a newly added
-/// content webview.
-static TABBAR_RECT: OnceLock<Mutex<Option<BrowserPanelRect>>> = OnceLock::new();
-
 /// Whether the inline browser panel is currently visible in the main window.
 /// Set by `show_browser_panel` / `hide_browser_panel`. Read by
 /// `on_menu_event` in lib.rs to decide whether Cmd+T / Cmd+W should act on
@@ -157,15 +150,6 @@ fn get_browser_panel_rect() -> Option<BrowserPanelRect> {
     browser_panel_rect_cell().lock().ok()?.as_ref().copied()
 }
 
-fn tabbar_rect_cell() -> &'static Mutex<Option<BrowserPanelRect>> {
-    TABBAR_RECT.get_or_init(|| Mutex::new(None))
-}
-
-/// Get the stored tab-bar overlay rect (if any).
-fn get_tabbar_rect() -> Option<BrowserPanelRect> {
-    tabbar_rect_cell().lock().ok()?.as_ref().copied()
-}
-
 /// Check whether the inline browser panel is currently visible.
 pub fn is_browser_panel_visible() -> bool {
     BROWSER_PANEL_VISIBLE.load(Ordering::SeqCst)
@@ -179,16 +163,6 @@ fn next_id() -> u64 {
 /// Derive the UI webview label for a given window (must be unique per window).
 fn ui_webview_label(window_label: &str) -> String {
     format!("ui-{}", window_label)
-}
-
-/// Derive the label for the floating tab-bar overlay webview used by the
-/// inline browser panel (main window only). This is a small, transparent
-/// child webview stacked ON TOP of the content webview so the React tab
-/// pill can visually float over live page content instead of the content
-/// webview vacating a reserved strip for it. See `update_browser_tabbar_rect`
-/// and the re-raise logic in `add_tab_internal`.
-fn tabbar_overlay_label(window_label: &str) -> String {
-    format!("tabbar-{}", window_label)
 }
 
 /// Resolve the content webview geometry (x, y, w, h) for a given window.
@@ -713,11 +687,6 @@ pub async fn hide_browser_panel(app: AppHandle) -> Result<(), String> {
         }
     }
 
-    // Also hide the floating tab-bar overlay webview, if it exists.
-    if let Some(wv) = app.get_webview(&tabbar_overlay_label(MAIN_BROWSER_LABEL)) {
-        let _ = wv.set_position(LogicalPosition::new(0.0, 9999.0));
-    }
-
     Ok(())
 }
 
@@ -744,50 +713,18 @@ pub async fn update_browser_panel_rect(
     Ok(())
 }
 
-/// Update the floating tab-bar overlay's geometry (called from React's
-/// `ResizeObserver`, alongside `update_browser_panel_rect`). Creates the
-/// overlay webview on first use, or repositions/resizes it on subsequent
-/// calls. The overlay is a small, transparent child webview stacked above
-/// the content webview so the React tab pill can visually float over live
-/// page content (see `tabbar_overlay_label`).
+/// Update the tab-bar overlay's geometry (legacy, now a no-op).
+///
+/// Previously this created/repositioned a separate transparent overlay
+/// webview for the floating tab bar. The tab bar is now rendered inline
+/// in the main window's React DOM (see `BrowserPanel.tsx`), so no
+/// overlay webview is needed. The command is kept as a no-op to avoid
+/// breaking any stale frontend callers during the transition.
 #[tauri::command]
 pub async fn update_browser_tabbar_rect(
-    app: AppHandle,
-    rect: BrowserPanelRect,
+    _app: AppHandle,
+    _rect: BrowserPanelRect,
 ) -> Result<(), String> {
-    // Store the rect so `add_tab_internal` can re-raise the overlay at the
-    // right geometry after adding a new content webview on top of it.
-    {
-        *tabbar_rect_cell().lock().unwrap() = Some(rect);
-    }
-
-    let label = tabbar_overlay_label(MAIN_BROWSER_LABEL);
-
-    if let Some(wv) = app.get_webview(&label) {
-        let _ = wv.set_position(LogicalPosition::new(rect.x, rect.y));
-        let _ = wv.set_size(LogicalSize::new(rect.width, rect.height));
-        return Ok(());
-    }
-
-    let window = app
-        .get_window(MAIN_BROWSER_LABEL)
-        .ok_or_else(|| format!("window not found: {}", MAIN_BROWSER_LABEL))?;
-
-    let overlay_url = format!(
-        "index.html?window=browser-tabbar-overlay&windowLabel={}",
-        MAIN_BROWSER_LABEL
-    );
-    let overlay_builder =
-        WebviewBuilder::new(&label, WebviewUrl::App(overlay_url.into())).transparent(true);
-
-    window
-        .add_child(
-            overlay_builder,
-            LogicalPosition::new(rect.x, rect.y),
-            LogicalSize::new(rect.width, rect.height),
-        )
-        .map_err(|e| format!("failed to add tab-bar overlay webview: {e}"))?;
-
     Ok(())
 }
 
@@ -1019,17 +956,6 @@ fn emit_tabs_updated(app: &AppHandle, manager: &Arc<Mutex<TabManager>>) {
         let m = manager.lock().unwrap();
         (build_tabs_state(&m), m.window_label.clone())
     };
-    // `emit_to` only reaches webviews/windows whose label exactly matches
-    // the target, so the floating tab-bar overlay webview (labeled
-    // `tabbar-<window_label>`, different from `window_label` itself) needs
-    // its own explicit emit to receive tab state updates.
-    if window_label == MAIN_BROWSER_LABEL {
-        let _ = app.emit_to(
-            tabbar_overlay_label(&window_label),
-            "link-preview:tabs-updated",
-            state.clone(),
-        );
-    }
     let _ = app.emit_to(window_label, "link-preview:tabs-updated", state);
 }
 
@@ -1294,34 +1220,6 @@ fn add_tab_internal(
         new_webview
             .set_size(LogicalSize::new(content_width, content_height))
             .map_err(|e| format!("failed to size new webview: {e}"))?;
-    }
-
-    // --- Re-raise the tab-bar overlay above the just-added content webview ---
-    // Child webviews stack by add-order (later add_child calls render on
-    // top), so the new content webview just landed above the floating
-    // tab-bar overlay (if it exists), hiding it. Close + re-add the overlay
-    // at its last known rect so it becomes the top-most child again. Only
-    // applies to the inline browser panel (main window); standalone
-    // link-preview windows don't have an overlay webview.
-    if window_label == MAIN_BROWSER_LABEL {
-        let overlay_label = tabbar_overlay_label(MAIN_BROWSER_LABEL);
-        if let (Some(overlay_wv), Some(overlay_rect)) =
-            (app.get_webview(&overlay_label), get_tabbar_rect())
-        {
-            let _ = overlay_wv.close();
-            let overlay_url = format!(
-                "index.html?window=browser-tabbar-overlay&windowLabel={}",
-                MAIN_BROWSER_LABEL
-            );
-            let overlay_builder =
-                WebviewBuilder::new(&overlay_label, WebviewUrl::App(overlay_url.into()))
-                    .transparent(true);
-            let _ = window.add_child(
-                overlay_builder,
-                LogicalPosition::new(overlay_rect.x, overlay_rect.y),
-                LogicalSize::new(overlay_rect.width, overlay_rect.height),
-            );
-        }
     }
 
     // --- Create tab record ---
