@@ -236,20 +236,26 @@ export default function CodeBlockView({
   // ---- HTML live preview ----
   // For HTML code blocks we offer a toggle that renders the source in a
   // sandboxed iframe so users can see the result without leaving the editor.
-  // The choice (source vs rendered) is persisted via the `htmlPreview` attr.
+  // The choice (source vs rendered) is persisted via the `htmlPreview` attr
+  // (tri-state: null = default preview, true = preview, false = source).
   const isHtml = language === "html";
   const showHtmlPreview =
-    isHtml && (node.attrs?.htmlPreview as boolean | undefined) === true;
+    isHtml &&
+    hasContent &&
+    (node.attrs?.htmlPreview as boolean | null | undefined) !== false;
   // The current code text, used as the iframe `srcDoc`. Reading
   // `node.textContent` on every render keeps the preview in sync with edits.
   const htmlSource = node.textContent;
 
   // ---- Mermaid live preview ----
   // For Mermaid code blocks we offer a toggle that renders the diagram.
-  // The choice (source vs rendered) is persisted via the `mermaidPreview` attr.
+  // The choice (source vs rendered) is persisted via the `mermaidPreview` attr
+  // (tri-state: null = default preview, true = preview, false = source).
   const isMermaid = language === "mermaid";
   const showMermaidPreview =
-    isMermaid && (node.attrs?.mermaidPreview as boolean | undefined) === true;
+    isMermaid &&
+    hasContent &&
+    (node.attrs?.mermaidPreview as boolean | null | undefined) !== false;
   const mermaidSource = node.textContent;
   const [mermaidSvg, setMermaidSvg] = useState<string | null>(null);
   const [mermaidError, setMermaidError] = useState<string | null>(null);
@@ -333,12 +339,12 @@ export default function CodeBlockView({
     renderMermaid();
   }, [showMermaidPreview, mermaidSource, isDarkMode]);
 
-  // Clear the persisted preview flag when the language changes away from HTML/Mermaid.
+  // Reset the persisted preview flag when the language changes away from HTML/Mermaid.
   useEffect(() => {
-    if (!isHtml && node.attrs?.htmlPreview)
-      updateAttributes({ htmlPreview: false });
-    if (!isMermaid && node.attrs?.mermaidPreview)
-      updateAttributes({ mermaidPreview: false });
+    if (!isHtml && node.attrs?.htmlPreview != null)
+      updateAttributes({ htmlPreview: null });
+    if (!isMermaid && node.attrs?.mermaidPreview != null)
+      updateAttributes({ mermaidPreview: null });
   }, [
     isHtml,
     isMermaid,
@@ -353,12 +359,19 @@ export default function CodeBlockView({
   // We render the iframe via native DOM so React never sees its internals.
   useEffect(() => {
     const container = previewContainerRef.current;
-    // When collapsed, the preview container is unmounted — drop the iframe
+    // When collapsed, the preview container is unmounted - drop the iframe
     // so we don't keep a detached iframe (and its srcdoc) around.
     if (collapsed && iframeRef.current) {
       iframeRef.current.remove();
       iframeRef.current = null;
       return;
+    }
+    // If preview is hidden (or content emptied), remove the iframe before
+    // the early return below - the container may have already unmounted,
+    // leaving a dangling ref to a detached iframe.
+    if (!showHtmlPreview && iframeRef.current) {
+      iframeRef.current.remove();
+      iframeRef.current = null;
     }
     if (!container) return;
 
@@ -377,12 +390,6 @@ export default function CodeBlockView({
       iframe.srcdoc = htmlSource;
       container.appendChild(iframe);
       iframeRef.current = iframe;
-    }
-
-    // If preview is hidden, remove the iframe.
-    if (!showHtmlPreview && iframeRef.current) {
-      iframeRef.current.remove();
-      iframeRef.current = null;
     }
 
     // Update srcdoc when htmlSource changes (only if iframe exists).
@@ -697,20 +704,29 @@ export default function CodeBlockView({
       <button
         type="button"
         onClick={() => {
+          const bg = isDarkMode
+            ? "linear-gradient(135deg, #1e1e1e 0%, #252526 100%)"
+            : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)";
+          const btnBg = isDarkMode
+            ? "rgba(255,255,255,0.1)"
+            : "rgba(0,0,0,0.06)";
+          const btnHover = isDarkMode
+            ? "rgba(255,255,255,0.2)"
+            : "rgba(0,0,0,0.12)";
           const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
     html,body{margin:0;padding:0;height:100%;overflow:hidden}
-    body{background:#fff;cursor:grab;user-select:none}
+    body{background:${bg};cursor:grab;user-select:none}
     body.dragging{cursor:grabbing}
     .w{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
     svg{display:block}
     .c{position:fixed;top:8px;right:8px;display:flex;gap:2px;opacity:0.5;transition:opacity 0.2s}
     body:hover .c{opacity:1}
-    .b{width:28px;height:28px;border:none;border-radius:4px;background:rgba(0,0,0,0.06);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
-    .b:hover{background:rgba(0,0,0,0.12)}
+    .b{width:28px;height:28px;border:none;border-radius:4px;background:${btnBg};cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+    .b:hover{background:${btnHover}}
   </style>
 </head>
 <body>

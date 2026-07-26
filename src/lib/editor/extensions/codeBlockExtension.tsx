@@ -48,10 +48,12 @@ export interface CodeBlockNodeAttributes {
   language?: string;
   /** Whether the code body is collapsed (header + badge still visible). */
   collapsed?: boolean;
-  /** HTML code blocks: whether the rendered (iframe) preview is shown instead of the source. */
-  htmlPreview?: boolean;
-  /** Mermaid code blocks: whether the rendered SVG diagram is shown instead of the source. */
-  mermaidPreview?: boolean;
+  /** HTML code blocks: whether the rendered (iframe) preview is shown instead of the source.
+   *  Tri-state: null = default (preview), true = explicitly preview, false = explicitly source. */
+  htmlPreview?: boolean | null;
+  /** Mermaid code blocks: whether the rendered SVG diagram is shown instead of the source.
+   *  Tri-state: null = default (preview), true = explicitly preview, false = explicitly source. */
+  mermaidPreview?: boolean | null;
   /** Legacy: maximum body height as a percentage of viewport height (0-100). Parsed for backward-compat only. */
   maxHeightPct?: number | null;
   /** Legacy pixel width (kept for backward-compat migration). */
@@ -266,19 +268,29 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
         },
       },
       htmlPreview: {
-        default: false,
-        parseHTML: (el) => el.getAttribute('data-html-preview') === 'true',
+        default: null,
+        parseHTML: (el) => {
+          const v = el.getAttribute('data-html-preview');
+          if (v === 'true') return true;
+          if (v === 'false') return false;
+          return null;
+        },
         renderHTML: (attrs) => {
-          if (!attrs.htmlPreview) return {};
-          return { 'data-html-preview': 'true' };
+          if (attrs.htmlPreview == null) return {};
+          return { 'data-html-preview': attrs.htmlPreview ? 'true' : 'false' };
         },
       },
       mermaidPreview: {
-        default: false,
-        parseHTML: (el) => el.getAttribute('data-mermaid-preview') === 'true',
+        default: null,
+        parseHTML: (el) => {
+          const v = el.getAttribute('data-mermaid-preview');
+          if (v === 'true') return true;
+          if (v === 'false') return false;
+          return null;
+        },
         renderHTML: (attrs) => {
-          if (!attrs.mermaidPreview) return {};
-          return { 'data-mermaid-preview': 'true' };
+          if (attrs.mermaidPreview == null) return {};
+          return { 'data-mermaid-preview': attrs.mermaidPreview ? 'true' : 'false' };
         },
       },
       maxHeightPct: {
