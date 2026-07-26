@@ -31,6 +31,8 @@ export const translations = {
     // ── DocumentList ──
     "doclist.allDocuments": "全部文档",
     "doclist.moreActions": "更多操作",
+    "doclist.pin": "固定侧边栏",
+    "doclist.unpin": "取消固定",
     "doclist.noMatch": "暂无匹配文档",
     "doclist.untitled": "无标题",
     "doclist.new": "新建",
@@ -868,6 +870,8 @@ export const translations = {
     // ── DocumentList ──
     "doclist.allDocuments": "All Documents",
     "doclist.moreActions": "More Actions",
+    "doclist.pin": "Pin Sidebar",
+    "doclist.unpin": "Unpin Sidebar",
     "doclist.noMatch": "No matching documents",
     "doclist.untitled": "Untitled",
     "doclist.new": "New",

@@ -9,6 +9,7 @@ import {
   FileText, Plus, MoreHorizontal, FileDown,
   FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
   X, PackageOpen, Check, ArrowUpNarrowWide, ArrowDownWideNarrow, ArrowDownUp,
+  Pin,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import TrashDialog from './TrashDialog';
@@ -25,6 +26,11 @@ const ROOT_DROP_ID = '__root__';
 
 /** Minimum pointer movement (px) before a click becomes a drag. */
 const DRAG_THRESHOLD = 5;
+
+/** Width of the sidebar when collapsed (unpinned, not hovered). */
+const COLLAPSED_WIDTH = 48;
+/** Grace period before collapsing after the pointer leaves (ms). */
+const COLLAPSE_DELAY = 180;
 
 interface ContextMenuState {
   x: number;
@@ -55,6 +61,8 @@ export default function DocumentSidebar() {
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
+  const sidebarPinned = useStore((s) => s.sidebarPinned);
+  const toggleSidebarPinned = useStore((s) => s.toggleSidebarPinned);
 
   // Folder store
   const folders = useStore((s) => s.folders);
@@ -80,6 +88,8 @@ export default function DocumentSidebar() {
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [moreMenuPos, setMoreMenuPos] = useState<{ x: number; y: number } | null>(null);
 
   // ── Batch selection state ─────────────────────────────────
   /** Unified selection set — contains both document ids and folder ids. */
@@ -97,6 +107,33 @@ export default function DocumentSidebar() {
   const [trashDialogOpen, setTrashDialogOpen] = useState(false);
   // ── Backup & restore dialog state ──
   const [backupDialogDoc, setBackupDialogDoc] = useState<{ id: string; title: string } | null>(null);
+
+  // ── Hover-expand state (only active when sidebarPinned is false) ──
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const hoverCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleHoverEnter = useCallback(() => {
+    if (sidebarPinned) return;
+    if (hoverCollapseTimer.current) {
+      clearTimeout(hoverCollapseTimer.current);
+      hoverCollapseTimer.current = null;
+    }
+    setHoverExpanded(true);
+  }, [sidebarPinned]);
+
+  const handleHoverLeave = useCallback(() => {
+    if (sidebarPinned) return;
+    if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
+    hoverCollapseTimer.current = setTimeout(() => setHoverExpanded(false), COLLAPSE_DELAY);
+  }, [sidebarPinned]);
+
+  const isCollapsed = !sidebarPinned && !hoverExpanded;
+  const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
+
+  const handleTogglePin = useCallback(() => {
+    toggleSidebarPinned();
+    setHoverExpanded(false);
+  }, [toggleSidebarPinned]);
 
   // ── Pointer-drag state ────────────────────────────────────
   /**
@@ -269,13 +306,21 @@ export default function DocumentSidebar() {
   }, [batchMoveMenu]);
 
   // ── Handlers: more menu / rename ──────────────────────────
+  const captureMoreMenuPos = useCallback(() => {
+    if (moreMenuRef.current) {
+      const rect = moreMenuRef.current.getBoundingClientRect();
+      setMoreMenuPos({ x: rect.left, y: rect.bottom + 4 });
+    }
+  }, []);
+
   const openMoreMenu = useCallback(() => {
     if (moreMenuCloseTimer.current) {
       clearTimeout(moreMenuCloseTimer.current);
       moreMenuCloseTimer.current = null;
     }
+    captureMoreMenuPos();
     setMoreMenuOpen(true);
-  }, []);
+  }, [captureMoreMenuPos]);
 
   const scheduleCloseMoreMenu = useCallback(() => {
     if (moreMenuCloseTimer.current) clearTimeout(moreMenuCloseTimer.current);
@@ -824,27 +869,59 @@ export default function DocumentSidebar() {
 
   return (
     <div
-      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col pb-5 select-none z-10 relative"
-      style={{ width: sidebarWidth }}
+      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col select-none z-10 relative overflow-hidden"
+      style={{ width: effectiveWidth, transition: 'width 180ms ease-out' }}
+      onMouseEnter={handleHoverEnter}
+      onMouseLeave={handleHoverLeave}
     >
-      {/* Header — aligned with the tab bar height (h-9) */}
+      {/* ── Collapsed mode: just a pin button ── */}
+      {isCollapsed ? (
+        <div className="h-9 shrink-0 flex items-center justify-center">
+          <button
+            onClick={handleTogglePin}
+            className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
+            title={t('doclist.pin')}
+          >
+            <Pin className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <>
+      {/* Header - aligned with the tab bar height (h-9) */}
       <div className="h-9 shrink-0 flex items-center justify-end px-3">
         <div className="flex items-center gap-0.5">
+          {/* Pin toggle */}
+          <button
+            onClick={handleTogglePin}
+            className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
+              sidebarPinned
+                ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+            }`}
+            title={sidebarPinned ? t('doclist.unpin') : t('doclist.pin')}
+          >
+            <Pin className="w-4 h-4" />
+          </button>
+
           <div
-            className="relative"
+            ref={moreMenuRef}
             onMouseEnter={openMoreMenu}
             onMouseLeave={scheduleCloseMoreMenu}
           >
             <button
-              onClick={() => setMoreMenuOpen((v) => !v)}
+              onClick={() => {
+                captureMoreMenuPos();
+                setMoreMenuOpen((v) => !v);
+              }}
               className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
               title={t('doclist.moreActions')}
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
-            {moreMenuOpen && (
+            {moreMenuOpen && moreMenuPos && (
               <MenuList
-                className="absolute left-0 top-full mt-1"
+                x={moreMenuPos.x}
+                y={moreMenuPos.y}
                 onClick={(e) => e.stopPropagation()}
               >
                 <SubMenu label={t('doclist.new')} icon={<Plus />}>
@@ -1145,12 +1222,16 @@ export default function DocumentSidebar() {
         </MenuList>
       )}
 
-      {/* Resize handle */}
-      <div
-        onMouseDown={onResizeStart}
-        className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-20 hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] transition-colors"
-        style={{ marginRight: '-1px' }}
-      />
+      {/* Resize handle - only when pinned */}
+      {sidebarPinned && (
+        <div
+          onMouseDown={onResizeStart}
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-20 hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] transition-colors"
+          style={{ marginRight: '-1px' }}
+        />
+      )}
+        </>
+      )}
     </div>
   );
 }

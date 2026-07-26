@@ -110,6 +110,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   language: 'zh',
   activityBarItems: DEFAULT_ACTIVITY_BAR_ITEMS,
   isSidebarOpen: true,
+  sidebarPinned: true,
   isOutlineOpen: false,
   isSettingsOpen: false,
   isCommandPaletteOpen: false,
@@ -159,6 +160,11 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   },
 
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
+  toggleSidebarPinned: () => {
+    const next = !get().sidebarPinned;
+    set({ sidebarPinned: next });
+    storage.saveSettings({ sidebarPinned: next }).catch(onSaveError('设置'));
+  },
   toggleOutline: () => set((s) => ({ isOutlineOpen: !s.isOutlineOpen })),
   setOutlineOpen: (open) => set({ isOutlineOpen: open }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),

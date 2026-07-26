@@ -122,6 +122,8 @@ export interface StoreState {
   
   activityBarItems: ActivityBarItemConfig[];
   isSidebarOpen: boolean;
+  /** When false, DocumentSidebar collapses to a narrow strip and expands on hover. */
+  sidebarPinned: boolean;
   isOutlineOpen: boolean;
   isSettingsOpen: boolean;
   isCommandPaletteOpen: boolean;
@@ -246,6 +248,7 @@ export interface StoreState {
   setThemeMode: (mode: ThemeMode) => void;
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
+  toggleSidebarPinned: () => void;
   toggleOutline: () => void;
   setOutlineOpen: (open: boolean) => void;
   toggleSettings: () => void;

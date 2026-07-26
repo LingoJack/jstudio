@@ -76,46 +76,45 @@ export function NavRow({
   ...rest
 }: NavRowProps) {
   const isPrimary = level === 'primary';
-  const showLine = active || highlighted;
+  const showIndicator = active || highlighted;
 
-  // ── Classes copied verbatim from Settings.tsx ──────────────
+  // ── Base layout ───────────────────────────────────────────
+  // `relative` is needed for the active-indicator bar (absolute positioned).
 
-  // Base layout — primary row
   const primaryBase =
-    'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer rounded-md';
+    'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer rounded-md relative';
 
-  // Base layout — secondary row
   const secondaryBase =
-    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-sm transition-colors duration-150 cursor-pointer border-l-2';
+    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-sm transition-colors duration-150 cursor-pointer border-l-2 relative';
 
   // Primary active/inactive
   let primaryState: string;
   if (highlighted) {
     primaryState =
-      'bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-inset ring-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)]';
+      'bg-[var(--vscode-list-activeSelectionBackground)] ring-1 ring-inset ring-[var(--vscode-focusBorder)] text-[var(--vscode-list-activeSelectionForeground)] font-medium';
   } else if (active) {
     primaryState =
-      'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
+      'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)] font-medium';
   } else if (selected) {
     primaryState = 'bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
-    primaryState = 'text-[var(--vscode-sideBar-foreground)]';
+    primaryState = 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]';
   }
 
   // Secondary active/inactive
   let secondaryState: string;
   if (highlighted) {
     secondaryState =
-      'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium';
-  } else if (showLine) {
+      'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)] font-medium';
+  } else if (active) {
     secondaryState =
-      'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)] font-medium';
+      'border-transparent bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)] font-medium';
   } else if (selected) {
     secondaryState =
       'border-transparent bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
     secondaryState =
-      'border-transparent text-[var(--vscode-descriptionForeground)]';
+      'border-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]';
   }
 
   const cls = isPrimary
@@ -129,6 +128,9 @@ export function NavRow({
 
   return (
     <div {...rest} className={`${cls} ${className}`}>
+      {showIndicator && (
+        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[var(--vscode-list-activeSelectionForeground)] opacity-90" />
+      )}
       {icon != null && <span className="shrink-0">{icon}</span>}
       {isPlainText ? (
         <span className="flex-1 text-left truncate">{children}</span>
