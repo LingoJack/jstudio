@@ -85,6 +85,8 @@ pub struct AgentSessionHandle {
     pub hook_manager: Arc<Mutex<HookManager>>,
     /// Invoked skills map
     pub invoked_skills: InvokedSkillsMap,
+    /// Pending tool calls awaiting user approval (tool_call_id -> (name, arguments))
+    pub pending_tool_calls: Arc<Mutex<HashMap<String, (String, String)>>>,
 }
 
 /// Lightweight session info returned to frontend.
@@ -514,6 +516,7 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
         task_manager,
         hook_manager,
         invoked_skills,
+        pending_tool_calls: Arc::new(Mutex::new(HashMap::new())),
     };
 
     // Register session
@@ -589,8 +592,101 @@ pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Re
 }
 
 /// Submit a tool result back to the agent.
+/// If the user approved a dangerous tool, this function executes it and sends the real result.
 #[tauri::command]
-pub fn agent_tool_result(params: ToolResultParams) -> Result<(), String> {
+pub fn agent_tool_result(params: ToolResultParams, app: AppHandle) -> Result<(), String> {
+    // Check if this is an approval (result contains "approved":true)
+    let is_approval = params.result.contains("\"approved\":true");
+
+    if is_approval {
+        // Try to find a pending tool call and execute it
+        let exec_info = {
+            let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
+            let handle = sessions
+                .get(&params.session_id)
+                .ok_or("Session not found")?;
+
+            let mut pending = handle.pending_tool_calls.lock().unwrap();
+            if let Some((name, arguments)) = pending.remove(&params.tool_call_id) {
+                let tx_guard = handle.tool_result_tx.lock().map_err(|e| e.to_string())?;
+                let tx = tx_guard.as_ref().ok_or("No tool result channel")?.clone();
+                Some((
+                    handle.tool_registry.clone(),
+                    tx,
+                    name,
+                    arguments,
+                    handle.workspace.clone(),
+                ))
+            } else {
+                None
+            }
+        };
+
+        if let Some((tool_registry, tx, name, arguments, workspace)) = exec_info {
+            // Spawn a thread to execute the tool (execution is synchronous and may block)
+            let tool_call_id = params.tool_call_id.clone();
+            let session_id = params.session_id.clone();
+            std::thread::spawn(move || {
+                // Set thread-local working directory so file tools resolve paths correctly
+                if let Some(ref ws) = workspace {
+                    j_agent::agent::thread_identity::set_thread_cwd(std::path::Path::new(ws));
+                }
+
+                let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+                // Execute the tool
+                let result = tool_registry.execute(&name, &arguments, &cancelled);
+
+                // Emit tool result event to frontend for UI display
+                let images = if result.images.is_empty() {
+                    None
+                } else {
+                    Some(
+                        result
+                            .images
+                            .clone()
+                            .into_iter()
+                            .map(|img| ImageDataPayload {
+                                base64: img.base64,
+                                media_type: img.media_type,
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                };
+                let _ = app.emit(
+                    "agent:tool-result",
+                    ToolResultPayload {
+                        session_id: session_id.clone(),
+                        tool_call_id: tool_call_id.clone(),
+                        tool_name: name,
+                        content: result.output.clone(),
+                        is_error: result.is_error,
+                        images,
+                        status: if result.is_error {
+                            "failed".to_string()
+                        } else {
+                            "executed".to_string()
+                        },
+                    },
+                );
+
+                // Send the real result to the agent loop
+                let result_msg = ToolResultMsg {
+                    tool_call_id,
+                    result: result.output,
+                    is_error: result.is_error,
+                    images: result.images,
+                    plan_decision: result.plan_decision,
+                };
+                let _ = tx.send(result_msg);
+            });
+
+            return Ok(());
+        }
+        // If no pending tool call found, fall through to original flow
+    }
+
+    // Original flow for rejections, plan decisions, etc.
     let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
     let handle = sessions
         .get(&params.session_id)
@@ -696,6 +792,7 @@ fn spawn_event_listener(
     streaming_reasoning_content: Arc<Mutex<String>>,
     cancel_token: CancellationToken,
     tool_registry: Arc<ToolRegistry>,
+    pending_tool_calls: Arc<Mutex<HashMap<String, (String, String)>>>,
 ) {
     std::thread::spawn(move || {
         // Get stream receiver and ask receiver from session
@@ -739,6 +836,7 @@ fn spawn_event_listener(
                     streaming_reasoning_content,
                     cancel_token,
                     tool_registry,
+                    pending_tool_calls,
                     stream_rx,
                 );
                 return;
@@ -775,6 +873,7 @@ fn spawn_event_listener(
             streaming_reasoning_content,
             cancel_token,
             tool_registry,
+            pending_tool_calls,
             stream_rx,
         );
     });
@@ -846,6 +945,7 @@ fn listen_stream_only(
     streaming_reasoning_content: Arc<Mutex<String>>,
     cancel_token: CancellationToken,
     tool_registry: Arc<ToolRegistry>,
+    pending_tool_calls: Arc<Mutex<HashMap<String, (String, String)>>>,
     stream_rx: mpsc::Receiver<StreamMsg>,
 ) {
     loop {
@@ -891,6 +991,13 @@ fn listen_stream_only(
                 }
                 StreamMsg::ToolCallRequest(calls) => {
                     // Only dangerous tools reach here (safe tools auto-execute in j-agent)
+                    // Store pending tool calls for later execution after user approval
+                    {
+                        let mut pending = pending_tool_calls.lock().unwrap();
+                        for c in &calls {
+                            pending.insert(c.id.clone(), (c.name.clone(), c.arguments.clone()));
+                        }
+                    }
                     // Attach confirmation info to each tool call
                     let tool_calls_with_info: Vec<ToolCallItemSer> = calls
                         .into_iter()
@@ -1101,7 +1208,7 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
     let (tool_result_tx, tool_result_rx) = mpsc::channel();
 
     // Update channels in handle
-    {
+    let pending_tool_calls = {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
         let handle = sessions.get(&session_id).ok_or("Session not found")?;
         {
@@ -1112,7 +1219,8 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
             let mut tx_guard = handle.tool_result_tx.lock().map_err(|e| e.to_string())?;
             *tx_guard = Some(tool_result_tx);
         }
-    }
+        handle.pending_tool_calls.clone()
+    };
 
     let (
         streaming_content,
@@ -1137,6 +1245,7 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         streaming_reasoning_content.clone(),
         cancel_token.clone(),
         tool_registry.clone(),
+        pending_tool_calls.clone(),
     );
 
     // Create agent loop config
