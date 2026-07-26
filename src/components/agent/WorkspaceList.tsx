@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useI18n } from '../../lib/core/i18n';
+import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { FolderOpen, MessageSquare, Plus, Trash2, ChevronRight, Bot } from 'lucide-react';
 import { NavBranch, NavRow } from '../ui/NavTree';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
@@ -10,7 +10,7 @@ import type { AgentSession } from '../../types/agent';
 // ──────────────────────────────────────────────────────────────────
 
 /** Format epoch-seconds timestamp to a relative time string. */
-function formatRelativeTime(epochSec: number, t: (key: string, vars?: Record<string, unknown>) => string): string {
+function formatRelativeTime(epochSec: number, t: (key: TranslationKey, vars?: Record<string, string | number>) => string): string {
   const now = Date.now() / 1000;
   const diff = now - epochSec;
   if (diff < 60) return t('agent.justNow');

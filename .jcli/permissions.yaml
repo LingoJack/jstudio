@@ -108,4 +108,5 @@ allow:
 - Shell(grep -n:*)
 - Shell(tail -5:*)
 - Shell(head -3:*)
+- Shell(sed -i:*)
 deny: []

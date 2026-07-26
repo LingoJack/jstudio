@@ -101,7 +101,7 @@ export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
 /**
  * 边默认箭头尺寸（像素）。
  *
- * maxGraph 默认为 30，会画出一根巨大的三角形箭头。本项目统一使用 6，
+ * maxGraph 默认为 30，会画出一根巨大的三角形箭头。本项目统一使用 3，
  * 小巧精致不抢眼，与飞书 / Notion 风格一致。
  *
  * 所有生成 edge 的路径都必须引用此常量，不允许再本地硬编码：
@@ -110,7 +110,7 @@ export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
  *   - GraphCanvas.createEdgeState（拉线预览）
  *   - GraphCanvas edgeDefault（手绘落线）
  */
-export const ARROW_END_SIZE = 6;
+export const ARROW_END_SIZE = 3;
 
 /** 选中框样式 - 跟随主题（accent 色 = --vscode-focusBorder） */
 export const SELECTION_STROKE_WIDTH = 2;

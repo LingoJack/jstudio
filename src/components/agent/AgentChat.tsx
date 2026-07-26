@@ -24,6 +24,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Ban,
   Bot,
   ChevronDown,
@@ -69,7 +70,7 @@ function TopBar({ session, onBack }: TopBarProps) {
 
   return (
     <div
-      className="shrink-0 flex items-center justify-between px-4 py-2"
+      className="shrink-0 flex items-center justify-between px-3 py-1.5"
       style={{
         background: 'var(--vscode-editorGroupHeader-tabsBackground)',
         borderBottom: '1px solid var(--vscode-widget-border)',
@@ -147,18 +148,23 @@ function RunStateBadge({ state }: { state: AgentRunState }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${
-        isActive ? 'animate-pulse' : ''
-      }`}
+      className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full`}
       style={{
         color: isError ? 'var(--vscode-errorForeground)' : 'var(--vscode-descriptionForeground)',
+        background: 'var(--vscode-editor-inactiveSelectionBackground)',
       }}
     >
       {isActive && (
-        <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ background: 'var(--vscode-terminal-ansiBlue)' }}
-        />
+        <span className="relative flex w-2 h-2">
+          <span
+            className="absolute inline-flex w-full h-full rounded-full opacity-75 animate-ping"
+            style={{ background: 'var(--vscode-terminal-ansiBlue)' }}
+          />
+          <span
+            className="relative inline-flex w-2 h-2 rounded-full"
+            style={{ background: 'var(--vscode-terminal-ansiBlue)' }}
+          />
+        </span>
       )}
       {labels[state] ?? state}
     </span>
@@ -173,7 +179,7 @@ function UserMessageBubble({ content, images }: { content: string; images?: { ba
   return (
     <div className="flex justify-end px-2 py-1">
       <div
-        className="rounded-2xl px-4 py-2.5 text-sm max-w-[75%] overflow-x-auto"
+        className="rounded-2xl rounded-br-md px-4 py-2.5 text-sm max-w-[70%] overflow-x-auto"
         style={{
           background: 'var(--vscode-button-background)',
           color: 'var(--vscode-button-foreground)',
@@ -217,9 +223,16 @@ function AssistantMessageBubble({
   if (!content.trim() && !reasoningContent && !isStreaming) return null;
 
   return (
-    <div className="flex justify-start px-2 py-1">
+    <div className="flex justify-start px-2 py-1 items-start gap-2.5">
+      {/* Bot 头像 */}
       <div
-        className="rounded-2xl px-4 py-2.5 text-sm max-w-[80%] overflow-x-auto"
+        className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 mt-0.5"
+        style={{ background: 'var(--vscode-editor-inactiveSelectionBackground)' }}
+      >
+        <Bot className="w-4 h-4" style={{ color: 'var(--vscode-terminal-ansiBlue)' }} />
+      </div>
+      <div
+        className="rounded-2xl rounded-bl-md px-4 py-2.5 text-sm max-w-[80%] overflow-x-auto"
         style={{
           background: 'var(--vscode-editor-background)',
           color: 'var(--vscode-editor-foreground)',
@@ -230,16 +243,18 @@ function AssistantMessageBubble({
         {reasoningContent && (
           <details className="mb-2">
             <summary
-              className="text-xs cursor-pointer select-none"
+              className="text-xs cursor-pointer select-none flex items-center gap-1.5"
               style={{ color: 'var(--vscode-descriptionForeground)' }}
             >
+              <ChevronRight className="w-3 h-3" />
               {t('agent.thinking')}
             </summary>
             <div
-              className="mt-1 text-xs whitespace-pre-wrap opacity-70 pl-3 border-l-2"
+              className="mt-1.5 text-xs whitespace-pre-wrap opacity-70 pl-3 rounded-md py-1.5"
               style={{
                 color: 'var(--vscode-descriptionForeground)',
-                borderColor: 'var(--vscode-terminal-ansiBlue)',
+                borderLeft: '2px solid var(--vscode-terminal-ansiBlue)',
+                background: 'var(--vscode-editor-inactiveSelectionBackground)',
               }}
             >
               {reasoningContent}
@@ -398,12 +413,13 @@ function ToolCallBubble({
                 </span>
                 {isDangerous && (
                   <span
-                    className="text-[10px] px-1.5 py-0.5 rounded ml-auto"
+                    className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 ml-auto"
                     style={{
                       background: 'var(--vscode-inputValidation-warningBackground)',
                       color: 'var(--vscode-inputValidation-warningForeground)',
                     }}
                   >
+                    <AlertTriangle className="w-2.5 h-2.5" />
                     {t('agent.toolDangerous')}
                   </span>
                 )}
@@ -661,11 +677,11 @@ function SystemMessageBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-center px-2 py-1">
       <div
-        className="rounded-lg px-4 py-2 text-xs max-w-[80%]"
+        className="rounded-full px-3.5 py-1.5 text-xs max-w-[80%]"
         style={{
           background: isError
             ? 'var(--vscode-inputValidation-errorBackground)'
-            : 'var(--vscode-editor-background)',
+            : 'var(--vscode-editor-inactiveSelectionBackground)',
           border: `1px solid ${
             isError
               ? 'var(--vscode-inputValidation-errorBorder)'
@@ -677,8 +693,8 @@ function SystemMessageBubble({ content }: { content: string }) {
         }}
       >
         {isError ? (
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="w-3 h-3 shrink-0" />
             <span>{content.replace(/^Error:\s*/, '')}</span>
           </div>
         ) : (
@@ -888,14 +904,7 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
   }, []);
 
   return (
-    <div className="shrink-0 px-4 pb-4">
-      {/* HintBar — 快捷键提示（仿 remote 的 hint-bar） */}
-      <div
-        className="px-2 pb-1 text-[10px] select-none"
-        style={{ color: 'var(--vscode-descriptionForeground)' }}
-      >
-        {t('agent.hintKeys')}
-      </div>
+    <div className="shrink-0 px-4 pb-3">
       <div
         className="relative rounded-2xl border border-[var(--vscode-menu-border)]"
         style={{
@@ -1024,6 +1033,7 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-[10px] opacity-40 hidden sm:inline">{t('agent.hintKeys')}</span>
             {isRunning && (
               <button
                 onClick={onCancel}
@@ -1037,14 +1047,17 @@ function InputArea({ session, onSend, onCancel }: InputAreaProps) {
             <button
               onClick={handleSend}
               disabled={!input.trim() && images.length === 0}
-              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-30 hover:opacity-90"
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-all disabled:opacity-30 hover:opacity-90"
               style={{
                 background: input.trim() || images.length > 0
                   ? 'var(--vscode-button-background)'
-                  : 'rgba(255,255,255,0.1)',
+                  : 'rgba(255,255,255,0.08)',
                 color: input.trim() || images.length > 0
                   ? 'var(--vscode-button-foreground)'
                   : 'var(--vscode-descriptionForeground)',
+                boxShadow: input.trim() || images.length > 0
+                  ? '0 0 12px var(--vscode-button-background)'
+                  : 'none',
               }}
               title={t('agent.send')}
             >
@@ -1080,18 +1093,38 @@ function StreamingMessage({
   // 如果正在 thinking（还没有内容），显示 thinking 指示器
   if (runState === 'thinking') {
     return (
-      <div className="flex justify-start px-2 py-1">
+      <div className="flex justify-start px-2 py-1 items-start gap-2.5">
+        {/* Bot 头像 */}
         <div
-          className="rounded-2xl px-4 py-2.5 text-sm"
+          className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 mt-0.5"
+          style={{ background: 'var(--vscode-editor-inactiveSelectionBackground)' }}
+        >
+          <Bot className="w-4 h-4" style={{ color: 'var(--vscode-terminal-ansiBlue)' }} />
+        </div>
+        <div
+          className="rounded-2xl rounded-bl-md px-4 py-3 text-sm"
           style={{
             background: 'var(--vscode-editor-background)',
             border: '1px solid var(--vscode-widget-border)',
             color: 'var(--vscode-descriptionForeground)',
           }}
         >
-          <div className="flex items-center gap-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span className="text-xs">{t('agent.thinking')}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="flex gap-1">
+              <span
+                className="w-1.5 h-1.5 rounded-full animate-bounce"
+                style={{ background: 'var(--vscode-descriptionForeground)', animationDelay: '0ms', animationDuration: '0.6s' }}
+              />
+              <span
+                className="w-1.5 h-1.5 rounded-full animate-bounce"
+                style={{ background: 'var(--vscode-descriptionForeground)', animationDelay: '150ms', animationDuration: '0.6s' }}
+              />
+              <span
+                className="w-1.5 h-1.5 rounded-full animate-bounce"
+                style={{ background: 'var(--vscode-descriptionForeground)', animationDelay: '300ms', animationDuration: '0.6s' }}
+              />
+            </span>
+            <span className="text-xs ml-1">{t('agent.thinking')}</span>
           </div>
         </div>
       </div>
@@ -1113,9 +1146,9 @@ function StatusIndicator({ session }: { session: AgentSession }) {
     return (
       <div className="flex justify-center px-2 py-1">
         <div
-          className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg"
+          className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full"
           style={{
-            background: 'var(--vscode-editor-background)',
+            background: 'var(--vscode-editor-inactiveSelectionBackground)',
             border: '1px solid var(--vscode-widget-border)',
             color: 'var(--vscode-descriptionForeground)',
           }}
@@ -1131,9 +1164,9 @@ function StatusIndicator({ session }: { session: AgentSession }) {
     return (
       <div className="flex justify-center px-2 py-1">
         <div
-          className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg"
+          className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full"
           style={{
-            background: 'var(--vscode-editor-background)',
+            background: 'var(--vscode-editor-inactiveSelectionBackground)',
             border: '1px solid var(--vscode-widget-border)',
             color: 'var(--vscode-descriptionForeground)',
           }}
@@ -1377,10 +1410,13 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
               setShowScrollBottom(false);
               scrollToBottom(true);
             }}
-            className="absolute right-6 -top-12 z-10 flex items-center justify-center w-8 h-8 rounded-full shadow-lg transition-opacity hover:opacity-90"
+            className="absolute right-6 -top-12 z-10 flex items-center justify-center w-9 h-9 rounded-full transition-all hover:scale-110 hover:opacity-100"
             style={{
-              background: 'var(--vscode-button-background)',
+              background: 'color-mix(in srgb, var(--vscode-button-background) 85%, transparent)',
               color: 'var(--vscode-button-foreground)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
             }}
             title={t('agent.scrollToBottom')}
           >

@@ -11,7 +11,7 @@
 
 import { useCallback } from 'react';
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/core/i18n';
+import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { AgentChat } from './AgentChat';
 import { useActiveProvider } from './ModelSelector';
 import { groupSessionsByWorkspace } from './WorkspaceList';
@@ -20,8 +20,8 @@ import type { LucideIcon } from 'lucide-react';
 
 interface SuggestionCard {
   icon: LucideIcon;
-  titleKey: string;
-  descKey: string;
+  titleKey: TranslationKey;
+  descKey: TranslationKey;
   prompt: string;
 }
 
@@ -177,9 +177,6 @@ export default function AgentChatPanel({ hidden }: { hidden?: boolean }) {
       <div className="flex-1 min-w-0 flex flex-col">
         <AgentChat session={activeSession} />
       </div>
-    </div>
-  );
-}
     </div>
   );
 }
