@@ -75,7 +75,7 @@ export default function OpenDocumentDialog({
           ? null
           : { doc, titleMatch: [idx, idx + q.length] as [number, number] };
       })
-      .filter((x): x is { doc: DocumentMeta; titleMatch: [number, number] | null } => x !== null);
+      .filter((x): x is { doc: DocumentMeta; titleMatch: [number, number] } => x !== null);
   }, [docList, query]);
 
   // ── Reset selection when results change ──
