@@ -31,7 +31,6 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use chrono::Local;
 use serde::{Deserialize, Serialize};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{
@@ -854,21 +853,6 @@ pub async fn update_browser_panel_rect(
         layout_webviews(&app, &manager, MAIN_BROWSER_LABEL);
     }
 
-    Ok(())
-}
-
-/// Update the tab-bar overlay's geometry (legacy, now a no-op).
-///
-/// Previously this created/repositioned a separate transparent overlay
-/// webview for the floating tab bar. The tab bar is now rendered inline
-/// in the main window's React DOM (see `BrowserPanel.tsx`), so no
-/// overlay webview is needed. The command is kept as a no-op to avoid
-/// breaking any stale frontend callers during the transition.
-#[tauri::command]
-pub async fn update_browser_tabbar_rect(
-    _app: AppHandle,
-    _rect: BrowserPanelRect,
-) -> Result<(), String> {
     Ok(())
 }
 

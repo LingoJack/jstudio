@@ -535,7 +535,6 @@ pub fn run() {
             commands::link_tabs::show_browser_panel,
             commands::link_tabs::hide_browser_panel,
             commands::link_tabs::update_browser_panel_rect,
-            commands::link_tabs::update_browser_tabbar_rect,
             commands::link_tabs::get_browser_panel_tabs_state,
             commands::link_tabs::select_all_in_active_browser_tab,
             // ── terminal detach (tear-off window mailbox) ──

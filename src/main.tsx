@@ -7,7 +7,6 @@ import TerminalWindowApp from './components/terminal/TerminalWindowApp';
 import DocumentWindowApp from './components/windows/DocumentWindowApp';
 import CommandPaletteWindow from './components/windows/CommandPaletteWindow';
 import LinkPreviewTabsApp from './components/windows/LinkPreviewTabsApp';
-import BrowserTabsOverlayApp from './components/windows/BrowserTabsOverlayApp';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import './index.css';
 import './styles/vscode-theme.css';
@@ -45,39 +44,21 @@ const isTerminalWindow = windowType === 'terminal';
 const isDocumentWindow = windowType === 'document';
 const isCommandPaletteWindow = windowType === 'command-palette';
 const isLinkPreviewTabsWindow = windowType === 'link-preview-tabs';
-const isBrowserTabbarOverlayWindow = windowType === 'browser-tabbar-overlay';
 
 // Command palette window is transparent & frameless — the body must not
 // paint an opaque background, otherwise it fills the whole window rect
 // and hides the rounded corners / shadow of the inner panel.
 //
-// The browser tab-bar overlay window needs the same treatment for a
-// different reason: it's a fully transparent child webview stacked above
-// the browser panel's content webview. Pixels with alpha=0 let mouse
-// clicks pass through to the content webview beneath; only the opaque
-// glass tab pill itself should capture clicks.
-//
 // We inject a <style> with !important to override vscode-theme.css's
 // `body { background-color: var(--vscode-editor-background) }` rule.
 // This must happen BEFORE React renders, so there's no white flash.
-//
-// For the browser tab-bar overlay, we additionally zero out margins and
-// set height: 100% so #root fills the entire (short) overlay webview --
-// otherwise #root collapses to content height and TabBar's absolute
-// positioning context can be shorter than the webview, clipping the pill.
-if (isCommandPaletteWindow || isBrowserTabbarOverlayWindow) {
+if (isCommandPaletteWindow) {
   const s = document.createElement('style');
   s.id = 'cpw-transparent';
-  const overlayExtra = isBrowserTabbarOverlayWindow
-    ? `
-      margin: 0 !important;
-      height: 100% !important;
-      width: 100% !important;`
-    : '';
   s.textContent = `
     html, body, #root {
       background: transparent !important;
-      background-color: transparent !important;${overlayExtra}
+      background-color: transparent !important;
     }
   `;
   document.head.appendChild(s);
@@ -97,8 +78,6 @@ const rootElement = (
       <DiagramWindowApp />
     ) : isLinkPreviewTabsWindow ? (
       <LinkPreviewTabsApp />
-    ) : isBrowserTabbarOverlayWindow ? (
-      <BrowserTabsOverlayApp />
     ) : (
       <App />
     )}

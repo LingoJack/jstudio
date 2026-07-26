@@ -750,16 +750,6 @@ export const storage = {
     invoke<void>("update_browser_panel_rect", { rect }),
 
   /**
-   * Update the floating tab-bar overlay webview's geometry (from React's
-   * `ResizeObserver`, alongside `updateBrowserPanelRect`). Rust creates the
-   * overlay webview on first call and repositions/resizes it afterwards.
-   * The overlay is a separate transparent child webview stacked above the
-   * content webview so the tab pill floats over live page content.
-   */
-  updateBrowserTabBarRect: (rect: BrowserPanelRect) =>
-    invoke<void>("update_browser_tabbar_rect", { rect }),
-
-  /**
    * Get the current tabs state for the inline browser panel. Convenience
    * wrapper around the main-window tab manager.
    */

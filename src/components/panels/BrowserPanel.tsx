@@ -7,20 +7,36 @@
  * main window and positioned on top of the React UI using a rect
  * reported by `ResizeObserver`.
  *
- * Layout (inline tab bar reserves space, content webview fills the rest):
- *   +----------------------------------------------------+
- *   |  [Tab1] [Tab2] [+]                        (tab bar)  |
- *   +----------------------------------------------------+
- *   |  Native content webview (fills remaining area)      |
- *   |                                                     |
- *   +----------------------------------------------------+
+ * Layout (vertical sidebar + content webview side by side):
+ *   ┌──────┬─────────────────────────────────────┐
+ *   │ [F]  │                                     │
+ *   │ [F]● │  Native content webview             │
+ *   │ [F]  │  (fills remaining width)            │
+ *   │  +   │                                     │
+ *   └──────┴─────────────────────────────────────┘
+ *    sidebar   flex-1 content area (containerRef)
  *
- * The tab bar is rendered inline in the main window's React DOM (not in
- * a separate overlay webview). The content webview's rect excludes the
- * tab bar strip, so the two never overlap. This avoids the flicker that
- * the previous overlay approach caused: Tauri child webviews stack by
- * add-order, so every new content webview buried the overlay, forcing a
- * close+re-add cycle that briefly hid the tab bar.
+ * The sidebar (BrowserSidebar.tsx) is a vertical, collapsible tab list
+ * rendered in the main window's React DOM. Collapsed it shows only
+ * favicons (44px); hovering expands it to 208px with titles + close
+ * buttons. Because it's a flex sibling of the content area (not an
+ * overlay), it never overlaps the native child webview - no z-order
+ * issue, no separate overlay webview, no `set_focus` dance.
+ *
+ * The native webview's WIDTH is kept constant (always rootWidth minus
+ * the collapsed sidebar width) so web content never reflows when the
+ * sidebar expands/collapses.  Only the webview's X position shifts to
+ * follow the sidebar's right edge; the excess width on the right is
+ * clipped by the window.  This eliminates the vertical jitter that
+ * occurs when a web page reflows during a width change.
+ *
+ * History: this panel previously used a horizontal `BrowserTabs` strip
+ * that reserved a `shrink-0` row at the top/bottom (content webview
+ * filled the rest). Before that, a separate transparent overlay webview
+ * was tried and abandoned — Tauri child webviews stack by add-order, so
+ * every new content webview buried the overlay, forcing a close+re-add
+ * cycle that briefly hid the tab bar. The sidebar layout sidesteps both
+ * problems entirely.
  *
  * The address bar / toolbar (search engine, URL input, refresh,
  * open-external) lives in the title bar's `BrowserDynamicIsland`, which
@@ -49,13 +65,13 @@ import {
   type LinkPreviewTabsState,
   type BrowserPanelRect,
 } from "../../lib/core/storage";
-import { TAB_BAR_OVERLAY_HEIGHT } from "../ui/TabBar";
-import BrowserTabs from "./BrowserTabs";
+import { COLLAPSED_WIDTH } from "./BrowserSidebar";
+import BrowserSidebar from "./BrowserSidebar";
 import BrowserStartPage from "./BrowserStartPage";
 
 export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const tabBarPosition = useStore((s) => s.tabBarPosition);
   const browserTabs = useStore((s) => s.browserTabs);
   const browserActiveTabId = useStore((s) => s.browserActiveTabId);
   const refreshBrowserTab = useStore((s) => s.refreshBrowserTab);
@@ -120,30 +136,35 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
 
   // -- ResizeObserver: report webview container rect to Rust --
   // Rust positions native child webviews at this rect. The observer
-  // fires when the sidebar opens/closes, the window resizes, or the
-  // panel becomes visible -- keeping the webviews aligned with the
-  // React-rendered container.
+  // fires when the browser panel opens/closes, the window resizes, or
+  // the tab sidebar expands/collapses on hover.
   //
-  // The content webview fills the content area, which excludes the
-  // inline tab bar strip (TAB_BAR_OVERLAY_HEIGHT tall, at the top or
-  // bottom depending on `tabBarPosition`). The tab bar itself is
-  // rendered in the main window's React DOM -- no separate overlay
-  // webview is needed.
+  // KEY INSIGHT: we keep the webview's *width* constant (always
+  // rootWidth - COLLAPSED_WIDTH) and only let its *x* shift with the
+  // sidebar.  This means the web page content never reflows when the
+  // sidebar expands/collapses -- the webview simply translates right
+  // and its right edge is clipped by the window.  No reflow = no
+  // vertical jitter, and the sidebar CSS transition stays smooth
+  // because the ResizeObserver feeds Rust a continuously-updated x.
   useEffect(() => {
     if (hidden) return;
     const container = containerRef.current;
-    if (!container) return;
+    const root = rootRef.current;
+    if (!container || !root) return;
 
     const updateRect = () => {
-      const rect = container.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
       // Skip zero-size rects (panel hidden during layout transitions).
-      if (rect.width === 0 || rect.height === 0) return;
+      if (containerRect.width === 0 || containerRect.height === 0) return;
 
       const browserRect: BrowserPanelRect = {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
+        x: containerRect.x,
+        y: containerRect.y,
+        // Constant width: webview always thinks it has the collapsed-
+        // sidebar space.  Content never reflows; only x shifts.
+        width: rootRect.width - COLLAPSED_WIDTH,
+        height: containerRect.height,
       };
       storage.updateBrowserPanelRect(browserRect).catch(console.error);
     };
@@ -154,7 +175,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     const observer = new ResizeObserver(updateRect);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [hidden, browserTabs.length, tabBarPosition]);
+  }, [hidden, browserTabs.length]);
 
   // -- Keyboard: Cmd+R refreshes the active tab --
   // Cmd+L (focus address bar) is handled by BrowserDynamicIsland in the
@@ -176,46 +197,30 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   // -- Render --
 
   const hasTabs = browserTabs.length > 0;
-  const isTop = tabBarPosition === "top";
 
   return (
-    <div className="w-full h-full flex flex-col relative overflow-hidden bg-[var(--vscode-editor-background)]">
-      {/* -- Inline tab bar (top position) -- */}
-      {hasTabs && isTop && (
-        <div
-          className="shrink-0 relative"
-          style={{ height: TAB_BAR_OVERLAY_HEIGHT }}
-        >
-          <BrowserTabs
-            tabs={browserTabs}
-            activeTabId={browserActiveTabId}
-          />
-        </div>
+    <div
+      ref={rootRef}
+      className="w-full h-full flex flex-row relative overflow-hidden bg-[var(--vscode-editor-background)]"
+    >
+      {/* -- Vertical tab sidebar (collapses to favicons on hover-out) -- */}
+      {hasTabs && (
+        <BrowserSidebar tabs={browserTabs} activeTabId={browserActiveTabId} />
       )}
 
-      {/* -- Webview area (fills the remaining space) -- */}
-      {/* The container div fills the area NOT taken by the tab bar.
-          Rust positions the native content webview at this rect.
-          The address bar / toolbar lives in the title bar's
-          BrowserDynamicIsland. */}
-      <div className="flex-1 min-h-0 relative">
-        <div ref={containerRef} className="absolute inset-0 bg-white">
+      {/* -- Webview area (fills the remaining width) -- */}
+      {/* The container div fills the area to the right of the sidebar.
+          Rust positions the native content webview at this rect, but
+          with a CONSTANT width (rootWidth - COLLAPSED_WIDTH) so the
+          web content never reflows.  When the sidebar is expanded the
+          webview simply shifts right and its right edge is clipped by
+          the window.  The address bar / toolbar lives in the title
+          bar's BrowserDynamicIsland. */}
+      <div className="flex-1 min-h-0 relative bg-[var(--vscode-sideBar-background)]">
+        <div ref={containerRef} className="absolute inset-0">
           {showStartPage && <BrowserStartPage />}
         </div>
       </div>
-
-      {/* -- Inline tab bar (bottom position) -- */}
-      {hasTabs && !isTop && (
-        <div
-          className="shrink-0 relative"
-          style={{ height: TAB_BAR_OVERLAY_HEIGHT }}
-        >
-          <BrowserTabs
-            tabs={browserTabs}
-            activeTabId={browserActiveTabId}
-          />
-        </div>
-      )}
     </div>
   );
 }
