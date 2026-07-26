@@ -31,6 +31,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{
@@ -65,6 +66,14 @@ use super::link::{BROWSER_UA, extract_domain, read_chrome_cookies_cached};
 ///   popup.location = 'https://example.com';
 /// to work correctly.
 const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
+    // Signal that this script is running
+    try{
+        var s=document.createElement('iframe');
+        s.style.cssText='display:none!important';
+        s.src='http://initlog.invalid/';
+        (document.body||document.documentElement).appendChild(s);
+        setTimeout(function(){if(s.parentNode)s.parentNode.removeChild(s)},2000);
+    }catch(e){}
     function openAsTab(url){
         if(!url||url==='about:blank'||url==='')return;
         try{
@@ -86,6 +95,14 @@ const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
     }
     try{
         var co=function(url,target,features){
+            // Signal that window.open was called
+            try{
+                var l=document.createElement('iframe');
+                l.style.cssText='display:none!important';
+                l.src='http://openlog.invalid/?u='+encodeURIComponent(url||'')+'&t='+(target||'');
+                (document.body||document.documentElement).appendChild(l);
+                setTimeout(function(){if(l.parentNode)l.parentNode.removeChild(l)},2000);
+            }catch(e){}
             if(url&&url!=='about:blank'&&url!==''){openAsTab(url);return null}
             return makeProxyWindow();
         };
@@ -113,6 +130,35 @@ const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
             return false;
         }
     },true);
+})()"#;
+
+/// JavaScript injected into content webviews that were opened by another tab
+/// (via `window.open` / `target="_blank"`). Sets up a `window.opener` proxy
+/// that forwards `postMessage` calls back to the opener tab through a hidden
+/// iframe → `http://postmessage.invalid/?d=<json>` → Rust `on_navigation`
+/// handler → `eval_js` on the opener webview.
+const OPENER_PROXY_JS: &str = r#"(function(){
+    function forwardToOpener(data){
+        try{
+            var f=document.createElement('iframe');
+            f.style.cssText='display:none!important;width:0;height:0;border:0';
+            f.src='http://postmessage.invalid/?d='+encodeURIComponent(JSON.stringify(data));
+            (document.body||document.documentElement).appendChild(f);
+            setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},2000);
+        }catch(e){}
+    }
+    var fakeLoc={};
+    Object.defineProperty(fakeLoc,'href',{get:function(){return''},set:function(v){
+        if(v)forwardToOpener({_opener_nav:v})
+    },configurable:false});
+    fakeLoc.replace=function(u){if(u)forwardToOpener({_opener_nav:u})};
+    fakeLoc.assign=function(u){if(u)forwardToOpener({_opener_nav:u})};
+    window.opener={
+        postMessage:function(data,origin){forwardToOpener({_pm:data,_origin:origin||'*'})},
+        close:function(){},focus:function(){},
+        location:fakeLoc
+    };
+    Object.defineProperty(window,'opener',{writable:false,configurable:false});
 })()"#;
 
 /// UI webview height in logical pixels (standalone link-preview window only).
@@ -163,6 +209,24 @@ pub struct BrowserPanelRect {
     pub height: f64,
 }
 
+/// Debug logger - writes to /tmp/jstudio_browser_debug.log so we can
+/// diagnose which handlers fire without needing a terminal.
+fn debug_log(msg: &str) {
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/jstudio_browser_debug.log")
+    {
+        let _ = writeln!(
+            f,
+            "[{}] {}",
+            chrono::Local::now().format("%H:%M:%S%.3f"),
+            msg
+        );
+    }
+}
+
 /// Per-window tab manager state.
 struct TabManager {
     /// The window label this manager belongs to. Used to scope `emit_to`
@@ -187,6 +251,9 @@ struct Tab {
     url: String,
     title: String,
     loading: bool,
+    /// Webview label of the tab that opened this tab (via window.open / target=_blank).
+    /// Used to forward `window.opener.postMessage()` calls back to the opener.
+    opener_webview_label: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -327,7 +394,7 @@ pub async fn open_link_preview_with_tabs(app: AppHandle, url: String) -> Result<
     }
 
     // --- Add first tab for the initial URL ---
-    add_tab_internal(&app, &manager, &window_label, url)?;
+    add_tab_internal(&app, &manager, &window_label, url, None)?;
 
     Ok(window_label)
 }
@@ -352,7 +419,7 @@ pub async fn add_link_preview_tab(
     url: String,
 ) -> Result<TabInfo, String> {
     let manager = get_manager(&window_label)?;
-    let tab_id = add_tab_internal(&app, &manager, &window_label, url)?;
+    let tab_id = add_tab_internal(&app, &manager, &window_label, url, None)?;
 
     // Return the new tab info
     let m = manager.lock().unwrap();
@@ -574,7 +641,7 @@ pub async fn open_or_focus_link_preview(app: AppHandle) -> Result<String, String
         let _ = window.set_focus();
         let label = window.label().to_string();
         if let Ok(manager) = get_manager(&label) {
-            let _ = add_tab_internal(&app, &manager, &label, "about:blank".to_string());
+            let _ = add_tab_internal(&app, &manager, &label, "about:blank".to_string(), None);
         }
         return Ok(label);
     }
@@ -602,7 +669,13 @@ pub fn add_tab_to_focused_preview(app: &AppHandle) -> Result<(), String> {
         .map(|(label, _)| label);
     let window_label = window_label.ok_or("no focused link preview window")?;
     let manager = get_manager(&window_label)?;
-    add_tab_internal(app, &manager, &window_label, "about:blank".to_string())?;
+    add_tab_internal(
+        app,
+        &manager,
+        &window_label,
+        "about:blank".to_string(),
+        None,
+    )?;
     Ok(())
 }
 
@@ -879,7 +952,13 @@ pub fn select_all_in_link_preview(app: &AppHandle, window_label: &str) -> Result
 /// the main window.
 pub fn add_tab_to_main_browser(app: &AppHandle) -> Result<(), String> {
     let manager = get_manager(MAIN_BROWSER_LABEL)?;
-    add_tab_internal(app, &manager, MAIN_BROWSER_LABEL, "about:blank".to_string())?;
+    add_tab_internal(
+        app,
+        &manager,
+        MAIN_BROWSER_LABEL,
+        "about:blank".to_string(),
+        None,
+    )?;
     Ok(())
 }
 
@@ -1104,7 +1183,12 @@ fn add_tab_internal(
     manager: &Arc<Mutex<TabManager>>,
     window_label: &str,
     url: String,
+    opener_label: Option<String>,
 ) -> Result<String, String> {
+    debug_log(&format!(
+        "add_tab_internal CALLED: window={}, url={}, opener={:?}",
+        window_label, url, opener_label
+    ));
     let n = next_id();
     let tab_id = format!("tab-{}", n);
     let webview_label = format!("content-{}", n);
@@ -1193,6 +1277,7 @@ fn add_tab_internal(
     let manager_for_nav = manager.clone();
     let window_label_for_new_window = window_label.to_string();
     let window_label_for_nav = window_label.to_string();
+    let webview_label_for_nav = webview_label.clone();
 
     let mut webview_builder = WebviewBuilder::new(
         &webview_label,
@@ -1219,6 +1304,7 @@ fn add_tab_internal(
             PageLoadEvent::Started => true,
             PageLoadEvent::Finished => false,
         };
+        debug_log(&format!("on_page_load: label={}, url={}, loading={}", label, url_str, loading));
         update_tab_field(&app_for_load, &manager_for_load, &label, |tab| {
             let mut changed = false;
             if tab.loading != loading {
@@ -1240,18 +1326,25 @@ fn add_tab_internal(
     // (see NEW_TAB_INTERCEPT_JS + on_navigation below) because WKWebView's
     // createWebViewWithConfiguration delegate has reentrancy issues.
     .on_new_window(move |new_url, _features| {
+        let url = new_url.as_str().to_string();
+        debug_log(&format!("on_new_window FIRED: url={}", url));
         let app = app_for_new_window.clone();
         let manager = manager_for_new_window.clone();
         let window_label = window_label_for_new_window.clone();
-        let url = new_url.as_str().to_string();
         let app_handle = app.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(50));
+            debug_log("on_new_window: thread woke, calling run_on_main_thread");
             if let Err(e) = app_handle.run_on_main_thread(move || {
-                if let Err(e) = add_tab_internal(&app, &manager, &window_label, url) {
+                debug_log("on_new_window: running add_tab_internal on main thread");
+                if let Err(e) = add_tab_internal(&app, &manager, &window_label, url, None) {
+                    debug_log(&format!("on_new_window: add_tab_internal FAILED: {}", e));
                     eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
+                } else {
+                    debug_log("on_new_window: add_tab_internal OK");
                 }
             }) {
+                debug_log(&format!("on_new_window: run_on_main_thread FAILED: {}", e));
                 eprintln!("[browser] on_new_window: run_on_main_thread failed: {e}");
             }
         });
@@ -1265,33 +1358,125 @@ fn add_tab_internal(
     // WKWebView fires decidePolicyForNavigationAction, unlike custom
     // URL schemes which may be silently dropped.
     .on_navigation(move |url| {
+        let url_str = url.as_str();
+        debug_log(&format!("on_navigation: url={}", url_str));
+        if url.host_str() == Some("initlog.invalid") {
+            debug_log("on_navigation: *** INIT SCRIPT IS RUNNING ***");
+            return false;
+        }
+        if url.host_str() == Some("openlog.invalid") {
+            let u = url.query_pairs().find(|(k, _)| k == "u").map(|(_, v)| v.to_string()).unwrap_or_default();
+            let t = url.query_pairs().find(|(k, _)| k == "t").map(|(_, v)| v.to_string()).unwrap_or_default();
+            debug_log(&format!("on_navigation: *** window.open CALLED: url='{}' target='{}'", u, t));
+            return false;
+        }
         if url.host_str() == Some("newtab.invalid") {
+            debug_log(&format!("on_navigation: newtab.invalid detected, full_url={}", url_str));
             let real_url = url
                 .query_pairs()
                 .find(|(k, _)| k == "u")
                 .map(|(_, v)| v.to_string());
+            debug_log(&format!("on_navigation: extracted real_url={:?}", real_url));
             if let Some(real_url) = real_url
                 && !real_url.is_empty()
             {
+                // Get the current active tab's webview label as the opener
+                let opener_label = {
+                    let m = manager_for_nav.lock().unwrap();
+                    m.active_tab_id
+                        .as_ref()
+                        .and_then(|id| m.tabs.get(id))
+                        .map(|t| t.webview_label.clone())
+                };
+                debug_log(&format!("on_navigation: opener_label={:?}", opener_label));
                 let app = app_for_nav.clone();
                 let manager = manager_for_nav.clone();
                 let window_label = window_label_for_nav.clone();
                 let app_handle = app.clone();
                 std::thread::spawn(move || {
+                    debug_log("on_navigation: thread woke, calling run_on_main_thread");
                     let _ = app_handle.run_on_main_thread(move || {
-                        if let Err(e) = add_tab_internal(&app, &manager, &window_label, real_url) {
+                        debug_log("on_navigation: running add_tab_internal on main thread");
+                        if let Err(e) = add_tab_internal(&app, &manager, &window_label, real_url, opener_label) {
+                            debug_log(&format!("on_navigation: add_tab_internal FAILED: {}", e));
                             eprintln!(
                                 "[browser] on_navigation newtab: add_tab_internal failed: {e}"
                             );
+                        } else {
+                            debug_log("on_navigation: add_tab_internal OK");
                         }
                     });
                 });
             }
             return false;
         }
+        // Forward postMessage from opened tab back to its opener
+        if url.host_str() == Some("postmessage.invalid") {
+            debug_log(&format!("on_navigation: postmessage.invalid detected, full_url={}", url_str));
+            let data_json = url
+                .query_pairs()
+                .find(|(k, _)| k == "d")
+                .map(|(_, v)| v.to_string());
+            if let Some(data_json) = data_json {
+                debug_log(&format!("on_navigation: postmessage data={}", data_json));
+                let mgr = manager_for_nav.clone();
+                let app_clone = app_for_nav.clone();
+                let wv_label = webview_label_for_nav.clone();
+                // Look up this tab's opener and forward the message
+                let (opener_label, js_to_eval) = {
+                    let m = mgr.lock().unwrap();
+                    // Find the tab whose webview_label matches this webview
+                    let tab = m.tabs.values().find(|t| t.webview_label == wv_label);
+                    let opener = tab.and_then(|t| t.opener_webview_label.clone());
+                    if let Some(ref opener) = opener {
+                        // Parse the JSON to determine if it's a postMessage or a navigation
+                        // Use serde_json or manual parsing
+                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&data_json) {
+                            if let Some(pm_data) = val.get("_pm") {
+                                // postMessage: dispatch a MessageEvent on the opener's window
+                                let origin = val.get("_origin").and_then(|o| o.as_str()).unwrap_or("*");
+                                let js = format!(
+                                    "window.dispatchEvent(new MessageEvent('message',{{data:{},origin:'{}'}}))",
+                                    pm_data, origin
+                                );
+                                (Some(opener.clone()), Some(js))
+                            } else if let Some(nav_url) = val.get("_opener_nav").and_then(|v| v.as_str()) {
+                                // Navigate opener to URL
+                                (Some(opener.clone()), Some(format!("window.location.href='{}'", nav_url.replace('\'', "\\'"))))
+                            } else {
+                                (None, None)
+                            }
+                        } else {
+                            (None, None)
+                        }
+                    } else {
+                        (None, None)
+                    }
+                };
+                if let (Some(opener), Some(js)) = (opener_label, js_to_eval) {
+                    debug_log(&format!("on_navigation: forwarding to opener {}, js={}", opener, js));
+                    if let Some(wv) = app_clone.get_webview(&opener) {
+                        let _ = wv.eval(&js);
+                        debug_log("on_navigation: eval_js on opener OK");
+                    } else {
+                        debug_log(&format!("on_navigation: opener webview {} not found", opener));
+                    }
+                }
+            }
+            return false;
+        }
         true
     })
     .initialization_script(NEW_TAB_INTERCEPT_JS);
+
+    // If this tab was opened by another tab (via window.open / target=_blank),
+    // inject a `window.opener` proxy so OAuth callback pages can communicate
+    // back to the opener via postMessage. The proxy forwards postMessage calls
+    // through a hidden iframe to `http://postmessage.invalid/?d=<json>`, which
+    // the on_navigation handler intercepts and forwards to the opener webview.
+    if let Some(ref _opener) = opener_label {
+        webview_builder = webview_builder.initialization_script(OPENER_PROXY_JS);
+    }
 
     if !cookie_script.is_empty() {
         webview_builder = webview_builder.initialization_script(&cookie_script);
@@ -1341,6 +1526,7 @@ fn add_tab_internal(
         url: url.clone(),
         title: initial_title.clone(),
         loading: url != "about:blank",
+        opener_webview_label: opener_label.clone(),
     };
 
     {
