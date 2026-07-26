@@ -167,31 +167,35 @@ export function attachAutoActivation(
     const targetGeo = target.getGeometry();
     if (!targetGeo) return;
 
-    // 消息 Y：从 edge geometry 的 targetPoint 取（CONNECT 事件时 edge 已创建，geometry 已设置）。
-    // targetPoint 是 edge 连接到 target 的精确位置，比 handler.first（起点 Y）更准确，
-    // 因为 activation 在 target 端，应该用 target 端的 Y 坐标。
+    // 消息 Y：优先用 handler.first（起点 Y，是用户按下鼠标时的位置，最准确、最直观）。
+    // 之前用 edge.targetPoint 会导致 msgY 变成鼠标松开位置的 Y，如果用户拖动过程中鼠标
+    // 上下移动了（虽然水平预览锁定了，但 targetPoint 可能仍是鼠标原始位置），会导致
+    // activation 和消息线的 Y 不一致，视觉上线是斜的。
+    // 用 handler.first.y 保证消息 Y = 起点 Y = 水平线 Y = activation Y，四者对齐。
     let msgY: number;
-    const edgeGeo = edge.getGeometry();
-    if (edgeGeo?.targetPoint) {
-      msgY = edgeGeo.targetPoint.y;
-      graphLog(`msgY=${msgY} from edge.targetPoint (${edgeGeo.targetPoint.x}, ${edgeGeo.targetPoint.y})`);
-    } else if (edgeGeo?.sourcePoint) {
-      msgY = edgeGeo.sourcePoint.y;
-      graphLog(`msgY=${msgY} from edge.sourcePoint (${edgeGeo.sourcePoint.x}, ${edgeGeo.sourcePoint.y})`);
-    } else if (handler.first) {
+    if (handler.first) {
       msgY = handler.first.y;
       graphLog(`msgY=${msgY} from handler.first (${handler.first.x}, ${handler.first.y})`);
     } else {
-      msgY = targetGeo.y + HEAD_HEIGHT + 30; // 默认放头部下方一点
-      graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
+      const edgeGeo0 = edge.getGeometry();
+      if (edgeGeo0?.sourcePoint) {
+        msgY = edgeGeo0.sourcePoint.y;
+        graphLog(`msgY=${msgY} fallback to edge.sourcePoint (${edgeGeo0.sourcePoint.x}, ${edgeGeo0.sourcePoint.y})`);
+      } else {
+        msgY = targetGeo.y + HEAD_HEIGHT + 30;
+        graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
+      }
     }
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
-    // activation 居中在 lifeline 上：中心 X = lifeline 中心 X，左右各延伸 8px。
-    // 这样 activation 完美贴合 lifeline 中心虚线，视觉上更自然。
+    // activation 居中在 lifeline 上：
+    //   - X 方向：中心 X = lifeline 中心 X，左右各延伸 8px
+    //   - Y 方向：activation 的**中心 Y = msgY**，即顶部 Y = msgY - h/2
+    // 这样从 source lifeline 出来的消息线（走 LifelinePerimeter，用 target 中心投影）
+    // 投影到 target activation 的中心 Y = msgY，正好和起点 Y = msgY 对齐 → 水平。
     const actGeo = {
       x: targetCenterX - ACTIVATION_W / 2,
-      y: msgY,
+      y: msgY - ACTIVATION_H / 2,
       w: ACTIVATION_W,
       h: ACTIVATION_H,
     };
@@ -219,6 +223,19 @@ export function attachAutoActivation(
       // 同时把 target perimeter 留给 umlActivation 的默认 RectanglePerimeter
       const style = edge.getStyle() ?? {};
       edge.setStyle({ ...style, edgeStyle: undefined, endArrow: 'classic' });
+
+      // 强制水平：清除 sourcePoint / targetPoint 的 Y 偏差。
+      // 因为 source 和 target 都是节点，edge 会走 perimeter 计算端点。
+      // 我们用 LifelinePerimeter / RectanglePerimeter，只要 activation 的 Y = msgY，
+      // 且 source lifeline 通过 next=activation.center 投影出的 Y 也是 msgY，
+      // 线就是水平的。这里为了保险，清掉可能残留的 sourcePoint/targetPoint 绝对坐标，
+      // 强制走 perimeter 自动计算。
+      const finalGeo = edge.getGeometry()?.clone();
+      if (finalGeo) {
+        finalGeo.sourcePoint = null;
+        finalGeo.targetPoint = null;
+        model.setGeometry(edge, finalGeo);
+      }
     } finally {
       model.endUpdate();
     }
