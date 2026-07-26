@@ -247,6 +247,17 @@ export const translations = {
     "agent.daysAgo": "{n} 天前",
     "agent.running": "运行中",
 
+    // Agent session state labels
+    "agent.stateThinking": "思考中",
+    "agent.stateStreaming": "回复中",
+    "agent.stateToolCall": "等待确认",
+    "agent.statePlanReview": "待审核计划",
+    "agent.stateCompacting": "压缩上下文",
+    "agent.stateRetrying": "重试中",
+    "agent.stateError": "出错了",
+    "agent.stateCancelled": "已取消",
+    "agent.confirmDelete": "再次点击确认删除",
+
     // Agent workspace
     "agent.currentWorkspace": "当前工作目录",
     "agent.selectWorkspacePrompt": "选择工作目录",
@@ -1060,6 +1071,17 @@ export const translations = {
     "agent.yesterday": "yesterday",
     "agent.daysAgo": "{n} days ago",
     "agent.running": "running",
+
+    // Agent session state labels
+    "agent.stateThinking": "Thinking",
+    "agent.stateStreaming": "Replying",
+    "agent.stateToolCall": "Awaiting confirmation",
+    "agent.statePlanReview": "Plan review",
+    "agent.stateCompacting": "Compacting context",
+    "agent.stateRetrying": "Retrying",
+    "agent.stateError": "Error",
+    "agent.stateCancelled": "Cancelled",
+    "agent.confirmDelete": "Click again to confirm delete",
 
     // Agent workspace
     "agent.currentWorkspace": "Current Workspace",
