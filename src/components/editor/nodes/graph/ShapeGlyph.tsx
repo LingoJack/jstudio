@@ -97,27 +97,27 @@ export function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
         </svg>
       );
     case 'edge-line':
-      // 直线箭头连线
+      // 直线 + V 字形箭头
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <line x1="2" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth={sw} />
-          <path d="M12 8 L10 6 L10 10 Z" fill="currentColor" />
+          <line x1="2" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" />
+          <path d="M10 6 L13 8 L10 10" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       );
     case 'edge-ortho':
-      // 拐角箭头连线
+      // 拐角 + V 字形箭头
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <path d="M2 4 L2 8 L14 8" stroke="currentColor" strokeWidth={sw} />
-          <path d="M14 8 L12 6 L12 10 Z" fill="currentColor" />
+          <path d="M2 4 L2 8 L12 8" stroke="currentColor" strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M10 6 L13 8 L10 10" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       );
     case 'edge-dashed':
-      // 虚线箭头连线
+      // 虚线 + 开放 V 形箭头（UML 返回消息惯例，与 openThin 样式一致）
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <line x1="2" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth={sw} strokeDasharray="2 2" />
-          <path d="M12 8 L10 6 L10 10 Z" fill="currentColor" />
+          <line x1="2" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth={sw} strokeDasharray="2 2" strokeLinecap="round" />
+          <path d="M10 6 L13 8 L10 10" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       );
     case 'edge-no-arrow':

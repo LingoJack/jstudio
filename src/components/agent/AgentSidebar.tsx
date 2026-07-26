@@ -13,7 +13,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { Plus, FolderOpen } from 'lucide-react';
+import { Plus, FolderOpen, ChevronRight } from 'lucide-react';
 import {
   WorkspaceList,
   WorkspaceExpandModal,
@@ -172,33 +172,6 @@ function WorkspaceSelectModal({
 }
 
 // ────────────────────────────────────────────────
-// Sidebar Menu Item
-// ────────────────────────────────────────────────
-
-interface SidebarMenuItemProps {
-  icon: React.ReactNode;
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-}
-
-function SidebarMenuItem({ icon, label, active, onClick }: SidebarMenuItemProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors rounded-md cursor-pointer ${
-        active
-          ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] font-medium'
-          : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-      }`}
-    >
-      <span className="shrink-0">{icon}</span>
-      <span className="flex-1 truncate text-left">{label}</span>
-    </button>
-  );
-}
-
-// ────────────────────────────────────────────────
 // Agent Sidebar
 // ────────────────────────────────────────────────
 
@@ -270,12 +243,19 @@ export default function AgentSidebar() {
       }}
     >
       {/* 功能菜单 */}
-      <div className="shrink-0 px-2 py-2 space-y-1">
-        <SidebarMenuItem
-          icon={<Plus className="w-4 h-4" />}
-          label={t('agent.newTask')}
+      <div className="shrink-0 px-2 pt-2 pb-1.5">
+        <button
           onClick={() => setShowWorkspaceModal(true)}
-        />
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition-all hover:brightness-110"
+          style={{
+            background: 'var(--vscode-button-background)',
+            color: 'var(--vscode-button-foreground)',
+          }}
+        >
+          <Plus className="w-4 h-4 shrink-0" />
+          <span className="flex-1 text-left">{t('agent.newTask')}</span>
+          <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-50" />
+        </button>
       </div>
 
       {/* 分隔线 */}

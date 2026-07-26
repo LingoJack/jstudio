@@ -12,6 +12,7 @@ import {
   Shape,
   ShapeRegistry,
   PerimeterRegistry,
+  EdgeMarkerRegistry,
   Point,
   type AbstractCanvas2D,
   type Rectangle,
@@ -256,6 +257,132 @@ class NoteShape extends Shape {
 }
 
 /**
+ * 自定义边箭头（edge markers）
+ *
+ * maxGraph 内置 `classic` / `open` 等箭头源自 draw.io 老风格：`classic` 带一个
+ * 3/4 处的凹陷"尾巴"，显得厚重且过时。这里覆盖同名 marker，改用更现代的细箭头：
+ *
+ * - `classic`        -> 实心等腰三角，前端锐角约 35°，无尾巴凹槽（飞书风格）
+ * - `classicThin`    -> 同上，仅描边不填充（与 classic 区别由调用方 endFill 控制，
+ *                       此处仍按 filled 参数决定，行为一致）
+ * - `open` / `openThin` -> 细 V 形开放箭头，两条直线，圆角线帽
+ * - `oval`           -> 小实心圆点（比内置更紧凑）
+ * - `diamond` / `diamondThin` -> 实心菱形（比内置更小）
+ *
+ * 关键几何约定：
+ *   - pe        箭头尖端（连线终点）
+ *   - unitX/Y   连线方向的单位向量（已乘以 size+sw）
+ *   - sw        描边宽度
+ *   - filled    是否填充
+ *
+ * 自定义 marker 的实现参考 `node_modules/@maxgraph/core/.../edge-markers.js`。
+ */
+
+/** 开放 V 形箭头（open / openThin 共用）。 */
+const openArrowFactory = (
+  canvas: AbstractCanvas2D,
+  _shape: unknown,
+  _type: string,
+  pe: Point,
+  unitX: number,
+  unitY: number,
+  size: number,
+  _source: boolean,
+  sw: number,
+  _filled: boolean,
+) => {
+  const endOffsetX = unitX * sw * 1.118;
+  const endOffsetY = unitY * sw * 1.118;
+  unitX *= size + sw;
+  unitY *= size + sw;
+  const tip = pe.clone();
+  tip.x -= endOffsetX;
+  tip.y -= endOffsetY;
+  // 开放箭头不需要让线提前结束（没有填充区域），仅做轻微回退
+  pe.x += -endOffsetX * 2;
+  pe.y += -endOffsetY * 2;
+
+  const baseX = tip.x - unitX;
+  const baseY = tip.y - unitY;
+  const halfW = (size + sw) * 0.7;
+  const perpX = -unitY / (size + sw);
+  const perpY = unitX / (size + sw);
+
+  return () => {
+    canvas.begin();
+    canvas.moveTo(baseX + perpX * halfW, baseY + perpY * halfW);
+    canvas.lineTo(tip.x, tip.y);
+    canvas.lineTo(baseX - perpX * halfW, baseY - perpY * halfW);
+    canvas.stroke();
+  };
+};
+
+/** 小圆点箭头（oval）。 */
+const ovalFactory = (
+  canvas: AbstractCanvas2D,
+  _shape: unknown,
+  _type: string,
+  pe: Point,
+  unitX: number,
+  unitY: number,
+  size: number,
+  _source: boolean,
+  _sw: number,
+  filled: boolean,
+) => {
+  const r = size * 0.5;
+  const cx = pe.x - unitX * r;
+  const cy = pe.y - unitY * r;
+  pe.x -= unitX * r * 2;
+  pe.y -= unitY * r * 2;
+  return () => {
+    canvas.ellipse(cx - r, cy - r, r * 2, r * 2);
+    canvas.stroke();
+  };
+};
+
+/** 实心菱形箭头（diamond / diamondThin 共用）。 */
+const diamondFactory = (
+  canvas: AbstractCanvas2D,
+  _shape: unknown,
+  _type: string,
+  pe: Point,
+  unitX: number,
+  unitY: number,
+  size: number,
+  _source: boolean,
+  sw: number,
+  filled: boolean,
+) => {
+  const endOffsetX = unitX * sw * 0.7071;
+  const endOffsetY = unitY * sw * 0.7071;
+  unitX *= size + sw;
+  unitY *= size + sw;
+  const tip = pe.clone();
+  tip.x -= endOffsetX;
+  tip.y -= endOffsetY;
+  pe.x += -unitX - endOffsetX;
+  pe.y += -unitY - endOffsetY;
+
+  const perpX = -unitY / (size + sw);
+  const perpY = unitX / (size + sw);
+  const halfW = (size + sw) * 0.6;
+  // 菱形四个顶点：tip -> 右侧 -> 尾端 -> 左侧 -> 闭合
+  const tailX = tip.x - unitX;
+  const tailY = tip.y - unitY;
+
+  return () => {
+    canvas.begin();
+    canvas.moveTo(tip.x, tip.y);
+    canvas.lineTo(tip.x - unitX * 0.5 + perpX * halfW, tip.y - unitY * 0.5 + perpY * halfW);
+    canvas.lineTo(tailX, tailY);
+    canvas.lineTo(tip.x - unitX * 0.5 - perpX * halfW, tip.y - unitY * 0.5 - perpY * halfW);
+    canvas.close();
+    canvas.stroke();
+  };
+};
+
+/**
  * 注册自定义形状和连接点到全局 Registry
  */
 export function registerCustomShapes(): void {
@@ -268,6 +395,17 @@ export function registerCustomShapes(): void {
   // 注册连接点计算函数
   PerimeterRegistry.add('lifelinePerimeter', LifelinePerimeter);
   PerimeterRegistry.add('activationPerimeter', ActivationPerimeter);
+
+  // 注册自定义边箭头：全部使用 V 字形开放箭头，不再使用三角形。
+  // classic / open / openThin 等所有名称都指向同一个 V 形画法，
+  // 视觉统一简洁，同步与返回消息仅靠虚实线区分。
+  EdgeMarkerRegistry.add('classic', openArrowFactory);
+  EdgeMarkerRegistry.add('classicThin', openArrowFactory);
+  EdgeMarkerRegistry.add('open', openArrowFactory);
+  EdgeMarkerRegistry.add('openThin', openArrowFactory);
+  EdgeMarkerRegistry.add('oval', ovalFactory);
+  EdgeMarkerRegistry.add('diamond', diamondFactory);
+  EdgeMarkerRegistry.add('diamondThin', diamondFactory);
 }
 
 export { UMLActorShape, LifelineShape, ActivationShape, NoteShape };

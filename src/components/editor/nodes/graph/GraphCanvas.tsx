@@ -87,6 +87,7 @@ import {
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
+  ARROW_END_SIZE,
   HANDLE_SIZE,
   SELECTION_STROKE_WIDTH,
   SELECTION_DASHED,
@@ -470,7 +471,7 @@ export function GraphCanvas({
           strokeColor: getConnectionPointColor(dark),
           strokeWidth: 2,
           endArrow: 'classic',
-          endSize: 8,
+          endSize: ARROW_END_SIZE,
         };
         const edge = this.graph.createEdge(
           undefined,
@@ -576,6 +577,7 @@ export function GraphCanvas({
     edgeDefault.edgeStyle = 'orthogonalEdgeStyle';
     edgeDefault.rounded = true;
     edgeDefault.endArrow = 'classic';
+    edgeDefault.endSize = ARROW_END_SIZE;
     edgeDefault.strokeColor = getEdgeColor(dark);
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
 

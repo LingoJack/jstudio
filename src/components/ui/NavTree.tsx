@@ -122,10 +122,21 @@ export function NavRow({
     ? `${primaryBase} ${primaryState}`
     : `${secondaryBase} ${secondaryState}`;
 
+  // Plain text/number: keep truncate on the wrapper itself so ellipsis works.
+  // Complex children (multiple elements expecting flex layout): use a flex
+  // container so that inner flex utilities (flex-1, shrink-0, …) take effect.
+  const isPlainText = typeof children === 'string' || typeof children === 'number';
+
   return (
     <div {...rest} className={`${cls} ${className}`}>
       {icon != null && <span className="shrink-0">{icon}</span>}
-      <span className="flex-1 text-left truncate">{children}</span>
+      {isPlainText ? (
+        <span className="flex-1 text-left truncate">{children}</span>
+      ) : (
+        <span className="flex-1 flex items-center gap-2 min-w-0 text-left overflow-hidden">
+          {children}
+        </span>
+      )}
       {expandable && (
         <ChevronRight
           className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${

@@ -25,6 +25,7 @@ import {
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
+  ARROW_END_SIZE,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -68,18 +69,42 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 时序图激活框：使用专用 umlActivation 形状，左右边缘均可连接消息线
       return { ...base, shape: 'umlActivation', perimeter: 'activationPerimeter' };
     case 'note':
-      // 注释框：使用 rectangle + 圆角模拟折角效果
-      // maxGraph 没有 note 形状，用圆角矩形代替
-      return { ...base, shape: 'rectangle', rounded: true, arcSize: 5 };
-    // 连线类型（作为预设连线样式）：实线 + 圆点流动，与 graphCanvasStyle 保持一致。
+      // 注释框：使用自定义的 note 形状（右上角折角的便利贴风格）。
+      // 早期实现曾用 `rectangle + rounded + arcSize:5` 冒充折角，导致保存后
+      // 再打开变成圆角矩形；现已改为专用 NoteShape（见 customShapes.ts）。
+      return { ...base, shape: 'note' };
+    // 连线类型（作为预设连线样式）：全部引用 ARROW_END_SIZE 保证箭头大小一致。
     case 'edge-line':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
+      return {
+        strokeColor: pal.stroke,
+        strokeWidth: SHAPE_STROKE_WIDTH,
+        endArrow: 'classic',
+        endSize: ARROW_END_SIZE,
+      };
     case 'edge-ortho':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
+      return {
+        strokeColor: pal.stroke,
+        strokeWidth: SHAPE_STROKE_WIDTH,
+        edgeStyle: 'orthogonalEdgeStyle',
+        endArrow: 'classic',
+        endSize: ARROW_END_SIZE,
+      };
     case 'edge-dashed':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
+      // 虚线 + 开放 V 形箭头（openThin），符合 UML 返回消息/异步响应惯例。
+      // 早期实现漏写 `dashed:true`，导致工具栏"虚线连线"落点后实为实线。
+      return {
+        strokeColor: pal.stroke,
+        strokeWidth: SHAPE_STROKE_WIDTH,
+        endArrow: 'openThin',
+        endSize: ARROW_END_SIZE,
+        dashed: true,
+      };
     case 'edge-no-arrow':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'none' };
+      return {
+        strokeColor: pal.stroke,
+        strokeWidth: SHAPE_STROKE_WIDTH,
+        endArrow: 'none',
+      };
     case 'rectangle':
     default:
       return { ...base, shape: 'rectangle' };
@@ -96,13 +121,12 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   if (shape === 'umlActor') return 'actor'; // 用例图角色（自定义形状）
   if (shape === 'lifeline') return 'lifeline'; // 时序图生命线（自定义形状）
   if (shape === 'umlActivation') return 'activation'; // 时序图激活框（自定义形状）
+  if (shape === 'note') return 'note'; // 注释框（自定义 NoteShape）
   if (shape === 'swimlane') {
     return style.horizontal === false ? 'swimlane-v' : 'swimlane-h';
   }
   if (shape === 'rectangle') {
-    if (style.strokeWidth === 1) return 'activation';
-    // note 用 arcSize=5 区分，rounded 用 arcSize=SHAPE_ARC_SIZE(12)
-    if (style.rounded && style.arcSize === 5) return 'note';
+    // 圆角矩形：rounded=true + arcSize=SHAPE_ARC_SIZE(12) 即为 'rounded'
     if (style.rounded) return 'rounded';
   }
   return 'rectangle';
@@ -121,13 +145,21 @@ function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
   return base;
 }
 
-/** 构建连线 CellStyle（蓝色细线 + 圆角折线 + 小箭头 + 圆点流动）。 */
+/**
+ * 构建连线 CellStyle。
+ *
+ * 关键：`edge.style.dashed` 必须透传--否则 sequence 返回消息、note 关联虚线、
+ * AI 生成的所有 `style:{dashed:true}` 边都会渲染为实线（旧版本存在此 bug）。
+ *
+ * `endSize` 从 ARROW_END_SIZE 引用；此前未设 -> maxGraph 默认 30 -> 巨型箭头。
+ */
 function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   const style: CellStyle = {
     edgeStyle: edge.routing === 'straight' ? undefined : 'orthogonalEdgeStyle',
     rounded: edge.routing !== 'straight',
     endArrow: edge.endArrow ?? 'classic',
     startArrow: edge.startArrow ?? 'none',
+    endSize: ARROW_END_SIZE,
     strokeColor: getEdgeColor(dark),
     strokeWidth: SHAPE_STROKE_WIDTH,
   };
@@ -135,6 +167,7 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   if (s) {
     if (s.stroke !== undefined) style.strokeColor = s.stroke;
     if (s.strokeWidth !== undefined) style.strokeWidth = s.strokeWidth;
+    if (s.dashed !== undefined) style.dashed = s.dashed;
   }
   return style;
 }
@@ -276,9 +309,12 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
       label: typeof cell.getValue() === 'string' ? (cell.getValue() as string) : '',
       routing: style.edgeStyle ? 'orthogonal' : 'straight',
     };
+    if (typeof style.endArrow === 'string') edge.endArrow = style.endArrow;
+    if (typeof style.startArrow === 'string') edge.startArrow = style.startArrow;
     const eStyle: GraphEdge['style'] = {};
     if (colorStr(style.strokeColor)) eStyle.stroke = colorStr(style.strokeColor);
     if (typeof style.strokeWidth === 'number') eStyle.strokeWidth = style.strokeWidth;
+    if (typeof style.dashed === 'boolean') eStyle.dashed = style.dashed;
     if (Object.keys(eStyle).length > 0) edge.style = eStyle;
 
     // 读回 waypoints（时序图消息的 Y 坐标信息）

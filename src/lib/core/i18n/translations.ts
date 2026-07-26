@@ -226,6 +226,27 @@ export const translations = {
     "agent.scrollToBottom": "回到底部",
     "agent.hintKeys": "Enter 发送 · Shift+Enter 换行",
 
+    // Agent empty state & suggestions
+    "agent.welcomeTitle": "有什么可以帮你的？",
+    "agent.welcomeSubtitle": "我是你的 AI 编程助手，可以帮你写代码、分析问题、解释概念",
+    "agent.suggestionAnalyzeCode": "分析代码",
+    "agent.suggestionAnalyzeCodeDesc": "帮我理解这段代码的逻辑",
+    "agent.suggestionWriteFunction": "写函数",
+    "agent.suggestionWriteFunctionDesc": "帮我实现一个功能",
+    "agent.suggestionExplainConcept": "解释概念",
+    "agent.suggestionExplainConceptDesc": "用简单的话解释技术概念",
+    "agent.suggestionDebugIssue": "调试问题",
+    "agent.suggestionDebugIssueDesc": "帮我排查报错原因",
+    "agent.modelPoweredBy": "Powered by {model}",
+
+    // Agent relative time
+    "agent.justNow": "刚刚",
+    "agent.minutesAgo": "{n} 分钟前",
+    "agent.hoursAgo": "{n} 小时前",
+    "agent.yesterday": "昨天",
+    "agent.daysAgo": "{n} 天前",
+    "agent.running": "运行中",
+
     // ── SectionOutline ──
     "outline.title": "大纲",
     "outline.empty": "文档中暂无标题",
@@ -1004,6 +1025,27 @@ export const translations = {
     "agent.msgCount": "{count} msgs",
     "agent.scrollToBottom": "Scroll to bottom",
     "agent.hintKeys": "Enter to send · Shift+Enter for newline",
+
+    // Agent empty state & suggestions
+    "agent.welcomeTitle": "How can I help you?",
+    "agent.welcomeSubtitle": "I'm your AI coding assistant. I can write code, analyze problems, and explain concepts",
+    "agent.suggestionAnalyzeCode": "Analyze Code",
+    "agent.suggestionAnalyzeCodeDesc": "Help me understand this code",
+    "agent.suggestionWriteFunction": "Write Function",
+    "agent.suggestionWriteFunctionDesc": "Help me implement a feature",
+    "agent.suggestionExplainConcept": "Explain Concept",
+    "agent.suggestionExplainConceptDesc": "Explain a technical concept simply",
+    "agent.suggestionDebugIssue": "Debug Issue",
+    "agent.suggestionDebugIssueDesc": "Help me troubleshoot an error",
+    "agent.modelPoweredBy": "Powered by {model}",
+
+    // Agent relative time
+    "agent.justNow": "just now",
+    "agent.minutesAgo": "{n} min ago",
+    "agent.hoursAgo": "{n} hr ago",
+    "agent.yesterday": "yesterday",
+    "agent.daysAgo": "{n} days ago",
+    "agent.running": "running",
 
     // ── SectionOutline ──
     "outline.title": "Outline",

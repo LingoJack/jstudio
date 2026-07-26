@@ -1,9 +1,29 @@
 import { useState, useCallback } from 'react';
 import { useI18n } from '../../lib/core/i18n';
-import { FolderOpen, MessageSquare, Plus, Trash2, ChevronRight } from 'lucide-react';
+import { FolderOpen, MessageSquare, Plus, Trash2, ChevronRight, Bot } from 'lucide-react';
 import { NavBranch, NavRow } from '../ui/NavTree';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 import type { AgentSession } from '../../types/agent';
+
+// ──────────────────────────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────────────────────────
+
+/** Format epoch-seconds timestamp to a relative time string. */
+function formatRelativeTime(epochSec: number, t: (key: string, vars?: Record<string, unknown>) => string): string {
+  const now = Date.now() / 1000;
+  const diff = now - epochSec;
+  if (diff < 60) return t('agent.justNow');
+  if (diff < 3600) return t('agent.minutesAgo', { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t('agent.hoursAgo', { n: Math.floor(diff / 3600) });
+  if (diff < 172800) return t('agent.yesterday');
+  return t('agent.daysAgo', { n: Math.floor(diff / 86400) });
+}
+
+/** Check if a session is currently running. */
+function isSessionRunning(session: AgentSession): boolean {
+  return ['thinking', 'streaming', 'tool_call', 'plan_review', 'compacting', 'retrying'].includes(session.runState);
+}
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -42,8 +62,14 @@ export function WorkspaceList({
 
   if (groups.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-4 text-center gap-3">
-        <span className="text-xs text-[var(--vscode-descriptionForeground)]">
+      <div className="flex flex-col items-center justify-center h-full px-4 text-center gap-3 py-8">
+        <div
+          className="flex items-center justify-center w-10 h-10 rounded-full"
+          style={{ background: 'var(--vscode-editor-inactiveSelectionBackground)' }}
+        >
+          <Bot className="w-5 h-5 text-[var(--vscode-descriptionForeground)] opacity-50" />
+        </div>
+        <span className="text-xs text-[var(--vscode-descriptionForeground)] opacity-60">
           {t('agent.noTasks')}
         </span>
       </div>
@@ -124,7 +150,13 @@ function WorkspaceGroupItem({
         onContextMenu={handleContextMenu}
       >
         <span className="flex-1 truncate">{group.displayName}</span>
-        <span className="text-xs text-[var(--vscode-descriptionForeground)] mr-2">
+        <span
+          className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 mr-2"
+          style={{
+            background: 'var(--vscode-badge-background)',
+            color: 'var(--vscode-badge-foreground)',
+          }}
+        >
           {group.sessions.length}
         </span>
       </NavRow>
@@ -218,12 +250,27 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const title = session.title || session.messages[0]?.content.slice(0, 30) || '...';
+  const running = isSessionRunning(session);
+  const relTime = formatRelativeTime(session.updatedAt, t);
 
   return (
     <NavRow
       level="primary"
       active={active}
-      icon={<MessageSquare className="w-4 h-4 shrink-0" style={{ color: 'var(--vscode-descriptionForeground)' }} />}
+      icon={
+        <div className="relative shrink-0">
+          <MessageSquare className="w-4 h-4" style={{ color: 'var(--vscode-descriptionForeground)' }} />
+          {running && (
+            <span
+              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+              style={{
+                background: 'var(--vscode-charts-blue, #3794ff)',
+                boxShadow: '0 0 0 2px var(--vscode-sideBar-background)',
+              }}
+            />
+          )}
+        </div>
+      }
       onClick={() => onSelect(session.id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -231,9 +278,14 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
         setConfirmDelete(true);
         setTimeout(() => setConfirmDelete(false), 2000);
       }}
-      className="group"
+      className={`group ${active ? 'relative before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3/5 before:w-[2px] before:rounded-full before:bg-[var(--vscode-focusBorder)] before:content-[""]' : ''}`}
     >
-      <span className="flex-1 truncate">{title}</span>
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5 py-0.5">
+        <span className="truncate text-sm">{title}</span>
+        <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70 truncate">
+          {running ? t('agent.running') : relTime}
+        </span>
+      </div>
       {/* Delete button — visible on hover */}
       <button
         onClick={(e) => {
