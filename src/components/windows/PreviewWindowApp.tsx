@@ -240,8 +240,13 @@ function ImageZoom({ src }: { src: string }) {
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setScale((s) => Math.min(Math.max(s * delta, 0.1), 10));
+    if (e.altKey) {
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setScale((s) => Math.min(Math.max(s * delta, 0.1), 10));
+    } else {
+      setTx((x) => x - e.deltaX);
+      setTy((y) => y - e.deltaY);
+    }
   }, []);
 
   const onPointerDown = useCallback(

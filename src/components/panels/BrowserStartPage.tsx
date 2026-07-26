@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
 import { useStore } from "../../store/useStore";
 import {
@@ -236,19 +236,19 @@ export default function BrowserStartPage() {
       <div className="min-h-full flex flex-col items-center px-8 pt-[22vh] pb-12">
         {/* ── Search box ── */}
         <div className="w-full max-w-2xl mb-12">
-          <div className="flex items-center gap-3 h-14 px-5 rounded-full border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] shadow-sm focus-within:border-[var(--vscode-focusBorder)] transition-colors">
+          <div className="flex items-center gap-3 h-14 pl-2 pr-5 rounded-full border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] shadow-sm focus-within:border-[var(--vscode-focusBorder)] transition-colors">
             {/* Engine selector */}
             <div ref={engineMenuRef} className="relative shrink-0">
               <button
                 type="button"
                 onClick={() => setEngineMenuOpen((v) => !v)}
-                className="flex items-center gap-1.5 pl-1 pr-1.5 py-1.5 rounded-full hover:bg-[var(--vscode-menu-hoverBackground)] transition-colors"
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[var(--vscode-menu-hoverBackground)] transition-colors"
                 title={engine.name}
               >
                 <img
                   src={getSearchEngineFaviconUrl(engine.id)}
                   alt={engine.name}
-                  className="w-5 h-5 rounded-sm"
+                  className="w-6 h-6 rounded-sm"
                   draggable={false}
                   onError={(e) => {
                     // Fall back to the glyph if the favicon fails to load.
@@ -257,10 +257,9 @@ export default function BrowserStartPage() {
                     el.nextElementSibling?.classList.remove("hidden");
                   }}
                 />
-                <span className="hidden w-5 h-5 items-center justify-center text-sm font-medium">
+                <span className="hidden w-6 h-6 items-center justify-center text-base font-medium">
                   {engine.glyph}
                 </span>
-                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
               </button>
 
               {engineMenuOpen && (

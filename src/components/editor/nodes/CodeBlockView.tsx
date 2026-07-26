@@ -743,7 +743,7 @@ export default function CodeBlockView({
     const z=d=>{scale=Math.max(0.1,Math.min(scale*d,5));upd()};
     const fit=()=>{const v=s.getAttribute('viewBox')?.split(' ').map(Number)||[0,0,s.getBBox().width,s.getBBox().height];const b=document.body.getBoundingClientRect();scale=Math.min((b.width*0.9)/v[2],(b.height*0.9)/v[3],3);px=0;py=0;upd()};
     setTimeout(fit,50);
-    addEventListener('wheel',e=>{e.preventDefault();z(e.deltaY>0?0.9:1.1)},{passive:false});
+    addEventListener('wheel',e=>{e.preventDefault();if(e.altKey){z(e.deltaY>0?0.9:1.1)}else{px-=e.deltaX;py-=e.deltaY;upd()}},{passive:false});
     let drag=0,sx,sy,sp,st;
     onmousedown=e=>{drag=1;sx=e.clientX;sy=e.clientY;sp=px;st=py;document.body.classList.add('dragging')};
     onmousemove=e=>{if(!drag)return;px=sp+e.clientX-sx;py=st+e.clientY-sy;upd()};
