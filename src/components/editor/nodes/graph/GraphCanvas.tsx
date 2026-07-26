@@ -507,7 +507,12 @@ export function GraphCanvas({
     // 这些逻辑集中在 sequenceInteraction 模块，便于维护和独立测试。
     let detachSequenceInteraction: (() => void) | null = null;
     if (connectionHandler) {
-      detachSequenceInteraction = attachSequenceInteraction(graph, connectionHandler, container);
+      detachSequenceInteraction = attachSequenceInteraction(
+        graph,
+        connectionHandler,
+        container,
+        () => styleForShape('activation', darkModeRef.current),
+      );
     }
 
     // Cmd/Ctrl + 拖动 = 复制拖动（让 Alt/Option 空出来给"平移画布"用）。

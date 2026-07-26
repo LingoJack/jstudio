@@ -39,6 +39,10 @@ export function isActivation(cell: Cell | null): boolean {
   return getShapeName(cell) === 'umlActivation';
 }
 
+export function isActor(cell: Cell | null): boolean {
+  return getShapeName(cell) === 'umlActor';
+}
+
 export function isSequenceNode(cell: Cell | null): boolean {
   return isLifeline(cell) || isActivation(cell);
 }
@@ -115,7 +119,11 @@ function genActivationId(): string {
  *
  * 所有修改包在 batchUpdate 里，undo 一次回滚消息 + activation。
  */
-export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHandler): () => void {
+export function attachAutoActivation(
+  graph: AbstractGraph,
+  handler: ConnectionHandler,
+  activationStyleProvider?: () => Record<string, unknown>,
+): () => void {
   const listener = (_sender: unknown, evt: { getProperty: (key: string) => unknown }) => {
     const edge = evt.getProperty('cell') as Cell | null;
     if (!edge || !edge.isEdge()) return;
@@ -125,9 +133,8 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     const target = edge.getTerminal(false);
     if (!source || !target) return;
 
-    // 只在"调用消息"（lifeline -> lifeline）时自动生成 activation。
-    // 回消息（activation -> lifeline）、嵌套调用（lifeline -> activation）等场景不生成。
-    const shouldGenerate = isLifeline(source) && isLifeline(target);
+    // 只要目标是 lifeline 就生成 activation（放宽条件，支持 actor -> lifeline 场景）。
+    const shouldGenerate = isLifeline(target);
     if (!shouldGenerate) return;
 
     const targetGeo = target.getGeometry();
@@ -145,11 +152,10 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     }
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
-    // activation 左边缘 = lifeline 中心线，右边缘 = lifeline中心 + 16。
-    // 这样从 activation 右边缘拉出的线起点明显偏离 lifeline 中心（16px），
-    // 视觉上能清晰看出"消息从 activation 出来"，而不是"从 lifeline 出来"。
+    // activation 居中在 lifeline 上：中心 X = lifeline 中心 X，左右各延伸 8px。
+    // 这样 activation 完美贴合 lifeline 中心虚线，视觉上更自然。
     const actGeo = {
-      x: targetCenterX,
+      x: targetCenterX - ACTIVATION_W / 2,
       y: msgY,
       w: ACTIVATION_W,
       h: ACTIVATION_H,
@@ -159,13 +165,16 @@ export function attachAutoActivation(graph: AbstractGraph, handler: ConnectionHa
     model.beginUpdate();
     try {
       const parent = graph.getDefaultParent();
+      const actStyle = activationStyleProvider
+        ? activationStyleProvider()
+        : { shape: 'umlActivation' };
       const actCell = graph.insertVertex({
         parent,
         id: genActivationId(),
         value: '',
         position: [actGeo.x, actGeo.y],
         size: [actGeo.w, actGeo.h],
-        style: { shape: 'umlActivation' },
+        style: actStyle,
       });
 
       // 把 edge 的 target 改为 activation
@@ -288,6 +297,31 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
 }
 
 /* ------------------------------------------------------------------ */
+/* 4. 禁止 actor 作为消息 source                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 在 UML 时序图语义中，actor（外部参与者）只能作为消息的**目标**（系统被外部调用），
+ * 不能作为消息的**源**（外部参与者通常不主动向系统发起消息，除非它是系统边界）。
+ *
+ * 更重要的是：actor 是"没有生命线"的实体，从 actor 拖出的消息在几何上无法水平约束
+ * 到 lifeline 的时间轴上，会破坏时序图的整体一致性。
+ *
+ * 实现：通过 hook graph.isValidSource，禁止 actor 作为拉线起点。
+ * 用户想从 actor 起线时，maxGraph 会直接忽略这次操作（不进入 ConnectionHandler）。
+ */
+export function attachActorSourceBlock(graph: AbstractGraph): () => void {
+  const origIsValidSource = graph.isValidSource.bind(graph);
+  graph.isValidSource = (cell: Cell | null) => {
+    if (isActor(cell)) return false;
+    return origIsValidSource(cell);
+  };
+  return () => {
+    graph.isValidSource = origIsValidSource;
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* 组合入口                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -299,14 +333,17 @@ export function attachSequenceInteraction(
   graph: AbstractGraph,
   handler: ConnectionHandler,
   container: HTMLElement,
+  activationStyleProvider?: () => Record<string, unknown>,
 ): () => void {
   const cleanup1 = attachHorizontalMessageConstraint(handler);
-  const cleanup2 = attachAutoActivation(graph, handler);
+  const cleanup2 = attachAutoActivation(graph, handler, activationStyleProvider);
   const cleanup3 = attachLifelineHoverDot(graph, container);
+  const cleanup4 = attachActorSourceBlock(graph);
 
   return () => {
     cleanup1();
     cleanup2();
     cleanup3();
+    cleanup4();
   };
 }
