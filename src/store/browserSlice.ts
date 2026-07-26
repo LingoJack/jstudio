@@ -29,10 +29,12 @@ export interface BrowserShortcut {
   id: string;
   name: string;
   url: string;
-  /** Emoji or short text used as the tile icon. */
+  /** Emoji or short text used as the tile icon (fallback when no favicon). */
   icon: string;
   /** Tailwind-compatible background colour for the icon tile. */
   color: string;
+  /** Favicon URL fetched from Google's favicon service (optional). */
+  faviconUrl?: string;
 }
 
 // ────────────────────────────────────────────────
@@ -92,6 +94,17 @@ export function getSearchEngineFaviconUrl(engineId: string): string {
   const engine = SEARCH_ENGINES.find((e) => e.id === engineId) ?? SEARCH_ENGINES[0];
   const domain = new URL(engine.searchUrl).hostname;
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+}
+
+/** Get the favicon URL for any website URL (direct /favicon.ico). */
+export function getFaviconUrl(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname) return undefined;
+    return `${parsed.protocol}//${parsed.hostname}/favicon.ico`;
+  } catch {
+    return undefined;
+  }
 }
 
 // ────────────────────────────────────────────────

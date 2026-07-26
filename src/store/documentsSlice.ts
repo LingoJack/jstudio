@@ -162,6 +162,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
               typeof (s as BrowserShortcut).url === 'string' &&
               typeof (s as BrowserShortcut).icon === 'string' &&
               typeof (s as BrowserShortcut).color === 'string',
+            // Note: faviconUrl is optional; old shortcuts without it are valid.
           );
         }
       } catch {

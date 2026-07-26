@@ -19,6 +19,7 @@ import { useStore } from "../../store/useStore";
 import {
   SEARCH_ENGINES,
   getSearchEngineFaviconUrl,
+  getFaviconUrl,
   type BrowserShortcut,
 } from "../../store/browserSlice";
 import { MenuDivider, MenuItem, MenuList } from "../ui/MenuList";
@@ -171,7 +172,9 @@ export default function BrowserStartPage() {
     if (dialog?.mode === "edit" && dialog.shortcut) {
       setBrowserShortcuts(
         shortcuts.map((s) =>
-          s.id === dialog.shortcut!.id ? { ...s, name, url } : s,
+          s.id === dialog.shortcut!.id
+            ? { ...s, name, url, faviconUrl: getFaviconUrl(url) }
+            : s,
         ),
       );
     } else {
@@ -193,7 +196,7 @@ export default function BrowserStartPage() {
       const color = palette[Math.abs(hash) % palette.length];
       setBrowserShortcuts([
         ...shortcuts,
-        { id, name, url, icon: name.charAt(0).toUpperCase(), color },
+        { id, name, url, icon: name.charAt(0).toUpperCase(), color, faviconUrl: getFaviconUrl(url) },
       ]);
     }
     setDialog(null);
@@ -329,10 +332,30 @@ export default function BrowserStartPage() {
               className="group flex flex-col items-center gap-2 w-20"
             >
               <span
-                className="w-12 h-12 rounded-full flex items-center justify-center text-lg text-white shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all"
+                className="w-12 h-12 rounded-full flex items-center justify-center text-lg text-white shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all overflow-hidden"
                 style={{ backgroundColor: s.color }}
               >
-                {s.icon}
+                {(() => {
+                  const fav = s.faviconUrl ?? getFaviconUrl(s.url);
+                  return fav ? (
+                    <>
+                      <img
+                        src={fav}
+                        alt=""
+                        className="w-8 h-8 rounded-sm"
+                        draggable={false}
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          el.style.display = "none";
+                          el.nextElementSibling?.classList.remove("hidden");
+                        }}
+                      />
+                      <span className="hidden">{s.icon}</span>
+                    </>
+                  ) : (
+                    <span>{s.icon}</span>
+                  );
+                })()}
               </span>
               <span className="text-xs text-[var(--vscode-foreground)] opacity-80 truncate w-full text-center">
                 {s.name}

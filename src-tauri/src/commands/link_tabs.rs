@@ -46,26 +46,51 @@ use super::link::{BROWSER_UA, extract_domain, read_chrome_cookies_cached};
 
 /// JavaScript injected into every content webview to intercept `target="_blank"`
 /// links, `window.open()` calls, and `<form target="_blank">` submissions.
-/// Instead of relying on WKWebView's `createWebViewWithConfiguration` UI
-/// delegate (which has reentrancy issues when creating a new WKWebView inside
-/// the callback), we override these APIs in JavaScript and signal the Rust
-/// backend via a hidden iframe navigating to the `newtab:` custom scheme.
-/// The `on_navigation` handler intercepts this scheme and creates a new tab.
+///
+/// Instead of relying on WKWebView's `createWebViewWithConfiguration` UI delegate
+/// (which has reentrancy issues when creating a new WKWebView inside the callback),
+/// we override these APIs in JavaScript and signal the Rust backend via a hidden
+/// iframe navigating to `http://newtab.invalid/?u=<encoded_url>`.
+///
+/// We use `http://newtab.invalid/` (a reserved TLD per RFC 2606 that never
+/// resolves) instead of a custom `newtab:` scheme because WKWebView may not
+/// fire `decidePolicyForNavigationAction` for unregistered URL schemes, making
+/// the `on_navigation` handler unreliable.
+///
+/// For `window.open('', '_blank')` (used by OAuth flows like WeChat login),
+/// we return a **proxy object** that intercepts `location` assignments and
+/// `location.href`/`location.replace`/`location.assign` calls, forwarding the
+/// real URL to `openAsTab`. This allows patterns like:
+///   var popup = window.open('', '_blank');
+///   popup.location = 'https://example.com';
+/// to work correctly.
 const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
     function openAsTab(url){
         if(!url||url==='about:blank'||url==='')return;
         try{
             var f=document.createElement('iframe');
             f.style.cssText='display:none!important;width:0;height:0;border:0';
-            f.src='newtab:'+url;
+            f.src='http://newtab.invalid/?u='+encodeURIComponent(url);
             (document.body||document.documentElement).appendChild(f);
             setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},2000);
         }catch(e){}
     }
+    function makeProxyWindow(){
+        var loc={};
+        Object.defineProperty(loc,'href',{get:function(){return''},set:function(v){if(v)openAsTab(v)},configurable:false});
+        loc.replace=function(u){if(u)openAsTab(u)};
+        loc.assign=function(u){if(u)openAsTab(u)};
+        var w={close:function(){},focus:function(){},postMessage:function(){},document:{write:function(){}},location:loc};
+        Object.defineProperty(w,'location',{get:function(){return loc},set:function(v){if(v)openAsTab(v)},configurable:false});
+        return w;
+    }
     try{
-        var co=function(url,target,features){openAsTab(url);return null};
+        var co=function(url,target,features){
+            if(url&&url!=='about:blank'&&url!==''){openAsTab(url);return null}
+            return makeProxyWindow();
+        };
         Object.defineProperty(window,'open',{value:co,writable:false,configurable:false});
-    }catch(e){window.open=function(url){openAsTab(url);return null}}
+    }catch(e){window.open=function(url){if(url&&url!=='about:blank'&&url!==''){openAsTab(url);return null}return makeProxyWindow()}}
     document.addEventListener('click',function(e){
         var a=e.target.closest('a[target="_blank"]');
         if(a&&a.href){e.preventDefault();e.stopPropagation();openAsTab(a.href);return false}
@@ -1169,96 +1194,104 @@ fn add_tab_internal(
     let window_label_for_new_window = window_label.to_string();
     let window_label_for_nav = window_label.to_string();
 
-    let mut webview_builder =
-        WebviewBuilder::new(&webview_label, WebviewUrl::External(url_parsed.clone()))
-            .user_agent(BROWSER_UA)
-            // Track page title changes → update tab + emit state
-            .on_document_title_changed(move |wv, title| {
-                let label = wv.label().to_string();
-                update_tab_field(&app_for_title, &manager_for_title, &label, |tab| {
-                    if tab.title != title {
-                        tab.title = title;
-                        true
-                    } else {
-                        false
-                    }
-                });
-            })
-            // Track page load start/finish → update loading + URL
-            .on_page_load(move |wv, payload| {
-                let label = wv.label().to_string();
-                let url_str = payload.url().to_string();
-                let loading = match payload.event() {
-                    PageLoadEvent::Started => true,
-                    PageLoadEvent::Finished => false,
-                };
-                update_tab_field(&app_for_load, &manager_for_load, &label, |tab| {
-                    let mut changed = false;
-                    if tab.loading != loading {
-                        tab.loading = loading;
-                        changed = true;
-                    }
-                    // Update URL only for real http(s) navigations (not about:blank)
-                    if (url_str.starts_with("http://") || url_str.starts_with("https://"))
-                        && tab.url != url_str
-                    {
-                        tab.url = url_str;
-                        changed = true;
-                    }
-                    changed
-                });
-            })
-            // window.open() / target="_blank" -> open as new tab instead of popup.
-            // This is a fallback; the primary interception is done in JavaScript
-            // (see NEW_TAB_INTERCEPT_JS + on_navigation below) because WKWebView's
-            // createWebViewWithConfiguration delegate has reentrancy issues.
-            .on_new_window(move |new_url, _features| {
-                let app = app_for_new_window.clone();
-                let manager = manager_for_new_window.clone();
-                let window_label = window_label_for_new_window.clone();
-                let url = new_url.as_str().to_string();
+    let mut webview_builder = WebviewBuilder::new(
+        &webview_label,
+        WebviewUrl::External(url_parsed.clone()),
+    )
+    .user_agent(BROWSER_UA)
+    // Track page title changes → update tab + emit state
+    .on_document_title_changed(move |wv, title| {
+        let label = wv.label().to_string();
+        update_tab_field(&app_for_title, &manager_for_title, &label, |tab| {
+            if tab.title != title {
+                tab.title = title;
+                true
+            } else {
+                false
+            }
+        });
+    })
+    // Track page load start/finish → update loading + URL
+    .on_page_load(move |wv, payload| {
+        let label = wv.label().to_string();
+        let url_str = payload.url().to_string();
+        let loading = match payload.event() {
+            PageLoadEvent::Started => true,
+            PageLoadEvent::Finished => false,
+        };
+        update_tab_field(&app_for_load, &manager_for_load, &label, |tab| {
+            let mut changed = false;
+            if tab.loading != loading {
+                tab.loading = loading;
+                changed = true;
+            }
+            // Update URL only for real http(s) navigations (not about:blank)
+            if (url_str.starts_with("http://") || url_str.starts_with("https://"))
+                && tab.url != url_str
+            {
+                tab.url = url_str;
+                changed = true;
+            }
+            changed
+        });
+    })
+    // window.open() / target="_blank" -> open as new tab instead of popup.
+    // This is a fallback; the primary interception is done in JavaScript
+    // (see NEW_TAB_INTERCEPT_JS + on_navigation below) because WKWebView's
+    // createWebViewWithConfiguration delegate has reentrancy issues.
+    .on_new_window(move |new_url, _features| {
+        let app = app_for_new_window.clone();
+        let manager = manager_for_new_window.clone();
+        let window_label = window_label_for_new_window.clone();
+        let url = new_url.as_str().to_string();
+        let app_handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            if let Err(e) = app_handle.run_on_main_thread(move || {
+                if let Err(e) = add_tab_internal(&app, &manager, &window_label, url) {
+                    eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
+                }
+            }) {
+                eprintln!("[browser] on_new_window: run_on_main_thread failed: {e}");
+            }
+        });
+        NewWindowResponse::Deny
+    })
+    // Intercept `http://newtab.invalid/?u=<encoded_url>` navigations
+    // from NEW_TAB_INTERCEPT_JS. The JS creates a hidden iframe with
+    // this URL; this handler extracts the real URL from the `u` query
+    // param, spawns a new tab, and cancels the iframe navigation.
+    // Using a real HTTP URL (with a reserved .invalid TLD) ensures
+    // WKWebView fires decidePolicyForNavigationAction, unlike custom
+    // URL schemes which may be silently dropped.
+    .on_navigation(move |url| {
+        if url.host_str() == Some("newtab.invalid") {
+            let real_url = url
+                .query_pairs()
+                .find(|(k, _)| k == "u")
+                .map(|(_, v)| v.to_string());
+            if let Some(real_url) = real_url
+                && !real_url.is_empty()
+            {
+                let app = app_for_nav.clone();
+                let manager = manager_for_nav.clone();
+                let window_label = window_label_for_nav.clone();
                 let app_handle = app.clone();
                 std::thread::spawn(move || {
                     let _ = app_handle.run_on_main_thread(move || {
-                        if let Err(e) = add_tab_internal(&app, &manager, &window_label, url) {
-                            eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
-                        }
-                    });
-                });
-                NewWindowResponse::Deny
-            })
-            // Intercept the `newtab:` custom scheme used by NEW_TAB_INTERCEPT_JS
-            // to signal that a link/window.open should open as a new tab.
-            // The JS creates a hidden iframe with src='newtab:<real_url>';
-            // this handler extracts the real URL, spawns a new tab, and cancels
-            // the iframe navigation.
-            .on_navigation(move |url| {
-                if url.scheme() == "newtab" {
-                    let real_url = url
-                        .as_str()
-                        .strip_prefix("newtab:")
-                        .unwrap_or("")
-                        .to_string();
-                    if !real_url.is_empty() {
-                        let app = app_for_nav.clone();
-                        let manager = manager_for_nav.clone();
-                        let window_label = window_label_for_nav.clone();
-                        let app_handle = app.clone();
-                        std::thread::spawn(move || {
-                            let _ = app_handle.run_on_main_thread(move || {
                         if let Err(e) = add_tab_internal(&app, &manager, &window_label, real_url) {
                             eprintln!(
                                 "[browser] on_navigation newtab: add_tab_internal failed: {e}"
                             );
                         }
                     });
-                        });
-                    }
-                    return false;
-                }
-                true
-            })
-            .initialization_script(NEW_TAB_INTERCEPT_JS);
+                });
+            }
+            return false;
+        }
+        true
+    })
+    .initialization_script(NEW_TAB_INTERCEPT_JS);
 
     if !cookie_script.is_empty() {
         webview_builder = webview_builder.initialization_script(&cookie_script);
