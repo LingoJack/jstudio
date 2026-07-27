@@ -24,6 +24,7 @@ import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { Markdown } from '@tiptap/markdown';
 import { MathBlockExtension } from './extensions/mathBlockExtension';
 import { tiptapJSONToOurBlocks } from './tiptapAdapter';
+import { dedupeMarks } from './pasteMarkdown';
 import type { Block } from '../../types';
 import type { JSONContent } from '@tiptap/core';
 
@@ -86,7 +87,9 @@ export function markdownToBlocks(md: string): Block[] {
   const editor = getHeadlessEditor();
 
   // Parse Markdown → Tiptap JSON document
-  editor.commands.setContent(md, { contentType: 'markdown' });
+  const parsed = editor.markdown.parse(md);
+  dedupeMarks(parsed);
+  editor.commands.setContent(parsed);
   const json = editor.getJSON();
 
   // Tiptap JSON → our native Block[]

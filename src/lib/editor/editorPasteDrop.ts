@@ -10,7 +10,7 @@ import type { Editor } from '@tiptap/react';
 import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './editorUpload';
 import { getClipboardImageAsFile } from './clipboardImage';
-import { looksLikeMarkdown } from './pasteMarkdown';
+import { looksLikeMarkdown, dedupeMarks } from './pasteMarkdown';
 
 /**
  * Strip inline styles and style-only tags from external HTML while preserving
@@ -134,6 +134,7 @@ export function createPasteHandler(
       if (editor?.markdown && plainText && looksLikeMarkdown(plainText)) {
         event.preventDefault();
         const json = editor.markdown.parse(plainText);
+        dedupeMarks(json);
         editor.commands.insertContent(json);
         return true;
       }

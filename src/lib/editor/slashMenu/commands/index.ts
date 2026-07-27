@@ -3,6 +3,9 @@ import type { SlashCommandItem } from '../types';
 import { heading1Command } from './heading1';
 import { heading2Command } from './heading2';
 import { heading3Command } from './heading3';
+import { heading4Command } from './heading4';
+import { heading5Command } from './heading5';
+import { heading6Command } from './heading6';
 import { bulletListCommand } from './bulletList';
 import { numberedListCommand } from './numberedList';
 import { todoListCommand } from './todoList';
@@ -27,6 +30,9 @@ export const slashCommands: SlashCommandItem[] = [
   heading1Command,
   heading2Command,
   heading3Command,
+  heading4Command,
+  heading5Command,
+  heading6Command,
   bulletListCommand,
   numberedListCommand,
   todoListCommand,

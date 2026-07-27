@@ -26,7 +26,35 @@
  */
 
 import { Extension } from '@tiptap/core';
+import type { JSONContent } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
+
+/**
+ * Remove duplicate marks from text nodes in Tiptap JSON (in-place).
+ *
+ * Workaround for a `@tiptap/markdown` v3 bug: when parsing nested emphasis
+ * (e.g. `*a *b* c*`), `applyMarkToContent` appends the outer mark to text
+ * nodes that already carry the same mark from the inner token, producing
+ * duplicate marks (e.g. two `italic` marks on one text node). ProseMirror
+ * rejects this because every mark type excludes itself by default, throwing
+ * `RangeError: invalid collection of marks for node text: italic`.
+ */
+export function dedupeMarks(json: JSONContent): JSONContent {
+  if (json.type === 'text' && Array.isArray(json.marks) && json.marks.length > 1) {
+    const seen = new Set<string>();
+    json.marks = json.marks.filter((m) => {
+      const key = m.type ?? '';
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (json.marks.length === 0) delete json.marks;
+  }
+  if (Array.isArray(json.content)) {
+    json.content.forEach(dedupeMarks);
+  }
+  return json;
+}
 
 export interface PasteMarkdownOptions {
   /** Enable / disable the extension. @default true */
@@ -95,6 +123,7 @@ export const PasteMarkdown = Extension.create<PasteMarkdownOptions>({
             // Parse Markdown → Tiptap JSON and insert.
             event.preventDefault();
             const json = editor.markdown.parse(plainText);
+            dedupeMarks(json);
             editor.commands.insertContent(json);
             return true;
           },
