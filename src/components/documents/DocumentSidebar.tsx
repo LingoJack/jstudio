@@ -63,6 +63,7 @@ export default function DocumentSidebar() {
   const sidebarWidth = useStore((s) => s.sidebarWidth);
   const sidebarPinned = useStore((s) => s.sidebarPinned);
   const toggleSidebarPinned = useStore((s) => s.toggleSidebarPinned);
+  const leftPanelHovered = useStore((s) => s.leftPanelHovered);
 
   // Folder store
   const folders = useStore((s) => s.folders);
@@ -111,8 +112,13 @@ export default function DocumentSidebar() {
   // ── Hover-expand state (only active when sidebarPinned is false) ──
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const hoverCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Tracks whether the pointer is currently over the sidebar itself (not
+   *  the ActivityBar). Read inside the `leftPanelHovered` effect to avoid
+   *  starting a collapse timer when the sidebar is still being hovered. */
+  const isSidebarHovered = useRef(false);
 
   const handleHoverEnter = useCallback(() => {
+    isSidebarHovered.current = true;
     if (sidebarPinned) return;
     if (hoverCollapseTimer.current) {
       clearTimeout(hoverCollapseTimer.current);
@@ -122,10 +128,29 @@ export default function DocumentSidebar() {
   }, [sidebarPinned]);
 
   const handleHoverLeave = useCallback(() => {
+    isSidebarHovered.current = false;
     if (sidebarPinned) return;
     if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
     hoverCollapseTimer.current = setTimeout(() => setHoverExpanded(false), COLLAPSE_DELAY);
   }, [sidebarPinned]);
+
+  // Keep the sidebar expanded while the pointer is on the adjacent
+  // ActivityBar, so overshooting from the sidebar into the ActivityBar
+  // doesn't collapse it.  When the pointer leaves the ActivityBar (and the
+  // sidebar itself isn't hovered), start the normal collapse timer.
+  useEffect(() => {
+    if (sidebarPinned) return;
+    if (leftPanelHovered) {
+      if (hoverCollapseTimer.current) {
+        clearTimeout(hoverCollapseTimer.current);
+        hoverCollapseTimer.current = null;
+      }
+      setHoverExpanded(true);
+    } else if (!isSidebarHovered.current) {
+      if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
+      hoverCollapseTimer.current = setTimeout(() => setHoverExpanded(false), COLLAPSE_DELAY);
+    }
+  }, [leftPanelHovered, sidebarPinned]);
 
   const isCollapsed = !sidebarPinned && !hoverExpanded;
   const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;

@@ -23,6 +23,7 @@ export default function ActivityBar() {
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const setActiveSidebarView = useStore((s) => s.setActiveSidebarView);
+  const setLeftPanelHovered = useStore((s) => s.setLeftPanelHovered);
   const tabs = useStore((s) => s.tabs);
   const selectTab = useStore((s) => s.selectTab);
 
@@ -125,7 +126,11 @@ export default function ActivityBar() {
   }
 
   return (
-    <div className="w-11 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none">
+    <div
+      className="w-11 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none"
+      onMouseEnter={() => setLeftPanelHovered(true)}
+      onMouseLeave={() => setLeftPanelHovered(false)}
+    >
       {/* Top: configurable entries (documents, terminal, …) */}
       <div className="flex flex-col items-center gap-1">
         {topItems.map((item) => renderEntry(item.id))}

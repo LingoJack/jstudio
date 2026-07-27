@@ -124,6 +124,8 @@ export interface StoreState {
   isSidebarOpen: boolean;
   /** When false, DocumentSidebar collapses to a narrow strip and expands on hover. */
   sidebarPinned: boolean;
+  /** Transient: true while the pointer is over the ActivityBar. */
+  leftPanelHovered: boolean;
   isOutlineOpen: boolean;
   isSettingsOpen: boolean;
   isCommandPaletteOpen: boolean;
@@ -249,6 +251,7 @@ export interface StoreState {
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
   toggleSidebarPinned: () => void;
+  setLeftPanelHovered: (hovered: boolean) => void;
   toggleOutline: () => void;
   setOutlineOpen: (open: boolean) => void;
   toggleSettings: () => void;

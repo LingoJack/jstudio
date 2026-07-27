@@ -111,6 +111,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   activityBarItems: DEFAULT_ACTIVITY_BAR_ITEMS,
   isSidebarOpen: true,
   sidebarPinned: true,
+  /** Transient flag: true while the pointer is over the ActivityBar. Sidebars
+   *  watch this to stay expanded when the user overshoots from the sidebar
+   *  into the ActivityBar (they are visually one "left panel" zone). */
+  leftPanelHovered: false,
   isOutlineOpen: false,
   isSettingsOpen: false,
   isCommandPaletteOpen: false,
@@ -165,6 +169,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     set({ sidebarPinned: next });
     storage.saveSettings({ sidebarPinned: next }).catch(onSaveError('设置'));
   },
+  setLeftPanelHovered: (hovered) => set({ leftPanelHovered: hovered }),
   toggleOutline: () => set((s) => ({ isOutlineOpen: !s.isOutlineOpen })),
   setOutlineOpen: (open) => set({ isOutlineOpen: open }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),

@@ -37,6 +37,7 @@ import { Loader2, Globe, Plus, RefreshCw, ExternalLink, X } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
 import { storage, type LinkPreviewTabInfo } from "../../lib/core/storage";
 import { getFaviconUrl } from "../../store/browserSlice";
+import { useStore } from "../../store/useStore";
 import { MenuList, MenuItem, MenuDivider } from "../ui/MenuList";
 
 /** Browser window label — must match BrowserTabs.tsx / browserSlice.ts. */
@@ -59,6 +60,7 @@ export default function BrowserSidebar({
   activeTabId,
 }: BrowserSidebarProps) {
   const { t } = useI18n();
+  const leftPanelHovered = useStore((s) => s.leftPanelHovered);
   const [expanded, setExpanded] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -66,6 +68,10 @@ export default function BrowserSidebar({
     tabId: string;
   } | null>(null);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Tracks whether the pointer is over the sidebar itself (not the
+   *  ActivityBar). Read in the `leftPanelHovered` effect to avoid starting
+   *  a collapse timer when the sidebar is still being hovered. */
+  const isSidebarHovered = useRef(false);
 
   // ── Actions (storage IPC, scoped to the main window's tab manager) ──
 
@@ -84,6 +90,7 @@ export default function BrowserSidebar({
   // ── Hover expand / collapse (with grace period to cross gaps) ──
 
   const handleEnter = useCallback(() => {
+    isSidebarHovered.current = true;
     if (collapseTimer.current) {
       clearTimeout(collapseTimer.current);
       collapseTimer.current = null;
@@ -92,9 +99,27 @@ export default function BrowserSidebar({
   }, []);
 
   const handleLeave = useCallback(() => {
+    isSidebarHovered.current = false;
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
     collapseTimer.current = setTimeout(() => setExpanded(false), COLLAPSE_DELAY);
   }, []);
+
+  // Keep the sidebar expanded while the pointer is on the adjacent
+  // ActivityBar, so overshooting from the sidebar into the ActivityBar
+  // doesn't collapse it.  When the pointer leaves the ActivityBar (and the
+  // sidebar itself isn't hovered), start the normal collapse timer.
+  useEffect(() => {
+    if (leftPanelHovered) {
+      if (collapseTimer.current) {
+        clearTimeout(collapseTimer.current);
+        collapseTimer.current = null;
+      }
+      setExpanded(true);
+    } else if (!isSidebarHovered.current) {
+      if (collapseTimer.current) clearTimeout(collapseTimer.current);
+      collapseTimer.current = setTimeout(() => setExpanded(false), COLLAPSE_DELAY);
+    }
+  }, [leftPanelHovered]);
 
   useEffect(() => {
     return () => {
