@@ -6,14 +6,14 @@
  *   1. Retrieve the docId from the Rust memory payload.
  *   2. Run the same `init()` as the main window (settings, theme, etc.).
  *   3. Load the document by ID.
- *   4. Render SectionedEditorPanel fullscreen — no sidebar, no tab bar, no
+ *   4. Render DocumentPanel fullscreen — no sidebar, no tab bar, no
  *      terminal.
  */
 
 import { useEffect, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { fetchDocumentDetachPayload } from '../../lib/windows/documentDetach';
-import SectionedEditorPanel from '../editor/sectionEditor/SectionedEditorPanel';
+import DocumentPanel from '../editor/sectionEditor/DocumentPanel';
 import { useI18n } from '../../lib/core/i18n';
 import { shortcutManager } from '../../lib/shortcuts/ShortcutManager';
 
@@ -80,7 +80,7 @@ export default function DocumentWindowApp() {
   return (
     <div className="w-screen h-screen overflow-hidden bg-[var(--vscode-editor-background)]">
       {/* Editor fills the entire window — no tab bar, no action bar */}
-      <SectionedEditorPanel />
+      <DocumentPanel />
     </div>
   );
 }

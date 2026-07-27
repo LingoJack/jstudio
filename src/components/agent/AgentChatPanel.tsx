@@ -1,7 +1,7 @@
 /**
  * AgentChatPanel — Agent 聊天面板
  * 
- * 与 SectionedEditorPanel 保持一致的架构：
+ * 与 DocumentPanel 保持一致的架构：
  * - 只负责主内容区域（聊天界面）
  * - 不包含 Sidebar（Sidebar 在 App 层级渲染）
  * 

@@ -328,7 +328,7 @@ export default function SettingsPanel() {
 
       {/* ── Right content ── */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Help section renders as a full-width document via SectionedEditorPanel
+        {/* Help section renders as a full-width document via DocumentPanel
             (which manages its own scrolling); other settings sections use
             a centered narrow column with external scroll. */}
         {activeSection === 'help' ? (

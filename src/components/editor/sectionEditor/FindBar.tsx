@@ -4,7 +4,7 @@
  * VSCode-style: a single text input + prev/next buttons + N/M match counter +
  * close button. Driven by store state (`isFindBarOpen` / `findQuery`); the
  * actual cross-section search is coordinated by `useCrossSectionFind` in the
- * parent (`SectionedEditorPanel`), which passes the live `find` API as a prop.
+ * parent (`DocumentPanel`), which passes the live `find` API as a prop.
  *
  * Keyboard:
  *   - Enter      → next match

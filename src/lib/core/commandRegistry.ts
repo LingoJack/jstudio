@@ -207,7 +207,7 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       //   1. Native <input>/<textarea> (address bar, title, search fields,
       //      etc.) → el.select()
       //   2. TipTap/ProseMirror editor → code-block-scoped select or
-      //      cross-section select-all (registered by SectionedEditorPanel via
+      //      cross-section select-all (registered by DocumentPanel via
       //      selectAllRegistry)
       //   3. Browser content webview (child WKWebView has focus) → Rust
       //      eval_js on the active browser content webview

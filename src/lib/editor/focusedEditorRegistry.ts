@@ -7,7 +7,7 @@
  * so `editorForKeyboardTarget(document.activeElement)` is unreliable when
  * the focus has already shifted to the menu bar.
  *
- * `SectionedEditorPanel` records the most recently focused section editor
+ * `DocumentPanel` records the most recently focused section editor
  * here on every editor 'focus' event and clears it on 'destroy'. Any
  * module (commandRegistry, ShortcutManager, future palette actions) can
  * then read the live focused editor via `getFocusedEditor()`.

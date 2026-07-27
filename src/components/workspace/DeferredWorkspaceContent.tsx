@@ -6,7 +6,7 @@ import {
 } from 'react';
 import { useStore } from '../../store/useStore';
 import type { UnifiedTab } from '../../store/workspaceSlice';
-import SectionedEditorPanel from '../editor/sectionEditor/SectionedEditorPanel';
+import DocumentPanel from '../editor/sectionEditor/DocumentPanel';
 import EmptyPanel from '../ui/EmptyPanel';
 
 interface DeferredWorkspaceContentProps {
@@ -40,7 +40,7 @@ export default function DeferredWorkspaceContent({
   if (!visible) return null;
 
   if (contentTab?.kind === 'document' && contentTab.docId) {
-    return <SectionedEditorPanel contentDocId={contentTab.docId} />;
+    return <DocumentPanel contentDocId={contentTab.docId} />;
   }
 
   return <EmptyPanel />;

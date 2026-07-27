@@ -8,13 +8,13 @@
  * cross-section selection), then falls back to browser content / native
  * select-all.
  *
- * `SectionedEditorPanel` registers its handler on mount and clears it on
+ * `DocumentPanel` registers its handler on mount and clears it on
  * unmount. Pattern mirrors `focusedEditorRegistry.ts`.
  */
 
 let handler: (() => void) | null = null;
 
-/** Register the editor's select-all handler (called from SectionedEditorPanel). */
+/** Register the editor's select-all handler (called from DocumentPanel). */
 export function registerSelectAllHandler(fn: (() => void) | null): void {
   handler = fn;
 }

@@ -57,7 +57,7 @@ function getHeadlessEditor(): Editor {
       TableCell,
       // Register TaskList/TaskItem so Markdown task lists (`- [ ] item`) parse
       // into `taskList` nodes instead of being dropped/downgraded to plain
-      // bullet lists. Must mirror SectionedEditorPanel's config (`nested: true`).
+      // bullet lists. Must mirror DocumentPanel's config (`nested: true`).
       TaskList,
       TaskItem.configure({ nested: true }),
       MathBlockExtension,

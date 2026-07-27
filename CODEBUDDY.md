@@ -47,7 +47,7 @@ Frontend code MUST NOT call `invoke()` directly. All Tauri IPC goes through `src
 
 ### Editor — sectioned ProseMirror
 
-The editor (`src/components/editor/sectionEditor/`) splits each document into ~30-block sections (`SECTION_SIZE`, `lib/editor/sectioning.ts`), each with its own ProseMirror instance (`SectionEditor.tsx`). This is a performance fix for the 232KB-contenteditable lag in WebKit — a keystroke only re-lays-out its own section. `SectionedEditorPanel.tsx` is the orchestrator; block-level ops are debounced (500ms per-document, keyed by doc id in `store/storeHelpers.ts`) and reassembled into the full `Block[]` before being written back to the store. Sections are recomputed on document switch, not live-rebalanced.
+The editor (`src/components/editor/sectionEditor/`) splits each document into ~30-block sections (`SECTION_SIZE`, `lib/editor/sectioning.ts`), each with its own ProseMirror instance (`SectionEditor.tsx`). This is a performance fix for the 232KB-contenteditable lag in WebKit — a keystroke only re-lays-out its own section. `DocumentPanel.tsx` is the orchestrator; block-level ops are debounced (500ms per-document, keyed by doc id in `store/storeHelpers.ts`) and reassembled into the full `Block[]` before being written back to the store. Sections are recomputed on document switch, not live-rebalanced.
 
 Known limitation: no cross-section selection / Cmd+A / copy-paste across sections.
 
@@ -119,7 +119,7 @@ On startup, `connection.rs::open_and_init` runs: schema create → `migrate_from
 | `src/lib/core/storage.ts` | **Only** Tauri IPC surface (typed `storage` object) |
 | `src/store/useStore.ts` | Zustand store composition (8 slices) |
 | `src/store/storeHelpers.ts` | `StoreState` interface, debounced save timers |
-| `src/components/editor/sectionEditor/SectionedEditorPanel.tsx` | Editor orchestrator |
+| `src/components/editor/sectionEditor/DocumentPanel.tsx` | Editor orchestrator |
 | `src/components/editor/sectionEditor/SectionEditor.tsx` | One ProMirror instance per section |
 | `src/lib/editor/tiptapAdapter/index.ts` | Block ↔ TipTap conversion barrel |
 | `src/lib/editor/sectioning.ts` | `SECTION_SIZE` / `splitIntoSections` |

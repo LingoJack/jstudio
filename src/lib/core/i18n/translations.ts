@@ -299,7 +299,7 @@ export const translations = {
     "find.matchCount": "{current}/{total}",
     "find.noResults": "无结果",
 
-    // ── SectionedEditorPanel ──
+    // ── DocumentPanel ──
     "editor.titlePlaceholder": "文档标题",
 
     // ── Settings nav ──
@@ -509,7 +509,7 @@ export const translations = {
     "bubble.strike": "删除线",
     "bubble.code": "行内代码",
 
-    // ── SectionedEditorPanel placeholder ──
+    // ── DocumentPanel placeholder ──
     "editor.placeholder": "输入 / 唤起命令菜单…",
 
     // ── Slash Menu ──
@@ -1149,7 +1149,7 @@ export const translations = {
     "find.matchCount": "{current}/{total}",
     "find.noResults": "No results",
 
-    // ── SectionedEditorPanel ──
+    // ── DocumentPanel ──
     "editor.titlePlaceholder": "Document title",
 
     // ── Settings nav ──
@@ -1367,7 +1367,7 @@ export const translations = {
     "bubble.strike": "Strikethrough",
     "bubble.code": "Inline code",
 
-    // ── SectionedEditorPanel placeholder ──
+    // ── DocumentPanel placeholder ──
     "editor.placeholder": "Type / for commands…",
 
     // ── Slash Menu ──

@@ -6,7 +6,7 @@
  *   - Reading cursor position from the browser Selection / Range API.
  *   - Deriving cell metrics from font-size (no fixed grid like xterm).
  *   - Shaping the trail quad by cursor style (bar / block / underline).
- *   - Blink is handled in SectionedEditorPanel via JS caret-color toggle.
+ *   - Blink is handled in DocumentPanel via JS caret-color toggle.
  *
  * All GL pipeline, kitty physics, and rendering are inherited from
  * BaseCursorTrail — no duplication.
@@ -524,7 +524,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
    *
    * The WebGL fill IS the cursor — the solid quad is shaped per style
    * (bar / block / underline) in {@link toCanvasLocal}, and the native
-   * caret is hidden by SectionedEditorPanel (caret-color: transparent).  This is
+   * caret is hidden by DocumentPanel (caret-color: transparent).  This is
    * what lets `block` render as a solid block and `underline` as a bar
    * along the baseline — the native caret can only ever be a thin line.
    *

@@ -7,7 +7,7 @@ import { storage, type DocBackup } from '../../lib/core/storage';
 import { toast } from '../../lib/toast';
 import { formatFileSize } from '../../lib/editor/fileUtils';
 import type { Document } from '../../types';
-import SectionedEditorPanel from '../editor/sectionEditor/SectionedEditorPanel';
+import DocumentPanel from '../editor/sectionEditor/DocumentPanel';
 
 interface BackupRestoreDialogProps {
   docId: string;
@@ -188,7 +188,7 @@ export default function BackupRestoreDialog({
                 {t('backup.loading')}
               </div>
             ) : previewDoc ? (
-              <SectionedEditorPanel
+              <DocumentPanel
                 key={selected.id}
                 doc={{ title: previewDoc.title || docTitle, blocks: previewDoc.blocks }}
                 readOnly

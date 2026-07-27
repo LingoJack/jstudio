@@ -1,5 +1,5 @@
 /**
- * SectionedEditorPanel — high-performance editor that renders one document as
+ * DocumentPanel — high-performance editor that renders one document as
  * N independent section editors to fix large-document typing lag.
  *
  * Strategy:
@@ -60,7 +60,7 @@ import {
   CursorTrailRegistry,
 } from '../CursorTrailContext';
 
-export interface SectionedEditorPanelProps {
+export interface DocumentPanelProps {
   /** When provided, the editor renders this static document instead of the
    *  store's active document. Used by HelpSection. */
   doc?: { title: string; blocks: Block[] };
@@ -167,11 +167,11 @@ function visualCodeLineBoundary(
   }
 }
 
-export default function SectionedEditorPanel({
+export default function DocumentPanel({
   doc,
   readOnly,
   contentDocId,
-}: SectionedEditorPanelProps = {}) {
+}: DocumentPanelProps = {}) {
   const { t } = useI18n();
   // ── Read-only / static-document mode ──────────────────────────────
   const isStatic = !!doc;
