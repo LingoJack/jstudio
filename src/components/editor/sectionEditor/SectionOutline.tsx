@@ -326,7 +326,7 @@ function renderTree(
           key={item.id}
           level={isTopLevel ? 'primary' : 'secondary'}
           active={item.id === activeId}
-          plainActive={isTopLevel}
+          noHover
           expandable={hasChildren}
           expanded={!isCollapsed}
           onClick={() => {
@@ -342,7 +342,7 @@ function renderTree(
       if (hasChildren && !isCollapsed) {
         const childMin = Math.min(...children.map((c) => c.level));
         result.push(
-          <NavBranch key={`branch-${item.id}`} className="mt-0.5 mb-1 ml-[18px]">
+          <NavBranch key={`branch-${item.id}`} plain className="mt-0.5 mb-1 ml-[18px]">
             {renderTree(children, childMin, activeId, onClick, collapsed, onToggle, depth + 1)}
           </NavBranch>,
         );
