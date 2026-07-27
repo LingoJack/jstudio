@@ -26,7 +26,7 @@ import { todoItemToTiptap, tiptapToTodoItems } from './todo';
 // ---------------------------------------------------------------------------
 
 /** Extract heading level from our heading-* type. */
-function headingLevel(type: BlockType): number {
+export function headingLevel(type: BlockType): number {
   switch (type) {
     case 'heading-1':
       return 1;
