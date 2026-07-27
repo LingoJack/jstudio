@@ -96,12 +96,12 @@ export function getSearchEngineFaviconUrl(engineId: string): string {
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 }
 
-/** Get the favicon URL for any website URL (direct /favicon.ico). */
+/** Get the favicon URL for any website URL (Google's favicon service). */
 export function getFaviconUrl(url: string): string | undefined {
   try {
     const parsed = new URL(url);
     if (!parsed.hostname) return undefined;
-    return `${parsed.protocol}//${parsed.hostname}/favicon.ico`;
+    return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=64`;
   } catch {
     return undefined;
   }

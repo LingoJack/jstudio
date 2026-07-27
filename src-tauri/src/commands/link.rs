@@ -351,9 +351,12 @@ pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(),
             // Escape single quotes in values to avoid breaking the JS string.
             let safe_value = value.replace('\\', "\\\\").replace('\'', "\\'");
             let safe_name = name.replace('\\', "\\\\").replace('\'', "\\'");
+            // Only inject if the cookie doesn't already exist in the webview's
+            // persistent cookie store. This prevents Chrome's (potentially stale)
+            // cookies from overwriting cookies set during a previous session.
             lines.push(format!(
-                "document.cookie='{}={}; path=/; domain=.{}; SameSite=None; Secure';",
-                safe_name, safe_value, host
+                "if(document.cookie.indexOf('{}=')===-1){{document.cookie='{}={}; path=/; domain=.{}; SameSite=None; Secure';}}",
+                safe_name, safe_name, safe_value, host
             ));
         }
         lines.join("\n")
@@ -384,6 +387,10 @@ pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(),
             .min_inner_size(400.0, 300.0)
             .resizable(true)
             .user_agent(BROWSER_UA)
+            .data_store_identifier([
+                0x4a, 0x53, 0x74, 0x75, 0x64, 0x69, 0x6f, 0x42, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72,
+                0x00, 0x01,
+            ])
             .on_new_window({
                 let app_handle = app_handle.clone();
                 move |new_url, features| {
@@ -421,6 +428,10 @@ pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(),
                     .min_inner_size(400.0, 300.0)
                     .resizable(true)
                     .user_agent(BROWSER_UA)
+                    .data_store_identifier([
+                        0x4a, 0x53, 0x74, 0x75, 0x64, 0x69, 0x6f, 0x42, 0x72, 0x6f, 0x77, 0x73,
+                        0x65, 0x72, 0x00, 0x01,
+                    ])
                     .window_features(features)
                     .on_new_window({
                         let app_handle = app_for_nested.clone();
@@ -454,6 +465,10 @@ pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(),
                             .min_inner_size(400.0, 300.0)
                             .resizable(true)
                             .user_agent(BROWSER_UA)
+                            .data_store_identifier([
+                                0x4a, 0x53, 0x74, 0x75, 0x64, 0x69, 0x6f, 0x42, 0x72, 0x6f, 0x77,
+                                0x73, 0x65, 0x72, 0x00, 0x01,
+                            ])
                             .window_features(nested_features);
 
                             match builder.build() {

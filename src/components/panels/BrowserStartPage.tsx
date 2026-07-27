@@ -130,6 +130,34 @@ function ShortcutDialog({ initial, onSave, onClose }: ShortcutDialogProps) {
   );
 }
 
+// ── Shortcut icon tile ──────────────────────────────────────
+
+function ShortcutIcon({ shortcut }: { shortcut: BrowserShortcut }) {
+  const [faviconFailed, setFaviconFailed] = useState(false);
+  const fav = getFaviconUrl(shortcut.url);
+
+  if (fav && !faviconFailed) {
+    return (
+      <img
+        src={fav}
+        alt=""
+        className="w-12 h-12 rounded-2xl object-contain group-hover:scale-105 transition-all"
+        draggable={false}
+        onError={() => setFaviconFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <span
+      className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-medium text-white shadow-sm group-hover:scale-105 transition-all"
+      style={{ backgroundColor: shortcut.color }}
+    >
+      {shortcut.icon}
+    </span>
+  );
+}
+
 // ── Main component ──────────────────────────────────────────
 
 export default function BrowserStartPage() {
@@ -331,32 +359,7 @@ export default function BrowserStartPage() {
               }}
               className="group flex flex-col items-center gap-2 w-20"
             >
-              <span
-                className="w-12 h-12 rounded-full flex items-center justify-center text-lg text-white shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all overflow-hidden"
-                style={{ backgroundColor: s.color }}
-              >
-                {(() => {
-                  const fav = s.faviconUrl ?? getFaviconUrl(s.url);
-                  return fav ? (
-                    <>
-                      <img
-                        src={fav}
-                        alt=""
-                        className="w-8 h-8 rounded-sm"
-                        draggable={false}
-                        onError={(e) => {
-                          const el = e.currentTarget;
-                          el.style.display = "none";
-                          el.nextElementSibling?.classList.remove("hidden");
-                        }}
-                      />
-                      <span className="hidden">{s.icon}</span>
-                    </>
-                  ) : (
-                    <span>{s.icon}</span>
-                  );
-                })()}
-              </span>
+              <ShortcutIcon shortcut={s} />
               <span className="text-xs text-[var(--vscode-foreground)] opacity-80 truncate w-full text-center">
                 {s.name}
               </span>
@@ -369,7 +372,7 @@ export default function BrowserStartPage() {
             onClick={() => setDialog({ mode: "add" })}
             className="group flex flex-col items-center gap-2 w-20"
           >
-            <span className="w-12 h-12 rounded-full flex items-center justify-center border border-dashed border-[var(--vscode-input-border)] text-[var(--vscode-foreground)] opacity-60 group-hover:opacity-100 group-hover:border-[var(--vscode-focusBorder)] transition-all">
+            <span className="w-12 h-12 rounded-2xl flex items-center justify-center border border-dashed border-[var(--vscode-input-border)] text-[var(--vscode-foreground)] opacity-60 group-hover:opacity-100 group-hover:border-[var(--vscode-focusBorder)] transition-all">
               <Plus className="w-5 h-5" />
             </span>
             <span className="text-xs text-[var(--vscode-foreground)] opacity-60 group-hover:opacity-90 truncate w-full text-center">

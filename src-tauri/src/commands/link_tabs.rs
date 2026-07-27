@@ -1188,9 +1188,13 @@ fn add_tab_internal(
         for (name, value) in &cookies {
             let safe_value = value.replace('\\', "\\\\").replace('\'', "\\'");
             let safe_name = name.replace('\\', "\\\\").replace('\'', "\\'");
+            // Only inject if the cookie doesn't already exist in the webview's
+            // persistent cookie store. This prevents Chrome's (potentially stale)
+            // cookies from overwriting cookies set during a previous session
+            // (e.g. Google's "unusual traffic" verification cookies).
             lines.push(format!(
-                "document.cookie='{}={}; path=/; domain=.{}; SameSite=None; Secure';",
-                safe_name, safe_value, host
+                "if(document.cookie.indexOf('{}=')===-1){{document.cookie='{}={}; path=/; domain=.{}; SameSite=None; Secure';}}",
+                safe_name, safe_name, safe_value, host
             ));
         }
         lines.join("\n")
@@ -1268,6 +1272,13 @@ fn add_tab_internal(
         WebviewUrl::External(url_parsed.clone()),
     )
     .user_agent(BROWSER_UA)
+    // Use a persistent data store (macOS 14+) so cookies, localStorage, and
+    // session data survive app restarts. Without this, WKWebView may use an
+    // ephemeral store on some configurations, losing all browsing state.
+    .data_store_identifier([
+        0x4a, 0x53, 0x74, 0x75, 0x64, 0x69, 0x6f, 0x42,
+        0x72, 0x6f, 0x77, 0x73, 0x65, 0x72, 0x00, 0x01,
+    ])
     // Track page title changes → update tab + emit state
     .on_document_title_changed(move |wv, title| {
         let label = wv.label().to_string();

@@ -266,13 +266,13 @@ export default function SectionOutline({
   }, []);
 
   return (
-    <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col pt-5 select-none">
-      <div className="px-5 mb-5 shrink-0">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+    <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
+      <div className="h-9 shrink-0 flex items-center px-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
           {t('outline.title')}
         </h2>
       </div>
-      <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
+      <div className="flex-1 overflow-y-auto rounded-md px-3 pb-3 space-y-0.5">
         {headings.length === 0 ? (
           <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
             {t('outline.empty')}
