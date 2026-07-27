@@ -130,6 +130,17 @@ export default function DocumentSidebar() {
   const isCollapsed = !sidebarPinned && !hoverExpanded;
   const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
 
+  // ── Overlay mode (hover-expand without pinning) ────────────
+  // When the sidebar expands on hover (unpinned), it overlays the content
+  // area instead of pushing it.  A negative `margin-right` cancels out
+  // the extra width so the flex layout still reserves only
+  // `COLLAPSED_WIDTH` – the editor's width never changes and ProseMirror
+  // never reflows.  This mirrors BrowserPanel's constant-width webview
+  // approach.  When pinned, `margin-right` is 0 and the sidebar takes its
+  // full width in the flex layout as before.
+  const isOverlay = !sidebarPinned && !isCollapsed;
+  const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
+
   const handleTogglePin = useCallback(() => {
     toggleSidebarPinned();
     setHoverExpanded(false);
@@ -871,8 +882,13 @@ export default function DocumentSidebar() {
 
   return (
     <div
-      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col select-none z-10 relative overflow-hidden"
-      style={{ width: effectiveWidth, transition: 'width 180ms ease-out' }}
+      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col select-none z-20 relative overflow-hidden"
+      style={{
+        width: effectiveWidth,
+        marginRight: -overlayShift,
+        transition: 'width 180ms ease-out, margin-right 180ms ease-out, box-shadow 180ms ease-out',
+        boxShadow: isOverlay ? '4px 0 12px rgba(0,0,0,0.3)' : '4px 0 12px rgba(0,0,0,0)',
+      }}
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
     >
