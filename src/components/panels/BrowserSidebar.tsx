@@ -165,19 +165,9 @@ export default function BrowserSidebar({
                 className={`group relative flex items-center gap-2.5 mx-1.5 my-0.5 px-2 h-9 rounded-md cursor-pointer transition-colors duration-100 ${
                   isActive
                     ? "bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]"
-                    : "text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+                    : "text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)]"
                 }`}
               >
-                {/* Active indicator bar (visible in both modes, more
-                    prominent when collapsed since it's the only signal). */}
-                {isActive && (
-                  <span
-                    className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[var(--vscode-list-activeSelectionForeground)] opacity-90 ${
-                      expanded ? "opacity-70" : "opacity-90"
-                    }`}
-                  />
-                )}
-
                 {/* Favicon / loading spinner / globe fallback */}
                 <span className="shrink-0 w-4 h-4 flex items-center justify-center">
                   {tab.loading ? (
@@ -235,7 +225,7 @@ export default function BrowserSidebar({
         <div className="shrink-0 px-1.5 pb-2 pt-1">
           <button
             onClick={addNewTab}
-            className="flex items-center gap-2.5 w-full h-9 px-2 rounded-md text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-100 cursor-pointer"
+            className="flex items-center gap-2.5 w-full h-9 px-2 rounded-md text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)] transition-colors duration-100 cursor-pointer"
             title={t("linkPreview.newTab")}
           >
             <Plus size={16} className="shrink-0" />
