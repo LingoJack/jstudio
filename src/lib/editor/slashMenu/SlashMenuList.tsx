@@ -29,6 +29,7 @@ const SLASH_I18N_KEYS: Record<string, { title: TranslationKey; description: Tran
   'Divider': { title: 'slash.divider', description: 'slash.dividerDesc' },
   'Diagram': { title: 'slash.diagram', description: 'slash.diagramDesc' },
   'Collapsible': { title: 'slash.collapsible', description: 'slash.collapsibleDesc' },
+  'Formula': { title: 'slash.formula', description: 'slash.formulaDesc' },
 };
 
 /**

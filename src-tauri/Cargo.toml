@@ -57,6 +57,27 @@ url = "2"
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
 
 # ── macOS native menu cleanup (remove system-injected Edit items) ──
+# ── macOS native WKUIDelegate for browser tab creation ──
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem", "NSWindow", "NSView", "NSOpenPanel", "NSPanel"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL", "NSNotification", "NSGeometry", "NSValue"] }
+objc2-web-kit = { version = "0.3", features = [
+    "WKWebView",
+    "WKWebViewConfiguration",
+    "WKUIDelegate",
+    "WKNavigationDelegate",
+    "WKNavigationAction",
+    "WKNavigation",
+    "WKWindowFeatures",
+    "WKFrameInfo",
+    "WKOpenPanelParameters",
+    "WKSecurityOrigin",
+    "WKUserContentController",
+    "WKUserScript",
+    "WKWebsiteDataStore",
+    "WKContentWorld",
+    "block2",
+    "objc2-app-kit",
+] }
+block2 = "0.6"

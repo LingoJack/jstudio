@@ -549,6 +549,8 @@ export const translations = {
     "slash.diagramDesc": "绘制架构图、流程图、需求图",
     "slash.collapsible": "折叠区域",
     "slash.collapsibleDesc": "可折叠/展开的内容区域",
+    "slash.formula": "公式",
+    "slash.formulaDesc": "插入 LaTeX 数学公式",
     "collapsible.expand": "展开",
     "collapsible.collapse": "收起",
 
@@ -1407,6 +1409,8 @@ export const translations = {
     "slash.diagramDesc": "Draw architecture, flow, or requirement diagrams",
     "slash.collapsible": "Collapsible",
     "slash.collapsibleDesc": "A foldable / expandable content region",
+    "slash.formula": "Formula",
+    "slash.formulaDesc": "Insert a LaTeX math formula",
     "collapsible.expand": "Expand",
     "collapsible.collapse": "Collapse",
 

@@ -44,106 +44,67 @@ use super::link::{BROWSER_UA, extract_domain, read_chrome_cookies_cached};
 // Constants
 // ---------------------------------------------------------------------------
 
-/// JavaScript injected into every content webview to intercept `target="_blank"`
-/// links, `window.open()` calls, and `<form target="_blank">` submissions.
+/// JavaScript injected into every content webview to route new-tab/window
+/// requests through WKWebView's native `createWebViewWithConfiguration`
+/// delegate (Tauri's `on_new_window` handler) — the same mechanism Chrome
+/// uses internally.
 ///
-/// Instead of relying on WKWebView's `createWebViewWithConfiguration` UI delegate
-/// (which has reentrancy issues when creating a new WKWebView inside the callback),
-/// we override these APIs in JavaScript and signal the Rust backend via a hidden
-/// iframe navigating to `http://newtab.invalid/?u=<encoded_url>`.
+/// **Why not intercept clicks / forms / window.open in JS?**
+/// Earlier versions overrode `window.open`, added capture-phase click and
+/// submit listeners, and signalled Rust via hidden `<iframe>` navigations
+/// to `http://newtab.invalid/`. That worked on most sites but **silently
+/// failed on zhihu.com** (and potentially others) because WKWebView dropped
+/// the `.invalid` sub-frame navigation without ever firing
+/// `decidePolicyForNavigationAction`. Since `window.open` was also
+/// overridden (returning `null` instead of calling the native impl), the
+/// `on_new_window` fallback never fired either — so no new tab was created.
 ///
-/// We use `http://newtab.invalid/` (a reserved TLD per RFC 2606 that never
-/// resolves) instead of a custom `newtab:` scheme because WKWebView may not
-/// fire `decidePolicyForNavigationAction` for unregistered URL schemes, making
-/// the `on_navigation` handler unreliable.
+/// **The Chrome approach:** `a[target="_blank"]`, `<form target="_blank">`,
+/// and `window.open(url)` all trigger `createWebViewWithConfiguration`
+/// natively — no JS interception needed. We just let them through.
 ///
-/// For `window.open('', '_blank')` (used by OAuth flows like WeChat login),
-/// we return a **proxy object** that intercepts `location` assignments and
-/// `location.href`/`location.replace`/`location.assign` calls, forwarding the
-/// real URL to `openAsTab`. This allows patterns like:
-///   var popup = window.open('', '_blank');
-///   popup.location = 'https://example.com';
-/// to work correctly.
+/// The **only** override we keep is for `window.open('', '_blank')` (the
+/// OAuth popup pattern used by WeChat login). We return a **proxy object**
+/// that intercepts `location` assignments and forwards the real URL to the
+/// native `window.open`, which triggers `on_new_window`.
 const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
-    // Signal that this script is running
-    try{
-        var s=document.createElement('iframe');
-        s.style.cssText='display:none!important';
-        s.src='http://initlog.invalid/';
-        (document.body||document.documentElement).appendChild(s);
-        setTimeout(function(){if(s.parentNode)s.parentNode.removeChild(s)},2000);
-    }catch(e){}
-    // Save the original window.open BEFORE overriding it. We call this as a
-    // fallback in openAsTab for sites where the hidden-iframe approach fails
-    // (e.g. zhihu.com, where the iframe navigation to newtab.invalid is
-    // silently dropped by WKWebView for reasons unrelated to CSP). The native
-    // window.open triggers WKWebView's createWebViewWithConfiguration delegate
-    // (Tauri's on_new_window handler), which creates a new tab and denies the
-    // popup. Rust-side deduplication (last_new_tab) prevents double tabs when
-    // both the iframe and the native window.open succeed.
+    // Save the original window.open BEFORE overriding it.
     var __originalOpen=window.open;
-    function openAsTab(url){
-        if(!url||url==='about:blank'||url==='')return;
-        // Primary: hidden iframe -> on_navigation handler (preserves opener)
-        try{
-            var f=document.createElement('iframe');
-            f.style.cssText='display:none!important;width:0;height:0;border:0';
-            f.src='http://newtab.invalid/?u='+encodeURIComponent(url);
-            (document.body||document.documentElement).appendChild(f);
-            setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},2000);
-        }catch(e){}
-        // Fallback: native window.open -> on_new_window handler.
-        // This catches cases where the iframe navigation doesn't fire
-        // on_navigation (zhihu.com, some other sites). The Rust handler
-        // deduplicates so only one tab is created.
-        try{__originalOpen(url)}catch(e){}
-    }
     function makeProxyWindow(){
         var loc={};
-        Object.defineProperty(loc,'href',{get:function(){return''},set:function(v){if(v)openAsTab(v)},configurable:false});
-        loc.replace=function(u){if(u)openAsTab(u)};
-        loc.assign=function(u){if(u)openAsTab(u)};
+        Object.defineProperty(loc,'href',{get:function(){return''},set:function(v){if(v)__originalOpen(v)},configurable:false});
+        loc.replace=function(u){if(u)__originalOpen(u)};
+        loc.assign=function(u){if(u)__originalOpen(u)};
         var w={close:function(){},focus:function(){},postMessage:function(){},document:{write:function(){}},location:loc};
-        Object.defineProperty(w,'location',{get:function(){return loc},set:function(v){if(v)openAsTab(v)},configurable:false});
+        Object.defineProperty(w,'location',{get:function(){return loc},set:function(v){if(v)__originalOpen(v)},configurable:false});
         return w;
     }
     try{
         var co=function(url,target,features){
-            // Signal that window.open was called
-            try{
-                var l=document.createElement('iframe');
-                l.style.cssText='display:none!important';
-                l.src='http://openlog.invalid/?u='+encodeURIComponent(url||'')+'&t='+(target||'');
-                (document.body||document.documentElement).appendChild(l);
-                setTimeout(function(){if(l.parentNode)l.parentNode.removeChild(l)},2000);
-            }catch(e){}
-            if(url&&url!=='about:blank'&&url!==''){openAsTab(url);return null}
-            return makeProxyWindow();
+            // For about:blank / empty URL (OAuth popup pattern), return a
+            // proxy window that intercepts location assignments.
+            if(!url||url==='about:blank'||url===''){
+                return makeProxyWindow();
+            }
+            // For real URLs, call the native window.open. This triggers
+            // WKWebView's createWebViewWithConfiguration delegate (Tauri's
+            // on_new_window handler), which creates a new tab and denies
+            // the popup. window.open returns null — same as Chrome when a
+            // popup is handled as a new tab.
+            //
+            // target="_blank" links and <form target="_blank"> submissions
+            // also trigger createWebViewWithConfiguration directly (without
+            // going through window.open), so they are handled automatically
+            // without any click/form interception.
+            return __originalOpen(url,target,features);
         };
         Object.defineProperty(window,'open',{value:co,writable:false,configurable:false});
-    }catch(e){window.open=function(url){if(url&&url!=='about:blank'&&url!==''){openAsTab(url);return null}return makeProxyWindow()}}
-    document.addEventListener('click',function(e){
-        var a=e.target.closest('a[target="_blank"]');
-        if(a&&a.href){e.preventDefault();e.stopPropagation();openAsTab(a.href);return false}
-    },true);
-    document.addEventListener('submit',function(e){
-        var form=e.target;
-        if(!form||form.tagName!=='FORM')return;
-        var t=form.target;
-        if(t==='_blank'||t==='_new'){
-            e.preventDefault();e.stopPropagation();
-            try{
-                var url=new URL(form.action||window.location.href,window.location.href).href;
-                var m=(form.method||'get').toLowerCase();
-                if(m==='get'){
-                    var p=new URLSearchParams(new FormData(form)).toString();
-                    if(p)url+=(url.indexOf('?')>=0?'&':'?')+p;
-                }
-                openAsTab(url);
-            }catch(err){openAsTab(form.action)}
-            return false;
-        }
-    },true);
+    }catch(e){
+        window.open=function(url){
+            if(!url||url==='about:blank'||url===''){return makeProxyWindow()}
+            return __originalOpen(url);
+        };
+    }
 })()"#;
 
 /// JavaScript injected into content webviews that were opened by another tab
@@ -255,11 +216,6 @@ struct TabManager {
     tab_order: Vec<String>,
     /// Currently active tab ID.
     active_tab_id: Option<String>,
-    /// Deduplication: (url, timestamp) of the most recent new-tab request.
-    /// Both `on_navigation` (iframe path) and `on_new_window` (native
-    /// window.open path) check this to avoid creating a duplicate tab when
-    /// both mechanisms fire for the same link click.
-    last_new_tab: Option<(String, std::time::Instant)>,
 }
 
 /// Internal tab representation.
@@ -273,6 +229,12 @@ struct Tab {
     /// Webview label of the tab that opened this tab (via window.open / target=_blank).
     /// Used to forward `window.opener.postMessage()` calls back to the opener.
     opener_webview_label: Option<String>,
+    /// Raw WKWebView pointer for tabs created natively by
+    /// `createWebViewWithConfiguration` (via `window.open` /
+    /// `target="_blank"`). `None` for Tauri-managed webviews (created by
+    /// `add_child` in `add_tab_internal`).
+    #[cfg(target_os = "macos")]
+    wkwebview_ptr: Option<usize>,
 }
 
 // ---------------------------------------------------------------------------
@@ -385,7 +347,6 @@ pub async fn open_link_preview_with_tabs(app: AppHandle, url: String) -> Result<
         tabs: HashMap::new(),
         tab_order: Vec::new(),
         active_tab_id: None,
-        last_new_tab: None,
     }));
 
     // Register manager
@@ -784,6 +745,183 @@ pub fn close_active_tab_in_focused_preview(app: &AppHandle) -> Result<(), String
 /// for the `"main"` window label exists, marks the panel as visible (so
 /// `on_menu_event` routes Cmd+T / Cmd+W here instead of to document tabs),
 /// and emits the current tabs state. When no tabs exist the React
+/// Set up native WKUIDelegate callbacks (called once on first show).
+/// Wires up `createWebViewWithConfiguration` -> TabManager so that
+/// `window.open()` creates a real tab with native `window.opener`.
+#[cfg(target_os = "macos")]
+fn setup_native_callbacks(app: &AppHandle) {
+    use std::sync::Once;
+    static SETUP: Once = Once::new();
+
+    SETUP.call_once(|| {
+        // ── Title / page-load / URL change callbacks ──
+        // These are called by BrowserNavigationDelegate for webviews
+        // created natively by createWebViewWithConfiguration.
+        let app_for_cb = app.clone();
+        super::native_delegate::set_callbacks(
+            Box::new(move |tab_id, title| {
+                debug_log(&format!(
+                    "native title changed: tab={}, title={}",
+                    tab_id, title
+                ));
+                if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
+                    update_tab_field(&app_for_cb, &manager, tab_id, |tab| {
+                        if tab.title != title {
+                            tab.title = title;
+                            true
+                        } else {
+                            false
+                        }
+                    });
+                }
+            }),
+            Box::new(move |tab_id, loading| {
+                debug_log(&format!(
+                    "native page load: tab={}, loading={}",
+                    tab_id, loading
+                ));
+                if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
+                    update_tab_field(app, &manager, tab_id, |tab| {
+                        if tab.loading != loading {
+                            tab.loading = loading;
+                            true
+                        } else {
+                            false
+                        }
+                    });
+                }
+            }),
+            Box::new(move |tab_id, url| {
+                debug_log(&format!("native url changed: tab={}, url={}", tab_id, url));
+                if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
+                    update_tab_field(app, &manager, tab_id, |tab| {
+                        if tab.url != url {
+                            tab.url = url;
+                            true
+                        } else {
+                            false
+                        }
+                    });
+                }
+            }),
+        );
+
+        // ── New tab callback ──
+        // Called synchronously inside createWebViewWithConfiguration.
+        // Creates a Tab from the raw WKWebView and registers it.
+        let app_for_new_tab = app.clone();
+        super::native_delegate::set_new_tab_callback(Box::new(move |wkwebview, url, opener_id| {
+            register_native_webview(&app_for_new_tab, &wkwebview, url, opener_id)
+        }));
+    });
+}
+
+/// Register a raw WKWebView (created by `createWebViewWithConfiguration`)
+/// with TabManager. This is the native equivalent of `add_tab_internal`:
+/// it creates a Tab record, positions the webview, and emits state.
+#[cfg(target_os = "macos")]
+fn register_native_webview(
+    app: &AppHandle,
+    wkwebview: &objc2_web_kit::WKWebView,
+    url: String,
+    _opener_id: Option<String>,
+) -> String {
+    use super::native_delegate;
+    use objc2_web_kit::WKWebView;
+
+    let n = next_id();
+    let tab_id = format!("tab-{}", n);
+    let webview_label = format!("content-{}", n);
+
+    // Parse URL for initial title
+    let initial_title = url::Url::parse(&url)
+        .ok()
+        .and_then(|u| u.host_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "Loading...".to_string());
+
+    // Get content rect for positioning
+    let (content_x, content_y, content_width, content_height) =
+        match get_content_rect(app, MAIN_BROWSER_LABEL) {
+            Some(rect) => rect,
+            None => (0.0, 9999.0, 800.0, 600.0),
+        };
+
+    // Hide the currently active webview
+    let manager = match get_manager(MAIN_BROWSER_LABEL) {
+        Ok(m) => m,
+        Err(_) => return tab_id,
+    };
+    {
+        let m = manager.lock().unwrap();
+        if let Some(active_id) = &m.active_tab_id {
+            if let Some(active_tab) = m.tabs.get(active_id) {
+                // Hide Tauri-managed webview
+                if let Some(label) = app.get_webview(&active_tab.webview_label) {
+                    let _ = label.set_position(LogicalPosition::new(0.0, 9999.0));
+                }
+                // Hide native WKWebView
+                #[cfg(target_os = "macos")]
+                if let Some(ptr) = active_tab.wkwebview_ptr {
+                    if let Some(wv) = ptr_to_wkwebview(ptr) {
+                        native_delegate::hide_webview(&wv);
+                    }
+                }
+            }
+        }
+    }
+
+    // Position the new webview
+    let is_blank = url.trim().is_empty() || url.trim().eq_ignore_ascii_case("about:blank");
+    if is_blank {
+        native_delegate::hide_webview(wkwebview);
+    } else {
+        native_delegate::set_webview_frame(
+            wkwebview,
+            content_x,
+            content_y,
+            content_width,
+            content_height,
+        );
+    }
+
+    // Create tab record
+    let ptr = (wkwebview as *const WKWebView) as usize;
+    let tab = Tab {
+        id: tab_id.clone(),
+        webview_label: webview_label.clone(),
+        url: url.clone(),
+        title: initial_title,
+        loading: !is_blank,
+        opener_webview_label: None,
+        wkwebview_ptr: Some(ptr),
+    };
+
+    {
+        let mut m = manager.lock().unwrap();
+        m.tabs.insert(tab_id.clone(), tab);
+        m.tab_order.push(tab_id.clone());
+        m.active_tab_id = Some(tab_id.clone());
+    }
+
+    emit_tabs_updated(app, &manager);
+    debug_log(&format!(
+        "register_native_webview: tab={}, url={}",
+        tab_id, url
+    ));
+    tab_id
+}
+
+/// Convert a raw pointer back to a WKWebView reference.
+#[cfg(target_os = "macos")]
+fn ptr_to_wkwebview(ptr: usize) -> Option<&'static objc2_web_kit::WKWebView> {
+    if ptr == 0 {
+        return None;
+    }
+    // SAFETY: The pointer was obtained from a live WKWebView that is kept
+    // alive by the delegate registry. This is only called on the main thread.
+    Some(unsafe { &*(ptr as *const objc2_web_kit::WKWebView) })
+}
+
 /// `BrowserPanel` renders a start page (Chrome-style new tab page) instead
 /// of an `about:blank` webview, so we deliberately do NOT auto-create a tab.
 ///
@@ -793,6 +931,15 @@ pub fn close_active_tab_in_focused_preview(app: &AppHandle) -> Result<(), String
 #[tauri::command]
 pub async fn show_browser_panel(app: AppHandle) -> Result<(), String> {
     BROWSER_PANEL_VISIBLE.store(true, Ordering::SeqCst);
+
+    // ── Set up native delegate callbacks (once) ──
+    // These wire up the custom WKUIDelegate's createWebViewWithConfiguration
+    // to TabManager, enabling browser-grade window.open with native
+    // window.opener and postMessage.
+    #[cfg(target_os = "macos")]
+    {
+        setup_native_callbacks(&app);
+    }
 
     // Ensure a TabManager exists for the main window. If one already exists
     // (panel was previously shown and hidden), reuse it — its tabs are
@@ -807,7 +954,6 @@ pub async fn show_browser_panel(app: AppHandle) -> Result<(), String> {
                     tabs: HashMap::new(),
                     tab_order: Vec::new(),
                     active_tab_id: None,
-                    last_new_tab: None,
                 })),
             );
         }
@@ -1286,7 +1432,6 @@ fn add_tab_internal(
     let app_for_nav = app.clone();
     let manager_for_nav = manager.clone();
     let window_label_for_new_window = window_label.to_string();
-    let window_label_for_nav = window_label.to_string();
     let webview_label_for_nav = webview_label.clone();
 
     let mut webview_builder = WebviewBuilder::new(
@@ -1338,150 +1483,57 @@ fn add_tab_internal(
             changed
         });
     })
-    // window.open() / target="_blank" -> open as new tab instead of popup.
+    // window.open(url) / target="_blank" / <form target="_blank"> all
+    // trigger WKWebView's createWebViewWithConfiguration delegate, which
+    // Tauri maps to this on_new_window handler. This is the SAME native
+    // mechanism Chrome uses to open new tabs - no JS interception needed.
     //
-    // This is called as a FALLBACK when the JS intercept's primary iframe
-    // mechanism (on_navigation) fails on certain sites (e.g. zhihu.com
-    // where the iframe navigation to newtab.invalid is silently dropped).
-    // The JS saves the original window.open and calls it in openAsTab after
-    // creating the iframe, so both handlers may fire. Rust-side deduplication
-    // (last_new_tab in TabManager) ensures only one tab is created.
+    // We return Deny (no popup window) and asynchronously create a new
+    // tab via add_tab_internal. The 50ms sleep avoids creating a WKWebView
+    // reentrantly inside the delegate callback.
     .on_new_window(move |new_url, _features| {
         let url = new_url.as_str().to_string();
         debug_log(&format!("on_new_window FIRED: url={}", url));
-        // Check deduplication AND get opener label in one lock.
-        let (opener_label, should_create) = {
-            let mut m = manager_for_new_window.lock().unwrap();
-            let opener = m.active_tab_id
+        // Use the active tab's webview as the opener (preserves opener
+        // relationship for OPENER_PROXY_JS / postMessage).
+        let opener_label = {
+            let m = manager_for_new_window.lock().unwrap();
+            m.active_tab_id
                 .as_ref()
                 .and_then(|id| m.tabs.get(id))
-                .map(|t| t.webview_label.clone());
-            let dup = match &m.last_new_tab {
-                Some((last_url, last_time))
-                    if last_url == &url && last_time.elapsed().as_secs() < 2 =>
-                {
-                    true
-                }
-                _ => false,
-            };
-            if !dup {
-                m.last_new_tab = Some((url.clone(), std::time::Instant::now()));
-            }
-            (opener, !dup)
+                .map(|t| t.webview_label.clone())
         };
-        debug_log(&format!(
-            "on_new_window: opener_label={:?}, should_create={}",
-            opener_label, should_create
-        ));
-        if should_create {
-            let app = app_for_new_window.clone();
-            let manager = manager_for_new_window.clone();
-            let window_label = window_label_for_new_window.clone();
-            let app_handle = app.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(50));
-                debug_log("on_new_window: thread woke, calling run_on_main_thread");
-                if let Err(e) = app_handle.run_on_main_thread(move || {
-                    debug_log("on_new_window: running add_tab_internal on main thread");
-                    if let Err(e) = add_tab_internal(&app, &manager, &window_label, url, opener_label) {
-                        debug_log(&format!("on_new_window: add_tab_internal FAILED: {}", e));
-                        eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
-                    } else {
-                        debug_log("on_new_window: add_tab_internal OK");
-                    }
-                }) {
-                    debug_log(&format!("on_new_window: run_on_main_thread FAILED: {}", e));
-                    eprintln!("[browser] on_new_window: run_on_main_thread failed: {e}");
+        debug_log(&format!("on_new_window: opener_label={:?}", opener_label));
+        let app = app_for_new_window.clone();
+        let manager = manager_for_new_window.clone();
+        let window_label = window_label_for_new_window.clone();
+        let app_handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            debug_log("on_new_window: thread woke, calling run_on_main_thread");
+            if let Err(e) = app_handle.run_on_main_thread(move || {
+                debug_log("on_new_window: running add_tab_internal on main thread");
+                if let Err(e) = add_tab_internal(&app, &manager, &window_label, url, opener_label) {
+                    debug_log(&format!("on_new_window: add_tab_internal FAILED: {}", e));
+                    eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
+                } else {
+                    debug_log("on_new_window: add_tab_internal OK");
                 }
-            });
-        } else {
-            debug_log("on_new_window: skipping duplicate tab creation");
-        }
+            }) {
+                debug_log(&format!("on_new_window: run_on_main_thread FAILED: {}", e));
+                eprintln!("[browser] on_new_window: run_on_main_thread failed: {e}");
+            }
+        });
         NewWindowResponse::Deny
     })
-    // Intercept `http://newtab.invalid/?u=<encoded_url>` navigations
-    // from NEW_TAB_INTERCEPT_JS. The JS creates a hidden iframe with
-    // this URL; this handler extracts the real URL from the `u` query
-    // param, spawns a new tab, and cancels the iframe navigation.
-    // Using a real HTTP URL (with a reserved .invalid TLD) ensures
-    // WKWebView fires decidePolicyForNavigationAction, unlike custom
-    // URL schemes which may be silently dropped.
+    // on_navigation: only used to forward postMessage from opened tabs
+    // back to their opener (via postmessage.invalid iframes from
+    // OPENER_PROXY_JS). New-tab creation is handled entirely by
+    // on_new_window above (the native createWebViewWithConfiguration
+    // delegate), so we no longer intercept newtab.invalid / initlog.invalid
+    // / openlog.invalid here.
     .on_navigation(move |url| {
         let url_str = url.as_str();
-        debug_log(&format!("on_navigation: url={}", url_str));
-        if url.host_str() == Some("initlog.invalid") {
-            debug_log("on_navigation: *** INIT SCRIPT IS RUNNING ***");
-            return false;
-        }
-        if url.host_str() == Some("openlog.invalid") {
-            let u = url.query_pairs().find(|(k, _)| k == "u").map(|(_, v)| v.to_string()).unwrap_or_default();
-            let t = url.query_pairs().find(|(k, _)| k == "t").map(|(_, v)| v.to_string()).unwrap_or_default();
-            debug_log(&format!("on_navigation: *** window.open CALLED: url='{}' target='{}'", u, t));
-            return false;
-        }
-        if url.host_str() == Some("newtab.invalid") {
-            debug_log(&format!("on_navigation: newtab.invalid detected, full_url={}", url_str));
-            let real_url = url
-                .query_pairs()
-                .find(|(k, _)| k == "u")
-                .map(|(_, v)| v.to_string());
-            debug_log(&format!("on_navigation: extracted real_url={:?}", real_url));
-            if let Some(real_url) = real_url
-                && !real_url.is_empty()
-            {
-                // Get the opener label AND check deduplication in one lock
-                // to prevent double-tab creation when both the iframe
-                // (on_navigation) and native window.open (on_new_window)
-                // fire for the same link.
-                let (opener_label, should_create) = {
-                    let mut m = manager_for_nav.lock().unwrap();
-                    let opener = m.active_tab_id
-                        .as_ref()
-                        .and_then(|id| m.tabs.get(id))
-                        .map(|t| t.webview_label.clone());
-                    let dup = match &m.last_new_tab {
-                        Some((last_url, last_time))
-                            if last_url == &real_url && last_time.elapsed().as_secs() < 2 =>
-                        {
-                            true
-                        }
-                        _ => false,
-                    };
-                    if !dup {
-                        m.last_new_tab =
-                            Some((real_url.clone(), std::time::Instant::now()));
-                    }
-                    (opener, !dup)
-                };
-                debug_log(&format!(
-                    "on_navigation: opener_label={:?}, should_create={}",
-                    opener_label, should_create
-                ));
-                if should_create {
-                    let app = app_for_nav.clone();
-                    let manager = manager_for_nav.clone();
-                    let window_label = window_label_for_nav.clone();
-                    let app_handle = app.clone();
-                    std::thread::spawn(move || {
-                        debug_log("on_navigation: thread woke, calling run_on_main_thread");
-                        let _ = app_handle.run_on_main_thread(move || {
-                            debug_log("on_navigation: running add_tab_internal on main thread");
-                            if let Err(e) = add_tab_internal(&app, &manager, &window_label, real_url, opener_label) {
-                                debug_log(&format!("on_navigation: add_tab_internal FAILED: {}", e));
-                                eprintln!(
-                                    "[browser] on_navigation newtab: add_tab_internal failed: {e}"
-                                );
-                            } else {
-                                debug_log("on_navigation: add_tab_internal OK");
-                            }
-                        });
-                    });
-                } else {
-                    debug_log("on_navigation: skipping duplicate tab creation");
-                }
-            }
-            return false;
-        }
         // Forward postMessage from opened tab back to its opener
         if url.host_str() == Some("postmessage.invalid") {
             debug_log(&format!("on_navigation: postmessage.invalid detected, full_url={}", url_str));
@@ -1599,6 +1651,8 @@ fn add_tab_internal(
         title: initial_title.clone(),
         loading: url != "about:blank",
         opener_webview_label: opener_label.clone(),
+        #[cfg(target_os = "macos")]
+        wkwebview_ptr: None,
     };
 
     {
@@ -1609,6 +1663,18 @@ fn add_tab_internal(
     }
 
     emit_tabs_updated(app, manager);
+
+    // Install our custom WKUIDelegate so that `window.open()` /
+    // `target="_blank"` returns a real WKWebView (with `window.opener`
+    // set natively by WebKit) instead of nil. This replaces wry's
+    // default UIDelegate, which returned nil (NewWindowResponse::Deny).
+    #[cfg(target_os = "macos")]
+    {
+        crate::commands::native_delegate::install_browser_ui_delegate(
+            &new_webview,
+            BROWSER_UA.to_string(),
+        );
+    }
 
     Ok(tab_id)
 }

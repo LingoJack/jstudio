@@ -98,7 +98,7 @@ export default function MathBlockView({
   );
 
   return (
-    <NodeViewWrapper className="math-block-wrapper" as="div">
+    <NodeViewWrapper className="math-block-wrapper" as="div" contentEditable={false}>
       {isEditing ? (
         <div className="math-block-editor" contentEditable={false}>
           <textarea

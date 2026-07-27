@@ -41,6 +41,13 @@ export const MathBlockExtension = Node.create({
 
   draggable: false,
 
+  // Prevent GapCursor from appearing at the boundary of this atom block.
+  // Without this, pressing Backspace near the math block briefly creates a
+  // GapCursor widget (a 0x0 div) that some browsers render as a visible
+  // "hollow dot" on the left side. Since the math block always has an
+  // adjacent paragraph for the cursor, the GapCursor is unnecessary here.
+  allowGapCursor: false,
+
   addAttributes() {
     return {
       latex: {

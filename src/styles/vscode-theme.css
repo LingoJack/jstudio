@@ -1188,6 +1188,36 @@ button {
   border-radius: 4px;
 }
 
+/* GapCursor - 当光标位于 atom 块节点边界时，ProseMirror 插入的占位元素。
+   缺少样式时会显示为空心小点；以下样式确保它要么完全不可见，
+   要么显示为正常的闪烁光标线。 */
+.ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  width: 0;
+  height: 0;
+  background: transparent;
+  border: none;
+}
+.ProseMirror-gapcursor:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: 20px;
+  height: 0;
+  border-top: 1px solid var(--vscode-editorCursor-foreground, currentColor);
+  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
+}
+@keyframes ProseMirror-cursor-blink {
+  to { visibility: hidden; }
+}
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
 /* 图片节点 */
 .ProseMirror img {
   max-width: 100%;
@@ -3717,6 +3747,7 @@ button {
 
 .ProseMirror-selectednode:has(> .math-block-wrapper) {
   outline: none;
+  caret-color: transparent;
 }
 
 /* ── Display mode (not editing) ─── */
@@ -3777,6 +3808,7 @@ button {
   border-radius: 6px;
   background: var(--vscode-input-background, #1e1e1e);
   color: var(--vscode-input-foreground, #cccccc);
+  caret-color: auto;
   font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.5;

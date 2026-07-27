@@ -7,6 +7,8 @@ pub mod global_shortcut;
 pub mod jcli;
 pub mod link;
 pub mod link_tabs;
+#[cfg(target_os = "macos")]
+pub mod native_delegate;
 pub mod storage;
 pub mod terminal;
 pub mod window;
