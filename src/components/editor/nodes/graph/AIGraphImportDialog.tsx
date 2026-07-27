@@ -16,6 +16,7 @@ import { generateGraphFromAI, buildExamplePromptForClipboard } from '../../../..
 import type { AiGraphErrorCode } from '../../../../lib/editor/aiGraph';
 import { IconButton } from '../../../ui/IconButton';
 import { useI18n } from '../../../../lib/core/i18n';
+import { useDialogTransition } from '../../../ui/useDialogTransition';
 import { handleNativeSelectAll } from '../../../../lib/shortcuts/nativeSelectAll';
 import type { TranslationKey } from '../../../../lib/core/i18n';
 
@@ -32,6 +33,7 @@ export default function AIGraphImportDialog({
   onImport,
 }: AIGraphImportDialogProps) {
   const { t } = useI18n();
+  const transition = useDialogTransition(open);
 
   const [prompt, setPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export default function AIGraphImportDialog({
     }
   }, [open]);
 
-  if (!open) return null;
+  if (transition === 'closed') return null;
 
   const handleCopyPrompt = async () => {
     try {
@@ -114,11 +116,19 @@ export default function AIGraphImportDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-dialog-backdrop-in"
+      className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 ${
+        transition === 'exit'
+          ? 'animate-dialog-backdrop-out'
+          : 'animate-dialog-backdrop-in'
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-[560px] max-h-[80vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl animate-dialog-panel-in"
+        className={`w-[min(680px,92vw)] max-h-[85vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+          transition === 'exit'
+            ? 'animate-dialog-panel-out'
+            : 'animate-dialog-panel-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -171,7 +181,7 @@ export default function AIGraphImportDialog({
               if (handleNativeSelectAll(e)) return;
             }}
             placeholder={t('aiGraph.inputPlaceholder')}
-            className="w-full h-[160px] px-3 py-2.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-sm text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] resize-none focus:outline-none focus:border-[var(--vscode-focusBorder)]"
+            className="w-full h-[200px] px-3 py-2.5 rounded-md border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] text-sm text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] resize-none focus:outline-none focus:border-[var(--vscode-focusBorder)]"
             spellCheck={false}
           />
 

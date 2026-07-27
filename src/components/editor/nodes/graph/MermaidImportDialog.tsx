@@ -11,6 +11,7 @@ import { FileDown, X, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react'
 import { convertMermaidToSnapshot } from '../../../../lib/editor/mermaid';
 import { IconButton } from '../../../ui/IconButton';
 import { useI18n } from '../../../../lib/core/i18n';
+import { useDialogTransition } from '../../../ui/useDialogTransition';
 import { handleNativeSelectAll } from '../../../../lib/shortcuts/nativeSelectAll';
 
 interface MermaidImportDialogProps {
@@ -40,6 +41,7 @@ export default function MermaidImportDialog({
   onImport,
 }: MermaidImportDialogProps) {
   const { t } = useI18n();
+  const transition = useDialogTransition(open);
 
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export default function MermaidImportDialog({
     }
   }, [open]);
 
-  if (!open) return null;
+  if (transition === 'closed') return null;
 
   const handleInsertExample = () => {
     setCode(selectedExample === 'flowchart' ? EXAMPLE_FLOWCHART : EXAMPLE_SEQUENCE);
@@ -103,11 +105,19 @@ export default function MermaidImportDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-dialog-backdrop-in"
+      className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 ${
+        transition === 'exit'
+          ? 'animate-dialog-backdrop-out'
+          : 'animate-dialog-backdrop-in'
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-[560px] max-h-[80vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl animate-dialog-panel-in"
+        className={`w-[min(680px,92vw)] max-h-[85vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+          transition === 'exit'
+            ? 'animate-dialog-panel-out'
+            : 'animate-dialog-panel-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

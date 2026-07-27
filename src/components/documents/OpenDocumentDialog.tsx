@@ -10,6 +10,7 @@ import { Search, FileText, X, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { IconButton } from '../ui/IconButton';
+import { useDialogTransition } from '../ui/useDialogTransition';
 import { HighlightedText, formatDateOr } from '../../lib/commandPalette/shared';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { DocumentMeta } from '../../lib/core/storage';
@@ -26,6 +27,7 @@ export default function OpenDocumentDialog({
   const { t, language } = useI18n();
   const docList = useStore((s) => s.docList);
   const createDocument = useStore((s) => s.createDocument);
+  const transition = useDialogTransition(open);
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -127,7 +129,7 @@ export default function OpenDocumentDialog({
     }
   };
 
-  if (!open) return null;
+  if (transition === 'closed') return null;
 
   return createPortal(
     <div
@@ -135,11 +137,19 @@ export default function OpenDocumentDialog({
       onClick={onClose}
     >
       <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-[1px] animate-dialog-backdrop-in"
+        className={`absolute inset-0 bg-black/30 backdrop-blur-[1px] ${
+          transition === 'exit'
+            ? 'animate-dialog-backdrop-out'
+            : 'animate-dialog-backdrop-in'
+        }`}
       />
 
       <div
-        className="relative w-[min(480px,90vw)] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
+        className={`relative w-[min(600px,92vw)] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+          transition === 'exit'
+            ? 'animate-dialog-panel-out'
+            : 'animate-dialog-panel-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Search input ── */}
@@ -164,7 +174,7 @@ export default function OpenDocumentDialog({
         <div
           ref={listRef}
           className="overflow-y-auto py-1"
-          style={{ maxHeight: 'min(360px, 50vh)', minHeight: '48px' }}
+          style={{ maxHeight: 'min(420px, 55vh)', minHeight: '48px' }}
         >
           {results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-3">

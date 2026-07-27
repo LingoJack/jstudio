@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { RotateCcw, X, History, FileText } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
+import { useAnimatedExit } from '../ui/useDialogTransition';
 import { storage, type DocBackup } from '../../lib/core/storage';
 import { toast } from '../../lib/toast';
 import { formatFileSize } from '../../lib/editor/fileUtils';
@@ -21,6 +22,7 @@ export default function BackupRestoreDialog({
   onClose,
 }: BackupRestoreDialogProps) {
   const { t } = useI18n();
+  const { exiting, close } = useAnimatedExit(onClose);
   const [backups, setBackups] = useState<DocBackup[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<DocBackup | null>(null);
@@ -81,11 +83,11 @@ export default function BackupRestoreDialog({
   // Esc to close.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') close();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [close]);
 
   const handleRestore = async () => {
     if (!selected || restoring) return;
@@ -97,7 +99,7 @@ export default function BackupRestoreDialog({
       // content (reloadDoc bumps a nonce that editors watch).
       await useStore.getState().reloadDoc(docId);
       toast.success(t('backup.restoreSuccess', { title: docTitle }));
-      onClose();
+      close();
     } catch (e) {
       toast.error(String(e));
     } finally {
@@ -112,11 +114,19 @@ export default function BackupRestoreDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-dialog-backdrop-in"
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 ${
+        exiting
+          ? 'animate-dialog-backdrop-out'
+          : 'animate-dialog-backdrop-in'
+      }`}
+      onClick={close}
     >
       <div
-        className="flex flex-col w-[min(1200px,96vw)] h-[min(860px,92vh)] rounded-lg border bg-[var(--vscode-menu-background)] border-[var(--vscode-menu-border)] shadow-2xl overflow-hidden"
+        className={`flex flex-col w-[min(1280px,96vw)] h-[min(900px,92vh)] rounded-lg border bg-[var(--vscode-menu-background)] border-[var(--vscode-menu-border)] shadow-2xl overflow-hidden ${
+          exiting
+            ? 'animate-dialog-panel-out'
+            : 'animate-dialog-panel-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -131,7 +141,7 @@ export default function BackupRestoreDialog({
             </span>
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-1 rounded hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -209,7 +219,7 @@ export default function BackupRestoreDialog({
           </span>
           <div className="flex items-center gap-2">
             <button
-              onClick={onClose}
+              onClick={close}
               className="px-3 py-1.5 text-sm rounded border border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer"
             >
               {t('backup.close')}

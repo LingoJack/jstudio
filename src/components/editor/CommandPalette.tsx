@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useDialogTransition } from '../ui/useDialogTransition';
 import {
   Search,
   FileText,
@@ -55,6 +56,9 @@ export default function CommandPalette() {
   const overrides = useStore((s) => s.keyboardShortcuts);
   const { t, language } = useI18n();
   const lang = language as Language;
+
+  // ── 入场/退场动画 ──
+  const transition = useDialogTransition(isOpen);
 
   // ── view state (derive search scope) ──
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
@@ -321,7 +325,7 @@ export default function CommandPalette() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
   }, [isOpen, isCommandMode, items, selectedIndex, setCommandPaletteOpen, switchMode, executeItem]);
 
-  if (!isOpen) return null;
+  if (transition === 'closed') return null;
 
   // Tab label for search side
   const searchTabLabel =
@@ -346,11 +350,21 @@ export default function CommandPalette() {
       onClick={() => setCommandPaletteOpen(false)}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] animate-dialog-backdrop-in" />
+      <div
+        className={`absolute inset-0 bg-black/30 backdrop-blur-[1px] ${
+          transition === 'exit'
+            ? 'animate-dialog-backdrop-out'
+            : 'animate-dialog-backdrop-in'
+        }`}
+      />
 
       {/* Panel - VSCode 风格边框 + 实色背景 */}
       <div
-        className="relative w-[min(520px,90vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl animate-dialog-panel-in"
+        className={`relative w-[min(600px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+          transition === 'exit'
+            ? 'animate-dialog-panel-out'
+            : 'animate-dialog-panel-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Tabs ── */}
@@ -395,7 +409,7 @@ export default function CommandPalette() {
           ref={listRef}
           className="relative overflow-y-auto py-1"
           style={{
-            maxHeight: 'min(320px, 45vh)',
+            maxHeight: 'min(360px, 50vh)',
             minHeight: '48px', // 最小高度，避免空结果时面板塌陷
             scrollbarWidth: 'none',
           }}

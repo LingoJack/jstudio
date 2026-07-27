@@ -4,6 +4,7 @@ import { Trash2, RotateCcw, X, Folder, FileText, Paperclip } from 'lucide-react'
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { IconButton } from '../ui/IconButton';
+import { useDialogTransition } from '../ui/useDialogTransition';
 import { formatFileSize } from '../../lib/editor/fileUtils';
 
 interface TrashDialogProps {
@@ -13,6 +14,7 @@ interface TrashDialogProps {
 
 export default function TrashDialog({ open, onClose }: TrashDialogProps) {
   const { t } = useI18n();
+  const transition = useDialogTransition(open);
 
   const trashedDocList = useStore((s) => s.trashedDocList);
   const trashedFolders = useStore((s) => s.trashedFolders);
@@ -38,7 +40,7 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (transition === 'closed') return null;
 
   const totalCount =
     trashedDocList.length + trashedFolders.length + trashedAssets.length;
@@ -87,11 +89,19 @@ export default function TrashDialog({ open, onClose }: TrashDialogProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-dialog-backdrop-in"
+      className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 ${
+        transition === 'exit'
+          ? 'animate-dialog-backdrop-out'
+          : 'animate-dialog-backdrop-in'
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-[480px] max-h-[70vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl animate-dialog-panel-in"
+        className={`w-[min(600px,92vw)] max-h-[80vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+          transition === 'exit'
+            ? 'animate-dialog-panel-out'
+            : 'animate-dialog-panel-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
