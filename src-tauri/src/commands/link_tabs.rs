@@ -73,8 +73,18 @@ const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
         (document.body||document.documentElement).appendChild(s);
         setTimeout(function(){if(s.parentNode)s.parentNode.removeChild(s)},2000);
     }catch(e){}
+    // Save the original window.open BEFORE overriding it. We call this as a
+    // fallback in openAsTab for sites where the hidden-iframe approach fails
+    // (e.g. zhihu.com, where the iframe navigation to newtab.invalid is
+    // silently dropped by WKWebView for reasons unrelated to CSP). The native
+    // window.open triggers WKWebView's createWebViewWithConfiguration delegate
+    // (Tauri's on_new_window handler), which creates a new tab and denies the
+    // popup. Rust-side deduplication (last_new_tab) prevents double tabs when
+    // both the iframe and the native window.open succeed.
+    var __originalOpen=window.open;
     function openAsTab(url){
         if(!url||url==='about:blank'||url==='')return;
+        // Primary: hidden iframe -> on_navigation handler (preserves opener)
         try{
             var f=document.createElement('iframe');
             f.style.cssText='display:none!important;width:0;height:0;border:0';
@@ -82,6 +92,11 @@ const NEW_TAB_INTERCEPT_JS: &str = r#"(function(){
             (document.body||document.documentElement).appendChild(f);
             setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},2000);
         }catch(e){}
+        // Fallback: native window.open -> on_new_window handler.
+        // This catches cases where the iframe navigation doesn't fire
+        // on_navigation (zhihu.com, some other sites). The Rust handler
+        // deduplicates so only one tab is created.
+        try{__originalOpen(url)}catch(e){}
     }
     function makeProxyWindow(){
         var loc={};
@@ -234,12 +249,17 @@ struct TabManager {
     window_label: String,
     /// Tabs by their ID.
     tabs: HashMap<String, Tab>,
-    /// Tab IDs in insertion order — used for stable tab-strip ordering and
+    /// Tab IDs in insertion order - used for stable tab-strip ordering and
     /// for picking the adjacent tab when the active one closes. HashMap
     /// iteration is random, so we keep this vec authoritative for order.
     tab_order: Vec<String>,
     /// Currently active tab ID.
     active_tab_id: Option<String>,
+    /// Deduplication: (url, timestamp) of the most recent new-tab request.
+    /// Both `on_navigation` (iframe path) and `on_new_window` (native
+    /// window.open path) check this to avoid creating a duplicate tab when
+    /// both mechanisms fire for the same link click.
+    last_new_tab: Option<(String, std::time::Instant)>,
 }
 
 /// Internal tab representation.
@@ -365,6 +385,7 @@ pub async fn open_link_preview_with_tabs(app: AppHandle, url: String) -> Result<
         tabs: HashMap::new(),
         tab_order: Vec::new(),
         active_tab_id: None,
+        last_new_tab: None,
     }));
 
     // Register manager
@@ -786,6 +807,7 @@ pub async fn show_browser_panel(app: AppHandle) -> Result<(), String> {
                     tabs: HashMap::new(),
                     tab_order: Vec::new(),
                     active_tab_id: None,
+                    last_new_tab: None,
                 })),
             );
         }
@@ -1317,32 +1339,64 @@ fn add_tab_internal(
         });
     })
     // window.open() / target="_blank" -> open as new tab instead of popup.
-    // This is a fallback; the primary interception is done in JavaScript
-    // (see NEW_TAB_INTERCEPT_JS + on_navigation below) because WKWebView's
-    // createWebViewWithConfiguration delegate has reentrancy issues.
+    //
+    // This is called as a FALLBACK when the JS intercept's primary iframe
+    // mechanism (on_navigation) fails on certain sites (e.g. zhihu.com
+    // where the iframe navigation to newtab.invalid is silently dropped).
+    // The JS saves the original window.open and calls it in openAsTab after
+    // creating the iframe, so both handlers may fire. Rust-side deduplication
+    // (last_new_tab in TabManager) ensures only one tab is created.
     .on_new_window(move |new_url, _features| {
         let url = new_url.as_str().to_string();
         debug_log(&format!("on_new_window FIRED: url={}", url));
-        let app = app_for_new_window.clone();
-        let manager = manager_for_new_window.clone();
-        let window_label = window_label_for_new_window.clone();
-        let app_handle = app.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            debug_log("on_new_window: thread woke, calling run_on_main_thread");
-            if let Err(e) = app_handle.run_on_main_thread(move || {
-                debug_log("on_new_window: running add_tab_internal on main thread");
-                if let Err(e) = add_tab_internal(&app, &manager, &window_label, url, None) {
-                    debug_log(&format!("on_new_window: add_tab_internal FAILED: {}", e));
-                    eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
-                } else {
-                    debug_log("on_new_window: add_tab_internal OK");
+        // Check deduplication AND get opener label in one lock.
+        let (opener_label, should_create) = {
+            let mut m = manager_for_new_window.lock().unwrap();
+            let opener = m.active_tab_id
+                .as_ref()
+                .and_then(|id| m.tabs.get(id))
+                .map(|t| t.webview_label.clone());
+            let dup = match &m.last_new_tab {
+                Some((last_url, last_time))
+                    if last_url == &url && last_time.elapsed().as_secs() < 2 =>
+                {
+                    true
                 }
-            }) {
-                debug_log(&format!("on_new_window: run_on_main_thread FAILED: {}", e));
-                eprintln!("[browser] on_new_window: run_on_main_thread failed: {e}");
+                _ => false,
+            };
+            if !dup {
+                m.last_new_tab = Some((url.clone(), std::time::Instant::now()));
             }
-        });
+            (opener, !dup)
+        };
+        debug_log(&format!(
+            "on_new_window: opener_label={:?}, should_create={}",
+            opener_label, should_create
+        ));
+        if should_create {
+            let app = app_for_new_window.clone();
+            let manager = manager_for_new_window.clone();
+            let window_label = window_label_for_new_window.clone();
+            let app_handle = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                debug_log("on_new_window: thread woke, calling run_on_main_thread");
+                if let Err(e) = app_handle.run_on_main_thread(move || {
+                    debug_log("on_new_window: running add_tab_internal on main thread");
+                    if let Err(e) = add_tab_internal(&app, &manager, &window_label, url, opener_label) {
+                        debug_log(&format!("on_new_window: add_tab_internal FAILED: {}", e));
+                        eprintln!("[browser] on_new_window: add_tab_internal failed: {e}");
+                    } else {
+                        debug_log("on_new_window: add_tab_internal OK");
+                    }
+                }) {
+                    debug_log(&format!("on_new_window: run_on_main_thread FAILED: {}", e));
+                    eprintln!("[browser] on_new_window: run_on_main_thread failed: {e}");
+                }
+            });
+        } else {
+            debug_log("on_new_window: skipping duplicate tab creation");
+        }
         NewWindowResponse::Deny
     })
     // Intercept `http://newtab.invalid/?u=<encoded_url>` navigations
@@ -1375,33 +1429,56 @@ fn add_tab_internal(
             if let Some(real_url) = real_url
                 && !real_url.is_empty()
             {
-                // Get the current active tab's webview label as the opener
-                let opener_label = {
-                    let m = manager_for_nav.lock().unwrap();
-                    m.active_tab_id
+                // Get the opener label AND check deduplication in one lock
+                // to prevent double-tab creation when both the iframe
+                // (on_navigation) and native window.open (on_new_window)
+                // fire for the same link.
+                let (opener_label, should_create) = {
+                    let mut m = manager_for_nav.lock().unwrap();
+                    let opener = m.active_tab_id
                         .as_ref()
                         .and_then(|id| m.tabs.get(id))
-                        .map(|t| t.webview_label.clone())
-                };
-                debug_log(&format!("on_navigation: opener_label={:?}", opener_label));
-                let app = app_for_nav.clone();
-                let manager = manager_for_nav.clone();
-                let window_label = window_label_for_nav.clone();
-                let app_handle = app.clone();
-                std::thread::spawn(move || {
-                    debug_log("on_navigation: thread woke, calling run_on_main_thread");
-                    let _ = app_handle.run_on_main_thread(move || {
-                        debug_log("on_navigation: running add_tab_internal on main thread");
-                        if let Err(e) = add_tab_internal(&app, &manager, &window_label, real_url, opener_label) {
-                            debug_log(&format!("on_navigation: add_tab_internal FAILED: {}", e));
-                            eprintln!(
-                                "[browser] on_navigation newtab: add_tab_internal failed: {e}"
-                            );
-                        } else {
-                            debug_log("on_navigation: add_tab_internal OK");
+                        .map(|t| t.webview_label.clone());
+                    let dup = match &m.last_new_tab {
+                        Some((last_url, last_time))
+                            if last_url == &real_url && last_time.elapsed().as_secs() < 2 =>
+                        {
+                            true
                         }
+                        _ => false,
+                    };
+                    if !dup {
+                        m.last_new_tab =
+                            Some((real_url.clone(), std::time::Instant::now()));
+                    }
+                    (opener, !dup)
+                };
+                debug_log(&format!(
+                    "on_navigation: opener_label={:?}, should_create={}",
+                    opener_label, should_create
+                ));
+                if should_create {
+                    let app = app_for_nav.clone();
+                    let manager = manager_for_nav.clone();
+                    let window_label = window_label_for_nav.clone();
+                    let app_handle = app.clone();
+                    std::thread::spawn(move || {
+                        debug_log("on_navigation: thread woke, calling run_on_main_thread");
+                        let _ = app_handle.run_on_main_thread(move || {
+                            debug_log("on_navigation: running add_tab_internal on main thread");
+                            if let Err(e) = add_tab_internal(&app, &manager, &window_label, real_url, opener_label) {
+                                debug_log(&format!("on_navigation: add_tab_internal FAILED: {}", e));
+                                eprintln!(
+                                    "[browser] on_navigation newtab: add_tab_internal failed: {e}"
+                                );
+                            } else {
+                                debug_log("on_navigation: add_tab_internal OK");
+                            }
+                        });
                     });
-                });
+                } else {
+                    debug_log("on_navigation: skipping duplicate tab creation");
+                }
             }
             return false;
         }
