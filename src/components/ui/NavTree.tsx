@@ -9,26 +9,29 @@ import { ChevronRight } from 'lucide-react';
 // - `DocumentSidebar.tsx` — folder/document tree (primary + secondary)
 // - `SectionOutline.tsx` — heading outline (primary + secondary)
 //
-// All three consumers share the exact same visual spec via NavRow /
-// NavBranch, so there is a single place to update styles.
+// NavRow supports two visual modes:
+//  - classic (default): hover bg + indicator bar
+//  - clean (`noHover` + `plain` NavBranch): flat, rounded, no guides
 // ──────────────────────────────────────────────────────────────────
 
 interface NavBranchProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Remove the vertical guide-line border for a cleaner, flatter look. */
+  plain?: boolean;
   children: React.ReactNode;
 }
 
 /**
- * Vertical branch container — thin gray guide line.
+ * Vertical branch container.
  *
- * Exact copy of Settings.tsx:
- *   className="border-l border-[var(--vscode-widget-border)] space-y-0.5"
+ * Default: thin gray guide line (`border-l`).
+ * `plain`: no border – hierarchy is conveyed purely by indentation.
  */
-export function NavBranch({ children, className = '', style, ...rest }: NavBranchProps) {
+export function NavBranch({ children, className = '', style, plain = false, ...rest }: NavBranchProps) {
   return (
     <div
       {...rest}
       style={style}
-      className={`border-l border-[var(--vscode-widget-border)] space-y-0.5 ${className}`}
+      className={`${plain ? '' : 'border-l border-[var(--vscode-widget-border)]'} space-y-0.5 ${className}`}
     >
       {children}
     </div>
@@ -47,20 +50,22 @@ interface NavRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'classN
   icon?: React.ReactNode;
   expandable?: boolean;
   expanded?: boolean;
+  /** Disable the default hover background – uses a subtle text-color
+   *  brightening instead, giving a cleaner / flatter list look. */
+  noHover?: boolean;
   className?: string;
   children: React.ReactNode;
 }
 
 /**
- * Navigation row — exact visual clone of Settings.tsx hand-written styles.
+ * Navigation row used across the app.
  *
- * Primary level (copied from Settings main row):
- *   "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm
- *    transition-colors duration-150 cursor-pointer"
- *
- * Secondary level (copied from Settings sub-item):
- *   "w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-[13px]
- *    transition-colors duration-150 cursor-pointer border-l-2"
+ * Two visual modes controlled by `noHover`:
+ *  - Classic (default, Settings / SectionOutline): hover background,
+ *    left-border indicator on secondary, active-indicator bar.
+ *  - Clean (`noHover`, DocumentSidebar): no hover background (subtle
+ *    text brightening), rounded backgrounds on both levels, no
+ *    indicator bar - a flatter, unified look.
  */
 export function NavRow({
   level = 'primary',
@@ -71,12 +76,16 @@ export function NavRow({
   icon,
   expandable = false,
   expanded = false,
+  noHover = false,
   className = '',
   children,
   ...rest
 }: NavRowProps) {
   const isPrimary = level === 'primary';
-  const showIndicator = active || highlighted;
+  // The indicator bar is only shown in the "classic" mode (Settings /
+  // SectionOutline).  In the clean `noHover` mode used by DocumentSidebar
+  // the background highlight alone signals the active row.
+  const showIndicator = !noHover && (active || highlighted);
 
   // ── Base layout ───────────────────────────────────────────
   // `relative` is needed for the active-indicator bar (absolute positioned).
@@ -84,8 +93,12 @@ export function NavRow({
   const primaryBase =
     'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer rounded-md relative';
 
-  const secondaryBase =
-    'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-sm transition-colors duration-150 cursor-pointer border-l-2 relative';
+  // In `noHover` (clean) mode the secondary row drops the left-border
+  // indicator in favour of the same rounded background used by primary
+  // rows, giving a unified look.
+  const secondaryBase = noHover
+    ? 'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 text-sm transition-colors duration-150 cursor-pointer rounded-md relative'
+    : 'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-sm transition-colors duration-150 cursor-pointer border-l-2 relative';
 
   // Primary active/inactive
   let primaryState: string;
@@ -98,7 +111,9 @@ export function NavRow({
   } else if (selected) {
     primaryState = 'bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
-    primaryState = 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+    primaryState = noHover
+      ? 'text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)]'
+      : 'text-[var(--vscode-sideBar-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]';
   }
 
   // Secondary active/inactive
@@ -113,8 +128,9 @@ export function NavRow({
     secondaryState =
       'border-transparent bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]';
   } else {
-    secondaryState =
-      'border-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]';
+    secondaryState = noHover
+      ? 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]'
+      : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]';
   }
 
   const cls = isPrimary

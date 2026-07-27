@@ -694,6 +694,7 @@ export default function DocumentSidebar() {
         level="secondary"
         active={isActive}
         selected={isSelected}
+        noHover
         icon={<FileText className="w-4 h-4 opacity-50 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => handleDocClick(e, doc.id)}
@@ -732,9 +733,8 @@ export default function DocumentSidebar() {
   /**
    * Recursively render a folder node and its children.
    *
-   * The folder row itself is a NavLeaf (can show drop highlight line).
-   * Its children are wrapped in a NavBranch (gray guide line) so the
-   * green active lines of all descendants are perfectly continuous.
+   * The folder row itself is a NavRow (can show drop highlight).
+   * Its children are wrapped in a plain NavBranch (indentation only).
    */
   const renderNode = (node: FolderTreeNode, depth: number): React.ReactNode => {
     if (!node.folder) return null;
@@ -748,7 +748,7 @@ export default function DocumentSidebar() {
       <div
         key={f.id}
         data-drop-target={f.id}
-        className={`${
+        className={`rounded-md transition-colors duration-150 ${
           isDropTarget || isFlashing
             ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
             : ''
@@ -759,6 +759,7 @@ export default function DocumentSidebar() {
           level="primary"
           highlighted={false}
           selected={selectedIds.has(f.id)}
+          noHover
           onClick={(e) => {
             if (e.metaKey || e.ctrlKey) {
               // Toggle selection
@@ -822,9 +823,9 @@ export default function DocumentSidebar() {
           )}
         </NavRow>
 
-        {/* Children wrapped in NavBranch for continuous guide line */}
+        {/* Children – indentation only, no guide line */}
         {open && (
-          <NavBranch className="mt-0.5 mb-1 ml-[18px]">
+          <NavBranch plain className="mt-0.5 mb-1 ml-[18px]">
             {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
             {node.documents.map((doc) => renderDoc(doc))}
           </NavBranch>
@@ -849,6 +850,7 @@ export default function DocumentSidebar() {
         plainActive
         active={doc.id === activeDocId}
         selected={selectedIds.has(doc.id)}
+        noHover
         icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => handleDocClick(e, doc.id)}
@@ -1032,7 +1034,7 @@ export default function DocumentSidebar() {
       {/* Documents + folders list (root drop zone) */}
       <div
         data-drop-target={ROOT_DROP_ID}
-        className={`flex-1 overflow-y-auto px-3 space-y-0.5 transition-colors duration-150 ${
+        className={`flex-1 overflow-y-auto rounded-md px-3 space-y-0.5 transition-colors duration-150 ${
           isRootDropTarget ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)]' : ''
         }`}
       >
@@ -1053,6 +1055,7 @@ export default function DocumentSidebar() {
                   plainActive
                   active={doc.id === activeDocId}
                   selected={selectedIds.has(doc.id)}
+                  noHover
                   icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
                   onPointerDown={(e) => onDocPointerDown(e, doc.id)}
                   onClick={(e) => handleDocClick(e, doc.id)}
