@@ -3642,12 +3642,12 @@ button {
 }
 
 /* ============================================
-   Command Palette Animations - Duang Duang!
-   弹性过冲动画，类似 iOS/Telegram 的手感。
+   Dialog / Popup 入场动画（全站统一）
+   所有弹窗组件在 mount 时自动播放，无需 JS 状态。
    ============================================ */
 
 /* ── 背景遮罩渐入 ── */
-@keyframes palette-backdrop-in {
+@keyframes dialog-backdrop-in {
   from {
     opacity: 0;
   }
@@ -3656,51 +3656,25 @@ button {
   }
 }
 
-.animate-palette-backdrop-in {
-  animation: palette-backdrop-in 200ms ease-out both;
+.animate-dialog-backdrop-in {
+  animation: dialog-backdrop-in 150ms ease-out both;
 }
 
-/* ── 面板弹性入场 ──
-   使用弹性曲线，scale 从 0.92 过冲到 1.03 再回弹到 1，
-   产生"duang"的弹性手感。 */
-@keyframes palette-panel-in {
-  0% {
+/* ── 面板入场 ──
+   opacity 淡入 + 轻微上滑，平滑 ease-out，无 scale 无过冲。 */
+@keyframes dialog-panel-in {
+  from {
     opacity: 0;
-    transform: translateY(-12px) scale(0.92);
+    transform: translateY(-8px);
   }
-  55% {
+  to {
     opacity: 1;
-    transform: translateY(2px) scale(1.03);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
-.animate-palette-panel-in {
-  animation: palette-panel-in 320ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-}
-
-/* ── 列表项弹性交错渐入 ──
-   每行从左侧弹入，带有轻微过冲效果。 */
-@keyframes palette-row-in {
-  0% {
-    opacity: 0;
-    transform: translateX(-8px) scale(0.95);
-  }
-  60% {
-    opacity: 1;
-    transform: translateX(1px) scale(1.02);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-}
-
-.animate-palette-row-in {
-  animation: palette-row-in 180ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+.animate-dialog-panel-in {
+  animation: dialog-panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* ============================================

@@ -135,7 +135,7 @@ export default function OpenDocumentDialog({
       onClick={onClose}
     >
       <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-black/30 backdrop-blur-[1px] animate-dialog-backdrop-in"
       />
 
       <div

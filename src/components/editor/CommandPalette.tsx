@@ -53,13 +53,8 @@ export default function CommandPalette() {
   const isOpen = useStore((s) => s.isCommandPaletteOpen);
   const setCommandPaletteOpen = useStore((s) => s.setCommandPaletteOpen);
   const overrides = useStore((s) => s.keyboardShortcuts);
-  const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
   const { t, language } = useI18n();
   const lang = language as Language;
-
-  // ── 动画控制：只在首次打开时触发入场动画 ──
-  const [isAnimatingIn, setIsAnimatingIn] = useState(false);
-  const prevIsOpen = useRef(isOpen);
 
   // ── view state (derive search scope) ──
   const isSettingsOpen = useStore((s) => s.isSettingsOpen);
@@ -78,21 +73,6 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [canScrollDown, setCanScrollDown] = useState(false);
-
-  // ── 入场动画控制 ──
-  useEffect(() => {
-    if (isOpen && !prevIsOpen.current) {
-      // 从关闭到打开：触发入场动画
-      setIsAnimatingIn(true);
-      // 动画结束后清除状态（面板 320ms + 最大延迟 160ms + 行动画 180ms ≈ 500ms）
-      const timer = setTimeout(() => setIsAnimatingIn(false), 520);
-      return () => clearTimeout(timer);
-    } else if (!isOpen && prevIsOpen.current) {
-      // 从打开到关闭：立即清除动画状态
-      setIsAnimatingIn(false);
-    }
-    prevIsOpen.current = isOpen;
-  }, [isOpen]);
 
   // ── derived mode ──
   const trimmedQuery = query.trimStart();
@@ -365,24 +345,12 @@ export default function CommandPalette() {
       className="fixed inset-0 z-[9999] flex justify-center items-start pt-[12vh]"
       onClick={() => setCommandPaletteOpen(false)}
     >
-      {/* Backdrop - 渐入动画 */}
-      <div
-        className={`absolute inset-0 bg-black/25 backdrop-blur-[1px] dark:bg-black/30 ${
-          isAnimatingIn ? 'animate-palette-backdrop-in' : ''
-        }`}
-      />
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] animate-dialog-backdrop-in" />
 
-      {/* Panel - VSCode 风格边框 + 液态玻璃背景 */}
+      {/* Panel - VSCode 风格边框 + 实色背景 */}
       <div
-        className={`relative w-[min(520px,90vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] ${
-          isAnimatingIn ? 'animate-palette-panel-in' : ''
-        }`}
-        style={{
-          background: `rgba(255,255,255,${tabBarGlassOpacity})`,
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12)',
-        }}
+        className="relative w-[min(520px,90vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl animate-dialog-panel-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Tabs ── */}
@@ -456,7 +424,6 @@ export default function CommandPalette() {
                 overrides={overrides}
                 onClick={() => executeItem(item)}
                 onMouseEnter={() => setSelectedIndex(index)}
-                isAnimatingIn={isAnimatingIn}
               />
             ))
           )}
@@ -515,7 +482,6 @@ function PaletteRow({
   overrides,
   onClick,
   onMouseEnter,
-  isAnimatingIn,
 }: {
   item: PaletteItem;
   index: number;
@@ -525,15 +491,8 @@ function PaletteRow({
   overrides: Record<string, string>;
   onClick: () => void;
   onMouseEnter: () => void;
-  isAnimatingIn: boolean;
 }) {
-  // 交错渐入动画：每行延迟 20ms，最多延迟 160ms（前 8 行）
-  const staggerDelay = isAnimatingIn ? Math.min(index * 20, 160) : 0;
-  const shouldAnimate = isAnimatingIn && index < 12;
-
   const baseClass = `flex items-center gap-2 px-3 py-1.5 cursor-pointer text-[13px] ${
-    shouldAnimate ? 'animate-palette-row-in' : ''
-  } ${
     isSelected
       ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
       : 'text-[var(--vscode-foreground)]'
@@ -552,7 +511,6 @@ function PaletteRow({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         className={baseClass}
-        style={shouldAnimate ? { animationDelay: `${staggerDelay}ms` } : undefined}
       >
         <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-80' : 'opacity-45'}`} />
         <span className={`shrink-0 text-[11px] ${descClass}`}>{category}</span>
@@ -587,7 +545,6 @@ function PaletteRow({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         className={baseClass}
-        style={shouldAnimate ? { animationDelay: `${staggerDelay}ms` } : undefined}
       >
         <FileText className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-75' : 'opacity-40'}`} />
         <span className="flex-1 truncate">
@@ -614,7 +571,6 @@ function PaletteRow({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         className={baseClass}
-        style={shouldAnimate ? { animationDelay: `${staggerDelay}ms` } : undefined}
       >
         <TerminalSquare className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-75' : 'opacity-40'}`} />
         <span className="flex-1 truncate">
@@ -638,7 +594,6 @@ function PaletteRow({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       className={baseClass}
-      style={shouldAnimate ? { animationDelay: `${staggerDelay}ms` } : undefined}
     >
       <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'opacity-75' : 'opacity-40'}`} />
       <span className="flex-1 truncate">

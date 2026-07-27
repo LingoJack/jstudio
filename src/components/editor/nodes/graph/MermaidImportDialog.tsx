@@ -103,11 +103,11 @@ export default function MermaidImportDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-dialog-backdrop-in"
       onClick={onClose}
     >
       <div
-        className="w-[560px] max-h-[80vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
+        className="w-[560px] max-h-[80vh] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl animate-dialog-panel-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
