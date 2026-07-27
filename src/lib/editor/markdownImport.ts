@@ -87,7 +87,7 @@ export function markdownToBlocks(md: string): Block[] {
   const editor = getHeadlessEditor();
 
   // Parse Markdown → Tiptap JSON document
-  const parsed = editor.markdown.parse(md);
+  const parsed = editor.markdown!.parse(md);
   dedupeMarks(parsed);
   editor.commands.setContent(parsed);
   const json = editor.getJSON();
