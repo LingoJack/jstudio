@@ -3,12 +3,12 @@
  * browser panel.
  *
  * Replaces the horizontal `BrowserTabs` strip. Lives in the main window's
- * React DOM as a flex sibling of the content webview area, so it never
+ * React DOM as a flex sibling of the content webview area.  When expanded
  * overlaps the native child webview — no z-order issue, no overlay
  * webview, no `set_focus` dance. The content webview's rect (reported by
- * `ResizeObserver` in `BrowserPanel`) automatically shrinks/grows as the
- * sidebar expands/collapses, and Rust repositions the native webview to
- * fill the remaining width.
+ * `BrowserPanel` which observes the sidebar element).  This keeps the
+ * BrowserStartPage (React DOM) perfectly still while the sidebar floats
+ * above it with a drop-shadow.
  *
  * Layout:
  *   ┌──────┬─────────────────────────────────┐
@@ -32,7 +32,7 @@
  * label, same as `BrowserTabs`.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Globe, Plus, RefreshCw, ExternalLink, X } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
 import { storage, type LinkPreviewTabInfo } from "../../lib/core/storage";
@@ -55,10 +55,8 @@ export interface BrowserSidebarProps {
   activeTabId: string | null;
 }
 
-export default function BrowserSidebar({
-  tabs,
-  activeTabId,
-}: BrowserSidebarProps) {
+const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
+  function BrowserSidebar({ tabs, activeTabId }, ref) {
   const { t } = useI18n();
   const leftPanelHovered = useStore((s) => s.leftPanelHovered);
   const [expanded, setExpanded] = useState(false);
@@ -161,12 +159,22 @@ export default function BrowserSidebar({
   if (tabs.length === 0) return null;
 
   const width = expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH;
+  const overlayShift = EXPANDED_WIDTH - COLLAPSED_WIDTH;
 
   return (
     <>
       <div
-        className="shrink-0 h-full flex flex-col border-r border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] overflow-hidden select-none"
-        style={{ width, transition: "width 180ms ease-out" }}
+        ref={ref}
+        className="shrink-0 h-full flex flex-col border-r border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] overflow-hidden select-none z-30 relative"
+        style={{
+          width,
+          marginRight: expanded ? -overlayShift : 0,
+          transition:
+            "width 180ms ease-out, margin-right 180ms ease-out, box-shadow 180ms ease-out",
+          boxShadow: expanded
+            ? "4px 0 12px rgba(0,0,0,0.3)"
+            : "4px 0 12px rgba(0,0,0,0)",
+        }}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
@@ -315,6 +323,9 @@ export default function BrowserSidebar({
             </MenuList>
           );
         })()}
-    </>
-  );
-}
+      </>
+    );
+  },
+);
+
+export default BrowserSidebar;

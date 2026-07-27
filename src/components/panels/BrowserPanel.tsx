@@ -72,6 +72,7 @@ import BrowserStartPage from "./BrowserStartPage";
 export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
   const browserTabs = useStore((s) => s.browserTabs);
   const browserActiveTabId = useStore((s) => s.browserActiveTabId);
   const refreshBrowserTab = useStore((s) => s.refreshBrowserTab);
@@ -134,37 +135,42 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   // event has a consumer and the tab-state sync (which already received an
   // empty `tabs` array via `link-preview:tabs-updated`) drives the UI.
 
-  // -- ResizeObserver: report webview container rect to Rust --
+  // -- ResizeObserver: report webview rect to Rust --
   // Rust positions native child webviews at this rect. The observer
   // fires when the browser panel opens/closes, the window resizes, or
   // the tab sidebar expands/collapses on hover.
   //
-  // KEY INSIGHT: we keep the webview's *width* constant (always
-  // rootWidth - COLLAPSED_WIDTH) and only let its *x* shift with the
-  // sidebar.  This means the web page content never reflows when the
-  // sidebar expands/collapses -- the webview simply translates right
-  // and its right edge is clipped by the window.  No reflow = no
-  // vertical jitter, and the sidebar CSS transition stays smooth
-  // because the ResizeObserver feeds Rust a continuously-updated x.
+  // OVERLAY MODE: The sidebar uses a negative right-margin when expanded
+  // (same technique as DocumentSidebar), so the content container never
+  // shifts.  We therefore read the sidebar's *actual rendered width* to
+  // determine the webview's x position.  The webview's WIDTH stays
+  // constant (rootWidth - COLLAPSED_WIDTH) so web content never reflows;
+  // only x shifts to follow the sidebar's right edge.
   useEffect(() => {
     if (hidden) return;
-    const container = containerRef.current;
     const root = rootRef.current;
-    if (!container || !root) return;
+    if (!root) return;
 
     const updateRect = () => {
-      const containerRect = container.getBoundingClientRect();
       const rootRect = root.getBoundingClientRect();
       // Skip zero-size rects (panel hidden during layout transitions).
-      if (containerRect.width === 0 || containerRect.height === 0) return;
+      if (rootRect.width === 0 || rootRect.height === 0) return;
+
+      // The sidebar overlays the content area (negative margin), so the
+      // container's x doesn't change.  Read the sidebar's real width to
+      // find where the webview should start.
+      const sidebarEl = sidebarRef.current;
+      const sidebarWidth = sidebarEl
+        ? sidebarEl.getBoundingClientRect().width
+        : 0;
 
       const browserRect: BrowserPanelRect = {
-        x: containerRect.x,
-        y: containerRect.y,
+        x: rootRect.x + sidebarWidth,
+        y: rootRect.y,
         // Constant width: webview always thinks it has the collapsed-
         // sidebar space.  Content never reflows; only x shifts.
         width: rootRect.width - COLLAPSED_WIDTH,
-        height: containerRect.height,
+        height: rootRect.height,
       };
       storage.updateBrowserPanelRect(browserRect).catch(console.error);
     };
@@ -173,7 +179,11 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     // for the first ResizeObserver callback.
     updateRect();
     const observer = new ResizeObserver(updateRect);
-    observer.observe(container);
+    observer.observe(root);
+    // Observe the sidebar too, so the webview repositions when the
+    // sidebar expands/collapses (its width changes but the root's does
+    // not, because the sidebar uses overlay mode).
+    if (sidebarRef.current) observer.observe(sidebarRef.current);
     return () => observer.disconnect();
   }, [hidden, browserTabs.length]);
 
@@ -205,7 +215,11 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     >
       {/* -- Vertical tab sidebar (collapses to favicons on hover-out) -- */}
       {hasTabs && (
-        <BrowserSidebar tabs={browserTabs} activeTabId={browserActiveTabId} />
+        <BrowserSidebar
+          ref={sidebarRef}
+          tabs={browserTabs}
+          activeTabId={browserActiveTabId}
+        />
       )}
 
       {/* -- Webview area (fills the remaining width) -- */}
