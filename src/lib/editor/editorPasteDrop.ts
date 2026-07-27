@@ -83,7 +83,7 @@ function cleanExternalHtml(html: string): string {
 export function createPasteHandler(
   editorRef: React.MutableRefObject<Editor | null>,
 ) {
-  return (_view: EditorView, event: ClipboardEvent): boolean => {
+  return (view: EditorView, event: ClipboardEvent): boolean => {
     const items = event.clipboardData?.items;
     if (!items) return false;
 
@@ -124,6 +124,30 @@ export function createPasteHandler(
 
       // Internal copy (from our own editor) → preserve structure.
       if (htmlText.includes('data-pm-slice')) return false;
+
+      // Inside a code block: always insert as plain text. Never parse
+      // Markdown or foreign HTML inside a code block - "# heading" must
+      // stay literal code, not become a heading node that breaks out of
+      // the block.
+      if (plainText) {
+        const { selection } = view.state;
+        let inCodeBlock = false;
+        for (let d = selection.$head.depth; d > 0; d--) {
+          if (selection.$head.node(d).type.name === 'codeBlock') {
+            inCodeBlock = true;
+            break;
+          }
+        }
+        if (inCodeBlock) {
+          event.preventDefault();
+          const { from, to } = selection;
+          const tr = view.state.tr;
+          tr.insertText(plainText, from, to);
+          tr.scrollIntoView();
+          view.dispatch(tr);
+          return true;
+        }
+      }
 
       // External text paste: if it looks like Markdown, ALWAYS parse it
       // as Markdown regardless of whether HTML is also present.  Many
