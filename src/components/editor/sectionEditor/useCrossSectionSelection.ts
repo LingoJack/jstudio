@@ -44,6 +44,14 @@ export interface CrossSelectionContext {
   getHandle: (id: string) => SectionFocusHandle | undefined;
   /** get a section's Editor by id (used for painting highlight decorations). */
   getEditor: (id: string) => Editor | undefined;
+  /**
+   * Called after a cross-section delete completes. The parent can use this
+   * to collapse empty sections: after a select-all + delete, every section's
+   * ProseMirror doc retains a single empty paragraph (the schema minimum),
+   * so N sections produce N placeholder lines. The parent should detect this
+   * and merge them into one section.
+   */
+  onAfterDelete?: () => void;
 }
 
 /** A resolved cross-section selection. */
@@ -331,6 +339,10 @@ export function useCrossSectionSelection(
           ?.setTextSelection(anchorRange.from, anchorRange.from);
       }
     }
+    // Notify the parent so it can collapse empty sections (e.g. after
+    // select-all + delete, every section retains a single empty paragraph;
+    // they should merge into one to avoid N placeholder lines).
+    ctxRef.current.onAfterDelete?.();
   }, []);
 
   // ── copy / cut / keydown (capture, document-level) ──

@@ -719,6 +719,52 @@ export default function SectionedEditorPanel({
     [],
   );
 
+  // ── Collapse empty sections after a cross-section delete ──
+  // After select-all + delete, every section's ProseMirror doc retains a
+  // single empty paragraph (the schema's minimum block count). With N
+  // sections that produces N placeholder "type something…" lines. This
+  // callback (invoked by useCrossSectionSelection right after
+  // deleteSelection) detects that state and collapses all sections into
+  // one, keeping the first section's editor (which already holds the empty
+  // paragraph and, for select-all, the caret focus).
+  const handleCrossSectionDelete = useCallback(() => {
+    const current = sectionsRef.current;
+    if (current.length <= 1) return;
+
+    // Check whether every section's editor doc is now a single empty paragraph.
+    let allEmpty = true;
+    for (const s of current) {
+      const ed = sectionEditorsRef.current.get(s.id);
+      if (!ed || ed.isDestroyed) {
+        allEmpty = false;
+        break;
+      }
+      const doc = ed.state.doc;
+      if (
+        doc.childCount !== 1 ||
+        doc.firstChild?.type.name !== 'paragraph' ||
+        doc.firstChild.content.size !== 0
+      ) {
+        allEmpty = false;
+        break;
+      }
+    }
+    if (!allEmpty) return;
+
+    // Keep the first section (its editor already has the empty paragraph).
+    // Drop all others so the user sees a single placeholder line.
+    const first = current[0];
+    const emptyBlock: Block = {
+      id: crypto.randomUUID(),
+      type: 'text',
+      content: [],
+    };
+    const next: SectionState[] = [{ ...first, blocks: [emptyBlock] }];
+    sectionsRef.current = next;
+    setSections(next);
+    useStore.getState().setActiveDocBlocks([emptyBlock], loadedDocIdRef.current ?? undefined);
+  }, []);
+
   // ── Live re-balance ──
   // When a section loses focus, check whether it has grown too large (needs
   // splitting) or shrunk too small (should merge with a neighbour). We do this
@@ -837,8 +883,9 @@ export default function SectionedEditorPanel({
       getOrder: () => sectionOrderRef.current,
       getHandle: (id) => focusHandlesRef.current.get(id),
       getEditor: (id) => sectionEditorsRef.current.get(id),
+      onAfterDelete: handleCrossSectionDelete,
     }),
-    [],
+    [handleCrossSectionDelete],
   );
   const crossSel = useCrossSectionSelection(crossCtx, editorDocId);
   crossSelectAllRef.current = crossSel.selectAll;
