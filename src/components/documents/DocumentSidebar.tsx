@@ -117,6 +117,32 @@ export default function DocumentSidebar() {
    *  starting a collapse timer when the sidebar is still being hovered. */
   const isSidebarHovered = useRef(false);
 
+  // ── Suppress collapse while a floating menu / inline rename is active ──
+  // Floating menus (context menu, folder menu, batch menus, the "more"
+  // dropdown and its submenus) are `position: fixed` overlays.  Moving the
+  // pointer onto one that extends past the sidebar's box can make the
+  // browser fire `mouseleave` on the sidebar, which would otherwise start
+  // the collapse timer and snap the sidebar shut while the user is still
+  // interacting with the menu.  We therefore hold the sidebar open until
+  // the menu closes, then re-evaluate on the next pointer move.
+  const anyFloatingMenuOpen = !!(
+    contextMenu || folderMenu || batchMenu || batchMoveMenu ||
+    (moreMenuOpen && moreMenuPos)
+  );
+  const suppressCollapse = anyFloatingMenuOpen || renamingId !== null || renamingFolderId !== null;
+  const suppressCollapseRef = useRef(false);
+  suppressCollapseRef.current = suppressCollapse;
+  const prevSuppressRef = useRef(false);
+
+  const scheduleCollapse = useCallback(() => {
+    if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
+    hoverCollapseTimer.current = setTimeout(() => {
+      if (!suppressCollapseRef.current && !isSidebarHovered.current) {
+        setHoverExpanded(false);
+      }
+    }, COLLAPSE_DELAY);
+  }, []);
+
   const handleHoverEnter = useCallback(() => {
     isSidebarHovered.current = true;
     if (sidebarPinned) return;
@@ -130,9 +156,9 @@ export default function DocumentSidebar() {
   const handleHoverLeave = useCallback(() => {
     isSidebarHovered.current = false;
     if (sidebarPinned) return;
-    if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
-    hoverCollapseTimer.current = setTimeout(() => setHoverExpanded(false), COLLAPSE_DELAY);
-  }, [sidebarPinned]);
+    if (suppressCollapseRef.current) return;
+    scheduleCollapse();
+  }, [sidebarPinned, scheduleCollapse]);
 
   // Keep the sidebar expanded while the pointer is on the adjacent
   // ActivityBar, so overshooting from the sidebar into the ActivityBar
@@ -147,10 +173,32 @@ export default function DocumentSidebar() {
       }
       setHoverExpanded(true);
     } else if (!isSidebarHovered.current) {
-      if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
-      hoverCollapseTimer.current = setTimeout(() => setHoverExpanded(false), COLLAPSE_DELAY);
+      if (suppressCollapseRef.current) return;
+      scheduleCollapse();
     }
-  }, [leftPanelHovered, sidebarPinned]);
+  }, [leftPanelHovered, sidebarPinned, scheduleCollapse]);
+
+  // When a floating menu / inline rename closes we no longer know whether
+  // the pointer is still over the sidebar (the `mouseleave` fired while the
+  // overlay was open left `isSidebarHovered` stale).  Wait for the next
+  // pointer move and decide then whether to collapse, so we never snap the
+  // sidebar shut right after the user finishes interacting with a menu.
+  useEffect(() => {
+    const wasSuppressed = prevSuppressRef.current;
+    prevSuppressRef.current = suppressCollapse;
+    if (suppressCollapse) return;
+    if (!wasSuppressed) return;          // only react to suppression *ending*
+    if (sidebarPinned) return;
+    if (isSidebarHovered.current) return;
+    const reeval = (e: MouseEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const overSidebar = !!(el && el.closest('[data-sidebar-root]'));
+      isSidebarHovered.current = overSidebar;
+      if (!overSidebar && !suppressCollapseRef.current) scheduleCollapse();
+    };
+    window.addEventListener('mousemove', reeval, { once: true });
+    return () => window.removeEventListener('mousemove', reeval);
+  }, [suppressCollapse, sidebarPinned, scheduleCollapse]);
 
   const isCollapsed = !sidebarPinned && !hoverExpanded;
   const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
@@ -907,6 +955,7 @@ export default function DocumentSidebar() {
 
   return (
     <div
+      data-sidebar-root
       className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col select-none z-30 relative overflow-hidden"
       style={{
         width: effectiveWidth,

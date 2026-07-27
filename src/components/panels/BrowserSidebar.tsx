@@ -187,7 +187,6 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
             const title = isBlank
               ? t("linkPreview.newTab")
               : tab.title || tab.url || t("linkPreview.newTab");
-            const canClose = tabs.length > 1;
 
             return (
               <div
@@ -232,18 +231,14 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
                   </span>
                 )}
 
-                {/* Close button (expanded + multi-tab only) */}
-                {expanded && canClose && (
+                {/* Close button (expanded only) */}
+                {expanded && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       closeTab(tab.id);
                     }}
-                    className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-100 hover:bg-[rgba(255,255,255,0.15)] ${
-                      isActive
-                        ? "opacity-70"
-                        : "opacity-0 group-hover:opacity-70"
-                    }`}
+                    className="shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-100 hover:bg-[rgba(255,255,255,0.15)] opacity-60 hover:opacity-100"
                     title={t("linkPreview.closeTab")}
                   >
                     <X size={12} />
@@ -252,22 +247,22 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
               </div>
             );
           })}
-        </div>
 
-        {/* ── New tab button ── */}
-        <div className="shrink-0 px-1.5 pb-2 pt-1">
-          <button
-            onClick={addNewTab}
-            className="flex items-center gap-2.5 w-full h-9 px-2 rounded-md text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)] transition-colors duration-100 cursor-pointer"
-            title={t("linkPreview.newTab")}
-          >
-            <Plus size={16} className="shrink-0" />
-            {expanded && (
-              <span className="text-[12px] font-medium">
-                {t("linkPreview.newTab")}
-              </span>
-            )}
-          </button>
+          {/* ── New tab button (follows last tab) ── */}
+          <div className="px-1.5 pb-1 pt-1">
+            <button
+              onClick={addNewTab}
+              className="flex items-center gap-2.5 w-full h-9 px-2 rounded-md text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)] transition-colors duration-100 cursor-pointer"
+              title={t("linkPreview.newTab")}
+            >
+              <Plus size={16} className="shrink-0" />
+              {expanded && (
+                <span className="text-[12px] font-medium">
+                  {t("linkPreview.newTab")}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -275,7 +270,6 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
       {contextMenu &&
         (() => {
           const tab = tabs.find((tb) => tb.id === contextMenu.tabId);
-          const canClose = tabs.length > 1;
           return (
             <MenuList
               x={contextMenu.x}
@@ -306,20 +300,18 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
                 {t("linkPreview.openBrowser")}
               </MenuItem>
 
-              {canClose && <MenuDivider />}
+              <MenuDivider />
 
-              {canClose && (
-                <MenuItem
-                  variant="danger"
-                  icon={<X className="w-4 h-4" />}
-                  onClick={() => {
-                    closeTab(contextMenu.tabId);
-                    setContextMenu(null);
-                  }}
-                >
-                  {t("linkPreview.closeTab")}
-                </MenuItem>
-              )}
+              <MenuItem
+                variant="danger"
+                icon={<X className="w-4 h-4" />}
+                onClick={() => {
+                  closeTab(contextMenu.tabId);
+                  setContextMenu(null);
+                }}
+              >
+                {t("linkPreview.closeTab")}
+              </MenuItem>
             </MenuList>
           );
         })()}
