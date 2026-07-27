@@ -12,7 +12,7 @@
  *   OUR BLOCK TYPES              →   TIPTAP NODE TYPES
  *   ─────────────────────────────────────────────────────────
  *   text                         →   paragraph
- *   heading-1/2/3                →   heading (attrs.level = 1/2/3)
+ *   heading-1/2/3/4/5/6                →   heading (attrs.level = 1/2/3/4/5/6)
  *   quote                        →   blockquote
  *   code                         →   codeBlock
  *   image                        →   image

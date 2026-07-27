@@ -109,4 +109,5 @@ allow:
 - Shell(tail -5:*)
 - Shell(head -3:*)
 - Shell(sed -i:*)
+- Shell(cat /Users/jacklingo/dev_custom/jstudio/package.json:*)
 deny: []

@@ -1000,6 +1000,24 @@ button {
   margin-top: 1em;
   margin-bottom: 0.5em;
 }
+.ProseMirror h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 0.875em;
+  margin-bottom: 0.5em;
+}
+.ProseMirror h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.75em;
+  margin-bottom: 0.5em;
+}
+.ProseMirror h6 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 0.75em;
+  margin-bottom: 0.5em;
+}
 
 /* 代码块 — 背景与文字色随主题切换 */
 .ProseMirror pre {

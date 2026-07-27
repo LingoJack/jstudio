@@ -35,6 +35,7 @@ import type { Editor } from '@tiptap/react';
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
 import { contentToString } from '../../../lib/editor/content/blockContent';
+import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import { NavBranch, NavRow } from '../../ui/NavTree';
 import type { Block } from '../../../types';
 
@@ -48,11 +49,10 @@ interface HeadingItem {
 function extractHeadingsFromBlocks(blocks: Block[]): HeadingItem[] {
   const items: HeadingItem[] = [];
   for (const b of blocks) {
-    if (b.type === 'heading-1' || b.type === 'heading-2' || b.type === 'heading-3') {
+    if (b.type.startsWith('heading-')) {
       const text = contentToString(b.content).trim();
       if (text) {
-        const level = b.type === 'heading-1' ? 1 : b.type === 'heading-2' ? 2 : 3;
-        items.push({ id: b.id, level, text });
+        items.push({ id: b.id, level: headingLevel(b.type), text });
       }
     }
   }
@@ -76,7 +76,7 @@ function extractHeadingsFromEditors(
     editor.state.doc.descendants((node) => {
       if (node.type.name === 'heading') {
         const level = node.attrs.level as number;
-        if (level >= 1 && level <= 3) {
+        if (level >= 1 && level <= 6) {
           const text = node.textContent.trim();
           const id = (node.attrs.id as string) ?? '';
           if (text && id) {

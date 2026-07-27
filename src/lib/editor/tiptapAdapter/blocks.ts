@@ -34,6 +34,12 @@ function headingLevel(type: BlockType): number {
       return 2;
     case 'heading-3':
       return 3;
+    case 'heading-4':
+      return 4;
+    case 'heading-5':
+      return 5;
+    case 'heading-6':
+      return 6;
     default:
       return 1;
   }
@@ -47,6 +53,9 @@ function ourTypeToTiptapType(type: BlockType): string {
     case 'heading-1':
     case 'heading-2':
     case 'heading-3':
+    case 'heading-4':
+    case 'heading-5':
+    case 'heading-6':
       return 'heading';
     case 'quote':
       return 'blockquote';
@@ -89,6 +98,9 @@ function tiptapTypeToOurType(nodeType: string, attrs: Record<string, unknown>): 
       if (level === 1) return 'heading-1';
       if (level === 2) return 'heading-2';
       if (level === 3) return 'heading-3';
+      if (level === 4) return 'heading-4';
+      if (level === 5) return 'heading-5';
+      if (level === 6) return 'heading-6';
       return 'heading-1';
     case 'blockquote':
       return 'quote';
@@ -153,7 +165,10 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     }
     case 'heading-1':
     case 'heading-2':
-    case 'heading-3': {
+    case 'heading-3':
+    case 'heading-4':
+    case 'heading-5':
+    case 'heading-6': {
       json.attrs = { ...json.attrs, level: headingLevel(block.type) };
       const inline = richTextToTiptapInline(block.content as RichText[]);
       if (inline.length > 0) {
@@ -343,7 +358,10 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     case 'text':
     case 'heading-1':
     case 'heading-2':
-    case 'heading-3': {
+    case 'heading-3':
+    case 'heading-4':
+    case 'heading-5':
+    case 'heading-6': {
       block.content = tiptapInlineToRichText(node.content ?? []);
       break;
     }
