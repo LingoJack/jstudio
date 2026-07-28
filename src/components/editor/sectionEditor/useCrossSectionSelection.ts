@@ -321,57 +321,58 @@ export function useCrossSectionSelection(
     anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
     setActive(true);
 
-    // DEBUG: inspect DOM for circular elements after select-all
+    // DEBUG: write DOM snapshot to a log file for diagnosis
     requestAnimationFrame(() => {
-      const editors = order.map((id) => ctxRef.current.getEditor(id)).filter(Boolean);
-      for (const ed of editors) {
-        if (!ed || ed.isDestroyed) continue;
-        const dom = ed.view.dom;
-        const all = dom.querySelectorAll('*');
-        for (const el of all) {
-          const style = getComputedStyle(el);
-          const radius = style.borderRadius;
-          const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 14);
-          const isAbsOrFixed = style.position === 'absolute' || style.position === 'fixed';
-          const hasBorder = style.borderWidth !== '0px' && style.borderStyle !== 'none';
-          const isTransparent = style.backgroundColor === 'transparent' || style.backgroundColor === 'rgba(0, 0, 0, 0)';
-          if (isCircle && (isAbsOrFixed || hasBorder)) {
+      try {
+        const lines: string[] = [];
+        const editors = order.map((id) => ctxRef.current.getEditor(id)).filter(Boolean);
+        for (const ed of editors) {
+          if (!ed || ed.isDestroyed) continue;
+          const dom = ed.view.dom;
+          const all = dom.querySelectorAll('*');
+          for (const el of all) {
+            const style = getComputedStyle(el);
+            const radius = style.borderRadius;
+            const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 10);
+            if (!isCircle) continue;
             const rect = el.getBoundingClientRect();
-            if (rect.width > 0 || rect.height > 0) {
-              console.warn('[selectAll-debug] CIRCLE:', {
-                tag: el.tagName,
-                class: el.className,
-                id: el.id,
-                radius,
-                position: style.position,
-                zIndex: style.zIndex,
-                bg: style.backgroundColor,
-                border: `${style.borderWidth} ${style.borderStyle} ${style.borderColor}`,
-                rect: { w: rect.width, h: rect.height, x: rect.x, y: rect.y },
-                parent: el.parentElement?.tagName + '.' + el.parentElement?.className,
-              });
-            }
+            if (rect.width <= 0 && rect.height <= 0) continue;
+            lines.push(`CIRCLE: <${el.tagName.toLowerCase()} class="${el.className}" id="${el.id}"> ` +
+              `pos=${style.position} z=${style.zIndex} ` +
+              `bg=${style.backgroundColor} border=${style.borderWidth} ${style.borderStyle} ${style.borderColor} ` +
+              `size=${rect.width}x${rect.height} @(${rect.x},${rect.y}) ` +
+              `parent=<${el.parentElement?.tagName.toLowerCase()} class="${el.parentElement?.className}">`);
           }
         }
-      }
-      // Also check body-level elements (portals, etc.)
-      const bodyEls = document.body.querySelectorAll('*');
-      for (const el of bodyEls) {
-        if (editors.some((ed) => ed && !ed.isDestroyed && ed.view.dom.contains(el))) continue;
-        const style = getComputedStyle(el);
-        const radius = style.borderRadius;
-        const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 14);
-        if (isCircle && style.position === 'fixed') {
+        // Also check body-level fixed elements
+        for (const el of document.body.querySelectorAll('*')) {
+          const style = getComputedStyle(el);
+          if (style.position !== 'fixed') continue;
+          const radius = style.borderRadius;
+          const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 10);
+          if (!isCircle) continue;
           const rect = el.getBoundingClientRect();
-          if (rect.width > 0 || rect.height > 0) {
-            console.warn('[selectAll-debug] BODY-CIRCLE:', {
-              tag: el.tagName,
-              class: el.className,
-              id: el.id,
-              rect: { w: rect.width, h: rect.height, x: rect.x, y: rect.y },
-            });
+          if (rect.width <= 0 && rect.height <= 0) continue;
+          lines.push(`BODY-FIXED-CIRCLE: <${el.tagName.toLowerCase()} class="${el.className}"> ` +
+            `z=${style.zIndex} size=${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
+        }
+        // Also check for gapcursor elements
+        for (const ed of editors) {
+          if (!ed || ed.isDestroyed) continue;
+          const gaps = ed.view.dom.querySelectorAll('.ProseMirror-gapcursor');
+          for (const g of gaps) {
+            const rect = g.getBoundingClientRect();
+            lines.push(`GAPCURSOR: display=${getComputedStyle(g).display} ` +
+              `size=${rect.width}x${rect.height} @(${rect.x},${rect.y}) ` +
+              `parent=<${g.parentElement?.tagName.toLowerCase()}>`);
           }
         }
+        const msg = lines.length ? lines.join('\n') : 'NO CIRCLES FOUND';
+        console.warn('[selectAll-debug]\n' + msg);
+        // Write to localStorage as a fallback log channel
+        localStorage.setItem('__selectAllDebug', msg);
+      } catch (e) {
+        console.error('[selectAll-debug] error', e);
       }
     });
   }, [clearHighlights]);
