@@ -42,6 +42,9 @@ export type GraphNodeShape =
   | 'edge-dashed' // 虚线箭头（时序图返回线）
   | 'edge-no-arrow'; // 无箭头连线（关联线）
 
+/** 文字水平对齐方式。 */
+export type LabelAlign = 'left' | 'center' | 'right';
+
 /** 一个节点。 */
 export interface GraphNode {
   /** 稳定 id（自研内核内唯一）。 */
@@ -54,6 +57,8 @@ export interface GraphNode {
   h: number;
   /** 显示文本。 */
   label?: string;
+  /** 文字水平对齐（默认 center）。 */
+  labelAlign?: LabelAlign;
   /** 可选样式覆盖（填充/描边/字色等）。留空时由内核按 shape 给默认。 */
   style?: GraphNodeStyle;
 }
@@ -74,6 +79,8 @@ export interface GraphEdge {
   source: string;
   target: string;
   label?: string;
+  /** 文字水平对齐（默认 center）。 */
+  labelAlign?: LabelAlign;
   /** 连线走线风格。默认正交（orthogonal）。 */
   routing?: 'orthogonal' | 'straight';
   /** 箭头端样式。默认 source 无、target 经典箭头。 */

@@ -46,6 +46,8 @@ import {
   type PanningHandler,
   type RubberBandHandler as RubberBandHandlerType,
   type GraphPluginConstructor,
+  styleUtils,
+  eventUtils,
 } from '@maxgraph/core';
 import '@maxgraph/core/css/common.css';
 
@@ -59,6 +61,9 @@ import {
   Grid3x3,
   FileDown,
   Sparkles,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from 'lucide-react';
 
 import { logger } from '../../../../lib/core/logger';
@@ -68,6 +73,7 @@ import {
   parseGraphSnapshot,
   serializeGraphSnapshot,
   type GraphNodeShape,
+  type LabelAlign,
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph, styleToNodeShape } from './graphModel';
 import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
@@ -153,6 +159,8 @@ export function GraphCanvas({
   }, []);
   // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
   const [showGrid, setShowGrid] = useState(false); // 默认不显示网格
+  // 选中 cell 的文字对齐方式（null 表示无选中或不支持）。
+  const [selectedLabelAlign, setSelectedLabelAlign] = useState<LabelAlign | null>(null);
   // emit 桥接 ref：toggleGrid 定义早于 scheduleEmit（const TDZ），
   // 用 ref 间接调用，避免顺序依赖。
   const emitNowRef = useRef<() => void>(() => {});
@@ -651,6 +659,18 @@ export function GraphCanvas({
       scheduleEmit();
     });
 
+    // 选中变化 -> 更新对齐按钮高亮状态。
+    graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
+      const cell = graph.getSelectionCell();
+      if (cell) {
+        const style = graph.getCurrentCellStyle(cell);
+        const a = style.align;
+        setSelectedLabelAlign(a === 'left' || a === 'right' ? a : 'center');
+      } else {
+        setSelectedLabelAlign(null);
+      }
+    });
+
     // 视口变化（缩放/平移/自适应）-> 防抖序列化回传，确保 fitCenter、zoomIn/Out
     // 等操作后的视口比例能被持久化，下次打开文档时恢复正确比例。
     // 注：初始灌入快照时 applyingRef.current===true，scheduleEmit 会直接 return，无副作用。
@@ -661,8 +681,22 @@ export function GraphCanvas({
 
     // 双击空白（未命中任何 cell）→ 自适应全图（draw.io 同款）。
     graph.addListener(InternalEvent.DOUBLE_CLICK, (_s: unknown, evt: EventObject) => {
-      const cell = evt.getProperty('cell') as Cell | undefined;
+      let cell = evt.getProperty('cell') as Cell | undefined;
       if (!cell) {
+        const nativeEvt = evt.getProperty('event') as MouseEvent | null;
+        if (nativeEvt) {
+          const pt = styleUtils.convertPoint(
+            graph.getContainer(),
+            eventUtils.getClientX(nativeEvt),
+            eventUtils.getClientY(nativeEvt),
+          );
+          cell = graph.getCellAt(pt.x, pt.y) ?? undefined;
+        }
+      }
+      if (cell && graph.isCellEditable(cell)) {
+        graph.startEditingAtCell(cell, evt.getProperty('event'));
+        evt.consume();
+      } else if (!cell) {
         const hasCells = graph.getChildVertices(graph.getDefaultParent()).length > 0;
         if (hasCells) graph.getPlugin<FitPlugin>('fit')?.fitCenter({ margin: 24 });
         evt.consume();
@@ -1225,6 +1259,16 @@ export function GraphCanvas({
     if (cells.length > 0) graph.removeCells(cells);
   }, []);
 
+  // 设置选中 cell 的文字水平对齐方式。
+  const handleSetLabelAlign = useCallback((align: LabelAlign) => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const cells = graph.getSelectionCells();
+    if (cells.length === 0) return;
+    graph.setCellStyles('align', align, cells);
+    setSelectedLabelAlign(align);
+  }, []);
+
   const handleZoomIn = useCallback(() => {
     const graph = graphRef.current;
     if (!graph || graph.view.scale >= ZOOM_MAX) return;
@@ -1366,6 +1410,35 @@ export function GraphCanvas({
           >
             <Trash2 size={16} />
           </button>
+          {selectedLabelAlign && (
+            <>
+              <div className="jgraph-tool-sep" />
+              <button
+                type="button"
+                className={`jgraph-tool-btn ${selectedLabelAlign === 'left' ? 'is-active' : ''}`}
+                title="文字左对齐"
+                onClick={() => handleSetLabelAlign('left')}
+              >
+                <AlignLeft size={16} />
+              </button>
+              <button
+                type="button"
+                className={`jgraph-tool-btn ${selectedLabelAlign === 'center' ? 'is-active' : ''}`}
+                title="文字居中对齐"
+                onClick={() => handleSetLabelAlign('center')}
+              >
+                <AlignCenter size={16} />
+              </button>
+              <button
+                type="button"
+                className={`jgraph-tool-btn ${selectedLabelAlign === 'right' ? 'is-active' : ''}`}
+                title="文字右对齐"
+                onClick={() => handleSetLabelAlign('right')}
+              >
+                <AlignRight size={16} />
+              </button>
+            </>
+          )}
           <div className="jgraph-tool-sep" />
           <button
             type="button"

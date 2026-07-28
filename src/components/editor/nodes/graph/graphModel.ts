@@ -136,13 +136,32 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
 function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
   const base = nodeShapeToStyle(node.shape, dark);
   const s = node.style;
-  if (!s) return base;
-  if (s.fill !== undefined) base.fillColor = s.fill;
-  if (s.stroke !== undefined) base.strokeColor = s.stroke;
-  if (s.fontColor !== undefined) base.fontColor = s.fontColor;
-  if (s.strokeWidth !== undefined) base.strokeWidth = s.strokeWidth;
-  if (s.dashed !== undefined) base.dashed = s.dashed;
+  if (s) {
+    if (s.fill !== undefined) base.fillColor = s.fill;
+    if (s.stroke !== undefined) base.strokeColor = s.stroke;
+    if (s.fontColor !== undefined) base.fontColor = s.fontColor;
+    if (s.strokeWidth !== undefined) base.strokeWidth = s.strokeWidth;
+    if (s.dashed !== undefined) base.dashed = s.dashed;
+  }
+  applyLabelAlign(base, node.labelAlign);
   return base;
+}
+
+/** 把节点 / 连线的 labelAlign 写入 CellStyle.align。 */
+function applyLabelAlign(style: CellStyle, labelAlign: string | undefined): void {
+  if (labelAlign === 'left' || labelAlign === 'right') {
+    style.align = labelAlign;
+  } else if (labelAlign === 'center') {
+    style.align = 'center';
+  }
+}
+
+/** 从 CellStyle.align 读回 labelAlign（仅 left/right 非默认时返回）。 */
+function readLabelAlign(style: CellStyle): 'left' | 'center' | 'right' | undefined {
+  const a = style.align;
+  if (a === 'left' || a === 'right') return a;
+  if (a === 'center') return 'center';
+  return undefined;
 }
 
 /**
@@ -169,6 +188,7 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     if (s.strokeWidth !== undefined) style.strokeWidth = s.strokeWidth;
     if (s.dashed !== undefined) style.dashed = s.dashed;
   }
+  applyLabelAlign(style, edge.labelAlign);
   return style;
 }
 
@@ -293,6 +313,8 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
     if (typeof style.strokeWidth === 'number') nStyle.strokeWidth = style.strokeWidth;
     if (typeof style.dashed === 'boolean') nStyle.dashed = style.dashed;
     if (Object.keys(nStyle).length > 0) node.style = nStyle;
+    const la = readLabelAlign(style);
+    if (la) node.labelAlign = la;
     nodes.push(node);
   }
 
@@ -316,6 +338,8 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
     if (typeof style.strokeWidth === 'number') eStyle.strokeWidth = style.strokeWidth;
     if (typeof style.dashed === 'boolean') eStyle.dashed = style.dashed;
     if (Object.keys(eStyle).length > 0) edge.style = eStyle;
+    const la = readLabelAlign(style);
+    if (la) edge.labelAlign = la;
 
     // 读回 waypoints（时序图消息的 Y 坐标信息）
     const geo = cell.getGeometry();
