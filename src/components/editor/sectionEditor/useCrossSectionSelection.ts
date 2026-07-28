@@ -321,58 +321,70 @@ export function useCrossSectionSelection(
     anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
     setActive(true);
 
-    // DEBUG: write DOM snapshot to a log file for diagnosis
+    // DEBUG: write DOM snapshot to log file for diagnosis
     requestAnimationFrame(() => {
       try {
-        const lines: string[] = [];
+        const { invoke } = require('@tauri-apps/api/core') as typeof import('@tauri-apps/api/core');
+        const lines: string[] = ['--- selectAll DOM scan ---'];
         const editors = order.map((id) => ctxRef.current.getEditor(id)).filter(Boolean);
         for (const ed of editors) {
           if (!ed || ed.isDestroyed) continue;
           const dom = ed.view.dom;
+          // Check selection state
+          const sel = ed.state.selection;
+          lines.push(`Editor ${ed.view.dom.getAttribute('data-section-id')}: ` +
+            `sel.empty=${sel.empty} sel.from=${sel.from} sel.to=${sel.to} ` +
+            `selType=${sel.constructor.name} docSize=${ed.state.doc.content.size}`);
+          // Scan all descendants for circular elements
           const all = dom.querySelectorAll('*');
           for (const el of all) {
             const style = getComputedStyle(el);
             const radius = style.borderRadius;
-            const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 10);
+            const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 8);
             if (!isCircle) continue;
             const rect = el.getBoundingClientRect();
+            const op = parseFloat(style.opacity);
             if (rect.width <= 0 && rect.height <= 0) continue;
-            lines.push(`CIRCLE: <${el.tagName.toLowerCase()} class="${el.className}" id="${el.id}"> ` +
-              `pos=${style.position} z=${style.zIndex} ` +
+            if (op === 0) continue;
+            lines.push(`  CIRCLE <${el.tagName.toLowerCase()} class="${el.className}"> ` +
+              `pos=${style.position} z=${style.zIndex} op=${op} ` +
               `bg=${style.backgroundColor} border=${style.borderWidth} ${style.borderStyle} ${style.borderColor} ` +
-              `size=${rect.width}x${rect.height} @(${rect.x},${rect.y}) ` +
-              `parent=<${el.parentElement?.tagName.toLowerCase()} class="${el.parentElement?.className}">`);
+              `r=${radius} ${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
+          }
+          // Check gapcursor
+          const gaps = dom.querySelectorAll('.ProseMirror-gapcursor');
+          for (const g of gaps) {
+            const style = getComputedStyle(g);
+            const rect = g.getBoundingClientRect();
+            lines.push(`  GAPCURSOR display=${style.display} ${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
+          }
+          // Check selectednode
+          const sels = dom.querySelectorAll('.ProseMirror-selectednode');
+          for (const s of sels) {
+            lines.push(`  SELECTEDNODE <${s.tagName.toLowerCase()} class="${s.className}">`);
           }
         }
-        // Also check body-level fixed elements
+        // Check body-level fixed/absolute circles
         for (const el of document.body.querySelectorAll('*')) {
           const style = getComputedStyle(el);
-          if (style.position !== 'fixed') continue;
+          if (style.position !== 'fixed' && style.position !== 'absolute') continue;
           const radius = style.borderRadius;
-          const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 10);
+          const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 8);
           if (!isCircle) continue;
           const rect = el.getBoundingClientRect();
+          const op = parseFloat(style.opacity);
           if (rect.width <= 0 && rect.height <= 0) continue;
-          lines.push(`BODY-FIXED-CIRCLE: <${el.tagName.toLowerCase()} class="${el.className}"> ` +
-            `z=${style.zIndex} size=${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
+          if (op === 0) continue;
+          // Skip if inside an editor
+          if (editors.some((ed) => ed && !ed.isDestroyed && ed.view.dom.contains(el))) continue;
+          lines.push(`  BODY <${el.tagName.toLowerCase()} class="${el.className}"> ` +
+            `pos=${style.position} z=${style.zIndex} op=${op} ` +
+            `${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
         }
-        // Also check for gapcursor elements
-        for (const ed of editors) {
-          if (!ed || ed.isDestroyed) continue;
-          const gaps = ed.view.dom.querySelectorAll('.ProseMirror-gapcursor');
-          for (const g of gaps) {
-            const rect = g.getBoundingClientRect();
-            lines.push(`GAPCURSOR: display=${getComputedStyle(g).display} ` +
-              `size=${rect.width}x${rect.height} @(${rect.x},${rect.y}) ` +
-              `parent=<${g.parentElement?.tagName.toLowerCase()}>`);
-          }
-        }
-        const msg = lines.length ? lines.join('\n') : 'NO CIRCLES FOUND';
-        console.warn('[selectAll-debug]\n' + msg);
-        // Write to localStorage as a fallback log channel
-        localStorage.setItem('__selectAllDebug', msg);
+        invoke('write_graph_log', { msg: lines.join('\n') }).catch(() => {});
       } catch (e) {
-        console.error('[selectAll-debug] error', e);
+        // Fallback: console
+        console.warn('[selectAll-debug] error', e);
       }
     });
   }, [clearHighlights]);
