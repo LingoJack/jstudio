@@ -394,14 +394,24 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
         // Insert a newline and explicitly place the caret AFTER it (start of
         // the new line). Use TipTap's command pipeline (not raw view.dispatch)
         // so state synchronization and the editor's own update cycle run in
-        // the correct order — raw dispatch from inside a keymap shortcut can
+        // the correct order - raw dispatch from inside a keymap shortcut can
         // leave the DOM caret out of sync with the PM selection (caret
         // visually lags one position behind). scrollIntoView keeps the new
         // line on screen.
+        //
+        // Auto-indent: copy the leading whitespace of the line being left
+        // onto the new line so nested code stays aligned without manual
+        // re-indenting (mirrors how every real code editor behaves).
         return editor.commands.command(({ tr }) => {
           const pos = $from.pos;
-          tr.insertText('\n', pos);
-          tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+          const text = $from.parent.textContent;
+          const offset = $from.parentOffset;
+          const lineStart = text.lastIndexOf('\n', offset - 1) + 1;
+          const linePrefix = text.slice(lineStart, offset);
+          const indentMatch = linePrefix.match(/^[ \t]*/);
+          const indent = indentMatch ? indentMatch[0] : '';
+          tr.insertText('\n' + indent, pos);
+          tr.setSelection(TextSelection.create(tr.doc, pos + 1 + indent.length));
           tr.scrollIntoView();
           return true;
         });

@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
-import { ListTree } from 'lucide-react';
+import { Clock, ListTree } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
 import { useI18n, type Language, type TranslationKey } from '../../../lib/core/i18n';
@@ -1252,6 +1252,16 @@ export default function DocumentPanel({
             placeholder={t('editor.titlePlaceholder')}
             className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1"
           />
+          {activeDocUpdatedAt && (
+            <div className="flex items-center gap-1.5 mt-2.5 text-xs text-[var(--vscode-descriptionForeground)]">
+              <Clock className="w-3 h-3 shrink-0 opacity-80" />
+              <span>
+                {t('editor.lastEdited', {
+                  time: formatRelativeEditedTime(activeDocUpdatedAt, t, language),
+                })}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* One independent editor per section. Only the first `visibleCount`
