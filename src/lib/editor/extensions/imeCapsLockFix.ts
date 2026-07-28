@@ -27,8 +27,10 @@
  * │ 并非用户想要的内容。                                                  │
  * │                                                                      │
  * │ Strategy: compositionend 时检测提交文本是否为"带空格的原始拼音"，若是 │
- * │ 则在 beforeinput 拦截默认插入，改用去空格后的紧凑形式（"nihao"）写入 │
- * │ 文档。该逻辑独立于 CapsLock，覆盖所有切换方式。                       │
+ * │ 则通过 appendTransaction 在 ProseMirror 处理完 composition 后检测光标 │
+ * │ 处的文本，将原始拼音（带空格）替换为紧凑形式（"nihao"）。beforeinput   │
+ * │ 作为第一道拦截，appendTransaction 作为 WebKit 上 beforeinput 不触发时  │
+ * │ 的兜底。该逻辑独立于 CapsLock，覆盖所有切换方式。                      │
  * └──────────────────────────────────────────────────────────────────────┘
  */
 
@@ -95,6 +97,12 @@ export const ImeCapsLockFix = Extension.create({
                 if (isRawPinyinCommit(ce.data)) {
                   lastPinyinRaw = ce.data;
                   pendingPinyinStrip = stripPinyinSpaces(ce.data);
+                  // Safety: clear pending state after a delay so it can't
+                  // match a much later unrelated insertion.
+                  setTimeout(() => {
+                    pendingPinyinStrip = null;
+                    lastPinyinRaw = '';
+                  }, 500);
                 }
               }
               return false;
@@ -130,12 +138,12 @@ export const ImeCapsLockFix = Extension.create({
                 view.dispatch(view.state.tr.insertText(cleaned));
                 return true;
               }
-              // Not a pinyin commit — clear the pending state so it can't
-              // accidentally match a later insert.
-              pendingPinyinStrip = null;
-              lastPinyinRaw = '';
-
-              // Only active right after a CapsLock-in-composition event.
+              // Don't clear pendingPinyinStrip here - appendTransaction
+              // acts as a fallback for when beforeinput doesn't fire or
+              // fires with insertCompositionText (WebKit quirk where
+              // ProseMirror processes composition via DOM observation,
+              // bypassing beforeinput entirely). The pending state is
+              // cleared by appendTransaction or a 500 ms timeout.
               if (capsLockAtComposeTime === 0) return false;
 
               const now = Date.now();
@@ -146,10 +154,14 @@ export const ImeCapsLockFix = Extension.create({
               let shouldSuppress = false;
 
               // Case 1: exact duplicate of the just-committed composition text.
+              // Don't suppress raw pinyin commits - appendTransaction handles
+              // the space-stripping. Suppressing here would eat the pinyin
+              // entirely (data loss).
               if (
                 lastCommittedText.length > 0 &&
                 text === lastCommittedText &&
-                sinceCapsLock < SUPPRESS_WINDOW
+                sinceCapsLock < SUPPRESS_WINDOW &&
+                !isRawPinyinCommit(text)
               ) {
                 shouldSuppress = true;
               }
@@ -190,16 +202,9 @@ export const ImeCapsLockFix = Extension.create({
             if (pendingPinyinStrip !== null && text === lastPinyinRaw) {
               pendingPinyinStrip = null;
               lastPinyinRaw = '';
-              // Returning true consumes the text input; the actual cleaned
-              // insertion was already dispatched in beforeinput (or, if we
-              // got here because beforeinput didn't fire, we let this text
-              // through un-cleaned — but that path is extremely rare on
-              // modern WebKit). The important job is clearing the pending
-              // state so it doesn't linger.
               return true;
             }
-            pendingPinyinStrip = null;
-            lastPinyinRaw = '';
+            // Don't clear pendingPinyinStrip - appendTransaction handles it.
 
             if (capsLockAtComposeTime === 0) return false;
 
@@ -210,12 +215,13 @@ export const ImeCapsLockFix = Extension.create({
             if (
               sinceCapsLock < SUPPRESS_WINDOW &&
               ((lastCommittedText.length > 0 &&
-                text === lastCommittedText) ||
+                text === lastCommittedText &&
+                !isRawPinyinCommit(text)) ||
                 (text === ' ' && sinceCommit < STRAY_SPACE_WINDOW))
             ) {
               capsLockAtComposeTime = 0;
               lastCommittedText = '';
-              return true; // consumed — don't let ProseMirror insert it
+              return true; // consumed - don't let ProseMirror insert it
             }
 
             if (sinceCapsLock >= SUPPRESS_WINDOW) {
@@ -223,6 +229,41 @@ export const ImeCapsLockFix = Extension.create({
             }
             return false;
           },
+        },
+
+        // ── Pinyin strip fallback (post-composition) ──────────────────
+        // On WebKit, ProseMirror processes composition commits through DOM
+        // observation, not through beforeinput events. The beforeinput
+        // handler above may never fire for composition commits (or may fire
+        // with insertCompositionText, which it filters out). This
+        // appendTransaction runs after ProseMirror applies ANY transaction,
+        // including the one that inserts the committed composition text.
+        // If the raw pinyin (with spaces) is found at the caret, it is
+        // replaced with the compact (space-stripped) form - matching the
+        // terminal's behavior where "ni hao" becomes "nihao".
+        appendTransaction(_transactions, _oldState, newState) {
+          if (pendingPinyinStrip === null) return null;
+
+          const { selection } = newState;
+          const head = selection.head;
+          const len = lastPinyinRaw.length;
+          if (len === 0) {
+            pendingPinyinStrip = null;
+            lastPinyinRaw = '';
+            return null;
+          }
+          const from = head - len;
+          if (from < 1) return null;
+
+          const inserted = newState.doc.textBetween(from, head, '\n');
+          if (inserted === lastPinyinRaw) {
+            const cleaned = pendingPinyinStrip;
+            pendingPinyinStrip = null;
+            lastPinyinRaw = '';
+            return newState.tr.insertText(cleaned, from, head);
+          }
+
+          return null;
         },
       }),
     ];

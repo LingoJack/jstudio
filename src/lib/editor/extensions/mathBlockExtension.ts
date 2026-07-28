@@ -14,9 +14,13 @@
  *   latex - the LaTeX source string (empty string = placeholder)
  */
 
-import { Node, type JSONContent } from '@tiptap/core';
+import { Node, InputRule, type JSONContent } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import MathBlockView from '../../../components/editor/nodes/MathBlockView';
+
+/** Custom DOM event dispatched to tell a mathBlock NodeView to enter edit mode. */
+export const MATH_BLOCK_EDIT_EVENT = 'mathblock:edit';
 
 export interface MathBlockNodeAttributes {
   id?: string | null;
@@ -123,22 +127,73 @@ export const MathBlockExtension = Node.create({
     return {
       setMathBlock:
         (attrs) =>
-        ({ commands }) => {
-          return commands.insertContent([
-            {
-              type: 'mathBlock',
-              attrs: { latex: '', ...attrs },
-            },
-            {
-              type: 'paragraph',
-            },
-          ]);
+        ({ chain }) => {
+          return chain()
+            .insertContent([
+              {
+                type: 'mathBlock',
+                attrs: { latex: '', ...attrs },
+              },
+              {
+                type: 'paragraph',
+              },
+            ])
+            .selectNodeBackward()
+            .run();
         },
     };
   },
 
   addNodeView() {
     return ReactNodeViewRenderer(MathBlockView);
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* Input rules - typing `$$ ... $$` creates a math block              */
+  /* ------------------------------------------------------------------ */
+
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\$\$([\s\S]+?)\$\$$/,
+        handler: ({ state, range, match }) => {
+          const latex = (match[1] || '').trim();
+          if (!latex) return;
+          const { tr } = state;
+          const $from = state.doc.resolve(range.from);
+          const paraStart = $from.before(1);
+          const paraEnd = $from.after(1);
+          const mathBlock = state.schema.nodes.mathBlock.create({ latex });
+          const paragraph = state.schema.nodes.paragraph.create();
+          tr.replaceWith(paraStart, paraEnd, [mathBlock, paragraph]);
+          tr.setSelection(
+            TextSelection.near(tr.doc.resolve(paraStart + mathBlock.nodeSize + 1)),
+          );
+        },
+      }),
+    ];
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* Keyboard shortcuts                                                 */
+  /* ------------------------------------------------------------------ */
+
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { selection } = editor.state;
+        if (
+          selection instanceof NodeSelection &&
+          selection.node.type.name === 'mathBlock'
+        ) {
+          editor.view.dom.dispatchEvent(
+            new CustomEvent(MATH_BLOCK_EDIT_EVENT, { bubbles: true }),
+          );
+          return true;
+        }
+        return false;
+      },
+    };
   },
 });
 
