@@ -302,6 +302,7 @@ export const translations = {
     // ── DocumentPanel ──
     "editor.titlePlaceholder": "文档标题",
     "editor.lastEdited": "上次编辑 {time}",
+    "editor.charCount": "{n} 字符",
 
     // ── Settings nav ──
     "settings.title": "设置",
@@ -1157,6 +1158,7 @@ export const translations = {
     // ── DocumentPanel ──
     "editor.titlePlaceholder": "Document title",
     "editor.lastEdited": "Last edited {time}",
+    "editor.charCount": "{n} chars",
 
     // ── Settings nav ──
     "settings.title": "Settings",

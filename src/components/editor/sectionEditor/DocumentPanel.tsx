@@ -45,6 +45,7 @@ import {
 import { registerSelectAllHandler } from '../../../lib/editor/selectAllRegistry';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { formatDate } from '../../../lib/commandPalette/shared';
+import { countBlockCharacters } from '../../../lib/documents/charCount';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
@@ -202,6 +203,13 @@ export default function DocumentPanel({
   );
   const activeDocUpdatedAt = useStore(
     (s) => s.documents.find((item) => item.id === editorDocId)?.updatedAt ?? '',
+  );
+  const activeDocBlocks = useStore(
+    (s) => s.documents.find((item) => item.id === editorDocId)?.blocks,
+  );
+  const charCount = useMemo(
+    () => countBlockCharacters(activeDocBlocks ?? []),
+    [activeDocBlocks],
   );
   const hasActiveDoc = useStore((s) =>
     s.documents.some((item) => item.id === editorDocId),
@@ -1260,6 +1268,12 @@ export default function DocumentPanel({
                   time: formatRelativeEditedTime(activeDocUpdatedAt, t, language),
                 })}
               </span>
+              {charCount > 0 && (
+                <>
+                  <span className="opacity-50">·</span>
+                  <span>{t('editor.charCount', { n: charCount.toLocaleString() })}</span>
+                </>
+              )}
             </div>
           )}
         </div>

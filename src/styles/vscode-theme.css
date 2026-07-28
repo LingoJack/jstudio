@@ -108,8 +108,9 @@
   --vscode-token-markup-italic: #800080;
   --vscode-token-markup-raw: #800000;
   --vscode-token-controlKeyword: #af00db;
+  --vscode-token-propertyName: #0451a5;
 
-  /* Additional UI Tokens */
+  /* Additional UI Tokens - Light */
   --vscode-list-activeSelectionForeground: #3b3b3b;
   --vscode-toolbar-hoverBackground: #e5e5e5;
   --vscode-toolbar-activeBackground: #e0e0e0;
@@ -234,6 +235,7 @@
   --vscode-token-markup-italic: #c586c0;
   --vscode-token-markup-raw: #ce9178;
   --vscode-token-controlKeyword: #c586c0;
+  --vscode-token-propertyName: #9cdcfe;
 
   /* Additional UI Tokens */
   --vscode-list-activeSelectionForeground: #ffffff;
@@ -566,24 +568,32 @@ pre[class*="language-"] {
 }
 
 /* ============================================
-   highlight.js / lowlight Token Colors (VS Code Dark+)
-   These rules colour the code blocks rendered by the Tiptap
-   CodeBlockLowlight extension, which emits <span class="hljs-*">.
+   highlight.js / lowlight Token Colors
+   ----------------------------------------------
+   Complete mapping of every hljs-* class produced
+   by the registered lowlight grammars to a
+   --vscode-token-* CSS variable.
+
+   Variables are defined separately for Light+ and
+   Dark+ themes (see :root / .vs-dark blocks above).
+   This section must stay in sync with the class
+   list emitted by lowlight — run the audit script
+   in lowlight.ts if classes change.
    ============================================ */
 
-/* ---- 通用 (默认前景色) ---- */
+/* ---- 默认前景色 ---- */
 .hljs {
   color: var(--vscode-editor-foreground);
 }
 
-/* ---- 注释 ---- */
+/* ---- 注释 / 引用 ---- */
 .hljs-comment,
 .hljs-quote {
   color: var(--vscode-token-comment);
   font-style: italic;
 }
 
-/* ---- 关键字 ---- */
+/* ---- 关键字 / 字面量 ---- */
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
@@ -593,9 +603,13 @@ pre[class*="language-"] {
 
 /* ---- 字符串 ---- */
 .hljs-string,
-.hljs-regexp,
 .hljs-meta .hljs-string {
   color: var(--vscode-token-string);
+}
+
+/* ---- 正则 ---- */
+.hljs-regexp {
+  color: var(--vscode-token-regexp);
 }
 
 /* ---- 数字 / 常量 ---- */
@@ -605,12 +619,19 @@ pre[class*="language-"] {
   color: var(--vscode-token-number);
 }
 
-/* ---- 变量 / 属性 ---- */
+/* ---- 变量 / 属性 / 函数参数 ---- */
 .hljs-variable,
 .hljs-template-variable,
-.hljs-attr,
 .hljs-property,
-.hljs-attribute {
+.hljs-attribute,
+.hljs-params {
+  color: var(--vscode-token-variable);
+}
+
+/* ---- 通用属性名 (hljs-attr) ----
+   JSON / INI / YAML 等用 hljs-attr 标记 key。
+   通用规则着色为 variable 色；JSON 单独覆盖见下方语言特化。 */
+.hljs-attr {
   color: var(--vscode-token-variable);
 }
 
@@ -653,9 +674,19 @@ pre[class*="language-"] {
   color: var(--vscode-token-attribute);
 }
 
-/* ---- 操作符 / 标点 ---- */
+/* ---- CSS 选择器 ---- */
+.hljs-selector-class {
+  color: var(--vscode-token-function);
+}
+
+/* ---- 操作符 ---- */
 .hljs-operator {
   color: var(--vscode-token-operator);
+}
+
+/* ---- 标点 ({ } [ ] : , 等) ---- */
+.hljs-punctuation {
+  color: var(--vscode-token-punctuation);
 }
 
 /* ---- 模板表达式 ---- */
@@ -682,12 +713,7 @@ pre[class*="language-"] {
   color: var(--vscode-token-number);
 }
 
-/* ---- 正则 ---- */
-.hljs-regexp {
-  color: var(--vscode-token-regexp);
-}
-
-/* ---- 转义字符 ---- */
+/* ---- 转义字符 / 文档标签 ---- */
 .hljs-doctag,
 .hljs-formula,
 .hljs-char.escape_ {
@@ -710,6 +736,14 @@ pre[class*="language-"] {
 
 .hljs-strong {
   font-weight: bold;
+}
+
+/* ---- 语言特化: JSON ----
+   highlight.js 将 JSON 的 key 标记为 hljs-attr。通用规则着色为
+   variable 色（浅色 #001080 过暗），此处覆盖为 propertyName 色，
+   与 VS Code Light+/Dark+ 的 JSON property name 一致。 */
+.language-json .hljs-attr {
+  color: var(--vscode-token-propertyName);
 }
 
 /* ---- 语言特化: Makefile ---- */
