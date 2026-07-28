@@ -3757,16 +3757,18 @@ button {
   align-items: center;
   justify-content: center;
   width: 100%;
+  min-height: 48px;
   padding: 16px 20px;
   border-radius: 8px;
   border: 2px solid transparent;
   cursor: pointer;
   overflow-x: auto;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .math-block-display.is-selected {
   border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground, transparent);
 }
 
 .math-block-display:hover:not(.is-selected) {
@@ -3779,9 +3781,22 @@ button {
 }
 
 .math-block-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   color: var(--vscode-descriptionForeground);
-  font-style: italic;
   font-size: 0.9em;
+}
+
+.math-block-placeholder-icon {
+  font-size: 1.4em;
+  font-style: normal;
+  opacity: 0.6;
+}
+
+.math-block-display:not(.is-selected):hover .math-block-placeholder {
+  color: var(--vscode-foreground);
 }
 
 /* ── Edit mode ─── */
