@@ -232,8 +232,7 @@ struct Tab {
     /// Raw WKWebView pointer for tabs created natively by
     /// `createWebViewWithConfiguration` (via `window.open` /
     /// `target="_blank"`). `None` for Tauri-managed webviews (created by
-    /// `add_child` in `add_tab_internal`).
-    #[cfg(target_os = "macos")]
+    /// `add_child` in `add_tab_internal`) or on non-macOS platforms.
     wkwebview_ptr: Option<usize>,
 }
 
@@ -477,6 +476,19 @@ pub async fn close_link_preview_tab(
 
     if let Some(tab) = removed {
         // Actually destroy the webview (frees memory + stops loading)
+        #[cfg(target_os = "macos")]
+        if let Some(ptr) = tab.wkwebview_ptr {
+            // Native WKWebView (created by createWebViewWithConfiguration)
+            if let Some(wv) = ptr_to_wkwebview(ptr) {
+                super::native_delegate::destroy_webview(wv, &tab_id);
+            }
+        } else {
+            // Tauri-managed webview (created by add_child)
+            if let Some(wv) = app.get_webview(&tab.webview_label) {
+                let _ = wv.close();
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
         if let Some(wv) = app.get_webview(&tab.webview_label) {
             let _ = wv.close();
         }
@@ -757,7 +769,9 @@ fn setup_native_callbacks(app: &AppHandle) {
         // ── Title / page-load / URL change callbacks ──
         // These are called by BrowserNavigationDelegate for webviews
         // created natively by createWebViewWithConfiguration.
-        let app_for_cb = app.clone();
+        let app_for_title = app.clone();
+        let app_for_loading = app.clone();
+        let app_for_url = app.clone();
         super::native_delegate::set_callbacks(
             Box::new(move |tab_id, title| {
                 debug_log(&format!(
@@ -765,7 +779,7 @@ fn setup_native_callbacks(app: &AppHandle) {
                     tab_id, title
                 ));
                 if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
-                    update_tab_field(&app_for_cb, &manager, tab_id, |tab| {
+                    update_tab_field(&app_for_title, &manager, tab_id, |tab| {
                         if tab.title != title {
                             tab.title = title;
                             true
@@ -781,7 +795,7 @@ fn setup_native_callbacks(app: &AppHandle) {
                     tab_id, loading
                 ));
                 if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
-                    update_tab_field(app, &manager, tab_id, |tab| {
+                    update_tab_field(&app_for_loading, &manager, tab_id, |tab| {
                         if tab.loading != loading {
                             tab.loading = loading;
                             true
@@ -794,7 +808,7 @@ fn setup_native_callbacks(app: &AppHandle) {
             Box::new(move |tab_id, url| {
                 debug_log(&format!("native url changed: tab={}, url={}", tab_id, url));
                 if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
-                    update_tab_field(app, &manager, tab_id, |tab| {
+                    update_tab_field(&app_for_url, &manager, tab_id, |tab| {
                         if tab.url != url {
                             tab.url = url;
                             true
@@ -810,9 +824,14 @@ fn setup_native_callbacks(app: &AppHandle) {
         // Called synchronously inside createWebViewWithConfiguration.
         // Creates a Tab from the raw WKWebView and registers it.
         let app_for_new_tab = app.clone();
-        super::native_delegate::set_new_tab_callback(Box::new(move |wkwebview, url, opener_id| {
-            register_native_webview(&app_for_new_tab, &wkwebview, url, opener_id)
-        }));
+        super::native_delegate::set_new_tab_callback(Box::new(
+            move |wkwebview_ptr, url, opener_id| {
+                // Convert raw pointer back to &WKWebView (safe: always on main thread)
+                let wkwebview: &objc2_web_kit::WKWebView =
+                    unsafe { &*(wkwebview_ptr as *const objc2_web_kit::WKWebView) };
+                register_native_webview(&app_for_new_tab, wkwebview, url, opener_id)
+            },
+        ));
     });
 }
 
@@ -1306,12 +1325,33 @@ fn layout_webviews(app: &AppHandle, manager: &Arc<Mutex<TabManager>>, window_lab
         m.active_tab_id
             .as_ref()
             .and_then(|id| m.tabs.get(id))
-            .map(|t| (t.webview_label.clone(), t.url.clone()))
+            .map(|t| (t.webview_label.clone(), t.url.clone(), t.wkwebview_ptr))
     };
 
-    if let Some((label, url)) = active {
+    if let Some((label, url, wkwebview_ptr)) = active {
+        let show_start_page = window_label == MAIN_BROWSER_LABEL && is_blank_url(&url);
+
+        // Handle native WKWebviews (created by createWebViewWithConfiguration)
+        #[cfg(target_os = "macos")]
+        if let Some(ptr) = wkwebview_ptr {
+            if let Some(wv) = ptr_to_wkwebview(ptr) {
+                if show_start_page {
+                    super::native_delegate::hide_webview(wv);
+                } else {
+                    super::native_delegate::set_webview_frame(
+                        wv,
+                        content_x,
+                        content_y,
+                        content_width,
+                        content_height,
+                    );
+                }
+                return;
+            }
+        }
+
+        // Handle Tauri-managed webviews (created by add_child)
         if let Some(wv) = app.get_webview(&label) {
-            let show_start_page = window_label == MAIN_BROWSER_LABEL && is_blank_url(&url);
             if show_start_page {
                 let _ = wv.set_position(LogicalPosition::new(-10000.0, -10000.0));
             } else {
@@ -1651,7 +1691,6 @@ fn add_tab_internal(
         title: initial_title.clone(),
         loading: url != "about:blank",
         opener_webview_label: opener_label.clone(),
-        #[cfg(target_os = "macos")]
         wkwebview_ptr: None,
     };
 

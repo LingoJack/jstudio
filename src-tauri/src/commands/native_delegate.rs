@@ -57,25 +57,20 @@ use objc2_web_kit::{
 /// Called when `createWebViewWithConfiguration` creates a new WKWebView.
 /// The callback registers the webview with `TabManager`, positions it,
 /// and emits state to the frontend. Returns the generated tab ID.
+///
+/// Takes a raw `usize` pointer (not `Retained<WKWebView>`) so the callback
+/// can be `Send + Sync` and stored in `OnceLock`. The callback converts the
+/// pointer back to `&WKWebView` on the main thread (safe because
+/// `createWebViewWithConfiguration` always runs on the main thread).
 #[cfg(target_os = "macos")]
-pub type NewTabCallback = Box<dyn Fn(Retained<WKWebView>, String, Option<String>) -> String>;
-
-// ── Thread-local storage for the new-tab callback ────────────────────────
-//
-// `Retained<WKWebView>` is `MainThreadOnly` (not `Send`), so the callback
-// can't be passed through `with_webview` (which requires `Send`). We store
-// it in a `thread_local!` and the delegate reads it from there. This is
-// safe because `createWebViewWithConfiguration` always runs on the main
-// thread.
+pub type NewTabCallback = Box<dyn Fn(usize, String, Option<String>) -> String + Send + Sync>;
 
 #[cfg(target_os = "macos")]
-thread_local! {
-    static NEW_TAB_CALLBACK: RefCell<Option<NewTabCallback>> = const { RefCell::new(None) };
-}
+static NEW_TAB_CALLBACK: OnceLock<NewTabCallback> = OnceLock::new();
 
 #[cfg(target_os = "macos")]
 pub fn set_new_tab_callback(callback: NewTabCallback) {
-    NEW_TAB_CALLBACK.with(|c| *c.borrow_mut() = Some(callback));
+    let _ = NEW_TAB_CALLBACK.set(callback);
 }
 
 // ── BrowserUIDelegate ────────────────────────────────────────────────────
@@ -117,22 +112,26 @@ define_class!(
             let mtm = objc2_foundation::MainThreadMarker::new().unwrap();
 
             // Extract the target URL from the navigation action
-            let request = navigation_action.request();
-            let url_nsstr = request.URL().unwrap().absoluteString().unwrap();
-            let url = url_nsstr.to_string();
+            let request = unsafe { navigation_action.request() };
+            let url_nsstr = request.URL().unwrap();
+            let url = url_nsstr.absoluteString().unwrap().to_string();
 
             // Create the new WKWebView with WebKit's configuration (shares
             // process pool, data store, cookies with the parent).
             let frame = NSRect::new(NSPoint::new(0.0, 9999.0), NSSize::new(800.0, 600.0));
-            let new_webview = WKWebView::initWithFrame_configuration(
-                mtm.alloc::<WKWebView>(),
-                frame,
-                configuration,
-            );
+            let new_webview = unsafe {
+                WKWebView::initWithFrame_configuration(
+                    mtm.alloc::<WKWebView>(),
+                    frame,
+                    configuration,
+                )
+            };
 
             // Set the custom user agent
             let ua = NSString::from_str(&self.ivars().user_agent);
-            new_webview.setCustomUserAgent(Some(&ua));
+            unsafe {
+                new_webview.setCustomUserAgent(Some(&ua));
+            }
 
             // Add as subview of the parent window's content view
             if let Some(window) = web_view.window() {
@@ -142,26 +141,26 @@ define_class!(
             }
 
             // Determine the opener's webview label (the parent webview).
-            // We pass the parent WKWebView's pointer as the opener identifier;
-            // the callback resolves it to a TabManager opener label.
             let opener_ptr = (web_view as *const WKWebView) as usize;
 
-            // Register with TabManager via callback (stored in thread_local)
-            let tab_id = NEW_TAB_CALLBACK.with(|c| {
-                let cb = c.borrow();
-                let cb = cb.as_ref().expect("new tab callback not set");
-                cb(
-                    new_webview.clone(),
-                    url,
-                    Some(format!("ptr:{}", opener_ptr)),
-                )
-            });
+            // Register with TabManager via callback. We pass the raw pointer
+            // (usize) instead of Retained<WKWebView> so the callback can be
+            // Send + Sync (stored in OnceLock). The callback converts the
+            // pointer back to &WKWebView on the main thread.
+            let new_wv_ptr = Retained::as_ptr(&new_webview) as usize;
+            let tab_id = NEW_TAB_CALLBACK.get().expect("new tab callback not set")(
+                new_wv_ptr,
+                url,
+                Some(format!("ptr:{}", opener_ptr)),
+            );
 
             // Set up navigation delegate + title observer for this webview
             let tab_id_for_observer = tab_id.clone();
             let nav_delegate = BrowserNavigationDelegate::new(mtm, tab_id.clone());
             let proto_nav = objc2::runtime::ProtocolObject::from_ref(&*nav_delegate);
-            new_webview.setNavigationDelegate(Some(proto_nav));
+            unsafe {
+                new_webview.setNavigationDelegate(Some(proto_nav));
+            }
 
             let title_observer = TitleObserver::new(
                 new_webview.clone(),
@@ -188,9 +187,9 @@ define_class!(
             if let Some(mtm) = objc2_foundation::MainThreadMarker::new() {
                 let open_panel = NSOpenPanel::openPanel(mtm);
                 open_panel.setCanChooseFiles(true);
-                let allow_multi = open_panel_params.allowsMultipleSelection();
+                let allow_multi = unsafe { open_panel_params.allowsMultipleSelection() };
                 open_panel.setAllowsMultipleSelection(allow_multi);
-                let allow_dir = open_panel_params.allowsDirectories();
+                let allow_dir = unsafe { open_panel_params.allowsDirectories() };
                 open_panel.setCanChooseDirectories(allow_dir);
                 let ok: NSModalResponse = open_panel.runModal();
                 if ok == NSModalResponseOK {
@@ -268,7 +267,7 @@ define_class!(
             let tab_id = &self.ivars().tab_id;
             on_page_load_changed(tab_id, false);
             // Update URL from the webview
-            if let Some(url) = webview.URL() {
+            if let Some(url) = unsafe { webview.URL() } {
                 let url_str = url.absoluteString().unwrap().to_string();
                 on_url_changed(tab_id, url_str);
             }
@@ -363,6 +362,7 @@ impl Drop for TitleObserver {
 // its delegates.
 
 #[cfg(target_os = "macos")]
+#[allow(dead_code)]
 struct AssociatedDelegates {
     nav_delegate: Retained<BrowserNavigationDelegate>,
     title_observer: Retained<TitleObserver>,
