@@ -1653,6 +1653,8 @@ export const translations = {
     "shortcut.app.toggleOutline.desc": "Show or hide the document outline",
     "shortcut.app.find": "Find",
     "shortcut.app.find.desc": "Find in current document",
+    "shortcut.app.openDocument": "Open document",
+    "shortcut.app.openDocument.desc": "Open dialog to select an existing document",
     "shortcut.app.openSettings": "Open settings",
     "shortcut.app.openSettings.desc": "Open the application settings page",
     "shortcut.app.importMarkdown": "Import Markdown",

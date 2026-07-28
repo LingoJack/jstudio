@@ -118,3 +118,110 @@ useEffect(() => {
 3. **Tauri ≠ 浏览器**。WKWebView 的原生按键拦截行为与 Chrome/Firefox 不同，不能拿纯浏览器的经验直接套用。
 
 ---
+
+## #002 - Cmd+A 全选时出现空心圆点
+
+**状态**：已修复
+**日期**：2025-07
+**影响文件**：`src/components/editor/sectionEditor/useCrossSectionSelection.ts`
+
+### 症状
+
+在编辑器中按 `Cmd+A` 全选内容时，屏幕上会多出来一个**空心圆点**，层级高于所有内容（浮在最上层），无法通过 CSS 隐藏。
+
+### 排查过程
+
+#### 尝试 1：GapCursor（失败）
+
+代码库中 `vscode-theme.css` 明确记载 GapCursor 在缺少样式时会显示为"空心小点"。只有 `mathBlockExtension` 设置了 `allowGapCursor: false`，其他 atom 块节点（图片、文件、链接、图表）都没有。
+
+**修复**：给所有 atom 块扩展添加 `allowGapCursor: false`。
+
+**结果**：问题依旧。
+
+**原因**：GapCursor 只在 `state.selection instanceof GapCursor` 时创建 widget，Cmd+A 产生的是 `TextSelection`，不会触发 GapCursor。
+
+#### 尝试 2：`:focus-within` 触发的 resize handle（失败）
+
+代码块的 resize handle 是 `border-radius: 50%` 的圆形，z-index: 11，通过 `:focus-within` CSS 规则在编辑器获得焦点时变为可见（`opacity: 1`）。Cmd+A 时锚点 section 获得焦点，理论上所有代码块的 resize handle 都会显示。
+
+**修复**：移除 `.code-block-figure:focus-within` 和 `.collapsible-block-figure:focus-within` CSS 规则。
+
+**结果**：问题依旧。
+
+**原因**：`:focus-within` 检查的是**后代元素**是否有焦点。`.ProseMirror`（contenteditable）是 `<figure>` 的**父级**而非后代，所以 `:focus-within` 不会匹配。
+
+#### 尝试 3：DOM 遍历扫描（未执行）
+
+在 `selectAll()` 中添加 `requestAnimationFrame` 回调，遍历所有 editor DOM 查找 `border-radius: 50%` 且可见的元素，日志写入文件。但因需要重建应用，未执行。
+
+#### 尝试 4：原生选区 grabber（命中）
+
+重新审视 `selectAll()` 的代码：
+
+```ts
+ctxRef.current.getHandle(firstId)?.setTextSelection(0, firstSize);
+```
+
+这会在锚点 section 上设置一个**非折叠的原生选区**（从位置 0 到文档末尾）。虽然用 CSS 隐藏了 `::selection` 背景：
+
+```css
+.cross-section-anchor-hide-selection ::selection {
+    background: transparent !important;
+}
+```
+
+但 `::selection` 只控制选区**背景色**，不控制 macOS WKWebView 的原生 **selection grabber**。
+
+### 根因
+
+**macOS WKWebView 在 contenteditable 中的非折叠选区边界会渲染原生的 selection grabber**--一个空心圆点。这是系统级 UI 元素：
+
+- **层级高于所有 web 内容**：由操作系统渲染，不受 CSS `z-index` 影响
+- **CSS 无法隐藏**：`::selection { background: transparent }` 只隐藏选区背景，不隐藏 grabber
+- **只在非折叠选区时出现**：折叠选区（光标）不会触发 grabber
+
+这完全符合用户描述："空心圆点"、"层级高于所有东西"、"Cmd+A 全选时出现"。
+
+`apply()` 函数（拖拽跨 section 选区）也有同样的问题，因为它也设置了非折叠的原生选区。
+
+### 解决方案
+
+将锚点 section 的原生选区改为**折叠选区（光标）**，视觉选区完全由 `.cross-section-selected` decoration 提供：
+
+```ts
+// selectAll() - 旧：
+ctxRef.current.getHandle(firstId)?.setTextSelection(0, firstSize);
+anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
+
+// selectAll() - 新：
+ctxRef.current.getHandle(firstId)?.setTextSelection(0, 0);
+
+// apply() - 旧：
+ctxRef.current.getHandle(sel.anchorId)?.setTextSelection(anchorRange.from, anchorRange.to);
+anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
+
+// apply() - 新：
+ctxRef.current.getHandle(sel.anchorId)?.setTextSelection(anchorRange.from, anchorRange.from);
+```
+
+这不影响功能，因为：
+- **复制/剪切**：`onCopy`/`onCut` 是 document 级 capture 监听器，检查 `selRef.current`（跨 section 选区状态），不依赖原生选区
+- **删除**：`onKey` 处理器同样检查 `selRef.current`
+- **键盘焦点**：折叠选区仍然保持焦点在锚点 section 上，键盘事件正常派发
+- **视觉选区**：`.cross-section-selected` decoration（`Decoration.inline` + `background` CSS）覆盖所有 section，提供完整的选区视觉效果
+
+### 墓志铭
+
+> `::selection { background: transparent }` 隐藏的是选区背景，
+> 不是 macOS 的 selection grabber。
+> WKWebView 的原生 UI 不归 CSS 管。
+> 当你无法用 CSS 干掉一个东西时，想想它是不是浏览器/OS 渲染的。
+
+### 教训
+
+1. **CSS 有边界**。`::selection` 控制选区背景，但不控制原生 grabber/handle。macOS WKWebView 在 contenteditable 中的非折叠选区会显示原生 grabber，这是系统级行为。
+2. **"层级高于所有东西"是关键线索**。当用户说一个元素 z-index 高于一切时，优先怀疑原生 UI 元素而非 CSS 元素--CSS 的 z-index 再高也高不过系统渲染层。
+3. **能用 decoration 就别用原生选区**。跨 section 选区的视觉表现应该完全由 ProseMirror decoration 控制，原生选区只用于保持焦点，且应保持折叠状态。
+
+---
