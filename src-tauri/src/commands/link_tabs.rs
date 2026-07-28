@@ -474,24 +474,8 @@ pub async fn close_link_preview_tab(
         (removed, next_id)
     };
 
-    if let Some(tab) = removed {
-        // Actually destroy the webview (frees memory + stops loading)
-        #[cfg(target_os = "macos")]
-        if let Some(ptr) = tab.wkwebview_ptr {
-            // Native WKWebView (created by createWebViewWithConfiguration)
-            if let Some(wv) = ptr_to_wkwebview(ptr) {
-                super::native_delegate::destroy_webview(wv, &tab_id);
-            }
-        } else {
-            // Tauri-managed webview (created by add_child)
-            if let Some(wv) = app.get_webview(&tab.webview_label) {
-                let _ = wv.close();
-            }
-        }
-        #[cfg(not(target_os = "macos"))]
-        if let Some(wv) = app.get_webview(&tab.webview_label) {
-            let _ = wv.close();
-        }
+    if let Some(ref tab) = removed {
+        destroy_tab_webview(&app, tab, &tab_id);
     }
 
     // If the closed tab was active, switch to the adjacent one (if any).
@@ -729,9 +713,7 @@ pub fn close_active_tab_in_focused_preview(app: &AppHandle) -> Result<(), String
         };
 
         if let Some(tab) = removed {
-            if let Some(wv) = app.get_webview(&tab.webview_label) {
-                let _ = wv.close();
-            }
+            destroy_tab_webview(app, &tab, &id);
         }
 
         if let Some(next_id) = next_id {
@@ -871,21 +853,15 @@ fn register_native_webview(
         Err(_) => return tab_id,
     };
     {
-        let m = manager.lock().unwrap();
-        if let Some(active_id) = &m.active_tab_id {
-            if let Some(active_tab) = m.tabs.get(active_id) {
-                // Hide Tauri-managed webview
-                if let Some(label) = app.get_webview(&active_tab.webview_label) {
-                    let _ = label.set_position(LogicalPosition::new(0.0, 9999.0));
-                }
-                // Hide native WKWebView
-                #[cfg(target_os = "macos")]
-                if let Some(ptr) = active_tab.wkwebview_ptr {
-                    if let Some(wv) = ptr_to_wkwebview(ptr) {
-                        native_delegate::hide_webview(&wv);
-                    }
-                }
-            }
+        let active_tab = {
+            let m = manager.lock().unwrap();
+            m.active_tab_id
+                .as_ref()
+                .and_then(|id| m.tabs.get(id))
+                .cloned()
+        };
+        if let Some(ref tab) = active_tab {
+            hide_tab_webview(app, tab);
         }
     }
 
@@ -939,6 +915,41 @@ fn ptr_to_wkwebview(ptr: usize) -> Option<&'static objc2_web_kit::WKWebView> {
     // SAFETY: The pointer was obtained from a live WKWebView that is kept
     // alive by the delegate registry. This is only called on the main thread.
     Some(unsafe { &*(ptr as *const objc2_web_kit::WKWebView) })
+}
+
+/// Hide a tab's content webview off-screen. Handles both Tauri-managed
+/// webviews (created via `add_child`) and native WKWebviews (created via
+/// `createWebViewWithConfiguration` / `window.open`). The latter are not
+/// registered in Tauri's webview store, so `app.get_webview()` returns
+/// `None` for them — we must hide them via the native delegate.
+fn hide_tab_webview(app: &AppHandle, tab: &Tab) {
+    // Tauri-managed webview
+    if let Some(wv) = app.get_webview(&tab.webview_label) {
+        let _ = wv.set_position(LogicalPosition::new(0.0, 9999.0));
+    }
+    // Native WKWebView (macOS, opened via window.open / target=_blank)
+    #[cfg(target_os = "macos")]
+    if let Some(ptr) = tab.wkwebview_ptr {
+        if let Some(wv) = ptr_to_wkwebview(ptr) {
+            super::native_delegate::hide_webview(wv);
+        }
+    }
+}
+
+/// Destroy a tab's content webview entirely. Handles both Tauri-managed
+/// webviews and native WKWebviews.
+fn destroy_tab_webview(app: &AppHandle, tab: &Tab, tab_id: &str) {
+    #[cfg(target_os = "macos")]
+    if let Some(ptr) = tab.wkwebview_ptr {
+        if let Some(wv) = ptr_to_wkwebview(ptr) {
+            super::native_delegate::destroy_webview(wv, tab_id);
+            return;
+        }
+    }
+    let _ = tab.wkwebview_ptr; // suppress unused warning on non-macOS
+    if let Some(wv) = app.get_webview(&tab.webview_label) {
+        let _ = wv.close();
+    }
 }
 
 /// `BrowserPanel` renders a start page (Chrome-style new tab page) instead
@@ -1006,14 +1017,12 @@ pub async fn hide_browser_panel(app: AppHandle) -> Result<(), String> {
     BROWSER_PANEL_VISIBLE.store(false, Ordering::SeqCst);
 
     if let Ok(manager) = get_manager(MAIN_BROWSER_LABEL) {
-        let labels: Vec<String> = {
+        let tabs: Vec<Tab> = {
             let m = manager.lock().unwrap();
-            m.tabs.values().map(|t| t.webview_label.clone()).collect()
+            m.tabs.values().cloned().collect()
         };
-        for label in labels {
-            if let Some(wv) = app.get_webview(&label) {
-                let _ = wv.set_position(LogicalPosition::new(0.0, 9999.0));
-            }
+        for tab in &tabs {
+            hide_tab_webview(&app, tab);
         }
     }
 
@@ -1161,9 +1170,7 @@ pub fn close_active_tab_in_main_browser(app: &AppHandle) -> Result<(), String> {
                 (removed, None::<String>)
             };
             if let Some(tab) = removed {
-                if let Some(wv) = app.get_webview(&tab.webview_label) {
-                    let _ = wv.close();
-                }
+                destroy_tab_webview(app, &tab, &id);
             }
             {
                 let mut m = manager.lock().unwrap();
@@ -1201,9 +1208,7 @@ pub fn close_active_tab_in_main_browser(app: &AppHandle) -> Result<(), String> {
         };
 
         if let Some(tab) = removed {
-            if let Some(wv) = app.get_webview(&tab.webview_label) {
-                let _ = wv.close();
-            }
+            destroy_tab_webview(app, &tab, &id);
         }
 
         if let Some(next_id) = next_id {
@@ -1447,19 +1452,17 @@ fn add_tab_internal(
     // --- Hide the currently-active content webview BEFORE creating the new
     //     one. Doing this first guarantees old and new never overlap on
     //     screen during the transition, even if the new webview's positioning
-    //     runs a frame late. We resolve the old label while holding the
+    //     runs a frame late. We resolve the old tab while holding the
     //     manager lock, then move it off-screen.
-    let previous_active_label = {
+    let previous_active_tab = {
         let m = manager.lock().unwrap();
         m.active_tab_id
             .as_ref()
             .and_then(|id| m.tabs.get(id))
-            .map(|t| t.webview_label.clone())
+            .cloned()
     };
-    if let Some(label) = &previous_active_label {
-        if let Some(wv) = app.get_webview(label) {
-            let _ = wv.set_position(LogicalPosition::new(0.0, 9999.0));
-        }
+    if let Some(ref tab) = previous_active_tab {
+        hide_tab_webview(app, tab);
     }
 
     // --- Build content webview with event callbacks ---
@@ -1737,23 +1740,21 @@ fn switch_tab_internal(
             None => return Ok(()),
         };
 
-    let (current_active, target_label) = {
+    let (current_tab, target_label) = {
         let m = manager.lock().unwrap();
         let current = m.active_tab_id.as_ref().and_then(|id| m.tabs.get(id));
-        let current_label = current.map(|t| t.webview_label.clone());
         let target = m
             .tabs
             .get(tab_id)
             .ok_or_else(|| format!("tab not found: {}", tab_id))?;
-        (current_label, target.webview_label.clone())
+        (current.cloned(), target.webview_label.clone())
     };
 
-    // Hide current active tab (move off-screen)
-    if let Some(label) = current_active {
-        if label != target_label {
-            if let Some(wv) = app.get_webview(&label) {
-                let _ = wv.set_position(LogicalPosition::new(0.0, 9999.0));
-            }
+    // Hide current active tab (move off-screen). This handles both
+    // Tauri-managed webviews and native WKWebviews.
+    if let Some(ref tab) = current_tab {
+        if tab.webview_label != target_label {
+            hide_tab_webview(app, tab);
         }
     }
 
