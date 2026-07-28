@@ -320,6 +320,60 @@ export function useCrossSectionSelection(
     const anchorEditor = ctxRef.current.getEditor(firstId);
     anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
     setActive(true);
+
+    // DEBUG: inspect DOM for circular elements after select-all
+    requestAnimationFrame(() => {
+      const editors = order.map((id) => ctxRef.current.getEditor(id)).filter(Boolean);
+      for (const ed of editors) {
+        if (!ed || ed.isDestroyed) continue;
+        const dom = ed.view.dom;
+        const all = dom.querySelectorAll('*');
+        for (const el of all) {
+          const style = getComputedStyle(el);
+          const radius = style.borderRadius;
+          const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 14);
+          const isAbsOrFixed = style.position === 'absolute' || style.position === 'fixed';
+          const hasBorder = style.borderWidth !== '0px' && style.borderStyle !== 'none';
+          const isTransparent = style.backgroundColor === 'transparent' || style.backgroundColor === 'rgba(0, 0, 0, 0)';
+          if (isCircle && (isAbsOrFixed || hasBorder)) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width > 0 || rect.height > 0) {
+              console.warn('[selectAll-debug] CIRCLE:', {
+                tag: el.tagName,
+                class: el.className,
+                id: el.id,
+                radius,
+                position: style.position,
+                zIndex: style.zIndex,
+                bg: style.backgroundColor,
+                border: `${style.borderWidth} ${style.borderStyle} ${style.borderColor}`,
+                rect: { w: rect.width, h: rect.height, x: rect.x, y: rect.y },
+                parent: el.parentElement?.tagName + '.' + el.parentElement?.className,
+              });
+            }
+          }
+        }
+      }
+      // Also check body-level elements (portals, etc.)
+      const bodyEls = document.body.querySelectorAll('*');
+      for (const el of bodyEls) {
+        if (editors.some((ed) => ed && !ed.isDestroyed && ed.view.dom.contains(el))) continue;
+        const style = getComputedStyle(el);
+        const radius = style.borderRadius;
+        const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 14);
+        if (isCircle && style.position === 'fixed') {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 || rect.height > 0) {
+            console.warn('[selectAll-debug] BODY-CIRCLE:', {
+              tag: el.tagName,
+              class: el.className,
+              id: el.id,
+              rect: { w: rect.width, h: rect.height, x: rect.x, y: rect.y },
+            });
+          }
+        }
+      }
+    });
   }, [clearHighlights]);
 
   /** Delete the selection across all covered sections, bottom-up. */

@@ -52,6 +52,8 @@ export const LinkExtension = Node.create({
 
   atom: true,
 
+  allowGapCursor: false,
+
   draggable: false,
 
   addAttributes() {

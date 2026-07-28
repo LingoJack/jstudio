@@ -45,6 +45,8 @@ export const DiagramExtension = Node.create({
 
   atom: true,
 
+  allowGapCursor: false,
+
   draggable: false,
 
   addAttributes() {

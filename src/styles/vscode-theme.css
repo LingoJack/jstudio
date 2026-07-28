@@ -1533,8 +1533,7 @@ button {
   transition: border-color 0.15s;
 }
 
-.code-block-figure.is-selected,
-.code-block-figure:focus-within {
+.code-block-figure.is-selected {
   border-color: var(--vscode-focusBorder);
 }
 
@@ -1610,7 +1609,6 @@ button {
 }
 
 .code-block-figure:hover .block-resize-handle,
-.code-block-figure:focus-within .block-resize-handle,
 .code-block-figure.is-selected .block-resize-handle {
   opacity: 1;
 }
@@ -1957,8 +1955,7 @@ button {
   transition: border-color 0.15s;
 }
 
-.collapsible-block-figure.is-selected,
-.collapsible-block-figure:focus-within {
+.collapsible-block-figure.is-selected {
   border-color: var(--vscode-focusBorder);
 }
 

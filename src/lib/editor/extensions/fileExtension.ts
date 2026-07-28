@@ -53,6 +53,8 @@ export const FileExtension = Node.create({
 
   atom: true,
 
+  allowGapCursor: false,
+
   draggable: false,
 
   addAttributes() {

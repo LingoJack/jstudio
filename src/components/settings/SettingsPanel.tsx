@@ -161,12 +161,13 @@ function SubNode({
           level="secondary"
           expandable
           expanded={open}
+          noHover
           onClick={() => toggle(groupId)}
         >
           {t(node.labelKey)}
         </NavRow>
         {open && (
-          <NavBranch className="ml-4">
+          <NavBranch plain className="ml-4">
             {node.children.map((child) => (
               <SubNode
                 key={child.labelKey}
@@ -192,6 +193,7 @@ function SubNode({
     <NavRow
       level="secondary"
       active={subActive}
+      noHover
       onClick={() => node.anchorId && onLeafClick(sectionId, node.anchorId)}
     >
       {t(node.labelKey)}
@@ -294,6 +296,7 @@ export default function SettingsPanel() {
                   level="primary"
                   plainActive={hasSubs}
                   active={active}
+                  noHover
                   icon={<Icon className="w-5 h-5 opacity-70 shrink-0" />}
                   expandable={hasSubs}
                   expanded={open}
@@ -304,7 +307,7 @@ export default function SettingsPanel() {
 
                 {/* Sub-items (recursive — supports nested groups) */}
                 {hasSubs && open && (
-                  <NavBranch className="mt-0.5 mb-1 ml-[18px]">
+                  <NavBranch plain className="mt-0.5 mb-1 ml-[18px]">
                     {item.subItems!.map((sub) => (
                       <SubNode
                         key={sub.labelKey}

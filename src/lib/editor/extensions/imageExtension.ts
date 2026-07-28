@@ -27,6 +27,8 @@ export interface ImageNodeAttributes {
 }
 
 export const ImageExtension = Image.extend({
+  allowGapCursor: false,
+
   addAttributes() {
     return {
       ...this.parent?.(),
