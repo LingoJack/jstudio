@@ -279,12 +279,12 @@ export default function TerminalTabs() {
     >
       <button
         ref={historyBtnRef}
-        className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] ${
-          showHistory ? 'opacity-100 bg-[rgba(255,255,255,0.1)]' : 'opacity-60 hover:opacity-100'
+        className={`w-6 h-6 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] ${
+          showHistory ? 'opacity-100 bg-[rgba(255,255,255,0.1)]' : 'opacity-50 hover:opacity-100'
         }`}
         title={t('terminal.recentDirs')}
       >
-        <Clock className="w-4 h-4" />
+        <Clock className="w-3.5 h-3.5" />
       </button>
     </div>
   );
