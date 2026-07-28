@@ -203,6 +203,9 @@ export default function SectionEditor({
     editorProps: {
       attributes: {
         class: 'max-w-none focus:outline-none px-4 md:px-12 lg:px-20',
+        autocorrect: 'off',
+        autocapitalize: 'off',
+        spellcheck: 'false',
       },
       handlePaste: readOnly ? undefined : createPasteHandler(editorRef),
       handleDrop: readOnly ? undefined : createDropHandler(editorRef),
