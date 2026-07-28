@@ -116,6 +116,11 @@ export default function DocumentSidebar() {
    *  the ActivityBar). Read inside the `leftPanelHovered` effect to avoid
    *  starting a collapse timer when the sidebar is still being hovered. */
   const isSidebarHovered = useRef(false);
+  /** Last known pointer position, updated on every mousemove. Used to
+   *  re-evaluate isSidebarHovered after a floating menu closes, because
+   *  mouseleave on the sidebar root may not have fired while the pointer
+   *  was over a position:fixed DOM child (the floating menu). */
+  const lastPointerPos = useRef({ x: -1, y: -1 });
 
   // ── Suppress collapse while a floating menu / inline rename is active ──
   // Floating menus (context menu, folder menu, batch menus, the "more"
@@ -160,6 +165,17 @@ export default function DocumentSidebar() {
     scheduleCollapse();
   }, [sidebarPinned, scheduleCollapse]);
 
+  // Track the last known pointer position so we can re-evaluate
+  // isSidebarHovered immediately after a floating menu closes (without
+  // waiting for the next mousemove).
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, []);
+
   // Keep the sidebar expanded while the pointer is on the adjacent
   // ActivityBar, so overshooting from the sidebar into the ActivityBar
   // doesn't collapse it.  When the pointer leaves the ActivityBar (and the
@@ -179,17 +195,35 @@ export default function DocumentSidebar() {
   }, [leftPanelHovered, sidebarPinned, scheduleCollapse]);
 
   // When a floating menu / inline rename closes we no longer know whether
-  // the pointer is still over the sidebar (the `mouseleave` fired while the
-  // overlay was open left `isSidebarHovered` stale).  Wait for the next
-  // pointer move and decide then whether to collapse, so we never snap the
-  // sidebar shut right after the user finishes interacting with a menu.
+  // the pointer is still over the sidebar.  The floating menu was a
+  // position:fixed DOM child of the sidebar, so mouseleave on the sidebar
+  // root may not have fired while the pointer was over the menu — and when
+  // the menu is removed from the DOM, the browser fires mouseleave
+  // asynchronously (after this effect runs), leaving isSidebarHovered stale.
+  //
+  // To handle this, we use elementFromPoint with the last known pointer
+  // position to get an accurate read immediately, then also register a
+  // one-time mousemove listener as a safety net.
   useEffect(() => {
     const wasSuppressed = prevSuppressRef.current;
     prevSuppressRef.current = suppressCollapse;
     if (suppressCollapse) return;
     if (!wasSuppressed) return;          // only react to suppression *ending*
     if (sidebarPinned) return;
-    if (isSidebarHovered.current) return;
+
+    // Immediately re-evaluate using the last known pointer position.
+    const { x, y } = lastPointerPos.current;
+    if (x >= 0 && y >= 0) {
+      const el = document.elementFromPoint(x, y) as HTMLElement | null;
+      isSidebarHovered.current = !!(el && el.closest('[data-sidebar-root]'));
+    }
+
+    if (!isSidebarHovered.current) {
+      scheduleCollapse();
+    }
+
+    // Safety net: re-evaluate on the next pointer move in case the
+    // elementFromPoint check above was inaccurate.
     const reeval = (e: MouseEvent) => {
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
       const overSidebar = !!(el && el.closest('[data-sidebar-root]'));
