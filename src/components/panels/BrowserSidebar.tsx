@@ -139,19 +139,19 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
   // Click-away / Esc to dismiss the context menu.
   useEffect(() => {
     if (!contextMenu) return;
-    const onDown = () => setContextMenu(null);
+    const onClickAway = () => setContextMenu(null);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setContextMenu(null);
     };
     // Defer adding the listener so the same click that opened the menu
     // doesn't immediately close it.
     const id = requestAnimationFrame(() => {
-      window.addEventListener("mousedown", onDown);
+      window.addEventListener("click", onClickAway);
       window.addEventListener("keydown", onKey);
     });
     return () => {
       cancelAnimationFrame(id);
-      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("click", onClickAway);
       window.removeEventListener("keydown", onKey);
     };
   }, [contextMenu]);
