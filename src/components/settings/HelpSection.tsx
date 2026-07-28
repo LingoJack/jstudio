@@ -26,12 +26,6 @@ export default function HelpSection() {
 
   return (
     <div className="flex h-full flex-col bg-[var(--vscode-editor-background)]">
-      {/* Header bar - aligned with DocumentSidebar's h-9 header style */}
-      <div className="h-9 shrink-0 flex items-center px-3 border-b border-[var(--vscode-sideBar-border)]">
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-          {t('settings.help')}
-        </span>
-      </div>
       <div className="flex-1 min-h-0">
         <DocumentPanel doc={helpDoc} readOnly />
       </div>
