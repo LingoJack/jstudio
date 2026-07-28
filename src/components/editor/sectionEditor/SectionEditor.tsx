@@ -169,6 +169,7 @@ export default function SectionEditor({
       if (isReplacingRef.current) return;
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = setTimeout(() => {
+        saveTimeoutRef.current = null;
         const json = editor.getJSON();
         const blocks = tiptapJSONToOurBlocks(json.content ?? []);
         onChangeRef.current(sectionId, blocks);
