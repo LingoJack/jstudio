@@ -55,7 +55,11 @@ function ShortcutDialog({ initial, onSave, onClose }: ShortcutDialogProps) {
 
   const handleSubmit = () => {
     if (!canSave) return;
-    onSave(name.trim(), url.trim());
+    const trimmedUrl = url.trim();
+    const normalizedUrl = /^[a-zA-Z]+:\/\//.test(trimmedUrl)
+      ? trimmedUrl
+      : `https://${trimmedUrl}`;
+    onSave(name.trim(), normalizedUrl);
   };
 
   return (

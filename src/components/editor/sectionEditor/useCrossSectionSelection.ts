@@ -173,9 +173,12 @@ export function useCrossSectionSelection(
 
   /**
    * Paint the cross-section highlight on every covered section and set the
-   * native selection on the anchor. The anchor also gets a CSS class that hides
-   * the native selection highlight so the visual selection is consistent across
-   * all sections (only the custom `.cross-section-selected` decoration shows).
+   * native selection on the anchor. The anchor only gets a **collapsed**
+   * native selection (caret) — the visual selection is provided entirely by
+   * the `.cross-section-selected` decoration. A non-collapsed native
+   * selection causes macOS WKWebView to render a native selection grabber
+   * (a hollow circle) at the selection boundary, which sits above all web
+   * content and cannot be hidden via CSS.
    */
   const apply = useCallback(
     (sel: ResolvedSelection) => {
@@ -190,12 +193,13 @@ export function useCrossSectionSelection(
       }
       const anchorRange = ranges.find((r) => r.id === sel.anchorId);
       if (anchorRange) {
+        // Collapse the native selection to a caret at the anchor position.
+        // Copy/cut/delete are handled by the document-level capture listeners
+        // (onCopy/onCut/onKey) which check selRef, not the native selection.
         ctxRef
           .current
           .getHandle(sel.anchorId)
-          ?.setTextSelection(anchorRange.from, anchorRange.to);
-        const anchorEditor = ctxRef.current.getEditor(sel.anchorId);
-        anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
+          ?.setTextSelection(anchorRange.from, anchorRange.from);
       }
       setActive(true);
     },
@@ -316,78 +320,12 @@ export function useCrossSectionSelection(
     for (const r of ranges) {
       setSectionHighlight(ctxRef.current.getEditor(r.id), r.from, r.to);
     }
-    ctxRef.current.getHandle(firstId)?.setTextSelection(0, firstSize);
-    const anchorEditor = ctxRef.current.getEditor(firstId);
-    anchorEditor?.view.dom.classList.add('cross-section-anchor-hide-selection');
-    setActive(true);
-
-    // DEBUG: write DOM snapshot to log file for diagnosis
-    requestAnimationFrame(() => {
-      try {
-        const { invoke } = require('@tauri-apps/api/core') as typeof import('@tauri-apps/api/core');
-        const lines: string[] = ['--- selectAll DOM scan ---'];
-        const editors = order.map((id) => ctxRef.current.getEditor(id)).filter(Boolean);
-        for (const ed of editors) {
-          if (!ed || ed.isDestroyed) continue;
-          const dom = ed.view.dom;
-          // Check selection state
-          const sel = ed.state.selection;
-          lines.push(`Editor ${ed.view.dom.getAttribute('data-section-id')}: ` +
-            `sel.empty=${sel.empty} sel.from=${sel.from} sel.to=${sel.to} ` +
-            `selType=${sel.constructor.name} docSize=${ed.state.doc.content.size}`);
-          // Scan all descendants for circular elements
-          const all = dom.querySelectorAll('*');
-          for (const el of all) {
-            const style = getComputedStyle(el);
-            const radius = style.borderRadius;
-            const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 8);
-            if (!isCircle) continue;
-            const rect = el.getBoundingClientRect();
-            const op = parseFloat(style.opacity);
-            if (rect.width <= 0 && rect.height <= 0) continue;
-            if (op === 0) continue;
-            lines.push(`  CIRCLE <${el.tagName.toLowerCase()} class="${el.className}"> ` +
-              `pos=${style.position} z=${style.zIndex} op=${op} ` +
-              `bg=${style.backgroundColor} border=${style.borderWidth} ${style.borderStyle} ${style.borderColor} ` +
-              `r=${radius} ${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
-          }
-          // Check gapcursor
-          const gaps = dom.querySelectorAll('.ProseMirror-gapcursor');
-          for (const g of gaps) {
-            const style = getComputedStyle(g);
-            const rect = g.getBoundingClientRect();
-            lines.push(`  GAPCURSOR display=${style.display} ${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
-          }
-          // Check selectednode
-          const sels = dom.querySelectorAll('.ProseMirror-selectednode');
-          for (const s of sels) {
-            lines.push(`  SELECTEDNODE <${s.tagName.toLowerCase()} class="${s.className}">`);
-          }
-        }
-        // Check body-level fixed/absolute circles
-        for (const el of document.body.querySelectorAll('*')) {
-          const style = getComputedStyle(el);
-          if (style.position !== 'fixed' && style.position !== 'absolute') continue;
-          const radius = style.borderRadius;
-          const isCircle = radius === '50%' || (radius.endsWith('px') && parseFloat(radius) >= 8);
-          if (!isCircle) continue;
-          const rect = el.getBoundingClientRect();
-          const op = parseFloat(style.opacity);
-          if (rect.width <= 0 && rect.height <= 0) continue;
-          if (op === 0) continue;
-          // Skip if inside an editor
-          if (editors.some((ed) => ed && !ed.isDestroyed && ed.view.dom.contains(el))) continue;
-          lines.push(`  BODY <${el.tagName.toLowerCase()} class="${el.className}"> ` +
-            `pos=${style.position} z=${style.zIndex} op=${op} ` +
-            `${rect.width}x${rect.height} @(${rect.x},${rect.y})`);
-        }
-        invoke('write_graph_log', { msg: lines.join('\n') }).catch(() => {});
-      } catch (e) {
-        // Fallback: console
-        console.warn('[selectAll-debug] error', e);
-      }
-    });
-  }, [clearHighlights]);
+    // Collapse the native selection to a caret on the anchor section.
+    // The visual selection is provided by the .cross-section-selected
+    // decoration. A non-collapsed native selection causes macOS WKWebView
+    // to render a native selection grabber (hollow circle) above all content.
+    ctxRef.current.getHandle(firstId)?.setTextSelection(0, 0);
+    setActive(true);  }, [clearHighlights]);
 
   /** Delete the selection across all covered sections, bottom-up. */
   const deleteSelection = useCallback(() => {
