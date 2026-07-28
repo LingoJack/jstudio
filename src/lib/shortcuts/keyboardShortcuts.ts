@@ -240,6 +240,19 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'shortcut.terminal.detachTab',
   },
 
+  // ── Document · Open ──
+  // Placed AFTER terminal.newTab so that Cmd+T creates a terminal tab when
+  // the terminal view is active, and opens the document picker everywhere else.
+  {
+    id: 'app.openDocument',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+t',
+    customizable: true,
+    labelKey: 'shortcut.app.openDocument',
+    descKey: 'shortcut.app.openDocument.desc',
+  },
+
   // ── Terminal · Panes ──
   {
     id: 'terminal.splitPane',

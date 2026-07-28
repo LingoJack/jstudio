@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   FilePlus2,
+  FileText,
   FileDown,
   FolderDown,
   PackageOpen,
@@ -51,6 +52,7 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
     perform: (store) => store.setCommandPaletteOpen(true),
   },
   { id: "app.newDocument", perform: (store) => store.createDocument() },
+  { id: "app.openDocument", perform: (store) => store.setOpenDocDialogOpen(true) },
   { id: "app.toggleSidebar", perform: (store) => store.toggleSidebar() },
   { id: "app.toggleOutline", perform: (store) => store.toggleOutline() },
   { id: "app.openSettings", perform: (store) => store.setSettingsOpen(true) },
@@ -453,6 +455,18 @@ export function buildCommands(): PaletteCommand[] {
       keywordsZh: ["创建", "新建"],
       keywordsEn: ["create", "add"],
       perform: (store) => store.createDocument(),
+    },
+    {
+      id: "doc.open",
+      icon: FileText,
+      titleZh: "打开文档",
+      titleEn: "Open Document",
+      categoryZh: "文档",
+      categoryEn: "Document",
+      shortcutId: "app.openDocument",
+      keywordsZh: ["打开", "切换", "搜索", "现有"],
+      keywordsEn: ["open", "switch", "search", "existing"],
+      perform: (store) => store.setOpenDocDialogOpen(true),
     },
     {
       id: "doc.import",

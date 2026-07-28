@@ -783,6 +783,8 @@ export const translations = {
     "shortcut.app.toggleOutline.desc": "展开或收起文档大纲",
     "shortcut.app.find": "查找",
     "shortcut.app.find.desc": "在当前文档中查找",
+    "shortcut.app.openDocument": "打开文档",
+    "shortcut.app.openDocument.desc": "打开弹窗选择现有文档",
     "shortcut.app.openSettings": "打开设置",
     "shortcut.app.openSettings.desc": "打开应用设置页面",
     "shortcut.app.importMarkdown": "导入 Markdown",

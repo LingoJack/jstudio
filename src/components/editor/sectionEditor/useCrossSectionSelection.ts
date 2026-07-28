@@ -306,7 +306,6 @@ export function useCrossSectionSelection(
     const firstId = order[0];
     const lastId = order[order.length - 1];
     const lastSize = ctxRef.current.getHandle(lastId)?.getDocSize() ?? 0;
-    const firstSize = ctxRef.current.getHandle(firstId)?.getDocSize() ?? 0;
     rangesRef.current = ranges;
     selRef.current = {
       anchorId: firstId,
@@ -325,7 +324,8 @@ export function useCrossSectionSelection(
     // decoration. A non-collapsed native selection causes macOS WKWebView
     // to render a native selection grabber (hollow circle) above all content.
     ctxRef.current.getHandle(firstId)?.setTextSelection(0, 0);
-    setActive(true);  }, [clearHighlights]);
+    setActive(true);
+  }, [clearHighlights]);
 
   /** Delete the selection across all covered sections, bottom-up. */
   const deleteSelection = useCallback(() => {

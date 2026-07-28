@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { createDocumentWindow } from '../../lib/windows/documentDetach';
@@ -34,8 +34,8 @@ export default function DocumentTabs() {
   const docList = useStore((s) => s.docList);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
   const tabBarPosition = useStore((s) => s.tabBarPosition);
-
-  const [isOpenDocDialogOpen, setIsOpenDocDialogOpen] = useState(false);
+  const isOpenDocDialogOpen = useStore((s) => s.isOpenDocDialogOpen);
+  const setOpenDocDialogOpen = useStore((s) => s.setOpenDocDialogOpen);
 
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
@@ -119,7 +119,7 @@ export default function DocumentTabs() {
         activeTabId={activeTabId}
         onTabClick={selectTab}
         onTabClose={closeTab}
-        onNew={() => setIsOpenDocDialogOpen(true)}
+        onNew={() => setOpenDocDialogOpen(true)}
         onDetach={handleDetach}
         renderContextMenu={renderContextMenu}
         rippleColor="rgba(255,255,255,0.25)"
@@ -128,7 +128,7 @@ export default function DocumentTabs() {
       />
       <OpenDocumentDialog
         open={isOpenDocDialogOpen}
-        onClose={() => setIsOpenDocDialogOpen(false)}
+        onClose={() => setOpenDocDialogOpen(false)}
       />
     </>
   );

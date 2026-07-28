@@ -130,6 +130,7 @@ export interface StoreState {
   isSettingsOpen: boolean;
   isCommandPaletteOpen: boolean;
   isFindBarOpen: boolean;
+  isOpenDocDialogOpen: boolean;
   findQuery: string;
   isLoading: boolean;
   searchQuery: string;
@@ -260,6 +261,7 @@ export interface StoreState {
   setCommandPaletteOpen: (open: boolean) => void;
   toggleFindBar: () => void;
   setFindBarOpen: (open: boolean) => void;
+  setOpenDocDialogOpen: (open: boolean) => void;
   setFindQuery: (q: string) => void;
   setSearchQuery: (q: string) => void;
   setFontId: (id: string) => void;
