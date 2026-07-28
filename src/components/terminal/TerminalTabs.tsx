@@ -279,7 +279,7 @@ export default function TerminalTabs() {
     >
       <button
         ref={historyBtnRef}
-        className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--term-fg)] hover:bg-[rgba(255,255,255,0.1)] ${
+        className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] ${
           showHistory ? 'opacity-100 bg-[rgba(255,255,255,0.1)]' : 'opacity-60 hover:opacity-100'
         }`}
         title={t('terminal.recentDirs')}
@@ -309,9 +309,6 @@ export default function TerminalTabs() {
         renderContextMenu={renderContextMenu}
         extraActions={extraActions}
         rippleColor="rgba(255,255,255,0.25)"
-        textColor="var(--term-fg)"
-        accentColor="var(--vscode-list-activeSelectionBackground)"
-        renameBorderColor="var(--term-accent)"
         glassOpacity={tabBarGlassOpacity}
         position={tabBarPosition}
       />
