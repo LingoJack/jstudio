@@ -5,7 +5,6 @@ import {
   Folder,
   Plus,
   Trash2,
-  ChevronRight,
   Bot,
   MessageSquare,
   Brain,
@@ -15,10 +14,10 @@ import {
   RefreshCw,
   AlertCircle,
   Ban,
-  CheckCircle2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
+import { NavRow, NavBranch } from '../ui/NavTree';
 import type { AgentSession, AgentRunState } from '../../types/agent';
 
 // ──────────────────────────────────────────────────────────────────
@@ -136,7 +135,7 @@ export function WorkspaceList({
     return (
       <div className="flex flex-col items-center justify-center h-full px-4 text-center gap-3 py-12">
         <div
-          className="flex items-center justify-center w-12 h-12 rounded-2xl"
+          className="flex items-center justify-center w-12 h-12 rounded-xl"
           style={{
             background: 'var(--vscode-editor-inactiveSelectionBackground)',
           }}
@@ -170,7 +169,7 @@ export function WorkspaceList({
       {currentGroup && currentGroup.sessions.length > 0 && (
         <div className="mb-3">
           <SectionLabel>{t('agent.recentTasks')}</SectionLabel>
-          <div className="space-y-1 px-1.5">
+          <div className="space-y-0.5">
             {currentGroup.sessions.slice(0, maxSessionsPerGroup).map((session) => (
               <SessionItem
                 key={session.id}
@@ -194,7 +193,7 @@ export function WorkspaceList({
       {otherGroups.length > 0 && (
         <div className={currentGroup ? 'mt-3' : ''}>
           {currentGroup && <SectionLabel>{t('agent.otherWorkspaces')}</SectionLabel>}
-          <div className="space-y-1 px-1.5">
+          <div className="space-y-0.5">
             {otherGroups.map((group) => (
               <WorkspaceGroupItem
                 key={group.workspace}
@@ -246,8 +245,7 @@ function MoreButton({ count, onClick }: { count: number; onClick: () => void }) 
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] rounded-md transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
-      style={{ color: 'var(--vscode-descriptionForeground)' }}
+      className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] rounded-md transition-colors hover:bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-descriptionForeground)]"
     >
       <span className="font-medium">+{count}</span>
       <span className="opacity-60">{t('agent.moreSessions')}</span>
@@ -299,96 +297,40 @@ function WorkspaceGroupItem({
   return (
     <div>
       {/* Group header */}
-      <button
+      <NavRow
+        level="primary"
+        active={hasActiveSession}
+        noHover
+        expandable
+        expanded={expanded}
         onClick={() => setExpanded(!expanded)}
         onContextMenu={handleContextMenu}
-        className="group w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all"
-        style={{
-          background: hasActiveSession
-            ? 'var(--vscode-list-activeSelectionBackground)'
-            : 'transparent',
-        }}
-        onMouseEnter={(e) => {
-          if (!hasActiveSession) {
-            e.currentTarget.style.background = 'var(--vscode-list-hoverBackground)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!hasActiveSession) {
-            e.currentTarget.style.background = 'transparent';
-          }
-        }}
+        icon={expanded
+          ? <FolderOpen className="w-5 h-5 opacity-70 shrink-0" />
+          : <Folder className="w-5 h-5 opacity-70 shrink-0" />
+        }
       >
-        {/* Folder icon in a rounded square */}
-        <div
-          className="shrink-0 flex items-center justify-center w-6 h-6 rounded-md transition-colors"
-          style={{
-            background: hasActiveSession
-              ? 'rgba(255,255,255,0.12)'
-              : 'var(--vscode-editor-inactiveSelectionBackground)',
-          }}
-        >
-          <FolderOpen
-            className="w-3.5 h-3.5"
-            style={{
-              color: hasActiveSession
-                ? 'var(--vscode-list-activeSelectionForeground)'
-                : 'var(--vscode-descriptionForeground)',
-            }}
-          />
-        </div>
-
-        {/* Folder name */}
-        <span
-          className="flex-1 text-left text-xs font-medium truncate"
-          style={{
-            color: hasActiveSession
-              ? 'var(--vscode-list-activeSelectionForeground)'
-              : 'var(--vscode-foreground)',
-          }}
-        >
-          {group.displayName}
-        </span>
-
-        {/* Running indicator */}
+        <span className="flex-1 truncate">{group.displayName}</span>
         {runningCount > 0 && (
           <span
             className="shrink-0 w-1.5 h-1.5 rounded-full animate-pulse"
             style={{ background: '#3794ff' }}
           />
         )}
-
-        {/* Count badge */}
         <span
-          className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
-          style={{
-            background: hasActiveSession
-              ? 'rgba(255,255,255,0.15)'
-              : 'var(--vscode-badge-background)',
-            color: hasActiveSession
-              ? 'var(--vscode-list-activeSelectionForeground)'
-              : 'var(--vscode-badge-foreground)',
-          }}
+          className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
+            hasActiveSession
+              ? 'bg-[rgba(255,255,255,0.15)] text-[var(--vscode-list-activeSelectionForeground)]'
+              : 'bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)]'
+          }`}
         >
           {group.sessions.length}
         </span>
+      </NavRow>
 
-        {/* Expand chevron */}
-        <ChevronRight
-          className="w-3 h-3 shrink-0 transition-transform duration-200"
-          style={{
-            transform: expanded ? 'rotate(90deg)' : 'none',
-            color: hasActiveSession
-              ? 'var(--vscode-list-activeSelectionForeground)'
-              : 'var(--vscode-descriptionForeground)',
-            opacity: 0.6,
-          }}
-        />
-      </button>
-
-      {/* Sessions */}
+      {/* Sessions – indentation only, no guide line */}
       {expanded && (
-        <div className="mt-0.5 ml-[15px] pl-3 space-y-1" style={{ borderLeft: '1px solid var(--vscode-widget-border, rgba(128,128,128,0.12))' }}>
+        <NavBranch plain className="mt-0.5 mb-1 ml-[18px]">
           {visibleSessions.map((session) => (
             <SessionItem
               key={session.id}
@@ -404,7 +346,7 @@ function WorkspaceGroupItem({
               onClick={() => onExpand(group)}
             />
           )}
-        </div>
+        </NavBranch>
       )}
 
       {/* Context menu */}
@@ -480,7 +422,7 @@ function WorkspaceGroupMenu({
 }
 
 // ──────────────────────────────────────────────────────────────────
-// SessionItem - Card-style with rich status indicators
+// SessionItem - aligned with NavRow visual language
 // ──────────────────────────────────────────────────────────────────
 
 interface SessionItemProps {
@@ -531,68 +473,38 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
         e.stopPropagation();
         triggerConfirm();
       }}
-      className="group relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150"
-      style={{
-        background: active
-          ? 'var(--vscode-list-activeSelectionBackground)'
-          : running
-            ? 'rgba(55, 148, 255, 0.06)'
-            : 'transparent',
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = running
-            ? 'rgba(55, 148, 255, 0.1)'
-            : 'var(--vscode-list-hoverBackground)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = running
-            ? 'rgba(55, 148, 255, 0.06)'
-            : 'transparent';
-        }
-      }}
+      className={`group relative flex items-center gap-3 px-3 py-1.5 rounded-md cursor-pointer transition-colors duration-150 ${
+        active
+          ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)] font-medium'
+          : 'text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+      }`}
     >
-      {/* Active left accent bar */}
-      {active && (
-        <div
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-3/5 rounded-r-full"
-          style={{ background: 'var(--vscode-focusBorder)' }}
-        />
-      )}
-
       {/* Status icon */}
-      <div className="shrink-0 relative flex items-center justify-center w-7 h-7 rounded-lg" style={{
-        background: active ? 'rgba(255,255,255,0.1)' : 'var(--vscode-editor-inactiveSelectionBackground)',
-      }}>
+      <span className="shrink-0 relative w-4 h-4 flex items-center justify-center">
         <StateIcon
-          className={`w-3.5 h-3.5 ${stateVisual.spin ? 'animate-spin' : ''}`}
+          className={`w-4 h-4 ${stateVisual.spin ? 'animate-spin' : ''}`}
           style={{ color: active ? 'var(--vscode-list-activeSelectionForeground)' : stateVisual.color }}
         />
-        {/* Pulse ring for certain states */}
         {stateVisual.pulse && (
           <span
-            className="absolute inset-0 rounded-lg animate-ping opacity-30"
+            className="absolute inset-0 rounded-md animate-ping opacity-30"
             style={{ background: stateVisual.color }}
           />
         )}
-      </div>
+      </span>
 
       {/* Content */}
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         <span
-          className="truncate text-xs font-medium leading-tight"
-          style={{
-            color: active
-              ? 'var(--vscode-list-activeSelectionForeground)'
-              : 'var(--vscode-foreground)',
-          }}
+          className={`truncate text-xs font-medium leading-tight ${
+            active
+              ? 'text-[var(--vscode-list-activeSelectionForeground)]'
+              : 'text-[var(--vscode-foreground)]'
+          }`}
         >
           {title}
         </span>
         <div className="flex items-center gap-1.5">
-          {/* Running dot */}
           {running && (
             <span
               className="shrink-0 w-1.5 h-1.5 rounded-full animate-pulse"
@@ -600,13 +512,11 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
             />
           )}
           <span
-            className="text-[10px] truncate"
-            style={{
-              color: active
-                ? 'var(--vscode-list-activeSelectionForeground)'
-                : 'var(--vscode-descriptionForeground)',
-              opacity: active ? 0.8 : 0.6,
-            }}
+            className={`text-[10px] truncate ${
+              active
+                ? 'text-[var(--vscode-list-activeSelectionForeground)] opacity-80'
+                : 'text-[var(--vscode-descriptionForeground)] opacity-60'
+            }`}
           >
             {stateLabelKey ? t(stateLabelKey) : relTime}
           </span>
@@ -616,21 +526,11 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
       {/* Delete button */}
       <button
         onClick={handleDelete}
-        className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-md transition-all ${
+        className={`shrink-0 flex items-center justify-center w-5 h-5 rounded transition-all hover:bg-[var(--vscode-toolbar-hoverBackground)] ${
           confirmDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}
         style={{
-          background: confirmDelete ? 'rgba(244, 135, 113, 0.15)' : 'transparent',
-        }}
-        onMouseEnter={(e) => {
-          if (!confirmDelete) {
-            e.currentTarget.style.background = 'var(--vscode-toolbar-hoverBackground)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!confirmDelete) {
-            e.currentTarget.style.background = 'transparent';
-          }
+          background: confirmDelete ? 'rgba(244, 135, 113, 0.15)' : undefined,
         }}
         title={confirmDelete ? t('agent.confirmDelete') : t('agent.deleteSession')}
       >
@@ -713,7 +613,7 @@ export function WorkspaceExpandModal({
         </div>
 
         {/* Session list */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {group.sessions.map((session) => (
             <SessionItem
               key={session.id}

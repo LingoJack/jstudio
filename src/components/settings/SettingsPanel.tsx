@@ -342,7 +342,7 @@ export default function SettingsPanel() {
           <div className="flex-1 overflow-y-auto">
             {/* Scroll sentinel — lets us jump to top when switching sections */}
             <div id="settings-content-top" className="h-0 w-full" aria-hidden />
-            <div className="max-w-2xl mx-auto px-10 py-8">
+            <div className="max-w-4xl mx-auto px-10 py-8">
               <ActiveSection />
             </div>
           </div>
