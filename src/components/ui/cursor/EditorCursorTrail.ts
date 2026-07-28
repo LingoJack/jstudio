@@ -196,7 +196,17 @@ export class EditorCursorTrail extends BaseCursorTrail {
     const activate = () => {
       this.markDirty();
       requestAnimationFrame(() => {
-        if (document.activeElement === host) this.activate();
+        if (document.activeElement !== host) return;
+        this.activate();
+        // Some browsers update `selectionStart` asynchronously after focus
+        // (e.g. when focus originates from a mouse click – the browser
+        // positions the native caret during mousedown's default action,
+        // which may not have completed by the first rAF).  Schedule a
+        // second re-measurement one frame later to catch the updated
+        // caret position.
+        requestAnimationFrame(() => {
+          if (document.activeElement === host) this.markDirty();
+        });
       });
     };
     const events = [

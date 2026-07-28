@@ -1074,6 +1074,12 @@ export default function DocumentPanel({
   //    the first section's editor. Ported from the retired EditorPanel's
   //    handleTitleKeyDown.
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Ignore keystrokes that are part of an IME composition (e.g. pinyin
+    // confirmation via Enter).  During composition `isComposing` is true and
+    // `keyCode` is 229; letting these through would treat the confirmation
+    // Enter as a real Enter and jump focus out of the title.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+
     if (handleNativeSelectAll(e)) return;
 
     const el = e.currentTarget;
@@ -1258,7 +1264,7 @@ export default function DocumentPanel({
             onChange={(e) => updateDocumentMeta({ title: e.target.value })}
             onKeyDown={handleTitleKeyDown}
             placeholder={t('editor.titlePlaceholder')}
-            className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1"
+            className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1 caret-[var(--vscode-editorCursor-foreground,var(--vscode-focusBorder,#007fd4))]"
           />
           {activeDocUpdatedAt && (
             <div className="flex items-center gap-1.5 mt-2.5 text-xs text-[var(--vscode-descriptionForeground)]">
