@@ -223,11 +223,15 @@ export const SHORTCUTS: ShortcutDef[] = [
   // ── Terminal · Tabs ──
   // (cycleTabLeft/Right and closeTab are now global workspace shortcuts:
   //  app.cycleTabLeft, app.cycleTabRight, app.closeTab)
+  // Cmd+T is handled by the native menu (id "app.newTab") which dispatches
+  // context-aware: terminal view -> new terminal session, otherwise -> open
+  // document dialog. terminal.newTab is kept for customization but unbound
+  // from the DOM (the menu intercepts Cmd+T before the DOM keydown fires).
   {
     id: 'terminal.newTab',
     category: 'terminal-tabs',
     scope: 'terminal',
-    defaultBinding: 'mod+t',
+    defaultBinding: '',
     customizable: true,
     labelKey: 'shortcut.terminal.newTab',
   },
@@ -241,16 +245,18 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
 
   // ── Document · Open ──
-  // Placed AFTER terminal.newTab so that Cmd+T creates a terminal tab when
-  // the terminal view is active, and opens the document picker everywhere else.
+  // Cmd+T is intercepted by the native menu (id "app.newTab"). The menu emits
+  // a `native-command` which the ShortcutManager dispatches via commandRegistry.
+  // The DOM keydown handler also matches this as a fallback (e.g. if the menu
+  // doesn't intercept on some platforms).
   {
-    id: 'app.openDocument',
+    id: 'app.newTab',
     category: 'general',
     scope: 'global',
     defaultBinding: 'mod+t',
     customizable: true,
-    labelKey: 'shortcut.app.openDocument',
-    descKey: 'shortcut.app.openDocument.desc',
+    labelKey: 'shortcut.app.newTab',
+    descKey: 'shortcut.app.newTab.desc',
   },
 
   // ── Terminal · Panes ──

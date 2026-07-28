@@ -301,6 +301,7 @@ export const translations = {
 
     // ── DocumentPanel ──
     "editor.titlePlaceholder": "文档标题",
+    "editor.lastEdited": "上次编辑 {time}",
 
     // ── Settings nav ──
     "settings.title": "设置",
@@ -783,8 +784,8 @@ export const translations = {
     "shortcut.app.toggleOutline.desc": "展开或收起文档大纲",
     "shortcut.app.find": "查找",
     "shortcut.app.find.desc": "在当前文档中查找",
-    "shortcut.app.openDocument": "打开文档",
-    "shortcut.app.openDocument.desc": "打开弹窗选择现有文档",
+    "shortcut.app.newTab": "新建标签页",
+    "shortcut.app.newTab.desc": "终端视图中新建终端标签页，其他视图中打开文档选择弹窗",
     "shortcut.app.openSettings": "打开设置",
     "shortcut.app.openSettings.desc": "打开应用设置页面",
     "shortcut.app.importMarkdown": "导入 Markdown",
@@ -1155,6 +1156,7 @@ export const translations = {
 
     // ── DocumentPanel ──
     "editor.titlePlaceholder": "Document title",
+    "editor.lastEdited": "Last edited {time}",
 
     // ── Settings nav ──
     "settings.title": "Settings",
@@ -1653,8 +1655,8 @@ export const translations = {
     "shortcut.app.toggleOutline.desc": "Show or hide the document outline",
     "shortcut.app.find": "Find",
     "shortcut.app.find.desc": "Find in current document",
-    "shortcut.app.openDocument": "Open document",
-    "shortcut.app.openDocument.desc": "Open dialog to select an existing document",
+    "shortcut.app.newTab": "New Tab",
+    "shortcut.app.newTab.desc": "New terminal tab in terminal view, open document dialog elsewhere",
     "shortcut.app.openSettings": "Open settings",
     "shortcut.app.openSettings.desc": "Open the application settings page",
     "shortcut.app.importMarkdown": "Import Markdown",

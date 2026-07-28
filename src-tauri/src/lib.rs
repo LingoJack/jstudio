@@ -240,13 +240,8 @@ fn build_app_menu<R: tauri::Runtime>(
     // menu items above. The traffic-light close button still triggers
     // CloseRequested -> on_window_close_requested -> "window-close-requested"
     // (see on_window_event in run()).
-    let new_terminal_tab_item = MenuItem::with_id(
-        app,
-        "terminal.newTab",
-        "New Terminal Tab",
-        true,
-        Some("CmdOrCtrl+T"),
-    )?;
+    let new_terminal_tab_item =
+        MenuItem::with_id(app, "app.newTab", "New Tab", true, Some("CmdOrCtrl+T"))?;
     let close_tab_item =
         MenuItem::with_id(app, "app.closeTab", "Close Tab", true, Some("CmdOrCtrl+W"))?;
 
@@ -345,7 +340,7 @@ pub fn run() {
                 || id == "editor.undo"
                 || id == "editor.redo"
                 || id == "app.closeTab"
-                || id == "terminal.newTab"
+                || id == "app.newTab"
                 || id == "app.selectAll";
             if !routed {
                 return;
@@ -378,7 +373,7 @@ pub fn run() {
             // windows simultaneously.
             if commands::link_tabs::is_link_preview_window(&target) {
                 match id {
-                    "terminal.newTab" => {
+                    "app.newTab" => {
                         let _ = commands::link_tabs::add_tab_to_focused_preview(app);
                         return;
                     }
@@ -398,7 +393,7 @@ pub fn run() {
             // from also receiving the event.
             if target == "main" && commands::link_tabs::is_browser_panel_visible() {
                 match id {
-                    "terminal.newTab" => {
+                    "app.newTab" => {
                         let _ = commands::link_tabs::add_tab_to_main_browser(app);
                         return;
                     }

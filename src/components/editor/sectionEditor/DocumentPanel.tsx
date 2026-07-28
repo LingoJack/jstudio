@@ -34,7 +34,7 @@ import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { ListTree } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
-import { useI18n } from '../../../lib/core/i18n';
+import { useI18n, type Language, type TranslationKey } from '../../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { eventToBinding, resolveBinding } from '../../../lib/shortcuts/keyboardShortcuts';
 import {
@@ -44,6 +44,7 @@ import {
 } from '../../../lib/editor/focusedEditorRegistry';
 import { registerSelectAllHandler } from '../../../lib/editor/selectAllRegistry';
 import { flushDocumentSaves } from '../../../store/storeHelpers';
+import { formatDate } from '../../../lib/commandPalette/shared';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
@@ -167,12 +168,28 @@ function visualCodeLineBoundary(
   }
 }
 
+function formatRelativeEditedTime(
+  iso: string,
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string,
+  language: Language,
+): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return '';
+  const diff = (Date.now() - ms) / 1000;
+  if (diff < 60) return t('agent.justNow');
+  if (diff < 3600) return t('agent.minutesAgo', { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t('agent.hoursAgo', { n: Math.floor(diff / 3600) });
+  if (diff < 172800) return t('agent.yesterday');
+  if (diff < 604800) return t('agent.daysAgo', { n: Math.floor(diff / 86400) });
+  return formatDate(ms, language);
+}
+
 export default function DocumentPanel({
   doc,
   readOnly,
   contentDocId,
 }: DocumentPanelProps = {}) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   // ── Read-only / static-document mode ──────────────────────────────
   const isStatic = !!doc;
   const storeActiveDocId = useStore((s) => s.activeDocId);
@@ -182,6 +199,9 @@ export default function DocumentPanel({
   );
   const activeDocTitle = useStore(
     (s) => s.documents.find((item) => item.id === editorDocId)?.title ?? '',
+  );
+  const activeDocUpdatedAt = useStore(
+    (s) => s.documents.find((item) => item.id === editorDocId)?.updatedAt ?? '',
   );
   const hasActiveDoc = useStore((s) =>
     s.documents.some((item) => item.id === editorDocId),
@@ -703,6 +723,18 @@ export default function DocumentPanel({
       window.removeEventListener('beforeunload', handleClose);
     };
   }, [readOnly]);
+
+  // ── Keep "last edited" relative time fresh ──
+  // Re-render once a minute so "5 min ago" doesn't go stale while a doc is
+  // open but idle. `updatedAt` itself bumps on every (debounced) save, so
+  // during active editing the label already re-renders; this covers the idle
+  // case.
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    if (isStatic || readOnly) return;
+    const id = window.setInterval(() => setNowTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [isStatic, readOnly]);
 
   // A section reports new blocks → splice into the full array and persist.
   const handleSectionChange = useCallback(

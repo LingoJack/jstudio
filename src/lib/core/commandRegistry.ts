@@ -52,7 +52,20 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
     perform: (store) => store.setCommandPaletteOpen(true),
   },
   { id: "app.newDocument", perform: (store) => store.createDocument() },
-  { id: "app.openDocument", perform: (store) => store.setOpenDocDialogOpen(true) },
+  {
+    id: "app.newTab",
+    perform: (store) => {
+      // Context-aware: Cmd+T creates a terminal session when the terminal
+      // view is active, and opens the document picker dialog everywhere else.
+      // The native menu (id "app.newTab") emits a `native-command` that
+      // reaches here via ShortcutManager's listener.
+      if (store.activeSidebarView === "terminal") {
+        store.createSession();
+      } else {
+        store.setOpenDocDialogOpen(true);
+      }
+    },
+  },
   { id: "app.toggleSidebar", perform: (store) => store.toggleSidebar() },
   { id: "app.toggleOutline", perform: (store) => store.toggleOutline() },
   { id: "app.openSettings", perform: (store) => store.setSettingsOpen(true) },
@@ -463,7 +476,6 @@ export function buildCommands(): PaletteCommand[] {
       titleEn: "Open Document",
       categoryZh: "文档",
       categoryEn: "Document",
-      shortcutId: "app.openDocument",
       keywordsZh: ["打开", "切换", "搜索", "现有"],
       keywordsEn: ["open", "switch", "search", "existing"],
       perform: (store) => store.setOpenDocDialogOpen(true),
