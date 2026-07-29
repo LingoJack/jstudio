@@ -3423,13 +3423,13 @@ button {
   stroke-width: 3;
   stroke-linecap: round;
   stroke-dasharray: 1.5 38.5;
-  animation: jgraph-edge-dot-flow 0.7s linear infinite;
+  animation: jgraph-edge-dot-flow 0.5s linear infinite;
   pointer-events: none;
 }
 
 @supports (color: color-mix(in srgb, red, blue)) {
   .jgraph-edge-dot {
-    stroke: color-mix(in srgb, var(--vscode-focusBorder, #0052D9) 60%, white);
+    stroke: color-mix(in srgb, var(--vscode-focusBorder, #0052D9) 25%, white);
   }
 }
 
