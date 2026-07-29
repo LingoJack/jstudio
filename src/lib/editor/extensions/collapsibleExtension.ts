@@ -19,6 +19,7 @@
 
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import CollapsibleView from '../../../components/editor/nodes/CollapsibleView';
 import { blockBehaviorRegistry } from '../blockBehaviorRegistry';
 
@@ -109,6 +110,130 @@ export const CollapsibleExtension = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(CollapsibleView);
+  },
+
+  addKeyboardShortcuts() {
+    const nodeName = this.name;
+
+    return {
+      /**
+       * Escape - exit the collapsible block, placing the cursor after it.
+       *
+       * Because the collapsible is `isolating`, the cursor cannot naturally
+       * rest at the boundary between two adjacent collapsibles (or between a
+       * collapsible and a code block). When the user presses Escape, we move
+       * the cursor to the position after the collapsible. If that position is:
+       *   - End of document, OR
+       *   - Immediately before another isolating block (e.g. another
+       *     collapsible or a code block)
+       * we insert an empty paragraph there first, so the cursor has a valid
+       * text selection to land in. This directly solves the "two adjacent
+       * collapsibles with no way to insert content between them" problem.
+       *
+       * Mirrors the CodeBlock extension's Escape behavior.
+       */
+      Escape: () => {
+        const { editor } = this;
+        const { state } = editor;
+        const { selection, doc } = state;
+
+        // Find the collapsible's "after" position.
+        let after: number | null = null;
+
+        if (
+          selection instanceof NodeSelection &&
+          selection.node.type.name === nodeName
+        ) {
+          // The collapsible node itself is selected (e.g. after clicking the
+          // header background).
+          after = selection.to;
+        } else {
+          // The caret is inside the collapsible - walk up to find it.
+          const { $from } = selection;
+          for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type.name === nodeName) {
+              after = $from.after(d);
+              break;
+            }
+          }
+        }
+
+        // Not in / on a collapsible - let other handlers run.
+        if (after == null) return false;
+
+        // Determine whether we need to insert a paragraph for the cursor to
+        // land in. This is necessary when:
+        //   1. The collapsible is the last block (after >= doc.content.size), OR
+        //   2. The next block is also isolating (cursor can't sit at the gap)
+        let needsParagraph = after >= doc.content.size;
+        if (!needsParagraph) {
+          const nextNode = doc.resolve(after).nodeAfter;
+          if (nextNode && nextNode.type.spec.isolating) {
+            needsParagraph = true;
+          }
+        }
+
+        if (needsParagraph) {
+          return editor
+            .chain()
+            .insertContentAt(after, { type: 'paragraph' })
+            .setTextSelection(after + 1)
+            .focus()
+            .run();
+        }
+
+        return editor.chain().setTextSelection(after).focus().run();
+      },
+
+      /**
+       * ArrowDown - at the end of the last child, if the collapsible is the
+       * last block in the document, insert an empty paragraph below for the
+       * cursor to land in.
+       *
+       * Otherwise, return false and let ProseMirror's default ArrowDown
+       * move the cursor to the next block naturally.
+       *
+       * Mirrors the CodeBlock extension's ArrowDown behavior.
+       */
+      ArrowDown: ({ editor }) => {
+        const { state, view } = editor;
+        const { selection } = state;
+        if (!selection.empty) return false;
+        const $head = selection.$head;
+
+        // Find the collapsible ancestor.
+        let collapsibleDepth = -1;
+        for (let d = $head.depth; d >= 1; d--) {
+          if ($head.node(d).type.name === nodeName) {
+            collapsibleDepth = d;
+            break;
+          }
+        }
+        if (collapsibleDepth < 0) return false;
+
+        // Only act if the cursor is in the LAST child of the collapsible.
+        const collapsibleNode = $head.node(collapsibleDepth);
+        const lastChildIndex = collapsibleNode.childCount - 1;
+        if ($head.index(collapsibleDepth) !== lastChildIndex) return false;
+
+        // Only act if the cursor is at the bottom of the textblock.
+        const atBottom =
+          view.endOfTextblock('down', state) || $head.pos === $head.end();
+        if (!atBottom) return false;
+
+        // Only act if the collapsible is the last block in the document.
+        const after = $head.after(collapsibleDepth);
+        if (after < state.doc.content.size) return false;
+
+        // Insert a paragraph after the collapsible and move the cursor there.
+        const tr = state.tr;
+        const para = state.schema.nodes.paragraph.create();
+        tr.insert(after, para);
+        tr.setSelection(TextSelection.create(tr.doc, after + 1));
+        editor.view.dispatch(tr);
+        return true;
+      },
+    };
   },
 });
 
