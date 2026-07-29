@@ -92,7 +92,7 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     case 'edge-line':
       return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
     case 'edge-ortho':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'orthogonalEdgeStyle', endArrow: 'classic', endSize: 8 };
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'obstacleEdgeStyle', endArrow: 'classic', endSize: 8 };
     case 'edge-dashed':
       return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
     case 'edge-no-arrow':

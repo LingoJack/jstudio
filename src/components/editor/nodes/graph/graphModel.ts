@@ -85,7 +85,7 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       return {
         strokeColor: pal.stroke,
         strokeWidth: SHAPE_STROKE_WIDTH,
-        edgeStyle: 'orthogonalEdgeStyle',
+        edgeStyle: 'obstacleEdgeStyle',
         endArrow: 'classic',
         endSize: ARROW_END_SIZE,
       };
@@ -174,7 +174,7 @@ function readLabelAlign(style: CellStyle): 'left' | 'center' | 'right' | undefin
  */
 function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   const style: CellStyle = {
-    edgeStyle: edge.routing === 'straight' ? undefined : 'orthogonalEdgeStyle',
+    edgeStyle: edge.routing === 'straight' ? undefined : 'obstacleEdgeStyle',
     rounded: edge.routing !== 'straight',
     endArrow: edge.endArrow ?? 'classic',
     startArrow: edge.startArrow ?? 'none',

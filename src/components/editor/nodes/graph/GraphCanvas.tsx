@@ -77,6 +77,7 @@ import {
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph, styleToNodeShape } from './graphModel';
 import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
+import { registerObstacleEdgeStyle } from './obstacleRouting';
 import MermaidImportDialog from './MermaidImportDialog';
 import AIGraphImportDialog from './AIGraphImportDialog';
 import {
@@ -331,6 +332,8 @@ export function GraphCanvas({
 
     // 注册自定义形状到全局 ShapeRegistry（UML 图表：用例图角色、时序图生命线等）
     registerCustomShapes();
+    // 注册避障正交边路由样式（A* 网格寻路，避免连线穿过已有图形）
+    registerObstacleEdgeStyle();
 
     // 基本交互能力。
     graph.setPanning(true);
@@ -475,7 +478,7 @@ export function GraphCanvas({
       // 预览的虚线效果由 drawPreview 单独控制。
       connectionHandler.createEdgeState = function () {
         const edgeStyle: Record<string, unknown> = {
-          edgeStyle: 'orthogonalEdgeStyle',
+          edgeStyle: 'obstacleEdgeStyle',
           strokeColor: getConnectionPointColor(dark),
           strokeWidth: 2,
           endArrow: 'classic',
@@ -582,7 +585,7 @@ export function GraphCanvas({
 
     // 全局默认走正交连线（飞书手感：圆角折线 + 小箭头），蓝色细线 + 圆点流动。
     const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
-    edgeDefault.edgeStyle = 'orthogonalEdgeStyle';
+    edgeDefault.edgeStyle = 'obstacleEdgeStyle';
     edgeDefault.rounded = true;
     edgeDefault.endArrow = 'classic';
     edgeDefault.endSize = ARROW_END_SIZE;
