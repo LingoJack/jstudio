@@ -3420,10 +3420,10 @@ button {
 .jgraph-edge-dot {
   fill: none;
   stroke: var(--vscode-focusBorder, #0052D9);
-  stroke-width: 5;
+  stroke-width: 3;
   stroke-linecap: round;
-  stroke-dasharray: 2 38;
-  animation: jgraph-edge-dot-flow 1.2s linear infinite;
+  stroke-dasharray: 1.5 38.5;
+  animation: jgraph-edge-dot-flow 0.7s linear infinite;
   pointer-events: none;
 }
 
