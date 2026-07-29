@@ -286,20 +286,43 @@ export function GraphCanvas({
     graphRef.current = graph;
 
     // 连线流动效果：在 cellRenderer.initializeShape（shape 创建唯一入口）处打标记，
-    // 给每条 edge 的 SVG <g> 加 .jgraph-edge 类。CSS 据此选择器对 path 施加
-    // stroke-dashoffset 动画，产生流动虚线效果。
-    // 新增 / undo 恢复 / 快照灌入都会经过此入口，保证所有 edge 都能命中。
-    // 注：原先使用 SMIL animateMotion 在 doRedrawShape 中每帧重建 <circle>+<animateMotion>，
-    // 线条一多就因 DOM 频繁创建/销毁 + N 个 SMIL 引擎同时运行而严重卡顿。
-    // CSS 方案由浏览器引擎管理动画，redraw 重建 path 后自动生效，零 JS 开销。
+    // 给每条 edge 的 SVG <g> 加 .jgraph-edge 类，并创建圆点流动 <path>。
+    // 关键：Shape.redraw() 内部调用 clear() 移除所有子节点再重建 path，
+    // 所以圆点元素会被清除。解决：重写 shape.redraw()，在原逻辑执行完毕后
+    // 重新追加圆点 path 并同步 d 属性。圆点元素本身只创建一次，重复 append 即可。
+    // CSS 控制圆点样式与动画（stroke-dasharray + round linecap + animation）。
     {
       const cellRenderer = graph.cellRenderer;
       const origInitializeShape = cellRenderer.initializeShape.bind(cellRenderer);
       cellRenderer.initializeShape = (state: CellState) => {
         origInitializeShape(state);
         const cell = state.cell;
-        if (cell && cell.isEdge() && state.shape?.node) {
-          state.shape.node.classList.add('jgraph-edge');
+        const shape = state.shape;
+        if (
+          cell &&
+          cell.isEdge() &&
+          shape?.node &&
+          !(shape as { _jgraphDotInit?: boolean })._jgraphDotInit
+        ) {
+          (shape as { _jgraphDotInit?: boolean })._jgraphDotInit = true;
+          shape.node.classList.add('jgraph-edge');
+
+          // 圆点 <path>：仅创建一次，每次 redraw() 后重新追加并同步 d。
+          const dotPath = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'path',
+          );
+          dotPath.classList.add('jgraph-edge-dot');
+
+          const origRedraw = shape.redraw.bind(shape);
+          shape.redraw = () => {
+            origRedraw();
+            const pathEl = shape.node.querySelector('path');
+            if (pathEl) {
+              dotPath.setAttribute('d', pathEl.getAttribute('d') ?? '');
+              shape.node.appendChild(dotPath);
+            }
+          };
         }
       };
     }

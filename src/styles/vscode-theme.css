@@ -3407,36 +3407,47 @@ button {
 }
 
 /* ============================================
-   连线流动效果（CSS stroke-dashoffset 动画）
+   连线流动效果（实线 + 移动圆点）
    - .jgraph-edge 由 GraphCanvas 重写 cellRenderer.initializeShape 打在每条 edge 的 <g> 上；
-   - 连线主体 path 使用 CSS stroke-dasharray + stroke-dashoffset 动画产生流动效果，
-     替代原先的 SMIL animateMotion 方案（后者在每次重绘时重建 DOM，线条一多就卡）。
-   - CSS 动画由浏览器引擎管理，redraw 重建 path 后自动生效，无需 JS 介入。
-   - 当边数超过阈值时，容器加 .jgraph-flow-off 类，自动关闭动画。
+   - 主 path 保持实线，.jgraph-edge-dot 是叠加在上方的圆点 <path>。
+   - Shape.redraw() 的 clear() 会移除所有子节点，因此 GraphCanvas 重写 shape.redraw()，
+     在原逻辑执行完毕后重新追加圆点 path 并同步 d 属性。
+   - CSS stroke-dasharray(2 38) + round linecap 产生圆点沿路径移动的效果。
+   - 圆点颜色用 color-mix 提亮 40%（比线条更亮），不支持时 fallback 到线条同色。
+   - 当边数超过阈值时，容器加 .jgraph-flow-off 类，隐藏圆点层。
    ============================================ */
 
-.jgraph-edge > path {
-  stroke-dasharray: 8 4;
-  animation: jgraph-edge-flow 1.2s linear infinite;
+.jgraph-edge-dot {
+  fill: none;
+  stroke: var(--vscode-focusBorder, #0052D9);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 2 38;
+  animation: jgraph-edge-dot-flow 1.2s linear infinite;
+  pointer-events: none;
 }
 
-@keyframes jgraph-edge-flow {
-  to {
-    stroke-dashoffset: -12; /* 8 + 4 = 12，一个完整周期 */
+@supports (color: color-mix(in srgb, red, blue)) {
+  .jgraph-edge-dot {
+    stroke: color-mix(in srgb, var(--vscode-focusBorder, #0052D9) 60%, white);
   }
 }
 
-/* 边数过多时关闭流动动画，保证大图流畅 */
-.jgraph-flow-off .jgraph-edge > path {
-  stroke-dasharray: none;
-  animation: none;
+@keyframes jgraph-edge-dot-flow {
+  to {
+    stroke-dashoffset: -40; /* 2 + 38 = 40，一个完整周期 */
+  }
 }
 
-/* 尊重系统「减少动态效果」偏好：关闭流动动画 */
+/* 边数过多时隐藏圆点，保证大图流畅 */
+.jgraph-flow-off .jgraph-edge-dot {
+  display: none;
+}
+
+/* 尊重系统「减少动态效果」偏好：隐藏圆点 */
 @media (prefers-reduced-motion: reduce) {
-  .jgraph-edge > path {
-    stroke-dasharray: none;
-    animation: none;
+  .jgraph-edge-dot {
+    display: none;
   }
 }
 
