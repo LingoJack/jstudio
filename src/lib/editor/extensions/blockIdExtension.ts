@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import type { Node, Slice, Fragment } from '@tiptap/pm/model';
+import { Fragment, Slice } from '@tiptap/pm/model';
+import type { Node } from '@tiptap/pm/model';
 
 /**
  * Recursively walk a node tree and assign fresh ids to every node that
@@ -85,7 +86,7 @@ export const BlockIdExtension = Extension.create({
         key: new PluginKey('blockIdPaste'),
         props: {
           // When content is copied and pasted inside the same editor,
-          // ProseMirror preserves every node attribute — including our
+          // ProseMirror preserves every node attribute - including our
           // block id.  That leaves two DOM elements sharing the same
           // `data-block-id`, so the outline's querySelector always
           // resolves to the *first* match (the original/source node)
@@ -95,14 +96,14 @@ export const BlockIdExtension = Extension.create({
           // leaving drag-and-drop *moves* untouched (moves do not go
           // through transformPasted).
           transformPasted(slice: Slice): Slice {
-            const newContent = slice.content.map((node) =>
-              regenerateBlockIds(node),
+            const children: Node[] = [];
+            slice.content.forEach((child) =>
+              children.push(regenerateBlockIds(child)),
             );
-            return new Slice(newContent, slice.openStart, slice.openEnd);
+            return new Slice(Fragment.from(children), slice.openStart, slice.openEnd);
           },
         },
       }),
     ];
   },
 });
-

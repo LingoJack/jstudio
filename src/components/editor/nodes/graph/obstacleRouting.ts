@@ -444,12 +444,13 @@ export function obstacleAvoidingOrthogonalStyle(
 
   // 5. 获取连接点（模型坐标）
   const absPts = state.absolutePoints;
-  if (!absPts || absPts.length < 2 || !absPts[0] || !absPts[absPts.length - 1]) return;
+  const lastPt = absPts?.[absPts.length - 1];
+  if (!absPts || absPts.length < 2 || !absPts[0] || !lastPt) return;
 
   const p0: ModelPoint = { x: absPts[0].x / scale, y: absPts[0].y / scale };
   const pe: ModelPoint = {
-    x: absPts[absPts.length - 1].x / scale,
-    y: absPts[absPts.length - 1].y / scale,
+    x: lastPt.x / scale,
+    y: lastPt.y / scale,
   };
 
   // 6. 确定出口/入口方向，计算 jetty 点
