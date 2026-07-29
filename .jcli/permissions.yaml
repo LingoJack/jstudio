@@ -110,4 +110,10 @@ allow:
 - Shell(head -3:*)
 - Shell(sed -i:*)
 - Shell(cat /Users/jacklingo/dev_custom/jstudio/package.json:*)
+- Shell(awk 'NR==301':*)
+- Shell(awk 'NR==303':*)
+- Shell(awk 'NR==307':*)
+- Shell(awk 'NR==337':*)
+- Shell(awk 'NR==339':*)
+- Shell(file /Users/jacklingo/dev_custom/jstudio/src/components/editor/nodes/graph/GraphCanvas.tsx:*)
 deny: []

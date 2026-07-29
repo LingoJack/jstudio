@@ -87,7 +87,6 @@ import {
   getHandleStrokeColor,
   getConnectionPointColor,
   getEdgeColor,
-  getEdgeDotColor,
   getFontColor,
   createConnectionPointSVG,
   createLifelineConnectionPointSVG,
@@ -113,6 +112,9 @@ import {
   CONNECTION_POINTS,
 } from './graphCanvasStyle';
 import { attachSequenceInteraction } from './sequenceInteraction';
+
+/** 边数超过此阈值时自动关闭连线流动动画，保证大图流畅。 */
+const FLOW_ANIMATION_THRESHOLD = 20;
 
 /* ------------------------------------------------------------------ */
 /* Props — 必须与 ExcalidrawCanvasProps 完全一致                       */
@@ -213,6 +215,9 @@ export function GraphCanvas({
   // showGrid 的 ref，供 emitSnapshot 读取最新值（无需进 emit 的依赖数组）。
   const showGridRef = useRef(showGrid);
   showGridRef.current = showGrid;
+  // 流动动画开关 ref：边数超过阈值时给容器加 .jgraph-flow-off 类关闭 CSS 动画。
+  // 用 ref 间接调用，避免 useEffect 内外 TDZ 顺序依赖。
+  const updateFlowAnimationRef = useRef<() => void>(() => {});
 
   // Mermaid 导入对话框状态
   const [mermaidDialogOpen, setMermaidDialogOpen] = useState(false);
@@ -281,8 +286,12 @@ export function GraphCanvas({
     graphRef.current = graph;
 
     // 连线流动效果：在 cellRenderer.initializeShape（shape 创建唯一入口）处打标记，
-    // 给每条 edge 的 SVG <g> 加 class。流动圆点的 <use> 注入在 doRedrawShape 中完成。
+    // 给每条 edge 的 SVG <g> 加 .jgraph-edge 类。CSS 据此选择器对 path 施加
+    // stroke-dashoffset 动画，产生流动虚线效果。
     // 新增 / undo 恢复 / 快照灌入都会经过此入口，保证所有 edge 都能命中。
+    // 注：原先使用 SMIL animateMotion 在 doRedrawShape 中每帧重建 <circle>+<animateMotion>，
+    // 线条一多就因 DOM 频繁创建/销毁 + N 个 SMIL 引擎同时运行而严重卡顿。
+    // CSS 方案由浏览器引擎管理动画，redraw 重建 path 后自动生效，零 JS 开销。
     {
       const cellRenderer = graph.cellRenderer;
       const origInitializeShape = cellRenderer.initializeShape.bind(cellRenderer);
@@ -293,42 +302,17 @@ export function GraphCanvas({
           state.shape.node.classList.add('jgraph-edge');
         }
       };
-
-      // doRedrawShape 在每次重绘时调用，其内部 state.shape.redraw() -> clear() 会清空
-      // <g> 的所有子元素，因此每次重绘后需要重新注入流动点。
-      // 方案：创建 <circle> + <animateMotion>，用 SMIL 让圆点沿 path 的 d 属性运动。
-      // SMIL animateMotion 直接引用 path data，无需 CSS 动画，兼容性可靠（Chromium 原生支持）。
-      const origDoRedrawShape = cellRenderer.doRedrawShape.bind(cellRenderer);
-      cellRenderer.doRedrawShape = (state: CellState) => {
-        origDoRedrawShape(state);
-        const cell = state.cell;
-        if (cell && cell.isEdge() && state.shape?.node) {
-          const g = state.shape.node;
-          const mainPath = g.querySelector('path');
-          if (mainPath) {
-            const d = mainPath.getAttribute('d');
-            if (d) {
-              // 圆点颜色比线条更亮（主题 accent 色提亮 40%），在连线上跳出明显；
-              // 不读 mainPath.getAttribute('stroke') —— maxGraph 在 style 变更后
-              // 可能用 inline CSS 而非 stroke 属性更新颜色，会导致圆点滞后于主题切换。
-              const dotColor = getEdgeDotColor(darkModeRef.current);
-              const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-              dot.setAttribute('r', '2.5');
-              dot.setAttribute('fill', dotColor);
-              dot.classList.add('jgraph-edge-dot');
-
-              const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
-              animate.setAttribute('dur', '1.4s');
-              animate.setAttribute('repeatCount', 'indefinite');
-              animate.setAttribute('path', d);
-
-              dot.appendChild(animate);
-              g.appendChild(dot);
-            }
-          }
-        }
-      };
     }
+
+    // 流动动画阈值控制：边数超过阈值时给容器加 .jgraph-flow-off 类，
+    // CSS 自动关闭 stroke-dashoffset 动画，保证大图流畅。
+    updateFlowAnimationRef.current = () => {
+      const g = graphRef.current;
+      const container = containerRef.current;
+      if (!g || !container) return;
+      const edgeCount = g.getChildEdges(g.getDefaultParent()).length;
+      container.classList.toggle('jgraph-flow-off', edgeCount > FLOW_ANIMATION_THRESHOLD);
+    };
 
     // 注册自定义形状到全局 ShapeRegistry（UML 图表：用例图角色、时序图生命线等）
     registerCustomShapes();
@@ -660,6 +644,7 @@ export function GraphCanvas({
     // 模型变化 → 防抖序列化回传。
     graph.getDataModel().addListener(InternalEvent.CHANGE, () => {
       scheduleEmit();
+      updateFlowAnimationRef.current();
     });
 
     // 选中变化 -> 更新对齐按钮高亮状态。
@@ -724,6 +709,8 @@ export function GraphCanvas({
     }
     // 初始灌入产生的 edit 不应进 undo 历史。
     undoManager.clear();
+    // 根据边数决定是否开启动画。
+    updateFlowAnimationRef.current();
 
     /* ------------------------------------------------------------ */
     /* 拖拽绘制：点了工具栏图形后，在画布上按住拖拽划出位置与大小      */
@@ -1042,6 +1029,8 @@ export function GraphCanvas({
         setShowGrid(parsed.showGrid);
       }
       lastEmittedRef.current = initialSnapshot;
+      // 外部快照同步后，根据边数决定是否开启动画。
+      updateFlowAnimationRef.current();
     } finally {
       applyingRef.current = false;
     }
@@ -1312,6 +1301,8 @@ export function GraphCanvas({
       }
       lastEmittedRef.current = snapshotJson;
       onChangeRef.current(snapshotJson);
+      // 导入后根据边数决定是否开启动画。
+      updateFlowAnimationRef.current();
     } finally {
       applyingRef.current = false;
     }
