@@ -173,6 +173,11 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setLeftPanelHovered: (hovered) => set({ leftPanelHovered: hovered }),
   toggleOutline: () => set((s) => ({ isOutlineOpen: !s.isOutlineOpen })),
   setOutlineOpen: (open) => set({ isOutlineOpen: open }),
+  toggleOutlinePinned: () => {
+    const next = !get().outlinePinned;
+    set({ outlinePinned: next });
+    storage.saveSettings({ outlinePinned: next }).catch(onSaveError('设置'));
+  },
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
   toggleCommandPalette: () => set((s) => ({ isCommandPaletteOpen: !s.isCommandPaletteOpen })),

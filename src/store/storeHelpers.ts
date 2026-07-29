@@ -127,6 +127,8 @@ export interface StoreState {
   /** Transient: true while the pointer is over the ActivityBar. */
   leftPanelHovered: boolean;
   isOutlineOpen: boolean;
+  /** When false, SectionOutline collapses to a narrow strip and expands on hover. */
+  outlinePinned: boolean;
   isSettingsOpen: boolean;
   isCommandPaletteOpen: boolean;
   isFindBarOpen: boolean;
@@ -255,6 +257,7 @@ export interface StoreState {
   setLeftPanelHovered: (hovered: boolean) => void;
   toggleOutline: () => void;
   setOutlineOpen: (open: boolean) => void;
+  toggleOutlinePinned: () => void;
   toggleSettings: () => void;
   setSettingsOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;

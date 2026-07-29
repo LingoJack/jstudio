@@ -290,6 +290,8 @@ export const translations = {
     "outline.empty": "文档中暂无标题",
     "outline.show": "显示大纲",
     "outline.hide": "隐藏大纲",
+    "outline.pin": "固定大纲",
+    "outline.unpin": "取消固定",
 
     // ── FindBar ──
     "find.placeholder": "查找...",
@@ -1146,6 +1148,8 @@ export const translations = {
     "outline.empty": "No headings in this document",
     "outline.show": "Show outline",
     "outline.hide": "Hide outline",
+    "outline.pin": "Pin Outline",
+    "outline.unpin": "Unpin Outline",
 
     // ── FindBar ──
     "find.placeholder": "Find...",

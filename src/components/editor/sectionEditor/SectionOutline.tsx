@@ -38,6 +38,14 @@ import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import { NavBranch, NavRow } from '../../ui/NavTree';
 import type { Block } from '../../../types';
+import { Pin, ListTree } from 'lucide-react';
+
+/** Width of the outline panel when fully expanded. */
+const OUTLINE_WIDTH = 240;
+/** Width of the collapsed strip (unpinned, not hovered). */
+const COLLAPSED_WIDTH = 48;
+/** Delay (ms) before collapsing after the pointer leaves the panel. */
+const COLLAPSE_DELAY = 180;
 
 interface HeadingItem {
   id: string; // block id
@@ -265,22 +273,113 @@ export default function SectionOutline({
     });
   }, []);
 
+  // ── Pin / hover-expand state ──
+  const outlinePinned = useStore((s) => s.outlinePinned);
+  const toggleOutlinePinned = useStore((s) => s.toggleOutlinePinned);
+  const toggleOutline = useStore((s) => s.toggleOutline);
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const hoverCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleCollapse = useCallback(() => {
+    if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
+    hoverCollapseTimer.current = setTimeout(() => {
+      setHoverExpanded(false);
+    }, COLLAPSE_DELAY);
+  }, []);
+
+  const handleHoverEnter = useCallback(() => {
+    if (outlinePinned) return;
+    if (hoverCollapseTimer.current) {
+      clearTimeout(hoverCollapseTimer.current);
+      hoverCollapseTimer.current = null;
+    }
+    setHoverExpanded(true);
+  }, [outlinePinned]);
+
+  const handleHoverLeave = useCallback(() => {
+    if (outlinePinned) return;
+    scheduleCollapse();
+  }, [outlinePinned, scheduleCollapse]);
+
+  const handleTogglePin = useCallback(() => {
+    toggleOutlinePinned();
+    setHoverExpanded(false);
+  }, [toggleOutlinePinned]);
+
+  // Cleanup hover timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
+    };
+  }, []);
+
+  const isCollapsed = !outlinePinned && !hoverExpanded;
+  const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : OUTLINE_WIDTH;
+  const isOverlay = !outlinePinned && !isCollapsed;
+  const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
+
   return (
-    <div className="w-[240px] shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none">
-      <div className="h-9 shrink-0 flex items-center px-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-          {t('outline.title')}
-        </h2>
-      </div>
-      <div className="flex-1 overflow-y-auto rounded-md px-3 pb-3 space-y-0.5">
-        {headings.length === 0 ? (
-          <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
-            {t('outline.empty')}
-          </p>
-        ) : (
-          renderTree(headings, 1, activeId, handleClick, collapsed, toggle)
-        )}
-      </div>
+    <div
+      data-outline-root
+      className="shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none z-30 relative overflow-hidden"
+      style={{
+        width: effectiveWidth,
+        marginLeft: -overlayShift,
+        transition:
+          'width 180ms ease-out, margin-left 180ms ease-out, box-shadow 180ms ease-out',
+        boxShadow: isOverlay
+          ? '-4px 0 12px rgba(0,0,0,0.3)'
+          : '-4px 0 12px rgba(0,0,0,0)',
+      }}
+      onMouseEnter={handleHoverEnter}
+      onMouseLeave={handleHoverLeave}
+    >
+      {isCollapsed ? (
+        <div className="h-9 shrink-0 flex items-center justify-center">
+          <button
+            onClick={handleTogglePin}
+            className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
+            title={t('outline.pin')}
+          >
+            <Pin className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="h-9 shrink-0 flex items-center px-3 gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex-1">
+              {t('outline.title')}
+            </h2>
+            <button
+              onClick={handleTogglePin}
+              className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
+                outlinePinned
+                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                  : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+              }`}
+              title={outlinePinned ? t('outline.unpin') : t('outline.pin')}
+            >
+              <Pin className="w-4 h-4" />
+            </button>
+            <button
+              onClick={toggleOutline}
+              className="p-1 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
+              title={t('outline.hide')}
+            >
+              <ListTree className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto rounded-md px-3 pb-3 space-y-0.5">
+            {headings.length === 0 ? (
+              <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
+                {t('outline.empty')}
+              </p>
+            ) : (
+              renderTree(headings, 1, activeId, handleClick, collapsed, toggle)
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

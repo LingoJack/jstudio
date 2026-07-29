@@ -156,6 +156,8 @@ export interface AppSettings {
   sidebarWidth?: number;
   /** Whether the document sidebar is pinned (true) or hover-to-expand (false). */
   sidebarPinned?: boolean;
+  /** Whether the section outline is pinned (true) or hover-to-expand (false). */
+  outlinePinned?: boolean;
   /**
    * App UI color theme for dark mode — see lib/themes/registry.ts.
    * Terminal theme automatically uses the same ID (app theme = terminal theme).

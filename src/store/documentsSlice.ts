@@ -48,6 +48,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let editorLineHeight = DEFAULT_LINE_HEIGHT;
       let sidebarWidth: number | undefined;
       let sidebarPinned: boolean | undefined;
+      let outlinePinned: boolean | undefined;
       let language: Language = 'zh';
       let activityBarItems: ActivityBarItemConfig[] = DEFAULT_ACTIVITY_BAR_ITEMS;
       let appThemeIdDark: string | undefined;
@@ -89,6 +90,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
         if (typeof settings.sidebarPinned === 'boolean') {
           sidebarPinned = settings.sidebarPinned;
+        }
+        if (typeof settings.outlinePinned === 'boolean') {
+          outlinePinned = settings.outlinePinned;
         }
         if (settings.language === 'en' || settings.language === 'zh') {
           language = settings.language;
@@ -264,6 +268,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         editorLineHeight,
         ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
         ...(sidebarPinned !== undefined ? { sidebarPinned } : {}),
+        ...(outlinePinned !== undefined ? { outlinePinned } : {}),
         ...(appThemeIdDark !== undefined ? { appThemeIdDark } : {}),
         ...(appThemeIdLight !== undefined ? { appThemeIdLight } : {}),
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
