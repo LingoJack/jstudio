@@ -177,8 +177,8 @@ export function attachAutoActivation(
     const isReturnMessage = sourceIsAct && targetIsLL && !isSelfLoop;
     // --- 场景 C：ac → 不同 ac（普通消息）---
     const bothActivation = sourceIsAct && targetIsAct && !isSelfLoop;
-    // --- 场景 D：ll → ll（创建 ac）---
-    const shouldGenerate = sourceIsLL && targetIsLL;
+    // --- 场景 D：ll/actor -> ll（创建 ac）---
+    const shouldGenerate = targetIsLL && !sourceIsAct;
 
     graphLog(`isSelfLoop=${isSelfLoop}, isReturn=${isReturnMessage}, bothAct=${bothActivation}, shouldGenerate=${shouldGenerate}`);
 
@@ -277,20 +277,27 @@ export function attachAutoActivation(
     const targetGeo = target.getGeometry();
     if (!targetGeo) return;
 
-    // 消息 Y：优先用 handler.first（起点 Y，是用户按下鼠标时的位置，最准确、最直观）。
+    // 消息 Y：优先从 edge 的 exit 约束计算（确保与实际连线 Y 完全一致），
+    // 其次从 sourcePoint（actor 等无约束节点会使用），
+    // 最后回退到 handler.first（鼠标按下时的 Y）。
+    const sourceGeo = source.getGeometry();
+    const edgeStyle0 = edge.getStyle() as Record<string, number | undefined> | null;
+    const exitYRel = edgeStyle0?.exitY;
+    const edgeGeo0 = edge.getGeometry();
     let msgY: number;
-    if (handler.first) {
+    if (exitYRel != null && sourceGeo) {
+      // exitY 是相对于源节点的相对坐标 (0-1)
+      msgY = sourceGeo.y + exitYRel * sourceGeo.height;
+      graphLog(`msgY=${msgY} from exit constraint (exitY=${exitYRel}, srcY=${sourceGeo.y}, srcH=${sourceGeo.height})`);
+    } else if (edgeGeo0?.sourcePoint) {
+      msgY = edgeGeo0.sourcePoint.y;
+      graphLog(`msgY=${msgY} from edge.sourcePoint (${edgeGeo0.sourcePoint.x}, ${edgeGeo0.sourcePoint.y})`);
+    } else if (handler.first) {
       msgY = handler.first.y;
       graphLog(`msgY=${msgY} from handler.first (${handler.first.x}, ${handler.first.y})`);
     } else {
-      const edgeGeo0 = edge.getGeometry();
-      if (edgeGeo0?.sourcePoint) {
-        msgY = edgeGeo0.sourcePoint.y;
-        graphLog(`msgY=${msgY} fallback to edge.sourcePoint (${edgeGeo0.sourcePoint.x}, ${edgeGeo0.sourcePoint.y})`);
-      } else {
-        msgY = targetGeo.y + HEAD_HEIGHT + 30;
-        graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
-      }
+      msgY = targetGeo.y + HEAD_HEIGHT + 30;
+      graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
     }
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
@@ -306,7 +313,6 @@ export function attachAutoActivation(
     };
 
     // 判断源 ll 在目标 ll 的左侧还是右侧，决定 entry 在 ac 的左/右边缘
-    const sourceGeo = source.getGeometry();
     const sourceCenterX = sourceGeo ? sourceGeo.x + sourceGeo.width / 2 : 0;
     const sourceIsLeft = sourceCenterX < targetCenterX;
     const entryX = sourceIsLeft ? 0 : 1;
