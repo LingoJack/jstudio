@@ -131,10 +131,10 @@ function genActivationId(): string {
  *
  * 逻辑：
  *  - source=lifeline, target=lifeline：在 target lifeline 的消息 Y 位置生成
- *    一个 activation（w=16, h=40），并把这条 edge 的 target 改为新生成的 activation
+ *    一个 activation（w=16, h=40，顶部对齐消息线），并把这条 edge 的 target 改为新生成的 activation
  *  - source=lifeline, target=activation：不生成（用户拖到了一个已存在的 activation 上）
- *  - source=activation, target=lifeline：回消息，不生成（避免错误地在 lifeline 上
- *    又生成一个 activation）
+ *  - source=activation, target=lifeline：回消息，不生成 activation，
+ *    设置虚线 + openThin 箭头样式（UML 返回消息惯例）
  *  - source=activation, target=activation：不生成
  *
  * 所有修改包在 batchUpdate 里，undo 一次回滚消息 + activation。
@@ -157,12 +157,43 @@ export function attachAutoActivation(
     graphLog(`source=${source?.getId()}(shape=${srcShape}), target=${target?.getId()}(shape=${tgtShape})`);
     if (!source || !target) return;
 
-    // 只要目标是 lifeline 就生成 activation（放宽条件，支持 actor -> lifeline 场景）。
-    // 回消息（activation -> lifeline）不会生成，因为目标是 lifeline 但 source 是 activation，
-    // 且 target 是 lifeline 时会生成新的 activation（覆盖旧的）。
-    const shouldGenerate = isLifeline(target);
-    graphLog(`shouldGenerate=${shouldGenerate}, isLifeline(src)=${isLifeline(source)}, isLifeline(tgt)=${isLifeline(target)}`);
-    if (!shouldGenerate) return;
+    // lifeline -> lifeline：生成 activation（含 actor -> lifeline 场景）。
+    // activation -> lifeline：回消息，不生成 activation，设置虚线返回样式。
+    // activation -> activation：不生成（用户拖到了已存在的 activation 上）。
+    const isReturnMessage = isActivation(source);
+    const shouldGenerate = isLifeline(target) && !isReturnMessage;
+    graphLog(`shouldGenerate=${shouldGenerate}, isReturn=${isReturnMessage}, isLifeline(src)=${isLifeline(source)}, isLifeline(tgt)=${isLifeline(target)}`);
+    if (!shouldGenerate) {
+      if (isReturnMessage) {
+        // 回消息：清除约束 + 虚线 + openThin
+        model.beginUpdate();
+        try {
+          const style = edge.getStyle() ?? {};
+          const cleaned: Record<string, unknown> = { ...style };
+          delete cleaned.entryX;
+          delete cleaned.entryY;
+          delete cleaned.entryPerimeter;
+          delete cleaned.entryDx;
+          delete cleaned.entryDy;
+          delete cleaned.exitX;
+          delete cleaned.exitY;
+          delete cleaned.exitPerimeter;
+          delete cleaned.exitDx;
+          delete cleaned.exitDy;
+          model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true });
+
+          const retGeo = edge.getGeometry()?.clone();
+          if (retGeo) {
+            retGeo.sourcePoint = null;
+            retGeo.targetPoint = null;
+            model.setGeometry(edge, retGeo);
+          }
+        } finally {
+          model.endUpdate();
+        }
+      }
+      return;
+    }
 
     const targetGeo = target.getGeometry();
     if (!targetGeo) return;
@@ -190,9 +221,7 @@ export function attachAutoActivation(
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
     // activation 居中在 lifeline 上：
     //   - X 方向：中心 X = lifeline 中心 X，左右各延伸 8px
-    //   - Y 方向：activation 的**中心 Y = msgY**，即顶部 Y = msgY - h/2
-    // 这样从 source lifeline 出来的消息线（走 LifelinePerimeter，用 target 中心投影）
-    // 投影到 target activation 的中心 Y = msgY，正好和起点 Y = msgY 对齐 → 水平。
+    //   - Y 方向：activation 的中心 Y = msgY，即顶部 Y = msgY - h/2
     const actGeo = {
       x: targetCenterX - ACTIVATION_W / 2,
       y: msgY - ACTIVATION_H / 2,
@@ -219,20 +248,9 @@ export function attachAutoActivation(
       // 把 edge 的 target 改为 activation
       model.setTerminal(edge, actCell, false);
 
-      // 修改 edge 的 style：强制 straight + 结束箭头
-      // 关键：清除 target 侧的 entry 约束（entryX/entryY 等）。
-      // 这些约束是 ConnectionHandler.connect() 在创建边时，根据原 target（生命线）
-      // 的 bounds 设置的相对坐标（0~1）。现在 target 已改为活动块（16×40px），
-      // 如果不清除，entryX=0.5 等值会映射到活动块水平中心（内部）而非边缘，
-      // 导致箭头端点落在活动块内部。清除后 maxGraph 回退到 ActivationPerimeter，
-      // 正确地将端点投影到活动块左右边缘。
-      //
-      // 保留 source 侧的 exit 约束（exitX/exitY）：source（生命线）未变，
-      // 且 exitY 记录了正确的消息 Y 位置。ActivationPerimeter 会用 source 端点
-      // 作为 next 点来确定方向和 Y，确保箭头水平指向活动块边缘。
-      //
-      // 使用 model.setStyle() 而非 edge.setStyle()，确保样式变更经过 model
-      // 变更追踪，视图能在 endUpdate 时正确重验证。
+      // 清除 target 侧的 entry 约束（原 lifeline 的约束不适用于 activation），
+      // 保留 source 侧的 exit 约束（exitY 记录了正确的消息 Y）。
+      // maxGraph 回退到 ActivationPerimeter 投影端点到边缘。
       const style = edge.getStyle() ?? {};
       const cleaned: Record<string, unknown> = { ...style };
       delete cleaned.entryX;
@@ -242,12 +260,6 @@ export function attachAutoActivation(
       delete cleaned.entryDy;
       model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'classic' });
 
-      // 强制水平：清除 sourcePoint / targetPoint 的 Y 偏差。
-      // 因为 source 和 target 都是节点，edge 会走 perimeter 计算端点。
-      // 我们用 LifelinePerimeter / RectanglePerimeter，只要 activation 的 Y = msgY，
-      // 且 source lifeline 通过 next=activation.center 投影出的 Y 也是 msgY，
-      // 线就是水平的。这里为了保险，清掉可能残留的 sourcePoint/targetPoint 绝对坐标，
-      // 强制走 perimeter 自动计算。
       const finalGeo = edge.getGeometry()?.clone();
       if (finalGeo) {
         finalGeo.sourcePoint = null;
@@ -401,6 +413,26 @@ export function attachActorSourceBlock(graph: AbstractGraph): () => void {
 }
 
 /* ------------------------------------------------------------------ */
+/* 5. 活动块不可移动（绑定生命线，仅支持调节大小）                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 活动块（activation）在 UML 时序图中贴在生命线上，用户不应能把它拖走。
+ * 禁止移动后，用户仍可从活动块拉出消息线（通过连接点），也可拖拽手柄调节大小。
+ */
+export function attachActivationImmovable(graph: AbstractGraph): () => void {
+  const orig = graph.isCellMovable.bind(graph);
+  graph.isCellMovable = (cell: Cell | null) => {
+    if (!cell) return false;
+    if (isActivation(cell)) return false;
+    return orig(cell);
+  };
+  return () => {
+    graph.isCellMovable = orig;
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* 组合入口                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -419,12 +451,14 @@ export function attachSequenceInteraction(
   const cleanup2 = attachAutoActivation(graph, handler, activationStyleProvider);
   const cleanup3 = attachLifelineHoverDot(graph, container);
   const cleanup4 = attachActorSourceBlock(graph);
-  graphLog('attachSequenceInteraction done, 4 hooks installed');
+  const cleanup5 = attachActivationImmovable(graph);
+  graphLog('attachSequenceInteraction done, 5 hooks installed');
 
   return () => {
     cleanup1();
     cleanup2();
     cleanup3();
     cleanup4();
+    cleanup5();
   };
 }

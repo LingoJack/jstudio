@@ -453,7 +453,7 @@ export function GraphCanvas({
         if (cell) {
           const state = graph.getView().getState(cell);
           const shape = state ? (state.style as CellStyle)?.shape : undefined;
-          if (shape === 'lifeline' || shape === 'umlActor') {
+          if (shape === 'lifeline' || shape === 'umlActor' || shape === 'umlActivation') {
             return 6;
           }
         }
@@ -633,20 +633,21 @@ export function GraphCanvas({
         return constraints;
       }
 
-      // 时序图激活框：保留少量锚点即可。
-      // 消息进出由 RectanglePerimeter 在边缘任意 Y 投影，无需密集锚点。
-      // 保留 4 角 + 上下中点 + 左右边中点，保证拖线时的可感知性。
+      // 时序图激活框：左右边缘密集锚点（每 8px 一个），
+      // 让用户可以从活动块任意高度拉出消息线（含返回消息）。
       if (shapeStyle === 'umlActivation') {
-        return [
-          new ConnectionConstraint(new Point(0, 0), true),
-          new ConnectionConstraint(new Point(0.5, 0), true),
-          new ConnectionConstraint(new Point(1, 0), true),
-          new ConnectionConstraint(new Point(0, 0.5), true),
-          new ConnectionConstraint(new Point(1, 0.5), true),
-          new ConnectionConstraint(new Point(0, 1), true),
-          new ConnectionConstraint(new Point(0.5, 1), true),
-          new ConnectionConstraint(new Point(1, 1), true),
-        ];
+        const nodeHeight = terminal.height ?? 40;
+        const constraints: ConnectionConstraint[] = [];
+        const SPACING = 8;
+        for (let absY = 0; absY <= nodeHeight; absY += SPACING) {
+          const ry = absY / nodeHeight;
+          constraints.push(new ConnectionConstraint(new Point(0, ry), true));
+          constraints.push(new ConnectionConstraint(new Point(1, ry), true));
+        }
+        // 顶部/底部中点
+        constraints.push(new ConnectionConstraint(new Point(0.5, 0), true));
+        constraints.push(new ConnectionConstraint(new Point(0.5, 1), true));
+        return constraints;
       }
 
       // 普通节点：四边中点连接点
