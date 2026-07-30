@@ -88,8 +88,11 @@ export function attachHorizontalMessageConstraint(handler: ConnectionHandler): (
     if (handler.first && handler.previous) {
       const sourceCell = handler.previous.cell;
       if (sourceCell && isSequenceNode(sourceCell)) {
-        // 锁定 Y 为起点 Y
-        point.y = handler.first.y;
+        // 自环（ac 拖回自身）时不锁定 Y，允许用户从不同高度起/止
+        const isSelfLoop = handler.currentState?.cell === sourceCell;
+        if (!isSelfLoop) {
+          point.y = handler.first.y;
+        }
       }
     }
     origUpdateCurrentState(me, point);
@@ -101,7 +104,11 @@ export function attachHorizontalMessageConstraint(handler: ConnectionHandler): (
     if (handler.first && handler.previous) {
       const sourceCell = handler.previous.cell;
       if (sourceCell && isSequenceNode(sourceCell) && current) {
-        current.y = handler.first.y;
+        // 自环时不锁定 Y
+        const isSelfLoop = handler.currentState?.cell === sourceCell;
+        if (!isSelfLoop) {
+          current.y = handler.first.y;
+        }
       }
     }
     origUpdateEdgeState(current, constraint);
@@ -127,15 +134,17 @@ function genActivationId(): string {
 }
 
 /**
- * 监听 ConnectionHandler 的 CONNECT 事件，自动生成 activation。
+ * 监听 ConnectionHandler 的 CONNECT 事件，处理时序图五种连线场景：
  *
- * 逻辑：
- *  - source=lifeline, target=lifeline：在 target lifeline 的消息 Y 位置生成
- *    一个 activation（w=16, h=40，顶部对齐消息线），并把这条 edge 的 target 改为新生成的 activation
- *  - source=lifeline, target=activation：不生成（用户拖到了一个已存在的 activation 上）
- *  - source=activation, target=lifeline：回消息，不生成 activation，
- *    设置虚线 + openThin 箭头样式（UML 返回消息惯例）
- *  - source=activation, target=activation：不生成
+ *  A. 自环（ac → 同一 ac）：实线 + classic，添加航点形成矩形环
+ *  B. ac → ll（返回消息）：虚线 + openThin，保留 exit 约束、清除 entry 约束
+ *  C. ac → 不同 ac（普通消息）：实线 + classic，保留双方约束
+ *  D. ll → ll（创建 ac）：在 target lifeline 上生成 activation，
+ *     msgY 位于 ac 顶部 25% 处（中上部分），entry 约束设为 (0|1, 0.25)
+ *  E. ll → ac / 其他：不特殊处理
+ *
+ * 端点不同保证：ll→ac 的 entryY 固定为 0.25，而 ac 上的 exit/entry 约束
+ * 在 8px 间距点(0/0.2/0.4/0.6/0.8/1.0)上，0.25 不与任何间距点重合。
  *
  * 所有修改包在 batchUpdate 里，undo 一次回滚消息 + activation。
  */
@@ -157,52 +166,118 @@ export function attachAutoActivation(
     graphLog(`source=${source?.getId()}(shape=${srcShape}), target=${target?.getId()}(shape=${tgtShape})`);
     if (!source || !target) return;
 
-    // lifeline -> lifeline：生成 activation（含 actor -> lifeline 场景）。
-    // activation -> lifeline：回消息，不生成 activation，设置虚线返回样式。
-    // activation -> activation：不生成（用户拖到了已存在的 activation 上）。
-    const isReturnMessage = isActivation(source);
-    const shouldGenerate = isLifeline(target) && !isReturnMessage;
-    graphLog(`shouldGenerate=${shouldGenerate}, isReturn=${isReturnMessage}, isLifeline(src)=${isLifeline(source)}, isLifeline(tgt)=${isLifeline(target)}`);
-    if (!shouldGenerate) {
-      if (isReturnMessage) {
-        // 回消息：清除约束 + 虚线 + openThin
-        model.beginUpdate();
-        try {
-          const style = edge.getStyle() ?? {};
-          const cleaned: Record<string, unknown> = { ...style };
-          delete cleaned.entryX;
-          delete cleaned.entryY;
-          delete cleaned.entryPerimeter;
-          delete cleaned.entryDx;
-          delete cleaned.entryDy;
-          delete cleaned.exitX;
-          delete cleaned.exitY;
-          delete cleaned.exitPerimeter;
-          delete cleaned.exitDx;
-          delete cleaned.exitDy;
-          model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true });
+    const sourceIsLL = isLifeline(source);
+    const targetIsLL = isLifeline(target);
+    const sourceIsAct = isActivation(source);
+    const targetIsAct = isActivation(target);
 
-          const retGeo = edge.getGeometry()?.clone();
-          if (retGeo) {
-            retGeo.sourcePoint = null;
-            retGeo.targetPoint = null;
-            model.setGeometry(edge, retGeo);
+    // --- 场景 A：自环（ac → 同一 ac）---
+    const isSelfLoop = source === target && sourceIsAct;
+    // --- 场景 B：ac → ll（返回消息）---
+    const isReturnMessage = sourceIsAct && targetIsLL && !isSelfLoop;
+    // --- 场景 C：ac → 不同 ac（普通消息）---
+    const bothActivation = sourceIsAct && targetIsAct && !isSelfLoop;
+    // --- 场景 D：ll → ll（创建 ac）---
+    const shouldGenerate = sourceIsLL && targetIsLL;
+
+    graphLog(`isSelfLoop=${isSelfLoop}, isReturn=${isReturnMessage}, bothAct=${bothActivation}, shouldGenerate=${shouldGenerate}`);
+
+    /* ---------- 场景 A：自环 ---------- */
+    if (isSelfLoop) {
+      model.beginUpdate();
+      try {
+        const style = edge.getStyle() ?? {};
+        model.setStyle(edge, { ...style, edgeStyle: undefined, endArrow: 'classic' });
+
+        // 读取 exit/entry 约束，添加航点形成矩形环
+        const s = edge.getStyle() as Record<string, number | undefined>;
+        const exitX = s?.exitX ?? 0.5;
+        const exitY = s?.exitY ?? 0.5;
+        const entryX = s?.entryX ?? 0.5;
+        const entryY = s?.entryY ?? 0.5;
+        const acGeo = source.getGeometry();
+
+        const geo = edge.getGeometry()?.clone();
+        if (geo && acGeo) {
+          geo.sourcePoint = null;
+          geo.targetPoint = null;
+
+          const exitAbsY = acGeo.y + exitY * acGeo.height;
+          const entryAbsY = acGeo.y + entryY * acGeo.height;
+          const loopOffset = 30;
+
+          // exit 和 entry 在同侧时，添加航点形成矩形环
+          if (exitX >= 0.5 && entryX >= 0.5) {
+            // 都在右侧
+            const wpX = acGeo.x + acGeo.width + loopOffset;
+            geo.points = [new Point(wpX, exitAbsY), new Point(wpX, entryAbsY)];
+          } else if (exitX < 0.5 && entryX < 0.5) {
+            // 都在左侧
+            const wpX = acGeo.x - loopOffset;
+            geo.points = [new Point(wpX, exitAbsY), new Point(wpX, entryAbsY)];
           }
-        } finally {
-          model.endUpdate();
+          // 分布在两侧时不加航点（直线穿过 ac）
+
+          model.setGeometry(edge, geo);
         }
+      } finally {
+        model.endUpdate();
       }
       return;
     }
 
+    /* ---------- 场景 C：ac → 不同 ac（普通消息）---------- */
+    if (bothActivation) {
+      model.beginUpdate();
+      try {
+        const style = edge.getStyle() ?? {};
+        model.setStyle(edge, { ...style, edgeStyle: undefined, endArrow: 'classic' });
+        const geo = edge.getGeometry()?.clone();
+        if (geo) {
+          geo.sourcePoint = null;
+          geo.targetPoint = null;
+          model.setGeometry(edge, geo);
+        }
+      } finally {
+        model.endUpdate();
+      }
+      return;
+    }
+
+    /* ---------- 场景 B：ac → ll（返回消息）---------- */
+    if (isReturnMessage) {
+      model.beginUpdate();
+      try {
+        const style = edge.getStyle() ?? {};
+        const cleaned: Record<string, unknown> = { ...style };
+        // 保留 exit 约束（用户在 ac 上的点击位置），清除 entry 约束（让 ll perimeter 处理）
+        delete cleaned.entryX;
+        delete cleaned.entryY;
+        delete cleaned.entryPerimeter;
+        delete cleaned.entryDx;
+        delete cleaned.entryDy;
+        model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true });
+
+        const retGeo = edge.getGeometry()?.clone();
+        if (retGeo) {
+          retGeo.sourcePoint = null;
+          retGeo.targetPoint = null;
+          model.setGeometry(edge, retGeo);
+        }
+      } finally {
+        model.endUpdate();
+      }
+      return;
+    }
+
+    /* ---------- 场景 E：ll → ac / 其他 ---------- */
+    if (!shouldGenerate) return;
+
+    /* ---------- 场景 D：ll → ll（创建 ac）---------- */
     const targetGeo = target.getGeometry();
     if (!targetGeo) return;
 
     // 消息 Y：优先用 handler.first（起点 Y，是用户按下鼠标时的位置，最准确、最直观）。
-    // 之前用 edge.targetPoint 会导致 msgY 变成鼠标松开位置的 Y，如果用户拖动过程中鼠标
-    // 上下移动了（虽然水平预览锁定了，但 targetPoint 可能仍是鼠标原始位置），会导致
-    // activation 和消息线的 Y 不一致，视觉上线是斜的。
-    // 用 handler.first.y 保证消息 Y = 起点 Y = 水平线 Y = activation Y，四者对齐。
     let msgY: number;
     if (handler.first) {
       msgY = handler.first.y;
@@ -221,13 +296,21 @@ export function attachAutoActivation(
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
     // activation 居中在 lifeline 上：
     //   - X 方向：中心 X = lifeline 中心 X，左右各延伸 8px
-    //   - Y 方向：activation 的中心 Y = msgY，即顶部 Y = msgY - h/2
+    //   - Y 方向：msgY 位于 ac 顶部 25% 处（中上部分），即 ac.y = msgY - h * 0.25
+    //     这样 ll 的消息线端点自然落在 ac 的中上部分
     const actGeo = {
       x: targetCenterX - ACTIVATION_W / 2,
-      y: msgY - ACTIVATION_H / 2,
+      y: msgY - ACTIVATION_H * 0.25,
       w: ACTIVATION_W,
       h: ACTIVATION_H,
     };
+
+    // 判断源 ll 在目标 ll 的左侧还是右侧，决定 entry 在 ac 的左/右边缘
+    const sourceGeo = source.getGeometry();
+    const sourceCenterX = sourceGeo ? sourceGeo.x + sourceGeo.width / 2 : 0;
+    const sourceIsLeft = sourceCenterX < targetCenterX;
+    const entryX = sourceIsLeft ? 0 : 1;
+    const entryY = 0.25; // 中上部分
 
     // 在同一个 batch 里：创建 activation + 修改 edge 的 target 指向 activation
     model.beginUpdate();
@@ -249,16 +332,14 @@ export function attachAutoActivation(
       model.setTerminal(edge, actCell, false);
 
       // 清除 target 侧的 entry 约束（原 lifeline 的约束不适用于 activation），
+      // 然后设置新的 entry 约束到 ac 的中上部分。
       // 保留 source 侧的 exit 约束（exitY 记录了正确的消息 Y）。
-      // maxGraph 回退到 ActivationPerimeter 投影端点到边缘。
       const style = edge.getStyle() ?? {};
       const cleaned: Record<string, unknown> = { ...style };
-      delete cleaned.entryX;
-      delete cleaned.entryY;
       delete cleaned.entryPerimeter;
       delete cleaned.entryDx;
       delete cleaned.entryDy;
-      model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'classic' });
+      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: undefined, endArrow: 'classic' });
 
       const finalGeo = edge.getGeometry()?.clone();
       if (finalGeo) {
