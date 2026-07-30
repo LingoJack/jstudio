@@ -512,6 +512,8 @@ export const translations = {
     "bubble.italic": "斜体",
     "bubble.strike": "删除线",
     "bubble.code": "行内代码",
+    "bubble.headingLevel": "标题等级",
+    "bubble.paragraph": "正文",
 
     // ── DocumentPanel placeholder ──
     "editor.placeholder": "输入 / 唤起命令菜单…",
@@ -1378,6 +1380,8 @@ export const translations = {
     "bubble.italic": "Italic",
     "bubble.strike": "Strikethrough",
     "bubble.code": "Inline code",
+    "bubble.headingLevel": "Heading level",
+    "bubble.paragraph": "Paragraph",
 
     // ── DocumentPanel placeholder ──
     "editor.placeholder": "Type / for commands…",

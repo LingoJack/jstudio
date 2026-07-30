@@ -30,7 +30,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { NodeSelection } from '@tiptap/pm/state';
-import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code, ChevronDown, Check } from 'lucide-react';
 import { useI18n } from '../../lib/core/i18n';
 import type { TranslationKey } from '../../lib/core/i18n';
 
@@ -58,30 +58,65 @@ interface FormatBubbleMenuProps {
   editor: Editor;
 }
 
-interface FormatItem {
-  name: string;
-  labelKey: TranslationKey;
-  Icon: typeof Bold;
-}
+/** Heading levels exposed by the dropdown (matches StarterKit defaults). */
+const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
-const ITEMS: FormatItem[] = [
-  { name: 'bold', labelKey: 'bubble.bold', Icon: Bold },
-  { name: 'italic', labelKey: 'bubble.italic', Icon: Italic },
-  { name: 'strike', labelKey: 'bubble.strike', Icon: Strikethrough },
-  { name: 'code', labelKey: 'bubble.code', Icon: Code },
+/**
+ * A focusable toolbar entry. When the selection sits inside a heading, an
+ * extra `heading` entry is prepended so it participates in the roving-focus
+ * Tab cycle alongside the mark toggles.
+ */
+type HeadingItem = { kind: 'heading' };
+type MarkItem = { kind: 'mark'; name: string; labelKey: TranslationKey; Icon: typeof Bold };
+type FocusItem = HeadingItem | MarkItem;
+
+const MARK_ITEMS: MarkItem[] = [
+  { kind: 'mark', name: 'bold', labelKey: 'bubble.bold', Icon: Bold },
+  { kind: 'mark', name: 'italic', labelKey: 'bubble.italic', Icon: Italic },
+  { kind: 'mark', name: 'strike', labelKey: 'bubble.strike', Icon: Strikethrough },
+  { kind: 'mark', name: 'code', labelKey: 'bubble.code', Icon: Code },
 ];
 
 export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const { t } = useI18n();
   const [activeIndex, setActiveIndex] = useState(-1);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [headingOpen, setHeadingOpen] = useState(false);
+  const [headingSelIndex, setHeadingSelIndex] = useState(0);
 
-  // Keep a live ref to activeIndex so the capture-phase keydown listener
-  // (registered once) always sees the latest value.
+  // Whether the current selection sits inside a heading (and which level).
+  const isHeading = editor.isActive('heading');
+  const currentLevel = editor.getAttributes('heading').level as number | undefined;
+
+  // Build the focusable item list: the heading trigger is prepended only when
+  // the selection is inside a heading, so it joins the roving-focus cycle.
+  const items: FocusItem[] = isHeading
+    ? [{ kind: 'heading' }, ...MARK_ITEMS]
+    : MARK_ITEMS;
+
+  // Keep live refs so the capture-phase keydown listener (registered once)
+  // always sees the latest values without re-subscribing.
   const activeIndexRef = useRef(activeIndex);
+  const itemsRef = useRef(items);
+  const headingOpenRef = useRef(headingOpen);
+  const headingSelRef = useRef(headingSelIndex);
+  const currentLevelRef = useRef(currentLevel);
+  activeIndexRef.current = activeIndex;
+  itemsRef.current = items;
+  headingOpenRef.current = headingOpen;
+  headingSelRef.current = headingSelIndex;
+  currentLevelRef.current = currentLevel;
+
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Reset roving focus + close the dropdown whenever the selection moves in
+  // or out of a heading (the item list length changes, so a stale index could
+  // point at the wrong control).
   useEffect(() => {
-    activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
+    setActiveIndex(-1);
+    setHeadingOpen(false);
+  }, [isHeading]);
 
   const toggleMark = useCallback(
     (markName: string) => {
@@ -94,6 +129,30 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     },
     [editor],
   );
+
+  // Apply a heading-level dropdown option by index. Options are ordered as
+  // H1..H6 followed by a single "Paragraph" entry that converts to a normal
+  // text block.
+  const applyHeadingOption = useCallback(
+    (index: number) => {
+      if (index >= 0 && index < HEADING_LEVELS.length) {
+        editor.chain().setNode('heading', { level: HEADING_LEVELS[index] }).run();
+      } else {
+        editor.chain().setParagraph().run();
+      }
+      setHeadingOpen(false);
+    },
+    [editor],
+  );
+
+  // Open the heading dropdown, pre-selecting the current level.
+  const openHeadingDropdown = useCallback(() => {
+    const lvl = currentLevelRef.current;
+    setHeadingSelIndex(
+      typeof lvl === 'number' && lvl >= 1 && lvl <= HEADING_LEVELS.length ? lvl - 1 : 0,
+    );
+    setHeadingOpen(true);
+  }, []);
 
   // ------------------------------------------------------------------
   //  Capture-phase keyboard interception on the editor DOM element.
@@ -118,13 +177,52 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       const isEnter = key === 'Enter';
       const isSpace = key === ' ';
       const isEscape = key === 'Escape';
+      const isArrowDown = key === 'ArrowDown';
+      const isArrowUp = key === 'ArrowUp';
 
-      if (
-        !isTab &&
-        !isEnter &&
-        !isSpace &&
-        !isEscape
-      ) {
+      // ── Heading dropdown open: drive its own list navigation ──
+      // The popover lives outside the editor DOM subtree, so its own keydowns
+      // never reach this capture listener; these keys come from the editor
+      // (which retains DOM focus) while the dropdown is visually open.
+      if (headingOpenRef.current) {
+        if (!isTab && !isEnter && !isSpace && !isEscape && !isArrowDown && !isArrowUp) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+
+        const optionCount = HEADING_LEVELS.length + 1; // +1 for "Paragraph"
+        const sel = headingSelRef.current;
+
+        if (isEscape) {
+          setHeadingOpen(false);
+          return;
+        }
+        if (isTab) {
+          const next = e.shiftKey
+            ? sel <= 0
+              ? optionCount - 1
+              : sel - 1
+            : sel >= optionCount - 1
+              ? 0
+              : sel + 1;
+          setHeadingSelIndex(next);
+          return;
+        }
+        if (isArrowDown) {
+          setHeadingSelIndex(sel >= optionCount - 1 ? 0 : sel + 1);
+          return;
+        }
+        if (isArrowUp) {
+          setHeadingSelIndex(sel <= 0 ? optionCount - 1 : sel - 1);
+          return;
+        }
+        // Enter / Space - apply the highlighted option
+        applyHeadingOption(sel);
+        return;
+      }
+
+      if (!isTab && !isEnter && !isSpace && !isEscape) {
         return;
       }
 
@@ -138,7 +236,8 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
         return;
       }
 
-      const itemCount = ITEMS.length;
+      const items = itemsRef.current;
+      const itemCount = items.length;
       const current = activeIndexRef.current;
 
       if (isTab && !e.shiftKey) {
@@ -152,7 +251,12 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       } else if (isEnter || isSpace) {
         // Enter / Space — toggle the focused item (if any)
         if (current >= 0 && current < itemCount) {
-          toggleMark(ITEMS[current].name);
+          const item = items[current];
+          if (item.kind === 'heading') {
+            openHeadingDropdown();
+          } else {
+            toggleMark(item.name);
+          }
         }
       }
     };
@@ -162,7 +266,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     return () => {
       editorDom.removeEventListener('keydown', handleCaptureKeyDown, true);
     };
-  }, [menuVisible, editor, toggleMark]);
+  }, [menuVisible, editor, toggleMark, applyHeadingOption, openHeadingDropdown]);
 
   // ------------------------------------------------------------------
   //  Resolve the actual scroll container so the toolbar repositions
@@ -289,7 +393,24 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const handleHide = useCallback(() => {
     setMenuVisible(false);
     setActiveIndex(-1);
+    setHeadingOpen(false);
   }, []);
+
+  // Close the heading dropdown when clicking outside of its trigger/popover
+  // (e.g. clicking another toolbar control or elsewhere on the page).
+  useEffect(() => {
+    if (!headingOpen) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      // Let the trigger handle its own toggle; only close for outside clicks.
+      if (triggerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setHeadingOpen(false);
+    };
+    document.addEventListener('mousedown', onDocMouseDown, true);
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  }, [headingOpen]);
 
   // Memoise the options object so it only changes when scrollTarget
   // changes, preventing unnecessary plugin re-updates.
@@ -328,27 +449,107 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       className="editor-toolbar bubble-menu"
     >
       <div className="flex items-center gap-0.5">
-        {ITEMS.map(({ name, labelKey, Icon }, index) => {
-          const isActive = editor.isActive(name);
+        {isHeading && (
+          <div className="relative flex items-center">
+            <button
+              ref={triggerRef}
+              type="button"
+              title={t('bubble.headingLevel')}
+              aria-label={t('bubble.headingLevel')}
+              aria-expanded={headingOpen}
+              onMouseDown={(e) => {
+                // Prevent the editor from losing selection when clicking the button
+                e.preventDefault();
+                setHeadingOpen((open) => {
+                  if (!open) {
+                    const lvl = currentLevel;
+                    setHeadingSelIndex(
+                      typeof lvl === 'number' && lvl >= 1 && lvl <= HEADING_LEVELS.length
+                        ? lvl - 1
+                        : 0,
+                    );
+                  }
+                  return !open;
+                });
+              }}
+              style={{ width: 'auto' }}
+              className={`editor-toolbar-btn bubble-menu-btn gap-0.5 px-1 ${
+                headingOpen ? 'is-active' : ''
+              } ${0 === activeIndex ? 'is-focused' : ''}`}
+            >
+              <span className="text-[11px] font-semibold leading-none">
+                {typeof currentLevel === 'number' ? `H${currentLevel}` : 'H'}
+              </span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {headingOpen && (
+              <div
+                ref={popoverRef}
+                className="editor-toolbar-menu absolute left-0 top-full z-[101] mt-1 min-w-[120px] py-1"
+              >
+                {HEADING_LEVELS.map((level, i) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      applyHeadingOption(i);
+                    }}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
+                      i === headingSelIndex ? 'bg-[var(--vscode-list-hoverBackground)]' : ''
+                    } ${
+                      level === currentLevel
+                        ? 'text-[var(--vscode-textLink-foreground)]'
+                        : 'text-[var(--vscode-editor-foreground)]'
+                    }`}
+                  >
+                    <span>H{level}</span>
+                    {level === currentLevel && <Check className="w-3 h-3" />}
+                  </button>
+                ))}
+                <div className="my-1 h-px bg-[var(--vscode-menu-border)]" />
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    applyHeadingOption(HEADING_LEVELS.length);
+                  }}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
+                    HEADING_LEVELS.length === headingSelIndex
+                      ? 'bg-[var(--vscode-list-hoverBackground)]'
+                      : ''
+                  } text-[var(--vscode-editor-foreground)]`}
+                >
+                  <span>{t('bubble.paragraph')}</span>
+                </button>
+              </div>
+            )}
+            <div className="mx-1 h-5 w-px bg-[var(--vscode-menu-border)]" />
+          </div>
+        )}
+        {MARK_ITEMS.map((item, idx) => {
+          const index = (isHeading ? 1 : 0) + idx;
+          const isActive = editor.isActive(item.name);
           const isFocused = index === activeIndex;
-          const label = t(labelKey);
+          const label = t(item.labelKey);
 
           return (
             <button
-              key={name}
+              key={item.name}
               type="button"
               title={label}
               aria-label={label}
               onMouseDown={(e) => {
                 // Prevent the editor from losing selection when clicking the button
                 e.preventDefault();
-                toggleMark(name);
+                setHeadingOpen(false);
+                toggleMark(item.name);
               }}
               className={`editor-toolbar-btn bubble-menu-btn ${isActive ? 'is-active' : ''} ${
                 isFocused ? 'is-focused' : ''
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <item.Icon className="w-3.5 h-3.5" />
             </button>
           );
         })}
