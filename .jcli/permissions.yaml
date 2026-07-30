@@ -117,4 +117,6 @@ allow:
 - Shell(awk 'NR==339':*)
 - Shell(file /Users/jacklingo/dev_custom/jstudio/src/components/editor/nodes/graph/GraphCanvas.tsx:*)
 - Shell(npx eslint:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/jcli/src/command/:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/jcli/:*)
 deny: []
