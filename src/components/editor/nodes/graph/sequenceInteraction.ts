@@ -186,9 +186,6 @@ export function attachAutoActivation(
     if (isSelfLoop) {
       model.beginUpdate();
       try {
-        const style = edge.getStyle() ?? {};
-        model.setStyle(edge, { ...style, edgeStyle: undefined, endArrow: 'classic' });
-
         // 读取 exit/entry 约束，添加航点形成矩形环
         const s = edge.getStyle() as Record<string, number | undefined>;
         const exitX = s?.exitX ?? 0.5;
@@ -197,13 +194,27 @@ export function attachAutoActivation(
         const entryY = s?.entryY ?? 0.5;
         const acGeo = source.getGeometry();
 
+        // 存储绝对 Y，供 resize sync 使用
+        let exitAbsY = 0;
+        let entryAbsY = 0;
+        if (acGeo) {
+          exitAbsY = acGeo.y + exitY * acGeo.height;
+          entryAbsY = acGeo.y + entryY * acGeo.height;
+        }
+
+        model.setStyle(edge, {
+          ...s,
+          edgeStyle: undefined,
+          endArrow: 'classic',
+          exitAbsY,
+          entryAbsY,
+        });
+
         const geo = edge.getGeometry()?.clone();
         if (geo && acGeo) {
           geo.sourcePoint = null;
           geo.targetPoint = null;
 
-          const exitAbsY = acGeo.y + exitY * acGeo.height;
-          const entryAbsY = acGeo.y + entryY * acGeo.height;
           const loopOffset = 30;
 
           // exit 和 entry 在同侧时，添加航点形成矩形环
@@ -230,8 +241,21 @@ export function attachAutoActivation(
     if (bothActivation) {
       model.beginUpdate();
       try {
-        const style = edge.getStyle() ?? {};
-        model.setStyle(edge, { ...style, edgeStyle: undefined, endArrow: 'classic' });
+        const style = edge.getStyle() as Record<string, number | undefined> | null;
+        const srcGeo = source.getGeometry();
+        const tgtGeo = target.getGeometry();
+        // 存储绝对 Y，供 resize sync 使用
+        const exitAbsY = (style?.exitY != null && srcGeo)
+          ? srcGeo.y + style.exitY * srcGeo.height : 0;
+        const entryAbsY = (style?.entryY != null && tgtGeo)
+          ? tgtGeo.y + style.entryY * tgtGeo.height : 0;
+        model.setStyle(edge, {
+          ...(style ?? {}),
+          edgeStyle: undefined,
+          endArrow: 'classic',
+          exitAbsY,
+          entryAbsY,
+        });
         const geo = edge.getGeometry()?.clone();
         if (geo) {
           geo.sourcePoint = null;
@@ -248,15 +272,19 @@ export function attachAutoActivation(
     if (isReturnMessage) {
       model.beginUpdate();
       try {
-        const style = edge.getStyle() ?? {};
-        const cleaned: Record<string, unknown> = { ...style };
+        const style = edge.getStyle() as Record<string, number | undefined> | null;
+        const acGeo = source.getGeometry();
+        // 存储 exit 绝对 Y，供 resize sync 使用
+        const exitAbsY = (style?.exitY != null && acGeo)
+          ? acGeo.y + style.exitY * acGeo.height : 0;
+        const cleaned: Record<string, unknown> = { ...(style ?? {}) };
         // 保留 exit 约束（用户在 ac 上的点击位置），清除 entry 约束（让 ll perimeter 处理）
         delete cleaned.entryX;
         delete cleaned.entryY;
         delete cleaned.entryPerimeter;
         delete cleaned.entryDx;
         delete cleaned.entryDy;
-        model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true });
+        model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true, exitAbsY });
 
         const retGeo = edge.getGeometry()?.clone();
         if (retGeo) {
@@ -345,7 +373,7 @@ export function attachAutoActivation(
       delete cleaned.entryPerimeter;
       delete cleaned.entryDx;
       delete cleaned.entryDy;
-      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: undefined, endArrow: 'classic' });
+      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: undefined, endArrow: 'classic', entryAbsY: msgY });
 
       const finalGeo = edge.getGeometry()?.clone();
       if (finalGeo) {
@@ -556,6 +584,60 @@ export function attachActivationImmovable(graph: AbstractGraph): () => void {
 }
 
 /* ------------------------------------------------------------------ */
+/* 6. 活动块 resize 时同步边端点（保持连线水平）                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 监听 CELLS_RESIZED：当活动块（activation）被调节大小后，
+ * 根据边上存储的 entryAbsY / exitAbsY（绝对坐标）重算相对 entryY / exitY，
+ * 使连线端点跟随原始绝对 Y，保持连线水平。
+ */
+export function attachActivationResizeSync(graph: AbstractGraph): () => void {
+  const listener = (_sender: unknown, evt: { getProperty: (key: string) => unknown }) => {
+    const cells = evt.getProperty('cells') as Cell[] | undefined;
+    if (!cells || cells.length === 0) return;
+
+    const model = graph.getDataModel();
+    model.beginUpdate();
+    try {
+      for (const cell of cells) {
+        if (!isActivation(cell)) continue;
+        const acGeo = cell.getGeometry();
+        if (!acGeo || acGeo.height === 0) continue;
+
+        const edges = graph.getEdges(cell, graph.getDefaultParent(), true, true, false);
+        for (const edge of edges) {
+          const style = edge.getStyle() as Record<string, number | undefined> | null;
+          if (!style) continue;
+
+          const patch: Record<string, unknown> = {};
+          const isSource = edge.getTerminal(true) === cell;
+          const isTarget = edge.getTerminal(false) === cell;
+
+          if (isTarget && style.entryAbsY != null) {
+            patch.entryY = (style.entryAbsY - acGeo.y) / acGeo.height;
+          }
+          if (isSource && style.exitAbsY != null) {
+            patch.exitY = (style.exitAbsY - acGeo.y) / acGeo.height;
+          }
+
+          if (Object.keys(patch).length > 0) {
+            model.setStyle(edge, { ...style, ...patch });
+          }
+        }
+      }
+    } finally {
+      model.endUpdate();
+    }
+  };
+
+  graph.addListener(InternalEvent.CELLS_RESIZED, listener);
+  return () => {
+    graph.removeListener(listener);
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* 组合入口                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -575,7 +657,8 @@ export function attachSequenceInteraction(
   const cleanup3 = attachLifelineHoverDot(graph, container);
   const cleanup4 = attachActorSourceBlock(graph);
   const cleanup5 = attachActivationImmovable(graph);
-  graphLog('attachSequenceInteraction done, 5 hooks installed');
+  const cleanup6 = attachActivationResizeSync(graph);
+  graphLog('attachSequenceInteraction done, 6 hooks installed');
 
   return () => {
     cleanup1();
@@ -583,5 +666,6 @@ export function attachSequenceInteraction(
     cleanup3();
     cleanup4();
     cleanup5();
+    cleanup6();
   };
 }
