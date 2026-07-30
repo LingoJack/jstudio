@@ -314,7 +314,16 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
   line.setAttribute('stroke-linecap', 'round');
   line.style.display = 'none';
 
+  // 第二条线（用于活动块的双边高亮）
+  const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line2.setAttribute('stroke', '#4A90E2');
+  line2.setAttribute('stroke-width', '3');
+  line2.setAttribute('stroke-opacity', '0.6');
+  line2.setAttribute('stroke-linecap', 'round');
+  line2.style.display = 'none';
+
   svg.appendChild(line);
+  svg.appendChild(line2);
 
   // graph 容器需要 position:relative 才能定位子元素
   const prevPosition = container.style.position;
@@ -325,6 +334,7 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
 
   function hide() {
     line.style.display = 'none';
+    line2.style.display = 'none';
   }
 
   function onMouseMove(e: MouseEvent) {
@@ -351,7 +361,6 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
           const centerX = geo.x + geo.width / 2;
           const startY = geo.y + HEAD_HEIGHT;
           const endY = geo.y + geo.height;
-          // 转回视图坐标（SVG 在容器上用像素定位）
           const viewX = (centerX + tr.x) * scale;
           const viewStartY = (startY + tr.y) * scale;
           const viewEndY = (endY + tr.y) * scale;
@@ -360,8 +369,35 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
           line.setAttribute('x2', String(viewX));
           line.setAttribute('y2', String(viewEndY));
           line.style.display = '';
+          line2.style.display = 'none';
           return;
         }
+      }
+    }
+
+    // 活动块：高亮左右两边（参考 lifeline 的拉线逻辑）
+    if (isActivation(cell)) {
+      const geo = (cell as Cell).getGeometry();
+      if (geo) {
+        const leftX = geo.x;
+        const rightX = geo.x + geo.width;
+        const startY = geo.y;
+        const endY = geo.y + geo.height;
+        const viewLeftX = (leftX + tr.x) * scale;
+        const viewRightX = (rightX + tr.x) * scale;
+        const viewStartY = (startY + tr.y) * scale;
+        const viewEndY = (endY + tr.y) * scale;
+        line.setAttribute('x1', String(viewLeftX));
+        line.setAttribute('y1', String(viewStartY));
+        line.setAttribute('x2', String(viewLeftX));
+        line.setAttribute('y2', String(viewEndY));
+        line.style.display = '';
+        line2.setAttribute('x1', String(viewRightX));
+        line2.setAttribute('y1', String(viewStartY));
+        line2.setAttribute('x2', String(viewRightX));
+        line2.setAttribute('y2', String(viewEndY));
+        line2.style.display = '';
+        return;
       }
     }
 

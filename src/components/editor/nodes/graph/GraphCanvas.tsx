@@ -436,7 +436,7 @@ export function GraphCanvas({
         _point: Point,
       ) => {
         const shape = (state.style as CellStyle)?.shape;
-        if (shape === 'lifeline' || shape === 'umlActor') {
+        if (shape === 'lifeline' || shape === 'umlActor' || shape === 'umlActivation') {
           return lifelinePointImage;
         }
         return defaultPointImage;
