@@ -1069,6 +1069,7 @@ export function GraphCanvas({
     // 只读：禁用所有编辑入口。
     graph.setEnabled(editing);
     graph.setCellsLocked(!editing);
+    if (!editing) graph.clearSelection();
   }, [editing]);
 
   // 主题色刷新：暗色切换 / 同模式下切换主题（jstudio-light → ink-light）都走这条路径。

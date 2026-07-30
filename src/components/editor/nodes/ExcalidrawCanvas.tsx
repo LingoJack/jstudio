@@ -245,6 +245,15 @@ export function ExcalidrawCanvas({
     };
   }, [editing]);
 
+  // Clear Excalidraw's internal selection when exiting edit mode so the
+  // selection handles / highlight on shapes do not persist in read-only view.
+  useEffect(() => {
+    if (editing) return;
+    const api = apiRef.current;
+    if (!api) return;
+    api.updateScene({ appState: { selectedElementIds: {} } });
+  }, [editing]);
+
   // Track the latest snapshot we have applied to the canvas.
   // This is used to:
   //   1. Detect external changes (from props) vs. internal changes (from onChange)
