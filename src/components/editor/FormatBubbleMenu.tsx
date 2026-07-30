@@ -109,6 +109,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset roving focus + close the dropdown whenever the selection moves in
   // or out of a heading (the item list length changes, so a stale index could
@@ -132,15 +133,17 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
 
   // Apply a heading-level dropdown option by index. Options are ordered as
   // H1..H6 followed by a single "Paragraph" entry that converts to a normal
-  // text block.
+  // text block. `close` controls whether the dropdown dismisses afterwards:
+  // mouse clicks keep it open (hover/pointer-leave dismisses it) while the
+  // keyboard Enter path closes it.
   const applyHeadingOption = useCallback(
-    (index: number) => {
+    (index: number, close = true) => {
       if (index >= 0 && index < HEADING_LEVELS.length) {
         editor.chain().setNode('heading', { level: HEADING_LEVELS[index] }).run();
       } else {
         editor.chain().setParagraph().run();
       }
-      setHeadingOpen(false);
+      if (close) setHeadingOpen(false);
     },
     [editor],
   );
@@ -152,6 +155,32 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       typeof lvl === 'number' && lvl >= 1 && lvl <= HEADING_LEVELS.length ? lvl - 1 : 0,
     );
     setHeadingOpen(true);
+  }, []);
+
+  // Hover handling: open on pointer enter, dismiss on pointer leave with a
+  // short delay that bridges the gap between the trigger and the popover so
+  // moving the pointer into the menu doesn't accidentally close it.
+  const openHeadingOnHover = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    openHeadingDropdown();
+  }, [openHeadingDropdown]);
+
+  const scheduleHeadingClose = useCallback(() => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      setHeadingOpen(false);
+      closeTimerRef.current = null;
+    }, 150);
+  }, []);
+
+  // Clear any pending close timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
   }, []);
 
   // ------------------------------------------------------------------
@@ -450,7 +479,11 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     >
       <div className="flex items-center gap-0.5">
         {isHeading && (
-          <div className="relative flex items-center">
+          <div
+            className="relative flex items-center"
+            onMouseEnter={openHeadingOnHover}
+            onMouseLeave={scheduleHeadingClose}
+          >
             <button
               ref={triggerRef}
               type="button"
@@ -458,19 +491,9 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
               aria-label={t('bubble.headingLevel')}
               aria-expanded={headingOpen}
               onMouseDown={(e) => {
-                // Prevent the editor from losing selection when clicking the button
+                // Prevent the editor from losing selection when clicking the button.
+                // The dropdown opens on hover; clicking the trigger is a no-op.
                 e.preventDefault();
-                setHeadingOpen((open) => {
-                  if (!open) {
-                    const lvl = currentLevel;
-                    setHeadingSelIndex(
-                      typeof lvl === 'number' && lvl >= 1 && lvl <= HEADING_LEVELS.length
-                        ? lvl - 1
-                        : 0,
-                    );
-                  }
-                  return !open;
-                });
               }}
               style={{ width: 'auto' }}
               className={`editor-toolbar-btn bubble-menu-btn gap-0.5 px-1 ${
@@ -493,7 +516,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
                     type="button"
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      applyHeadingOption(i);
+                      applyHeadingOption(i, false);
                     }}
                     className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
                       i === headingSelIndex ? 'bg-[var(--vscode-list-hoverBackground)]' : ''
@@ -512,7 +535,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    applyHeadingOption(HEADING_LEVELS.length);
+                    applyHeadingOption(HEADING_LEVELS.length, false);
                   }}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
                     HEADING_LEVELS.length === headingSelIndex
