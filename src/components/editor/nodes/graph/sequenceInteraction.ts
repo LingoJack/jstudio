@@ -16,6 +16,7 @@ import {
   type AbstractGraph,
   type Cell,
   type CellState,
+  type CellStyle,
   type ConnectionHandler,
   type InternalMouseEvent,
 } from '@maxgraph/core';
@@ -208,7 +209,7 @@ export function attachAutoActivation(
           endArrow: 'classic',
           exitAbsY,
           entryAbsY,
-        });
+        } as CellStyle);
 
         const geo = edge.getGeometry()?.clone();
         if (geo && acGeo) {
@@ -255,7 +256,7 @@ export function attachAutoActivation(
           endArrow: 'classic',
           exitAbsY,
           entryAbsY,
-        });
+        } as CellStyle);
         const geo = edge.getGeometry()?.clone();
         if (geo) {
           geo.sourcePoint = null;
@@ -284,7 +285,7 @@ export function attachAutoActivation(
         delete cleaned.entryPerimeter;
         delete cleaned.entryDx;
         delete cleaned.entryDy;
-        model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true, exitAbsY });
+        model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true, exitAbsY } as CellStyle);
 
         const retGeo = edge.getGeometry()?.clone();
         if (retGeo) {
@@ -373,7 +374,7 @@ export function attachAutoActivation(
       delete cleaned.entryPerimeter;
       delete cleaned.entryDx;
       delete cleaned.entryDy;
-      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: undefined, endArrow: 'classic', entryAbsY: msgY });
+      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: undefined, endArrow: 'classic', entryAbsY: msgY } as CellStyle);
 
       const finalGeo = edge.getGeometry()?.clone();
       if (finalGeo) {
