@@ -83,7 +83,49 @@ export const BlockIdExtension = Extension.create({
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        key: new PluginKey('blockIdPaste'),
+        key: new PluginKey('blockId'),
+        // Backfill a fresh `id` on any block-level node that is missing one.
+        //
+        // Nodes created through the editor (slash-menu headings, Enter-created
+        // paragraphs, drag-inserted blocks, …) start with `id: null` because
+        // the `id` attribute's default is null and no creation path sets it.
+        // The store sync (`tiptapJSONToOurBlock`) then generates a NEW uuid
+        // for such nodes, so the editor's ProseMirror node (null id -> no
+        // `data-block-id` in the DOM) and the store block (new uuid) drift
+        // apart. The outline - which merges store + editor headings and looks
+        // up the DOM by `data-block-id` - can no longer find the element, so
+        // clicking the heading does nothing.
+        //
+        // Assigning the id HERE (inside the editor, the moment the node is
+        // created) keeps the editor doc, the rendered DOM and the store all
+        // referencing the SAME id, so outline jump-to-heading works for every
+        // heading regardless of how it was created.
+        appendTransaction: (transactions, _oldState, newState) => {
+          // Selection-only transactions (caret moves) don't touch the doc.
+          if (!transactions.some((tr) => tr.docChanged)) return null;
+
+          const tr = newState.tr;
+          let modified = false;
+          newState.doc.descendants((node, pos) => {
+            // Only block-level node types carry the global `id` attribute;
+            // inline nodes (text) and wrapper-only nodes (listItem, tableCell,
+            // …) don't, so skip them.
+            if (!node.type.attrs.id) return true;
+            if (node.attrs.id) return true; // already has an id - leave it.
+            tr.setNodeMarkup(
+              pos,
+              undefined,
+              { ...node.attrs, id: crypto.randomUUID() },
+            );
+            modified = true;
+            return true;
+          });
+          if (!modified) return null;
+          // id assignment is metadata bookkeeping, not a user edit - keep it
+          // out of the undo stack (undoing it would only re-trigger this).
+          tr.setMeta('addToHistory', false);
+          return tr;
+        },
         props: {
           // When content is copied and pasted inside the same editor,
           // ProseMirror preserves every node attribute - including our
