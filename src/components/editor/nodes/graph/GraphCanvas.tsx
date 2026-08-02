@@ -1359,6 +1359,7 @@ export function GraphCanvas({
         { shape: 'diamond' as const, title: '菱形' },
         { shape: 'text' as const, title: '文本' },
         { shape: 'note' as const, title: '注释框' },
+        { shape: 'database' as const, title: '数据库' },
         // 用例图
         { shape: 'actor' as const, title: '角色（用例图）' },
         // 泳道图

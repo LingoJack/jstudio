@@ -23,6 +23,7 @@ const DEFAULT_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   lifeline: { w: 100, h: 150 },   // 生命线：宽度 100，高度 150（头部 50 + 生命线 100）
   activation: { w: 16, h: 60 },
   note: { w: 100, h: 60 },
+  database: { w: 120, h: 80 },
   'edge-line': { w: 100, h: 20 },
   'edge-ortho': { w: 100, h: 20 },
   'edge-dashed': { w: 100, h: 20 },
@@ -41,6 +42,7 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
   lifeline: '',
   activation: '',
   note: '注释',
+  database: '数据库',
   'edge-line': '',
   'edge-ortho': '',
   'edge-dashed': '',
@@ -87,6 +89,9 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     case 'note':
       // 注释框：使用自定义 note 形状（右上角折角的便利贴风格）
       return { ...base, shape: 'note' };
+    case 'database':
+      // 数据库：使用自定义 database 形状（圆柱体）
+      return { ...base, shape: 'database' };
     // 连线类型：统一实线 + 圆点流动（流动由 CSS 动画驱动，见 vscode-theme.css）。
     // 箭头 marker 由 ConnectorShape.setDashed(false) 渲染为实线，不受流动影响。
     case 'edge-line':

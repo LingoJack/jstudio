@@ -257,6 +257,48 @@ class NoteShape extends Shape {
 }
 
 /**
+ * 数据库形状（圆柱体）
+ *
+ * 经典的数据库 / 数据存储表示：上下各一个椭圆帽，中间是矩形主体。
+ * 顶部椭圆完整可见（包括前半圆弧"帽檐"），底部只显示前半圆弧。
+ *
+ * 几何约定：
+ *   capH  = 椭圆帽高度（取宽 20% 与高 15% 的较小值，最小 6px）
+ *   主体  = 上下帽之间的矩形区域
+ *
+ * 绘制分两步：
+ *   1. fillAndStroke 画出整体轮廓（顶部后半弧 + 右侧 + 底部前半弧 + 左侧）
+ *   2. stroke 画出顶部前半弧（可见的"帽檐"），体现圆柱 3D 感
+ */
+class DatabaseShape extends Shape {
+  paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
+    const capH = Math.max(6, Math.min(w * 0.2, h * 0.15));
+    const topMid = y + capH; // 顶部椭圆中心 Y
+    const botMid = y + h - capH; // 底部椭圆中心 Y
+
+    // 1. 主体轮廓填充（顶部后半弧 + 右侧 + 底部前半弧 + 左侧）
+    c.begin();
+    c.moveTo(x, topMid);
+    // 顶部椭圆后半（向上拱起）
+    c.curveTo(x, y, x + w, y, x + w, topMid);
+    // 右侧直边
+    c.lineTo(x + w, botMid);
+    // 底部椭圆前半（向下拱起）
+    c.curveTo(x + w, y + h, x, y + h, x, botMid);
+    // 左侧直边（闭合）
+    c.lineTo(x, topMid);
+    c.close();
+    c.fillAndStroke();
+
+    // 2. 顶部椭圆前半弧（可见"帽檐"）
+    c.begin();
+    c.moveTo(x, topMid);
+    c.curveTo(x, topMid + capH, x + w, topMid + capH, x + w, topMid);
+    c.stroke();
+  }
+}
+
+/**
  * 自定义边箭头（edge markers）
  *
  * maxGraph 内置 `classic` / `open` 等箭头源自 draw.io 老风格：`classic` 带一个
@@ -391,6 +433,7 @@ export function registerCustomShapes(): void {
   ShapeRegistry.add('lifeline', LifelineShape);
   ShapeRegistry.add('umlActivation', ActivationShape);
   ShapeRegistry.add('note', NoteShape);
+  ShapeRegistry.add('database', DatabaseShape);
 
   // 注册连接点计算函数
   PerimeterRegistry.add('lifelinePerimeter', LifelinePerimeter);
@@ -408,4 +451,4 @@ export function registerCustomShapes(): void {
   EdgeMarkerRegistry.add('diamondThin', diamondFactory);
 }
 
-export { UMLActorShape, LifelineShape, ActivationShape, NoteShape };
+export { UMLActorShape, LifelineShape, ActivationShape, NoteShape, DatabaseShape };

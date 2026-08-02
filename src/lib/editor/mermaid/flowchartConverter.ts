@@ -50,6 +50,10 @@ function mapVertexToShape(vertex: MermaidVertex): GraphNodeShape {
   if (styles.includes('diamond') || styles.includes('rhombus')) {
     return 'diamond';
   }
+  // Mermaid 数据库圆柱体: [(text)] 语法 → cylinder / database 样式
+  if (styles.includes('cylinder') || styles.includes('database')) {
+    return 'database';
+  }
 
   // 检查 type 字段（mermaid 内部可能设置）
   const type = vertex.type ?? '';
@@ -61,6 +65,9 @@ function mapVertexToShape(vertex: MermaidVertex): GraphNodeShape {
   }
   if (type.includes('diamond') || type.includes('rhombus')) {
     return 'diamond';
+  }
+  if (type.includes('cylinder') || type.includes('database')) {
+    return 'database';
   }
 
   // 默认为矩形
@@ -80,6 +87,7 @@ const DEFAULT_NODE_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   lifeline: { w: 100, h: 150 },
   activation: { w: 16, h: 60 },
   note: { w: 100, h: 60 },
+  database: { w: 120, h: 80 },
   'edge-line': { w: 100, h: 20 },
   'edge-ortho': { w: 100, h: 20 },
   'edge-dashed': { w: 100, h: 20 },

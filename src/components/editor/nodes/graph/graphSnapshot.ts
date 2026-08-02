@@ -37,6 +37,7 @@ export type GraphNodeShape =
   | 'lifeline' // 时序图：生命线（虚线垂直线）
   | 'activation' // 时序图：激活框（窄矩形）
   | 'note' // 注释框（折角矩形）
+  | 'database' // 数据库（圆柱体）
   | 'edge-line' // 直线箭头连线
   | 'edge-ortho' // 拐角箭头连线（流程图常用）
   | 'edge-dashed' // 虚线箭头（时序图返回线）

@@ -96,6 +96,16 @@ export function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
           <path d="M12 2 L12 4 L14 4" stroke="currentColor" strokeWidth={sw} strokeLinejoin="round" />
         </svg>
       );
+    case 'database':
+      // 数据库：圆柱体（上下椭圆 + 主体）
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <ellipse cx="8" cy="3.5" rx="5" ry="1.8" stroke="currentColor" strokeWidth={sw} fill="none" />
+          <path d="M3 3.5 L3 12.5" stroke="currentColor" strokeWidth={sw} />
+          <path d="M13 3.5 L13 12.5" stroke="currentColor" strokeWidth={sw} />
+          <path d="M3 12.5 C3 13.5 5.5 14.3 8 14.3 C10.5 14.3 13 13.5 13 12.5" stroke="currentColor" strokeWidth={sw} fill="none" />
+        </svg>
+      );
     case 'edge-line':
       // 直线 + V 字形箭头
       return (

@@ -36,6 +36,7 @@ export const VALID_NODE_SHAPES = [
   'lifeline', // 时序图：生命线（虚线垂直线）
   'activation', // 时序图：激活框（窄矩形）
   'note', // 注释框（折角矩形）
+  'database', // 数据库（圆柱体）
 ] as const;
 
 /* ------------------------------------------------------------------ */
@@ -83,7 +84,7 @@ export const AI_GRAPH_SCHEMA = {
             type: 'string',
             enum: [...VALID_NODE_SHAPES],
             description:
-              'Node shape. rectangle=process step, rounded=start/end, ellipse=use case, diamond=decision, text=plain label, actor=use-case actor, swimlane-v/swimlane-h=swimlane, lifeline=sequence lifeline, activation=sequence activation, note=note box.',
+              'Node shape. rectangle=process step, rounded=start/end, ellipse=use case, diamond=decision, text=plain label, actor=use-case actor, swimlane-v/swimlane-h=swimlane, lifeline=sequence lifeline, activation=sequence activation, note=note box, database=database cylinder.',
           },
           x: { type: 'number', description: 'Canvas x (top-left), pixels.', default: 0 },
           y: { type: 'number', description: 'Canvas y (top-left), pixels.', default: 0 },

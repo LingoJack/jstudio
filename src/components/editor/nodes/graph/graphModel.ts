@@ -73,6 +73,9 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 早期实现曾用 `rectangle + rounded + arcSize:5` 冒充折角，导致保存后
       // 再打开变成圆角矩形；现已改为专用 NoteShape（见 customShapes.ts）。
       return { ...base, shape: 'note' };
+    case 'database':
+      // 数据库：使用自定义的 database 形状（圆柱体，见 customShapes.ts）。
+      return { ...base, shape: 'database' };
     // 连线类型（作为预设连线样式）：全部引用 ARROW_END_SIZE 保证箭头大小一致。
     case 'edge-line':
       return {
@@ -122,6 +125,7 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   if (shape === 'lifeline') return 'lifeline'; // 时序图生命线（自定义形状）
   if (shape === 'umlActivation') return 'activation'; // 时序图激活框（自定义形状）
   if (shape === 'note') return 'note'; // 注释框（自定义 NoteShape）
+  if (shape === 'database') return 'database'; // 数据库（自定义 DatabaseShape）
   if (shape === 'swimlane') {
     return style.horizontal === false ? 'swimlane-v' : 'swimlane-h';
   }
