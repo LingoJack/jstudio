@@ -109,8 +109,9 @@ export const BlockIdExtension = Extension.create({
           newState.doc.descendants((node, pos) => {
             // Only block-level node types carry the global `id` attribute;
             // inline nodes (text) and wrapper-only nodes (listItem, tableCell,
-            // …) don't, so skip them.
-            if (!node.type.attrs.id) return true;
+            // …) don't, so skip them. `'id' in node.attrs` is true exactly
+            // when the node's type declares an `id` attribute (even if null).
+            if (!('id' in node.attrs)) return true;
             if (node.attrs.id) return true; // already has an id - leave it.
             tr.setNodeMarkup(
               pos,
