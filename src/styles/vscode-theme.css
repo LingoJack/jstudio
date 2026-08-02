@@ -2915,6 +2915,32 @@ button {
   content: "\200b"; /* zero-width space */
 }
 
+/* Column resize handle - appears on the right edge of each cell when
+   `resizable: true` is enabled on the Table extension. */
+.ProseMirror .tableWrapper .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 5;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.15s;
+  pointer-events: auto;
+}
+
+.ProseMirror .tableWrapper .column-resize-handle:hover,
+.ProseMirror .tableWrapper td:hover .column-resize-handle,
+.ProseMirror .tableWrapper th:hover .column-resize-handle {
+  background-color: var(--vscode-focusBorder, #007fd4);
+}
+
+/* While dragging: highlight the handle being resized */
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
 /* ============================================
    Preview Window — minimal, content-focused
    ============================================ */

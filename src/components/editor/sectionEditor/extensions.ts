@@ -99,7 +99,7 @@ export function createSectionExtensions(
     // NOTE: `Underline` comes from StarterKit v3 — do not re-add it.
     TextStyle,
     Color,
-    Table.configure({ resizable: false }),
+    Table.configure({ resizable: true }),
     TableRow,
     TableHeader,
     TableCell,

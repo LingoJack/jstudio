@@ -242,6 +242,14 @@ export interface TableCellData {
   rowspan?: number;
   /** Text alignment for all paragraphs in this cell. */
   align?: 'left' | 'center' | 'right';
+  /**
+   * Column width(s) in pixels, set by dragging the column resize handle.
+   *
+   * When `colspan === 1` this is a single-element array `[width]`.
+   * For spanned cells it contains one entry per spanned column.
+   * Undefined means the column auto-sizes.
+   */
+  colwidth?: number[];
 }
 
 /** A single table row. */
