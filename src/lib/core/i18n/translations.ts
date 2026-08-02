@@ -59,6 +59,12 @@ export const translations = {
     "doclist.copyRelativePath": "复制相对路径",
     "doclist.copied": "已复制到剪贴板",
     "doclist.backupRestore": "备份恢复",
+    "doclist.copyAsMarkdown": "复制为 Markdown",
+    "doclist.copyAsMarkdownSuccess": "已复制 Markdown 到剪贴板",
+    "doclist.copyAsMarkdownFailed": "复制 Markdown 失败",
+    "doclist.mdPlaceholderFile": "[附件: {name}]",
+    "doclist.mdPlaceholderFileEmpty": "[附件]",
+    "doclist.mdPlaceholderDiagram": "[图表]",
 
     // ── Document body backup & restore ──
     "backup.title": "备份恢复",
@@ -915,6 +921,12 @@ export const translations = {
     "doclist.copyRelativePath": "Copy Relative Path",
     "doclist.copied": "Copied to clipboard",
     "doclist.backupRestore": "Backup & Restore",
+    "doclist.copyAsMarkdown": "Copy as Markdown",
+    "doclist.copyAsMarkdownSuccess": "Markdown copied to clipboard",
+    "doclist.copyAsMarkdownFailed": "Failed to copy Markdown",
+    "doclist.mdPlaceholderFile": "[Attachment: {name}]",
+    "doclist.mdPlaceholderFileEmpty": "[Attachment]",
+    "doclist.mdPlaceholderDiagram": "[Diagram]",
 
     // ── Document body backup & restore ──
     "backup.title": "Backup & Restore",

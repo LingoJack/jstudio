@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { storage } from '../../lib/core/storage';
+import { blocksToMarkdown } from '../../lib/editor/markdownExport';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folderTree';
@@ -659,6 +660,26 @@ export default function DocumentSidebar() {
     }
   }, [importDocumentBundle, addToast, t]);
 
+  // ── Handler: copy document body as Markdown ────────────────
+  const handleCopyAsMarkdown = useCallback(async (docId: string) => {
+    setContextMenu(null);
+    try {
+      const doc = documents.find((d) => d.id === docId);
+      if (!doc) return;
+      const md = blocksToMarkdown(doc.blocks, {
+        file: (name) => (name
+          ? t('doclist.mdPlaceholderFile', { name })
+          : t('doclist.mdPlaceholderFileEmpty')),
+        diagram: t('doclist.mdPlaceholderDiagram'),
+      });
+      await navigator.clipboard.writeText(md);
+      addToast('success', t('doclist.copyAsMarkdownSuccess'));
+    } catch (e) {
+      console.error('Failed to copy as Markdown:', e);
+      addToast('error', t('doclist.copyAsMarkdownFailed'));
+    }
+  }, [documents, addToast, t]);
+
   // ── Pointer-based drag-and-drop ───────────────────────────
   //
   // The drag is split into three phases:
@@ -1285,6 +1306,7 @@ export default function DocumentSidebar() {
           onCopyPath={() => handleCopyPath(contextMenu.docId)}
           onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
           onExportBundle={() => handleExportBundle(contextMenu.docId)}
+          onCopyAsMarkdown={() => handleCopyAsMarkdown(contextMenu.docId)}
           onBackupRestore={() => {
             const doc = documents.find((d) => d.id === contextMenu.docId);
             setBackupDialogDoc({ id: contextMenu.docId, title: doc?.title || '' });
