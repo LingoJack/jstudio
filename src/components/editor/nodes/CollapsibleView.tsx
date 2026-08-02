@@ -41,6 +41,13 @@
  * happened when the chevron was a bare <svg> and the caret landed at the
  * right edge of the title bar.
  *
+ * The mousedownShield also calls preventDefault() on <button> mousedowns.
+ * Without this, when a NodeSelection (e.g. an image) is active inside the
+ * collapsible, the browser's first click on the button is consumed by
+ * selection handling (clearing the non-text NodeSelection), so the toggle
+ * silently fails and the user must click again. preventDefault stops the
+ * browser's selection handling; button.focus() restores focus manually.
+ *
  * ── Event shields (safety net) ──
  *
  * Native bubble-phase listeners on the wrapper provide defense-in-depth.
@@ -115,6 +122,19 @@ export default function CollapsibleView({
     const mousedownShield = (e: MouseEvent) => {
       if (isFormControl(e.target)) {
         e.stopPropagation();
+        // For <button> elements, also preventDefault to stop the browser
+        // from placing a caret in the contentEditable. Without this, when a
+        // NodeSelection (e.g., an image) is active inside the collapsible,
+        // the first click on the toggle button is consumed by the browser's
+        // selection handling (clearing the non-text selection), requiring a
+        // second click to actually toggle. preventDefault on mousedown stops
+        // this; we then manually focus the button (preventDefault suppresses
+        // the browser's default focus behaviour).
+        const button = (e.target as HTMLElement | null)?.closest('button');
+        if (button) {
+          e.preventDefault();
+          button.focus();
+        }
       }
     };
 
