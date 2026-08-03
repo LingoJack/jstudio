@@ -20,6 +20,7 @@ import Link from '@tiptap/extension-link';
 import { customLinkAutolink } from '../../../lib/editor/extensions/customLinkAutolink';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Table } from '@tiptap/extension-table';
+import { ResizableTableView } from './ResizableTableView';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
@@ -99,7 +100,7 @@ export function createSectionExtensions(
     // NOTE: `Underline` comes from StarterKit v3 — do not re-add it.
     TextStyle,
     Color,
-    Table.configure({ resizable: true }),
+    Table.configure({ resizable: true, cellMinWidth: 100, View: ResizableTableView }),
     TableRow,
     TableHeader,
     TableCell,

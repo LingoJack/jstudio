@@ -51,7 +51,7 @@ function getHeadlessEditor(): Editor {
         openOnClick: false,
         autolink: true,
       }),
-      Table.configure({ resizable: true }),
+      Table.configure({ resizable: true, cellMinWidth: 100 }),
       TableRow,
       TableHeader,
       TableCell,

@@ -86,7 +86,7 @@ function getHeadlessEditor(): Editor {
       Code.extend({ excludes: '' }),
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({ openOnClick: false, autolink: true }),
-      Table.configure({ resizable: true }),
+      Table.configure({ resizable: true, cellMinWidth: 100 }),
       TableRow,
       TableHeader,
       TableCell,
