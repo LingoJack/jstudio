@@ -5,18 +5,18 @@ import type { EditorView, NodeView, ViewMutationRecord } from '@tiptap/pm/view'
  * Returns the CSS property declaration for a <col> element.
  *
  * - When the column has an explicit width (from dragging), sets `width`.
- * - When the column has no explicit width, returns `null` so the column is
- *   truly `auto` and can freely share the remaining table space under
- *   `table-layout: fixed`.
+ * - When the column has no explicit width, sets `min-width` so the column
+ *   doesn't collapse to content width when the table switches to
+ *   `width: auto` after the first resize.
  */
 function getColStyleDeclaration(
   minWidth: number,
   width: number | undefined,
-): [string, string] | null {
+): [string, string] {
   if (width) {
     return ['width', `${Math.max(width, minWidth)}px`]
   }
-  return null
+  return ['min-width', `${minWidth}px`]
 }
 
 /**
@@ -47,7 +47,6 @@ function updateColumns(
 
       for (let j = 0; j < colspan; j += 1, col += 1) {
         const hasWidth = (colwidth && colwidth[j]) as number | undefined
-        const cssWidth = hasWidth ? `${hasWidth}px` : ''
 
         totalWidth += hasWidth || cellMinWidth
 
@@ -59,19 +58,18 @@ function updateColumns(
 
         if (!nextDOM) {
           const colElement = document.createElement('col')
-          const decl = getColStyleDeclaration(cellMinWidth, hasWidth)
-          if (decl) {
-            colElement.style.setProperty(decl[0], decl[1])
-          }
+          const [propertyKey, propertyValue] = getColStyleDeclaration(cellMinWidth, hasWidth)
+          colElement.style.setProperty(propertyKey, propertyValue)
           colgroup.appendChild(colElement)
         } else {
           const colEl = nextDOM as HTMLTableColElement
-          // Always reconcile: clear previous styles, then apply the new one.
+          // Always reconcile: clear both properties, then set only the
+          // relevant one. This avoids stale width/min-width left over
+          // from updateColumnsOnResize (called during the live drag).
           colEl.style.width = ''
           colEl.style.minWidth = ''
-          if (cssWidth) {
-            colEl.style.width = cssWidth
-          }
+          const [propertyKey, propertyValue] = getColStyleDeclaration(cellMinWidth, hasWidth)
+          colEl.style.setProperty(propertyKey, propertyValue)
           nextDOM = colEl.nextSibling
         }
       }
