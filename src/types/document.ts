@@ -242,6 +242,8 @@ export interface TableCellData {
   rowspan?: number;
   /** Text alignment for all paragraphs in this cell. */
   align?: 'left' | 'center' | 'right';
+  /** Vertical alignment of cell content. */
+  vAlign?: 'top' | 'middle' | 'bottom';
   /**
    * Column width(s) in pixels, set by dragging the column resize handle.
    *

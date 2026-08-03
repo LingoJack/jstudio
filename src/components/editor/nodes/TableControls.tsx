@@ -23,6 +23,9 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +43,7 @@ export default function TableControls({ editor }: TableControlsProps) {
   const [toolbar, setToolbar] = useState<{ x: number; y: number } | null>(null);
   const [open, setOpen] = useState<DropdownKey>(null);
   const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
+  const [vAlign, setVAlign] = useState<'top' | 'middle' | 'bottom'>('top');
   const interactingRef = useRef(false);
   /** rAF handle so the transaction listener coalesces to one update/frame. */
   const rafRef = useRef<number | null>(null);
@@ -86,6 +90,19 @@ export default function TableControls({ editor }: TableControlsProps) {
     if (editor.isActive({ textAlign: 'center' })) setAlign('center');
     else if (editor.isActive({ textAlign: 'right' })) setAlign('right');
     else setAlign('left');
+
+    // Detect vertical alignment from the cell containing the cursor.
+    // vAlign is a cell-level attribute (null = CSS default 'top').
+    let cellVAlign: 'top' | 'middle' | 'bottom' = 'top';
+    for (let d = $from.depth; d > 0; d--) {
+      const node = $from.node(d);
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        const va = node.attrs.vAlign;
+        if (va === 'top' || va === 'middle' || va === 'bottom') cellVAlign = va;
+        break;
+      }
+    }
+    setVAlign(cellVAlign);
   }, [editor]);
 
   /**
@@ -158,6 +175,15 @@ export default function TableControls({ editor }: TableControlsProps) {
     (value: 'left' | 'center' | 'right') => {
       editor.chain().focus().setTextAlign(value).run();
       setAlign(value);
+      setOpen(null);
+    },
+    [editor],
+  );
+
+  const setVAlignment = useCallback(
+    (value: 'top' | 'middle' | 'bottom') => {
+      editor.chain().focus().setCellAttribute('vAlign', value).run();
+      setVAlign(value);
       setOpen(null);
     },
     [editor],
@@ -236,6 +262,25 @@ export default function TableControls({ editor }: TableControlsProps) {
           icon={<AlignRight className="h-3.5 w-3.5" />}
           active={align === 'right'}
           onClick={() => setAlignment('right')}
+        />
+        <DropdownSep />
+        <DropdownItem
+          label="顶部对齐"
+          icon={<AlignVerticalJustifyStart className="h-3.5 w-3.5" />}
+          active={vAlign === 'top'}
+          onClick={() => setVAlignment('top')}
+        />
+        <DropdownItem
+          label="垂直居中"
+          icon={<AlignVerticalJustifyCenter className="h-3.5 w-3.5" />}
+          active={vAlign === 'middle'}
+          onClick={() => setVAlignment('middle')}
+        />
+        <DropdownItem
+          label="底部对齐"
+          icon={<AlignVerticalJustifyEnd className="h-3.5 w-3.5" />}
+          active={vAlign === 'bottom'}
+          onClick={() => setVAlignment('bottom')}
         />
       </Dropdown>
 

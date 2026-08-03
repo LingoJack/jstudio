@@ -38,10 +38,11 @@ export function tableDataToTiptap(data: TableData): JSONContent[] {
           return paraNode;
         }),
       };
-      const attrs: Record<string, number | number[]> = {};
+      const attrs: Record<string, number | number[] | string> = {};
       if (cell.colspan && cell.colspan > 1) attrs.colspan = cell.colspan;
       if (cell.rowspan && cell.rowspan > 1) attrs.rowspan = cell.rowspan;
       if (cell.colwidth && cell.colwidth.length > 0) attrs.colwidth = cell.colwidth;
+      if (cell.vAlign) attrs.vAlign = cell.vAlign;
       if (Object.keys(attrs).length > 0) cellNode.attrs = attrs;
       return cellNode;
     }),
@@ -88,6 +89,11 @@ export function tiptapToTableData(node: JSONContent): TableData {
       if (typeof colspan === 'number' && colspan > 1) cell.colspan = colspan;
       if (typeof rowspan === 'number' && rowspan > 1) cell.rowspan = rowspan;
       if (cellAlign) cell.align = cellAlign;
+      // Preserve vertical alignment (cell-level attribute).
+      const vAlign = cellNode.attrs?.vAlign;
+      if (vAlign === 'top' || vAlign === 'middle' || vAlign === 'bottom') {
+        cell.vAlign = vAlign;
+      }
       // Preserve column widths set by the resize handle.
       const colwidth = cellNode.attrs?.colwidth;
       if (Array.isArray(colwidth) && colwidth.length > 0) {
