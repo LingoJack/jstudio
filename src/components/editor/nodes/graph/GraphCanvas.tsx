@@ -955,13 +955,27 @@ export function GraphCanvas({
       const g = graphRef.current;
       if (!g) return;
 
-      // 缩放分支
+      // 缩放分支（macOS 双指捏合 / Ctrl+滚轮）
+      // 使用指数缩放 + 以光标为锚点，步进细腻连续，手感与 Excalidraw / draw.io 一致。
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const next = e.deltaY < 0 ? g.view.scale * 1.15 : g.view.scale / 1.15;
-        if (next < ZOOM_MIN || next > ZOOM_MAX) return;
-        if (e.deltaY < 0) g.zoomIn();
-        else g.zoomOut();
+        const view = g.getView();
+        const oldScale = view.scale;
+        // 指数缩放：deltaY 越大缩放越多，但每步变化小且连续。
+        // macOS 双指捏合每帧 deltaY 约 ±2~±20，0.005 系数使每步仅 ~1%~5% 变化。
+        const factor = Math.exp(-e.deltaY * 0.005);
+        const newScale = Math.min(Math.max(oldScale * factor, ZOOM_MIN), ZOOM_MAX);
+        if (newScale === oldScale) return;
+        // 以光标位置为锚点缩放：保持光标下的图坐标点不变，缩放手感更自然。
+        const rect = container.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const ratio = 1 / newScale - 1 / oldScale;
+        view.scaleAndTranslate(
+          newScale,
+          view.translate.x + cx * ratio,
+          view.translate.y + cy * ratio,
+        );
         return;
       }
 
