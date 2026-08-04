@@ -120,4 +120,5 @@ allow:
 - Shell(ls /Users/jacklingo/dev_custom/jstudio/jcli/src/command/:*)
 - Shell(ls /Users/jacklingo/dev_custom/jstudio/jcli/:*)
 - Shell(cat ~/Library/Application\:*)
+- Shell(cd /Users/lingojack/dev_custom/jstudio/jcli:*)
 deny: []
