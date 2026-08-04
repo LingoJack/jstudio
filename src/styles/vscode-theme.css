@@ -3187,61 +3187,6 @@ button {
   background: var(--vscode-editor-background, #ffffff);
 }
 
-/* ─── Background color picker popover ─── */
-
-.diagram-color-picker-wrapper {
-  position: relative;
-}
-
-.diagram-color-popover {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 100;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  padding: 8px;
-  background: var(--vscode-menu-background, #252526);
-  border: 1px solid var(--vscode-editorWidget-border, #454545);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.diagram-color-swatch {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.diagram-color-swatch:hover {
-  transform: scale(1.12);
-}
-
-.diagram-color-swatch.is-active {
-  box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007fd4);
-}
-
-.diagram-color-none {
-  background: var(--vscode-editor-background, #ffffff);
-  position: relative;
-}
-
-.diagram-color-none::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 2px;
-  right: 2px;
-  height: 1.5px;
-  background: var(--vscode-errorForeground, #f48771);
-  transform: translateY(-50%) rotate(-45deg);
-}
-
 /* ─── Transparent overlay (when NOT selected) ─── */
 
 .diagram-block-overlay {
@@ -3401,6 +3346,63 @@ button {
   margin: 2px 4px;
   flex-shrink: 0;
   background: var(--vscode-widget-border, rgba(0, 0, 0, 0.1));
+}
+
+/* ─── 填充色弹出面板 ─── */
+
+.jgraph-fill-picker {
+  position: relative;
+  display: flex;
+}
+
+.jgraph-fill-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding: 8px;
+  background: var(--vscode-menu-background, #252526);
+  border: 1px solid var(--vscode-editorWidget-border, #454545);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.jgraph-fill-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.jgraph-fill-swatch:hover {
+  transform: scale(1.15);
+}
+
+.jgraph-fill-swatch.is-active {
+  box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007fd4);
+}
+
+.jgraph-fill-none {
+  background: var(--vscode-menu-background, #252526);
+  position: relative;
+}
+
+.jgraph-fill-none::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  right: 2px;
+  height: 1.5px;
+  background: var(--vscode-errorForeground, #f48771);
+  transform: translateY(-50%) rotate(-45deg);
 }
 
 /* 待绘制态：画布光标变十字，提示可拖拽划定 */

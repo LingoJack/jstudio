@@ -41,6 +41,9 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
     fontColor: getFontColor(dark),
     strokeWidth: SHAPE_STROKE_WIDTH,
     fontSize: SHAPE_FONT_SIZE,
+    // 无填充 (fillColor='none') 时内部可穿透点击，仅边框可选中/拖动；
+    // 有填充色时此设置自动失效（paintBackground 检查 fill !== NONE）。
+    pointerEvents: false,
   };
   switch (shape) {
     case 'rounded':

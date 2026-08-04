@@ -16,13 +16,13 @@
  *   - New window edits → Rust relay (set/get_diagram_update) → poll → updateAttributes({ snapshot })
  */
 
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback } from 'react';
 import {
   type NodeViewProps,
   NodeViewWrapper,
   type Editor,
 } from '@tiptap/react';
-import { Maximize2, Pencil, Check, Palette } from 'lucide-react';
+import { Maximize2, Pencil, Check } from 'lucide-react';
 
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
@@ -43,21 +43,6 @@ import { GraphCanvas } from './graph/GraphCanvas';
 import type { DiagramNodeAttributes } from '../../../lib/editor/extensions/diagramExtension';
 
 /* ------------------------------------------------------------------ */
-/* Color presets                                                       */
-/* ------------------------------------------------------------------ */
-
-const BG_COLOR_PRESETS: { value: string; label: string }[] = [
-  { value: '#ffffff', label: '白色' },
-  { value: '#fff8e1', label: '浅黄' },
-  { value: '#e3f2fd', label: '浅蓝' },
-  { value: '#e8f5e9', label: '浅绿' },
-  { value: '#fce4ec', label: '浅粉' },
-  { value: '#f3e5f5', label: '浅紫' },
-  { value: '#fff3e0', label: '浅橙' },
-  { value: '#f5f5f5', label: '浅灰' },
-];
-
-/* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -68,7 +53,7 @@ export default function DiagramBlockView({
   getPos,
 }: NodeViewProps) {
   const attrs = node.attrs as DiagramNodeAttributes;
-  const { snapshot, align, bgColor } = attrs;
+  const { snapshot, align } = attrs;
   const blockId = attrs.id ?? undefined;
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
 
@@ -77,7 +62,7 @@ export default function DiagramBlockView({
   /* -------------------------------------------------------------- */
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
-  const toolbarBtnCount = 5;
+  const toolbarBtnCount = 4;
   const {
     activeIndex,
     registerButton,
@@ -92,31 +77,6 @@ export default function DiagramBlockView({
     toolbarBtnCount,
     true,
   );
-
-  /* -------------------------------------------------------------- */
-  /* Background color picker popover                                 */
-  /* -------------------------------------------------------------- */
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const colorPickerRef = useRef<HTMLDivElement>(null);
-
-  // Close the popover when clicking outside or when the block is deselected.
-  useEffect(() => {
-    if (!colorPickerOpen) return;
-    const handlePointerDown = (e: MouseEvent) => {
-      if (
-        colorPickerRef.current &&
-        !colorPickerRef.current.contains(e.target as Node)
-      ) {
-        setColorPickerOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [colorPickerOpen]);
-
-  useEffect(() => {
-    if (!selected) setColorPickerOpen(false);
-  }, [selected]);
 
   /* -------------------------------------------------------------- */
   /* Size management (resize + legacy migration)                     */
@@ -145,9 +105,6 @@ export default function DiagramBlockView({
   const canvasStyle: React.CSSProperties = {
     height: displayHeight ? `${displayHeight}px` : '400px',
   };
-  if (bgColor) {
-    canvasStyle.backgroundColor = bgColor;
-  }
 
   /* -------------------------------------------------------------- */
   /* Edit mode (focus management)                                    */
@@ -227,49 +184,6 @@ export default function DiagramBlockView({
             >
               <Maximize2 size={15} />
             </BlockToolbarButton>
-            <BlockToolbarDivider />
-            {/* Background color picker */}
-            <div className="diagram-color-picker-wrapper" ref={colorPickerRef}>
-              <BlockToolbarButton
-                nav={{ activeIndex, registerButton }}
-                index={4}
-                active={!!bgColor}
-                title="背景颜色"
-                onClick={() => setColorPickerOpen((v) => !v)}
-              >
-                <Palette size={15} />
-              </BlockToolbarButton>
-              {colorPickerOpen && (
-                <div className="diagram-color-popover" contentEditable={false}>
-                  <button
-                    type="button"
-                    className={`diagram-color-swatch diagram-color-none ${
-                      !bgColor ? 'is-active' : ''
-                    }`}
-                    title="默认背景"
-                    onClick={() => {
-                      updateAttributes({ bgColor: null });
-                      setColorPickerOpen(false);
-                    }}
-                  />
-                  {BG_COLOR_PRESETS.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      className={`diagram-color-swatch ${
-                        bgColor === c.value ? 'is-active' : ''
-                      }`}
-                      style={{ backgroundColor: c.value }}
-                      title={c.label}
-                      onClick={() => {
-                        updateAttributes({ bgColor: c.value });
-                        setColorPickerOpen(false);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
           </BlockToolbar>
 
           {/* Canvas renderer — kernel routing by snapshot format */}

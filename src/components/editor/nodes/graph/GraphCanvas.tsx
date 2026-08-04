@@ -64,6 +64,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Palette,
 } from 'lucide-react';
 
 import { logger } from '../../../../lib/core/logger';
@@ -136,6 +137,22 @@ export interface GraphCanvasProps {
 }
 
 
+/** 填充色预设面板。 */
+const FILL_COLOR_PRESETS: { value: string; label: string }[] = [
+  { value: '#fef3c7', label: '浅黄' },
+  { value: '#dbeafe', label: '浅蓝' },
+  { value: '#dcfce7', label: '浅绿' },
+  { value: '#fce7f3', label: '浅粉' },
+  { value: '#f3e8ff', label: '浅紫' },
+  { value: '#fed7aa', label: '浅橙' },
+  { value: '#e5e7eb', label: '浅灰' },
+  { value: '#ffffff', label: '白色' },
+  { value: '#fde68a', label: '黄' },
+  { value: '#93c5fd', label: '蓝' },
+  { value: '#86efac', label: '绿' },
+  { value: '#f9a8d4', label: '粉' },
+];
+
 /* ------------------------------------------------------------------ */
 /* 组件                                                                */
 /* ------------------------------------------------------------------ */
@@ -164,6 +181,11 @@ export function GraphCanvas({
   const [showGrid, setShowGrid] = useState(false); // 默认不显示网格
   // 选中 cell 的文字对齐方式（null 表示无选中或不支持）。
   const [selectedLabelAlign, setSelectedLabelAlign] = useState<LabelAlign | null>(null);
+  // 选中 vertex 的填充色（null 表示无选中或边线选中）。'none' = 无填充。
+  const [selectedFillColor, setSelectedFillColor] = useState<string | null>(null);
+  // 填充色弹出面板开关
+  const [fillPickerOpen, setFillPickerOpen] = useState(false);
+  const fillPickerRef = useRef<HTMLDivElement>(null);
   // emit 桥接 ref：toggleGrid 定义早于 scheduleEmit（const TDZ），
   // 用 ref 间接调用，避免顺序依赖。
   const emitNowRef = useRef<() => void>(() => {});
@@ -671,16 +693,25 @@ export function GraphCanvas({
       updateFlowAnimationRef.current();
     });
 
-    // 选中变化 -> 更新对齐按钮高亮状态。
+    // 选中变化 -> 更新对齐按钮高亮状态 + 填充色状态。
     graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
       const cell = graph.getSelectionCell();
       if (cell) {
         const style = graph.getCurrentCellStyle(cell);
         const a = style.align;
         setSelectedLabelAlign(a === 'left' || a === 'right' ? a : 'center');
+        // 仅 vertex 显示填充色按钮；边线不显示。
+        const fc = style.fillColor;
+        setSelectedFillColor(
+          cell.isVertex()
+            ? (typeof fc === 'string' && fc ? fc : 'none')
+            : null,
+        );
       } else {
         setSelectedLabelAlign(null);
+        setSelectedFillColor(null);
       }
+      setFillPickerOpen(false);
     });
 
     // 视口变化（缩放/平移/自适应）-> 防抖序列化回传，确保 fitCenter、zoomIn/Out
@@ -996,7 +1027,7 @@ export function GraphCanvas({
         view.translate.y - dy / scale,
       );
     };
-    container.addEventListener('wheel', onWheel, { passive: false });
+    container.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
     // 容器尺寸变化（窗口缩放、拖拽改大小等）时重新自适应内容。
     // sizeDidChange 只更新内部尺寸追踪，不会调整视口；若不重新 fitCenter，
@@ -1026,7 +1057,7 @@ export function GraphCanvas({
     return () => {
       resizeObs.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
-      container.removeEventListener('wheel', onWheel);
+      container.removeEventListener('wheel', onWheel, true);
       container.removeEventListener('mousedown', onMouseDown, true);
       container.removeEventListener('mousemove', onMouseMove, true);
       container.removeEventListener('mouseup', finishDraw, true);
@@ -1141,9 +1172,11 @@ export function GraphCanvas({
         if (cell.isVertex()) {
           const shape = styleToNodeShape(oldStyle);
           const pal = paletteFor(shape, dark);
+          // 保留用户手动设置的填充色（非 'none'），仅刷新描边/文字颜色。
+          const oldFill = oldStyle.fillColor;
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,
-            fillColor: pal.fill,
+            fillColor: (oldFill && oldFill !== 'none') ? oldFill : pal.fill,
             strokeColor: pal.stroke,
             fontColor: getFontColor(dark),
           });
@@ -1298,6 +1331,31 @@ export function GraphCanvas({
     graph.setCellStyles('align', align, cells);
     setSelectedLabelAlign(align);
   }, []);
+
+  // 设置选中 vertex 的填充色。color='none' 表示清除填充（透明）。
+  const handleSetFillColor = useCallback((color: string) => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const cells = graph.getSelectionCells().filter((c) => c.isVertex());
+    if (cells.length === 0) return;
+    graph.setCellStyles('fillColor', color, cells);
+    setSelectedFillColor(color);
+    setFillPickerOpen(false);
+    // 手动触发快照回传（setCellStyles 不一定触发 model change 事件）。
+    emitNowRef.current?.();
+  }, []);
+
+  // 点击外部关闭填充色弹出面板。
+  useEffect(() => {
+    if (!fillPickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (fillPickerRef.current && !fillPickerRef.current.contains(e.target as Node)) {
+        setFillPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [fillPickerOpen]);
 
   const handleZoomIn = useCallback(() => {
     const graph = graphRef.current;
@@ -1470,6 +1528,41 @@ export function GraphCanvas({
               >
                 <AlignRight size={16} />
               </button>
+            </>
+          )}
+          {selectedFillColor !== null && (
+            <>
+              <div className="jgraph-tool-sep" />
+              <div className="jgraph-fill-picker" ref={fillPickerRef}>
+                <button
+                  type="button"
+                  className={`jgraph-tool-btn ${selectedFillColor !== 'none' ? 'is-active' : ''}`}
+                  title="填充颜色"
+                  onClick={() => setFillPickerOpen((v) => !v)}
+                >
+                  <Palette size={16} />
+                </button>
+                {fillPickerOpen && (
+                  <div className="jgraph-fill-popover" role="presentation">
+                    <button
+                      type="button"
+                      className={`jgraph-fill-swatch jgraph-fill-none ${selectedFillColor === 'none' ? 'is-active' : ''}`}
+                      title="无填充"
+                      onClick={() => handleSetFillColor('none')}
+                    />
+                    {FILL_COLOR_PRESETS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        className={`jgraph-fill-swatch ${selectedFillColor === c.value ? 'is-active' : ''}`}
+                        style={{ backgroundColor: c.value }}
+                        title={c.label}
+                        onClick={() => handleSetFillColor(c.value)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
           <div className="jgraph-tool-sep" />

@@ -61,6 +61,8 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
     strokeWidth: SHAPE_STROKE_WIDTH,
     fontSize: SHAPE_FONT_SIZE,
     fontColor: getFontColor(dark),
+    // 无填充时内部可穿透点击，仅边框可选中/拖动；有填充色时自动失效。
+    pointerEvents: false,
   };
   switch (shape) {
     case 'rounded':
