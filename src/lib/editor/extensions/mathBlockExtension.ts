@@ -45,12 +45,13 @@ export const MathBlockExtension = Node.create({
 
   draggable: false,
 
-  // Prevent GapCursor from appearing at the boundary of this atom block.
-  // Without this, pressing Backspace near the math block briefly creates a
-  // GapCursor widget (a 0x0 div) that some browsers render as a visible
-  // "hollow dot" on the left side. Since the math block always has an
-  // adjacent paragraph for the cursor, the GapCursor is unnecessary here.
-  allowGapCursor: false,
+  // Allow GapCursor so users can click in the margin between two adjacent
+  // math blocks to place a cursor and type to insert a paragraph.
+  // The earlier "hollow dot" visual glitch (a 0x0 GapCursor div rendered by
+  // some browsers) is now handled by CSS: .ProseMirror-gapcursor is
+  // display:none unless the editor is focused, so the dot no longer appears
+  // during transient focus changes (e.g. pressing Backspace).
+  allowGapCursor: true,
 
   addAttributes() {
     return {

@@ -53,7 +53,9 @@ export const FileExtension = Node.create({
 
   atom: true,
 
-  allowGapCursor: false,
+  // Allow GapCursor so users can click in the margin between two adjacent
+  // file blocks to place a cursor and type to insert a paragraph.
+  allowGapCursor: true,
 
   draggable: false,
 

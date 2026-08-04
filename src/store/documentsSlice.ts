@@ -1,18 +1,49 @@
-import { storage, toMeta, DocumentMeta, type FolderMeta, type ThemeMode, type Language, type TerminalCursorStyle, type EditorCursorStyle, type ActivityBarItemConfig, DEFAULT_ACTIVITY_BAR_ITEMS, normalizeActivityBarItems } from '../lib/core/storage';
-import { migrateFromLocalStorage } from '../lib/documents/migrate';
-import { resolveDark, applyFont, applyLineHeight } from './uiSlice';
-import { DEFAULT_LATIN_FONT_ID, DEFAULT_CJK_FONT_ID, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, DEFAULT_LINE_HEIGHT } from '../lib/editor/fonts';
-import type { Document } from '../types';
-import { scheduleDocumentSave, scheduleIndexSave } from './storeHelpers';
-import type { StoreState, SliceCreator } from './storeHelpers';
-import { markdownToBlocks } from '../lib/editor/markdownImport';
-import { migrateDocAssets } from '../lib/documents/migrateAssets';
-import { gcDocumentAssets } from '../lib/documents/assetGc';
-import { toast } from '../lib/toast';
-import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
-import type { BrowserShortcut } from './browserSlice';
-import { applyAppTheme, getAppTheme, DEFAULT_APP_THEME_ID_DARK, DEFAULT_APP_THEME_ID_LIGHT } from '../lib/themes';
-import { coerceDocSortKey, coerceDocSortDirection, DEFAULT_DOC_SORT_KEY, DEFAULT_DOC_SORT_DIRECTION } from '../lib/documents/sortUtils';
+import {
+  storage,
+  toMeta,
+  DocumentMeta,
+  type FolderMeta,
+  type ThemeMode,
+  type Language,
+  type TerminalCursorStyle,
+  type EditorCursorStyle,
+  type ActivityBarItemConfig,
+  DEFAULT_ACTIVITY_BAR_ITEMS,
+  normalizeActivityBarItems,
+} from "../lib/core/storage";
+import { migrateFromLocalStorage } from "../lib/documents/migrate";
+import { resolveDark, applyFont, applyLineHeight } from "./uiSlice";
+import {
+  DEFAULT_LATIN_FONT_ID,
+  DEFAULT_CJK_FONT_ID,
+  DEFAULT_FONT_SIZE,
+  MIN_FONT_SIZE,
+  MAX_FONT_SIZE,
+  MIN_LINE_HEIGHT,
+  MAX_LINE_HEIGHT,
+  DEFAULT_LINE_HEIGHT,
+} from "../lib/editor/fonts";
+import type { Document } from "../types";
+import { scheduleDocumentSave, scheduleIndexSave } from "./storeHelpers";
+import type { StoreState, SliceCreator } from "./storeHelpers";
+import { markdownToBlocks } from "../lib/editor/markdownImport";
+import { migrateDocAssets } from "../lib/documents/migrateAssets";
+import { gcDocumentAssets } from "../lib/documents/assetGc";
+import { toast } from "../lib/toast";
+import type { GlobalShortcutConfig } from "../lib/shortcuts/globalShortcuts";
+import type { BrowserShortcut } from "./browserSlice";
+import {
+  applyAppTheme,
+  getAppTheme,
+  DEFAULT_APP_THEME_ID_DARK,
+  DEFAULT_APP_THEME_ID_LIGHT,
+} from "../lib/themes";
+import {
+  coerceDocSortKey,
+  coerceDocSortDirection,
+  DEFAULT_DOC_SORT_KEY,
+  DEFAULT_DOC_SORT_DIRECTION,
+} from "../lib/documents/sortUtils";
 
 /** Documents slice — document CRUD and initialization. */
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
@@ -20,10 +51,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   trashedDocList: [],
   trashedAssets: [],
   activeDoc: null,
-  activeDocId: '',
+  activeDocId: "",
   documents: [],
   activeDocReloadNonce: 0,
-  studioRoot: '',
+  studioRoot: "",
 
   // ================================================================
   // init
@@ -41,7 +72,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       }
 
       // Load settings
-      let themeMode: ThemeMode = 'dark';
+      let themeMode: ThemeMode = "dark";
       let fontId = DEFAULT_LATIN_FONT_ID;
       let cjkFontId = DEFAULT_CJK_FONT_ID;
       let fontSize = DEFAULT_FONT_SIZE;
@@ -49,8 +80,9 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let sidebarWidth: number | undefined;
       let sidebarPinned: boolean | undefined;
       let outlinePinned: boolean | undefined;
-      let language: Language = 'zh';
-      let activityBarItems: ActivityBarItemConfig[] = DEFAULT_ACTIVITY_BAR_ITEMS;
+      let language: Language = "zh";
+      let activityBarItems: ActivityBarItemConfig[] =
+        DEFAULT_ACTIVITY_BAR_ITEMS;
       let appThemeIdDark: string | undefined;
       let appThemeIdLight: string | undefined;
       let terminalFontSize: number | undefined;
@@ -59,7 +91,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let editorCursorStyle: EditorCursorStyle | undefined;
       let editorCursorAnimationEnabled: boolean | undefined;
       let tabBarGlassOpacity: number | undefined;
-      let tabBarPosition: 'top' | 'bottom' | undefined;
+      let tabBarPosition: "top" | "bottom" | undefined;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
@@ -68,65 +100,81 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       let browserShortcuts: BrowserShortcut[] | undefined;
       let docSortKey = DEFAULT_DOC_SORT_KEY;
       let docSortDirection = DEFAULT_DOC_SORT_DIRECTION;
+      let runtimeLoggingEnabled: boolean | undefined;
       try {
         const settings = await storage.loadSettings();
-        if (settings.theme === 'light' || settings.theme === 'system') {
+        if (settings.theme === "light" || settings.theme === "system") {
           themeMode = settings.theme;
         }
-        if (typeof settings.fontId === 'string' && settings.fontId) {
+        if (typeof settings.fontId === "string" && settings.fontId) {
           fontId = settings.fontId;
         }
-        if (typeof settings.cjkFontId === 'string' && settings.cjkFontId) {
+        if (typeof settings.cjkFontId === "string" && settings.cjkFontId) {
           cjkFontId = settings.cjkFontId;
         }
-        if (typeof settings.fontSize === 'number') {
-          fontSize = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, settings.fontSize));
+        if (typeof settings.fontSize === "number") {
+          fontSize = Math.min(
+            MAX_FONT_SIZE,
+            Math.max(MIN_FONT_SIZE, settings.fontSize),
+          );
         }
-        if (typeof settings.editorLineHeight === 'number') {
-          editorLineHeight = Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, settings.editorLineHeight));
+        if (typeof settings.editorLineHeight === "number") {
+          editorLineHeight = Math.min(
+            MAX_LINE_HEIGHT,
+            Math.max(MIN_LINE_HEIGHT, settings.editorLineHeight),
+          );
         }
-        if (typeof settings.sidebarWidth === 'number') {
+        if (typeof settings.sidebarWidth === "number") {
           sidebarWidth = settings.sidebarWidth;
         }
-        if (typeof settings.sidebarPinned === 'boolean') {
+        if (typeof settings.sidebarPinned === "boolean") {
           sidebarPinned = settings.sidebarPinned;
         }
-        if (typeof settings.outlinePinned === 'boolean') {
+        if (typeof settings.outlinePinned === "boolean") {
           outlinePinned = settings.outlinePinned;
         }
-        if (settings.language === 'en' || settings.language === 'zh') {
+        if (settings.language === "en" || settings.language === "zh") {
           language = settings.language;
         }
         // Merge with defaults so new items appear automatically.
         // Normalization also pins settings to the bottom and forces it visible.
         activityBarItems = normalizeActivityBarItems(settings.activityBarItems);
-        if (typeof settings.appThemeIdDark === 'string' && settings.appThemeIdDark) {
+        if (
+          typeof settings.appThemeIdDark === "string" &&
+          settings.appThemeIdDark
+        ) {
           appThemeIdDark = settings.appThemeIdDark;
         }
-        if (typeof settings.appThemeIdLight === 'string' && settings.appThemeIdLight) {
+        if (
+          typeof settings.appThemeIdLight === "string" &&
+          settings.appThemeIdLight
+        ) {
           appThemeIdLight = settings.appThemeIdLight;
         }
-        if (typeof settings.terminalFontSize === 'number') {
+        if (typeof settings.terminalFontSize === "number") {
           terminalFontSize = settings.terminalFontSize;
         }
-        if (typeof settings.terminalFontId === 'string' && settings.terminalFontId) {
+        if (
+          typeof settings.terminalFontId === "string" &&
+          settings.terminalFontId
+        ) {
           terminalFontId = settings.terminalFontId;
         }
         if (
-          settings.terminalCursorStyle === 'block' ||
-          settings.terminalCursorStyle === 'underline' ||
-          settings.terminalCursorStyle === 'bar'
+          settings.terminalCursorStyle === "block" ||
+          settings.terminalCursorStyle === "underline" ||
+          settings.terminalCursorStyle === "bar"
         ) {
           terminalCursorStyle = settings.terminalCursorStyle;
         }
         if (
-          settings.editorCursorStyle === 'bar' ||
-          settings.editorCursorStyle === 'block' ||
-          settings.editorCursorStyle === 'underline'
+          settings.editorCursorStyle === "bar" ||
+          settings.editorCursorStyle === "block" ||
+          settings.editorCursorStyle === "underline"
         ) {
           editorCursorStyle = settings.editorCursorStyle;
         }
-        if (typeof settings.editorCursorAnimationEnabled === 'boolean') {
+        if (typeof settings.editorCursorAnimationEnabled === "boolean") {
           editorCursorAnimationEnabled = settings.editorCursorAnimationEnabled;
         }
         if (settings.terminalTemplates !== undefined) {
@@ -136,26 +184,43 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
           terminalRecentDirsRaw = settings.terminalRecentDirs;
         }
         // Load user-customized keyboard shortcuts
-        if (settings.keyboardShortcuts && typeof settings.keyboardShortcuts === 'object') {
-          keyboardShortcuts = settings.keyboardShortcuts as Record<string, string>;
+        if (
+          settings.keyboardShortcuts &&
+          typeof settings.keyboardShortcuts === "object"
+        ) {
+          keyboardShortcuts = settings.keyboardShortcuts as Record<
+            string,
+            string
+          >;
         }
         // Load OS-level global shortcuts
         if (Array.isArray(settings.globalShortcuts)) {
           globalShortcuts = settings.globalShortcuts;
         }
         // Load tab bar glass opacity
-        if (typeof settings.tabBarGlassOpacity === 'number') {
+        if (typeof settings.tabBarGlassOpacity === "number") {
           tabBarGlassOpacity = settings.tabBarGlassOpacity;
         }
         // Load tab bar position
-        if (settings.tabBarPosition === 'top' || settings.tabBarPosition === 'bottom') {
+        if (
+          settings.tabBarPosition === "top" ||
+          settings.tabBarPosition === "bottom"
+        ) {
           tabBarPosition = settings.tabBarPosition;
         }
         // Load document list sort settings
         docSortKey = coerceDocSortKey(settings.docSortKey);
         docSortDirection = coerceDocSortDirection(settings.docSortDirection);
+        // Load runtime logging toggle (Debug settings). Default off — only
+        // flip on when the user explicitly opts in.
+        if (typeof settings.runtimeLoggingEnabled === "boolean") {
+          runtimeLoggingEnabled = settings.runtimeLoggingEnabled;
+        }
         // Load browser search engine preference
-        if (typeof settings.browserSearchEngine === 'string' && settings.browserSearchEngine) {
+        if (
+          typeof settings.browserSearchEngine === "string" &&
+          settings.browserSearchEngine
+        ) {
           browserSearchEngine = settings.browserSearchEngine;
         }
         // Load browser shortcuts (validate each entry so corrupted rows
@@ -163,13 +228,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         if (Array.isArray(settings.browserShortcuts)) {
           browserShortcuts = (settings.browserShortcuts as unknown[]).filter(
             (s): s is BrowserShortcut =>
-              typeof s === 'object' &&
+              typeof s === "object" &&
               s !== null &&
-              typeof (s as BrowserShortcut).id === 'string' &&
-              typeof (s as BrowserShortcut).name === 'string' &&
-              typeof (s as BrowserShortcut).url === 'string' &&
-              typeof (s as BrowserShortcut).icon === 'string' &&
-              typeof (s as BrowserShortcut).color === 'string',
+              typeof (s as BrowserShortcut).id === "string" &&
+              typeof (s as BrowserShortcut).name === "string" &&
+              typeof (s as BrowserShortcut).url === "string" &&
+              typeof (s as BrowserShortcut).icon === "string" &&
+              typeof (s as BrowserShortcut).color === "string",
             // Note: faviconUrl is optional; old shortcuts without it are valid.
           );
         }
@@ -183,8 +248,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         : (appThemeIdLight ?? DEFAULT_APP_THEME_ID_LIGHT);
       const appTheme = getAppTheme(appThemeId, isDark);
       applyAppTheme(appTheme);
-      if (isDark) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
+      if (isDark) document.documentElement.classList.add("dark");
+      else document.documentElement.classList.remove("dark");
       applyFont(fontId, cjkFontId, fontSize);
       applyLineHeight(editorLineHeight);
 
@@ -200,14 +265,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // These IDs were injected by early builds of the app and should
       // no longer appear for users who want a clean start.
       const LEGACY_PRESET_IDS = [
-        'doc-welcome',
-        'doc-shortcuts',
-        'doc-canvas-lab',
+        "doc-welcome",
+        "doc-shortcuts",
+        "doc-canvas-lab",
       ];
       if (index.length > 0) {
-        const filtered = index.filter(
-          (m) => !LEGACY_PRESET_IDS.includes(m.id),
-        );
+        const filtered = index.filter((m) => !LEGACY_PRESET_IDS.includes(m.id));
         if (filtered.length !== index.length) {
           // Delete the old document files and rebuild the index
           for (const old of index) {
@@ -245,7 +308,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
       }
 
-      const firstId = docs.length > 0 ? docs[0].id : '';
+      const firstId = docs.length > 0 ? docs[0].id : "";
 
       // Separate active documents from trashed ones for the sidebar lists.
       const activeDocList = index.filter((m) => !m.trashedAt);
@@ -275,17 +338,32 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
         ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
-        ...(editorCursorAnimationEnabled !== undefined ? { editorCursorAnimationEnabled } : {}),
+        ...(editorCursorAnimationEnabled !== undefined
+          ? { editorCursorAnimationEnabled }
+          : {}),
         ...(tabBarGlassOpacity !== undefined ? { tabBarGlassOpacity } : {}),
         ...(tabBarPosition !== undefined ? { tabBarPosition } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
         ...(browserSearchEngine !== undefined ? { browserSearchEngine } : {}),
         ...(browserShortcuts !== undefined ? { browserShortcuts } : {}),
+        ...(runtimeLoggingEnabled !== undefined
+          ? { runtimeLoggingEnabled }
+          : {}),
         docSortKey,
         docSortDirection,
         isLoading: false,
       });
+
+      // Apply the loaded runtime-logging flag to the singleton logger so
+      // capture hooks (window.onerror, console.error, …) are installed or
+      // removed without requiring a window reload. Importing here (inside
+      // init) keeps the logger module out of the hot module graph of every
+      // component — only the main window's init path pulls it in.
+      if (runtimeLoggingEnabled !== undefined) {
+        const { logger } = await import("../lib/core/logger");
+        logger.setEnabled(runtimeLoggingEnabled);
+      }
 
       // Open a workspace tab for the first document (if any).
       // This ensures DocumentTabs shows the active document on startup.
@@ -329,7 +407,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
             if (!status.installed) {
               const result = await storage.installJcli();
               if (result) {
-                toast.success('CLI 模式已安装，你可以在终端使用 j 命令');
+                toast.success("CLI 模式已安装，你可以在终端使用 j 命令");
               }
             }
             // Mark as attempted regardless of success/failure
@@ -339,7 +417,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
             });
           }
         } catch (e) {
-          console.warn('Auto-install CLI skipped:', e);
+          console.warn("Auto-install CLI skipped:", e);
           // Mark as attempted even on error to avoid retrying every launch
           try {
             await storage.saveSettings({
@@ -352,8 +430,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
         }
       })();
     } catch (e) {
-      console.error('Store init failed:', e);
-      toast.error('应用初始化失败');
+      console.error("Store init failed:", e);
+      toast.error("应用初始化失败");
       set({ isLoading: false });
     }
   },
@@ -364,14 +442,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   createDocument: async (folderId?: string) => {
     const newDoc: Document = {
       id: `doc-${Date.now()}`,
-      title: '',
-      emoji: '',
+      title: "",
+      emoji: "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       blocks: [
         {
           id: `block-${Date.now()}-initial`,
-          type: 'text',
+          type: "text",
           content: [],
           properties: {},
         },
@@ -395,7 +473,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     // Open a workspace tab for the new document + switch to documents view.
     get().openDocumentTab(newDoc.id);
-    set({ activeSidebarView: 'documents' });
+    set({ activeSidebarView: "documents" });
   },
 
   deleteDocument: async (id) => {
@@ -415,7 +493,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     if (activeDocId === id) {
       const nextDoc = newDocuments[0] ?? null;
       stateUpdate.activeDoc = nextDoc;
-      stateUpdate.activeDocId = nextDoc?.id ?? '';
+      stateUpdate.activeDocId = nextDoc?.id ?? "";
     }
 
     set(stateUpdate as StoreState);
@@ -427,15 +505,15 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     try {
       await storage.deleteDocument(id);
     } catch (e) {
-      console.error('Failed to delete document from disk:', e);
-      toast.error('删除文档失败');
+      console.error("Failed to delete document from disk:", e);
+      toast.error("删除文档失败");
     }
 
     try {
       await storage.saveIndex(newDocList);
     } catch (e) {
-      console.error('Failed to save index after delete:', e);
-      toast.error('索引保存失败');
+      console.error("Failed to save index after delete:", e);
+      toast.error("索引保存失败");
     }
   },
 
@@ -456,7 +534,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     if (activeDocId && idSet.has(activeDocId)) {
       const nextDoc = newDocuments[0] ?? null;
       stateUpdate.activeDoc = nextDoc;
-      stateUpdate.activeDocId = nextDoc?.id ?? '';
+      stateUpdate.activeDocId = nextDoc?.id ?? "";
     }
 
     set(stateUpdate as StoreState);
@@ -465,15 +543,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     ids.forEach((id) => get().removeDocumentTabByDocId(id));
 
     // Persist: delete document files from disk (best-effort, parallel)
-    await Promise.allSettled(
-      ids.map((id) => storage.deleteDocument(id)),
-    );
+    await Promise.allSettled(ids.map((id) => storage.deleteDocument(id)));
 
     try {
       await storage.saveIndex(newDocList);
     } catch (e) {
-      console.error('Failed to save index after batch delete:', e);
-      toast.error('索引保存失败');
+      console.error("Failed to save index after batch delete:", e);
+      toast.error("索引保存失败");
     }
   },
 
@@ -499,7 +575,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     if (activeDocId === id) {
       const nextDoc = documents.find((d) => d.id !== id) ?? null;
       stateUpdate.activeDoc = nextDoc;
-      stateUpdate.activeDocId = nextDoc?.id ?? '';
+      stateUpdate.activeDocId = nextDoc?.id ?? "";
     }
 
     set(stateUpdate as StoreState);
@@ -510,8 +586,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     try {
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
-      console.error('Failed to save index after trash:', e);
-      toast.error('移入废纸篓失败');
+      console.error("Failed to save index after trash:", e);
+      toast.error("移入废纸篓失败");
     }
   },
 
@@ -535,7 +611,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     if (activeDocId && idSet.has(activeDocId)) {
       const nextDoc = documents.find((d) => !idSet.has(d.id)) ?? null;
       stateUpdate.activeDoc = nextDoc;
-      stateUpdate.activeDocId = nextDoc?.id ?? '';
+      stateUpdate.activeDocId = nextDoc?.id ?? "";
     }
 
     set(stateUpdate as StoreState);
@@ -546,8 +622,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     try {
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
-      console.error('Failed to save index after batch trash:', e);
-      toast.error('移入废纸篓失败');
+      console.error("Failed to save index after batch trash:", e);
+      toast.error("移入废纸篓失败");
     }
   },
 
@@ -565,8 +641,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     try {
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
-      console.error('Failed to save index after restore:', e);
-      toast.error('恢复文档失败');
+      console.error("Failed to save index after restore:", e);
+      toast.error("恢复文档失败");
     }
   },
 
@@ -586,8 +662,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     try {
       await storage.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
-      console.error('Failed to save index after batch restore:', e);
-      toast.error('恢复文档失败');
+      console.error("Failed to save index after batch restore:", e);
+      toast.error("恢复文档失败");
     }
   },
 
@@ -605,7 +681,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       trashedIds.map((id) => storage.deleteDocument(id)),
     );
     const deletedIds = new Set(
-      trashedIds.filter((_, i) => results[i].status === 'fulfilled'),
+      trashedIds.filter((_, i) => results[i].status === "fulfilled"),
     );
     const failedCount = trashedIds.length - deletedIds.size;
 
@@ -621,8 +697,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       const { docList } = get();
       await storage.saveIndex([...docList, ...newTrashed]);
     } catch (e) {
-      console.error('Failed to save index after empty trash:', e);
-      toast.error('清空废纸篓失败');
+      console.error("Failed to save index after empty trash:", e);
+      toast.error("清空废纸篓失败");
     }
 
     if (failedCount > 0) {
@@ -638,7 +714,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       const list = await storage.listTrashedAssets();
       set({ trashedAssets: list });
     } catch (e) {
-      console.error('Failed to load trashed assets:', e);
+      console.error("Failed to load trashed assets:", e);
     }
   },
 
@@ -654,8 +730,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.restoreTrashedAsset(id);
       set({ trashedAssets: get().trashedAssets.filter((a) => a.id !== id) });
     } catch (e) {
-      console.error('Failed to restore trashed asset:', e);
-      toast.error('恢复附件失败');
+      console.error("Failed to restore trashed asset:", e);
+      toast.error("恢复附件失败");
     }
   },
 
@@ -664,8 +740,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       await storage.deleteTrashedAsset(id);
       set({ trashedAssets: get().trashedAssets.filter((a) => a.id !== id) });
     } catch (e) {
-      console.error('Failed to delete trashed asset:', e);
-      toast.error('删除附件失败');
+      console.error("Failed to delete trashed asset:", e);
+      toast.error("删除附件失败");
     }
   },
 
@@ -678,7 +754,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     );
     const deletedIds = new Set(
       trashedAssets
-        .filter((_, i) => results[i].status === 'fulfilled')
+        .filter((_, i) => results[i].status === "fulfilled")
         .map((a) => a.id),
     );
     set({
@@ -698,12 +774,20 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // If the browser's Selection still references one of those nodes,
       // WebKit throws "NotFoundError: The object can not be found here."
       try {
-        const editor = document.querySelector('.ProseMirror') as HTMLElement | null;
-        if (editor && (document.activeElement === editor || editor.contains(document.activeElement))) {
+        const editor = document.querySelector(
+          ".ProseMirror",
+        ) as HTMLElement | null;
+        if (
+          editor &&
+          (document.activeElement === editor ||
+            editor.contains(document.activeElement))
+        ) {
           (document.body as HTMLElement).focus();
         }
         window.getSelection()?.removeAllRanges();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       set({ activeDoc: doc, activeDocId: id });
 
       // GC the document we just navigated away from. Its editor instance is
@@ -729,7 +813,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       }
       set(patch);
     } catch (e) {
-      console.error('Failed to reload document:', e);
+      console.error("Failed to reload document:", e);
     }
   },
 
@@ -791,14 +875,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     // Derive document title: prefer first Markdown H1, fall back to filename.
     const h1Match = md.match(/^#\s+(.+)$/m);
-    const baseName = filename.replace(/\.(md|markdown|mdown)$/i, '');
+    const baseName = filename.replace(/\.(md|markdown|mdown)$/i, "");
     const title = h1Match ? h1Match[1].trim() : baseName;
 
     const now = new Date().toISOString();
     const newDoc: Document = {
       id: `doc-${Date.now()}`,
       title,
-      emoji: '',
+      emoji: "",
       createdAt: now,
       updatedAt: now,
       blocks,
@@ -821,7 +905,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     // Open a workspace tab for the imported document.
     get().openDocumentTab(newDoc.id);
-    set({ activeSidebarView: 'documents' });
+    set({ activeSidebarView: "documents" });
   },
 
   /**
@@ -840,7 +924,11 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     const entries = await storage.listMarkdownFiles(dirPath);
 
     // Extract the directory name (e.g. "/path/to/MyNotes" → "MyNotes")
-    const dirName = dirPath.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || 'Imported';
+    const dirName =
+      dirPath
+        .replace(/[/\\]+$/, "")
+        .split(/[/\\]/)
+        .pop() || "Imported";
 
     const { folders } = get();
     const newFolders: FolderMeta[] = [];
@@ -862,21 +950,21 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     /** relative-path → folder-id lookup. Root maps to the new top-level folder. */
     const folderMap = new Map<string, string | null>();
-    folderMap.set('', rootFolderId);
+    folderMap.set("", rootFolderId);
 
     for (const entry of entries) {
       if (entry.isDir) continue; // directories are created lazily below
 
       // Read + decode the Markdown file.
       const bytes = await storage.readFileBytes(entry.path);
-      const md = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
-      const filename = entry.relativePath.split('/').pop() ?? 'Untitled.md';
+      const md = new TextDecoder("utf-8").decode(new Uint8Array(bytes));
+      const filename = entry.relativePath.split("/").pop() ?? "Untitled.md";
 
       // Ensure every ancestor folder exists.
-      const parts = entry.relativePath.split('/');
+      const parts = entry.relativePath.split("/");
       // Remove the file name; remaining parts are directory segments.
       const dirParts = parts.slice(0, -1);
-      let currentRel = '';
+      let currentRel = "";
       let parentId: string | null = rootFolderId;
       for (const seg of dirParts) {
         const childRel = currentRel ? `${currentRel}/${seg}` : seg;
@@ -900,13 +988,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // Build the document.
       const blocks = markdownToBlocks(md);
       const h1Match = md.match(/^#\s+(.+)$/m);
-      const baseName = filename.replace(/\.(md|markdown|mdown)$/i, '');
+      const baseName = filename.replace(/\.(md|markdown|mdown)$/i, "");
       const title = h1Match ? h1Match[1].trim() : baseName;
       const now = new Date().toISOString();
       const doc: Document = {
         id: `doc-${Date.now()}-${docCount}`,
         title,
-        emoji: '',
+        emoji: "",
         createdAt: now,
         updatedAt: now,
         blocks,
@@ -919,7 +1007,8 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     }
 
     // Batch-persist everything.
-    const mergedFolders = newFolders.length > 0 ? [...folders, ...newFolders] : folders;
+    const mergedFolders =
+      newFolders.length > 0 ? [...folders, ...newFolders] : folders;
     const newDocList = [...newMetas, ...get().docList];
     const newDocuments = [...newDocs, ...get().documents];
 
@@ -955,14 +1044,16 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     const doc =
       get().documents.find((d) => d.id === docId) ??
       get().docList.find((m) => m.id === docId);
-    const baseName = (doc?.title || 'Untitled').replace(/[/\\:*?"<>|]/g, '_').trim() || 'Untitled';
+    const baseName =
+      (doc?.title || "Untitled").replace(/[/\\:*?"<>|]/g, "_").trim() ||
+      "Untitled";
 
-    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { save } = await import("@tauri-apps/plugin-dialog");
     const destPath = await save({
       defaultPath: `${baseName}.jnote`,
-      filters: [{ name: 'JStudio Backup', extensions: ['jnote'] }],
+      filters: [{ name: "JStudio Backup", extensions: ["jnote"] }],
     });
-    if (!destPath || typeof destPath !== 'string') return false;
+    if (!destPath || typeof destPath !== "string") return false;
 
     await storage.exportDocumentBundle(docId, destPath);
     return true;
@@ -977,12 +1068,12 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
    * document id, or `null` if the user cancelled.
    */
   importDocumentBundle: async (folderId) => {
-    const { open } = await import('@tauri-apps/plugin-dialog');
+    const { open } = await import("@tauri-apps/plugin-dialog");
     const srcPath = await open({
       multiple: false,
-      filters: [{ name: 'JStudio Backup', extensions: ['jnote'] }],
+      filters: [{ name: "JStudio Backup", extensions: ["jnote"] }],
     });
-    if (!srcPath || typeof srcPath !== 'string') return null;
+    if (!srcPath || typeof srcPath !== "string") return null;
 
     const newDocId = `doc-${Date.now()}`;
     const imported = await storage.importDocumentBundle(srcPath, newDocId);
@@ -1004,7 +1095,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     });
 
     get().openDocumentTab(newDoc.id);
-    set({ activeSidebarView: 'documents' });
+    set({ activeSidebarView: "documents" });
 
     return newDoc.id;
   },

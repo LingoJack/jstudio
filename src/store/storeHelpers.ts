@@ -1,30 +1,43 @@
-import type { Document, Block, BlockType, RichText } from '../types';
-import type { DocumentMeta, FolderMeta, ThemeMode, Language, TerminalCursorStyle, EditorCursorStyle, ActivityBarItemConfig, TrashedAsset, LinkPreviewTabInfo } from '../lib/core/storage';
-import type { DocSortKey, DocSortDirection } from '../lib/documents/sortUtils';
-import type { ShortcutOverrides } from '../lib/shortcuts/keyboardShortcuts';
-import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
+import type { Document, Block, BlockType, RichText } from "../types";
+import type {
+  DocumentMeta,
+  FolderMeta,
+  ThemeMode,
+  Language,
+  TerminalCursorStyle,
+  EditorCursorStyle,
+  ActivityBarItemConfig,
+  TrashedAsset,
+  LinkPreviewTabInfo,
+} from "../lib/core/storage";
+import type { DocSortKey, DocSortDirection } from "../lib/documents/sortUtils";
+import type { ShortcutOverrides } from "../lib/shortcuts/keyboardShortcuts";
+import type { GlobalShortcutConfig } from "../lib/shortcuts/globalShortcuts";
 import type {
   TerminalSession,
   TerminalTemplate,
   PaneGroup,
   PaneLayoutType,
   PaneResizeState,
-} from './terminalSlice';
-import type { ToastItem, ToastType } from './toastSlice';
-import type { SettingsSectionId, SidebarView } from './uiSlice';
-import type { UnifiedTab } from './workspaceSlice';
-import type { AgentSession } from '../types/agent';
-import type { BrowserShortcut } from './browserSlice';
-import { storage } from '../lib/core/storage';
-import { toast } from '../lib/toast';
+} from "./terminalSlice";
+import type { ToastItem, ToastType } from "./toastSlice";
+import type { SettingsSectionId, SidebarView } from "./uiSlice";
+import type { UnifiedTab } from "./workspaceSlice";
+import type { AgentSession } from "../types/agent";
+import type { BrowserShortcut } from "./browserSlice";
+import { storage } from "../lib/core/storage";
+import { toast } from "../lib/toast";
+import { logger } from "../lib/core/logger";
 
 /**
  * Unified error handler for fire-and-forget storage saves.
- * Logs to console AND shows a user-facing toast.
+ * Logs to console, the runtime log file, AND shows a user-facing toast.
  */
 export function onSaveError(label: string) {
   return (e: unknown) => {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     console.error(`Failed to save ${label}:`, e);
+    logger.error("store.save", `Failed to save ${label}: ${msg}`);
     toast.error(`${label}保存失败`);
   };
 }
@@ -55,7 +68,7 @@ export function scheduleDocumentSave(doc: Document) {
   const timer = setTimeout(() => {
     docSaveTimers.delete(doc.id);
     pendingDocs.delete(doc.id);
-    storage.saveDocument(doc).catch(onSaveError('文档'));
+    storage.saveDocument(doc).catch(onSaveError("文档"));
   }, 500);
   docSaveTimers.set(doc.id, timer);
 }
@@ -70,7 +83,7 @@ export function flushDocumentSaves() {
   for (const [id, timer] of docSaveTimers) {
     clearTimeout(timer);
     const doc = pendingDocs.get(id);
-    if (doc) storage.saveDocument(doc).catch(onSaveError('文档'));
+    if (doc) storage.saveDocument(doc).catch(onSaveError("文档"));
   }
   docSaveTimers.clear();
   pendingDocs.clear();
@@ -79,14 +92,14 @@ export function flushDocumentSaves() {
 export function scheduleIndexSave(metas: DocumentMeta[]) {
   if (indexTimer) clearTimeout(indexTimer);
   indexTimer = setTimeout(() => {
-    storage.saveIndex(metas).catch(onSaveError('索引'));
+    storage.saveIndex(metas).catch(onSaveError("索引"));
   }, 500);
 }
 
 export function scheduleFoldersSave(folders: FolderMeta[]) {
   if (foldersTimer) clearTimeout(foldersTimer);
   foldersTimer = setTimeout(() => {
-    storage.saveFolders(folders).catch(onSaveError('文件夹'));
+    storage.saveFolders(folders).catch(onSaveError("文件夹"));
   }, 300);
 }
 
@@ -119,7 +132,7 @@ export interface StoreState {
   appThemeIdDark: string;
   appThemeIdLight: string;
   language: Language;
-  
+
   activityBarItems: ActivityBarItemConfig[];
   isSidebarOpen: boolean;
   /** When false, DocumentSidebar collapses to a narrow strip and expands on hover. */
@@ -149,13 +162,15 @@ export interface StoreState {
   terminalFontId: string;
   terminalCursorStyle: TerminalCursorStyle;
   tabBarGlassOpacity: number;
-  tabBarPosition: 'top' | 'bottom';
+  tabBarPosition: "top" | "bottom";
   keyboardShortcuts: ShortcutOverrides;
   globalShortcuts: GlobalShortcutConfig[];
   /** Document list sort key – `'created'` or `'title'` */
   docSortKey: DocSortKey;
   /** Document list sort direction – `'asc'` or `'desc'` */
   docSortDirection: DocSortDirection;
+  /** Whether the runtime logger captures errors/warnings to a log file. */
+  runtimeLoggingEnabled: boolean;
 
   // — terminal state (terminal slice) —
   templates: TerminalTemplate[];
@@ -206,8 +221,15 @@ export interface StoreState {
    *  so editors re-setContent. Used after restoring a backup. */
   reloadDoc: (docId: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
-  importDocumentFromMarkdown: (filename: string, md: string, folderId?: string) => Promise<void>;
-  importMarkdownDirectory: (dirPath: string, targetFolderId?: string) => Promise<number>;
+  importDocumentFromMarkdown: (
+    filename: string,
+    md: string,
+    folderId?: string,
+  ) => Promise<void>;
+  importMarkdownDirectory: (
+    dirPath: string,
+    targetFolderId?: string,
+  ) => Promise<number>;
   /** Export a document to a lossless `.jnote` ZIP backup. Returns false if cancelled. */
   exportDocumentBundle: (docId: string) => Promise<boolean>;
   /** Import a `.jnote` backup as a new document. Returns new doc id, or null if cancelled. */
@@ -285,13 +307,15 @@ export interface StoreState {
   setTerminalFontId: (id: string) => void;
   setTerminalCursorStyle: (style: TerminalCursorStyle) => void;
   setTabBarGlassOpacity: (opacity: number) => void;
-  setTabBarPosition: (position: 'top' | 'bottom') => void;
+  setTabBarPosition: (position: "top" | "bottom") => void;
   setKeyboardShortcut: (id: string, binding: string) => void;
   resetKeyboardShortcut: (id: string) => void;
   resetAllKeyboardShortcuts: () => void;
   setGlobalShortcuts: (configs: GlobalShortcutConfig[]) => void;
   setDocSortKey: (key: DocSortKey) => void;
   setDocSortDirection: (dir: DocSortDirection) => void;
+  /** Toggle the runtime logger on/off (persisted to settings). */
+  setRuntimeLoggingEnabled: (enabled: boolean) => void;
 
   // — terminal ops (terminal slice) —
   initTemplates: (raw: unknown) => void;
@@ -301,7 +325,10 @@ export interface StoreState {
   addTemplate: (name: string, cwd: string) => void;
   removeTemplate: (id: string) => void;
   updateTemplate: (id: string, fields: { name?: string; cwd?: string }) => void;
-  createSession: (templateId?: string, opts?: { cwd?: string }) => Promise<void>;
+  createSession: (
+    templateId?: string,
+    opts?: { cwd?: string },
+  ) => Promise<void>;
   closeSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => void;
   setAutoTitle: (sessionId: string, title: string) => void;
@@ -348,11 +375,11 @@ export interface StoreState {
     result: string,
     isError: boolean,
     images?: { base64: string; mediaType: string }[],
-    planDecision?: 'approve' | 'reject' | 'approveAndClearContext',
+    planDecision?: "approve" | "reject" | "approveAndClearContext",
   ) => Promise<void>;
   submitAgentPlanDecision: (
     sessionId: string,
-    decision: 'approve' | 'reject' | 'approveAndClearContext',
+    decision: "approve" | "reject" | "approveAndClearContext",
   ) => Promise<void>;
   submitAgentAskAnswer: (
     sessionId: string,
@@ -383,7 +410,10 @@ export interface StoreState {
   browserShortcuts: BrowserShortcut[];
 
   // - browser ops (browser slice) -
-  setBrowserTabsState: (state: { tabs: LinkPreviewTabInfo[]; activeTabId: string | null }) => void;
+  setBrowserTabsState: (state: {
+    tabs: LinkPreviewTabInfo[];
+    activeTabId: string | null;
+  }) => void;
   setBrowserAddressUrl: (url: string) => void;
   setBrowserSearchEngine: (id: string) => void;
   navigateBrowserUrl: (input: string) => void;
@@ -403,4 +433,7 @@ export type SetState = (
 ) => void;
 export type GetState = () => StoreState;
 
-export type SliceCreator = (set: SetState, get: GetState) => Partial<StoreState>;
+export type SliceCreator = (
+  set: SetState,
+  get: GetState,
+) => Partial<StoreState>;

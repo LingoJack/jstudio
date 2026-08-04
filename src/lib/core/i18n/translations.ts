@@ -247,7 +247,8 @@ export const translations = {
 
     // Agent empty state & suggestions
     "agent.welcomeTitle": "有什么可以帮你的？",
-    "agent.welcomeSubtitle": "我是你的 AI 编程助手，可以帮你写代码、分析问题、解释概念",
+    "agent.welcomeSubtitle":
+      "我是你的 AI 编程助手，可以帮你写代码、分析问题、解释概念",
     "agent.suggestionAnalyzeCode": "分析代码",
     "agent.suggestionAnalyzeCodeDesc": "帮我理解这段代码的逻辑",
     "agent.suggestionWriteFunction": "写函数",
@@ -332,6 +333,19 @@ export const translations = {
     "debug.buildMode": "构建模式",
     "debug.buildModeDev": "Debug (开发)",
     "debug.buildModeRelease": "Release (生产)",
+    "debug.runtimeLogs": "运行日志",
+    "debug.enableLogging": "启用运行日志",
+    "debug.enableLoggingDesc":
+      "捕获未捕获异常、Promise 拒绝、console.error/warn，写入每日日志文件，便于线上问题排查",
+    "debug.logFilePath": "日志文件",
+    "debug.openLogsDir": "打开日志目录",
+    "debug.clearLogs": "清空日志",
+    "debug.clearing": "清理中…",
+    "debug.logsClearedToast": "已清空 {count} 个日志文件",
+    "debug.clearLogsFailed": "清空日志失败",
+    "debug.openLogsDirFailed": "打开日志目录失败",
+    "debug.loggingEnabledToast": "运行日志已开启",
+    "debug.loggingDisabledToast": "运行日志已关闭",
 
     // ── General section ──
     "general.latinFont": "英文字体",
@@ -364,7 +378,8 @@ export const translations = {
     "general.tabBarGlassOpacityDesc":
       "控制浮动标签栏的背景透明度，数值越大越明显",
     "general.tabBarPosition": "标签栏位置",
-    "general.tabBarPositionDesc": "控制标签栏显示在内容区域的上方还是下方（文档、终端、浏览器面板均生效）",
+    "general.tabBarPositionDesc":
+      "控制标签栏显示在内容区域的上方还是下方（文档、终端、浏览器面板均生效）",
     "general.tabBarPosition_top": "上方",
     "general.tabBarPosition_bottom": "下方",
 
@@ -623,7 +638,8 @@ export const translations = {
     "aiGraph.title": "AI 生成图表",
     "aiGraph.description":
       "输入图表描述（如「订单处理流程图」），AI 会自动生成。需先在设置里配置 Agent 模型。",
-    "aiGraph.inputPlaceholder": "描述你想要的图表，例如：\n订单处理流程：开始 → 校验库存 → 发货 / 缺货通知",
+    "aiGraph.inputPlaceholder":
+      "描述你想要的图表，例如：\n订单处理流程：开始 → 校验库存 → 发货 / 缺货通知",
     "aiGraph.generate": "生成",
     "aiGraph.generating": "生成中...",
     "aiGraph.cancel": "取消",
@@ -796,7 +812,8 @@ export const translations = {
     "shortcut.app.find": "查找",
     "shortcut.app.find.desc": "在当前文档中查找",
     "shortcut.app.newTab": "新建标签页",
-    "shortcut.app.newTab.desc": "终端视图中新建终端标签页，其他视图中打开文档选择弹窗",
+    "shortcut.app.newTab.desc":
+      "终端视图中新建终端标签页，其他视图中打开文档选择弹窗",
     "shortcut.app.openSettings": "打开设置",
     "shortcut.app.openSettings.desc": "打开应用设置页面",
     "shortcut.app.importMarkdown": "导入 Markdown",
@@ -1113,7 +1130,8 @@ export const translations = {
 
     // Agent empty state & suggestions
     "agent.welcomeTitle": "How can I help you?",
-    "agent.welcomeSubtitle": "I'm your AI coding assistant. I can write code, analyze problems, and explain concepts",
+    "agent.welcomeSubtitle":
+      "I'm your AI coding assistant. I can write code, analyze problems, and explain concepts",
     "agent.suggestionAnalyzeCode": "Analyze Code",
     "agent.suggestionAnalyzeCodeDesc": "Help me understand this code",
     "agent.suggestionWriteFunction": "Write Function",
@@ -1147,7 +1165,8 @@ export const translations = {
     "agent.currentWorkspace": "Current Workspace",
     "agent.selectWorkspacePrompt": "Select Workspace",
     "agent.noWorkspaceSelected": "No workspace selected",
-    "agent.selectWorkspaceToStart": "Agent needs a workspace to read and modify files",
+    "agent.selectWorkspaceToStart":
+      "Agent needs a workspace to read and modify files",
     "agent.selectWorkspaceBtn": "Select Workspace",
     "agent.recentTasks": "Recent Tasks",
     "agent.otherWorkspaces": "Other Workspaces",
@@ -1198,6 +1217,19 @@ export const translations = {
     "debug.buildMode": "Build Mode",
     "debug.buildModeDev": "Debug (dev)",
     "debug.buildModeRelease": "Release (production)",
+    "debug.runtimeLogs": "Runtime Logs",
+    "debug.enableLogging": "Enable runtime logging",
+    "debug.enableLoggingDesc":
+      "Captures uncaught errors, promise rejections, console.error/warn to a daily log file for diagnosing production issues",
+    "debug.logFilePath": "Log file",
+    "debug.openLogsDir": "Open logs folder",
+    "debug.clearLogs": "Clear logs",
+    "debug.clearing": "Clearing…",
+    "debug.logsClearedToast": "Cleared {count} log file(s)",
+    "debug.clearLogsFailed": "Failed to clear logs",
+    "debug.openLogsDirFailed": "Failed to open logs folder",
+    "debug.loggingEnabledToast": "Runtime logging enabled",
+    "debug.loggingDisabledToast": "Runtime logging disabled",
 
     // ── General section ──
     "general.latinFont": "Latin Font",
@@ -1257,7 +1289,8 @@ export const translations = {
     "appearance.activityBarItem_documents": "Documents",
     "appearance.activityBarItem_terminal": "Terminal",
     "appearance.activityBarItem_settings": "Settings",
-    "appearance.activityBarItemSettingsLocked": "Settings is always shown at the bottom and cannot be hidden",
+    "appearance.activityBarItemSettingsLocked":
+      "Settings is always shown at the bottom and cannot be hidden",
     "appearance.terminalTheme": "Terminal Theme",
     "appearance.terminalThemeDesc":
       "Choose a terminal color scheme (matches kitty themes)",
@@ -1498,8 +1531,9 @@ export const translations = {
     // ── AI Graph Import Dialog ──
     "aiGraph.title": "AI Generate Diagram",
     "aiGraph.description":
-      "Describe a diagram (e.g. \"order processing flowchart\") and AI will generate it. Requires an Agent model configured in Settings.",
-    "aiGraph.inputPlaceholder": "Describe the diagram you want, e.g.:\nOrder flow: start → check stock → ship / out-of-stock notice",
+      'Describe a diagram (e.g. "order processing flowchart") and AI will generate it. Requires an Agent model configured in Settings.',
+    "aiGraph.inputPlaceholder":
+      "Describe the diagram you want, e.g.:\nOrder flow: start → check stock → ship / out-of-stock notice",
     "aiGraph.generate": "Generate",
     "aiGraph.generating": "Generating...",
     "aiGraph.cancel": "Cancel",
@@ -1678,7 +1712,8 @@ export const translations = {
     "shortcut.app.find": "Find",
     "shortcut.app.find.desc": "Find in current document",
     "shortcut.app.newTab": "New Tab",
-    "shortcut.app.newTab.desc": "New terminal tab in terminal view, open document dialog elsewhere",
+    "shortcut.app.newTab.desc":
+      "New terminal tab in terminal view, open document dialog elsewhere",
     "shortcut.app.openSettings": "Open settings",
     "shortcut.app.openSettings.desc": "Open the application settings page",
     "shortcut.app.importMarkdown": "Import Markdown",

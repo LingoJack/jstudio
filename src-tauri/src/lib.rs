@@ -543,6 +543,11 @@ pub fn run() {
             // ── debug / build info ──
             commands::debug::get_build_info,
             commands::debug::open_devtools,
+            // ── runtime log file (frontend → ~/.jdata/studio/logs/) ──
+            commands::debug::append_log_line,
+            commands::debug::get_log_file_path,
+            commands::debug::open_logs_dir,
+            commands::debug::clear_logs,
             // ── window control ──
             commands::window::close_window,
             commands::window::set_native_menu_accelerator,

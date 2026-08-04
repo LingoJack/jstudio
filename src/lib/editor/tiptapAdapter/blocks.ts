@@ -192,7 +192,15 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     case 'code': {
       const rich = block.content as RichText[];
       const code = rich[0]?.text ?? '';
-      json.content = [{ type: 'text', text: code }];
+      // ProseMirror rejects text nodes with an empty string ("RangeError:
+      // Empty text nodes are not allowed"), which throws inside
+      // createNodeFromContent and aborts the WHOLE section's setContent call
+      // — not just this block. Only emit the text node when there's actual
+      // text, same as the text/heading cases above (an empty codeBlock is a
+      // valid ProseMirror node with zero children).
+      if (code) {
+        json.content = [{ type: 'text', text: code }];
+      }
       json.attrs = {
         ...json.attrs,
         language: block.properties?.language ?? 'plaintext',

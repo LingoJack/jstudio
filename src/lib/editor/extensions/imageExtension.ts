@@ -27,7 +27,11 @@ export interface ImageNodeAttributes {
 }
 
 export const ImageExtension = Image.extend({
-  allowGapCursor: false,
+  // Allow GapCursor so users can click in the margin between two adjacent
+  // image blocks to place a cursor and type to insert a paragraph.
+  // The gap-cursor visual (potential "hollow dot") is handled by CSS
+  // (.ProseMirror-gapcursor is display:none unless the editor is focused).
+  allowGapCursor: true,
 
   addAttributes() {
     return {

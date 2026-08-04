@@ -35,7 +35,7 @@
 
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { Plugin, PluginKey, NodeSelection, TextSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey, NodeSelection, TextSelection, Selection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import { findChildren } from '@tiptap/core';
@@ -256,6 +256,12 @@ function createIncrementalLowlightPlugin(opts: {
 /* --------------------------------------------------------------------- */
 
 export const CodeBlockWithChrome = CodeBlockLowlight.extend({
+  // Mark the code block as isolating so that ProseMirror's GapCursor can
+  // appear at its boundaries.  This lets users click in the margin between
+  // two adjacent code blocks to place a cursor and type to insert a
+  // paragraph — the same UX already provided by Collapsible blocks.
+  isolating: true,
+
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -378,6 +384,27 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
   addKeyboardShortcuts() {
     return {
       ...this.parent?.(),
+      // ArrowUp at the first line of a code block: jump directly to the
+      // preceding block, skipping the GapCursor that `isolating: true`
+      // would otherwise introduce at the boundary. Without this the user
+      // would need to press ArrowUp twice (once for the GapCursor, once
+      // to enter the previous block). ArrowDown is already handled by the
+      // base CodeBlock extension via `Selection.near`, which also skips
+      // the GapCursor.
+      ArrowUp: ({ editor }) => {
+        const { state } = editor;
+        const { selection, doc } = state;
+        const { $from, empty } = selection;
+        if (!empty || $from.parent.type !== this.type) return false;
+        const isAtStart = $from.parentOffset === 0;
+        if (!isAtStart) return false;
+        const before = $from.before();
+        if (before <= 0) return false; // no preceding block; let other handlers run
+        return editor.commands.command(({ tr }) => {
+          tr.setSelection(Selection.near(doc.resolve(before), -1));
+          return true;
+        });
+      },
       // Enter inside a code block inserts a newline ("\n") and stays inside
       // the block. The base CodeBlock extension's Enter handler only acts
       // when `exitOnTripleEnter` is true (to detect triple-Enter exit); with

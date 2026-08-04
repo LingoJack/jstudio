@@ -45,7 +45,9 @@ export const DiagramExtension = Node.create({
 
   atom: true,
 
-  allowGapCursor: false,
+  // Allow GapCursor so users can click in the margin between two adjacent
+  // diagram blocks to place a cursor and type to insert a paragraph.
+  allowGapCursor: true,
 
   draggable: false,
 

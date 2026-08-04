@@ -111,7 +111,8 @@ export function normalizeActivityBarItems(
   const result: ActivityBarItemConfig[] = [];
 
   for (const item of Array.isArray(items) ? items : []) {
-    if (!item || !knownIds.has(item.id) || typeof item.visible !== "boolean") continue;
+    if (!item || !knownIds.has(item.id) || typeof item.visible !== "boolean")
+      continue;
     if (seen.has(item.id)) continue;
     seen.add(item.id);
     result.push({ id: item.id, visible: item.visible });
@@ -122,7 +123,10 @@ export function normalizeActivityBarItems(
 
   // Pin settings to the bottom and force it visible.
   const settings = result.find((i) => i.id === "settings")!;
-  return [...result.filter((i) => i.id !== "settings"), { ...settings, visible: true }];
+  return [
+    ...result.filter((i) => i.id !== "settings"),
+    { ...settings, visible: true },
+  ];
 }
 
 export interface AppSettings {
@@ -180,6 +184,14 @@ export interface AppSettings {
   keyboardShortcuts?: Record<string, string>;
   /** OS-level global shortcut configs — see lib/shortcuts/globalShortcuts.ts */
   globalShortcuts?: GlobalShortcutConfig[];
+  /**
+   * Whether the runtime logger is enabled (default false). When true, the
+   * frontend logger captures uncaught errors, unhandled rejections,
+   * console.error/warn, and manual `logger.*` calls, flushing them to
+   * `~/.jdata/studio/logs/app-YYYY-MM-DD.log` via `append_log_line`.
+   * Off by default to avoid disk writes / perf overhead in normal use.
+   */
+  runtimeLoggingEnabled?: boolean;
   /**
    * Tab bar glassmorphism background opacity (0.02–0.15).
    * Controls the transparency of the floating pill-shaped tab bar container.
@@ -653,6 +665,25 @@ export const storage = {
   /** Check if a PTY session exists and is alive. */
   ptyIsAlive: (sessionId: string) =>
     invoke<boolean>("pty_is_alive", { sessionId }),
+
+  // ---- runtime log file (frontend → ~/.jdata/studio/logs/) ----
+
+  /**
+   * Append a single pre-formatted log line to today's log file
+   * (`~/.jdata/studio/logs/app-YYYY-MM-DD.log`). The JS logger adds the
+   * timestamp / level / source prefix before calling this, so the Rust side
+   * just writes verbatim + a trailing newline. Safe to call from any window.
+   */
+  appendLogLine: (line: string) => invoke<void>("append_log_line", { line }),
+
+  /** Return the absolute path of today's log file (for display in Debug settings). */
+  getLogFilePath: () => invoke<string>("get_log_file_path"),
+
+  /** Reveal the logs directory in the system file manager (Finder/Explorer). */
+  openLogsDir: () => invoke<void>("open_logs_dir"),
+
+  /** Delete every log file. Returns the number of files removed. */
+  clearLogs: () => invoke<number>("clear_logs"),
 
   // ---- jcli (bundled CLI) ----
 

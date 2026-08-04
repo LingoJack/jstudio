@@ -14,19 +14,23 @@
  *     section identity stable), so typing in section A never touches B.
  */
 
-import { useEffect, useRef, useCallback } from 'react';
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
-import { DOMSerializer } from '@tiptap/pm/model';
+import { useEffect, useRef, useCallback } from "react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { DOMSerializer } from "@tiptap/pm/model";
 
-import { useI18n } from '../../../lib/core/i18n';
-import { useCursorTrail } from '../CursorTrailContext';
+import { useI18n } from "../../../lib/core/i18n";
+import { logger } from "../../../lib/core/logger";
+import { useCursorTrail } from "../CursorTrailContext";
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
-} from '../../../lib/editor/tiptapAdapter';
-import { createPasteHandler, createDropHandler } from '../../../lib/editor/editorPasteDrop';
-import { createSectionExtensions } from './extensions';
-import type { Block } from '../../../types';
+} from "../../../lib/editor/tiptapAdapter";
+import {
+  createPasteHandler,
+  createDropHandler,
+} from "../../../lib/editor/editorPasteDrop";
+import { createSectionExtensions } from "./extensions";
+import type { Block } from "../../../types";
 
 /** Imperative focus handle a section exposes to its parent. */
 export interface SectionFocusHandle {
@@ -71,7 +75,10 @@ interface SectionEditorProps {
   /** Reports the section's new blocks after a debounced edit. */
   onSectionChange: (sectionId: string, blocks: Block[]) => void;
   /** Register/unregister this section's imperative focus handle. */
-  registerFocus?: (sectionId: string, handle: SectionFocusHandle | null) => void;
+  registerFocus?: (
+    sectionId: string,
+    handle: SectionFocusHandle | null,
+  ) => void;
   /** Caret left the TOP of this section → ask parent to focus the previous
    *  section at its end. Returns true if a previous section took focus. */
   onCrossUp?: (sectionId: string) => boolean;
@@ -185,12 +192,12 @@ export default function SectionEditor({
     // produces extra blank lines between paragraphs.
     coreExtensionOptions: {
       clipboardTextSerializer: {
-        blockSeparator: '\n',
+        blockSeparator: "\n",
       },
     },
     editable: !readOnly,
     extensions: createSectionExtensions({
-      placeholder: t('editor.placeholder'),
+      placeholder: t("editor.placeholder"),
       onExitToTitle: () => onExitToTitleRef.current?.(),
       openOnClick: readOnly,
     }),
@@ -199,14 +206,14 @@ export default function SectionEditor({
     // this avoids passing a bare JSONContent[] into `content`, which can
     // make ProseMirror build an invalid doc and throw
     // "config.doc.type.schema".
-    content: { type: 'doc', content: [{ type: 'paragraph' }] },
+    content: { type: "doc", content: [{ type: "paragraph" }] },
     onUpdate: readOnly ? undefined : handleChange,
     editorProps: {
       attributes: {
-        class: 'max-w-none focus:outline-none px-4 md:px-12 lg:px-20',
-        autocorrect: 'off',
-        autocapitalize: 'off',
-        spellcheck: 'false',
+        class: "max-w-none focus:outline-none px-4 md:px-12 lg:px-20",
+        autocorrect: "off",
+        autocapitalize: "off",
+        spellcheck: "false",
       },
       handlePaste: readOnly ? undefined : createPasteHandler(editorRef),
       handleDrop: readOnly ? undefined : createDropHandler(editorRef),
@@ -223,11 +230,11 @@ export default function SectionEditor({
         // editors they'd only reach the current section's edge, so we route
         // them to the parent to focus the first/last section.
         if ((metaKey || ctrlKey) && !altKey && !shiftKey) {
-          if (key === 'ArrowUp' && onJumpDocStartRef.current?.()) {
+          if (key === "ArrowUp" && onJumpDocStartRef.current?.()) {
             event.preventDefault();
             return true;
           }
-          if (key === 'ArrowDown' && onJumpDocEndRef.current?.()) {
+          if (key === "ArrowDown" && onJumpDocEndRef.current?.()) {
             event.preventDefault();
             return true;
           }
@@ -237,7 +244,7 @@ export default function SectionEditor({
         if (shiftKey || metaKey || ctrlKey || altKey) return false;
 
         // ── Backspace at the very start of the section → merge upward ──
-        if (key === 'Backspace') {
+        if (key === "Backspace") {
           const { selection } = view.state;
           if (
             selection.empty &&
@@ -253,10 +260,10 @@ export default function SectionEditor({
         }
 
         if (
-          key !== 'ArrowUp' &&
-          key !== 'ArrowDown' &&
-          key !== 'ArrowLeft' &&
-          key !== 'ArrowRight'
+          key !== "ArrowUp" &&
+          key !== "ArrowDown" &&
+          key !== "ArrowLeft" &&
+          key !== "ArrowRight"
         ) {
           return false;
         }
@@ -270,11 +277,11 @@ export default function SectionEditor({
         const atDocEnd = $head.pos >= state.doc.content.size - 1;
 
         // ── Upward / leftward → previous section ──
-        if (key === 'ArrowUp' || key === 'ArrowLeft') {
+        if (key === "ArrowUp" || key === "ArrowLeft") {
           const atTop =
-            key === 'ArrowLeft'
+            key === "ArrowLeft"
               ? $head.parentOffset === 0 && atDocStart
-              : (view.endOfTextblock('up') && atDocStart) || atDocStart;
+              : (view.endOfTextblock("up") && atDocStart) || atDocStart;
           if (atTop && onCrossUpRef.current?.(sectionId)) {
             event.preventDefault();
             return true;
@@ -284,9 +291,9 @@ export default function SectionEditor({
 
         // ── Downward / rightward → next section ──
         const atBottom =
-          key === 'ArrowRight'
+          key === "ArrowRight"
             ? $head.parentOffset === $head.parent.content.size && atDocEnd
-            : (view.endOfTextblock('down') && atDocEnd) || atDocEnd;
+            : (view.endOfTextblock("down") && atDocEnd) || atDocEnd;
         if (atBottom && onCrossDownRef.current?.(sectionId)) {
           event.preventDefault();
           return true;
@@ -309,8 +316,8 @@ export default function SectionEditor({
   useEffect(() => {
     if (!editor || !registerFocus) return;
     const handle: SectionFocusHandle = {
-      focusStart: () => editor.chain().focus('start').run(),
-      focusEnd: () => editor.chain().focus('end').run(),
+      focusStart: () => editor.chain().focus("start").run(),
+      focusEnd: () => editor.chain().focus("end").run(),
       posAtCoords: (x, y) => {
         const r = editor.view.posAtCoords({ left: x, top: y });
         return r ? r.pos : null;
@@ -338,7 +345,7 @@ export default function SectionEditor({
         // scroll it into view — no ProseMirror selection/focus involved.
         const { node } = editor.view.domAtPos(from);
         const el = node.nodeType === 1 ? (node as Element) : node.parentElement;
-        el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        el?.scrollIntoView({ block: "nearest", inline: "nearest" });
       },
       clearSelection: () => {
         const { from } = editor.state.selection;
@@ -346,12 +353,12 @@ export default function SectionEditor({
       },
       focus: () => editor.chain().focus().run(),
       blur: () => editor.chain().blur().run(),
-      getText: (from, to) => editor.state.doc.textBetween(from, to, '\n'),
+      getText: (from, to) => editor.state.doc.textBetween(from, to, "\n"),
       getHTML: (from, to) => {
         const slice = editor.state.doc.slice(from, to);
         const serializer = DOMSerializer.fromSchema(editor.schema);
         const frag = serializer.serializeFragment(slice.content);
-        const div = document.createElement('div');
+        const div = document.createElement("div");
         div.appendChild(frag);
         return div.innerHTML;
       },
@@ -395,7 +402,16 @@ export default function SectionEditor({
       try {
         targetEditor.commands.setContent(content, { emitUpdate: false });
       } catch (e) {
-        console.error('[SectionEditor] setContent failed:', e, content);
+        // Log a CONCISE summary to the runtime log (block count + error),
+        // not the full content array — a 35-block section stringified would
+        // bloat the log file. The full content is still in devtools via
+        // the console.error below.
+        const blockCount = Array.isArray(content) ? content.length : -1;
+        logger.error(
+          "SectionEditor",
+          `setContent failed: ${(e as Error)?.message ?? e} (blocks=${blockCount}, sectionId=${sectionId})`,
+        );
+        console.error("[SectionEditor] setContent failed:", e, content);
       }
 
       // If this load is the result of a cross-section merge, join the boundary
@@ -475,15 +491,15 @@ export default function SectionEditor({
       }
       onSectionBlurRef.current?.(sectionId);
     };
-    editor.on('selectionUpdate', ping);
-    editor.on('update', ping);
-    editor.on('focus', ping);
-    editor.on('blur', onBlur);
+    editor.on("selectionUpdate", ping);
+    editor.on("update", ping);
+    editor.on("focus", ping);
+    editor.on("blur", onBlur);
     return () => {
-      editor.off('selectionUpdate', ping);
-      editor.off('update', ping);
-      editor.off('focus', ping);
-      editor.off('blur', onBlur);
+      editor.off("selectionUpdate", ping);
+      editor.off("update", ping);
+      editor.off("focus", ping);
+      editor.off("blur", onBlur);
     };
   }, [editor]);
 
@@ -491,8 +507,8 @@ export default function SectionEditor({
     const editorDom = editor?.view?.dom as HTMLElement | undefined;
     if (!editorDom) return;
     // Cross-section selection needs this tag independently of cursor animation.
-    editorDom.setAttribute('data-section-id', sectionId);
-    return () => editorDom.removeAttribute('data-section-id');
+    editorDom.setAttribute("data-section-id", sectionId);
+    return () => editorDom.removeAttribute("data-section-id");
   }, [editor, sectionId]);
 
   useEffect(() => {

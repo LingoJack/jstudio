@@ -543,7 +543,7 @@ export function GraphCanvas({
       const r = evt.metaKey || evt.ctrlKey;
       // 诊断日志：确认 isCloneEvent 是否被调用、返回什么。排查复制不生效问题。
       // eslint-disable-next-line no-console
-      logger.debug('[GraphCanvas] isCloneEvent → metaKey|ctrlKey:', r);
+      logger.debug('GraphCanvas', 'isCloneEvent → metaKey|ctrlKey: ' + r);
       return r;
     };
     // 必须启用 cellsCloneable，否则 isCloneEvent 返回 true 也不会触发复制
@@ -941,8 +941,7 @@ export function GraphCanvas({
       if (!g) return;
       const sel = g.getSelectionCells();
       // eslint-disable-next-line no-console
-      logger.debug('[GraphCanvas] mouseup | metaKey|ctrlKey:', e.metaKey || e.ctrlKey,
-        '| selCount:', sel.length, '| isCloneEvent:', g.isCloneEvent(e));
+      logger.debug('GraphCanvas', 'mouseup | metaKey|ctrlKey: ' + (e.metaKey || e.ctrlKey) + ' | selCount: ' + sel.length + ' | isCloneEvent: ' + g.isCloneEvent(e));
     };
     container.addEventListener('mouseup', onMouseUpDiag, true);
 
