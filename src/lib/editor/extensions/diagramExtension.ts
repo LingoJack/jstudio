@@ -27,6 +27,7 @@ export interface DiagramNodeAttributes {
   /** Height as a percentage of the editor surface width (0-100). Preferred. */
   heightPct?: number | null;
   align: 'left' | 'center';
+  bgColor?: string | null;
 }
 
 declare module '@tiptap/core' {
@@ -115,6 +116,14 @@ export const DiagramExtension = Node.create({
         renderHTML: (attrs) => {
           if (!attrs.align) return {};
           return { 'data-align': attrs.align };
+        },
+      },
+      bgColor: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-bg-color') || null,
+        renderHTML: (attrs) => {
+          if (!attrs.bgColor) return {};
+          return { 'data-bg-color': attrs.bgColor };
         },
       },
     };
