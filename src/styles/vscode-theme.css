@@ -3460,6 +3460,13 @@ button {
   background-size: 10px 10px;
 }
 
+/* 确保 maxGraph 创建的 SVG 子元素也禁用浏览器原生手势，
+   使触控板双指缩放在图形上方也能正常触发 wheel 事件 */
+.jgraph-surface svg,
+.jgraph-surface svg * {
+  touch-action: none;
+}
+
 /* 网格关闭：去掉底纹（引擎的网格吸附也一并由 setGridEnabled 关闭） */
 .jgraph-canvas-root.is-grid-off .jgraph-surface,
 .jgraph-canvas-root.is-grid-off.is-dark .jgraph-surface {

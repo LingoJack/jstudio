@@ -117,6 +117,43 @@ import { attachSequenceInteraction } from './sequenceInteraction';
 /** 边数超过此阈值时自动关闭连线流动动画，保证大图流畅。 */
 const FLOW_ANIMATION_THRESHOLD = 20;
 
+/** 边框命中容差（屏幕像素），转换为图坐标后使用 */
+const BORDER_TOLERANCE_PX = 8;
+
+/**
+ * 判断点 (x, y) 是否落在 cell state 的边框上（而非内部）。
+ * 原理：点在外扩矩形（bounds ± tol）内，且不在内缩矩形内部。
+ * 支持旋转：将点击点逆旋转到图形局部坐标系后再做矩形判定。
+ */
+function isOnBorder(state: CellState, x: number, y: number, tol: number): boolean {
+  let px = x;
+  let py = y;
+  const rotation = state.style?.rotation;
+  if (rotation) {
+    const alpha = (rotation * Math.PI) / 180;
+    const cos = Math.cos(-alpha);
+    const sin = Math.sin(-alpha);
+    const cx = state.getCenterX();
+    const cy = state.getCenterY();
+    const dx = x - cx;
+    const dy = y - cy;
+    px = dx * cos - dy * sin + cx;
+    py = dx * sin + dy * cos + cy;
+  }
+  const inOuter =
+    px >= state.x - tol &&
+    px <= state.x + state.width + tol &&
+    py >= state.y - tol &&
+    py <= state.y + state.height + tol;
+  if (!inOuter) return false;
+  const inInner =
+    px > state.x + tol &&
+    px < state.x + state.width - tol &&
+    py > state.y + tol &&
+    py < state.y + state.height - tol;
+  return !inInner;
+}
+
 /* ------------------------------------------------------------------ */
 /* Props — 必须与 ExcalidrawCanvasProps 完全一致                       */
 /* ------------------------------------------------------------------ */
@@ -603,6 +640,41 @@ export function GraphCanvas({
       selectionHandler.maxLivePreview = 100;
       selectionHandler.allowLivePreview = true;
     }
+
+    // ── 边框命中检测：点击图形内部时穿透选中下层图形 ──────────────────
+    // 覆写 updateMouseEvent，仅对 MOUSE_DOWN / MOUSE_UP 生效。
+    // 当点击落在顶层 vertex 的内部（非边框）时，用 getCellAt 查找下层
+    // 图形并更新 me.state，使选中/移动穿透到下层。若无下层图形则保持
+    // 原选择（保证孤立图形仍可正常选中移动）。不影响双击编辑和连线。
+    const originalUpdateMouseEvent = graph.updateMouseEvent.bind(graph);
+    graph.updateMouseEvent = function (me, evtName) {
+      const result = originalUpdateMouseEvent(me, evtName);
+      if (evtName === InternalEvent.MOUSE_DOWN || evtName === InternalEvent.MOUSE_UP) {
+        const originalCell = me.getCell();
+        if (originalCell && originalCell.isVertex()) {
+          const state = me.getState();
+          if (state) {
+            const tol = BORDER_TOLERANCE_PX / this.getView().scale;
+            if (!isOnBorder(state, me.graphX, me.graphY, tol)) {
+              // 点击在内部 → 查找下层图形（跳过当前顶层图形）
+              const cellBelow = this.getCellAt(
+                me.graphX,
+                me.graphY,
+                null,
+                true,
+                true,
+                (s: CellState) => s.cell === originalCell,
+              );
+              if (cellBelow) {
+                me.state = this.getView().getState(cellBelow);
+              }
+              // 无下层图形 → 保持原选择，不做修改
+            }
+          }
+        }
+      }
+      return result;
+    };
 
     const defaultPal = paletteFor('rectangle', dark);
     const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
