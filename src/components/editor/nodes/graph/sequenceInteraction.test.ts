@@ -32,6 +32,7 @@ interface FakeCtx {
 function makeGraph(): FakeCtx {
   const model = new GraphDataModel();
   const root = model.getRoot();
+  if (!root) throw new Error('root is null');
   const parent = root.getChildAt(0);
 
   const children = (p: Cell): Cell[] => {
