@@ -30,6 +30,14 @@ import { GapCursor } from '@tiptap/pm/gapcursor';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 
+// `GapCursor.valid` exists at runtime but is missing from the
+// prosemirror-gapcursor TypeScript type definitions.
+const GapCursorValid = (
+  GapCursor as unknown as {
+    valid: ($pos: ReturnType<EditorView['state']['doc']['resolve']>) => boolean;
+  }
+).valid;
+
 export const GapCursorClickFix = Extension.create({
   name: 'gapCursorClickFix',
 
@@ -61,7 +69,10 @@ export const GapCursorClickFix = Extension.create({
                 event.clientX,
                 event.clientY,
               );
-              if (el !== view.dom && el !== view.contentDOM) {
+              // In ProseMirror, `view.dom` is the editor's content
+              // DOM. Clicks in margin/gap areas between blocks resolve
+              // to `view.dom` itself rather than any child node view.
+              if (el !== view.dom) {
                 return false;
               }
 
@@ -74,7 +85,7 @@ export const GapCursorClickFix = Extension.create({
 
               // Attempt 1: the resolved text position itself
               const $pos = view.state.doc.resolve(clickPos.pos);
-              if (GapCursor.valid($pos)) {
+              if (GapCursorValid($pos)) {
                 view.dispatch(
                   view.state.tr.setSelection(new GapCursor($pos)),
                 );
@@ -89,7 +100,7 @@ export const GapCursorClickFix = Extension.create({
               // which is the actual gap cursor location.
               if (clickPos.inside > -1) {
                 const $insidePos = view.state.doc.resolve(clickPos.inside);
-                if (GapCursor.valid($insidePos)) {
+                if (GapCursorValid($insidePos)) {
                   view.dispatch(
                     view.state.tr.setSelection(new GapCursor($insidePos)),
                   );
