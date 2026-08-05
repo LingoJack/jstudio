@@ -7,7 +7,7 @@
  *   [ 行 ]  [ 列 ]  [ 对齐 ]
  *
  * Hovering each icon reveals a dropdown with the relevant actions:
- *   行 → 上方插入行 / 下方插入行 / 删除行
+ *   行 → 上方插入行 / 下方插入行 / 设为(取消)表头行 / 删除行
  *   列 → 左侧插入列 / 右侧插入列 / 删除列
  *   对齐 → 左对齐 / 居中 / 右对齐
  *
@@ -29,6 +29,7 @@ import {
   AlignVerticalJustifyEnd,
   Merge,
   Split,
+  Heading,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,8 @@ export default function TableControls({ editor }: TableControlsProps) {
   // cursor inside a cell with colspan > 1 or rowspan > 1.
   const [canMerge, setCanMerge] = useState(false);
   const [canSplit, setCanSplit] = useState(false);
+  /** Whether the row containing the cursor is a header row. */
+  const [hasHeaderRow, setHasHeaderRow] = useState(false);
   const interactingRef = useRef(false);
   /** rAF handle so the transaction listener coalesces to one update/frame. */
   const rafRef = useRef<number | null>(null);
@@ -115,6 +118,17 @@ export default function TableControls({ editor }: TableControlsProps) {
       }
     }
     setVAlign(cellVAlign);
+
+    // Detect whether the row containing the cursor is a header row.
+    let currentRowIsHeader = false;
+    for (let d = $from.depth; d > 0; d--) {
+      const node = $from.node(d);
+      if (node.type.name === 'tableRow') {
+        currentRowIsHeader = node.child(0)?.type.name === 'tableHeader';
+        break;
+      }
+    }
+    setHasHeaderRow(currentRowIsHeader);
 
     // Merge is available when a CellSelection spans more than one cell.
     // (CellSelection with anchor === head is a single-cell selection.)
@@ -247,6 +261,13 @@ export default function TableControls({ editor }: TableControlsProps) {
       >
         <DropdownItem label="上方插入行" onClick={() => run(() => editor.commands.addRowBefore())} />
         <DropdownItem label="下方插入行" onClick={() => run(() => editor.commands.addRowAfter())} />
+        <DropdownSep />
+        <DropdownItem
+          label={hasHeaderRow ? '取消表头行' : '设为表头行'}
+          icon={<Heading className="h-3.5 w-3.5" />}
+          active={hasHeaderRow}
+          onClick={() => run(() => editor.commands.toggleHeaderRow())}
+        />
         <DropdownSep />
         <DropdownItem label="删除行" danger onClick={() => run(() => editor.commands.deleteRow())} />
       </Dropdown>

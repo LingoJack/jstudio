@@ -28,12 +28,13 @@ const CELL_GAP = 3;
 interface GridPickerProps {
   anchorX: number;
   anchorY: number;
-  onSelect: (rows: number, cols: number) => void;
+  onSelect: (rows: number, cols: number, withHeader: boolean) => void;
   onCancel: () => void;
 }
 
 function GridPicker({ anchorX, anchorY, onSelect, onCancel }: GridPickerProps) {
   const [hovered, setHovered] = useState({ rows: 1, cols: 1 });
+  const [withHeader, setWithHeader] = useState(true);
 
   // Click outside or Escape to cancel
   useEffect(() => {
@@ -74,7 +75,7 @@ function GridPicker({ anchorX, anchorY, onSelect, onCancel }: GridPickerProps) {
                 <div
                   key={`${r}-${c}`}
                   onMouseEnter={() => setHovered({ rows: r + 1, cols: c + 1 })}
-                  onClick={() => onSelect(r + 1, c + 1)}
+                  onClick={() => onSelect(r + 1, c + 1, withHeader)}
                   className="cursor-pointer rounded-[3px] transition-colors duration-50"
                   style={{
                     width: `${CELL_SIZE}px`,
@@ -91,6 +92,20 @@ function GridPicker({ anchorX, anchorY, onSelect, onCancel }: GridPickerProps) {
         <div className="mt-2 text-center text-xs text-[var(--vscode-descriptionForeground)]">
           {hovered.rows} × {hovered.cols}
         </div>
+        {/* Toggle: include header row or not */}
+        <label
+          className="mt-2 flex cursor-pointer select-none items-center justify-center gap-1.5 text-xs text-[var(--vscode-descriptionForeground)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={withHeader}
+            onChange={(e) => setWithHeader(e.target.checked)}
+            style={{ accentColor: 'var(--vscode-button-background)' }}
+            className="h-3 w-3 cursor-pointer"
+          />
+          包含表头
+        </label>
       </div>
     </div>
   );
@@ -113,12 +128,12 @@ export function mountTableSizeSelector(editor: Editor, range: Range): void {
   const { from } = range;
   const coords = editor.view.coordsAtPos(from);
 
-  const handleSelect = (rows: number, cols: number) => {
+  const handleSelect = (rows: number, cols: number, withHeader: boolean) => {
     editor
       .chain()
       .focus()
       .deleteRange(range)
-      .insertTable({ rows, cols, withHeaderRow: true })
+      .insertTable({ rows, cols, withHeaderRow: withHeader })
       .run();
     unmountTableSizeSelector();
   };
