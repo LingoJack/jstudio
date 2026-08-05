@@ -149,6 +149,7 @@ function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
     if (s.fontColor !== undefined) base.fontColor = s.fontColor;
     if (s.strokeWidth !== undefined) base.strokeWidth = s.strokeWidth;
     if (s.dashed !== undefined) base.dashed = s.dashed;
+    if (s.fontSize !== undefined) base.fontSize = s.fontSize;
   }
   applyLabelAlign(base, node.labelAlign);
   return base;
@@ -319,6 +320,7 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
     if (colorStr(style.fontColor)) nStyle.fontColor = colorStr(style.fontColor);
     if (typeof style.strokeWidth === 'number') nStyle.strokeWidth = style.strokeWidth;
     if (typeof style.dashed === 'boolean') nStyle.dashed = style.dashed;
+    if (typeof style.fontSize === 'number') nStyle.fontSize = style.fontSize;
     if (Object.keys(nStyle).length > 0) node.style = nStyle;
     const la = readLabelAlign(style);
     if (la) node.labelAlign = la;

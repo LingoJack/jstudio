@@ -71,6 +71,12 @@ export interface GraphNodeStyle {
   fontColor?: string;
   strokeWidth?: number;
   dashed?: boolean;
+  /**
+   * 文字字号（图坐标 px）。
+   * 仅 text 形状使用：用户拖拽 resize 文本框时字号按比例缩放并持久化到此字段，
+   * 其余形状始终使用全局默认 SHAPE_FONT_SIZE。
+   */
+  fontSize?: number;
 }
 
 /** 一条连线。 */

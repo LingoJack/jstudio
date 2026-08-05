@@ -794,6 +794,28 @@ export function GraphCanvas({
     view.addListener(InternalEvent.TRANSLATE, () => scheduleEmit());
     view.addListener(InternalEvent.SCALE_AND_TRANSLATE, () => scheduleEmit());
 
+    // 文本框 resize -> 字号按比例缩放（仅 text 形状）。
+    // resizeCells 在 batchUpdate 内执行，此处 setStyle 会被合并到同一个 undo batch，
+    // undo 一步即可同时撤销尺寸和字号变化。
+    graph.addListener(InternalEvent.CELLS_RESIZED, (_s: unknown, evt: EventObject) => {
+      if (applyingRef.current) return;
+      const cells = evt.getProperty('cells') as Cell[] | undefined;
+      if (!cells || cells.length === 0) return;
+      const model = graph.getDataModel();
+      for (const cell of cells) {
+        if (!cell.isVertex()) continue;
+        const style = (cell.getStyle() as CellStyle) ?? {};
+        if (style.shape !== 'text') continue;
+        const geo = cell.getGeometry();
+        if (!geo) continue;
+        const def = DEFAULT_SIZE['text']; // 默认 { w: 60, h: 30 }
+        const scale = Math.sqrt((geo.width / def.w) * (geo.height / def.h));
+        const newFontSize = Math.max(6, Math.round(SHAPE_FONT_SIZE * scale));
+        if (style.fontSize === newFontSize) continue;
+        model.setStyle(cell, { ...style, fontSize: newFontSize });
+      }
+    });
+
     // 双击空白（未命中任何 cell）→ 自适应全图（draw.io 同款）。
     graph.addListener(InternalEvent.DOUBLE_CLICK, (_s: unknown, evt: EventObject) => {
       let cell = evt.getProperty('cell') as Cell | undefined;
