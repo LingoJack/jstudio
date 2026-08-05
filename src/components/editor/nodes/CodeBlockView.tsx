@@ -934,6 +934,17 @@ export default function CodeBlockView({
             {mermaidPreviewBtn}
             {openWindowBtn}
             {copyBtn}
+            {!isEditingTitle && (
+              <button
+                type="button"
+                onClick={startEditingTitle}
+                className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-title-trigger"
+                title={title ? t("code.editTitle") : t("code.addTitle")}
+                aria-label={title ? t("code.editTitle") : t("code.addTitle")}
+              >
+                <Pencil size={14} />
+              </button>
+            )}
           </div>
           {isEditingTitle ? (
             <input
@@ -970,17 +981,7 @@ export default function CodeBlockView({
             >
               <span className="code-block-title-text">{title}</span>
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={startEditingTitle}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-title-trigger"
-              title={t("code.addTitle")}
-              aria-label={t("code.addTitle")}
-            >
-              <Pencil size={14} />
-            </button>
-          )}
+          ) : null}
           <div
             ref={badgeRef}
             className="code-lang-badge"

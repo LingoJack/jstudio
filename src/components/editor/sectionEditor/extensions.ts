@@ -62,6 +62,12 @@ export function createSectionExtensions(
       // StarterKit v3 bundles `Link` + `Underline`; disable StarterKit's link
       // (we configure our own below) and let StarterKit provide Underline.
       link: false,
+      // Disable TrailingNode: it auto-inserts an empty paragraph at the end of
+      // each section via appendTransaction. In the sectioned editor architecture
+      // (multiple TipTap instances stacked vertically), this creates undeletable
+      // blank lines at section boundaries and gets persisted as spurious empty
+      // blocks between headings.
+      trailingNode: false,
     }),
     Code.extend({
       excludes: '',

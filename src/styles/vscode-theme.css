@@ -1053,6 +1053,16 @@ button {
   margin-bottom: 0.5em;
 }
 
+/* 连续标题之间不留空行：移除相邻标题之间的 margin，
+   使 H1→H2→H3 等多级标题视觉上紧凑相连，
+   而不是看起来像隔了一个空行。 */
+.ProseMirror :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0;
+}
+.ProseMirror :is(h1, h2, h3, h4, h5, h6):has(+ :is(h1, h2, h3, h4, h5, h6)) {
+  margin-bottom: 0;
+}
+
 /* 代码块 — 背景与文字色随主题切换 */
 .ProseMirror pre {
   background-color: var(--vscode-textCodeBlock-background);
