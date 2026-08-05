@@ -135,12 +135,56 @@ function genActivationId(): string {
 }
 
 /**
+ * 找 activation 所属的生命线（ac 居中贴在生命线中心线上，见场景 D 的 actGeo）。
+ * 传入 lifeline 时返回其自身；其它形状返回 null。
+ * 导出供 GraphCanvas 的"调用/返回切换"按钮判断时序图消息边。
+ */
+export function owningLifeline(graph: AbstractGraph, cell: Cell | null): Cell | null {
+  if (!cell) return null;
+  if (isLifeline(cell)) return cell;
+  if (!isActivation(cell)) return null;
+  const geo = cell.getGeometry();
+  if (!geo) return null;
+  const cx = geo.x + geo.width / 2;
+  for (const ll of graph.getChildVertices(graph.getDefaultParent())) {
+    if (!isLifeline(ll)) continue;
+    const lg = ll.getGeometry();
+    if (lg && Math.abs(lg.x + lg.width / 2 - cx) < 1) return ll;
+  }
+  return null;
+}
+
+/**
+ * 判断 targetLl 是否存在对 srcLl 的"未返回调用"（open call）：
+ *   实线调用数（targetLl → srcLl）> 虚线返回数（srcLl → targetLl）。
+ *
+ * 用于区分 ac → 裸生命线的语义（场景 B/D 分派）：
+ * 有 open call 时从被调方拖回调用方是"返回"（虚线），否则是"新调用"（实线）。
+ * 画图按时间从上到下顺序进行，统计当前已存在的边即可。
+ */
+function hasOpenCallTo(graph: AbstractGraph, targetLl: Cell, srcLl: Cell): boolean {
+  let calls = 0;
+  let returns = 0;
+  for (const e of graph.getChildEdges(graph.getDefaultParent())) {
+    const s = owningLifeline(graph, e.getTerminal(true));
+    const t = owningLifeline(graph, e.getTerminal(false));
+    if (!s || !t) continue;
+    const dashed = (e.getStyle() as CellStyle | null)?.dashed === true;
+    if (!dashed && s === targetLl && t === srcLl) calls += 1;
+    if (dashed && s === srcLl && t === targetLl) returns += 1;
+  }
+  return calls > returns;
+}
+
+/**
  * 监听 ConnectionHandler 的 CONNECT 事件，处理时序图五种连线场景：
  *
  *  A. 自环（ac → 同一 ac）：实线 + classic，添加航点形成矩形环
- *  B. ac → ll（返回消息）：虚线 + openThin，保留 exit 约束、清除 entry 约束
+ *  B. ac → ll 且目标是"未返回的调用方"（返回消息）：虚线 + openThin，
+ *     保留 exit 约束，entry 约束钉在生命线中心线与 exit 同一 Y
+ *     （保证快照重建后仍然水平）。判定见 hasOpenCallTo。
  *  C. ac → 不同 ac（普通消息）：实线 + classic，保留双方约束
- *  D. ll → ll（创建 ac）：在 target lifeline 上生成 activation，
+ *  D. ll/actor/ac → ll 的新调用（创建 ac）：在 target lifeline 上生成 activation，
  *     msgY 位于 ac 顶部 25% 处（中上部分），entry 约束设为 (0|1, 0.25)
  *  E. ll → ac / 其他：不特殊处理
  *
@@ -175,11 +219,21 @@ export function attachAutoActivation(
     // --- 场景 A：自环（ac → 同一 ac）---
     const isSelfLoop = source === target && sourceIsAct;
     // --- 场景 B：ac → ll（返回消息）---
-    const isReturnMessage = sourceIsAct && targetIsLL && !isSelfLoop;
+    // ac → 裸生命线有两种语义，按"目标生命线是否有未返回的调用"自动区分：
+    //   - 有 open call（对方先调过来还没返回）→ 返回消息（虚线）
+    //   - 无 open call → 新调用（实线 + 自动 activation，走场景 D）
+    let isReturnMessage = false;
+    if (sourceIsAct && targetIsLL && !isSelfLoop) {
+      const srcLl = owningLifeline(graph, source);
+      // 拖回自己所在的生命线 → 返回消息；找不到所属生命线（散置 ac，
+      // 例如 lifeline 被拖动后 ac 没跟随）时按新调用处理——创建 activation
+      // 是更有用的默认，误判可由用户用"调用/返回"按钮翻转。
+      isReturnMessage = srcLl === target || (srcLl ? hasOpenCallTo(graph, target, srcLl) : false);
+    }
     // --- 场景 C：ac → 不同 ac（普通消息）---
     const bothActivation = sourceIsAct && targetIsAct && !isSelfLoop;
-    // --- 场景 D：ll/actor -> ll（创建 ac）---
-    const shouldGenerate = targetIsLL && !sourceIsAct;
+    // --- 场景 D：ll/actor -> ll（创建 ac），含 ac → ll 的新调用 ---
+    const shouldGenerate = targetIsLL && !isReturnMessage;
 
     graphLog(`isSelfLoop=${isSelfLoop}, isReturn=${isReturnMessage}, bothAct=${bothActivation}, shouldGenerate=${shouldGenerate}`);
 
@@ -205,7 +259,9 @@ export function attachAutoActivation(
 
         model.setStyle(edge, {
           ...s,
-          edgeStyle: undefined,
+          // 注意：必须写 'none' 而非 undefined——Stylesheet 合并会跳过 undefined，
+          // 全局默认 obstacleEdgeStyle 会漏进来把直线重新路由成折线。
+          edgeStyle: 'none',
           endArrow: 'classic',
           exitAbsY,
           entryAbsY,
@@ -252,7 +308,7 @@ export function attachAutoActivation(
           ? tgtGeo.y + style.entryY * tgtGeo.height : 0;
         model.setStyle(edge, {
           ...(style ?? {}),
-          edgeStyle: undefined,
+          edgeStyle: 'none',
           endArrow: 'classic',
           exitAbsY,
           entryAbsY,
@@ -275,17 +331,27 @@ export function attachAutoActivation(
       try {
         const style = edge.getStyle() as Record<string, number | undefined> | null;
         const acGeo = source.getGeometry();
+        const llGeo = target.getGeometry();
         // 存储 exit 绝对 Y，供 resize sync 使用
         const exitAbsY = (style?.exitY != null && acGeo)
           ? acGeo.y + style.exitY * acGeo.height : 0;
         const cleaned: Record<string, unknown> = { ...(style ?? {}) };
-        // 保留 exit 约束（用户在 ac 上的点击位置），清除 entry 约束（让 ll perimeter 处理）
-        delete cleaned.entryX;
-        delete cleaned.entryY;
         delete cleaned.entryPerimeter;
         delete cleaned.entryDx;
         delete cleaned.entryDy;
-        model.setStyle(edge, { ...cleaned, edgeStyle: undefined, endArrow: 'openThin', dashed: true, exitAbsY } as CellStyle);
+        if (style?.exitY != null && llGeo && llGeo.height > 0) {
+          // 把终点钉在生命线中心线上、与起点同一 Y（水平锁定保证 exitAbsY 即消息 Y）。
+          // 不能删掉 entry 约束靠 perimeter 推算：快照重建后浮空端点的 next
+          // 会回退为"对端中心"，终点 Y 漂到生命线中点，虚线变成斜线/折线。
+          cleaned.entryX = 0.5;
+          cleaned.entryY = (exitAbsY - llGeo.y) / llGeo.height;
+          cleaned.entryAbsY = exitAbsY;
+        } else {
+          // 无 exit 约束（异常路径）时退回旧行为：清除 entry 约束让 perimeter 处理
+          delete cleaned.entryX;
+          delete cleaned.entryY;
+        }
+        model.setStyle(edge, { ...cleaned, edgeStyle: 'none', endArrow: 'openThin', dashed: true, exitAbsY } as CellStyle);
 
         const retGeo = edge.getGeometry()?.clone();
         if (retGeo) {
@@ -374,7 +440,7 @@ export function attachAutoActivation(
       delete cleaned.entryPerimeter;
       delete cleaned.entryDx;
       delete cleaned.entryDy;
-      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: undefined, endArrow: 'classic', entryAbsY: msgY } as CellStyle);
+      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: 'none', endArrow: 'classic', entryAbsY: msgY } as CellStyle);
 
       const finalGeo = edge.getGeometry()?.clone();
       if (finalGeo) {

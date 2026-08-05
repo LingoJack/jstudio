@@ -182,7 +182,10 @@ function readLabelAlign(style: CellStyle): 'left' | 'center' | 'right' | undefin
  */
 function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
   const style: CellStyle = {
-    edgeStyle: edge.routing === 'straight' ? undefined : 'obstacleEdgeStyle',
+    // 注意：不能用 undefined 表示"无路由"——Stylesheet.getCellStyle 合并时
+    // 会跳过 undefined 值，全局默认 obstacleEdgeStyle 会漏进来，
+    // 直线边被重新路由成折线。'none' 会在合并时删除该键，直线才是真直线。
+    edgeStyle: edge.routing === 'straight' ? 'none' : 'obstacleEdgeStyle',
     rounded: edge.routing !== 'straight',
     endArrow: edge.endArrow ?? 'classic',
     startArrow: edge.startArrow ?? 'none',
@@ -353,7 +356,8 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
       source: String(source.getId() ?? ''),
       target: String(target.getId() ?? ''),
       label: typeof cell.getValue() === 'string' ? (cell.getValue() as string) : '',
-      routing: style.edgeStyle ? 'orthogonal' : 'straight',
+      // 'none' 表示显式"无路由"（见 buildEdgeStyle），视为 straight。
+      routing: style.edgeStyle && style.edgeStyle !== 'none' ? 'orthogonal' : 'straight',
     };
     if (typeof style.endArrow === 'string') edge.endArrow = style.endArrow;
     if (typeof style.startArrow === 'string') edge.startArrow = style.startArrow;

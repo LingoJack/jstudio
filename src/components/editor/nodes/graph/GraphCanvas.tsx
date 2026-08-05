@@ -65,6 +65,8 @@ import {
   AlignCenter,
   AlignRight,
   Palette,
+  MoveRight,
+  Reply,
 } from 'lucide-react';
 
 import { logger } from '../../../../lib/core/logger';
@@ -112,7 +114,7 @@ import {
   MIN_DRAW_SIZE,
   CONNECTION_POINTS,
 } from './graphCanvasStyle';
-import { attachSequenceInteraction } from './sequenceInteraction';
+import { attachSequenceInteraction, owningLifeline } from './sequenceInteraction';
 
 /** 边数超过此阈值时自动关闭连线流动动画，保证大图流畅。 */
 const FLOW_ANIMATION_THRESHOLD = 20;
@@ -220,6 +222,9 @@ export function GraphCanvas({
   const [selectedLabelAlign, setSelectedLabelAlign] = useState<LabelAlign | null>(null);
   // 选中 vertex 的填充色（null 表示无选中或边线选中）。'none' = 无填充。
   const [selectedFillColor, setSelectedFillColor] = useState<string | null>(null);
+  // 选中边是时序图消息时：'call'（实线调用）/ 'return'（虚线返回）；否则 null。
+  // 用于显示"调用/返回切换"按钮——算法判定不准时用户可手动翻转。
+  const [selectedSeqEdge, setSelectedSeqEdge] = useState<'call' | 'return' | null>(null);
   // 填充色弹出面板开关
   const [fillPickerOpen, setFillPickerOpen] = useState(false);
   const fillPickerRef = useRef<HTMLDivElement>(null);
@@ -765,7 +770,7 @@ export function GraphCanvas({
       updateFlowAnimationRef.current();
     });
 
-    // 选中变化 -> 更新对齐按钮高亮状态 + 填充色状态。
+    // 选中变化 -> 更新对齐按钮高亮状态 + 填充色状态 + 时序消息切换按钮。
     graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
       const cell = graph.getSelectionCell();
       if (cell) {
@@ -779,9 +784,21 @@ export function GraphCanvas({
             ? (typeof fc === 'string' && fc ? fc : 'none')
             : null,
         );
+        // 两端都能解析到生命线（lifeline 或贴在 lifeline 上的 ac）的边
+        // 才是时序图消息，显示"调用/返回"切换按钮。
+        if (
+          cell.isEdge() &&
+          owningLifeline(graph, cell.getTerminal(true)) &&
+          owningLifeline(graph, cell.getTerminal(false))
+        ) {
+          setSelectedSeqEdge(style.dashed === true ? 'return' : 'call');
+        } else {
+          setSelectedSeqEdge(null);
+        }
       } else {
         setSelectedLabelAlign(null);
         setSelectedFillColor(null);
+        setSelectedSeqEdge(null);
       }
       setFillPickerOpen(false);
     });
@@ -1426,6 +1443,23 @@ export function GraphCanvas({
     setSelectedLabelAlign(align);
   }, []);
 
+  // 切换时序图消息的 调用（实线 classic）/ 返回（虚线 openThin）语义。
+  // open-call 启发式无法区分"C 直接返回 A"和"C 调用 A 的新接口"（几何上是同一手势），
+  // 由用户点这个按钮做最终判断；翻转结果会反过来影响后续消息的自动判定。
+  const handleToggleSeqMessage = useCallback(() => {
+    const graph = graphRef.current;
+    const cell = graph?.getSelectionCell();
+    if (!graph || !cell?.isEdge()) return;
+    const style = (cell.getStyle() as CellStyle | null) ?? {};
+    const isReturn = style.dashed === true;
+    graph.getDataModel().setStyle(cell, {
+      ...style,
+      dashed: !isReturn,
+      endArrow: isReturn ? 'classic' : 'openThin',
+    });
+    setSelectedSeqEdge(isReturn ? 'call' : 'return');
+  }, []);
+
   // 设置选中 vertex 的填充色。color='none' 表示清除填充（透明）。
   const handleSetFillColor = useCallback((color: string) => {
     const graph = graphRef.current;
@@ -1595,6 +1629,27 @@ export function GraphCanvas({
           >
             <Trash2 size={16} />
           </button>
+          {selectedSeqEdge && (
+            <>
+              <div className="jgraph-tool-sep" />
+              <button
+                type="button"
+                className="jgraph-tool-btn"
+                title={
+                  selectedSeqEdge === 'return'
+                    ? '切换为调用消息（实线）'
+                    : '切换为返回消息（虚线）'
+                }
+                onClick={handleToggleSeqMessage}
+              >
+                {selectedSeqEdge === 'return' ? (
+                  <MoveRight size={16} />
+                ) : (
+                  <Reply size={16} />
+                )}
+              </button>
+            </>
+          )}
           {selectedLabelAlign && (
             <>
               <div className="jgraph-tool-sep" />
