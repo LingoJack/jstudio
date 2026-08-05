@@ -52,6 +52,7 @@ export {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlock,
   tiptapJSONToOurBlocks,
+  stripTrailingEmptyParagraph,
 } from './blocks';
 
 // Table conversion (exported for advanced use; typically accessed via blocks.ts)

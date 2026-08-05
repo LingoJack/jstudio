@@ -46,6 +46,8 @@ export interface CodeBlockProperties {
   codeHeight?: number;
   /** Height as percentage of editor surface (0-100). Preferred. */
   codeHeightPct?: number;
+  /** Optional title/label shown in the header (visible even when collapsed). */
+  codeTitle?: string;
 }
 
 /** Image block properties. */

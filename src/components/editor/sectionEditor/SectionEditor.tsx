@@ -24,6 +24,7 @@ import { useCursorTrail } from "../CursorTrailContext";
 import {
   ourBlocksToTiptapJSON,
   tiptapJSONToOurBlocks,
+  stripTrailingEmptyParagraph,
 } from "../../../lib/editor/tiptapAdapter";
 import {
   createPasteHandler,
@@ -178,7 +179,7 @@ export default function SectionEditor({
       saveTimeoutRef.current = setTimeout(() => {
         saveTimeoutRef.current = null;
         const json = editor.getJSON();
-        const blocks = tiptapJSONToOurBlocks(json.content ?? []);
+        const blocks = stripTrailingEmptyParagraph(tiptapJSONToOurBlocks(json.content ?? []));
         onChangeRef.current(sectionId, blocks);
       }, 300);
     },
@@ -463,7 +464,7 @@ export default function SectionEditor({
         // a null state and throws.
         if (ed && !ed.isDestroyed) {
           const json = ed.getJSON();
-          const blocks = tiptapJSONToOurBlocks(json.content ?? []);
+          const blocks = stripTrailingEmptyParagraph(tiptapJSONToOurBlocks(json.content ?? []));
           onChangeRef.current(sectionId, blocks);
         }
       }
@@ -485,7 +486,7 @@ export default function SectionEditor({
         saveTimeoutRef.current = null;
         if (editor && !editor.isDestroyed) {
           const json = editor.getJSON();
-          const blocks = tiptapJSONToOurBlocks(json.content ?? []);
+          const blocks = stripTrailingEmptyParagraph(tiptapJSONToOurBlocks(json.content ?? []));
           onChangeRef.current(sectionId, blocks);
         }
       }

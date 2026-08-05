@@ -64,6 +64,8 @@ export interface CodeBlockNodeAttributes {
   height?: number | null;
   /** Height as a percentage of the editor surface width (0-100). Preferred. */
   heightPct?: number | null;
+  /** Optional title/label shown in the header (visible even when collapsed). */
+  title?: string;
 }
 
 /* --------------------------------------------------------------------- */
@@ -271,6 +273,14 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
         renderHTML: (attrs) => {
           if (!attrs.collapsed) return {};
           return { 'data-collapsed': 'true' };
+        },
+      },
+      title: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-title') ?? '',
+        renderHTML: (attrs) => {
+          if (!attrs.title) return {};
+          return { 'data-title': attrs.title };
         },
       },
       htmlPreview: {

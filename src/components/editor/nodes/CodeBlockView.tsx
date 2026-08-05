@@ -55,6 +55,7 @@ import { openHtmlPreviewWindow } from "../../../lib/windows/previewWindow";
 import { useI18n } from "../../../lib/core/i18n";
 import { handleNativeSelectAll } from "../../../lib/shortcuts/nativeSelectAll";
 import { useStore } from "../../../store/useStore";
+import { useCursorTrailHostRef } from "../CursorTrailContext";
 
 /** Language entries that map to lowlight registered grammars. */
 const LANGUAGES: { value: string; label: string }[] = [
@@ -177,6 +178,13 @@ const MERMAID_THEME_DARK = {
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 };
 
+/**
+ * Tags that should be shielded from ProseMirror's event interception.
+ * (Mirrors CollapsibleView - see the header comment there for why
+ * contentEditable={false} is NOT used on the code-block-header.)
+ */
+const SHIELD_TAGS = new Set(["INPUT", "BUTTON", "TEXTAREA", "SELECT"]);
+
 export default function CodeBlockView({
   node,
   updateAttributes,
@@ -185,6 +193,31 @@ export default function CodeBlockView({
 }: NodeViewProps) {
   const language = (node.attrs?.language as string | undefined) || "";
   const collapsed = (node.attrs?.collapsed as boolean | undefined) === true;
+  const title = (node.attrs?.title as string | undefined) ?? "";
+
+  // ── Title input (local state, committed on blur/Enter) ──
+  // Mirrors CollapsibleView's summary input.  The header does NOT use
+  // contentEditable={false} (WKWebView blocks keyboard input to <input>
+  // inside such "non-editable islands"), so we need native event shields
+  // below to keep ProseMirror from intercepting keystrokes.
+  const [localTitle, setLocalTitle] = useState(title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const cursorTrailTitleRef = useCursorTrailHostRef(titleInputRef);
+
+  // Sync local state when the title changes from outside (e.g. undo/redo).
+  useEffect(() => {
+    setLocalTitle(title);
+  }, [title]);
+
+  const commitTitle = useCallback(() => {
+    const trimmed = localTitle.trim();
+    if (trimmed !== title) {
+      updateAttributes({ title: trimmed });
+    } else {
+      // Re-sync in case the user typed then reverted.
+      setLocalTitle(title);
+    }
+  }, [localTitle, title, updateAttributes]);
   const { t } = useI18n();
   // Subscribe to the primitive (per CODEBUDDY.md gotcha — never the object ref).
   const isDarkMode = useStore((s) => s.isDarkMode);
@@ -533,6 +566,62 @@ export default function CodeBlockView({
     updateAttributes({ collapsed: !collapsed });
   }, [updateAttributes, collapsed]);
 
+  // ── Native event shields for the header ──
+  // The header no longer uses contentEditable={false} (see comment above
+  // the title state).  These bubble-phase listeners stop form-control
+  // events from reaching ProseMirror - identical pattern to CollapsibleView.
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const isFormControl = (target: EventTarget | null): boolean => {
+      const t = target as HTMLElement | null;
+      if (!t) return false;
+      // Includes [role="button"] to cover the language badge (a div with
+      // role="button" rather than a real <button> element).
+      return (
+        SHIELD_TAGS.has(t.tagName) ||
+        !!t.closest("input, textarea, select, button, [role='button']")
+      );
+    };
+
+    const mousedownShield = (e: MouseEvent) => {
+      if (isFormControl(e.target)) {
+        e.stopPropagation();
+        const button = (e.target as HTMLElement | null)?.closest("button");
+        if (button) {
+          e.preventDefault();
+          button.focus();
+        }
+      }
+    };
+    const keydownShield = (e: KeyboardEvent) => {
+      if (isFormControl(e.target)) e.stopPropagation();
+    };
+    const beforeinputShield = (e: InputEvent) => {
+      if (isFormControl(e.target)) e.stopPropagation();
+    };
+    const compositionShield = (e: CompositionEvent) => {
+      if (isFormControl(e.target)) e.stopPropagation();
+    };
+
+    el.addEventListener("mousedown", mousedownShield);
+    el.addEventListener("keydown", keydownShield);
+    el.addEventListener("beforeinput", beforeinputShield);
+    el.addEventListener("compositionstart", compositionShield);
+    el.addEventListener("compositionupdate", compositionShield);
+    el.addEventListener("compositionend", compositionShield);
+    return () => {
+      el.removeEventListener("mousedown", mousedownShield);
+      el.removeEventListener("keydown", keydownShield);
+      el.removeEventListener("beforeinput", beforeinputShield);
+      el.removeEventListener("compositionstart", compositionShield);
+      el.removeEventListener("compositionupdate", compositionShield);
+      el.removeEventListener("compositionend", compositionShield);
+    };
+  }, []);
+
   const selectLanguage = useCallback(
     (value: string) => {
       updateAttributes({ language: value });
@@ -802,7 +891,7 @@ export default function CodeBlockView({
           source by a border-bottom divider. The collapse toggle is pinned to
           the far left, action buttons next to it, and the language badge to
           the top-right. */}
-        <div className="code-block-header" contentEditable={false}>
+        <div ref={headerRef} className="code-block-header">
           <div className="code-header-actions">
             <button
               type="button"
@@ -822,6 +911,28 @@ export default function CodeBlockView({
             {openWindowBtn}
             {copyBtn}
           </div>
+          <input
+            ref={cursorTrailTitleRef}
+            type="text"
+            value={localTitle}
+            onChange={(e) => setLocalTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => {
+              if (handleNativeSelectAll(e)) return;
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitTitle();
+                (e.target as HTMLInputElement).blur();
+              }
+              e.stopPropagation();
+            }}
+            onCompositionStart={(e) => e.stopPropagation()}
+            onCompositionUpdate={(e) => e.stopPropagation()}
+            onCompositionEnd={(e) => e.stopPropagation()}
+            placeholder={t("code.titlePlaceholder")}
+            className="code-block-title-input"
+            spellCheck={false}
+          />
           <div
             ref={badgeRef}
             className="code-lang-badge"

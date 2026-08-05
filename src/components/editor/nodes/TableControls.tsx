@@ -16,6 +16,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
+import { CellSelection } from '@tiptap/pm/tables';
 import {
   Trash2,
   Rows3,
@@ -26,6 +27,8 @@ import {
   AlignVerticalJustifyStart,
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
+  Merge,
+  Split,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -37,13 +40,18 @@ interface TableControlsProps {
 }
 
 /** Which dropdown is currently open (null = none). */
-type DropdownKey = 'row' | 'column' | 'align' | null;
+type DropdownKey = 'row' | 'column' | 'align' | 'merge' | null;
 
 export default function TableControls({ editor }: TableControlsProps) {
   const [toolbar, setToolbar] = useState<{ x: number; y: number } | null>(null);
   const [open, setOpen] = useState<DropdownKey>(null);
   const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
   const [vAlign, setVAlign] = useState<'top' | 'middle' | 'bottom'>('top');
+  // Whether merge / split are currently available given the selection.
+  // mergeCells needs a CellSelection spanning ≥ 2 cells; splitCell needs the
+  // cursor inside a cell with colspan > 1 or rowspan > 1.
+  const [canMerge, setCanMerge] = useState(false);
+  const [canSplit, setCanSplit] = useState(false);
   const interactingRef = useRef(false);
   /** rAF handle so the transaction listener coalesces to one update/frame. */
   const rafRef = useRef<number | null>(null);
@@ -94,15 +102,31 @@ export default function TableControls({ editor }: TableControlsProps) {
     // Detect vertical alignment from the cell containing the cursor.
     // vAlign is a cell-level attribute (null = CSS default 'top').
     let cellVAlign: 'top' | 'middle' | 'bottom' = 'top';
+    let cellColspan = 1;
+    let cellRowspan = 1;
     for (let d = $from.depth; d > 0; d--) {
       const node = $from.node(d);
       if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
         const va = node.attrs.vAlign;
         if (va === 'top' || va === 'middle' || va === 'bottom') cellVAlign = va;
+        cellColspan = Number(node.attrs.colspan) || 1;
+        cellRowspan = Number(node.attrs.rowspan) || 1;
         break;
       }
     }
     setVAlign(cellVAlign);
+
+    // Merge is available when a CellSelection spans more than one cell.
+    // (CellSelection with anchor === head is a single-cell selection.)
+    const sel = editor.state.selection;
+    let merge = false;
+    if (sel instanceof CellSelection) {
+      merge = sel.$anchorCell.pos !== sel.$headCell.pos;
+    }
+    setCanMerge(merge);
+
+    // Split is available when the cursor sits in a merged cell.
+    setCanSplit(cellColspan > 1 || cellRowspan > 1);
   }, [editor]);
 
   /**
@@ -284,6 +308,32 @@ export default function TableControls({ editor }: TableControlsProps) {
         />
       </Dropdown>
 
+      {/* Merge / split dropdown */}
+      <Dropdown
+        icon={<Merge className="h-4 w-4" />}
+        isOpen={open === 'merge'}
+        onHover={() => setOpen('merge')}
+      >
+        <DropdownItem
+          label="合并单元格"
+          icon={<Merge className="h-3.5 w-3.5" />}
+          disabled={!canMerge}
+          onClick={() => {
+            if (!canMerge) return;
+            run(() => editor.commands.mergeCells());
+          }}
+        />
+        <DropdownItem
+          label="拆分单元格"
+          icon={<Split className="h-3.5 w-3.5" />}
+          disabled={!canSplit}
+          onClick={() => {
+            if (!canSplit) return;
+            run(() => editor.commands.splitCell());
+          }}
+        />
+      </Dropdown>
+
       {/* Divider */}
       <div className="mx-0.5 h-5 w-px bg-[var(--vscode-menu-border)]" />
 
@@ -340,24 +390,29 @@ function DropdownItem({
   icon,
   active,
   danger,
+  disabled,
   onClick,
 }: {
   label: string;
   icon?: React.ReactNode;
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
-        danger
-          ? 'text-[var(--vscode-errorForeground)]'
-          : active
-            ? 'text-[var(--vscode-button-background)]'
-            : 'text-[var(--vscode-editor-foreground)]'
+        disabled
+          ? 'cursor-not-allowed text-[var(--vscode-disabledForeground)] opacity-50 hover:bg-transparent'
+          : danger
+            ? 'text-[var(--vscode-errorForeground)]'
+            : active
+              ? 'text-[var(--vscode-button-background)]'
+              : 'text-[var(--vscode-editor-foreground)]'
       }`}
     >
       {icon && <span className="flex h-3.5 w-3.5 items-center justify-center">{icon}</span>}

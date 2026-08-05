@@ -612,6 +612,7 @@ export const translations = {
     "code.dragResize": "拖拽调节大小，双击重置",
     "code.collapse": "折叠代码",
     "code.expand": "展开代码",
+    "code.titlePlaceholder": "命名代码块…",
 
     // ── Mermaid Import Dialog ──
     "mermaid.title": "导入 Mermaid 图表",
@@ -1504,6 +1505,7 @@ export const translations = {
     "code.dragResize": "Drag to resize, double-click to reset",
     "code.collapse": "Collapse code",
     "code.expand": "Expand code",
+    "code.titlePlaceholder": "Name this code block…",
 
     // ── Mermaid Import Dialog ──
     "mermaid.title": "Import Mermaid Diagram",

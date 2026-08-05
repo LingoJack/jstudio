@@ -211,6 +211,7 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
         widthPct: block.properties?.codeWidthPct ?? null,
         height: block.properties?.codeHeight ?? null,
         heightPct: block.properties?.codeHeightPct ?? null,
+        title: block.properties?.codeTitle ?? '',
       };
       break;
     }
@@ -407,6 +408,10 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
         codeHeight: typeof attrs.height === 'number' ? attrs.height : undefined,
         codeHeightPct:
           typeof attrs.heightPct === 'number' ? attrs.heightPct : undefined,
+        codeTitle:
+          typeof attrs.title === 'string' && attrs.title.length > 0
+            ? attrs.title
+            : undefined,
       };
       break;
     }
@@ -557,4 +562,31 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
 export function tiptapJSONToOurBlocks(nodes: JSONContent[]): Block[] {
   if (!nodes || nodes.length === 0) return [];
   return nodes.map(tiptapJSONToOurBlock);
+}
+
+/**
+ * Strip the trailing empty paragraph that TrailingNode (StarterKit) auto-adds
+ * at the end of each section's editor.
+ *
+ * In the sectioned editor architecture, each section is an independent TipTap
+ * instance with its own TrailingNode. Without stripping, the auto-added
+ * trailing paragraph gets persisted as a block. When multiple sections' blocks
+ * are combined (or the document is reloaded), these trailing paragraphs from
+ * non-last sections end up BETWEEN blocks — appearing as mysterious blank
+ * lines between consecutive headings.
+ *
+ * Only strips the LAST block if it is an empty text block (paragraph with no
+ * content). User-added empty paragraphs in the middle of the document are
+ * never affected. If the section contains only a single empty paragraph, it
+ * is preserved (to avoid empty sections).
+ */
+export function stripTrailingEmptyParagraph(blocks: Block[]): Block[] {
+  if (blocks.length <= 1) return blocks;
+  const last = blocks[blocks.length - 1];
+  if (last.type !== 'text') return blocks;
+  const content = last.content as RichText[];
+  if (!content || content.length === 0) {
+    return blocks.slice(0, -1);
+  }
+  return blocks;
 }
