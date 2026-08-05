@@ -206,8 +206,11 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     style.entryX = edge.entry.x;
     style.entryY = edge.entry.y;
   }
-  if (edge.exitAbsY !== undefined) style.exitAbsY = edge.exitAbsY;
-  if (edge.entryAbsY !== undefined) style.entryAbsY = edge.entryAbsY;
+  // exitAbsY / entryAbsY 是项目自定义属性（非 maxGraph CellStyle 标准字段），
+  // sequenceInteraction 用它存绝对 Y 供 activation resize 同步，需透传持久化。
+  const styleRecord = style as Record<string, unknown>;
+  if (edge.exitAbsY !== undefined) styleRecord.exitAbsY = edge.exitAbsY;
+  if (edge.entryAbsY !== undefined) styleRecord.entryAbsY = edge.entryAbsY;
   applyLabelAlign(style, edge.labelAlign);
   return style;
 }
@@ -369,8 +372,10 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
     if (typeof style.entryX === 'number' && typeof style.entryY === 'number') {
       edge.entry = { x: style.entryX, y: style.entryY };
     }
-    if (typeof style.exitAbsY === 'number') edge.exitAbsY = style.exitAbsY;
-    if (typeof style.entryAbsY === 'number') edge.entryAbsY = style.entryAbsY;
+    // 读回自定义属性 exitAbsY / entryAbsY（非 CellStyle 标准字段，见 buildEdgeStyle）
+    const styleRecord = style as Record<string, unknown>;
+    if (typeof styleRecord.exitAbsY === 'number') edge.exitAbsY = styleRecord.exitAbsY;
+    if (typeof styleRecord.entryAbsY === 'number') edge.entryAbsY = styleRecord.entryAbsY;
 
     // 读回 waypoints（时序图消息的 Y 坐标信息）
     const geo = cell.getGeometry();
