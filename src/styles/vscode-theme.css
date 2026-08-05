@@ -1696,7 +1696,8 @@ button {
   background: transparent;
   padding: 2px 6px;
   margin: 0 4px;
-  font-size: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
   font-family: inherit;
   color: var(--vscode-editor-foreground);
   outline: none;
@@ -1706,7 +1707,7 @@ button {
 }
 .code-block-wrapper .code-block-title-input::placeholder {
   color: var(--vscode-descriptionForeground);
-  opacity: 0.6;
+  opacity: 0.5;
 }
 .code-block-wrapper .code-block-title-input:hover {
   background: var(--vscode-toolbar-hoverBackground);
@@ -1714,6 +1715,36 @@ button {
 .code-block-wrapper .code-block-title-input:focus {
   border-color: var(--vscode-focusBorder);
   background: var(--vscode-input-background, var(--vscode-editor-background));
+}
+
+/* ---- 标题显示态（有标题、非编辑时） ---- */
+.code-block-wrapper .code-block-title-display {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  padding: 2px 6px;
+  margin: 0 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--vscode-editor-foreground);
+  cursor: text;
+  outline: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.code-block-wrapper .code-block-title-display:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+.code-block-wrapper .code-block-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- 语言徽章 ---- */

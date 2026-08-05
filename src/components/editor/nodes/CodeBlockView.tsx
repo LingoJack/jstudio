@@ -44,6 +44,7 @@ import {
   Code2,
   ExternalLink,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import mermaid from "mermaid";
 import { ResizeHandle } from "../../ui/ResizeHandle";
@@ -200,13 +201,35 @@ export default function CodeBlockView({
   // contentEditable={false} (WKWebView blocks keyboard input to <input>
   // inside such "non-editable islands"), so we need native event shields
   // below to keep ProseMirror from intercepting keystrokes.
+  //
+  // UX: when there is no title a small pencil-icon button is shown instead
+  // of an always-visible empty input (avoids a noisy placeholder). Clicking
+  // the icon - or the title text itself - enters edit mode and auto-focuses
+  // the input.
   const [localTitle, setLocalTitle] = useState(title);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const cursorTrailTitleRef = useCursorTrailHostRef(titleInputRef);
 
   // Sync local state when the title changes from outside (e.g. undo/redo).
   useEffect(() => {
     setLocalTitle(title);
+  }, [title]);
+
+  // Auto-focus + select-all when entering edit mode.
+  useEffect(() => {
+    if (isEditingTitle) {
+      const el = titleInputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }
+  }, [isEditingTitle]);
+
+  const startEditingTitle = useCallback(() => {
+    setLocalTitle(title);
+    setIsEditingTitle(true);
   }, [title]);
 
   const commitTitle = useCallback(() => {
@@ -217,6 +240,7 @@ export default function CodeBlockView({
       // Re-sync in case the user typed then reverted.
       setLocalTitle(title);
     }
+    setIsEditingTitle(false);
   }, [localTitle, title, updateAttributes]);
   const { t } = useI18n();
   // Subscribe to the primitive (per CODEBUDDY.md gotcha — never the object ref).
@@ -911,28 +935,52 @@ export default function CodeBlockView({
             {openWindowBtn}
             {copyBtn}
           </div>
-          <input
-            ref={cursorTrailTitleRef}
-            type="text"
-            value={localTitle}
-            onChange={(e) => setLocalTitle(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (handleNativeSelectAll(e)) return;
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commitTitle();
-                (e.target as HTMLInputElement).blur();
-              }
-              e.stopPropagation();
-            }}
-            onCompositionStart={(e) => e.stopPropagation()}
-            onCompositionUpdate={(e) => e.stopPropagation()}
-            onCompositionEnd={(e) => e.stopPropagation()}
-            placeholder={t("code.titlePlaceholder")}
-            className="code-block-title-input"
-            spellCheck={false}
-          />
+          {isEditingTitle ? (
+            <input
+              ref={cursorTrailTitleRef}
+              type="text"
+              value={localTitle}
+              onChange={(e) => setLocalTitle(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (handleNativeSelectAll(e)) return;
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTitle();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setLocalTitle(title);
+                  setIsEditingTitle(false);
+                }
+                e.stopPropagation();
+              }}
+              onCompositionStart={(e) => e.stopPropagation()}
+              onCompositionUpdate={(e) => e.stopPropagation()}
+              onCompositionEnd={(e) => e.stopPropagation()}
+              className="code-block-title-input"
+              spellCheck={false}
+            />
+          ) : title ? (
+            <button
+              type="button"
+              onClick={startEditingTitle}
+              className="code-block-title-display"
+              title={t("code.editTitle")}
+            >
+              <span className="code-block-title-text">{title}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={startEditingTitle}
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-title-trigger"
+              title={t("code.addTitle")}
+              aria-label={t("code.addTitle")}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
           <div
             ref={badgeRef}
             className="code-lang-badge"

@@ -613,6 +613,8 @@ export const translations = {
     "code.collapse": "折叠代码",
     "code.expand": "展开代码",
     "code.titlePlaceholder": "命名代码块…",
+    "code.addTitle": "命名代码块",
+    "code.editTitle": "编辑标题",
 
     // ── Mermaid Import Dialog ──
     "mermaid.title": "导入 Mermaid 图表",
@@ -1506,6 +1508,8 @@ export const translations = {
     "code.collapse": "Collapse code",
     "code.expand": "Expand code",
     "code.titlePlaceholder": "Name this code block…",
+    "code.addTitle": "Name this code block",
+    "code.editTitle": "Edit title",
 
     // ── Mermaid Import Dialog ──
     "mermaid.title": "Import Mermaid Diagram",
