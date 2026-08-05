@@ -196,6 +196,18 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     if (s.strokeWidth !== undefined) style.strokeWidth = s.strokeWidth;
     if (s.dashed !== undefined) style.dashed = s.dashed;
   }
+  // 恢复端点连接约束（时序图消息的固定端点位置）。
+  // 缺省时 maxGraph 会用 perimeter 重算端点，水平消息会被吸到图形中点。
+  if (edge.exit) {
+    style.exitX = edge.exit.x;
+    style.exitY = edge.exit.y;
+  }
+  if (edge.entry) {
+    style.entryX = edge.entry.x;
+    style.entryY = edge.entry.y;
+  }
+  if (edge.exitAbsY !== undefined) style.exitAbsY = edge.exitAbsY;
+  if (edge.entryAbsY !== undefined) style.entryAbsY = edge.entryAbsY;
   applyLabelAlign(style, edge.labelAlign);
   return style;
 }
@@ -349,6 +361,16 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean): GraphSn
     if (Object.keys(eStyle).length > 0) edge.style = eStyle;
     const la = readLabelAlign(style);
     if (la) edge.labelAlign = la;
+
+    // 读回端点连接约束（时序图消息的固定端点位置，见 buildEdgeStyle）
+    if (typeof style.exitX === 'number' && typeof style.exitY === 'number') {
+      edge.exit = { x: style.exitX, y: style.exitY };
+    }
+    if (typeof style.entryX === 'number' && typeof style.entryY === 'number') {
+      edge.entry = { x: style.entryX, y: style.entryY };
+    }
+    if (typeof style.exitAbsY === 'number') edge.exitAbsY = style.exitAbsY;
+    if (typeof style.entryAbsY === 'number') edge.entryAbsY = style.entryAbsY;
 
     // 读回 waypoints（时序图消息的 Y 坐标信息）
     const geo = cell.getGeometry();

@@ -102,6 +102,17 @@ export interface GraphEdge {
    * 坐标为画布绝对坐标。
    */
   waypoints?: Array<{ x: number; y: number }>;
+  /**
+   * 源端 / 目标端连接约束（相对坐标 0-1），对应 maxGraph 的 exitX/exitY / entryX/entryY。
+   *
+   * 时序图消息落笔时由 sequenceInteraction 把端点位置烘焙进 style 约束；
+   * 若不持久化，重建时端点会被 perimeter 重算到图形中点，导致水平消息"漂移"。
+   */
+  exit?: { x: number; y: number };
+  entry?: { x: number; y: number };
+  /** 源端 / 目标端绝对 Y（activation resize 同步用，见 sequenceInteraction）。 */
+  exitAbsY?: number;
+  entryAbsY?: number;
 }
 
 /** 连线样式覆盖。 */

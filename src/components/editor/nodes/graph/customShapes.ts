@@ -14,8 +14,8 @@ import {
   PerimeterRegistry,
   EdgeMarkerRegistry,
   Point,
+  Rectangle,
   type AbstractCanvas2D,
-  type Rectangle,
   type CellState,
 } from '@maxgraph/core';
 
@@ -23,6 +23,14 @@ import {
  *  50px 足够容纳小人图标（头+身体+手臂+腿）
  */
 export const HEAD_HEIGHT = 50;
+
+/**
+ * 角色（umlActor）有文字时预留在图形顶部的文字条高度。
+ * 与其他图形"文字居中"不同：actor / lifeline 这类"头 + 虚线尾"的竖长图形，
+ * 文字必须位于顶部（actor 在小人上方，lifeline 在头部框内），
+ * 否则会悬在整条虚线的垂直中点，完全脱离它标注的头部。
+ */
+const ACTOR_LABEL_HEIGHT = 20;
 
 /**
  * 生命线连接点计算函数
@@ -114,6 +122,16 @@ export const ActivationPerimeter = (bounds: Rectangle, _vertex: CellState, next:
  * 头部高度固定 50px，用户调整高度只影响生命线长度。
  */
 class UMLActorShape extends Shape {
+  /** 有文字时文字条占用的顶部高度（无文字时不占位，保持旧图元视觉不变）。 */
+  private labelOffset(): number {
+    return this.state?.text ? ACTOR_LABEL_HEIGHT : 0;
+  }
+
+  /** 文字限制在图形顶部的文字条内（默认实现会让文字悬在整条虚线的中点）。 */
+  getLabelBounds(rect: Rectangle): Rectangle {
+    return new Rectangle(rect.x, rect.y, rect.width, ACTOR_LABEL_HEIGHT);
+  }
+
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
     // 头部高度固定 50px，与工具栏 actor 图标保持同比例
     // 工具栏图标 viewBox 为 16x20，因此按 headH / 20 缩放后居中绘制
@@ -121,7 +139,8 @@ class UMLActorShape extends Shape {
     const scale = headH / 20;
     const iconW = 16 * scale;
     const ox = x + (w - iconW) / 2;
-    const oy = y;
+    // 有文字时小人整体下移，给顶部文字条让位
+    const oy = y + this.labelOffset();
 
     // 四肢交汇处用圆角线帽，避免生硬十字
     c.setLineCap('round');
@@ -164,10 +183,10 @@ class UMLActorShape extends Shape {
     c.setLineCap('flat');
     c.setLineJoin('miter');
 
-    // 底部生命线（虚线延伸）
+    // 底部生命线（虚线延伸），从小人底部开始（有文字时已随小人下移）
     c.setDashed(true);
     c.begin();
-    c.moveTo(ox + 8 * scale, y + headH);
+    c.moveTo(ox + 8 * scale, oy + headH);
     c.lineTo(ox + 8 * scale, y + h);
     c.stroke();
     c.setDashed(false);
@@ -181,6 +200,11 @@ class UMLActorShape extends Shape {
  * 头部高度固定 50px，用户调整高度只影响生命线长度。
  */
 class LifelineShape extends Shape {
+  /** 文字限制在头部矩形框内（默认实现会让文字悬在整条生命线的中点）。 */
+  getLabelBounds(rect: Rectangle): Rectangle {
+    return new Rectangle(rect.x, rect.y, rect.width, HEAD_HEIGHT);
+  }
+
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
     // 头部矩形（圆角），高度固定 50px
     const headH = HEAD_HEIGHT;
