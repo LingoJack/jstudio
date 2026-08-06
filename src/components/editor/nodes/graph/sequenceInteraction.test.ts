@@ -242,3 +242,35 @@ test('ac → ac：普通消息，不创建 activation（场景 C）', () => {
   assert.equal(st.endArrow, 'classic');
   assert.notEqual(st.dashed, true);
 });
+
+test('ll → 同一 ll：生命线自环，回形路由，不创建 activation（场景 A2）', () => {
+  const ctx = makeGraph();
+  const a = addLifeline(ctx, 'A', 0);
+
+  // A → A：exitY=0.2，entryY=0.4（不同 Y，模拟向下拖出回路）
+  const edge = connect(ctx, a, a, 0.2);
+  // 手工把 entryY 改为 0.4 模拟落点在 exit 下方
+  const st0 = edge.getStyle() as Record<string, unknown>;
+  ctx.model.setStyle(edge, { ...st0, entryY: 0.4 });
+  // 再次触发 CONNECT（模拟松手时分派）
+  ctx.fireConnect(edge);
+
+  // 不应创建 activation
+  assert.equal(activations(ctx).length, 0, '生命线自环不应创建 activation');
+
+  const st = edge.getStyle() as Record<string, unknown>;
+  assert.equal(st.edgeStyle, 'none', '应禁用 obstacle 路由，保留直角折线');
+  assert.equal(st.endArrow, 'classic');
+
+  // 航点：向右伸出 30px 形成回形（centerX=50, wpX=80）
+  const geo = edge.getGeometry()!;
+  assert.ok(geo.points && geo.points.length === 2, '应有 2 个航点形成 U 形');
+  const llGeo = a.getGeometry()!;
+  const centerX = llGeo.x + llGeo.width / 2;
+  const exitAbsY = llGeo.y + 0.2 * llGeo.height;
+  const entryAbsY = llGeo.y + 0.4 * llGeo.height;
+  assert.equal(geo.points[0].x, centerX + 30);
+  assert.equal(geo.points[0].y, exitAbsY);
+  assert.equal(geo.points[1].x, centerX + 30);
+  assert.equal(geo.points[1].y, entryAbsY);
+});

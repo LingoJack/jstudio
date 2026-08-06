@@ -95,6 +95,7 @@ import {
   getConnectionPointColor,
   getEdgeColor,
   getFontColor,
+  getLabelBackgroundColor,
   createConnectionPointSVG,
   createLifelineConnectionPointSVG,
   SHAPE_STROKE_WIDTH,
@@ -584,6 +585,9 @@ export function GraphCanvas({
           strokeWidth: 2,
           endArrow: 'classic',
           endSize: ARROW_END_SIZE,
+          fontSize: SHAPE_FONT_SIZE,
+          fontColor: getFontColor(dark),
+          labelBackgroundColor: getLabelBackgroundColor(dark),
         };
         const edge = this.graph.createEdge(
           undefined,
@@ -728,6 +732,11 @@ export function GraphCanvas({
     edgeDefault.endSize = ARROW_END_SIZE;
     edgeDefault.strokeColor = getEdgeColor(dark);
     edgeDefault.strokeWidth = SHAPE_STROKE_WIDTH;
+    // 边标签：字号 / 字色 / 背景色（与画布底色一致，遮挡标签下方连线，
+    // 解决双击边写文字时文字与线重叠、不明显的问题）。
+    edgeDefault.fontSize = SHAPE_FONT_SIZE;
+    edgeDefault.fontColor = getFontColor(dark);
+    edgeDefault.labelBackgroundColor = getLabelBackgroundColor(dark);
 
     // 为每个节点提供固定连接点：悬停边缘时高亮圆点锚点，
     // 从精确点位拖出连线，而非只能从整体边缘任意点连。

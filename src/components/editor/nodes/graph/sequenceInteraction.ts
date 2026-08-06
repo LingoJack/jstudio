@@ -177,9 +177,11 @@ function hasOpenCallTo(graph: AbstractGraph, targetLl: Cell, srcLl: Cell): boole
 }
 
 /**
- * 监听 ConnectionHandler 的 CONNECT 事件，处理时序图五种连线场景：
+ * 监听 ConnectionHandler 的 CONNECT 事件，处理时序图连线场景：
  *
  *  A. 自环（ac → 同一 ac）：实线 + classic，添加航点形成矩形环
+ *  A2. 生命线自环（ll → 同一 ll）：实线 + classic，向右伸出 30px 折回形成回形，
+ *      不创建 activation（与 A 一致：只对边做几何路由，不新建 ac）
  *  B. ac → ll 且目标是"未返回的调用方"（返回消息）：虚线 + openThin，
  *     保留 exit 约束，entry 约束钉在生命线中心线与 exit 同一 Y
  *     （保证快照重建后仍然水平）。判定见 hasOpenCallTo。
@@ -286,6 +288,58 @@ export function attachAutoActivation(
             geo.points = [new Point(wpX, exitAbsY), new Point(wpX, entryAbsY)];
           }
           // 分布在两侧时不加航点（直线穿过 ac）
+
+          model.setGeometry(edge, geo);
+        }
+      } finally {
+        model.endUpdate();
+      }
+      return;
+    }
+
+    /* ---------- 场景 A2：生命线自环（ll → 同一 ll）----------
+     * 生命线指向自身的消息：U 形回路（向右伸出 30px 再折回）。
+     * 不创建 activation（与场景 A 的 activation 自环一致：只对边本身做几何路由，
+     * 不新建 ac）。无论 autoActivation 开关状态如何都走这条分支，
+     * 避免 ll→同 ll 落到场景 D 生成贴在自身上的 ac 并画成一条水平短线。
+     */
+    const isLifelineSelfLoop = source === target && sourceIsLL && targetIsLL;
+    if (isLifelineSelfLoop) {
+      model.beginUpdate();
+      try {
+        const s = edge.getStyle() as Record<string, number | undefined>;
+        const exitY = s?.exitY ?? 0.5;
+        const entryY = s?.entryY ?? 0.5;
+        const llGeo = source.getGeometry();
+
+        // 存储绝对 Y，供 resize sync 使用
+        let exitAbsY = 0;
+        let entryAbsY = 0;
+        if (llGeo) {
+          exitAbsY = llGeo.y + exitY * llGeo.height;
+          entryAbsY = llGeo.y + entryY * llGeo.height;
+        }
+
+        model.setStyle(edge, {
+          ...s,
+          // 必须写 'none'：否则全局默认 obstacleEdgeStyle 会把直线重新路由成折线
+          edgeStyle: 'none',
+          endArrow: 'classic',
+          exitAbsY,
+          entryAbsY,
+        } as CellStyle);
+
+        const geo = edge.getGeometry()?.clone();
+        if (geo && llGeo) {
+          geo.sourcePoint = null;
+          geo.targetPoint = null;
+
+          const centerX = llGeo.x + llGeo.width / 2;
+          const loopOffset = 30;
+          // 生命线 exit/entry 都在中心线上（exitX=entryX=0.5），
+          // 默认回路向右伸出：centerX → wpX → wpX → centerX，形成回形方框
+          const wpX = centerX + loopOffset;
+          geo.points = [new Point(wpX, exitAbsY), new Point(wpX, entryAbsY)];
 
           model.setGeometry(edge, geo);
         }

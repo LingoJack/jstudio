@@ -164,6 +164,27 @@ export function getConnectionPointColor(dark: boolean): string {
   return readThemeAccentColor(dark);
 }
 
+/**
+ * 运行时读取画布背景色（--vscode-editor-background）。
+ * 用于边标签背景：让标签底色与画布一致，从而"遮挡"标签下方的连线，
+ * 解决双击边写文字时文字与线重叠的问题。读取失败时 fallback 到
+ * 浅色 #ffffff / 暗色 #1e1e1e（VSCode 暗色默认编辑器底色）。
+ */
+function readEditorBackground(dark: boolean): string {
+  if (typeof window !== 'undefined') {
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue('--vscode-editor-background')
+      .trim();
+    if (v) return v;
+  }
+  return dark ? '#1e1e1e' : '#ffffff';
+}
+
+/** 获取边标签背景色 — 与画布底色一致，让标签"穿透"显示，遮挡下方连线 */
+export function getLabelBackgroundColor(dark: boolean): string {
+  return readEditorBackground(dark);
+}
+
 /** 获取连线颜色 — 跟随主题 accent 色（动画圆点继承连线 stroke，自动跟随） */
 export function getEdgeColor(dark: boolean): string {
   return readThemeAccentColor(dark);

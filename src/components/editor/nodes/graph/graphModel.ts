@@ -22,6 +22,7 @@ import {
   paletteFor,
   getFontColor,
   getEdgeColor,
+  getLabelBackgroundColor,
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
@@ -192,6 +193,11 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     endSize: ARROW_END_SIZE,
     strokeColor: getEdgeColor(dark),
     strokeWidth: SHAPE_STROKE_WIDTH,
+    // 边标签：字号 / 字色 / 背景色（与画布底色一致，遮挡标签下方连线，
+    // 解决双击边写文字时文字与线重叠、不明显的问题）。
+    fontSize: SHAPE_FONT_SIZE,
+    fontColor: getFontColor(dark),
+    labelBackgroundColor: getLabelBackgroundColor(dark),
   };
   const s = edge.style;
   if (s) {
