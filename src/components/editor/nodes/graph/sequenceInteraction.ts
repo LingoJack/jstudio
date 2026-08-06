@@ -197,6 +197,7 @@ export function attachAutoActivation(
   graph: AbstractGraph,
   handler: ConnectionHandler,
   activationStyleProvider?: () => Record<string, unknown>,
+  isEnabled?: () => boolean,
 ): () => void {
   const listener = (_sender: unknown, evt: { getProperty: (key: string) => unknown }) => {
     const edge = evt.getProperty('cell') as Cell | null;
@@ -393,6 +394,38 @@ export function attachAutoActivation(
     } else {
       msgY = targetGeo.y + HEAD_HEIGHT + 30;
       graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
+    }
+
+    /* ---- 自动活动块关闭：仅创建水平消息线，不生成 activation ---- */
+    if (isEnabled && !isEnabled()) {
+      graphLog('autoActivation disabled, styling as plain horizontal message');
+      model.beginUpdate();
+      try {
+        const style = edge.getStyle() ?? {};
+        const cleaned: Record<string, unknown> = { ...style };
+        delete cleaned.entryPerimeter;
+        delete cleaned.entryDx;
+        delete cleaned.entryDy;
+        // 终点钉在生命线中心线上、与起点同一 Y（水平）
+        cleaned.entryX = 0.5;
+        cleaned.entryY = (msgY - targetGeo.y) / targetGeo.height;
+        cleaned.entryAbsY = msgY;
+        // 存储源端绝对 Y（若源端有约束，供 resize sync 使用）
+        if (exitYRel != null && sourceGeo) {
+          cleaned.exitAbsY = sourceGeo.y + exitYRel * sourceGeo.height;
+        }
+        model.setStyle(edge, { ...cleaned, edgeStyle: 'none', endArrow: 'classic' } as CellStyle);
+
+        const noActGeo = edge.getGeometry()?.clone();
+        if (noActGeo) {
+          noActGeo.sourcePoint = null;
+          noActGeo.targetPoint = null;
+          model.setGeometry(edge, noActGeo);
+        }
+      } finally {
+        model.endUpdate();
+      }
+      return;
     }
 
     const targetCenterX = targetGeo.x + targetGeo.width / 2;
@@ -717,10 +750,11 @@ export function attachSequenceInteraction(
   handler: ConnectionHandler,
   container: HTMLElement,
   activationStyleProvider?: () => Record<string, unknown>,
+  isEnabled?: () => boolean,
 ): () => void {
   graphLog(`attachSequenceInteraction called, handler=${handler ? 'ok' : 'null'}, container=${container ? 'ok' : 'null'}`);
   const cleanup1 = attachHorizontalMessageConstraint(handler);
-  const cleanup2 = attachAutoActivation(graph, handler, activationStyleProvider);
+  const cleanup2 = attachAutoActivation(graph, handler, activationStyleProvider, isEnabled);
   const cleanup3 = attachLifelineHoverDot(graph, container);
   const cleanup4 = attachActorSourceBlock(graph);
   const cleanup5 = attachActivationImmovable(graph);

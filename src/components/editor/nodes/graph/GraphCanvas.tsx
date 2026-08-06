@@ -59,6 +59,7 @@ import {
   ZoomOut,
   Maximize,
   Grid3x3,
+  SquareStack,
   FileDown,
   Sparkles,
   AlignLeft,
@@ -218,6 +219,9 @@ export function GraphCanvas({
   }, []);
   // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
   const [showGrid, setShowGrid] = useState(false); // 默认不显示网格
+  // 时序图自动活动块开关：开启时从生命线拖消息到生命线会自动生成 activation，
+  // 关闭时只画水平消息线、不自动生成活动块（简洁时序图场景）。
+  const [autoActivation, setAutoActivation] = useState(false); // 默认关闭
   // 选中 cell 的文字对齐方式（null 表示无选中或不支持）。
   const [selectedLabelAlign, setSelectedLabelAlign] = useState<LabelAlign | null>(null);
   // 选中 vertex 的填充色（null 表示无选中或边线选中）。'none' = 无填充。
@@ -241,6 +245,16 @@ export function GraphCanvas({
       // 引擎的网格吸附也随之开关（吸附只在网格显示时有意义）。
       graph.setGridEnabled(next);
       // 网格开关已持久化进 snapshot，触发 emit 保存。
+      emitNowRef.current();
+      return next;
+    });
+  }, []);
+  // 切换自动活动块开关。isEnabled 回调在 graph 初始化时已绑定，运行时动态读取 ref，
+  // 无需重建 graph，切换后立即对后续连线生效。开关状态持久化进快照。
+  const toggleAutoActivation = useCallback(() => {
+    setAutoActivation((prev) => {
+      const next = !prev;
+      autoActivationRef.current = next;
       emitNowRef.current();
       return next;
     });
@@ -279,6 +293,9 @@ export function GraphCanvas({
   // showGrid 的 ref，供 emitSnapshot 读取最新值（无需进 emit 的依赖数组）。
   const showGridRef = useRef(showGrid);
   showGridRef.current = showGrid;
+  // autoActivation 的 ref，供 emitSnapshot + isEnabled 回调读取最新值。
+  const autoActivationRef = useRef(autoActivation);
+  autoActivationRef.current = autoActivation;
   // 流动动画开关 ref：边数超过阈值时给容器加 .jgraph-flow-off 类关闭 CSS 动画。
   // 用 ref 间接调用，避免 useEffect 内外 TDZ 顺序依赖。
   const updateFlowAnimationRef = useRef<() => void>(() => {});
@@ -309,8 +326,8 @@ export function GraphCanvas({
     const graph = graphRef.current;
     if (!graph) return;
     try {
-      const snap = readSnapshotFromGraph(graph, showGridRef.current);
-      const json = serializeGraphSnapshot(snap.nodes, snap.edges, snap.viewport, snap.showGrid);
+      const snap = readSnapshotFromGraph(graph, showGridRef.current, autoActivationRef.current);
+      const json = serializeGraphSnapshot(snap.nodes, snap.edges, snap.viewport, snap.showGrid, snap.autoActivation);
       if (json === lastEmittedRef.current) return;
       lastEmittedRef.current = json;
       onChangeRef.current(json);
@@ -599,6 +616,7 @@ export function GraphCanvas({
         connectionHandler,
         container,
         () => styleForShape('activation', darkModeRef.current),
+        () => autoActivationRef.current,
       );
     }
 
@@ -872,6 +890,11 @@ export function GraphCanvas({
     if (typeof parsedInit.showGrid === 'boolean') {
       setShowGrid(parsedInit.showGrid);
       showGridRef.current = parsedInit.showGrid;
+    }
+    // 同步组件 autoActivation 态（缺省保持默认 true）。
+    if (typeof parsedInit.autoActivation === 'boolean') {
+      setAutoActivation(parsedInit.autoActivation);
+      autoActivationRef.current = parsedInit.autoActivation;
     }
     // 初始灌入产生的 edit 不应进 undo 历史。
     undoManager.clear();
@@ -1206,6 +1229,11 @@ export function GraphCanvas({
       // 恢复网格显隐状态（applySnapshotToGraph 已设引擎 gridEnabled，这里同步组件态）。
       if (typeof parsed.showGrid === 'boolean') {
         setShowGrid(parsed.showGrid);
+      }
+      // 恢复自动活动块开关（缺省保持默认 true）。
+      if (typeof parsed.autoActivation === 'boolean') {
+        setAutoActivation(parsed.autoActivation);
+        autoActivationRef.current = parsed.autoActivation;
       }
       lastEmittedRef.current = initialSnapshot;
       // 外部快照同步后，根据边数决定是否开启动画。
@@ -1746,6 +1774,18 @@ export function GraphCanvas({
             onClick={toggleGrid}
           >
             <Grid3x3 size={16} />
+          </button>
+          <button
+            type="button"
+            className={`jgraph-tool-btn ${autoActivation ? 'is-active' : ''}`}
+            title={
+              autoActivation
+                ? '自动活动块：开启｜时序图连线时自动生成活动块（点击关闭）'
+                : '自动活动块：关闭｜时序图连线时只画消息线，不生成活动块（点击开启）'
+            }
+            onClick={toggleAutoActivation}
+          >
+            <SquareStack size={16} />
           </button>
           <div className="jgraph-tool-sep" />
           <button

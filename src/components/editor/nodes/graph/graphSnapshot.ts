@@ -139,6 +139,13 @@ export interface GraphSnapshot {
   viewport?: GraphViewport;
   /** 网格显隐（UI 状态，跨挂载恢复）。缺省视为 true。 */
   showGrid?: boolean;
+  /**
+   * 时序图自动活动块开关（UI 状态，跨挂载恢复）。缺省视为 true。
+   *
+   * 开启时：从生命线 A 拖消息到生命线 B 会自动在 B 上生成 activation 活动块。
+   * 关闭时：仅创建水平消息线，不自动生成活动块，适合不需要活动块的简洁时序图。
+   */
+  autoActivation?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -196,6 +203,7 @@ export function parseGraphSnapshot(snapshot: string | null | undefined): GraphSn
       edges: Array.isArray(parsed.edges) ? parsed.edges : [],
       viewport: parsed.viewport,
       showGrid: typeof parsed.showGrid === 'boolean' ? parsed.showGrid : undefined,
+      autoActivation: typeof parsed.autoActivation === 'boolean' ? parsed.autoActivation : undefined,
     };
   } catch {
     return empty;
@@ -208,6 +216,7 @@ export function serializeGraphSnapshot(
   edges: GraphEdge[],
   viewport?: GraphViewport,
   showGrid?: boolean,
+  autoActivation?: boolean,
 ): string {
   const snap: GraphSnapshot = {
     kind: JGRAPH_KIND,
@@ -216,6 +225,7 @@ export function serializeGraphSnapshot(
     edges,
     viewport,
     showGrid,
+    autoActivation,
   };
   return JSON.stringify(snap);
 }
