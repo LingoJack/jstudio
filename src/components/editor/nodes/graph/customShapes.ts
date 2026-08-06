@@ -127,9 +127,12 @@ class UMLActorShape extends Shape {
     return this.state?.text ? ACTOR_LABEL_HEIGHT : 0;
   }
 
-  /** 文字限制在图形顶部的文字条内（默认实现会让文字悬在整条虚线的中点）。 */
+  /** 文字限制在图形顶部的文字条内（默认实现会让文字悬在整条虚线的中点）。
+   *  rect 为缩放后的屏幕坐标，ACTOR_LABEL_HEIGHT 需乘以缩放系数（同 LifelineShape）。
+   */
   getLabelBounds(rect: Rectangle): Rectangle {
-    return new Rectangle(rect.x, rect.y, rect.width, ACTOR_LABEL_HEIGHT);
+    const scale = this.state?.view.scale ?? 1;
+    return new Rectangle(rect.x, rect.y, rect.width, ACTOR_LABEL_HEIGHT * scale);
   }
 
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
@@ -200,12 +203,16 @@ class UMLActorShape extends Shape {
  * 头部高度固定 50px，用户调整高度只影响生命线长度。
  */
 class LifelineShape extends Shape {
-  /** 文字限制在头部矩形框内（默认实现会让文字悬在整条生命线的中点）。 */
+  /**
+   * 文字限制在头部矩形框内（默认实现会让文字悬在整条生命线的中点）。
+   *
+   * 注意：maxGraph 传入的 rect 是缩放后的屏幕坐标（见 CellRenderer.getLabelBounds /
+   * CellEditorHandler.getEditorBounds），因此 HEAD_HEIGHT 必须乘以当前缩放系数，
+   * 否则缩放 ≠ 1 时标签/编辑框会比头部框高，垂直居中后文字落到头部框底部。
+   */
   getLabelBounds(rect: Rectangle): Rectangle {
-    const result = new Rectangle(rect.x, rect.y, rect.width, HEAD_HEIGHT);
-    // eslint-disable-next-line no-console
-    console.log('[LifelineShape.getLabelBounds] rect=', { x: rect.x, y: rect.y, w: rect.width, h: rect.height }, '-> result=', { x: result.x, y: result.y, w: result.width, h: result.height });
-    return result;
+    const scale = this.state?.view.scale ?? 1;
+    return new Rectangle(rect.x, rect.y, rect.width, HEAD_HEIGHT * scale);
   }
 
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
