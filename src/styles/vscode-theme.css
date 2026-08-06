@@ -2893,7 +2893,12 @@ button {
 }
 
 .ProseMirror .tableWrapper table {
-  border-collapse: collapse;
+  /* separate + spacing 0 instead of collapse: WKWebView fails to repaint
+     collapsed borders once the table overflows the wrapper's overflow-x:auto
+     scroll layer (grid lines vanish until the table fits again). Cells only
+     paint right/bottom borders, so adjacent edges don't double up. */
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
   margin: 0;
   overflow: hidden;
