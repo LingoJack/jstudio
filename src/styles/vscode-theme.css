@@ -2906,10 +2906,9 @@ button {
 }
 
 /* Header background band - !important guards against runtime overrides.
-   The first-row td selector is a fallback for tables whose header cells
-   were parsed as td (not th) on import/paste. */
-.ProseMirror .tableWrapper th,
-.ProseMirror .tableWrapper tbody > tr:first-child > td {
+   Only actual <th> elements (tableHeader nodes) get the header background,
+   so headerless tables (all <td>) have no special first-row styling. */
+.ProseMirror .tableWrapper th {
   background: var(
     --vscode-tableHeader-background,
     var(--jstudio-tableHeader-background)
