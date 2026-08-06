@@ -120,6 +120,10 @@ interface SectionEditorProps {
   /** Render in read-only mode (no editing, no paste/drop, no onUpdate sync,
    *  no native-caret hiding). Used by the static/help-document render path. */
   readOnly?: boolean;
+  /** Whole-document emptiness check from the parent (JStudio Block[]
+   *  perspective). Gates the empty-document placeholder — see
+   *  SectionExtensionOptions.isDocEmpty. */
+  isDocEmpty?: () => boolean;
 }
 
 export default function SectionEditor({
@@ -140,6 +144,7 @@ export default function SectionEditor({
   onSectionLoaded,
   onSectionBlur,
   readOnly,
+  isDocEmpty,
 }: SectionEditorProps) {
   const { t } = useI18n();
   const cursorTrail = useCursorTrail();
@@ -168,6 +173,8 @@ export default function SectionEditor({
   onSectionLoadedRef.current = onSectionLoaded;
   const onSectionBlurRef = useRef(onSectionBlur);
   onSectionBlurRef.current = onSectionBlur;
+  const isDocEmptyRef = useRef(isDocEmpty);
+  isDocEmptyRef.current = isDocEmpty;
 
   // Stable editor ref for paste/drop handlers.
   const editorRef = useRef<Editor | null>(null);
@@ -199,6 +206,7 @@ export default function SectionEditor({
     editable: !readOnly,
     extensions: createSectionExtensions({
       placeholder: t("editor.placeholder"),
+      isDocEmpty: () => isDocEmptyRef.current?.() ?? true,
       onExitToTitle: () => onExitToTitleRef.current?.(),
       openOnClick: readOnly,
     }),

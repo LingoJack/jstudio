@@ -46,6 +46,7 @@ import { registerSelectAllHandler } from '../../../lib/editor/selectAllRegistry'
 import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { formatDate } from '../../../lib/commandPalette/shared';
 import { countBlockCharacters } from '../../../lib/documents/charCount';
+import { isDocumentEmpty } from '../../../lib/documents/isDocumentEmpty';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
@@ -744,6 +745,19 @@ export default function DocumentPanel({
     return () => window.clearInterval(id);
   }, [isStatic, readOnly]);
 
+  // ── Whole-document emptiness check for the placeholder ──
+  // TipTap's Placeholder extension judges emptiness per-section PM doc and
+  // by content only — a titled-but-empty code block (or a lone empty
+  // section) would wrongly show the "type / for commands" hint. This
+  // callback looks at the FULL Block[] across all sections; each
+  // SectionEditor gates its placeholder on it (see isDocEmpty in
+  // extensions.ts). Reads sectionsRef so it works in both normal and
+  // static-doc modes and always sees the latest edits.
+  const isWholeDocEmpty = useCallback(
+    () => isDocumentEmpty(sectionsRef.current.flatMap((s) => s.blocks)),
+    [],
+  );
+
   // A section reports new blocks → splice into the full array and persist.
   const handleSectionChange = useCallback(
     (sectionId: string, blocks: Block[]) => {
@@ -1209,6 +1223,7 @@ export default function DocumentPanel({
                 notifyCaret={notifyCaret}
                 onEditorReady={(ed) => handleEditorReady(s.id, ed)}
                 onSectionLoaded={handleSectionLoaded}
+                isDocEmpty={isWholeDocEmpty}
                 readOnly={readOnly}
               />
             ))}
@@ -1310,6 +1325,7 @@ export default function DocumentPanel({
               onEditorReady={(ed) => handleEditorReady(s.id, ed)}
               onSectionLoaded={handleSectionLoaded}
               onSectionBlur={handleSectionBlur}
+              isDocEmpty={isWholeDocEmpty}
             />
           ))}
           {/* Skeleton overlay while sections are loading content.

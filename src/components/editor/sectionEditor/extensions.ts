@@ -43,6 +43,14 @@ import { SectionSearchHighlight } from '../../../lib/editor/extensions/sectionSe
 
 export interface SectionExtensionOptions {
   placeholder: string;
+  /** Whole-document emptiness check (JStudio Block[] perspective), provided
+   *  by DocumentPanel. TipTap's own `editor.isEmpty` is per-section and
+   *  content-only — it treats a block with an empty body but meaningful
+   *  attrs (e.g. a titled but empty code block) as "empty", and knows
+   *  nothing about other sections. The placeholder text is only shown when
+   *  BOTH this section's PM doc is empty AND this returns true. When
+   *  omitted, falls back to the section-local check alone. */
+  isDocEmpty?: () => boolean;
   /** Called when the caret exits the top of the first block in this section
    *  (ArrowUp/Left at doc start). The parent uses this to focus the document
    *  title input. */
@@ -87,7 +95,16 @@ export function createSectionExtensions(
       defaultLanguage: 'plaintext',
       exitOnTripleEnter: false,
     }),
-    Placeholder.configure({ placeholder: opts.placeholder }),
+    // Placeholder text is only meaningful for a genuinely empty document.
+    // Gate on both the section-local PM doc (editor.isEmpty) and the whole
+    // JStudio document (opts.isDocEmpty) so a titled-but-empty code block
+    // (or a lone empty section in a multi-section doc) doesn't trigger it.
+    // Returning '' leaves the decoration attribute empty → CSS renders
+    // nothing.
+    Placeholder.configure({
+      placeholder: ({ editor }) =>
+        editor.isEmpty && (opts.isDocEmpty?.() ?? true) ? opts.placeholder : '',
+    }),
     Image.configure({ inline: false, allowBase64: true }),
     FileExtension,
     LinkExtension,
