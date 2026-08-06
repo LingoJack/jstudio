@@ -14,6 +14,7 @@ import { Cell, Geometry, GraphDataModel, type AbstractGraph } from '@maxgraph/co
 
 import {
   attachAutoActivation,
+  attachSequenceResizeSync,
   isActivation,
   isLifeline,
 } from './sequenceInteraction';
@@ -27,6 +28,7 @@ interface FakeCtx {
   model: GraphDataModel;
   parent: Cell;
   fireConnect: (edge: Cell) => void;
+  fireResize: (cells: Cell[]) => void;
 }
 
 function makeGraph(): FakeCtx {
@@ -40,6 +42,9 @@ function makeGraph(): FakeCtx {
     for (let i = 0; i < p.getChildCount(); i += 1) out.push(p.getChildAt(i));
     return out;
   };
+
+  // 事件监听器注册表：按事件名分组（支持 CONNECT / CELLS_RESIZED）
+  const graphListeners = new Map<string, Array<(s: unknown, evt: { getProperty: (k: string) => unknown }) => void>>();
 
   const graph = {
     getDataModel: () => model,
@@ -56,25 +61,46 @@ function makeGraph(): FakeCtx {
       c.setVertex(true);
       return model.add(p, c) as Cell;
     },
+    // 返回以 cell 为任一端点的所有边（供 resize sync 使用）
+    getEdges: (cell: Cell, _p: Cell, _incoming: boolean, _outgoing: boolean, _includeCollapsed: boolean) =>
+      children(parent).filter((c) => c.isEdge() && (c.getTerminal(true) === cell || c.getTerminal(false) === cell)),
+    addListener: (evt: string, l: (s: unknown, e: { getProperty: (k: string) => unknown }) => void) => {
+      const arr = graphListeners.get(evt) ?? [];
+      arr.push(l);
+      graphListeners.set(evt, arr);
+    },
+    removeListener: (l: (s: unknown, e: { getProperty: (k: string) => unknown }) => void) => {
+      for (const arr of graphListeners.values()) {
+        const i = arr.indexOf(l);
+        if (i >= 0) arr.splice(i, 1);
+      }
+    },
   } as unknown as AbstractGraph;
 
-  let listener: ((s: unknown, evt: { getProperty: (k: string) => unknown }) => void) | null =
+  let connectListener: ((s: unknown, evt: { getProperty: (k: string) => unknown }) => void) | null =
     null;
   const handler = {
-    addListener: (_evt: string, l: typeof listener) => {
-      listener = l;
+    addListener: (_evt: string, l: typeof connectListener) => {
+      connectListener = l;
     },
     removeListener: () => {},
     first: null,
   };
   attachAutoActivation(graph, handler as never);
+  attachSequenceResizeSync(graph);
 
   return {
     graph,
     model,
     parent,
     fireConnect: (edge: Cell) => {
-      listener?.(null, { getProperty: (k) => (k === 'cell' ? edge : undefined) });
+      connectListener?.(null, { getProperty: (k) => (k === 'cell' ? edge : undefined) });
+    },
+    fireResize: (cells: Cell[]) => {
+      const arr = graphListeners.get('cellsResized') ?? [];
+      for (const l of arr) {
+        l(null, { getProperty: (k) => (k === 'cells' ? cells : undefined) });
+      }
     },
   };
 }
@@ -273,4 +299,31 @@ test('ll → 同一 ll：生命线自环，回形路由，不创建 activation�
   assert.equal(geo.points[0].y, exitAbsY);
   assert.equal(geo.points[1].x, centerX + 30);
   assert.equal(geo.points[1].y, entryAbsY);
+});
+
+test('lifeline 拉长后，已画的消息端点保持原始绝对 Y（连线仍水平）', () => {
+  const ctx = makeGraph();
+  const a = addLifeline(ctx, 'A', 0);
+  const b = addLifeline(ctx, 'B', 300);
+
+  // A → B：exitY=0.2 → msgY = 100 + 0.2*400 = 180
+  const edge = connect(ctx, a, b, 0.2);
+
+  // 记录原始消息 Y（exit 端绝对 Y）
+  const aGeo0 = a.getGeometry()!;
+  const origMsgY = aGeo0.y + 0.2 * aGeo0.height;
+  assert.equal(origMsgY, 180);
+
+  // 拉长 A 生命线：y=100 不变，height 400 → 600
+  const aGeo = a.getGeometry()!;
+  aGeo.height = 600;
+  ctx.fireResize([a]);
+
+  // 验证 A 上的 exitY 被重算：exitAbsY=180, newHeight=600
+  // → exitY = (180-100)/600 = 0.1333...
+  // 绝对 Y = 100 + exitY * 600 = 180（保持不变）
+  const st = edge.getStyle() as Record<string, number>;
+  assert.ok(st.exitAbsY != null, 'exitAbsY 应已存储');
+  const newExitAbsY = aGeo.y + st.exitY * aGeo.height;
+  assert.ok(Math.abs(newExitAbsY - origMsgY) < 1e-6, `exit 端点应保持在 Y=${origMsgY}，实际 ${newExitAbsY}`);
 });

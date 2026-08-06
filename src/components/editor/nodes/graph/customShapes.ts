@@ -202,7 +202,10 @@ class UMLActorShape extends Shape {
 class LifelineShape extends Shape {
   /** 文字限制在头部矩形框内（默认实现会让文字悬在整条生命线的中点）。 */
   getLabelBounds(rect: Rectangle): Rectangle {
-    return new Rectangle(rect.x, rect.y, rect.width, HEAD_HEIGHT);
+    const result = new Rectangle(rect.x, rect.y, rect.width, HEAD_HEIGHT);
+    // eslint-disable-next-line no-console
+    console.log('[LifelineShape.getLabelBounds] rect=', { x: rect.x, y: rect.y, w: rect.width, h: rect.height }, '-> result=', { x: result.x, y: result.y, w: result.width, h: result.height });
+    return result;
   }
 
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {

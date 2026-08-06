@@ -522,12 +522,17 @@ export function attachAutoActivation(
       // 清除 target 侧的 entry 约束（原 lifeline 的约束不适用于 activation），
       // 然后设置新的 entry 约束到 ac 的中上部分。
       // 保留 source 侧的 exit 约束（exitY 记录了正确的消息 Y）。
+      // 同时存储 exitAbsY，供 attachSequenceResizeSync 在源 lifeline 拉长时
+      // 重算 exitY，保持消息端点绝对位置不变（连线仍水平）。
       const style = edge.getStyle() ?? {};
       const cleaned: Record<string, unknown> = { ...style };
       delete cleaned.entryPerimeter;
       delete cleaned.entryDx;
       delete cleaned.entryDy;
-      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: 'none', endArrow: 'classic', entryAbsY: msgY } as CellStyle);
+      const exitAbsYVal = (exitYRel != null && sourceGeo)
+        ? sourceGeo.y + exitYRel * sourceGeo.height
+        : msgY;
+      model.setStyle(edge, { ...cleaned, entryX, entryY, edgeStyle: 'none', endArrow: 'classic', entryAbsY: msgY, exitAbsY: exitAbsYVal } as CellStyle);
 
       const finalGeo = edge.getGeometry()?.clone();
       if (finalGeo) {
@@ -738,15 +743,20 @@ export function attachActivationImmovable(graph: AbstractGraph): () => void {
 }
 
 /* ------------------------------------------------------------------ */
-/* 6. 活动块 resize 时同步边端点（保持连线水平）                          */
+/* 6. 活动块 / 生命线 resize 时同步边端点（保持连线水平）                 */
 /* ------------------------------------------------------------------ */
 
 /**
- * 监听 CELLS_RESIZED：当活动块（activation）被调节大小后，
+ * 监听 CELLS_RESIZED：当活动块（activation）或生命线（lifeline）被调节大小后，
  * 根据边上存储的 entryAbsY / exitAbsY（绝对坐标）重算相对 entryY / exitY，
- * 使连线端点跟随原始绝对 Y，保持连线水平。
+ * 使连线端点保持原始绝对 Y，连线仍然水平。
+ *
+ * 为什么需要处理 lifeline：消息线的 exitY/entryY 是相对 lifeline 高度的 0-1 比例值，
+ * 当用户拉长生命线时 height 增大，同样的相对比例会指向新的绝对 Y，原本水平的
+ * 消息线就会倾斜。用 resize 前存下的 exitAbsY/entryAbsY 反推新的相对 Y 即可锁定
+ * 端点的绝对位置。
  */
-export function attachActivationResizeSync(graph: AbstractGraph): () => void {
+export function attachSequenceResizeSync(graph: AbstractGraph): () => void {
   const listener = (_sender: unknown, evt: { getProperty: (key: string) => unknown }) => {
     const cells = evt.getProperty('cells') as Cell[] | undefined;
     if (!cells || cells.length === 0) return;
@@ -755,9 +765,12 @@ export function attachActivationResizeSync(graph: AbstractGraph): () => void {
     model.beginUpdate();
     try {
       for (const cell of cells) {
-        if (!isActivation(cell)) continue;
-        const acGeo = cell.getGeometry();
-        if (!acGeo || acGeo.height === 0) continue;
+        // 处理 activation 和 lifeline 的 resize：
+        //  - activation resize：消息端点跟随 ac 顶/底边移动
+        //  - lifeline resize：消息端点保持原始绝对 Y，不被高度变化影响
+        if (!isActivation(cell) && !isLifeline(cell)) continue;
+        const cellGeo = cell.getGeometry();
+        if (!cellGeo || cellGeo.height === 0) continue;
 
         const edges = graph.getEdges(cell, graph.getDefaultParent(), true, true, false);
         for (const edge of edges) {
@@ -769,10 +782,10 @@ export function attachActivationResizeSync(graph: AbstractGraph): () => void {
           const isTarget = edge.getTerminal(false) === cell;
 
           if (isTarget && style.entryAbsY != null) {
-            patch.entryY = (style.entryAbsY - acGeo.y) / acGeo.height;
+            patch.entryY = (style.entryAbsY - cellGeo.y) / cellGeo.height;
           }
           if (isSource && style.exitAbsY != null) {
-            patch.exitY = (style.exitAbsY - acGeo.y) / acGeo.height;
+            patch.exitY = (style.exitAbsY - cellGeo.y) / cellGeo.height;
           }
 
           if (Object.keys(patch).length > 0) {
@@ -812,7 +825,7 @@ export function attachSequenceInteraction(
   const cleanup3 = attachLifelineHoverDot(graph, container);
   const cleanup4 = attachActorSourceBlock(graph);
   const cleanup5 = attachActivationImmovable(graph);
-  const cleanup6 = attachActivationResizeSync(graph);
+  const cleanup6 = attachSequenceResizeSync(graph);
   graphLog('attachSequenceInteraction done, 6 hooks installed');
 
   return () => {
