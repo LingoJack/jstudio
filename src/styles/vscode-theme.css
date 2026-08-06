@@ -1544,8 +1544,13 @@ button {
   cursor: pointer;
 }
 
-/* 占位文本（空文档时显示） */
-.ProseMirror p.is-editor-empty:first-child::before {
+/* 占位文本（空文档时显示）。必须用 :only-child 而非 :first-child ——
+   TipTap 的 isNodeEmpty 会把 body 为空但 attrs 有内容的块（如带标题的
+   空代码块）判为"空"，导致 editor.isEmpty 为 true、段落被加上
+   is-editor-empty；若只要求 :first-child，文档明明有可见块时第一行
+   仍会渲染 placeholder。:only-child 保证只在 section 内仅剩这一个
+   空段落时才显示。 */
+.ProseMirror p.is-editor-empty:only-child::before {
   content: attr(data-placeholder);
   float: left;
   color: var(--vscode-input-placeholderForeground);

@@ -27,10 +27,18 @@ import { createLowlight, common } from 'lowlight';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore -- highlight.js language submodules ship without reliable .d.ts
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
+// `protobuf` (Protocol Buffers, aka "proto") is also absent from lowlight's
+// `common` bundle - register it so the "Protocol Buffers" dropdown option
+// highlights. The grammar declares `proto` as an alias; we map it explicitly
+// in GRAMMAR_ALIASES below so the user-facing `proto` value resolves here.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore -- highlight.js language submodules ship without reliable .d.ts
+import protobuf from 'highlight.js/lib/languages/protobuf';
 
 export const lowlight = createLowlight(common);
 
 lowlight.register('dockerfile', dockerfile);
+lowlight.register('protobuf', protobuf);
 
 /**
  * Resolve a stored / selected language value to the grammar we can actually
@@ -66,6 +74,10 @@ export const GRAMMAR_ALIASES: Record<string, string> = {
   // CQL (Cassandra Query Language) has no dedicated highlight.js grammar;
   // its syntax is SQL-like enough that the sql grammar highlights it well.
   cql: 'sql',
+  // `proto` is the alias users pick in the dropdown; the registered grammar's
+  // primary name is `protobuf` (registered above). Map so the badge keeps
+  // showing "proto" while the highlighter runs the real grammar.
+  proto: 'protobuf',
   // common runtime / import aliases
   yml: 'yaml',
   py: 'python',

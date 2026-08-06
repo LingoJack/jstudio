@@ -121,4 +121,5 @@ allow:
 - Shell(ls /Users/jacklingo/dev_custom/jstudio/jcli/:*)
 - Shell(cat ~/Library/Application\:*)
 - Shell(cd /Users/lingojack/dev_custom/jstudio/jcli:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/node_modules/highlight.js/lib/languages/:*)
 deny: []

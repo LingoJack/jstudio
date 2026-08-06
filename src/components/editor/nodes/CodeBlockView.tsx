@@ -90,6 +90,7 @@ const LANGUAGES: { value: string; label: string }[] = [
   { value: "markdown", label: "Markdown" },
   { value: "dockerfile", label: "Dockerfile" },
   { value: "graphql", label: "GraphQL" },
+  { value: "proto", label: "Protocol Buffers" },
   { value: "toml", label: "TOML" },
   { value: "diff", label: "Diff" },
   { value: "ini", label: "INI" },
