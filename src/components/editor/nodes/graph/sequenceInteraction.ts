@@ -396,7 +396,7 @@ export function attachAutoActivation(
       graphLog(`msgY=${msgY} fallback to targetGeo.y + HEAD_HEIGHT + 30`);
     }
 
-    /* ---- 自动活动块关闭：仅创建水平消息线，不生成 activation ---- */
+    /* ---- 时序图自动附加块关闭：仅创建水平消息线，不生成 activation ---- */
     if (isEnabled && !isEnabled()) {
       graphLog('autoActivation disabled, styling as plain horizontal message');
       model.beginUpdate();

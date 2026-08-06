@@ -68,6 +68,9 @@ import {
   Palette,
   MoveRight,
   Reply,
+  Shapes,
+  MoreHorizontal,
+  Check,
 } from 'lucide-react';
 
 import { logger } from '../../../../lib/core/logger';
@@ -219,7 +222,7 @@ export function GraphCanvas({
   }, []);
   // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
   const [showGrid, setShowGrid] = useState(false); // 默认不显示网格
-  // 时序图自动活动块开关：开启时从生命线拖消息到生命线会自动生成 activation，
+  // 时序图时序图自动附加块开关：开启时从生命线拖消息到生命线会自动生成 activation，
   // 关闭时只画水平消息线、不自动生成活动块（简洁时序图场景）。
   const [autoActivation, setAutoActivation] = useState(false); // 默认关闭
   // 选中 cell 的文字对齐方式（null 表示无选中或不支持）。
@@ -232,6 +235,16 @@ export function GraphCanvas({
   // 填充色弹出面板开关
   const [fillPickerOpen, setFillPickerOpen] = useState(false);
   const fillPickerRef = useRef<HTMLDivElement>(null);
+  // 形状下拉菜单 & 更多菜单开关（收纳工具栏按钮，减少平铺）
+  const [shapesMenuOpen, setShapesMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const shapesMenuRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  // 形状菜单 hover 延迟关闭定时器（鼠标穿越 trigger→menu 间隙时防误关）。
+  const shapesHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 最近使用的形状 LRU 队列（最近优先，最多 4 个），用于下拉菜单顶部快速复用 +
+  // trigger 按钮默认显示最近一个形状的 glyph。
+  const [recentShapes, setRecentShapes] = useState<GraphNodeShape[]>([]);
   // emit 桥接 ref：toggleGrid 定义早于 scheduleEmit（const TDZ），
   // 用 ref 间接调用，避免顺序依赖。
   const emitNowRef = useRef<() => void>(() => {});
@@ -249,7 +262,7 @@ export function GraphCanvas({
       return next;
     });
   }, []);
-  // 切换自动活动块开关。isEnabled 回调在 graph 初始化时已绑定，运行时动态读取 ref，
+  // 切换时序图自动附加块开关。isEnabled 回调在 graph 初始化时已绑定，运行时动态读取 ref，
   // 无需重建 graph，切换后立即对后续连线生效。开关状态持久化进快照。
   const toggleAutoActivation = useCallback(() => {
     setAutoActivation((prev) => {
@@ -1230,7 +1243,7 @@ export function GraphCanvas({
       if (typeof parsed.showGrid === 'boolean') {
         setShowGrid(parsed.showGrid);
       }
-      // 恢复自动活动块开关（缺省保持默认 true）。
+      // 恢复时序图自动附加块开关（缺省保持默认 true）。
       if (typeof parsed.autoActivation === 'boolean') {
         setAutoActivation(parsed.autoActivation);
         autoActivationRef.current = parsed.autoActivation;
@@ -1452,6 +1465,38 @@ export function GraphCanvas({
     [setPending],
   );
 
+  // 将某形状提升到 LRU 队首（去重，上限 4）。
+  const recordShapeUse = useCallback((shape: GraphNodeShape) => {
+    setRecentShapes((prev) => [shape, ...prev.filter((s) => s !== shape)].slice(0, 4));
+  }, []);
+
+  // 从下拉菜单选形状：记录 LRU + toggle 选中态 + 关闭菜单。
+  const handleSelectShape = useCallback(
+    (shape: GraphNodeShape) => {
+      recordShapeUse(shape);
+      togglePending(shape);
+      setShapesMenuOpen(false);
+    },
+    [recordShapeUse, togglePending],
+  );
+
+  // 形状菜单 hover 展开：鼠标进入立即打开，离开延迟 200ms 关闭
+  // （给鼠标穿越 trigger → menu 6px 间隙留出缓冲）。
+  const handleShapesEnter = useCallback(() => {
+    if (shapesHoverTimer.current) {
+      clearTimeout(shapesHoverTimer.current);
+      shapesHoverTimer.current = null;
+    }
+    setShapesMenuOpen(true);
+  }, []);
+
+  const handleShapesLeave = useCallback(() => {
+    shapesHoverTimer.current = setTimeout(() => {
+      setShapesMenuOpen(false);
+      shapesHoverTimer.current = null;
+    }, 200);
+  }, []);
+
   const handleUndo = useCallback(() => undoManagerRef.current?.undo(), []);
   const handleRedo = useCallback(() => undoManagerRef.current?.redo(), []);
   const handleDelete = useCallback(() => {
@@ -1512,6 +1557,21 @@ export function GraphCanvas({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [fillPickerOpen]);
+
+  // 点击外部关闭形状 / 更多下拉菜单。
+  useEffect(() => {
+    if (!shapesMenuOpen && !moreMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (shapesMenuRef.current && !shapesMenuRef.current.contains(e.target as Node)) {
+        setShapesMenuOpen(false);
+      }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [shapesMenuOpen, moreMenuOpen]);
 
   const handleZoomIn = useCallback(() => {
     const graph = graphRef.current;
@@ -1576,29 +1636,50 @@ export function GraphCanvas({
   /* 工具栏按钮定义                                                  */
   /* -------------------------------------------------------------- */
 
-  const shapeTools = useMemo(
+  const shapeGroups = useMemo(
     () =>
       [
-        // 基础图形
-        { shape: 'rectangle' as const, title: '矩形' },
-        { shape: 'rounded' as const, title: '圆角矩形' },
-        { shape: 'ellipse' as const, title: '椭圆' },
-        { shape: 'diamond' as const, title: '菱形' },
-        { shape: 'text' as const, title: '文本' },
-        { shape: 'note' as const, title: '注释框' },
-        { shape: 'database' as const, title: '数据库' },
-        // 用例图
-        { shape: 'actor' as const, title: '角色（用例图）' },
-        // 泳道图
-        { shape: 'swimlane-v' as const, title: '垂直泳道' },
-        { shape: 'swimlane-h' as const, title: '水平泳道' },
-        // 时序图
-        { shape: 'lifeline' as const, title: '生命线（时序图）' },
-        // activation 已从工具栏移除：手绘时序图时，从 lifelineA 拖消息到 lifelineB
-        // 会自动在 B 上生成 activation。shape 定义保留（AI 生成和旧数据仍能用）。
-      ] satisfies { shape: GraphNodeShape; title: string }[],
+        {
+          label: '基础图形',
+          shapes: [
+            { shape: 'rectangle' as const, title: '矩形' },
+            { shape: 'rounded' as const, title: '圆角矩形' },
+            { shape: 'ellipse' as const, title: '椭圆' },
+            { shape: 'diamond' as const, title: '菱形' },
+            { shape: 'text' as const, title: '文本' },
+            { shape: 'note' as const, title: '注释框' },
+            { shape: 'database' as const, title: '数据库' },
+          ],
+        },
+        {
+          label: '泳道图',
+          shapes: [
+            { shape: 'swimlane-v' as const, title: '垂直泳道' },
+            { shape: 'swimlane-h' as const, title: '水平泳道' },
+          ],
+        },
+        {
+          label: '时序图',
+          shapes: [
+            { shape: 'lifeline' as const, title: '生命线' },
+            { shape: 'actor' as const, title: '角色' },
+          ],
+        },
+      ] satisfies {
+        label: string;
+        shapes: { shape: GraphNodeShape; title: string }[];
+      }[],
+    // activation 已从工具栏移除：手绘时序图时，从 lifelineA 拖消息到 lifelineB
+    // 会自动在 B 上生成 activation（可用工具栏开关关闭）。shape 定义保留（AI 生成和旧数据仍能用）。
     [],
   );
+
+  // 形状 -> 中文标题 的扁平查找表，供 LRU 队列渲染标题用。
+  const shapeTitleMap = useMemo(() => {
+    const m = new Map<GraphNodeShape, string>();
+    for (const g of shapeGroups) for (const s of g.shapes) m.set(s.shape, s.title);
+    return m;
+  }, [shapeGroups]);
 
   return (
     <div
@@ -1621,17 +1702,61 @@ export function GraphCanvas({
       {/* 左侧模具 / 操作工具栏 —— 仅编辑态显示 */}
       {editing && (
         <div className="jgraph-toolbar">
-          {shapeTools.map(({ shape, title }) => (
+          {/* 形状全量菜单：hover 展开，按类别分区 */}
+          <div
+            className="jgraph-dropdown"
+            ref={shapesMenuRef}
+            onMouseEnter={handleShapesEnter}
+            onMouseLeave={handleShapesLeave}
+          >
             <button
-              key={shape}
               type="button"
-              className={`jgraph-tool-btn ${pendingShape === shape ? 'is-active' : ''}`}
-              title={`${title}｜点击后在画布拖拽划定大小`}
-              onClick={() => togglePending(shape)}
+              className="jgraph-tool-btn"
+              title="全部形状｜悬停展开选择"
+              onClick={() => setShapesMenuOpen(true)}
             >
-              <ShapeGlyph shape={shape} />
+              <Shapes size={16} />
             </button>
-          ))}
+            {shapesMenuOpen && (
+              <div className="jgraph-dropdown-menu" role="presentation">
+                {shapeGroups.map((group, gi) => (
+                  <div key={group.label}>
+                    {gi > 0 && <div className="jgraph-dropdown-sep" />}
+                    <div className="jgraph-dropdown-section-label">{group.label}</div>
+                    {group.shapes.map(({ shape, title }) => (
+                      <button
+                        key={shape}
+                        type="button"
+                        className={`jgraph-dropdown-item ${pendingShape === shape ? 'is-active' : ''}`}
+                        title={`${title}｜点击后在画布拖拽划定大小`}
+                        onClick={() => handleSelectShape(shape)}
+                      >
+                        <ShapeGlyph shape={shape} />
+                        <span>{title}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* LRU 最近使用：平铺在 Shapes 入口右侧，竖线分隔，免去展开菜单 */}
+          {recentShapes.length > 0 && (
+            <>
+              <div className="jgraph-tool-sep" />
+              {recentShapes.map((shape) => (
+                <button
+                  key={`lru-${shape}`}
+                  type="button"
+                  className={`jgraph-tool-btn ${pendingShape === shape ? 'is-active' : ''}`}
+                  title={`${shapeTitleMap.get(shape) ?? shape}｜点击后在画布拖拽划定大小`}
+                  onClick={() => handleSelectShape(shape)}
+                >
+                  <ShapeGlyph shape={shape} />
+                </button>
+              ))}
+            </>
+          )}
           <div className="jgraph-tool-sep" />
           <button
             type="button"
@@ -1767,43 +1892,70 @@ export function GraphCanvas({
           >
             <Maximize size={16} />
           </button>
-          <button
-            type="button"
-            className={`jgraph-tool-btn ${showGrid ? 'is-active' : ''}`}
-            title={showGrid ? '隐藏网格' : '显示网格'}
-            onClick={toggleGrid}
-          >
-            <Grid3x3 size={16} />
-          </button>
-          <button
-            type="button"
-            className={`jgraph-tool-btn ${autoActivation ? 'is-active' : ''}`}
-            title={
-              autoActivation
-                ? '自动活动块：开启｜时序图连线时自动生成活动块（点击关闭）'
-                : '自动活动块：关闭｜时序图连线时只画消息线，不生成活动块（点击开启）'
-            }
-            onClick={toggleAutoActivation}
-          >
-            <SquareStack size={16} />
-          </button>
-          <div className="jgraph-tool-sep" />
-          <button
-            type="button"
-            className="jgraph-tool-btn"
-            title="导入 Mermaid 图表"
-            onClick={() => setMermaidDialogOpen(true)}
-          >
-            <FileDown size={16} />
-          </button>
-          <button
-            type="button"
-            className="jgraph-tool-btn"
-            title="AI 生成图表"
-            onClick={() => setAiGraphDialogOpen(true)}
-          >
-            <Sparkles size={16} />
-          </button>
+          {/* 更多菜单：收纳低频开关 & 导入入口 */}
+          <div className="jgraph-dropdown" ref={moreMenuRef}>
+            <button
+              type="button"
+              className="jgraph-tool-btn"
+              title="更多选项"
+              onClick={() => setMoreMenuOpen((v) => !v)}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+            {moreMenuOpen && (
+              <div className="jgraph-dropdown-menu" role="presentation">
+                <button
+                  type="button"
+                  className={`jgraph-dropdown-item ${showGrid ? 'is-active' : ''}`}
+                  title={showGrid ? '隐藏网格' : '显示网格'}
+                  onClick={toggleGrid}
+                >
+                  <Grid3x3 size={16} />
+                  <span>{showGrid ? '隐藏网格' : '显示网格'}</span>
+                  {showGrid && <Check size={14} className="jgraph-dropdown-check" />}
+                </button>
+                <button
+                  type="button"
+                  className={`jgraph-dropdown-item ${autoActivation ? 'is-active' : ''}`}
+                  title={
+                    autoActivation
+                      ? '关闭时序图自动附加块'
+                      : '开启时序图自动附加块｜时序图连线时自动生成活动块'
+                  }
+                  onClick={toggleAutoActivation}
+                >
+                  <SquareStack size={16} />
+                  <span>时序图自动附加块</span>
+                  {autoActivation && <Check size={14} className="jgraph-dropdown-check" />}
+                </button>
+                <div className="jgraph-dropdown-sep" />
+                <button
+                  type="button"
+                  className="jgraph-dropdown-item"
+                  title="导入 Mermaid 图表"
+                  onClick={() => {
+                    setMermaidDialogOpen(true);
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <FileDown size={16} />
+                  <span>导入 Mermaid</span>
+                </button>
+                <button
+                  type="button"
+                  className="jgraph-dropdown-item"
+                  title="AI 生成图表"
+                  onClick={() => {
+                    setAiGraphDialogOpen(true);
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <Sparkles size={16} />
+                  <span>AI 生成图表</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

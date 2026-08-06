@@ -3482,6 +3482,102 @@ button {
   transform: translateY(-50%) rotate(-45deg);
 }
 
+/* ─── 工具栏下拉菜单（形状 / 更多）─── */
+
+.jgraph-dropdown {
+  position: relative;
+  display: flex;
+}
+
+.jgraph-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--vscode-editorWidget-background, #f3f3f3);
+  border: 1px solid var(--vscode-widget-border, rgba(0, 0, 0, 0.1));
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.jgraph-dropdown-section-label {
+  padding: 6px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.jgraph-dropdown-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+}
+
+.jgraph-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground, #333);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.jgraph-dropdown-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(0, 0, 0, 0.06));
+}
+
+.jgraph-dropdown-item.is-active {
+  background: var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.12));
+  color: var(--vscode-list-activeSelectionForeground, #007acc);
+}
+
+.jgraph-dropdown-check {
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+/* hover 菜单透明桥接：覆盖 trigger 与 menu 之间的 6px 间隙，
+   防止鼠标穿越时 onMouseLeave 误触发（配合 200ms 延迟双重保障）。*/
+.jgraph-dropdown:hover .jgraph-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 6px;
+}
+
+/* 暗色模式 */
+.jgraph-canvas-root.is-dark .jgraph-dropdown-menu {
+  background: var(--vscode-editorWidget-background, #252526);
+  border-color: var(--vscode-widget-border, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.jgraph-canvas-root.is-dark .jgraph-dropdown-item {
+  color: var(--vscode-foreground, #ccc);
+}
+
+.jgraph-canvas-root.is-dark .jgraph-dropdown-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.08));
+}
+
+.jgraph-canvas-root.is-dark .jgraph-dropdown-sep {
+  background: var(--vscode-widget-border, rgba(255, 255, 255, 0.12));
+}
+
 /* 待绘制态：画布光标变十字，提示可拖拽划定 */
 .jgraph-canvas-root.is-drawing .jgraph-surface {
   cursor: crosshair;

@@ -309,10 +309,10 @@ function colorStr(v: unknown): string | undefined {
 }
 
 /**
- * 从一个 maxGraph 读回一份干净快照（含视口 + 网格开关 + 自动活动块开关）。
+ * 从一个 maxGraph 读回一份干净快照（含视口 + 网格开关 + 时序图自动附加块开关）。
  * @param graph maxGraph 实例。
  * @param showGrid 当前网格显隐状态（来自组件，写入快照以持久化）。
- * @param autoActivation 时序图自动活动块开关（来自组件，写入快照以持久化）。
+ * @param autoActivation 时序图时序图自动附加块开关（来自组件，写入快照以持久化）。
  */
 export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActivation?: boolean): GraphSnapshot {
   const parent = graph.getDefaultParent();
