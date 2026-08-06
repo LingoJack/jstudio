@@ -935,17 +935,17 @@ export default function CodeBlockView({
             {mermaidPreviewBtn}
             {openWindowBtn}
             {copyBtn}
-            {!isEditingTitle && (
-              <button
-                type="button"
-                onClick={startEditingTitle}
-                className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-title-trigger"
-                title={title ? t("code.editTitle") : t("code.addTitle")}
-                aria-label={title ? t("code.editTitle") : t("code.addTitle")}
-              >
-                <Pencil size={14} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={startEditingTitle}
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-title-trigger"
+              style={isEditingTitle ? { pointerEvents: "none" } : undefined}
+              title={title ? t("code.editTitle") : t("code.addTitle")}
+              aria-label={title ? t("code.editTitle") : t("code.addTitle")}
+              tabIndex={isEditingTitle ? -1 : 0}
+            >
+              <Pencil size={14} />
+            </button>
           </div>
           {isEditingTitle ? (
             <input
