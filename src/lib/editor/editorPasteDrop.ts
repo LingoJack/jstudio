@@ -6,7 +6,7 @@
  * editor instance) and the upload helpers.
  */
 
-import type { Editor } from '@tiptap/react';
+import type { Editor, JSONContent } from '@tiptap/react';
 import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './editorUpload';
 import { getClipboardImageAsFile } from './clipboardImage';
@@ -72,6 +72,71 @@ function cleanExternalHtml(html: string): string {
 
   walk(body);
   return body.innerHTML;
+}
+
+/**
+ * Detect whether plain text looks like a TSV (tab-separated values) table.
+ *
+ * Criteria:
+ * - At least 2 non-empty lines
+ * - Every non-empty line contains at least one tab (≥ 2 columns)
+ * - All non-empty lines have the same number of tab-separated fields
+ *
+ * This catches data copied from spreadsheets, terminals, or rendered tables
+ * where cells are separated by tabs. It deliberately rejects lines without
+ * tabs (e.g. code indentation) and single-line snippets.
+ */
+function looksLikeTSVTable(text: string): boolean {
+  if (!text) return false;
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return false;
+
+  // Every non-empty line must contain at least one tab.
+  if (!lines.every((l) => l.includes('\t'))) return false;
+
+  // Count fields (tab-separated) in each line.
+  const counts = lines.map((l) => l.split('\t').length);
+  const first = counts[0];
+  if (first < 2) return false; // Need at least 2 columns.
+
+  // All lines should have the same column count.
+  return counts.every((c) => c === first);
+}
+
+/**
+ * Convert TSV (tab-separated values) text to a Tiptap table JSON node.
+ *
+ * The first row becomes the header row (tableHeader cells); subsequent
+ * rows are body rows (tableCell cells). Each cell is trimmed and placed
+ * in a paragraph.
+ */
+function tsvToTableJSON(text: string): JSONContent {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+
+  const rows: JSONContent[] = lines.map((line, rowIdx) => {
+    const cells = line.split('\t');
+    const cellType = rowIdx === 0 ? 'tableHeader' : 'tableCell';
+
+    return {
+      type: 'tableRow',
+      content: cells.map((cellText) => ({
+        type: cellType,
+        content: [
+          {
+            type: 'paragraph',
+            content: cellText.trim()
+              ? [{ type: 'text', text: cellText.trim() }]
+              : [],
+          },
+        ],
+      })),
+    };
+  });
+
+  return {
+    type: 'table',
+    content: rows,
+  };
 }
 
 /**
@@ -149,13 +214,36 @@ export function createPasteHandler(
         }
       }
 
+      // TSV (tab-separated values) table detection.
+      // Must run BEFORE the Markdown check: TSV content whose first column
+      // starts with "#" (e.g. a row-number header) would otherwise be
+      // misidentified as a Markdown heading.
+      //
+      // When the clipboard also carries HTML containing a <table>, we defer
+      // to the HTML path (below) which preserves richer table structure
+      // (colspan, alignment, etc.). Only convert TSV when there's no HTML
+      // table.
+      const isTSV = !!(plainText && looksLikeTSVTable(plainText));
+      const hasHtmlTable = !!(htmlText && /<table[\s>]/i.test(htmlText));
+
+      if (isTSV && !hasHtmlTable && editor) {
+        event.preventDefault();
+        const tableJSON = tsvToTableJSON(plainText);
+        editor.commands.insertContent(tableJSON);
+        return true;
+      }
+
       // External text paste: if it looks like Markdown, ALWAYS parse it
       // as Markdown regardless of whether HTML is also present.  Many
       // sources (GitHub, VS Code, Typora) put rendered HTML alongside
       // the Markdown plain text, but the HTML is often lossy (missing
       // marks, stripped formatting).  The Markdown text is the source
       // of truth.
-      if (editor?.markdown && plainText && looksLikeMarkdown(plainText)) {
+      //
+      // Skip Markdown parsing when TSV was detected but deferred to the
+      // HTML table path — the "#" in TSV data is a column header, not a
+      // Markdown heading.
+      if (!isTSV && editor?.markdown && plainText && looksLikeMarkdown(plainText)) {
         event.preventDefault();
         const json = editor.markdown.parse(plainText);
         dedupeMarks(json);
