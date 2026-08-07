@@ -28,6 +28,7 @@ export const PAPER_LIGHT: AppTheme = {
 
     // ── Interaction ──
     'focusBorder': '#0052d9',
+    'diagram-edge': '#05838B', // 时序图/画板连线色：青（与 jstudio-light 的品牌蓝拉开色相）
     'button-background': '#0052d9',
     'button-foreground': '#ffffff',
     'button-hoverBackground': '#003CAB',

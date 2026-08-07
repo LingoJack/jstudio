@@ -582,7 +582,8 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
   svg.style.overflow = 'visible';
 
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  line.setAttribute('stroke', '#4A90E2');
+  // 用 inline style 而非 presentation attribute，才能引用 CSS 变量跟随主题连线色
+  line.style.stroke = 'var(--vscode-diagram-edge, var(--vscode-focusBorder, #4A90E2))';
   line.setAttribute('stroke-width', '3');
   line.setAttribute('stroke-opacity', '0.6');
   line.setAttribute('stroke-linecap', 'round');
@@ -590,7 +591,7 @@ export function attachLifelineHoverDot(graph: AbstractGraph, container: HTMLElem
 
   // 第二条线（用于活动块的双边高亮）
   const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  line2.setAttribute('stroke', '#4A90E2');
+  line2.style.stroke = 'var(--vscode-diagram-edge, var(--vscode-focusBorder, #4A90E2))';
   line2.setAttribute('stroke-width', '3');
   line2.setAttribute('stroke-opacity', '0.6');
   line2.setAttribute('stroke-linecap', 'round');

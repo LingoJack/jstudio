@@ -21,6 +21,7 @@ export const JSTUDIO_DARK: AppTheme = {
     'descriptionForeground': '#9D9D9D',
     'iconForeground': '#CCCCCC',
     'focusBorder': '#07C160',
+    'diagram-edge': '#07C160', // 时序图/画板连线色：品牌绿
     'button-background': '#07C160',
     'button-foreground': '#FFFFFF',
     'button-hoverBackground': '#06AD56',

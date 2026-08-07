@@ -22,6 +22,7 @@ export const INK_LIGHT: AppTheme = {
     'descriptionForeground': '#6b5e52',
     'iconForeground': '#6b5e52',
     'focusBorder': '#1a1612', // 深褐/黑色，与文字一致
+    'diagram-edge': '#1a1612', // 时序图/画板连线色：墨黑
     'button-background': '#1a1612', // 深褐/黑色
     'button-foreground': '#FFFFFF',
     'button-hoverBackground': '#3a3530', // 略浅的褐色

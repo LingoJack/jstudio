@@ -21,6 +21,7 @@ export const INK_DARK: AppTheme = {
     'descriptionForeground': '#7f88b0',
     'iconForeground': '#7f88b0',
     'focusBorder': '#82aaff',
+    'diagram-edge': '#82aaff', // 时序图/画板连线色：Tokyo Night 浅蓝
     'button-background': '#82aaff',
     'button-foreground': '#1e2030',
     'button-hoverBackground': '#6090c0',

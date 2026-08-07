@@ -3682,13 +3682,13 @@ button {
    - Shape.redraw() 的 clear() 会移除所有子节点，因此 GraphCanvas 重写 shape.redraw()，
      在原逻辑执行完毕后重新追加圆点 path 并同步 d 属性。
    - CSS stroke-dasharray(2 38) + round linecap 产生圆点沿路径移动的效果。
-   - 圆点颜色用 color-mix 提亮 40%（比线条更亮），不支持时 fallback 到线条同色。
+   - 圆点颜色用 color-mix 提亮（比线条更亮），不支持时 fallback 到线条同色。
    - 当边数超过阈值时，容器加 .jgraph-flow-off 类，隐藏圆点层。
    ============================================ */
 
 .jgraph-edge-dot {
   fill: none;
-  stroke: var(--vscode-focusBorder, #0052D9);
+  stroke: var(--vscode-diagram-edge, var(--vscode-focusBorder, #0052D9));
   stroke-width: 3;
   stroke-linecap: round;
   stroke-dasharray: 1.5 38.5;
@@ -3698,7 +3698,7 @@ button {
 
 @supports (color: color-mix(in srgb, red, blue)) {
   .jgraph-edge-dot {
-    stroke: color-mix(in srgb, var(--vscode-focusBorder, #0052D9) 25%, white);
+    stroke: color-mix(in srgb, var(--vscode-diagram-edge, var(--vscode-focusBorder, #0052D9)) 25%, white);
   }
 }
 
@@ -3727,13 +3727,13 @@ button {
      跟随鼠标 Y 移动，提示"这条虚线上任意 Y 都可以起线"。
    - fill/stroke 在 JS 里 inline 设置，这里只控制过渡和主题感。
    ============================================ */
-.jgraph-lifeline-hover-dot circle {
+.jgraph-lifeline-hover-dot line {
   transition: opacity 0.12s ease-out;
-  filter: drop-shadow(0 0 3px rgba(74, 144, 226, 0.5));
+  filter: drop-shadow(0 0 3px var(--vscode-diagram-edge, var(--vscode-focusBorder, #4A90E2)));
 }
 
-.jgraph-canvas-root.is-dark .jgraph-lifeline-hover-dot circle {
-  filter: drop-shadow(0 0 4px rgba(74, 144, 226, 0.8));
+.jgraph-canvas-root.is-dark .jgraph-lifeline-hover-dot line {
+  filter: drop-shadow(0 0 4px var(--vscode-diagram-edge, var(--vscode-focusBorder, #4A90E2)));
 }
 
 /* ============================================

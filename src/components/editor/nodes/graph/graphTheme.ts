@@ -159,6 +159,24 @@ function readThemeAccentColor(dark: boolean): string {
 }
 
 /**
+ * 运行时读取连线色（--vscode-diagram-edge）。
+ *
+ * 连线是画板的"结构色"，各主题独立调色（见 themes/*.ts 的 diagram-edge），
+ * 与交互 accent 色（focusBorder）解耦：选中框 / 手柄 / 连接点仍用 accent，
+ * 连线 / 流动圆点 / 生命线悬停高亮用本函数。
+ * 未定义 diagram-edge 时回退到 accent 色，保证旧主题文件兼容。
+ */
+function readThemeEdgeColor(dark: boolean): string {
+  if (typeof window !== 'undefined') {
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue('--vscode-diagram-edge')
+      .trim();
+    if (v) return v;
+  }
+  return readThemeAccentColor(dark);
+}
+
+/**
  * 把 hex 颜色向白色混合（提亮）。amount=0 不变，amount=1 全白。
  * 用于流动圆点：比线条色更亮的同色系，在线条上跳出但不破坏主题色和谐。
  */
@@ -220,7 +238,7 @@ export function paletteFor(shape: GraphNodeShape, dark: boolean): ShapePalette {
     shape === 'edge-dashed' ||
     shape === 'edge-no-arrow'
   ) {
-    return { fill: pal.fill, stroke: readThemeAccentColor(dark) };
+    return { fill: pal.fill, stroke: readThemeEdgeColor(dark) };
   }
   return pal;
 }
@@ -266,14 +284,14 @@ export function getLabelBackgroundColor(dark: boolean): string {
   return readEditorBackground(dark);
 }
 
-/** 获取连线颜色 — 跟随主题 accent 色（动画圆点继承连线 stroke，自动跟随） */
+/** 获取连线颜色 — 跟随主题连线色 --vscode-diagram-edge（动画圆点继承连线 stroke，自动跟随） */
 export function getEdgeColor(dark: boolean): string {
-  return readThemeAccentColor(dark);
+  return readThemeEdgeColor(dark);
 }
 
-/** 获取连线流动圆点颜色 — 主题 accent 色提亮 40%，比线条更亮，在连线上跳出明显 */
+/** 获取连线流动圆点颜色 — 连线色提亮 40%，比线条更亮，在连线上跳出明显 */
 export function getEdgeDotColor(dark: boolean): string {
-  return lightenHex(readThemeAccentColor(dark), 0.4);
+  return lightenHex(readThemeEdgeColor(dark), 0.4);
 }
 
 /** 获取字体颜色 */
@@ -317,7 +335,7 @@ export function createConnectionPointSVG(dark: boolean, size = CONNECTION_POINT_
  */
 export function createLifelineConnectionPointSVG(dark: boolean): string {
   const size = 2;
-  const color = dark ? '#7aa2f7' : '#4A90E2';
+  const color = readThemeEdgeColor(dark);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">\n    <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${color}" fill-opacity="0.3" stroke="none"/>\n  </svg>`;
   const base64 = btoa(
     encodeURIComponent(svg).replace(

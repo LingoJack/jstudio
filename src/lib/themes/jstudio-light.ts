@@ -28,6 +28,7 @@ export const JSTUDIO_LIGHT: AppTheme = {
 
     // ── Interaction ──
     'focusBorder': '#0052D9',
+    'diagram-edge': '#0052D9', // 时序图/画板连线色：品牌蓝
     'button-background': '#0052D9',
     'button-foreground': '#FFFFFF',
     'button-hoverBackground': '#003CAB',
