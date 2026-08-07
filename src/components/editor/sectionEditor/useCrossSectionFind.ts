@@ -113,6 +113,16 @@ export function useCrossSectionFind(
     }
   }, []);
 
+  /** Scroll the active match's section into view WITHOUT stealing DOM focus,
+   *  so the find bar input stays focused across repeated Enter presses. */
+  const focusActive = useCallback(() => {
+    const cur = currentIndexRef.current;
+    const m = matchesRef.current[cur];
+    if (!m) return;
+    const handle = ctxRef.current.getHandle(m.sectionId);
+    handle?.scrollToRange(m.from);
+  }, []);
+
   /** Scan every section's ProseMirror doc for occurrences of `query`. */
   const rescan = useCallback(() => {
     const q = queryRef.current;
@@ -161,17 +171,12 @@ export function useCrossSectionFind(
       setCurrentIndex(0);
     }
     paintAll();
-  }, [clearAllHighlights, paintAll]);
-
-  /** Scroll the active match's section into view WITHOUT stealing DOM focus,
-   *  so the find bar input stays focused across repeated Enter presses. */
-  const focusActive = useCallback(() => {
-    const cur = currentIndexRef.current;
-    const m = matchesRef.current[cur];
-    if (!m) return;
-    const handle = ctxRef.current.getHandle(m.sectionId);
-    handle?.scrollToRange(m.from);
-  }, []);
+    // Scroll the active match into view. Without this, the first match is
+    // highlighted but never scrolled to on the initial search (the
+    // [currentIndex] effect only fires when currentIndex CHANGES, which
+    // doesn't happen on the first search when it stays at 0).
+    focusActive();
+  }, [clearAllHighlights, paintAll, focusActive]);
 
   const next = useCallback(() => {
     if (matchesRef.current.length === 0) return;
@@ -229,12 +234,22 @@ export function useCrossSectionFind(
 
     const subscribeAll = () => {
       const order = ctxRef.current.getOrder();
+      let addedNew = false;
       for (const id of order) {
         const editor = ctxRef.current.getEditor(id);
         if (!editor || editor.isDestroyed) continue;
         if (subscribedRef.current.has(editor)) continue;
         editor.on('update', scheduleRescan);
         subscribedRef.current.add(editor);
+        addedNew = true;
+      }
+      // Re-scan when new editors appear so matches in progressively-mounted
+      // sections are picked up. Sections mount in batches (see
+      // SECTIONS_PER_BATCH in DocumentPanel) and load their content via
+      // setContent({ emitUpdate: false }), which does NOT fire `update` —
+      // so without this, late-mounting sections would never be searched.
+      if (addedNew && queryRef.current) {
+        scheduleRescan();
       }
     };
 

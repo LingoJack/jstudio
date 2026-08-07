@@ -74,7 +74,7 @@ function mapVertexToShape(vertex: MermaidVertex): GraphNodeShape {
   return 'rectangle';
 }
 
-/** 默认节点尺寸 */
+/** 默认节点尺寸（无文本内容的兜底值；有 label 时由 computeNodeSize 按内容计算） */
 const DEFAULT_NODE_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   rectangle: { w: 120, h: 60 },
   rounded: { w: 120, h: 60 },
@@ -93,6 +93,139 @@ const DEFAULT_NODE_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   'edge-dashed': { w: 100, h: 20 },
   'edge-no-arrow': { w: 100, h: 20 },
 };
+
+/* ------------------------------------------------------------------ */
+/* 文本测量与节点定尺寸                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 标签字号。与 graphTheme.SHAPE_FONT_SIZE(13) 对齐——
+ * lib 层不可反向 import components 层的运行时常量，此处本地定义。
+ */
+const LABEL_FONT_SIZE = 13;
+
+/** 行高（maxGraph 默认行距约 1.4 倍字号） */
+const LINE_HEIGHT = Math.round(LABEL_FONT_SIZE * 1.4); // ≈18
+
+/** ASCII 字符平均宽度估算 */
+const ASCII_CHAR_WIDTH = 7;
+
+/** 单行文本宽度上限，超过则 wrapLabel 折行，避免节点无限宽 */
+const MAX_TEXT_WIDTH = 340;
+
+/** 判断字符是否为全角宽字符（CJK / 全角符号 / 圈号数字等，约占一个字号宽） */
+function isWideChar(ch: string): boolean {
+  const code = ch.codePointAt(0) ?? 0;
+  return (
+    (code >= 0x1100 && code <= 0x115f) || // Hangul Jamo
+    (code >= 0x2460 && code <= 0x24ff) || // 圈号数字 ①②③ 等
+    (code >= 0x2e80 && code <= 0x9fff) || // CJK 部首 .. CJK 统一表意
+    (code >= 0xac00 && code <= 0xd7a3) || // Hangul Syllables
+    (code >= 0xf900 && code <= 0xfaff) || // CJK 兼容表意
+    (code >= 0xfe30 && code <= 0xfe6f) || // CJK 兼容形式
+    (code >= 0xff00 && code <= 0xff60) || // 全角形式
+    (code >= 0x20000 && code <= 0x2fa1f) // CJK 扩展 B+
+  );
+}
+
+/** 按 `<br/>` / `<br>` / `\n` 切行，并剥除残余 HTML 标签 */
+function splitLabelLines(label: string): string[] {
+  return label
+    .split(/<br\s*\/?>|\n/gi)
+    .map((l) => l.replace(/<[^>]+>/g, '').trim());
+}
+
+/** 估算单行渲染宽度：宽字符 ≈ 字号，ASCII ≈ 7px */
+function estimateLineWidth(line: string): number {
+  let w = 0;
+  for (const ch of line) {
+    w += isWideChar(ch) ? LABEL_FONT_SIZE : ASCII_CHAR_WIDTH;
+  }
+  return w;
+}
+
+/**
+ * 测量 label 渲染尺寸。
+ * @returns maxWidth 最长行估算宽度（px）；lineCount 行数（至少 1）
+ */
+export function measureLabel(label: string): { maxWidth: number; lineCount: number } {
+  const lines = splitLabelLines(label);
+  let maxWidth = 0;
+  for (const line of lines) {
+    maxWidth = Math.max(maxWidth, estimateLineWidth(line));
+  }
+  return { maxWidth, lineCount: Math.max(lines.length, 1) };
+}
+
+/**
+ * 超宽 label 折行：单行估算宽度超过 maxTextWidth 时按宽度预算断行
+ * （优先在空格处断开，CJK 任意位置可断），用 `<br/>` 重新连接。
+ *
+ * 注意：过程中会剥除 label 内除换行外的 HTML 标签（mermaid 流程图
+ * label 极少使用行内 HTML，剥除可避免在标签中间断行产生坏 HTML）。
+ */
+export function wrapLabel(label: string, maxTextWidth: number = MAX_TEXT_WIDTH): string {
+  const lines = splitLabelLines(label);
+  const out: string[] = [];
+  for (const line of lines) {
+    if (estimateLineWidth(line) <= maxTextWidth) {
+      out.push(line);
+      continue;
+    }
+    let current = '';
+    for (const ch of line) {
+      if (current.length > 0 && estimateLineWidth(current + ch) > maxTextWidth) {
+        // 尝试回退到最近的空格断行（断点太短则硬断）
+        const lastSpace = current.lastIndexOf(' ');
+        if (lastSpace > 0 && estimateLineWidth(current.slice(0, lastSpace)) >= maxTextWidth * 0.5) {
+          out.push(current.slice(0, lastSpace));
+          current = current.slice(lastSpace + 1) + ch;
+        } else {
+          out.push(current);
+          current = ch === ' ' ? '' : ch;
+        }
+      } else {
+        current += ch;
+      }
+    }
+    if (current) out.push(current);
+  }
+  return out.join('<br/>');
+}
+
+/**
+ * 按 label 内容计算节点尺寸。
+ *
+ * 菱形 / 椭圆的文字须落在内接区域，系数相应放大；
+ * 未列出的 shape（流程图解析不会产生）回退到 DEFAULT_NODE_SIZE。
+ */
+export function computeNodeSize(
+  shape: GraphNodeShape,
+  label: string,
+): { w: number; h: number } {
+  const { maxWidth, lineCount } = measureLabel(label);
+  const textH = lineCount * LINE_HEIGHT;
+  switch (shape) {
+    case 'diamond':
+      return {
+        w: Math.max(100, Math.ceil(maxWidth * 1.4) + 40),
+        h: Math.max(80, Math.ceil(textH * 1.9) + 24),
+      };
+    case 'ellipse':
+      return {
+        w: Math.max(120, Math.ceil(maxWidth * 1.3) + 32),
+        h: Math.max(80, Math.ceil(textH * 1.4) + 24),
+      };
+    case 'rectangle':
+    case 'rounded':
+      return {
+        w: Math.max(120, maxWidth + 32),
+        h: Math.max(60, textH + 20),
+      };
+    default:
+      return DEFAULT_NODE_SIZE[shape] ?? DEFAULT_NODE_SIZE.rectangle;
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* 连线映射                                                            */
@@ -149,18 +282,23 @@ function mapEdgeTypeToStyle(edge: MermaidEdge): {
 /* ------------------------------------------------------------------ */
 
 /**
- * 简化层级布局算法
+ * 尺寸感知的层级布局。
  *
- * 基于图的拓扑结构进行层级划分，然后分配坐标。
  * 算法：
- *   1. 找到所有入度为 0 的节点作为第一层
- *   2. BFS 逐层展开，每层节点横向排列
- *   3. 同层节点间距 H_SPACING，层间距 V_SPACING
+ *   1. BFS 拓扑分层（入度为 0 的节点为第一层，逐层展开，环形图断环兜底）
+ *   2. 层内排序：按"已定位前驱节点的交叉轴中心"排序（单遍 barycenter），
+ *      使分支节点尽量贴近父节点，减少连线交叉
+ *   3. 坐标分配：主轴（层方向）按层内最大节点尺寸 + 间距逐层累计；
+ *      交叉轴按节点实际尺寸累计，每层相对最宽层居中
+ *   4. BT/RL 通过对主轴坐标翻转实现，复用同一套 TB/LR 分配逻辑
+ *
+ * @param sizes 每个节点的实际渲染尺寸（由 computeNodeSize 得出）
  */
-function layoutNodes(
+export function layoutNodes(
   vertices: Map<string, MermaidVertex>,
   edges: MermaidEdge[],
   direction: string,
+  sizes: Map<string, { w: number; h: number }>,
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
 
@@ -242,51 +380,91 @@ function layoutNodes(
     }
   }
 
-  // 坐标分配
-  const H_SPACING = 140; // 同层节点水平间距
-  const V_SPACING = 100; // 层间垂直间距
+  /* ---------------- 坐标分配（尺寸感知） ---------------- */
 
-  // 方向调整
+  const H_GAP = 40; // 节点间最小间距
+  const V_GAP = 60; // 层间最小间距
+
+  const sizeOf = (id: string) => sizes.get(id) ?? DEFAULT_NODE_SIZE.rectangle;
+
   const isHorizontal = direction === 'LR' || direction === 'RL';
   const isReverse = direction === 'RL' || direction === 'BT';
 
-  for (let levelIdx = 0; levelIdx < levels.length; levelIdx++) {
-    const level = isReverse ? levels[levels.length - 1 - levelIdx] : levels[levelIdx];
+  // 主轴 = 层叠方向，交叉轴 = 层内排列方向。
+  // 垂直布局（TB/BT）：主轴取节点高，交叉轴取节点宽；水平布局相反。
+  const mainDim = (id: string) => (isHorizontal ? sizeOf(id).w : sizeOf(id).h);
+  const crossDim = (id: string) => (isHorizontal ? sizeOf(id).h : sizeOf(id).w);
+  const mainGap = isHorizontal ? H_GAP : V_GAP;
+  const crossGap = isHorizontal ? V_GAP : H_GAP;
 
-    for (let nodeIdx = 0; nodeIdx < level.length; nodeIdx++) {
-      const nodeId = level[nodeIdx];
+  // 层主轴尺寸（层内最大值）与交叉轴尺寸（层内累计值）
+  const levelMain = levels.map((lv) => Math.max(...lv.map(mainDim)));
+  const levelCross = levels.map(
+    (lv) => lv.reduce((sum, id) => sum + crossDim(id), 0) + crossGap * (lv.length - 1),
+  );
+  const maxCross = Math.max(...levelCross);
+  const totalMain = levelMain.reduce((a, b) => a + b, 0) + mainGap * (levels.length - 1);
 
-      if (isHorizontal) {
-        // 水平布局：层对应列，节点对应行
-        positions.set(nodeId, {
-          x: levelIdx * H_SPACING,
-          y: nodeIdx * V_SPACING,
-        });
-      } else {
-        // 垂直布局（默认 TB）：层对应行，节点对应列
-        positions.set(nodeId, {
-          x: nodeIdx * H_SPACING,
-          y: levelIdx * V_SPACING,
-        });
+  // 逐层分配（先按拓扑序以 TB/LR 语义计算，反向方向最后再翻转主轴）
+  const raw = new Map<string, { main: number; cross: number }>();
+  const crossCenter = new Map<string, number>();
+  let mainCursor = 0;
+
+  /** 已定位前驱节点的交叉轴中心均值；无已定位前驱时返回 -1（稳定排序保持 BFS 顺序） */
+  const predCrossAvg = (id: string): number => {
+    let sum = 0;
+    let n = 0;
+    for (const p of incoming.get(id) ?? []) {
+      const c = crossCenter.get(p);
+      if (c !== undefined) {
+        sum += c;
+        n++;
       }
     }
+    return n > 0 ? sum / n : -1;
+  };
+
+  for (let i = 0; i < levels.length; i++) {
+    const level = [...levels[i]];
+    if (i > 0) {
+      level.sort((a, b) => predCrossAvg(a) - predCrossAvg(b));
+    }
+    // 每层相对最宽层居中
+    let crossCursor = (maxCross - levelCross[i]) / 2;
+    for (const id of level) {
+      raw.set(id, { main: mainCursor, cross: crossCursor });
+      crossCenter.set(id, crossCursor + crossDim(id) / 2);
+      crossCursor += crossDim(id) + crossGap;
+    }
+    mainCursor += levelMain[i] + mainGap;
   }
 
-  // 偏移校正：让所有节点在正数坐标区域
+  // 方向映射 + 主轴翻转 + 正坐标校正
   let minX = Infinity;
   let minY = Infinity;
-  for (const pos of positions.values()) {
-    minX = Math.min(minX, pos.x);
-    minY = Math.min(minY, pos.y);
+  for (const id of nodeIds) {
+    const r = raw.get(id);
+    if (!r) continue;
+    const s = sizeOf(id);
+    let x: number;
+    let y: number;
+    if (isHorizontal) {
+      x = isReverse ? totalMain - r.main - s.w : r.main;
+      y = r.cross;
+    } else {
+      x = r.cross;
+      y = isReverse ? totalMain - r.main - s.h : r.main;
+    }
+    positions.set(id, { x, y });
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
   }
-  if (minX < 50 || minY < 50) {
-    const offsetX = Math.max(0, 50 - minX);
-    const offsetY = Math.max(0, 50 - minY);
+
+  const offsetX = Math.max(0, 50 - minX);
+  const offsetY = Math.max(0, 50 - minY);
+  if (offsetX > 0 || offsetY > 0) {
     for (const [nodeId, pos] of positions) {
-      positions.set(nodeId, {
-        x: pos.x + offsetX,
-        y: pos.y + offsetY,
-      });
+      positions.set(nodeId, { x: pos.x + offsetX, y: pos.y + offsetY });
     }
   }
 
@@ -306,13 +484,23 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
   const nodes: GraphNode[] = [];
   const graphEdges: GraphEdge[] = [];
 
-  // 1. 布局计算
-  const positions = layoutNodes(vertices, edges, direction ?? 'TB');
-
-  // 2. 转换节点
+  // 1. 标签折行 + 按内容计算节点尺寸
+  const labels = new Map<string, string>();
+  const sizes = new Map<string, { w: number; h: number }>();
   for (const [id, vertex] of vertices) {
     const shape = mapVertexToShape(vertex);
-    const size = DEFAULT_NODE_SIZE[shape];
+    const label = wrapLabel(vertex.text ?? id);
+    labels.set(id, label);
+    sizes.set(id, computeNodeSize(shape, label));
+  }
+
+  // 2. 布局计算（尺寸感知）
+  const positions = layoutNodes(vertices, edges, direction ?? 'TB', sizes);
+
+  // 3. 转换节点
+  for (const [id, vertex] of vertices) {
+    const shape = mapVertexToShape(vertex);
+    const size = sizes.get(id) ?? DEFAULT_NODE_SIZE.rectangle;
     const pos = positions.get(id) ?? { x: 50, y: 50 };
 
     nodes.push({
@@ -322,11 +510,11 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
       y: pos.y,
       w: size.w,
       h: size.h,
-      label: vertex.text ?? id,
+      label: labels.get(id) ?? id,
     });
   }
 
-  // 3. 转换连线
+  // 4. 转换连线
   for (const edge of edges) {
     const sourceId = `node-${edge.start}`;
     const targetId = `node-${edge.end}`;
@@ -352,7 +540,7 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
     });
   }
 
-  // 4. 构建快照
+  // 5. 构建快照
   return {
     kind: 'jgraph',
     version: 1,
