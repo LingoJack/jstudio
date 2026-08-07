@@ -181,8 +181,22 @@ export class ResizableTableView implements NodeView {
     this.syncCollapsed()
 
     // Watch for size changes (content edits, column resize, editor resize)
-    // to keep the toggle vertically centered on the first row.
-    this.resizeObserver = new ResizeObserver(() => this.positionToggle())
+    // to keep the toggle vertically centered on the first row, and to
+    // freeze column widths after ProseMirror populates contentDOM (which
+    // happens after the constructor returns).
+    this.resizeObserver = new ResizeObserver(() => {
+      this.positionToggle()
+      // If the table is collapsed but column widths haven't been frozen yet
+      // (e.g. contentDOM was empty during construction), freeze them now.
+      if (this.node.attrs.collapsed) {
+        const needsFreeze = Array.from(this.colgroup.children).some(
+          (col) => (col as HTMLTableColElement).style.minWidth !== '',
+        )
+        if (needsFreeze) {
+          this.syncCollapsed()
+        }
+      }
+    })
     this.resizeObserver.observe(this.contentDOM)
   }
 
