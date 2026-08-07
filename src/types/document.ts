@@ -267,6 +267,13 @@ export interface TableRowData {
 /** Serialized table structure stored in `BlockProperties.tableData`. */
 export interface TableData {
   rows: TableRowData[];
+  /**
+   * Whether the table body is collapsed (only the first row is visible).
+   *
+   * The first row acts as a "header bar" – a chevron toggle in its top-left
+   * corner expands/collapses the remaining rows. Defaults to false.
+   */
+  collapsed?: boolean;
 }
 
 /** A single todo list item, stored in `BlockProperties.todoItems`. */

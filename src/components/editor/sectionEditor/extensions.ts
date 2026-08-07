@@ -20,8 +20,7 @@ import { MathBlockExtension } from '../../../lib/editor/extensions/mathBlockExte
 import Link from '@tiptap/extension-link';
 import { customLinkAutolink } from '../../../lib/editor/extensions/customLinkAutolink';
 import { TextStyle } from '@tiptap/extension-text-style';
-import { Table } from '@tiptap/extension-table';
-import { ResizableTableView } from './ResizableTableView';
+import { CollapsibleTable } from './tableExtension';
 import TableRow from '@tiptap/extension-table-row';
 import { TableHeaderWithVAlign as TableHeader } from './tableCellExtension';
 import { TableCellWithVAlign as TableCell } from './tableCellExtension';
@@ -125,7 +124,7 @@ export function createSectionExtensions(
     // NOTE: `Underline` comes from StarterKit v3 — do not re-add it.
     TextStyle,
     Color,
-    Table.configure({ resizable: true, cellMinWidth: 100, View: ResizableTableView }),
+    CollapsibleTable.configure({ resizable: true, cellMinWidth: 100 }),
     TableRow,
     TableHeader,
     TableCell,

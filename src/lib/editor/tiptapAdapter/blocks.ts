@@ -287,6 +287,10 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
       if (tableData) {
         json.content = tableDataToTiptap(tableData);
       }
+      json.attrs = {
+        ...json.attrs,
+        collapsed: tableData?.collapsed ?? false,
+      };
       break;
     }
     case 'bullet-list':
@@ -511,9 +515,9 @@ export function tiptapJSONToOurBlock(node: JSONContent): Block {
     }
     case 'table': {
       block.content = [];
-      block.properties = {
-        tableData: tiptapToTableData(node),
-      };
+      const tableData = tiptapToTableData(node);
+      tableData.collapsed = node.attrs?.collapsed === true;
+      block.properties = { tableData };
       break;
     }
     case 'bullet-list':

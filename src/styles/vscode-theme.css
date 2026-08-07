@@ -2890,6 +2890,7 @@ button {
   overflow-x: auto;
   width: fit-content;
   max-width: 100%;
+  position: relative; /* containing block for the collapse toggle */
 }
 
 .ProseMirror .tableWrapper table {
@@ -3022,6 +3023,54 @@ button {
 /* While dragging: highlight the handle being resized */
 .ProseMirror.resize-cursor {
   cursor: col-resize;
+}
+
+/* ============================================
+   Table collapse toggle
+   ============================================ */
+
+/* Collapse toggle button - positioned in the top-left corner of the table,
+   overlapping the first cell. Reuses the shared .editor-toolbar-btn /
+   .block-toolbar-btn--sm / .code-collapse-chevron styling from CodeBlock /
+   Collapsible for visual consistency. Only positioning + visibility are
+   table-specific. */
+.ProseMirror .tableWrapper .table-collapse-toggle {
+  position: absolute;
+  top: 5px; /* fallback; JS measures first-row height to center precisely */
+  left: 2px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: auto;
+}
+
+/* Reveal on wrapper hover (expanded state) */
+.ProseMirror .tableWrapper:hover .table-collapse-toggle {
+  opacity: 0.65;
+}
+
+/* Full opacity on direct hover (background comes from .editor-toolbar-btn:hover) */
+.ProseMirror .tableWrapper .table-collapse-toggle:hover {
+  opacity: 1;
+}
+
+/* Always visible when collapsed */
+.ProseMirror .tableWrapper[data-collapsed='true'] .table-collapse-toggle {
+  opacity: 0.8;
+}
+
+/* Collapsed state: hide all body rows except the first one.
+   Column widths are frozen by JS (freezeColumnWidths) before this CSS
+   takes effect, so the first row retains its original width. */
+.ProseMirror .tableWrapper[data-collapsed='true'] tbody tr:not(:first-child) {
+  display: none;
+}
+
+/* When collapsed, remove the first row's bottom border since there's no
+   visible body below it to separate from. */
+.ProseMirror .tableWrapper[data-collapsed='true'] tbody tr:first-child th,
+.ProseMirror .tableWrapper[data-collapsed='true'] tbody tr:first-child td {
+  border-bottom: none;
 }
 
 /* ============================================
