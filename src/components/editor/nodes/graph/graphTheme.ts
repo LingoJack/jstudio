@@ -57,6 +57,87 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
 
 export const FONT_LIGHT = '#374151';
 export const FONT_DARK = '#E5E7EB';
+
+/**
+ * 填充色双套色板：每个用户可选颜色都有浅色 / 深色两个变体。
+ * 浅色变体是 pastel 底（配深字），深色变体是同色相低明度底（配浅字）。
+ * 主题切换时通过 mapFillColor 双向互换，旧快照中的浅色值自动受益，无需数据迁移。
+ */
+const FILL_COLOR_PAIRS: { light: string; dark: string; label: string }[] = [
+  { light: '#fef3c7', dark: '#713f12', label: '浅黄' },
+  { light: '#dbeafe', dark: '#1e3a8a', label: '浅蓝' },
+  { light: '#dcfce7', dark: '#14532d', label: '浅绿' },
+  { light: '#fce7f3', dark: '#831843', label: '浅粉' },
+  { light: '#f3e8ff', dark: '#581c87', label: '浅紫' },
+  { light: '#fed7aa', dark: '#7c2d12', label: '浅橙' },
+  { light: '#e5e7eb', dark: '#4b5563', label: '浅灰' },
+  { light: '#ffffff', dark: '#1f2937', label: '白色' },
+  { light: '#fde68a', dark: '#92400e', label: '黄' },
+  { light: '#93c5fd', dark: '#1d4ed8', label: '蓝' },
+  { light: '#86efac', dark: '#15803d', label: '绿' },
+  { light: '#f9a8d4', dark: '#be185d', label: '粉' },
+  // 内部色（不在取色器中展示）：activation 活动块的默认填充，同样跟随主题。
+  { light: '#f3f4f6', dark: '#374151', label: '' },
+];
+
+/** 取色器预设：按当前主题返回对应变体的色值（所见即所得）。 */
+export function fillPresetsFor(dark: boolean): { value: string; label: string }[] {
+  return FILL_COLOR_PAIRS.filter((p) => p.label).map((p) => ({
+    value: dark ? p.dark : p.light,
+    label: p.label,
+  }));
+}
+
+const fillLookup = new Map<string, { light: string; dark: string }>();
+for (const p of FILL_COLOR_PAIRS) {
+  fillLookup.set(p.light.toLowerCase(), p);
+  fillLookup.set(p.dark.toLowerCase(), p);
+}
+
+/**
+ * 主题切换时映射填充色：已知色（色板配对）双向互换；未知自定义色原样保留。
+ * 'none' / 空值原样返回。
+ */
+export function mapFillColor(color: string, dark: boolean): string {
+  if (!color || color === 'none') return color;
+  const pair = fillLookup.get(color.toLowerCase());
+  if (!pair) return color;
+  const target = dark ? pair.dark : pair.light;
+  // 保留原值的大小写风格无意义——统一返回小写 hex。
+  return target;
+}
+
+/** 计算 hex 颜色的相对亮度（0=黑，1=白）。无法解析时返回 null。 */
+function relativeLuminance(hex: string): number | null {
+  const m = hex.replace(/^#/, '');
+  const full =
+    m.length === 3
+      ? m.split('').map((c) => c + c).join('')
+      : m;
+  if (full.length !== 6) return null;
+  const r = Number.parseInt(full.slice(0, 2), 16);
+  const g = Number.parseInt(full.slice(2, 4), 16);
+  const b = Number.parseInt(full.slice(4, 6), 16);
+  if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+/** 深色填充上的字色 / 浅色填充上的字色 */
+const FONT_ON_DARK_FILL = '#F9FAFB';
+const FONT_ON_LIGHT_FILL = '#1F2937';
+
+/**
+ * 字色决策：
+ * - 无填充 → 主题字色（深/浅模式各自的默认色）。
+ * - 有填充 → 按填充亮度自适应：浅底深字、深底浅字，保证任意自定义色都可读。
+ */
+export function fontColorFor(fill: string | undefined, dark: boolean): string {
+  if (!fill || fill === 'none') return getFontColor(dark);
+  const lum = relativeLuminance(fill);
+  if (lum === null) return getFontColor(dark);
+  return lum > 0.5 ? FONT_ON_LIGHT_FILL : FONT_ON_DARK_FILL;
+}
+
 export const EDGE_LIGHT = '#0052D9'; // 浅色 fallback：主题蓝（--vscode-focusBorder）
 export const EDGE_DARK = '#07C160'; // 暗色 fallback：主题绿（--vscode-focusBorder）
 

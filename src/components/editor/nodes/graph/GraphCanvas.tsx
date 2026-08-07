@@ -95,6 +95,9 @@ import {
   getConnectionPointColor,
   getEdgeColor,
   getFontColor,
+  fontColorFor,
+  mapFillColor,
+  fillPresetsFor,
   getLabelBackgroundColor,
   createConnectionPointSVG,
   createLifelineConnectionPointSVG,
@@ -181,21 +184,7 @@ export interface GraphCanvasProps {
 }
 
 
-/** 填充色预设面板。 */
-const FILL_COLOR_PRESETS: { value: string; label: string }[] = [
-  { value: '#fef3c7', label: '浅黄' },
-  { value: '#dbeafe', label: '浅蓝' },
-  { value: '#dcfce7', label: '浅绿' },
-  { value: '#fce7f3', label: '浅粉' },
-  { value: '#f3e8ff', label: '浅紫' },
-  { value: '#fed7aa', label: '浅橙' },
-  { value: '#e5e7eb', label: '浅灰' },
-  { value: '#ffffff', label: '白色' },
-  { value: '#fde68a', label: '黄' },
-  { value: '#93c5fd', label: '蓝' },
-  { value: '#86efac', label: '绿' },
-  { value: '#f9a8d4', label: '粉' },
-];
+/** 填充色预设面板由 graphTheme.fillPresetsFor(dark) 提供——双套色板，随主题切换。 */
 
 /* ------------------------------------------------------------------ */
 /* 组件                                                                */
@@ -1333,18 +1322,24 @@ export function GraphCanvas({
         if (cell.isVertex()) {
           const shape = styleToNodeShape(oldStyle);
           const pal = paletteFor(shape, dark);
-          // 保留用户手动设置的填充色（非 'none'），仅刷新描边/文字颜色。
+          // 用户填充色走双套色板映射（已知色 ↔ 对应明暗变体，未知自定义色保留），
+          // 避免"深色模式把字刷白、浅色填充保留"导致的白字浅底不可读。
           const oldFill = oldStyle.fillColor;
+          const newFill =
+            oldFill && oldFill !== 'none' ? mapFillColor(oldFill, dark) : pal.fill;
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,
-            fillColor: (oldFill && oldFill !== 'none') ? oldFill : pal.fill,
+            fillColor: newFill,
             strokeColor: pal.stroke,
-            fontColor: getFontColor(dark),
+            // 字色随填充亮度自适应：浅底深字、深底浅字；无填充用主题字色。
+            fontColor: fontColorFor(newFill, dark),
           });
         } else if (cell.isEdge()) {
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,
             strokeColor: getEdgeColor(dark),
+            // 边标签底色与画布一致，字色跟随主题。
+            fontColor: getFontColor(dark),
           });
         }
       }
@@ -1549,6 +1544,12 @@ export function GraphCanvas({
     const cells = graph.getSelectionCells().filter((c) => c.isVertex());
     if (cells.length === 0) return;
     graph.setCellStyles('fillColor', color, cells);
+    // 字色随填充自适应：浅底深字、深底浅字，'none' 用主题字色。
+    graph.setCellStyles(
+      'fontColor',
+      fontColorFor(color === 'none' ? undefined : color, darkModeRef.current),
+      cells,
+    );
     setSelectedFillColor(color);
     setFillPickerOpen(false);
     // 手动触发快照回传（setCellStyles 不一定触发 model change 事件）。
@@ -1861,7 +1862,7 @@ export function GraphCanvas({
                       title="无填充"
                       onClick={() => handleSetFillColor('none')}
                     />
-                    {FILL_COLOR_PRESETS.map((c) => (
+                    {fillPresetsFor(darkMode).map((c) => (
                       <button
                         key={c.value}
                         type="button"
