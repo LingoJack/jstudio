@@ -122,9 +122,19 @@ export const ActivationPerimeter = (bounds: Rectangle, _vertex: CellState, next:
  * 头部高度固定 50px，用户调整高度只影响生命线长度。
  */
 class UMLActorShape extends Shape {
-  /** 有文字时文字条占用的顶部高度（无文字时不占位，保持旧图元视觉不变）。 */
+  /** 有文字时文字条占用的顶部高度（无文字时不占位，保持旧图元视觉不变）。
+   *
+   * 注意：必须依据 cell 的 label 值判断，而非 this.state.text 是否存在。
+   * graph.refresh() 会先销毁全部 CellState（含 text）再重建，重建时
+   * CellRenderer 先 redrawShape（画小人）后 redrawLabel（创建 text），
+   * 若依赖 state.text，小人会以"无文字"布局绘制，与顶部文字条重叠，
+   * 直到下一次图形重绘（编辑/缩放触发）才恢复。
+   */
   private labelOffset(): number {
-    return this.state?.text ? ACTOR_LABEL_HEIGHT : 0;
+    const state = this.state;
+    if (!state) return 0;
+    const value = state.view.graph.getLabel(state.cell);
+    return value != null && value.length > 0 ? ACTOR_LABEL_HEIGHT : 0;
   }
 
   /** 文字限制在图形顶部的文字条内（默认实现会让文字悬在整条虚线的中点）。
