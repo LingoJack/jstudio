@@ -111,7 +111,7 @@ export function SubMenu({ label, icon, children }: SubMenuProps) {
       </button>
       {open && (
         <div
-          className={`absolute top-0 z-dropdown min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg ${flip ? 'right-full' : 'left-full'}`}
+          className={`absolute top-0 z-dropdown min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg ${flip ? 'right-full mr-1' : 'left-full ml-1'}`}
         >
           {children}
         </div>
