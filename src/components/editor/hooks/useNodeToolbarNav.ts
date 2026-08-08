@@ -17,10 +17,10 @@
  *   │                     atom node with the typed character.            │
  *   └────────────────────────────────────────────────────────────────────┘
  *   ┌── editing (interactive blocks only) ───────────────────────────────┐
- *   │  The inner widget (Excalidraw, <iframe>, <video>, …) owns the      │
+ *   │  The inner widget (diagram canvas, <iframe>, <video>, …) owns the      │
  *   │  keyboard.  We move DOM focus into the widget and shield every     │
  *   │  keystroke from ProseMirror (so e.g. Backspace deletes a shape     │
- *   │  inside Excalidraw instead of deleting the whole block).           │
+ *   │  inside the canvas instead of deleting the whole block).           │
  *   │    Escape         → leave editing, back to `selected`.             │
  *   └────────────────────────────────────────────────────────────────────┘
  *
@@ -246,7 +246,7 @@ export function useNodeToolbarNav(
   //  Escape-to-exit while editing.
   //
   //  IMPORTANT: we must NOT blanket-stopPropagation keydown events here.
-  //  Inner widgets like Excalidraw bind their keyboard handler as a React
+  //  Inner widgets like the diagram canvas bind their keyboard handler as a React
   //  synthetic `onKeyDown`, which React 19 dispatches via a single delegated
   //  listener on the React ROOT.  A native `stopPropagation()` on this host
   //  (a descendant of the root) would prevent the event from ever reaching

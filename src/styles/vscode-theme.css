@@ -3234,7 +3234,7 @@ button {
 }
 
 /* ============================================
-   Diagram Block (/diagram) — excalidraw
+   Diagram Block (/diagram) — jgraph
    ============================================ */
 
 .diagram-block-wrapper {
@@ -3303,48 +3303,8 @@ button {
 }
 
 /* ============================================
-   excalidraw canvas & diagram window styles
+   diagram window styles
    ============================================ */
-
-/* ── 隐藏 Excalidraw 默认 UI 中的无关元素（纯画板模式）── */
-
-/* 右上角帮助按钮 (?) */
-.excalidraw .HelpButton,
-.excalidraw .help-icon {
-  display: none !important;
-}
-
-/* GitHub 角标 / 社交分享按钮 */
-.excalidraw .github-corner,
-.excalidraw .GithubCorner,
-.excalidraw .FAQ {
-  display: none !important;
-}
-
-/* excalidraw 链接 / 水印 */
-.excalidraw-link,
-.excalidraw a[href*="excalidraw.com"] {
-  display: none !important;
-}
-
-/* 库面板触发按钮（左侧 Library） */
-.excalidrew__sidebar,
-.excalidraw .library-button,
-.excalidraw .Sidebar {
-  display: none !important;
-}
-
-/* ── 非编辑（只读）模式：彻底隐藏所有 UI，只保留画板 ── */
-.excalidraw-canvas-root.is-readonly .excalidraw .layer-ui__wrapper {
-  display: none !important;
-}
-
-/* excalidraw canvas root: fill its container in normal flow */
-.excalidraw-canvas-root {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
 
 /* Diagram window (new OS window) loading & error states */
 .diagram-window-loading {

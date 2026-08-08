@@ -1,12 +1,12 @@
 /**
- * DiagramExtension — custom block node for excalidraw diagrams.
+ * DiagramExtension — custom block node for diagram (jgraph).
  *
- * Stores a serialized excalidraw scene (JSON string) as a node attribute so the
+ * Stores a serialized diagram snapshot (JSON string) as a node attribute so the
  * drawing data is self-contained and travels with the document. The visual
  * rendering and window editing are handled by DiagramBlockView.
  *
  * Supported attributes:
- *   snapshot — serialized excalidraw scene JSON (empty string = blank canvas)
+ *   snapshot — serialized diagram snapshot JSON (empty string = blank canvas)
  *   width    — display width in px (null = auto, defaults to ~520px)
  *   height   — canvas height in px (null = auto, defaults to ~320px)
  *   align    — 'left' | 'center' (default 'center')
@@ -32,7 +32,7 @@ export interface DiagramNodeAttributes {
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     diagramBlock: {
-      /** Insert a diagram (excalidraw) block. */
+      /** Insert a diagram block. */
       setDiagram: (attrs?: Partial<DiagramNodeAttributes>) => ReturnType;
     };
   }

@@ -2,16 +2,16 @@
  * DiagramWindowApp — 根组件，运行在独立的 OS 窗口中（?window=diagram）。
  *
  * 1. 从 Rust 内存获取初始快照。
- * 2. 渲染全尺寸 Excalidraw 画板。
+ * 2. 渲染全尺寸 Graph 画板。
  * 3. 用户编辑时通过 Tauri event 实时回传快照到主窗口。
  * 4. 主题跟随系统设置同步，包括应用配色主题。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ExcalidrawCanvas } from '../editor/nodes/ExcalidrawCanvas';
+
 import { GraphCanvas } from '../editor/nodes/graph/GraphCanvas';
-import { detectSnapshotKind } from '../editor/nodes/graph/graphSnapshot';
+
 import {
   fetchDiagramData,
   sendDiagramUpdate,
@@ -113,19 +113,11 @@ export default function DiagramWindowApp() {
       }}
     >
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        {detectSnapshotKind(payload?.snapshot ?? '') === 'excalidraw' ? (
-          <ExcalidrawCanvas
-            initialSnapshot={payload?.snapshot ?? ''}
-            onChange={handleChange}
-            darkMode={isDark}
-          />
-        ) : (
-          <GraphCanvas
-            initialSnapshot={payload?.snapshot ?? ''}
-            onChange={handleChange}
-            darkMode={isDark}
-          />
-        )}
+        <GraphCanvas
+          initialSnapshot={payload?.snapshot ?? ''}
+          onChange={handleChange}
+          darkMode={isDark}
+        />
       </div>
     </div>
   );

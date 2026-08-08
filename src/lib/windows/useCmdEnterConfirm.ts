@@ -5,7 +5,7 @@
  *   - 嵌入式 DiagramBlockView：editing 时按 Cmd+Enter 退出编辑模式
  *   - 独立 DiagramWindowApp：按 Cmd+Enter 关闭窗口（提交最新快照）
  *
- * 使用 capture 阶段监听，先于 Excalidraw / maxGraph 内置 keymap 处理，
+ * 使用 capture 阶段监听，先于 maxGraph 内置 keymap 处理，
  * 避免 Cmd+Enter 被画板引擎拦截成"绑定文本到形状"等内部行为。
  *
  * @param callback 触发确认时的回调（exitEditing / close window）
@@ -33,7 +33,7 @@ export function useCmdEnterConfirm(
       callback();
     };
 
-    // capture 阶段：先于 Excalidraw/maxGraph 的 bubble 阶段 keymap。
+    // capture 阶段：先于 maxGraph 的 bubble 阶段 keymap。
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [callback, enabled]);

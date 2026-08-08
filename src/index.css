@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
-/* excalidraw canvas library — required for diagram block rendering */
-@import "@excalidraw/excalidraw/index.css";
+
 
 /* KaTeX - required for math formula block rendering */
 @import "katex/dist/katex.min.css";

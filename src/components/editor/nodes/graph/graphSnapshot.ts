@@ -1,17 +1,15 @@
 /**
- * graphSnapshot — 自研画板（maxGraph 内核）的快照数据格式定义与格式识别。
+ * graphSnapshot - 自研画板（maxGraph 内核）的快照数据格式定义与格式识别。
  *
  * 设计目标：
- *   1. 自研内核与旧 Excalidraw 内核共用同一根字符串通道（`snapshot: string`），
- *      因此本格式必须能从字符串里被**可靠识别**，且与 Excalidraw 格式互不混淆。
- *   2. 自研格式以 `kind: 'jgraph'` 作为判别标记（magic key），并带 `version`。
- *   3. 数据结构是纯粹的 node + edge 图模型，渲染层（maxGraph）可由它无歧义重建，
+ *   1. 快照以 `kind: 'jgraph'` 作为判别标记（magic key），并带 `version`。
+ *   2. 数据结构是纯粹的 node + edge 图模型，渲染层（maxGraph）可由它无歧义重建，
  *      序列化层也只依赖这些字段，与具体引擎实现解耦——将来即便换引擎也不必改格式。
  *
  * 兼容策略（见 detectSnapshotKind）：
- *   - 空字符串            → 'empty'（新建空画板，交给自研内核）
- *   - { kind:'jgraph' }   → 'jgraph'（自研格式）
- *   - 其它能解析的 JSON   → 'excalidraw'（历史遗留快照，继续用 Excalidraw 渲染）
+ *   - 空字符串            -> 'empty'（新建空画板）
+ *   - { kind:'jgraph' }   -> 'jgraph'（自研格式）
+ *   - 其它                -> 'unknown'（无法识别，调用方按需降级处理）
  */
 
 /** 自研格式的判别标记。出现在快照根对象的 `kind` 字段。 */
@@ -154,15 +152,14 @@ export interface GraphSnapshot {
 /* ------------------------------------------------------------------ */
 
 /** 一段 snapshot 字符串的来源种类。 */
-export type SnapshotKind = 'empty' | 'jgraph' | 'excalidraw' | 'unknown';
+export type SnapshotKind = 'empty' | 'jgraph' | 'unknown';
 
 /**
  * 判别一段 snapshot 字符串属于哪种内核格式。
  *
- * - 空 / 空白           → 'empty'
- * - 含 kind:'jgraph'    → 'jgraph'
- * - 含 Excalidraw 特征  → 'excalidraw'（elements 数组，或 type:'excalidraw'）
- * - 其它                → 'unknown'（无法识别，调用方按需降级处理）
+ * - 空 / 空白           -> 'empty'
+ * - 含 kind:'jgraph'    -> 'jgraph'
+ * - 其它                -> 'unknown'（无法识别，调用方按需降级处理）
  */
 export function detectSnapshotKind(snapshot: string | null | undefined): SnapshotKind {
   if (!snapshot || !snapshot.trim()) return 'empty';
@@ -176,12 +173,6 @@ export function detectSnapshotKind(snapshot: string | null | undefined): Snapsho
   const obj = parsed as Record<string, unknown>;
 
   if (obj.kind === JGRAPH_KIND) return 'jgraph';
-
-  // Excalidraw 快照特征：本项目历史快照形如 { elements: [...], viewport: {...} }，
-  // 官方导出文件形如 { type:'excalidraw', elements:[...] }。两者都以 elements 数组为准。
-  if (Array.isArray(obj.elements) || obj.type === 'excalidraw') {
-    return 'excalidraw';
-  }
 
   return 'unknown';
 }

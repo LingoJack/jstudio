@@ -1,5 +1,5 @@
 /**
- * diagramWindow.ts — Tauri 独立窗口管理（excalidraw 画板放大编辑）。
+ * diagramWindow.ts — Tauri 独立窗口管理（画板放大编辑）。
  *
  * 主窗口调用 `openDiagramWindow()` 创建一个独立的 OS 窗口，
  * 数据通过 Rust 内存命令（set/get_preview_data）传递初始快照，
@@ -22,7 +22,7 @@ import { logger } from '../core/logger';
 export interface DiagramPayload {
   /** Source block id. Used to guard updates when a document has many diagrams. */
   blockId?: string;
-  /** Serialized excalidraw scene JSON (empty string for a new board). */
+  /** Serialized diagram snapshot JSON (empty string for a new board). */
   snapshot: string;
   /** Dark mode flag. */
   darkMode?: boolean;
@@ -35,9 +35,9 @@ export interface DiagramPayload {
 let diagramCounter = 0;
 
 /**
- * Open an excalidraw diagram editor in a new independent OS window.
+ * Open a diagram editor in a new independent OS window.
  *
- * @param snapshot  Initial excalidraw scene JSON (empty = blank board).
+ * @param snapshot  Initial diagram snapshot JSON (empty = blank board).
  * @param onUpdate  Callback fired whenever the diagram window sends an updated snapshot.
  * @param darkMode  Whether to render in dark mode.
  * @returns         An unsubscribe function — call to stop listening for updates.

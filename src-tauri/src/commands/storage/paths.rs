@@ -98,6 +98,12 @@ pub fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))
 }
 
+/// Write raw bytes to an arbitrary file path (e.g. returned by the save dialog).
+#[tauri::command]
+pub fn write_file_bytes(path: String, data: Vec<u8>) -> Result<(), String> {
+    fs::write(&path, &data).map_err(|e| format!("failed to write file {path}: {e}"))
+}
+
 /// Copy an image file straight from disk onto the OS clipboard.
 ///
 /// Does the file read + decode + clipboard write entirely on the Rust side,
@@ -122,6 +128,34 @@ pub async fn copy_image_to_clipboard(app: tauri::AppHandle, path: String) -> Res
         let bytes = fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))?;
         let img = image::load_from_memory(&bytes)
             .map_err(|e| format!("failed to decode image {path}: {e}"))?
+            .to_rgba8();
+        let (width, height) = (img.width(), img.height());
+        Ok::<_, String>((img.into_raw(), width, height))
+    })
+    .await
+    .map_err(|e| format!("decode task panicked: {e}"))??;
+
+    let image = tauri::image::Image::new_owned(rgba, width, height);
+    app.clipboard()
+        .write_image(&image)
+        .map_err(|e| format!("failed to write image to clipboard: {e}"))
+}
+
+/// Copy an in-memory image (raw bytes: PNG/JPEG/etc.) to the system clipboard.
+///
+/// This is the byte-array variant of `copy_image_to_clipboard` for use when
+/// the image is generated in the frontend (e.g. canvas export) and no file
+/// path exists yet.
+#[tauri::command]
+pub async fn copy_image_bytes_to_clipboard(
+    app: tauri::AppHandle,
+    data: Vec<u8>,
+) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+
+    let (rgba, width, height) = tauri::async_runtime::spawn_blocking(move || {
+        let img = image::load_from_memory(&data)
+            .map_err(|e| format!("failed to decode image: {e}"))?
             .to_rgba8();
         let (width, height) = (img.width(), img.height());
         Ok::<_, String>((img.into_raw(), width, height))

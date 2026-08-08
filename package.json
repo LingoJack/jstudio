@@ -21,7 +21,6 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.1",
     "@maxgraph/core": "^0.23.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tauri-apps/api": "^2.9.0",

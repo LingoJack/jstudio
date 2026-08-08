@@ -149,9 +149,9 @@ export interface LinkBlockProperties {
   linkAlign?: 'left' | 'center';
 }
 
-/** Diagram (excalidraw) block properties. */
+/** Diagram (jgraph) block properties. */
 export interface DiagramBlockProperties {
-  /** Serialized excalidraw scene JSON string. */
+  /** Serialized diagram snapshot JSON string. */
   diagramSnapshot?: string;
   /** Display width in px (legacy). */
   diagramWidth?: number;

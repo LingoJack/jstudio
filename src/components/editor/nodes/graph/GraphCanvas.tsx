@@ -1,9 +1,9 @@
 /**
  * GraphCanvas — 自研画板内核（基于 maxGraph）。
  *
- * 设计目标：与 ExcalidrawCanvas **完全同签名**（initialSnapshot / onChange /
- * darkMode / className / rootElRef / editing），从而可在 DiagramBlockView 与
- * DiagramWindowApp 中直接替换，调用方无需改动。
+ * 设计目标：提供 initialSnapshot / onChange /
+ * darkMode / className / rootElRef / editing 接口，供 DiagramBlockView 与
+ * DiagramWindowApp 使用。
  *
  * 内核职责：
  *   - 用 maxGraph 渲染 node + edge 图模型（draw.io 同款思路，结构化 UML 友好）。
@@ -12,8 +12,8 @@
  *     从节点边缘拖出连线 + 正交自动路由、选中/拖拽/框选/缩放、undo/redo、Del 删除。
  *   - editing=false 时进入只读：隐藏工具栏、禁止编辑/选择，仅供浏览。
  *
- * 与 Excalidraw 的关键差异：连线是"绑定端点"的——节点移动时连线自动重路由，
- * 这是时序图/用例图所必需、而 Excalidraw 不具备的能力。
+ * 连线特性：连线是"绑定端点"的——节点移动时连线自动重路由，
+ * 这是时序图/用例图所必需的能力。
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -71,9 +71,14 @@ import {
   Shapes,
   MoreHorizontal,
   Check,
+  Download,
+  Copy,
+  ClipboardCopy,
 } from 'lucide-react';
 
 import { logger } from '../../../../lib/core/logger';
+import { saveSvg, saveBlob, svgToPngBlob, copyImageToClipboard, copyTextToClipboard } from '../../../../lib/export/download';
+import { toast } from '../../../../lib/toast';
 
 import {
   detectSnapshotKind,
@@ -300,7 +305,7 @@ function spawnMindmapSibling(graph: Graph, currentCell: Cell, dark: boolean): vo
 }
 
 /* ------------------------------------------------------------------ */
-/* Props — 必须与 ExcalidrawCanvasProps 完全一致                       */
+/* Props                                                          */
 /* ------------------------------------------------------------------ */
 
 export interface GraphCanvasProps {
@@ -1267,7 +1272,7 @@ export function GraphCanvas({
       if (!g) return;
 
       // 缩放分支（macOS 双指捏合 / Ctrl+滚轮）
-      // 使用指数缩放 + 以光标为锚点，步进细腻连续，手感与 Excalidraw / draw.io 一致。
+      // 使用指数缩放 + 以光标为锚点，步进细腻连续，手感与 draw.io 一致。
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const view = g.getView();
@@ -1741,6 +1746,99 @@ export function GraphCanvas({
     return () => document.removeEventListener('mousedown', onDown);
   }, [shapesMenuOpen, moreMenuOpen]);
 
+  // ── 导出 SVG / PNG ──────────────────────────────────────────────
+  // maxGraph 容器内有一个 <svg> 元素，克隆后计算内容包围盒并设置 viewBox，
+  // 即可得到坐标系正确的独立 SVG。
+
+  /** 获取容器内 SVG 的克隆，并设置正确的 viewBox / width / height / xmlns。 */
+  const buildExportSvg = useCallback((): { svgString: string; width: number; height: number } | null => {
+    const container = containerRef.current;
+    const graph = graphRef.current;
+    if (!container || !graph) return null;
+
+    const svg = container.querySelector('svg');
+    if (!svg) return null;
+
+    const clone = svg.cloneNode(true) as SVGSVGElement;
+
+    // 计算所有 cell 的包围盒（图坐标）
+    const parent = graph.getDefaultParent();
+    const cells = graph.getChildCells(parent);
+    const bounds = graph.getBoundingBoxFromGeometry(cells, true);
+
+    const padding = 20;
+    let width: number;
+    let height: number;
+
+    if (bounds) {
+      width = bounds.width + padding * 2;
+      height = bounds.height + padding * 2;
+      clone.setAttribute('viewBox', `${bounds.x - padding} ${bounds.y - padding} ${width} ${height}`);
+    } else {
+      // 空画板，使用容器尺寸
+      width = container.clientWidth;
+      height = container.clientHeight;
+    }
+    clone.setAttribute('width', String(width));
+    clone.setAttribute('height', String(height));
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    // 移除 maxGraph 可能添加的 width/height style 约束
+    clone.style.removeProperty('width');
+    clone.style.removeProperty('height');
+
+    const svgString = new XMLSerializer().serializeToString(clone);
+    return { svgString, width, height };
+  }, []);
+
+  const handleExportSvg = useCallback(() => {
+    const result = buildExportSvg();
+    if (!result) return;
+    saveSvg(result.svgString, `diagram-${Date.now()}.svg`).catch((err) => {
+      logger.error('[GraphCanvas]', `SVG export failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
+    setMoreMenuOpen(false);
+  }, [buildExportSvg]);
+
+  const handleExportPng = useCallback(async () => {
+    const result = buildExportSvg();
+    if (!result) return;
+    try {
+      const bg = darkModeRef.current ? '#1e1e1e' : '#ffffff';
+      const blob = await svgToPngBlob(result.svgString, result.width, result.height, bg);
+      await saveBlob(blob, `diagram-${Date.now()}.png`, 'PNG', ['png']);
+    } catch (err) {
+      logger.error('[GraphCanvas]', `PNG export failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    setMoreMenuOpen(false);
+  }, [buildExportSvg]);
+
+  const handleCopyImage = useCallback(async () => {
+    const result = buildExportSvg();
+    if (!result) return;
+    try {
+      const bg = darkModeRef.current ? '#1e1e1e' : '#ffffff';
+      const blob = await svgToPngBlob(result.svgString, result.width, result.height, bg);
+      await copyImageToClipboard(blob);
+      toast.success('图片已复制到剪贴板');
+    } catch (err) {
+      logger.error('[GraphCanvas]', `Copy image failed: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error('复制失败');
+    }
+    setMoreMenuOpen(false);
+  }, [buildExportSvg]);
+
+  const handleCopySvg = useCallback(() => {
+    const result = buildExportSvg();
+    if (!result) return;
+    copyTextToClipboard(result.svgString)
+      .then(() => toast.success('SVG 代码已复制到剪贴板'))
+      .catch((err) => {
+        logger.error('[GraphCanvas]', `Copy SVG failed: ${err instanceof Error ? err.message : String(err)}`);
+        toast.error('复制失败');
+      });
+    setMoreMenuOpen(false);
+  }, [buildExportSvg]);
+
   const handleZoomIn = useCallback(() => {
     const graph = graphRef.current;
     if (!graph || graph.view.scale >= ZOOM_MAX) return;
@@ -2126,6 +2224,44 @@ export function GraphCanvas({
                 >
                   <Sparkles size={16} />
                   <span>AI 生成图表</span>
+                </button>
+                <div className="jgraph-dropdown-sep" />
+                <button
+                  type="button"
+                  className="jgraph-dropdown-item"
+                  title="导出为 PNG 图片"
+                  onClick={handleExportPng}
+                >
+                  <Download size={16} />
+                  <span>导出 PNG</span>
+                </button>
+                <button
+                  type="button"
+                  className="jgraph-dropdown-item"
+                  title="导出为 SVG 矢量图"
+                  onClick={handleExportSvg}
+                >
+                  <Download size={16} />
+                  <span>导出 SVG</span>
+                </button>
+                <div className="jgraph-dropdown-sep" />
+                <button
+                  type="button"
+                  className="jgraph-dropdown-item"
+                  title="复制为 PNG 图片到剪贴板"
+                  onClick={handleCopyImage}
+                >
+                  <Copy size={16} />
+                  <span>复制为图片</span>
+                </button>
+                <button
+                  type="button"
+                  className="jgraph-dropdown-item"
+                  title="复制 SVG 源码到剪贴板"
+                  onClick={handleCopySvg}
+                >
+                  <ClipboardCopy size={16} />
+                  <span>复制 SVG 代码</span>
                 </button>
               </div>
             )}

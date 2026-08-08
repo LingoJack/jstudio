@@ -1,5 +1,5 @@
 /**
- * DiagramBlockView — React NodeView for the diagram (excalidraw) block.
+ * DiagramBlockView — React NodeView for the diagram (jgraph) block.
  *
  * Interaction model matches FileView:
  *   - When NOT selected: a transparent overlay sits above the canvas
@@ -29,7 +29,7 @@ import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useDiagramSize } from '../hooks/useDiagramSize';
 import { useDiagramEditMode } from '../hooks/useDiagramEditMode';
 import { useDiagramWindow } from '../hooks/useDiagramWindow';
-import { useDiagramRenderer } from '../hooks/useDiagramRenderer';
+
 import { useCmdEnterConfirm } from '../../../lib/windows/useCmdEnterConfirm';
 import { useStore, selectIsDarkMode } from '../../../store';
 import {
@@ -39,7 +39,7 @@ import {
   BlockToolbarDivider,
 } from '../../ui/BlockToolbar';
 import { ResizeHandle } from '../../ui/ResizeHandle';
-import { ExcalidrawCanvas } from './ExcalidrawCanvas';
+
 import { GraphCanvas } from './graph/GraphCanvas';
 import type { DiagramNodeAttributes } from '../../../lib/editor/extensions/diagramExtension';
 
@@ -110,10 +110,10 @@ export default function DiagramBlockView({
   /* -------------------------------------------------------------- */
   /* Edit mode (focus management)                                    */
   /* -------------------------------------------------------------- */
-  const { handleExcalidrawRoot } = useDiagramEditMode(editing);
+  const { handleRootRef } = useDiagramEditMode(editing);
 
   // Cmd/Ctrl+Enter：确认提交，退出编辑模式（与 toolbar 的 ✓ 按钮等价）。
-  // capture 阶段拦截，避免 Excalidraw / maxGraph 内置 keymap 抢先消费。
+  // capture 阶段拦截，避免 maxGraph 内置 keymap 抢先消费。
   useCmdEnterConfirm(exitEditing, editing);
 
   /* -------------------------------------------------------------- */
@@ -121,10 +121,6 @@ export default function DiagramBlockView({
   /* -------------------------------------------------------------- */
   const isDark = useStore(selectIsDarkMode);
 
-  /* -------------------------------------------------------------- */
-  /* Rendering kernel (excalidraw vs graph)                          */
-  /* -------------------------------------------------------------- */
-  const { useLegacyExcalidraw } = useDiagramRenderer(snapshot);
 
   const handleEmbeddedChange = useCallback(
     (json: string) => {
@@ -191,29 +187,19 @@ export default function DiagramBlockView({
             </BlockToolbarButton>
           </BlockToolbar>
 
-          {/* Canvas renderer — kernel routing by snapshot format */}
+          {/* Canvas renderer */}
           <div
             className="diagram-block-canvas"
             contentEditable={false}
             style={canvasStyle}
           >
-            {useLegacyExcalidraw ? (
-              <ExcalidrawCanvas
-                initialSnapshot={snapshot ?? ''}
-                onChange={handleEmbeddedChange}
-                darkMode={isDark}
-                rootElRef={handleExcalidrawRoot}
-                editing={editing}
-              />
-            ) : (
-              <GraphCanvas
-                initialSnapshot={snapshot ?? ''}
-                onChange={handleEmbeddedChange}
-                darkMode={isDark}
-                rootElRef={handleExcalidrawRoot}
-                editing={editing}
-              />
-            )}
+            <GraphCanvas
+              initialSnapshot={snapshot ?? ''}
+              onChange={handleEmbeddedChange}
+              darkMode={isDark}
+              rootElRef={handleRootRef}
+              editing={editing}
+            />
           </div>
 
           {/* Overlay when NOT editing — enables node selection */}
