@@ -32,7 +32,7 @@ const BAR_THICKNESS_RATIO = 0.12;
 /** Stay fully solid for this long after the cursor moves/appears. */
 const BLINK_SOLID_MS = 400;
 /** Full blink cycle (fade out + back in) once blinking begins. */
-const BLINK_PERIOD_MS = 1060;
+const BLINK_PERIOD_MS = 700;
 /** Reduced frame rate once the cursor is stationary and only blink remains. */
 const THROTTLE_FPS = 20;
 
