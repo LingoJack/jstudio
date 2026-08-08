@@ -15,6 +15,19 @@ import { Table } from '@tiptap/extension-table';
 import type { Command } from '@tiptap/core';
 import { ResizableTableView } from './ResizableTableView';
 
+// Register the custom command on TipTap's Commands interface so that
+// `editor.commands.toggleTableCollapsed` / `editor.chain().toggleTableCollapsed()`
+// are typed. A dedicated `collapsibleTable` namespace avoids clashing with the
+// `table` namespace declared by @tiptap/extension-table.
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    collapsibleTable: {
+      /** Toggle the `collapsed` attribute of the table containing the selection. */
+      toggleTableCollapsed: () => ReturnType;
+    };
+  }
+}
+
 export const CollapsibleTable = Table.extend({
   addAttributes() {
     return {

@@ -20,20 +20,30 @@ function getColStyleDeclaration(
 }
 
 /**
- * Updates <col> elements in the colgroup and manages the table width.
+ * Updates <col> elements in the colgroup and manages the table + wrapper width.
  *
  * Width strategy (the key difference from TipTap's built-in TableView):
- * - **No columns resized** -> `width: 100%` so new tables fill the container.
- * - **Some columns resized** -> `width: auto` + `min-width: <totalWidth>` so
- *   the table width is driven by the sum of column widths. Dragging the last
- *   column's right edge directly grows / shrinks the table.
- * - **All columns resized** -> `width: <totalWidth>px` (fully fixed).
+ * - **No columns resized** -> table `width: 100%`, wrapper `width: 100%` so new
+ *   tables fill the container. The wrapper is `100%` (of the editor content
+ *   area, a determinate size) – NOT `fit-content` – so the table's `100%`
+ *   resolves without a circular dependency.
+ * - **Some columns resized** -> table `width: auto` + `min-width: <totalWidth>`,
+ *   wrapper `width: fit-content; max-width: 100%` so it hugs the table (and
+ *   scrolls when the table outgrows the container). No circularity here
+ *   because the table width is px-based, not a percentage of the wrapper.
+ * - **All columns resized** -> table `width: <totalWidth>px` (fully fixed),
+ *   wrapper `fit-content` to hug.
+ *
+ * The border + `overflow-x: auto` live on the wrapper, so the horizontal
+ * scrollbar always sits INSIDE the frame; the wrapper width mode just decides
+ * whether the frame fills the container or hugs the table.
  */
 function updateColumns(
   node: ProseMirrorNode,
   colgroup: HTMLTableColElement,
   table: HTMLTableElement,
   cellMinWidth: number,
+  wrapper: HTMLElement,
 ): void {
   let totalWidth = 0
   let fixedWidth = true
@@ -93,16 +103,25 @@ function updateColumns(
     // Every column has an explicit width -> table has a fixed total width.
     table.style.width = `${totalWidth}px`
     table.style.minWidth = ''
+    // Hug the fixed-width table (scrolls if it outgrows the container).
+    wrapper.style.width = 'fit-content'
+    wrapper.style.maxWidth = '100%'
   } else if (!hasAnyColwidth) {
-    // No columns have been resized -> fill the container.
+    // No columns have been resized -> fill the container. Wrapper is `100%`
+    // (a determinate size) so the table's `width: 100%` resolves without a
+    // circular dependency on the wrapper's own shrink-to-fit width.
     table.style.width = '100%'
     table.style.minWidth = ''
+    wrapper.style.width = '100%'
+    wrapper.style.maxWidth = ''
   } else {
     // Some columns have been resized -> table width is driven by column widths.
     // The table can grow or shrink when the user drags any column edge,
-    // including the last column's right edge.
+    // including the last column's right edge. Hug it (px-based, no circularity).
     table.style.width = ''
     table.style.minWidth = `${totalWidth}px`
+    wrapper.style.width = 'fit-content'
+    wrapper.style.maxWidth = '100%'
   }
 }
 
@@ -148,7 +167,7 @@ export class ResizableTableView implements NodeView {
     this.table = this.dom.appendChild(document.createElement('table'))
 
     this.colgroup = this.table.appendChild(document.createElement('colgroup'))
-    updateColumns(node, this.colgroup, this.table, cellMinWidth)
+    updateColumns(node, this.colgroup, this.table, cellMinWidth, this.dom)
 
     this.contentDOM = this.table.appendChild(document.createElement('tbody'))
 
@@ -177,7 +196,7 @@ export class ResizableTableView implements NodeView {
     }
 
     this.node = node
-    updateColumns(node, this.colgroup, this.table, this.cellMinWidth)
+    updateColumns(node, this.colgroup, this.table, this.cellMinWidth, this.dom)
     this.syncCollapsed()
     return true
   }
@@ -220,7 +239,7 @@ export class ResizableTableView implements NodeView {
       this.freezeColumnWidths()
     } else if (wasCollapsed) {
       // Expanding: recompute column widths the normal way.
-      updateColumns(this.node, this.colgroup, this.table, this.cellMinWidth)
+      updateColumns(this.node, this.colgroup, this.table, this.cellMinWidth, this.dom)
     }
 
     this.dom.setAttribute('data-collapsed', String(collapsed))

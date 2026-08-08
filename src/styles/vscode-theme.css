@@ -2886,6 +2886,14 @@ button {
   margin: 16px 0;
   overflow-x: auto;
   position: relative; /* containing block for the column-resize handle */
+  /* Border + radius live on the wrapper (the scroll container) so the
+     horizontal scrollbar sits INSIDE the frame when a wide table overflows.
+     Width is driven by JS (ResizableTableView.updateColumns): `100%` to fill
+     the container for unsized tables, `fit-content` to hug resized tables. */
+  max-width: 100%;
+  border-radius: 16px;
+  border: 1px solid
+    var(--vscode-block-border, var(--vscode-widget-border, #e5e5e5));
 }
 
 .ProseMirror .tableWrapper table {
@@ -2898,15 +2906,8 @@ button {
   table-layout: fixed;
   margin: 0;
   overflow: hidden;
-  /* Border + radius live on the table (not the wrapper) so that the
-     visual frame hugs the table even when the wrapper is wider.
-     Previously the wrapper used width:fit-content to shrink-wrap the
-     table, but that created a circular sizing dependency with the
-     table's min-width (set during column resize), preventing the
-     table from growing beyond the container. */
-  border-radius: 16px;
-  border: 1px solid
-    var(--vscode-block-border, var(--vscode-widget-border, #e5e5e5));
+  /* Border + radius moved to the wrapper (.tableWrapper); the wrapper's
+     overflow clips cell backgrounds to the rounded corners. */
 }
 
 /* Header row — clearly visible background band to distinguish header from body.
