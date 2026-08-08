@@ -158,7 +158,7 @@ export const SlashMenuList = forwardRef<SlashMenuRenderHandle, SlashMenuRenderPr
             </span>
             <span className="flex flex-col gap-0.5">
               <span className="text-[0.875rem] font-medium">
-                {SLASH_I18N_KEYS[item.title] ? t(SLASH_I18N_KEYS[item.title].title) : item.title}
+                {item.title}
               </span>
               <span className="text-[0.75rem] text-[var(--vscode-descriptionForeground)]">
                 {SLASH_I18N_KEYS[item.title]
