@@ -1747,8 +1747,8 @@ export function GraphCanvas({
   }, [shapesMenuOpen, moreMenuOpen]);
 
   // ── 导出 SVG / PNG ──────────────────────────────────────────────
-  // maxGraph 容器内有一个 <svg> 元素，克隆后计算内容包围盒并设置 viewBox，
-  // 即可得到坐标系正确的独立 SVG。
+  // maxGraph 的 SvgCanvas2D 把 view.scale 和 view.translate 烘焙到每个元素的坐标里，
+  // 因此克隆 SVG 后必须用「缩放后的包围盒」设置 viewBox，否则坐标系不匹配。
 
   /** 获取容器内 SVG 的克隆，并设置正确的 viewBox / width / height / xmlns。 */
   const buildExportSvg = useCallback((): { svgString: string; width: number; height: number } | null => {
@@ -1761,7 +1761,15 @@ export function GraphCanvas({
 
     const clone = svg.cloneNode(true) as SVGSVGElement;
 
-    // 计算所有 cell 的包围盒（图坐标）
+    // maxGraph SVG 内部有 4 个 <g> 子元素：background / draw / overlay / decorator。
+    // overlay 和 decorator 包含选择手柄、预览连线等 UI 元素，导出时必须移除。
+    const gChildren = clone.querySelectorAll(':scope > g');
+    // 保留前两个（background + draw），移除后面的（overlay + decorator）
+    for (let i = 2; i < gChildren.length; i++) {
+      gChildren[i].remove();
+    }
+
+    // 计算所有 cell 的包围盒（模型坐标 / 未缩放）
     const parent = graph.getDefaultParent();
     const cells = graph.getChildCells(parent);
     const bounds = graph.getBoundingBoxFromGeometry(cells, true);
@@ -1770,19 +1778,26 @@ export function GraphCanvas({
     let width: number;
     let height: number;
 
+    // view 的 scale 和 translate 已被 SvgCanvas2D 烘焙到元素坐标中，
+    // 因此 viewBox 也必须用缩放后的坐标。
+    const view = graph.getView();
+    const scale = view.scale;
+    const tx = view.translate.x * scale;
+    const ty = view.translate.y * scale;
+
     if (bounds) {
-      width = bounds.width + padding * 2;
-      height = bounds.height + padding * 2;
-      clone.setAttribute('viewBox', `${bounds.x - padding} ${bounds.y - padding} ${width} ${height}`);
+      const vx = bounds.x * scale + tx - padding;
+      const vy = bounds.y * scale + ty - padding;
+      width = bounds.width * scale + padding * 2;
+      height = bounds.height * scale + padding * 2;
+      clone.setAttribute('viewBox', `${vx} ${vy} ${width} ${height}`);
     } else {
-      // 空画板，使用容器尺寸
       width = container.clientWidth;
       height = container.clientHeight;
     }
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    // 移除 maxGraph 可能添加的 width/height style 约束
     clone.style.removeProperty('width');
     clone.style.removeProperty('height');
 
