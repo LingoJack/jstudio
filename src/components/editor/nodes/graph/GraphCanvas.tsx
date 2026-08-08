@@ -1803,8 +1803,10 @@ export function GraphCanvas({
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    clone.style.removeProperty('width');
-    clone.style.removeProperty('height');
+    // 必须整体移除 style（maxGraph 在根节点留有 left/top/min-width/min-height 等
+    // 内联样式）。WKWebView 把带这些样式的 SVG 栅格化为图片时，会把它当作
+    // 定位元素计算固有尺寸，导致内容纵向被拉伸约 20%（Chromium 无此问题）。
+    clone.removeAttribute('style');
 
     const svgString = new XMLSerializer().serializeToString(clone);
     return { svgString, width, height };
