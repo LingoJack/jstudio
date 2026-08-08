@@ -133,6 +133,9 @@ export class ResizableTableView implements NodeView {
   private getPos?: () => number | undefined
   /** Observes the tbody for size changes to re-center the toggle vertically. */
   private resizeObserver: ResizeObserver | null = null
+  /** Last observed content height – used to skip positionToggle() when only
+   *  the width changes (e.g. during column resize), avoiding forced layout. */
+  private lastContentHeight = 0
 
   constructor(
     node: ProseMirrorNode,
@@ -184,8 +187,18 @@ export class ResizableTableView implements NodeView {
     // to keep the toggle vertically centered on the first row, and to
     // freeze column widths after ProseMirror populates contentDOM (which
     // happens after the constructor returns).
-    this.resizeObserver = new ResizeObserver(() => {
-      this.positionToggle()
+    this.resizeObserver = new ResizeObserver((entries) => {
+      // Only re-position the toggle when the content HEIGHT changes.
+      // During column resize the tbody width changes every frame, but the
+      // row height (and thus the toggle's vertical position) stays the
+      // same.  Skipping positionToggle() avoids a forced synchronous
+      // layout (offsetHeight read) on every drag frame.
+      const entry = entries[0]
+      const currentHeight = entry?.contentRect.height ?? 0
+      if (Math.abs(currentHeight - this.lastContentHeight) > 1) {
+        this.lastContentHeight = currentHeight
+        this.positionToggle()
+      }
       // If the table is collapsed but column widths haven't been frozen yet
       // (e.g. contentDOM was empty during construction), freeze them now.
       if (this.node.attrs.collapsed) {
