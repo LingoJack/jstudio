@@ -921,7 +921,7 @@ export default function CodeBlockView({
             <button
               type="button"
               onClick={toggleCollapsed}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal code-collapse-toggle"
               title={collapsed ? t("code.expand") : t("code.collapse")}
               aria-label={collapsed ? t("code.expand") : t("code.collapse")}
               aria-expanded={!collapsed}
@@ -938,7 +938,7 @@ export default function CodeBlockView({
             <button
               type="button"
               onClick={startEditingTitle}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-title-trigger"
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal code-title-trigger"
               style={isEditingTitle ? { pointerEvents: "none" } : undefined}
               title={title ? t("code.editTitle") : t("code.addTitle")}
               aria-label={title ? t("code.editTitle") : t("code.addTitle")}
