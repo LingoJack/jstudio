@@ -1769,6 +1769,11 @@ export function GraphCanvas({
       gChildren[i].remove();
     }
 
+    // 移除连线上的圆点流动装饰 <path>（.jgraph-edge-dot）。
+    // 它的 fill/stroke 完全由 vscode-theme.css 控制，导出的独立 SVG 没有 CSS，
+    // 浏览器默认 fill:black 会把整条连线路径渲染成黑色填充块。
+    clone.querySelectorAll('.jgraph-edge-dot').forEach((el) => el.remove());
+
     // 计算所有 cell 的包围盒（模型坐标 / 未缩放）
     const parent = graph.getDefaultParent();
     const cells = graph.getChildCells(parent);
