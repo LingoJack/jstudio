@@ -46,12 +46,12 @@ const GLYPH_HEIGHT_RATIO = 1.15;
 
 // ── Blink animation timing (ms) ──────────────────────────────────────
 /** Stay fully solid for this long after the caret moves/appears. */
-const BLINK_SOLID_MS = 530;
+const BLINK_SOLID_MS = 400;
 /** Full blink cycle (fade out + back in) once blinking begins. */
-const BLINK_PERIOD_MS = 1060;
+const BLINK_PERIOD_MS = 700;
 /**
  * Frame rate the loop drops to once the caret is stationary and only the
- * (slow, 1060ms-period) blink remains to animate.  20fps is smooth enough
+ * (slow, 700ms-period) blink remains to animate.  20fps is smooth enough
  * for a sine-fade blink yet cuts the WebView compositor cost to ~1/3 of the
  * 60fps spent during comet motion.  See {@link EditorCursorTrail.shouldThrottle}.
  */
@@ -403,7 +403,7 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * does, because we keep the blink animation (kitty blinks too) — a parked
    * loop would freeze the caret mid-fade.  Instead, once the comet corners
    * have converged and the caret has faded in, the only thing left to animate
-   * is the blink, which is slow (1060ms period) and needs nowhere near 60fps.
+   * is the blink, which is slow (700ms period) and needs nowhere near 60fps.
    * So we keep the loop alive but throttled to {@link THROTTLE_FPS}, cutting
    * the compositor cost to ~1/3 while the caret keeps blinking smoothly.
    *

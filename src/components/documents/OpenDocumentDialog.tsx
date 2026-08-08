@@ -223,7 +223,7 @@ export default function OpenDocumentDialog({
                       : 'text-[var(--vscode-descriptionForeground)] opacity-55'
                   }`}
                 >
-                  {formatDateOr(new Date(item.doc.updatedAt).getTime(), language)}
+                  {formatDateOr(item.doc.updatedAt, language)}
                 </span>
               </div>
             ))

@@ -30,7 +30,7 @@ const BAR_THICKNESS_RATIO = 0.12;
 
 // ── Blink animation timing (ms) — kept in sync with EditorCursorTrail. ──
 /** Stay fully solid for this long after the cursor moves/appears. */
-const BLINK_SOLID_MS = 530;
+const BLINK_SOLID_MS = 400;
 /** Full blink cycle (fade out + back in) once blinking begins. */
 const BLINK_PERIOD_MS = 1060;
 /** Reduced frame rate once the cursor is stationary and only blink remains. */

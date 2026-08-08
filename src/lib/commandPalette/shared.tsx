@@ -103,7 +103,12 @@ export function formatDate(timestamp: number, language: SupportedLanguage = 'zh'
  */
 export function formatDateOr(timestamp: number | string | null | undefined, language: SupportedLanguage = 'zh', fallback = ''): string {
   if (!timestamp) return fallback;
-  const numTs = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
-  if (!numTs || isNaN(numTs)) return fallback;
+  // `new Date()` natively parses ISO 8601 strings AND accepts numeric
+  // millisecond timestamps, so it handles both the string form stored in
+  // DocumentMeta (e.g. "2024-01-15T10:30:00.000Z") and plain numbers.
+  // NOTE: previously used `parseInt` which silently truncated ISO strings
+  // to the year (e.g. 2024) and rendered every date as 1970-01-01.
+  const numTs = new Date(timestamp).getTime();
+  if (isNaN(numTs)) return fallback;
   return formatDate(numTs, language);
 }
