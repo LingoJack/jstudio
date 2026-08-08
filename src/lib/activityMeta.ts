@@ -32,7 +32,7 @@ export const ACTIVITY_ITEM_META: Record<
   documents: { icon: PenLine, labelKey: "app.documents" },
   /** 终端 — 终端图标，点击进入内置终端 */
   terminal: { icon: Terminal, labelKey: "app.terminal" },
-  /** AI Agent — Bot 图标，点击进入 AI 助手聊天 */
+  /** 智能体 — Bot 图标，点击进入智能体聊天 */
   agent: { icon: Bot, labelKey: "app.agent" },
   /** 浏览器 — Globe 图标，点击打开/聚焦内置浏览器窗口 */
   browser: { icon: Globe, labelKey: "app.browser" },

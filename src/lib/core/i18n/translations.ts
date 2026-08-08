@@ -4,7 +4,7 @@ export const translations = {
     "app.documents": "文档",
     "app.settings": "设置",
     "app.terminal": "终端",
-    "app.agent": "JSpirit",
+    "app.agent": "智能体",
     "app.browser": "浏览器",
 
     // ── Browser panel ──
@@ -188,7 +188,7 @@ export const translations = {
     "agent.send": "发送",
     "agent.approveTool": "批准",
     "agent.rejectTool": "拒绝",
-    "agent.untitled": "AI 助手",
+    "agent.untitled": "智能体",
     "agent.noActiveSession": "选择或创建一个任务开始",
 
     // Agent new keys (2024-07 rewrite)
@@ -248,7 +248,7 @@ export const translations = {
     // Agent empty state & suggestions
     "agent.welcomeTitle": "有什么可以帮你的？",
     "agent.welcomeSubtitle":
-      "我是你的 AI 编程助手，可以帮你写代码、分析问题、解释概念",
+      "我是你的智能体，可以帮你写代码、分析问题、解释概念",
     "agent.suggestionAnalyzeCode": "分析代码",
     "agent.suggestionAnalyzeCodeDesc": "帮我理解这段代码的逻辑",
     "agent.suggestionWriteFunction": "写函数",
@@ -316,7 +316,7 @@ export const translations = {
     // ── Settings nav ──
     "settings.title": "设置",
     "settings.general": "通用",
-    "settings.agent": "JSpirit",
+    "settings.agent": "智能体",
     "settings.editor": "编辑器",
     "settings.terminal": "终端",
     "settings.about": "关于",
@@ -483,7 +483,7 @@ export const translations = {
     // ── Agent Model section ──
     "agent.providers": "模型提供方",
     "agent.providersDesc":
-      "管理 AI Agent 使用的模型提供方（OpenAI 兼容）。配置保存在 ~/.jdata/agent/data/agent_config.json",
+      "管理智能体使用的模型提供方（OpenAI 兼容）。配置保存在 ~/.jdata/agent/data/agent_config.json",
     "agent.activeModel": "当前模型",
     "agent.noProviders": "尚未配置任何模型提供方",
     "agent.noProvidersDesc":
@@ -886,7 +886,7 @@ export const translations = {
     "app.documents": "Documents",
     "app.settings": "Settings",
     "app.terminal": "Terminal",
-    "app.agent": "JSpirit",
+    "app.agent": "Agent",
     "app.browser": "Browser",
 
     // ── Browser panel ──
@@ -1073,7 +1073,7 @@ export const translations = {
     "agent.send": "Send",
     "agent.approveTool": "Approve",
     "agent.rejectTool": "Reject",
-    "agent.untitled": "AI Agent",
+    "agent.untitled": "Agent",
     "agent.noActiveSession": "Select or create a task to start",
 
     // Agent new keys (2024-07 rewrite)
@@ -1135,7 +1135,7 @@ export const translations = {
     // Agent empty state & suggestions
     "agent.welcomeTitle": "How can I help you?",
     "agent.welcomeSubtitle":
-      "I'm your AI coding assistant. I can write code, analyze problems, and explain concepts",
+      "I'm your agent. I can write code, analyze problems, and explain concepts",
     "agent.suggestionAnalyzeCode": "Analyze Code",
     "agent.suggestionAnalyzeCodeDesc": "Help me understand this code",
     "agent.suggestionWriteFunction": "Write Function",
@@ -1204,7 +1204,7 @@ export const translations = {
     // ── Settings nav ──
     "settings.title": "Settings",
     "settings.general": "General",
-    "settings.agent": "JSpirit",
+    "settings.agent": "Agent",
     "settings.editor": "Editor",
     "settings.terminal": "Terminal",
     "settings.about": "About",
@@ -1378,7 +1378,7 @@ export const translations = {
     // ── Agent Model section ──
     "agent.providers": "Model Providers",
     "agent.providersDesc":
-      "Manage AI Agent model providers (OpenAI-compatible). Config saved to ~/.jdata/agent/data/agent_config.json",
+      "Manage agent model providers (OpenAI-compatible). Config saved to ~/.jdata/agent/data/agent_config.json",
     "agent.activeModel": "Active Model",
     "agent.noProviders": "No model providers configured",
     "agent.noProvidersDesc":
@@ -1786,3 +1786,4 @@ export const translations = {
     "shortcut.ref.divider": "Divider",
   },
 } as const;
+
