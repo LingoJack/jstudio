@@ -2885,7 +2885,7 @@ button {
 .ProseMirror .tableWrapper {
   margin: 16px 0;
   overflow-x: auto;
-  position: relative; /* containing block for the collapse toggle */
+  position: relative; /* containing block for the column-resize handle */
 }
 
 .ProseMirror .tableWrapper table {
@@ -3030,38 +3030,8 @@ button {
 }
 
 /* ============================================
-   Table collapse toggle
+   Table collapsed state
    ============================================ */
-
-/* Collapse toggle button - positioned in the top-left corner of the table,
-   overlapping the first cell. Reuses the shared .editor-toolbar-btn /
-   .block-toolbar-btn--sm / .code-collapse-chevron styling from CodeBlock /
-   Collapsible for visual consistency. Only positioning + visibility are
-   table-specific. */
-.ProseMirror .tableWrapper .table-collapse-toggle {
-  position: absolute;
-  top: 5px; /* fallback; JS measures first-row height to center precisely */
-  left: 2px;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  pointer-events: auto;
-}
-
-/* Reveal on wrapper hover (expanded state) */
-.ProseMirror .tableWrapper:hover .table-collapse-toggle {
-  opacity: 0.65;
-}
-
-/* Full opacity on direct hover (background comes from .editor-toolbar-btn:hover) */
-.ProseMirror .tableWrapper .table-collapse-toggle:hover {
-  opacity: 1;
-}
-
-/* Always visible when collapsed */
-.ProseMirror .tableWrapper[data-collapsed='true'] .table-collapse-toggle {
-  opacity: 0.8;
-}
 
 /* Collapsed state: hide all body rows except the first one.
    Column widths are frozen by JS (freezeColumnWidths) before this CSS

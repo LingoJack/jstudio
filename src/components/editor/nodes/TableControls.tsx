@@ -1,17 +1,16 @@
 /**
  * TableControls — compact floating toolbar for TipTap tables.
  *
- * When the cursor is inside a table, a minimal toolbar with 3 icons appears
- * at the table's top-right corner:
+ * When the cursor is inside a table, a minimal toolbar appears at the table's
+ * top-right corner with dropdowns for row / column / alignment / merge actions,
+ * a collapse/expand toggle (driven by the table node's `collapsed` attribute),
+ * and a standalone trash icon to delete the entire table.
  *
- *   [ 行 ]  [ 列 ]  [ 对齐 ]
- *
- * Hovering each icon reveals a dropdown with the relevant actions:
+ * Hovering each dropdown icon reveals the relevant actions:
  *   行 → 上方插入行 / 下方插入行 / 设为(取消)表头行 / 删除行
  *   列 → 左侧插入列 / 右侧插入列 / 删除列
- *   对齐 → 左对齐 / 居中 / 右对齐
- *
- * Plus a standalone trash icon to delete the entire table.
+ *   对齐 → 左对齐 / 居中 / 右对齐 (水平) + 顶部/居中/底部 (垂直)
+ *   合并 → 合并单元格 / 拆分单元格
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -30,6 +29,8 @@ import {
   Merge,
   Split,
   Heading,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +56,8 @@ export default function TableControls({ editor }: TableControlsProps) {
   const [canSplit, setCanSplit] = useState(false);
   /** Whether the row containing the cursor is a header row. */
   const [hasHeaderRow, setHasHeaderRow] = useState(false);
+  /** Whether the table containing the cursor is collapsed (only first row). */
+  const [collapsed, setCollapsed] = useState(false);
   const interactingRef = useRef(false);
   /** rAF handle so the transaction listener coalesces to one update/frame. */
   const rafRef = useRef<number | null>(null);
@@ -71,9 +74,12 @@ export default function TableControls({ editor }: TableControlsProps) {
   const updateAll = useCallback(() => {
     const { $from } = editor.state.selection;
     let tablePos: number | null = null;
+    let tableCollapsed = false;
     for (let d = $from.depth; d > 0; d--) {
-      if ($from.node(d).type.name === 'table') {
+      const node = $from.node(d);
+      if (node.type.name === 'table') {
         tablePos = $from.before(d);
+        tableCollapsed = !!node.attrs.collapsed;
         break;
       }
     }
@@ -97,6 +103,7 @@ export default function TableControls({ editor }: TableControlsProps) {
 
     const rect = tableEl.getBoundingClientRect();
     setToolbar({ x: rect.right, y: rect.top });
+    setCollapsed(tableCollapsed);
 
     if (editor.isActive({ textAlign: 'center' })) setAlign('center');
     else if (editor.isActive({ textAlign: 'right' })) setAlign('right');
@@ -354,6 +361,20 @@ export default function TableControls({ editor }: TableControlsProps) {
           }}
         />
       </Dropdown>
+
+      {/* Collapse / expand table */}
+      <button
+        type="button"
+        title={collapsed ? '展开表格' : '折叠表格'}
+        onClick={() => run(() => editor.commands.toggleTableCollapsed())}
+        className="editor-toolbar-btn table-ctrl-btn flex h-7 w-7 items-center justify-center rounded text-[var(--vscode-editor-foreground)]"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-4 w-4" />
+        ) : (
+          <ChevronDown className="h-4 w-4" />
+        )}
+      </button>
 
       {/* Divider */}
       <div className="mx-0.5 h-5 w-px bg-[var(--vscode-menu-border)]" />

@@ -1,5 +1,5 @@
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
-import type { EditorView, NodeView, ViewMutationRecord } from '@tiptap/pm/view'
+import type { NodeView, ViewMutationRecord } from '@tiptap/pm/view'
 
 /**
  * Returns the CSS property declaration for a <col> element.
@@ -23,11 +23,11 @@ function getColStyleDeclaration(
  * Updates <col> elements in the colgroup and manages the table width.
  *
  * Width strategy (the key difference from TipTap's built-in TableView):
- * - **No columns resized** → `width: 100%` so new tables fill the container.
- * - **Some columns resized** → `width: auto` + `min-width: <totalWidth>` so
+ * - **No columns resized** -> `width: 100%` so new tables fill the container.
+ * - **Some columns resized** -> `width: auto` + `min-width: <totalWidth>` so
  *   the table width is driven by the sum of column widths. Dragging the last
  *   column's right edge directly grows / shrinks the table.
- * - **All columns resized** → `width: <totalWidth>px` (fully fixed).
+ * - **All columns resized** -> `width: <totalWidth>px` (fully fixed).
  */
 function updateColumns(
   node: ProseMirrorNode,
@@ -90,15 +90,15 @@ function updateColumns(
     /\bwidth\s*:/i.test(node.attrs.style)
 
   if (fixedWidth && !hasUserWidth) {
-    // Every column has an explicit width → table has a fixed total width.
+    // Every column has an explicit width -> table has a fixed total width.
     table.style.width = `${totalWidth}px`
     table.style.minWidth = ''
   } else if (!hasAnyColwidth) {
-    // No columns have been resized → fill the container.
+    // No columns have been resized -> fill the container.
     table.style.width = '100%'
     table.style.minWidth = ''
   } else {
-    // Some columns have been resized → table width is driven by column widths.
+    // Some columns have been resized -> table width is driven by column widths.
     // The table can grow or shrink when the user drags any column edge,
     // including the last column's right edge.
     table.style.width = ''
@@ -108,12 +108,19 @@ function updateColumns(
 
 /**
  * Custom NodeView for table nodes that supports dragging the last column's
- * right edge to resize the entire table width, and collapsing the table body
- * so only the first row (header bar) is visible.
+ * right edge to resize the entire table width, and rendering the collapsed
+ * state (only the first row visible) driven by the table node's `collapsed`
+ * attribute.
+ *
+ * The collapse / expand toggle itself lives in the `TableControls` floating
+ * toolbar (top-right corner, shown when the cursor is inside the table); this
+ * view only reflects the `collapsed` attribute on the wrapper
+ * (`data-collapsed`, which drives the CSS that hides body rows) and freezes
+ * column widths so the first row keeps its width when the body is hidden.
  *
  * The built-in TipTap `TableView` is not exported, so this is a standalone
  * implementation that follows the same structure but with modified width
- * management in `updateColumns` and an added collapse toggle.
+ * management in `updateColumns`.
  */
 export class ResizableTableView implements NodeView {
   node: ProseMirrorNode
@@ -123,56 +130,20 @@ export class ResizableTableView implements NodeView {
   colgroup: HTMLTableColElement
   contentDOM: HTMLTableSectionElement
 
-  /** Chevron toggle for collapse / expand, positioned over the first cell. */
-  private collapseToggle: HTMLButtonElement
-  /** The SVG chevron icon inside the toggle button. */
-  private collapseChevron: SVGElement | null
-  /** EditorView, used to dispatch collapse transactions. */
-  private view?: EditorView
-  /** Returns the document position of the table node (or undefined). */
-  private getPos?: () => number | undefined
-  /** Observes the tbody for size changes to re-center the toggle vertically. */
+  /** Observes the tbody so we can freeze column widths once ProseMirror has
+   *  populated it (the constructor runs before the rows are rendered). */
   private resizeObserver: ResizeObserver | null = null
-  /** Last observed content height – used to skip positionToggle() when only
-   *  the width changes (e.g. during column resize), avoiding forced layout. */
-  private lastContentHeight = 0
 
   constructor(
     node: ProseMirrorNode,
     cellMinWidth: number,
-    view?: EditorView,
     _HTMLAttributes: Record<string, any> = {},
-    getPos?: () => number | undefined,
   ) {
     this.node = node
     this.cellMinWidth = cellMinWidth
-    this.view = view
-    this.getPos = getPos
 
     this.dom = document.createElement('div')
     this.dom.className = 'tableWrapper'
-
-    // Collapse toggle – a small chevron button that sits in the top-left
-    // corner of the table (overlapping the first cell).  Reuses the same
-    // .editor-toolbar-btn / .block-toolbar-btn--sm / .code-collapse-toggle
-    // styling as CodeBlockView and CollapsibleView for visual consistency.
-    // It is a child of the wrapper div but lives outside <table>/<tbody>
-    // so ProseMirror ignores it.
-    this.collapseToggle = document.createElement('button')
-    this.collapseToggle.type = 'button'
-    this.collapseToggle.className =
-      'editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle table-collapse-toggle'
-    this.collapseToggle.title = 'Collapse / expand table'
-    this.collapseToggle.setAttribute('aria-label', 'Collapse / expand table')
-    this.collapseToggle.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="code-collapse-chevron"><path d="m9 18 6-6-6-6"/></svg>'
-    this.collapseChevron = this.collapseToggle.querySelector('.code-collapse-chevron')
-    this.collapseToggle.addEventListener('mousedown', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-    })
-    this.collapseToggle.addEventListener('click', (e) => this.handleToggleClick(e))
-    this.dom.appendChild(this.collapseToggle)
 
     this.table = this.dom.appendChild(document.createElement('table'))
 
@@ -183,24 +154,11 @@ export class ResizableTableView implements NodeView {
 
     this.syncCollapsed()
 
-    // Watch for size changes (content edits, column resize, editor resize)
-    // to keep the toggle vertically centered on the first row, and to
-    // freeze column widths after ProseMirror populates contentDOM (which
-    // happens after the constructor returns).
-    this.resizeObserver = new ResizeObserver((entries) => {
-      // Only re-position the toggle when the content HEIGHT changes.
-      // During column resize the tbody width changes every frame, but the
-      // row height (and thus the toggle's vertical position) stays the
-      // same.  Skipping positionToggle() avoids a forced synchronous
-      // layout (offsetHeight read) on every drag frame.
-      const entry = entries[0]
-      const currentHeight = entry?.contentRect.height ?? 0
-      if (Math.abs(currentHeight - this.lastContentHeight) > 1) {
-        this.lastContentHeight = currentHeight
-        this.positionToggle()
-      }
-      // If the table is collapsed but column widths haven't been frozen yet
-      // (e.g. contentDOM was empty during construction), freeze them now.
+    // ProseMirror populates `contentDOM` (the <tbody>) only AFTER the
+    // constructor returns.  When a table is loaded already collapsed, the
+    // first freezeColumnWidths() call in syncCollapsed() finds no <tr> and
+    // bails – so we re-run it once the rows actually appear.
+    this.resizeObserver = new ResizeObserver(() => {
       if (this.node.attrs.collapsed) {
         const needsFreeze = Array.from(this.colgroup.children).some(
           (col) => (col as HTMLTableColElement).style.minWidth !== '',
@@ -221,7 +179,6 @@ export class ResizableTableView implements NodeView {
     this.node = node
     updateColumns(node, this.colgroup, this.table, this.cellMinWidth)
     this.syncCollapsed()
-    this.positionToggle()
     return true
   }
 
@@ -235,9 +192,8 @@ export class ResizableTableView implements NodeView {
     const isInsideWrapper = this.dom.contains(target)
     const isInsideContent = this.contentDOM.contains(target)
 
-    // Ignore mutations on the colgroup, col elements, collapse toggle, table
-    // attributes, etc. so that ProseMirror doesn't try to re-render and wipe
-    // our manual DOM.
+    // Ignore mutations on the colgroup, col elements, table attributes, etc.
+    // so that ProseMirror doesn't try to re-render and wipe our manual DOM.
     if (isInsideWrapper && !isInsideContent) {
       if (
         mutation.type === 'attributes' ||
@@ -252,34 +208,22 @@ export class ResizableTableView implements NodeView {
   }
 
   /**
-   * Prevent ProseMirror from treating clicks on the collapse toggle as
-   * cursor-placement events inside the table.
+   * Sync the wrapper's `data-collapsed` attribute (which drives the CSS that
+   * hides body rows) with the node's `collapsed` attr, freezing / restoring
+   * column widths around the transition so the table doesn't visually jump.
    */
-  stopEvent(event: Event): boolean {
-    const target = event.target as Node | null
-    return !!target && this.collapseToggle.contains(target)
-  }
-
-  /** Sync `data-collapsed` and chevron rotation with the node's `collapsed` attr. */
   private syncCollapsed(): void {
     const collapsed = !!this.node.attrs.collapsed
     const wasCollapsed = this.dom.getAttribute('data-collapsed') === 'true'
 
     if (collapsed) {
-      if (wasCollapsed) {
-        this.dom.removeAttribute('data-collapsed')
-      }
       this.freezeColumnWidths()
     } else if (wasCollapsed) {
+      // Expanding: recompute column widths the normal way.
       updateColumns(this.node, this.colgroup, this.table, this.cellMinWidth)
     }
 
     this.dom.setAttribute('data-collapsed', String(collapsed))
-    this.collapseToggle.setAttribute('aria-expanded', String(!collapsed))
-    // Rotate chevron: is-open -> points down (expanded), no class -> points right (collapsed)
-    if (this.collapseChevron) {
-      this.collapseChevron.classList.toggle('is-open', !collapsed)
-    }
   }
 
   /**
@@ -310,39 +254,5 @@ export class ResizableTableView implements NodeView {
         cols[colIdx].style.minWidth = ''
       }
     }
-  }
-
-  /**
-   * Vertically center the collapse toggle on the first table row.
-   *
-   * The toggle is absolutely positioned inside the `tableWrapper`, so we
-   * measure the first `<tr>` height and set `top` to `(rowHeight - btnHeight)
-   * / 2`.  Called on init (via ResizeObserver), on node updates, and whenever
-   * the tbody size changes.
-   */
-  private positionToggle(): void {
-    const firstRow = this.contentDOM.querySelector('tr')
-    if (!firstRow) return
-    const rowHeight = (firstRow as HTMLElement).offsetHeight
-    const btnHeight = this.collapseToggle.offsetHeight || 26
-    this.collapseToggle.style.top = `${Math.max(0, (rowHeight - btnHeight) / 2)}px`
-  }
-
-  /** Toggle the `collapsed` attribute via a ProseMirror transaction. */
-  private handleToggleClick(e: MouseEvent): void {
-    e.stopPropagation()
-    e.preventDefault()
-
-    if (!this.view || !this.getPos) return
-    const pos = this.getPos()
-    if (pos === undefined) return
-
-    const collapsed = !!this.node.attrs.collapsed
-    this.view.dispatch(
-      this.view.state.tr.setNodeMarkup(pos, undefined, {
-        ...this.node.attrs,
-        collapsed: !collapsed,
-      }),
-    )
   }
 }
