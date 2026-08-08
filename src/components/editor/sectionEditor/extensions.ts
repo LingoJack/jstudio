@@ -7,6 +7,7 @@
  */
 
 import type { Extensions } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Code from '@tiptap/extension-code';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -86,6 +87,19 @@ export function createSectionExtensions(
         return {
           'Mod-`': () => this.editor.commands.toggleCode(),
           ...this.parent?.(),
+        };
+      },
+    }),
+    // Strike (strikethrough) comes from StarterKit but the extension does NOT
+    // register a default keyboard shortcut. Add Mod-Shift-S here so the
+    // reference shortcut (Cmd+Shift+S) actually works. ShortcutManager's
+    // FIXED_EDITOR_RESERVED_BINDINGS already reserves this binding for the
+    // editor, so it reaches ProseMirror instead of being intercepted globally.
+    Extension.create({
+      name: 'strikeShortcut',
+      addKeyboardShortcuts() {
+        return {
+          'Mod-Shift-s': () => this.editor.commands.toggleStrike(),
         };
       },
     }),

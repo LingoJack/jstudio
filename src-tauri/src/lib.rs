@@ -19,8 +19,9 @@ mod macos_menu_cleanup {
     use std::ffi::c_void;
 
     /// Items we explicitly add to the Edit menu:
-    /// Undo, Redo, separator, Cut, Copy, Paste, separator, Find, separator, Inline Code
-    const EDIT_MENU_ITEM_COUNT: isize = 10;
+    /// Undo, Redo, separator, Cut, Copy, Paste, Select All, separator,
+    /// Inline Code, separator, Find
+    const EDIT_MENU_ITEM_COUNT: isize = 11;
 
     // dispatch_get_main_queue() is a C macro (not a real function) that
     // expands to &_dispatch_main_q. We declare the global directly.
@@ -227,9 +228,9 @@ fn build_app_menu<R: tauri::Runtime>(
             &PredefinedMenuItem::paste(app, None)?,
             &select_all_item,
             &PredefinedMenuItem::separator(app)?,
-            &find_item,
-            &PredefinedMenuItem::separator(app)?,
             &inline_code_item,
+            &PredefinedMenuItem::separator(app)?,
+            &find_item,
         ],
     )?;
 
