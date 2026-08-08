@@ -38,6 +38,7 @@ export type GraphNodeShape =
   | 'activation' // 时序图：激活框（窄矩形）
   | 'note' // 注释框（折角矩形）
   | 'database' // 数据库（圆柱体）
+  | 'topic' // 思维导图节点（圆角矩形 + 无边框 + 蓝色字，支持 Tab/Enter 生发子节点/兄弟节点）
   | 'edge-line' // 直线箭头连线
   | 'edge-ortho' // 拐角箭头连线（流程图常用）
   | 'edge-dashed' // 虚线箭头（时序图返回线）

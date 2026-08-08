@@ -88,6 +88,7 @@ const DEFAULT_NODE_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   activation: { w: 16, h: 60 },
   note: { w: 100, h: 60 },
   database: { w: 120, h: 80 },
+  topic: { w: 100, h: 36 },
   'edge-line': { w: 100, h: 20 },
   'edge-ortho': { w: 100, h: 20 },
   'edge-dashed': { w: 100, h: 20 },

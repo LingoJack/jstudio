@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ExcalidrawCanvas } from '../editor/nodes/ExcalidrawCanvas';
 import { GraphCanvas } from '../editor/nodes/graph/GraphCanvas';
 import { detectSnapshotKind } from '../editor/nodes/graph/graphSnapshot';
@@ -18,6 +19,7 @@ import {
 } from '../../lib/windows/diagramWindow';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
+import { useCmdEnterConfirm } from '../../lib/windows/useCmdEnterConfirm';
 import { useI18n } from '../../lib/core/i18n';
 
 export default function DiagramWindowApp() {
@@ -33,6 +35,13 @@ export default function DiagramWindowApp() {
   const isDark = useWindowThemeSync();
   // Cmd+W (native "Close Tab" menu) should close this diagram window.
   useCloseOnCmdW();
+  // Cmd/Ctrl+Enter：确认提交并关闭窗口（数据已通过 handleChange 实时回传）。
+  // close() 会触发 CloseRequested → beforeunload 安全网，逻辑与 Cmd+W 一致。
+  useCmdEnterConfirm(() => {
+    getCurrentWindow().close().catch((err) => {
+      console.error('[DiagramWindowApp] Cmd+Enter close failed:', err);
+    });
+  });
 
   useEffect(() => {
     let cancelled = false;

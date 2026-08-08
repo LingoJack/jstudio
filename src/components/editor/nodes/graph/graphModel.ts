@@ -21,6 +21,7 @@ import type {
 import {
   paletteFor,
   getFontColor,
+  getTopicFontColor,
   getEdgeColor,
   getLabelBackgroundColor,
   SHAPE_STROKE_WIDTH,
@@ -80,6 +81,20 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
     case 'database':
       // 数据库：使用自定义的 database 形状（圆柱体，见 customShapes.ts）。
       return { ...base, shape: 'database' };
+    case 'topic':
+      // 思维导图节点：圆角矩形 + 无填充 + 无描边 + 蓝色字。
+      // 与 rounded 的视觉区别：无边框、蓝色字。反推依赖 strokeColor='none' 区分。
+      return {
+        shape: 'rectangle',
+        rounded: true,
+        absoluteArcSize: true,
+        arcSize: SHAPE_ARC_SIZE,
+        fillColor: 'none',
+        strokeColor: 'none',
+        fontColor: getTopicFontColor(dark),
+        fontSize: SHAPE_FONT_SIZE,
+        pointerEvents: false,
+      };
     // 连线类型（作为预设连线样式）：全部引用 ARROW_END_SIZE 保证箭头大小一致。
     case 'edge-line':
       return {
@@ -135,7 +150,12 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   }
   if (shape === 'rectangle') {
     // 圆角矩形：rounded=true + arcSize=SHAPE_ARC_SIZE(12) 即为 'rounded'
-    if (style.rounded) return 'rounded';
+    if (style.rounded) {
+      // 思维导图 topic：圆角矩形 + 无描边（与 rounded 区分，依赖 strokeColor='none'）。
+      // 用户手动把 rounded 的 strokeColor 设为 'none' 也会被识别为 topic，但正常使用流程不会触发。
+      if (style.strokeColor === 'none') return 'topic';
+      return 'rounded';
+    }
   }
   return 'rectangle';
 }

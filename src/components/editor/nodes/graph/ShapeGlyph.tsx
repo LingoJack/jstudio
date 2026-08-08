@@ -106,6 +106,13 @@ export function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
           <path d="M3 12.5 C3 13.5 5.5 14.3 8 14.3 C10.5 14.3 13 13.5 13 12.5" stroke="currentColor" strokeWidth={sw} fill="none" />
         </svg>
       );
+    case 'topic':
+      // 思维导图节点：无边框圆角矩形 + 蓝色字（用蓝色描边预览表示字色）
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <rect x="2" y="5" width="12" height="6" rx="3" stroke="#0052D9" strokeWidth={sw} fill="none" strokeOpacity={0.5} />
+        </svg>
+      );
     case 'edge-line':
       // 直线 + V 字形箭头
       return (

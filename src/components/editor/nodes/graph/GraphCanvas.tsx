@@ -95,6 +95,7 @@ import {
   getConnectionPointColor,
   getEdgeColor,
   getFontColor,
+  getTopicFontColor,
   fontColorFor,
   mapFillColor,
   fillPresetsFor,
@@ -162,6 +163,140 @@ function isOnBorder(state: CellState, x: number, y: number, tol: number): boolea
     py > state.y + tol &&
     py < state.y + state.height - tol;
   return !inInner;
+}
+
+/* ------------------------------------------------------------------ */
+/* 思维导图生发辅助函数                                                */
+/*                                                                    */
+/* spawnMindmapChild：在父节点右侧生成子节点 + 连线，自动进入编辑。     */
+/* spawnMindmapSibling：在当前节点下方生成同级兄弟节点 + 连线。         */
+/*                                                                    */
+/* 布局策略（简单版）：                                                 */
+/*   - 子节点：父节点右侧偏移 GAP_X，Y 与父节点对齐。                    */
+/*     若已有子节点，新子节点放在最下方子节点再偏移一行。               */
+/*   - 兄弟节点：当前节点下方偏移一行（h + GAP_Y）。                    */
+/*                                                                    */
+/* 连线：父子/兄弟关系用无箭头正交连线（思维导图风格）。                */
+/* ------------------------------------------------------------------ */
+
+/** 父子节点水平间距（图坐标 px）。 */
+const MINDMAP_GAP_X = 60;
+/** 兄弟节点垂直间距（图坐标 px）。 */
+const MINDMAP_GAP_Y = 16;
+/** 思维导图连线样式：无箭头正交，跟随主题连线色。 */
+function mindmapEdgeStyle(dark: boolean): CellStyle {
+  return {
+    edgeStyle: 'obstacleEdgeStyle',
+    rounded: true,
+    endArrow: 'none',
+    startArrow: 'none',
+    endSize: ARROW_END_SIZE,
+    strokeColor: getEdgeColor(dark),
+    strokeWidth: SHAPE_STROKE_WIDTH,
+    fontSize: SHAPE_FONT_SIZE,
+    fontColor: getFontColor(dark),
+    labelBackgroundColor: getLabelBackgroundColor(dark),
+  };
+}
+
+/** 生成唯一 cell id。 */
+function nextCellId(prefix: string): string {
+  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+/**
+ * 在父节点右侧生发一个子节点，并自动进入文本编辑。
+ * 若父节点已有子节点（通过出边查找），新子节点放在最下方子节点之后。
+ */
+function spawnMindmapChild(graph: Graph, parentCell: Cell, dark: boolean): void {
+  const parentGeo = parentCell.getGeometry();
+  if (!parentGeo) return;
+  const parent = graph.getDefaultParent();
+  const size = DEFAULT_SIZE['topic'];
+
+  // 查找已有子节点（parentCell 作为 source 的边的 target）
+  const outEdges = graph.getOutgoingEdges(parentCell, parent);
+  let newY = parentGeo.y;
+  for (const edge of outEdges) {
+    const target = edge.getTerminal(false);
+    if (!target) continue;
+    const geo = target.getGeometry();
+    if (!geo) continue;
+    newY = Math.max(newY, geo.y + geo.height + MINDMAP_GAP_Y);
+  }
+
+  const newX = parentGeo.x + parentGeo.width + MINDMAP_GAP_X;
+
+  graph.batchUpdate(() => {
+    const childCell = graph.insertVertex({
+      parent,
+      id: nextCellId('n'),
+      value: '子主题',
+      position: [newX, newY],
+      size: [size.w, size.h],
+      style: styleForShape('topic', dark),
+    });
+    graph.insertEdge({
+      parent,
+      id: nextCellId('e'),
+      value: '',
+      source: parentCell,
+      target: childCell,
+      style: mindmapEdgeStyle(dark),
+    });
+    graph.setSelectionCell(childCell);
+  });
+
+  // 等渲染完成后进入文本编辑。
+  requestAnimationFrame(() => {
+    const cell = graph.getSelectionCell();
+    if (cell) graph.startEditingAtCell(cell);
+  });
+}
+
+/**
+ * 在当前节点下方生发一个同级兄弟节点（共享同一父节点），并自动进入文本编辑。
+ * 若当前节点无父节点（根节点），则直接在下方生成一个独立节点（无连线）。
+ */
+function spawnMindmapSibling(graph: Graph, currentCell: Cell, dark: boolean): void {
+  const curGeo = currentCell.getGeometry();
+  if (!curGeo) return;
+  const parent = graph.getDefaultParent();
+  const size = DEFAULT_SIZE['topic'];
+
+  // 查找父节点：当前节点作为 target 的入边的 source。
+  const inEdges = graph.getIncomingEdges(currentCell, parent);
+  const parentNode = inEdges.length > 0 ? inEdges[0].getTerminal(true) : null;
+
+  const newX = curGeo.x;
+  const newY = curGeo.y + curGeo.height + MINDMAP_GAP_Y;
+
+  graph.batchUpdate(() => {
+    const siblingCell = graph.insertVertex({
+      parent,
+      id: nextCellId('n'),
+      value: '分支主题',
+      position: [newX, newY],
+      size: [size.w, size.h],
+      style: styleForShape('topic', dark),
+    });
+    if (parentNode) {
+      graph.insertEdge({
+        parent,
+        id: nextCellId('e'),
+        value: '',
+        source: parentNode,
+        target: siblingCell,
+        style: mindmapEdgeStyle(dark),
+      });
+    }
+    graph.setSelectionCell(siblingCell);
+  });
+
+  requestAnimationFrame(() => {
+    const cell = graph.getSelectionCell();
+    if (cell) graph.startEditingAtCell(cell);
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -1327,12 +1462,16 @@ export function GraphCanvas({
           const oldFill = oldStyle.fillColor;
           const newFill =
             oldFill && oldFill !== 'none' ? mapFillColor(oldFill, dark) : pal.fill;
+          // topic 节点字色硬编码蓝色（不跟随主题 accent），其余形状按填充亮度自适应。
+          const newFontColor =
+            shape === 'topic'
+              ? getTopicFontColor(dark)
+              : fontColorFor(newFill, dark);
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,
             fillColor: newFill,
             strokeColor: pal.stroke,
-            // 字色随填充亮度自适应：浅底深字、深底浅字；无填充用主题字色。
-            fontColor: fontColorFor(newFill, dark),
+            fontColor: newFontColor,
           });
         } else if (cell.isEdge()) {
           graph.getDataModel().setStyle(cell, {
@@ -1390,6 +1529,25 @@ export function GraphCanvas({
           setPending(null);
         }
         return;
+      }
+
+      // 思维导图 topic 节点：Tab 生发子节点，Enter 生发同级兄弟节点。
+      // 仅当唯一选中是 topic 形状时触发，避免与编辑器其他 Tab/Enter 行为冲突。
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        const sel = graph.getSelectionCells();
+        if (sel.length === 1 && sel[0].isVertex()) {
+          const cellStyle = graph.getCurrentCellStyle(sel[0]);
+          const shape = styleToNodeShape(cellStyle);
+          if (shape === 'topic') {
+            e.preventDefault();
+            if (e.key === 'Tab') {
+              spawnMindmapChild(graph, sel[0], darkModeRef.current);
+            } else {
+              spawnMindmapSibling(graph, sel[0], darkModeRef.current);
+            }
+            return;
+          }
+        }
       }
 
       if (meta && key === 'z') {
@@ -1659,6 +1817,12 @@ export function GraphCanvas({
             { shape: 'text' as const, title: '文本' },
             { shape: 'note' as const, title: '注释框' },
             { shape: 'database' as const, title: '数据库' },
+          ],
+        },
+        {
+          label: '思维导图',
+          shapes: [
+            { shape: 'topic' as const, title: '主题节点' },
           ],
         },
         {

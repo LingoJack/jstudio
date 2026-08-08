@@ -29,6 +29,7 @@ export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
   activation: { fill: '#F3F4F6', stroke: '#374151' },
   note: { fill: 'none', stroke: '#374151' },
   database: { fill: 'none', stroke: '#374151' },
+  topic: { fill: 'none', stroke: 'none' }, // 思维导图节点：无边框，靠蓝色字辨识
   'edge-line': { fill: 'none', stroke: '#0052D9' },
   'edge-ortho': { fill: 'none', stroke: '#0052D9' },
   'edge-dashed': { fill: 'none', stroke: '#0052D9' },
@@ -49,11 +50,16 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
   activation: { fill: '#374151', stroke: '#9CA3AF' },
   note: { fill: 'none', stroke: '#9CA3AF' },
   database: { fill: 'none', stroke: '#9CA3AF' },
+  topic: { fill: 'none', stroke: 'none' }, // 思维导图节点：无边框，靠蓝色字辨识
   'edge-line': { fill: 'none', stroke: '#07C160' },
   'edge-ortho': { fill: 'none', stroke: '#07C160' },
   'edge-dashed': { fill: 'none', stroke: '#07C160' },
   'edge-no-arrow': { fill: 'none', stroke: '#07C160' },
 };
+
+/** 思维导图 topic 节点的字色（硬编码蓝色，不跟随主题 accent）。 */
+const TOPIC_FONT_LIGHT = '#0052D9';
+const TOPIC_FONT_DARK = '#4A9EFF';
 
 export const FONT_LIGHT = '#374151';
 export const FONT_DARK = '#E5E7EB';
@@ -297,6 +303,11 @@ export function getEdgeDotColor(dark: boolean): string {
 /** 获取字体颜色 */
 export function getFontColor(dark: boolean): string {
   return dark ? FONT_DARK : FONT_LIGHT;
+}
+
+/** 获取思维导图 topic 节点字色（硬编码蓝色，不跟随主题 accent）。 */
+export function getTopicFontColor(dark: boolean): string {
+  return dark ? TOPIC_FONT_DARK : TOPIC_FONT_LIGHT;
 }
 
 /** 创建连接点 SVG 图标（飞书风格）

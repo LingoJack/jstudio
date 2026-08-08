@@ -30,6 +30,7 @@ import { useDiagramSize } from '../hooks/useDiagramSize';
 import { useDiagramEditMode } from '../hooks/useDiagramEditMode';
 import { useDiagramWindow } from '../hooks/useDiagramWindow';
 import { useDiagramRenderer } from '../hooks/useDiagramRenderer';
+import { useCmdEnterConfirm } from '../../../lib/windows/useCmdEnterConfirm';
 import { useStore, selectIsDarkMode } from '../../../store';
 import {
   BlockToolbar,
@@ -110,6 +111,10 @@ export default function DiagramBlockView({
   /* Edit mode (focus management)                                    */
   /* -------------------------------------------------------------- */
   const { handleExcalidrawRoot } = useDiagramEditMode(editing);
+
+  // Cmd/Ctrl+Enter：确认提交，退出编辑模式（与 toolbar 的 ✓ 按钮等价）。
+  // capture 阶段拦截，避免 Excalidraw / maxGraph 内置 keymap 抢先消费。
+  useCmdEnterConfirm(exitEditing, editing);
 
   /* -------------------------------------------------------------- */
   /* Dark mode detection                                             */
