@@ -1,7 +1,7 @@
 import type { AppTheme } from './types';
 
 // ──────────────────────────────────────────────────────────────────
-// Paper Light (纯白文档风 - clean white with indigo accents, GitHub-like)
+// Paper Light (纯白文档风 - clean white with teal accents, GitHub-like)
 // ──────────────────────────────────────────────────────────────────
 
 export const PAPER_LIGHT: AppTheme = {
@@ -13,13 +13,13 @@ export const PAPER_LIGHT: AppTheme = {
     'sideBar-background': '#fafafa',
     'activityBar-background': '#f6f8fa',
 
-    // ── Borders (soft, document-style) ──
-    'sideBar-border': '#e8e8e8',
-    'activityBar-border': '#e8e8e8',
-    'widget-border': '#e8e8e8',
-    'block-border': '#d9d9d9', // 代码块、表格等内容块边框，略深以突出
-    'menu-border': '#d9d9d9',  // 浮窗菜单边框，与 block-border 一致
-    'panel-border': '#e8e8e8',
+    // ── Borders (teal, document-style) ──
+    'sideBar-border': '#05838B',
+    'activityBar-border': '#05838B',
+    'widget-border': '#05838B',
+    'block-border': '#034F55', // 代码块、表格等内容块边框，略深以突出
+    'menu-border': '#034F55',  // 浮窗菜单边框，与 block-border 一致
+    'panel-border': '#05838B',
 
     // ── Text ──
     'foreground': '#1a1a1a',
@@ -27,59 +27,59 @@ export const PAPER_LIGHT: AppTheme = {
     'iconForeground': '#595959',
 
     // ── Interaction ──
-    'focusBorder': '#4F46E5',
+    'focusBorder': '#05838B',
     'diagram-edge': '#05838B', // 时序图/画板连线色：青（与 jstudio-light 的品牌蓝拉开色相）
-    'button-background': '#4F46E5',
+    'button-background': '#05838B',
     'button-foreground': '#ffffff',
-    'button-hoverBackground': '#4338CA',
+    'button-hoverBackground': '#036B72',
     'buttonSecondary-background': '#f6f8fa',
-    'buttonSecondary-hoverBackground': '#e8e8e8',
+    'buttonSecondary-hoverBackground': '#ECECEC',
     'buttonSecondary-foreground': '#1a1a1a',
 
     // ── Inputs ──
     'input-background': '#f6f8fa',
-    'input-border': '#d9d9d9',
+    'input-border': '#034F55',
     'input-foreground': '#1a1a1a',
     'input-placeholderForeground': '#8c8c8c',
     'dropdown-background': '#ffffff',
-    'dropdown-border': '#d9d9d9',
+    'dropdown-border': '#034F55',
 
     // ── Tabs ──
     'tab-activeBackground': '#ffffff',
-    'tab-activeBorderTop': '#4F46E5',
+    'tab-activeBorderTop': '#05838B',
     'tab-activeForeground': '#1a1a1a',
     'tab-inactiveBackground': '#fafafa',
     'tab-inactiveForeground': '#8c8c8c',
-    'tab-border': '#e8e8e8',
+    'tab-border': '#05838B',
 
     // ── Menu / List ──
     'menu-background': '#ffffff',
     'menu-hoverBackground': '#f6f8fa',
-    'menu-separatorBackground': '#e8e8e8',
-    'menu-selectionBackground': '#4F46E5',
+    'menu-separatorBackground': '#D9D9D9',
+    'menu-selectionBackground': '#05838B',
     'menu-selectionForeground': '#ffffff',
     'list-hoverBackground': '#f6f8fa',
-    'list-activeSelectionBackground': '#EEF2FF',
+    'list-activeSelectionBackground': '#B8ECE8',
     'list-activeSelectionForeground': '#1a1a1a',
     'toolbar-hoverBackground': '#f6f8fa',
-    'toolbar-activeBackground': '#EEF2FF',
+    'toolbar-activeBackground': '#B8ECE8',
 
     // ── Title / Status bars ──
     'titleBar-background': '#ffffff',
-    'titleBar-border': '#e8e8e8',
+    'titleBar-border': '#05838B',
     'titleBar-foreground': '#1a1a1a',
     'statusBar-background': '#ffffff',
-    'statusBar-border': '#e8e8e8',
+    'statusBar-border': '#05838B',
     'statusBar-foreground': '#595959',
     'sideBar-foreground': '#1a1a1a',
     'sideBarTitle-foreground': '#1a1a1a',
     'sideBarSectionHeader-background': '#fafafa',
     'sideBarSectionHeader-foreground': '#595959',
-    'sideBarSectionHeader-border': '#e8e8e8',
+    'sideBarSectionHeader-border': '#05838B',
     'activityBar-foreground': '#595959',
 
     // ── Selection ──
-    'editor-selectionBackground': '#EEF2FF',
+    'editor-selectionBackground': '#B8ECE8',
     'editor-inactiveSelectionBackground': '#f6f8fa',
 
     // ── Panels / Widgets ──
@@ -93,15 +93,15 @@ export const PAPER_LIGHT: AppTheme = {
     'scrollbarSlider-activeBackground': '#0000004D',
 
     // ── Badges / Progress ──
-    'badge-background': '#EEF2FF',
-    'badge-foreground': '#4F46E5',
-    'progressBar-background': '#4F46E5',
+    'badge-background': '#B8ECE8',
+    'badge-foreground': '#05838B',
+    'progressBar-background': '#05838B',
 
     // ── Links / Quotes / Code ──
-    'textLink-foreground': '#4F46E5',
-    'textLink-activeForeground': '#4338CA',
+    'textLink-foreground': '#05838B',
+    'textLink-activeForeground': '#036B72',
     'textBlockQuote-background': '#f6f8fa',
-    'textBlockQuote-border': '#4F46E5',
+    'textBlockQuote-border': '#05838B',
     'textCodeBlock-background': '#f6f8fa',
     'textPreformat-foreground': '#1a1a1a',
     'textPreformat-background': '#f6f8fa',
@@ -109,57 +109,57 @@ export const PAPER_LIGHT: AppTheme = {
     // ── Editor line numbers / guides ──
     'editorLineNumber-foreground': '#8c8c8c',
     'editorLineNumber-activeForeground': '#1a1a1a',
-    'editorIndentGuide-background1': '#e8e8e8',
-    'editorIndentGuide-activeBackground1': '#d9d9d9',
+    'editorIndentGuide-background1': '#B8ECE8',
+    'editorIndentGuide-activeBackground1': '#8FD9D3',
 
     // ── Gutter (diff markers) ──
     'editorGutter-addedBackground': '#389e0d',
     'editorGutter-deletedBackground': '#d4380d',
-    'editorGutter-modifiedBackground': '#4F46E5',
+    'editorGutter-modifiedBackground': '#05838B',
 
     // ── Errors / Warnings / Info ──
     'errorForeground': '#cf1322',
     'editorWarning-foreground': '#ad6800',
-    'editorInfo-foreground': '#4F46E5',
+    'editorInfo-foreground': '#05838B',
 
     // ── Symbol icons ──
     'symbolIcon-eventForeground': '#ad6800',
     'symbolIcon-namespaceForeground': '#531dab',
-    'symbolIcon-fileForeground': '#4F46E5',
+    'symbolIcon-fileForeground': '#05838B',
     'symbolIcon-folderForeground': '#ad6800',
 
     // ── Terminal ANSI ──
     'terminal-ansiGreen': '#389e0d',
-    'terminal-ansiBlue': '#4F46E5',
+    'terminal-ansiBlue': '#05838B',
 
     // ── Editor cursor ──
     'editorCursor-foreground': '#1a1a1a',
 
     // ── Edit glow (RGB tuple) ──
-    'editGlow': '79 70 229', // Indigo #4F46E5
+    'editGlow': '5 131 139', // Teal #05838B
 
     // ── Table header background (matches sideBarSectionHeader) ──
     'tableHeader-background': '#fafafa',
   },
   tokens: {
     'comment': '#8c8c8c',
-    'keyword': '#4F46E5',
+    'keyword': '#05838B',
     'string': '#389e0d',
     'number': '#d4380d',
     'function': '#531dab',
-    'type': '#05838B',
+    'type': '#034F55',
     'variable': '#1a1a1a',
-    'constant': '#4F46E5',
+    'constant': '#05838B',
     'operator': '#595959',
     'punctuation': '#595959',
     'invalid': '#cf1322',
     'regexp': '#d4380d',
     'escape': '#ad6800',
     'tag': '#d4380d',
-    'attribute': '#4F46E5',
+    'attribute': '#05838B',
     'deleted': '#cf1322',
     'inserted': '#389e0d',
-    'changed': '#4F46E5',
+    'changed': '#05838B',
     'markupHeading': '#1a1a1a',
     'markupBold': '#1a1a1a',
     'markupItalic': '#531dab',
