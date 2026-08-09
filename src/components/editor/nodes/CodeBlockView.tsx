@@ -36,14 +36,8 @@ import {
 } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import {
-  Copy,
-  Check,
   ChevronDown,
   Search,
-  Eye,
-  Code2,
-  ExternalLink,
-  ChevronRight,
   Pencil,
 } from "lucide-react";
 import { ResizeHandle } from "../../ui/ResizeHandle";
@@ -60,6 +54,7 @@ import { LANGUAGES, getLanguageLabel } from "./codeBlockLanguages";
 import { buildMermaidPreviewWindowHtml } from "./mermaidWindowHtml";
 import { useMermaidPreview } from "./code-block/useMermaidPreview";
 import { useHtmlPreview } from "./code-block/useHtmlPreview";
+import { CodeBlockActions } from "./code-block/CodeBlockActions";
 import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
 import { LanguageDropdown } from "./code-block/LanguageDropdown";
 
@@ -128,7 +123,6 @@ export default function CodeBlockView({
   const heightPct = node.attrs?.heightPct as number | null | undefined;
   const widthAttr = node.attrs?.width as number | null | undefined;
   const heightAttr = node.attrs?.height as number | null | undefined;
-  const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
   // "Real" selection: only a genuine NodeSelection on THIS node counts as
   // selected — NOT a text selection that sweeps across the code block.
@@ -322,15 +316,6 @@ export default function CodeBlockView({
 
   // ---- Language dropdown ---- (extracted to <LanguageDropdown />)
 
-  const handleCopy = useCallback(() => {
-    const codeEl = codeRef.current?.querySelector(".hljs");
-    const text = codeEl?.textContent ?? "";
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, []);
-
   const toggleCollapsed = useCallback(() => {
     updateAttributes({ collapsed: !collapsed });
   }, [updateAttributes, collapsed]);
@@ -341,85 +326,6 @@ export default function CodeBlockView({
   // events from reaching ProseMirror - identical pattern to CollapsibleView.
   const headerRef = useRef<HTMLDivElement | null>(null);
   useHeaderEventShield(headerRef);
-
-  // ---- Action buttons (HTML/Mermaid preview toggle + copy) ----
-  // Both reuse the shared `editor-toolbar-btn block-toolbar-btn` skin (--sm size variant) so the
-  // code block matches Image / File / Diagram toolbars. They live in the
-  // right side of the header row. Copy reveals on hover
-  // (`code-toolbar-reveal`); the preview toggle is always visible and
-  // gets `is-active` while previewing.
-  const htmlPreviewBtn =
-    isHtml && hasContent ? (
-      <button
-        type="button"
-        onClick={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
-        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showHtmlPreview ? "is-active" : ""}`}
-        title={showHtmlPreview ? t("code.showCode") : t("code.previewHtml")}
-        aria-label={
-          showHtmlPreview ? t("code.showCode") : t("code.previewHtml")
-        }
-      >
-        {showHtmlPreview ? <Code2 size={14} /> : <Eye size={14} />}
-      </button>
-    ) : null;
-
-  const mermaidPreviewBtn =
-    isMermaid && hasContent ? (
-      <button
-        type="button"
-        onClick={() =>
-          updateAttributes({ mermaidPreview: !showMermaidPreview })
-        }
-        className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showMermaidPreview ? "is-active" : ""}`}
-        title={
-          showMermaidPreview ? t("code.showCode") : t("code.previewMermaid")
-        }
-        aria-label={
-          showMermaidPreview ? t("code.showCode") : t("code.previewMermaid")
-        }
-      >
-        {showMermaidPreview ? <Code2 size={14} /> : <Eye size={14} />}
-      </button>
-    ) : null;
-
-  // Open the HTML/Mermaid source in a separate OS window for an enlarged preview.
-  // Reuses the same Rust-memory transport as file preview (see previewWindow.ts).
-  const openWindowBtn =
-    isHtml && hasContent ? (
-      <button
-        type="button"
-        onClick={() => openHtmlPreviewWindow(htmlSource)}
-        className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-        title={t("code.previewNewWindow")}
-        aria-label={t("code.previewNewWindow")}
-      >
-        <ExternalLink size={14} />
-      </button>
-    ) : isMermaid && hasContent && mermaidSvg ? (
-      <button
-        type="button"
-        onClick={() => {
-          openHtmlPreviewWindow(buildMermaidPreviewWindowHtml(mermaidSvg, isDarkMode), "Mermaid");
-        }}
-        className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-        title={t("code.previewNewWindow")}
-        aria-label={t("code.previewNewWindow")}
-      >
-        <ExternalLink size={14} />
-      </button>
-    ) : null;
-
-  const copyBtn = hasContent ? (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-      title={t("code.copy")}
-      aria-label={t("code.copy")}
-    >
-      {copied ? <Check size={14} /> : <Copy size={14} />}
-    </button>
-  ) : null;
 
   // ---- Inline styles driven by displayWidth / displayHeight ----
   // Source mode always grows to the exact wrapped-code height — no internal
@@ -452,23 +358,22 @@ export default function CodeBlockView({
           the top-right. */}
         <div ref={headerRef} className="code-block-header">
           <div className="code-header-actions">
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal code-collapse-toggle"
-              title={collapsed ? t("code.expand") : t("code.collapse")}
-              aria-label={collapsed ? t("code.expand") : t("code.collapse")}
-              aria-expanded={!collapsed}
-            >
-              <ChevronRight
-                size={14}
-                className={`code-collapse-chevron ${collapsed ? "" : "is-open"}`}
-              />
-            </button>
-            {htmlPreviewBtn}
-            {mermaidPreviewBtn}
-            {openWindowBtn}
-            {copyBtn}
+            <CodeBlockActions
+              collapsed={collapsed}
+              onToggleCollapsed={toggleCollapsed}
+              isHtml={isHtml}
+              isMermaid={isMermaid}
+              hasContent={hasContent}
+              showHtmlPreview={showHtmlPreview}
+              showMermaidPreview={showMermaidPreview}
+              mermaidSvg={mermaidSvg}
+              onToggleHtmlPreview={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
+              onToggleMermaidPreview={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
+              onOpenHtmlWindow={() => openHtmlPreviewWindow(htmlSource)}
+              onOpenMermaidWindow={() => { if (mermaidSvg) openHtmlPreviewWindow(buildMermaidPreviewWindowHtml(mermaidSvg, isDarkMode), "Mermaid"); }}
+              getCodeText={() => codeRef.current?.querySelector(".hljs")?.textContent ?? ""}
+              t={t}
+            />
             <button
               type="button"
               onClick={startEditingTitle}
