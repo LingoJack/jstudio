@@ -12,3 +12,8 @@ src-tauri/resources/bin/
 example/
 .workbuddy/
 .codebuddy/
+.codex/
+.claude/
+.opencode/
+.vscode/
+.idea/
