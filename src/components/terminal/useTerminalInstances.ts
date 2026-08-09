@@ -22,7 +22,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { storage } from '../../lib/core/storage';
 import { resolveMonospaceFont } from '../../lib/editor/fonts';
-import type { TerminalCursorStyle } from '../../lib/core/storage';
+import type { TerminalCursorStyle } from '../../types/settings';
 import type { TerminalTheme } from '../../lib/terminal/themes';
 import type { SessionTerminal } from './types';
 import { registerTerminal, unregisterTerminal } from './terminalRegistry';

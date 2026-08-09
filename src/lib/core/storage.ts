@@ -5,443 +5,27 @@ import type {
   ImageData,
   AgentSessionMeta,
 } from "../../types/agent";
-import type { GlobalShortcutConfig } from "../shortcuts/globalShortcuts";
+import type {
+  DocumentMeta,
+  FolderMeta,
+  AssetInfo,
+  TrashedAsset,
+  DocBackup,
+  ModelProvider,
+  AgentConfigFile,
+} from "../../types/storage";
+import type { AppSettings } from "../../types/settings";
+import type { TerminalSessionInfo, JcliStatus } from "../../types/terminal";
+import type {
+  LinkMetadata,
+  AiGraphFetchRequest,
+  AiGraphFetchResponse,
+  LinkPreviewTabInfo,
+  LinkPreviewTabsState,
+  BrowserPanelRect,
+  MarkdownEntry,
+} from "../../types/browser";
 
-/**
- * Theme preference — `system` follows the OS color scheme.
- */
-export type ThemeMode = "dark" | "light" | "system";
-
-/**
- * UI display language.
- */
-export type Language = "zh" | "en";
-
-/**
- * Lightweight document metadata — used for the sidebar list.
- * Excludes `blocks` so the sidebar can render instantly without
- * loading every document's full content.
- */
-export interface DocumentMeta {
-  id: string;
-  title: string;
-  emoji: string;
-  createdAt: string;
-  updatedAt: string;
-  isFavorite?: boolean;
-  /** Folder this document belongs to; `null`/`undefined` = root level */
-  folderId?: string | null;
-  /** ISO timestamp when moved to trash; `null`/`undefined` = active document */
-  trashedAt?: string | null;
-}
-
-/**
- * Folder metadata for the document sidebar tree.
- * Folders can nest arbitrarily deep via `parentId`.
- */
-export interface FolderMeta {
-  /** `"folder-{timestamp}"` */
-  id: string;
-  name: string;
-  /** Parent folder id; `null` = top-level */
-  parentId: string | null;
-  /** Sort order among siblings (ascending) */
-  sortOrder: number;
-  /** Whether the folder is collapsed in the sidebar UI */
-  collapsed: boolean;
-  /** ISO timestamp when moved to trash; `null`/`undefined` = active folder */
-  trashedAt?: string | null;
-}
-
-/**
- * Terminal cursor shape — mirrors xterm's `cursorStyle` option.
- * The cursor trail follows the same shape so the two stay visually
- * consistent.
- */
-export type TerminalCursorStyle = "block" | "underline" | "bar";
-
-/**
- * Editor (contentEditable / ProseMirror) cursor shape.
- * Controls the CSS `caret-shape`-like appearance and the trail geometry.
- * - 'bar'       — thin vertical line (default, classic text-editor caret)
- * - 'block'     — filled rectangle covering the full character cell
- * - 'underline' — horizontal bar at the bottom of the character cell
- */
-export type EditorCursorStyle = "bar" | "block" | "underline";
-
-/**
- * Identifiers for items that can appear in the left Activity Bar.
- * The array order in `ActivityBarItemConfig[]` determines display order.
- */
-export type ActivityItemId =
-  | "documents"
-  | "terminal"
-  | "agent"
-  | "browser"
-  | "settings";
-
-/**
- * Configuration for a single Activity Bar entry — visibility + position
- * (position is implied by the array index in `activityBarItems`).
- */
-export interface ActivityBarItemConfig {
-  id: ActivityItemId;
-  visible: boolean;
-}
-
-/** Default order & visibility for the Activity Bar. */
-export const DEFAULT_ACTIVITY_BAR_ITEMS: ActivityBarItemConfig[] = [
-  { id: "documents", visible: true },
-  { id: "terminal", visible: true },
-  { id: "agent", visible: true },
-  { id: "browser", visible: true },
-  { id: "settings", visible: true },
-];
-
-/**
- * Normalizes the Activity Bar config. Guarantees the invariants:
- * 1. Unknown / malformed / duplicate entries are dropped; missing defaults are appended.
- * 2. "settings" is always present, always visible, and always pinned to the bottom.
- */
-export function normalizeActivityBarItems(
-  items: ActivityBarItemConfig[] | undefined,
-): ActivityBarItemConfig[] {
-  const knownIds = new Set(DEFAULT_ACTIVITY_BAR_ITEMS.map((d) => d.id));
-  const seen = new Set<string>();
-  const result: ActivityBarItemConfig[] = [];
-
-  for (const item of Array.isArray(items) ? items : []) {
-    if (!item || !knownIds.has(item.id) || typeof item.visible !== "boolean")
-      continue;
-    if (seen.has(item.id)) continue;
-    seen.add(item.id);
-    result.push({ id: item.id, visible: item.visible });
-  }
-  for (const def of DEFAULT_ACTIVITY_BAR_ITEMS) {
-    if (!seen.has(def.id)) result.push({ ...def });
-  }
-
-  // Pin settings to the bottom and force it visible.
-  const settings = result.find((i) => i.id === "settings")!;
-  return [
-    ...result.filter((i) => i.id !== "settings"),
-    { ...settings, visible: true },
-  ];
-}
-
-export interface AppSettings {
-  theme?: ThemeMode;
-  /** UI display language — 'zh' (default) or 'en' */
-  language?: Language;
-
-  /**
-   * Activity Bar item visibility and ordering.
-   * Each entry controls one icon; array order determines display order.
-   */
-  activityBarItems?: ActivityBarItemConfig[];
-  /** Latin font preset id — see LATIN_FONTS in lib/fonts.ts */
-  fontId?: string;
-  /** CJK (Chinese) font preset id — see CJK_FONTS in lib/fonts.ts */
-  cjkFontId?: string;
-  /** Editor base font size in pixels (12–22) */
-  fontSize?: number;
-  /** Editor line height / line spacing (1.4–2.2, default 1.7) */
-  editorLineHeight?: number;
-  /** Editor cursor shape — also drives the editor cursor trail shape */
-  editorCursorStyle?: EditorCursorStyle;
-  /**
-   * Whether the editor uses the animated WebGL cursor trail (default true).
-   * When `false`, the native browser caret is used instead — no trail /
-   * breathing blink, but also immune to trail-specific caret-placement bugs
-   * (e.g. inside code blocks with long, horizontally-scrolled lines).
-   */
-  editorCursorAnimationEnabled?: boolean;
-  /** Sidebar width in pixels (180–480) */
-  sidebarWidth?: number;
-  /** Whether the document sidebar is pinned (true) or hover-to-expand (false). */
-  sidebarPinned?: boolean;
-  /** Whether the section outline is pinned (true) or hover-to-expand (false). */
-  outlinePinned?: boolean;
-  /**
-   * App UI color theme for dark mode — see lib/themes/registry.ts.
-   * Terminal theme automatically uses the same ID (app theme = terminal theme).
-   */
-  appThemeIdDark?: string;
-  /**
-   * App UI color theme for light mode — see lib/themes/registry.ts.
-   * Terminal theme automatically uses the same ID (app theme = terminal theme).
-   */
-  appThemeIdLight?: string;
-  /** Terminal font size in pixels (independent from editor font size) */
-  terminalFontSize?: number;
-  /** Terminal monospace font id — see MONOSPACE_FONTS in lib/fonts.ts */
-  terminalFontId?: string;
-  /** Terminal cursor shape — also drives the cursor trail shape */
-  terminalCursorStyle?: TerminalCursorStyle;
-  /** Tab bar position — 'top' or 'bottom' (default: 'bottom') */
-  tabBarPosition?: "top" | "bottom";
-  /** User-customized keyboard shortcut overrides — see lib/shortcuts.ts */
-  keyboardShortcuts?: Record<string, string>;
-  /** OS-level global shortcut configs — see lib/shortcuts/globalShortcuts.ts */
-  globalShortcuts?: GlobalShortcutConfig[];
-  /**
-   * Whether the runtime logger is enabled (default false). When true, the
-   * frontend logger captures uncaught errors, unhandled rejections,
-   * console.error/warn, and manual `logger.*` calls, flushing them to
-   * `~/.jdata/studio/logs/app-YYYY-MM-DD.log` via `append_log_line`.
-   * Off by default to avoid disk writes / perf overhead in normal use.
-   */
-  runtimeLoggingEnabled?: boolean;
-  /**
-   * Tab bar glassmorphism background opacity (0.02–0.15).
-   * Controls the transparency of the floating pill-shaped tab bar container.
-   * Higher = more visible/solid; lower = more transparent/glass-like.
-   */
-  tabBarGlassOpacity?: number;
-  /**
-   * Whether JStudio has attempted to auto-install the CLI (`j` command).
-   * Used to prevent repeated installation prompts on every startup.
-   * Set to `true` after the first attempt (successful or failed).
-   */
-  jcliAutoInstallAttempted?: boolean;
-
-  /** Browser start page: selected search engine id (see SEARCH_ENGINES). */
-  browserSearchEngine?: string;
-  /** Browser start page: quick-link shortcuts. */
-  browserShortcuts?: unknown;
-
-  /** Agent active workspace path (persisted across sessions). */
-  agentActiveWorkspace?: string;
-
-  [key: string]: unknown;
-}
-
-export interface AssetInfo {
-  fileName: string;
-  name: string;
-  type: string;
-  size: string;
-  sizeBytes?: number;
-  createdAt: number;
-}
-
-/**
- * A document-private asset that has been moved to the recycle bin.
- * Mirrors the row shape returned by `list_trashed_assets`.
- */
-export interface TrashedAsset {
-  /** Auto-increment primary key — used to restore / delete the entry. */
-  id: number;
-  /** The document this asset belonged to. */
-  docId: string;
-  /** File name inside the document's `.trash/` folder. */
-  trashName: string;
-  /** Name to restore the file back into `assets/` as. */
-  originalName: string;
-  /** Guessed MIME type. */
-  type: string;
-  /** File size in bytes. */
-  sizeBytes: number;
-  /** ISO timestamp when the asset was trashed. */
-  trashedAt: string;
-}
-
-/**
- * Metadata for a document body backup snapshot (no body — keeps the list
- * payload small). Mirrors the Rust `BackupMeta` struct.
- */
-export interface DocBackup {
-  /** File name without extension, e.g. "1720472340000". Used as the id. */
-  id: string;
-  /** Epoch milliseconds when the backup was taken. */
-  timestampMs: number;
-  /** Block count of the snapshot. */
-  blockCount: number;
-  /** File size in bytes. */
-  size: number;
-}
-
-// ────────────────────────────────────────────────
-// Agent config (jcli agent model providers)
-// ────────────────────────────────────────────────
-
-/**
- * Tool-call protocol mode — mirrors the Rust `ToolCallMode` enum
- * (`snake_case` serialisation).
- * - `native`   → OpenAI-style function calling (default)
- * - `disabled` → tool calls turned off entirely
- */
-export type ToolCallMode = "native" | "disabled";
-
-/**
- * A single model provider entry — mirrors the Rust `ModelProvider` struct.
- * Any OpenAI-compatible endpoint can be added here.
- */
-export interface ModelProvider {
-  /** Display name (user-defined, e.g. "deepseek", "openrouter") */
-  name: string;
-  /** OpenAI-compatible API base URL (e.g. "https://api.openai.com/v1") */
-  api_base: string;
-  /** API key (stored in plaintext, same as jcli agent) */
-  api_key: string;
-  /** Model identifier sent to the API (e.g. "gpt-4o") */
-  model: string;
-  /** Whether the model supports vision / multimodal input */
-  supports_vision: boolean;
-  /** Tool-call protocol mode */
-  tool_call_mode: ToolCallMode;
-}
-
-/**
- * The on-disk agent config file (`~/.jdata/agent/data/agent_config.json`).
- *
- * JStudio only manages `providers` + `active_index`; all other fields
- * (system_prompt, compact, theme, …) are carried through untouched via
- * the index signature so they are never lost on write-back.
- */
-export interface AgentConfigFile {
-  providers: ModelProvider[];
-  active_index: number;
-  [key: string]: unknown;
-}
-
-/**
- * Lightweight terminal session info returned by the Rust PTY backend.
- */
-export interface TerminalSessionInfo {
-  id: string;
-  title: string;
-}
-
-/**
- * jcli installation status — mirrors the Rust `JcliStatus` struct.
- */
-export interface JcliStatus {
-  /** Whether `j` is available on the system PATH. */
-  installed: boolean;
-  /** Version string reported by `j --version`. */
-  version: string | null;
-  /** Absolute path to the resolved binary, if found. */
-  path: string | null;
-  /** Whether the bundled version embedded in JStudio is available. */
-  bundled: boolean;
-  /** Version of the bundled binary, if extractable. */
-  bundledVersion: string | null;
-}
-
-/**
- * Link preview metadata — mirrors the Rust `LinkMetadata` struct.
- * Returned by `fetch_link_metadata`.
- */
-export interface LinkMetadata {
-  title: string;
-  description: string;
-  faviconUrl: string;
-  ogImage: string;
-  siteName: string;
-  /** Final URL after HTTP redirects. */
-  url: string;
-}
-
-/**
- * AI graph HTTP proxy request — mirrors the Rust `AiGraphFetchRequest` struct.
- * Used by `ai_graph_fetch` to bypass webview CORS restrictions.
- */
-export interface AiGraphFetchRequest {
-  /** Full target URL (scheme + host + path). */
-  url: string;
-  /** Request headers map (e.g. Authorization, Content-Type). */
-  headers: Record<string, string>;
-  /** Request body as a JSON string. Empty string = no body. */
-  body: string;
-  /** Timeout in seconds. 0 = use default 60s. */
-  timeoutSecs?: number;
-}
-
-/**
- * AI graph HTTP proxy response — mirrors the Rust `AiGraphFetchResponse` struct.
- * Returned by `ai_graph_fetch`.
- */
-export interface AiGraphFetchResponse {
-  /** HTTP status code (e.g. 200, 400, 401). */
-  status: number;
-  /** Whether the response is 2xx. */
-  ok: boolean;
-  /** Response body as text (JSON string from the LLM API). */
-  body: string;
-}
-
-/**
- * Link preview tab info — mirrors the Rust `TabInfo` struct in link_tabs.rs.
- * One per open tab in the link-preview window.
- */
-export interface LinkPreviewTabInfo {
-  id: string;
-  url: string;
-  title: string;
-  loading: boolean;
-}
-
-/**
- * Full link-preview tabs state — mirrors the Rust `TabsState` struct.
- * Pushed to the frontend via the `link-preview:tabs-updated` event and
- * returned by `getLinkPreviewTabsState`.
- */
-export interface LinkPreviewTabsState {
-  tabs: LinkPreviewTabInfo[];
-  activeTabId: string | null;
-}
-
-/**
- * Geometry of the inline browser panel's webview area, in CSS pixels,
- * relative to the main window's top-left corner. Reported by the React
- * `BrowserPanel` component's `ResizeObserver` so Rust can position native
- * child webviews on top of the React UI. Mirrors the Rust `BrowserPanelRect`
- * struct in link_tabs.rs.
- */
-export interface BrowserPanelRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
- * A single entry returned by `list_markdown_files` — mirrors the Rust
- * `MarkdownEntry` struct. Directories (`is_dir: true`) are included so the
- * frontend can recreate the folder hierarchy.
- */
-export interface MarkdownEntry {
-  /** Absolute filesystem path. */
-  path: string;
-  /** Path relative to the scanned root, using `/` separators. */
-  relativePath: string;
-  /** `true` for directories, `false` for Markdown files. */
-  isDir: boolean;
-}
-
-/**
- * Convert a full Document to its lightweight metadata form.
- */
-export function toMeta(doc: Document): DocumentMeta {
-  return {
-    id: doc.id,
-    title: doc.title,
-    emoji: doc.emoji,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
-    isFavorite: doc.isFavorite,
-    folderId: doc.folderId ?? null,
-  };
-}
-
-/**
- * Storage abstraction layer.
- *
- * Every method maps 1-to-1 to a `#[tauri::command]` on the Rust side.
- * Components should **never** call `invoke` directly — always go
- * through this module so the API surface is centralized and typed.
- */
 export const storage = {
   // ---- lifecycle ----
 
@@ -469,7 +53,7 @@ export const storage = {
   /** Read a specific backup's full document body. */
   readDocBackup: (docId: string, backupId: string) =>
     invoke<Document>("read_doc_backup", { docId, backupId }),
-  /** Restore a backup as the current document body (reversible — the
+  /** Restore a backup as the current document body (reversible - the
    *  pre-restore state is snapshotted first). */
   restoreDocBackup: (docId: string, backupId: string) =>
     invoke<void>("restore_doc_backup", { docId, backupId }),
@@ -637,7 +221,7 @@ export const storage = {
   ptyCreate: (opts: { cwd?: string; cols: number; rows: number }) =>
     invoke<TerminalSessionInfo>("pty_create", { params: opts }),
 
-  /** Write user input to the PTY (keyboard → shell). */
+  /** Write user input to the PTY (keyboard -> shell). */
   ptyWrite: (sessionId: string, data: string) =>
     invoke<void>("pty_write", { sessionId, data }),
 
@@ -666,7 +250,7 @@ export const storage = {
   ptyIsAlive: (sessionId: string) =>
     invoke<boolean>("pty_is_alive", { sessionId }),
 
-  // ---- runtime log file (frontend → ~/.jdata/studio/logs/) ----
+  // ---- runtime log file (frontend -> ~/.jdata/studio/logs/) ----
 
   /**
    * Append a single pre-formatted log line to today's log file

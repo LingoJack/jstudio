@@ -125,4 +125,7 @@ allow:
 - Shell(find /Users/jacklingo/dev_custom/jstudio:*)
 - Shell(find /Users/jacklingo/dev_custom/jstudio/src/lib:*)
 - Shell(find /Users/jacklingo/dev_custom/jstudio/src/lib/editor:*)
+- Shell(tail -10:*)
+- Shell(head -929:*)
+- Shell(mv /Users/jacklingo/dev_custom/jstudio/src/lib/toast.ts:*)
 deny: []

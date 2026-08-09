@@ -1,4 +1,5 @@
-import { storage, toMeta, DocumentMeta } from '../core/storage';
+import { storage } from '../core/storage';
+import { toMeta, type DocumentMeta } from '../../types/storage';
 import type { Document } from '../../types';
 
 /**

@@ -2,14 +2,16 @@ import type { Document, Block, BlockType, RichText } from "../types";
 import type {
   DocumentMeta,
   FolderMeta,
+  TrashedAsset,
+} from "../types/storage";
+import type {
   ThemeMode,
   Language,
   TerminalCursorStyle,
   EditorCursorStyle,
   ActivityBarItemConfig,
-  TrashedAsset,
-  LinkPreviewTabInfo,
-} from "../lib/core/storage";
+} from "../types/settings";
+import type { LinkPreviewTabInfo } from "../types/browser";
 import type { DocSortKey, DocSortDirection } from "../lib/documents/sortUtils";
 import type { ShortcutOverrides } from "../lib/shortcuts/keyboardShortcuts";
 import type { GlobalShortcutConfig } from "../lib/shortcuts/globalShortcuts";
@@ -26,7 +28,7 @@ import type { UnifiedTab } from "./workspaceSlice";
 import type { AgentSession } from "../types/agent";
 import type { BrowserShortcut } from "./browserSlice";
 import { storage } from "../lib/core/storage";
-import { toast } from "../lib/toast";
+import { toast } from "../lib/core/toast";
 import { logger } from "../lib/core/logger";
 
 /**

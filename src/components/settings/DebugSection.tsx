@@ -13,7 +13,7 @@ import { useI18n } from "../../lib/core/i18n";
 import { useStore } from "../../store/useStore";
 import { storage } from "../../lib/core/storage";
 import { logger } from "../../lib/core/logger";
-import { toast } from "../../lib/toast";
+import { toast } from "../../lib/core/toast";
 
 interface BuildInfo {
   commit: string;

@@ -78,7 +78,7 @@ import {
 
 import { logger } from '../../../../lib/core/logger';
 import { saveSvg, saveBlob, svgToPngBlob, copyImageToClipboard, copyTextToClipboard } from '../../../../lib/export/download';
-import { toast } from '../../../../lib/toast';
+import { toast } from '../../../../lib/core/toast';
 
 import {
   detectSnapshotKind,

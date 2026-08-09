@@ -16,7 +16,7 @@ import {
   BaseCursorTrail,
   type RenderOptions,
 } from './BaseCursorTrail';
-import type { EditorCursorStyle } from '../../../lib/core/storage';
+import type { EditorCursorStyle } from '../../../types/settings';
 import type {
   ContentCaretResolver,
   NativeCaretHost,

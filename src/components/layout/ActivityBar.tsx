@@ -1,7 +1,7 @@
 import { useStore } from "../../store/useStore";
 import { useI18n } from "../../lib/core/i18n";
-import { ACTIVITY_ITEM_META } from "../../lib/activityMeta";
-import { type ActivityItemId } from "../../lib/core/storage";
+import { ACTIVITY_ITEM_META } from "../../lib/core/activityMeta";
+import { type ActivityItemId } from "../../types/settings";
 
 /**
  * Activity Bar — the leftmost narrow strip (40px).

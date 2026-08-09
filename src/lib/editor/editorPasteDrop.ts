@@ -8,7 +8,7 @@
 
 import type { Editor, JSONContent } from '@tiptap/react';
 import type { EditorView } from '@tiptap/pm/view';
-import { uploadImage, uploadAttachment } from './editorUpload';
+import { uploadImage, uploadAttachment } from './upload';
 import { getClipboardImageAsFile } from './clipboardImage';
 import { looksLikeMarkdown, dedupeMarks } from './pasteMarkdown';
 

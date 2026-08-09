@@ -43,7 +43,8 @@ import {
   X,
 } from 'lucide-react';
 
-import { storage, type LinkMetadata } from '../../../lib/core/storage';
+import { storage } from '../../../lib/core/storage';
+import type { LinkMetadata } from '../../../types/browser';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';

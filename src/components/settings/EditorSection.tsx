@@ -11,7 +11,7 @@ import {
   MAX_LINE_HEIGHT,
 } from '../../lib/editor/fonts';
 import FontDropdown from '../ui/FontDropdown';
-import type { EditorCursorStyle } from '../../lib/core/storage';
+import type { EditorCursorStyle } from '../../types/settings';
 
 /** Cursor style options shown in the settings picker. */
 const CURSOR_STYLES: { id: EditorCursorStyle; glyph: string }[] = [

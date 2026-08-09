@@ -1,5 +1,5 @@
+import { storage } from "../lib/core/storage";
 import {
-  storage,
   type ThemeMode,
   type Language,
   type TerminalCursorStyle,
@@ -7,7 +7,7 @@ import {
   type ActivityBarItemConfig,
   DEFAULT_ACTIVITY_BAR_ITEMS,
   normalizeActivityBarItems,
-} from "../lib/core/storage";
+} from "../types/settings";
 import type { ShortcutOverrides } from "../lib/shortcuts/keyboardShortcuts";
 import type { GlobalShortcutConfig } from "../lib/shortcuts/globalShortcuts";
 import { onSaveError, type SliceCreator } from "./storeHelpers";

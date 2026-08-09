@@ -21,7 +21,7 @@
  * and other consumers don't need any changes.
  */
 
-import type { TerminalCursorStyle } from '../../lib/core/storage';
+import type { TerminalCursorStyle } from '../../types/settings';
 import { resolveMonospaceFont } from '../../lib/editor/fonts';
 import type { TerminalTheme } from '../../lib/terminal/themes';
 import type { SessionTerminal } from './types';

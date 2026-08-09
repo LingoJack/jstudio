@@ -15,7 +15,8 @@
  * 部分兼容层不支持（返回 400）。先尝试带该字段，遇 400 降级重试不带。
  */
 
-import { storage, type AiGraphFetchRequest } from '../../core/storage';
+import { storage } from '../../core/storage';
+import type { AiGraphFetchRequest } from '../../../types/browser';
 import { serializeGraphSnapshot } from '../../../components/editor/nodes/graph/graphSnapshot';
 import { validateAiGraph } from './aiGraphValidator';
 import { autoLayoutByType } from './aiGraphLayout';

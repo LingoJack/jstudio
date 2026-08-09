@@ -23,7 +23,7 @@
 
 import type { StoreState } from './storeHelpers';
 import type { Document, Block } from '../types';
-import type { DocumentMeta, FolderMeta } from '../lib/core/storage';
+import type { DocumentMeta, FolderMeta } from '../types/storage';
 
 // ---------------------------------------------------------------------------
 // Document selectors

@@ -2,7 +2,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { MONOSPACE_FONTS } from '../../lib/editor/fonts';
-import type { TerminalCursorStyle } from '../../lib/core/storage';
+import type { TerminalCursorStyle } from '../../types/settings';
 
 /** Cursor style options shown in the settings picker. */
 const CURSOR_STYLES: { id: TerminalCursorStyle; glyph: string }[] = [

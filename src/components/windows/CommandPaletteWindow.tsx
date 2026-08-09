@@ -27,7 +27,9 @@ import {
 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { storage, type DocumentMeta, type TerminalSessionInfo } from '../../lib/core/storage';
+import { storage } from '../../lib/core/storage';
+import type { DocumentMeta } from '../../types/storage';
+import type { TerminalSessionInfo } from '../../types/terminal';
 import { useI18n, type Language } from '../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';

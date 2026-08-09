@@ -60,11 +60,8 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../../store/useStore";
-import {
-  storage,
-  type LinkPreviewTabsState,
-  type BrowserPanelRect,
-} from "../../lib/core/storage";
+import { storage } from "../../lib/core/storage";
+import type { LinkPreviewTabsState, BrowserPanelRect } from "../../types/browser";
 import { COLLAPSED_WIDTH } from "./BrowserSidebar";
 import BrowserSidebar from "./BrowserSidebar";
 import BrowserStartPage from "./BrowserStartPage";

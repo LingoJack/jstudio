@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { storage, type ThemeMode } from '../core/storage';
+import { storage } from '../core/storage';
+import type { ThemeMode } from '../../types/settings';
 import {
   applyAppTheme,
   getAppTheme,

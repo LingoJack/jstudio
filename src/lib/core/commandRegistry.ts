@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { StoreState } from "../../store/storeHelpers";
 import { storage } from "./storage";
-import { ACTIVITY_ITEM_META } from "../activityMeta";
+import { ACTIVITY_ITEM_META } from "./activityMeta";
 import { createTerminalWindow } from "../windows/terminalDetach";
 import { getFocusedEditor } from "../editor/focusedEditorRegistry";
 import { getSelectAllHandler } from "../editor/selectAllRegistry";

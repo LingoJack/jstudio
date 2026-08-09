@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { ExternalLink, Folder, Loader2, AlertCircle, Globe, ChevronDown, Check, Sun, Moon, Monitor, Terminal, CheckCircle2, XCircle, Trash2, Download, GripVertical, ArrowDownToLine, ArrowUpFromLine, Pin, type LucideIcon } from 'lucide-react';
 import { storage } from '../../lib/core/storage';
-import type { JcliStatus, ActivityItemId } from '../../lib/core/storage';
-import { ACTIVITY_ITEM_META } from '../../lib/activityMeta';
+import type { JcliStatus } from '../../types/terminal';
+import type { ActivityItemId } from '../../types/settings';
+import { ACTIVITY_ITEM_META } from '../../lib/core/activityMeta';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { toast } from '../../lib/toast';
-import type { Language, ThemeMode } from '../../lib/core/storage';
+import { toast } from '../../lib/core/toast';
+import type { Language, ThemeMode } from '../../types/settings';
 import { APP_THEMES, getAppThemesByMode, type AppTheme } from '../../lib/themes';
 
 /**

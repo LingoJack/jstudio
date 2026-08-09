@@ -1,4 +1,4 @@
-import type { DocumentMeta, FolderMeta } from '../core/storage';
+import type { DocumentMeta, FolderMeta } from '../../types/storage';
 
 /**
  * Sort key for the document sidebar list.

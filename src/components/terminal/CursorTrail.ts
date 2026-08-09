@@ -1,5 +1,5 @@
 import type { Terminal, IDisposable } from '@xterm/xterm';
-import type { TerminalCursorStyle } from '../../lib/core/storage';
+import type { TerminalCursorStyle } from '../../types/settings';
 import {
   BaseCursorTrail,
   type RenderOptions,

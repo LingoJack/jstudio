@@ -13,7 +13,7 @@ import { IconButton } from '../ui/IconButton';
 import { useDialogTransition } from '../ui/useDialogTransition';
 import { HighlightedText, formatDateOr } from '../../lib/commandPalette/shared';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
-import type { DocumentMeta } from '../../lib/core/storage';
+import type { DocumentMeta } from '../../types/storage';
 
 interface OpenDocumentDialogProps {
   open: boolean;

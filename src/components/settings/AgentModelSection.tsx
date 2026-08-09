@@ -13,9 +13,9 @@ import {
   Circle,
 } from 'lucide-react';
 import { storage } from '../../lib/core/storage';
-import type { ModelProvider, AgentConfigFile, ToolCallMode } from '../../lib/core/storage';
+import type { ModelProvider, AgentConfigFile, ToolCallMode } from '../../types/storage';
 import { useI18n } from '../../lib/core/i18n';
-import { toast } from '../../lib/toast';
+import { toast } from '../../lib/core/toast';
 
 /**
  * AgentModelSection — manage model capability providers.

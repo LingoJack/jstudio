@@ -35,7 +35,8 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Globe, Plus, RefreshCw, ExternalLink, X } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
-import { storage, type LinkPreviewTabInfo } from "../../lib/core/storage";
+import { storage } from "../../lib/core/storage";
+import type { LinkPreviewTabInfo } from "../../types/browser";
 import { getFaviconUrl } from "../../store/browserSlice";
 import { useStore } from "../../store/useStore";
 import { MenuList, MenuItem, MenuDivider } from "../ui/MenuList";

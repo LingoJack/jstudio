@@ -24,7 +24,7 @@ import {
 } from '../../lib/core/commandRegistry';
 import { resolveBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
-import type { DocumentMeta } from '../../lib/core/storage';
+import type { DocumentMeta } from '../../types/storage';
 import type { TerminalSession } from '../../store/terminalSlice';
 import type { SettingsSectionId } from '../../store/uiSlice';
 import {

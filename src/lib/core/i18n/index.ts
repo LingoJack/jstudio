@@ -1,8 +1,8 @@
 /**
- * Lightweight i18n module — no external dependencies.
+ * Lightweight i18n module - no external dependencies.
  *
  * Usage:
- *   import { useI18n } from '../lib/i18n';
+ *   import { useI18n } from '../lib/core/i18n';
  *   const { t } = useI18n();
  *   <p>{t('settings.general')}</p>
  *
@@ -10,12 +10,12 @@
  * via AppSettings. Components re-render automatically when the language
  * changes because `useI18n()` subscribes to the store.
  *
- * The translation dictionaries live in `./i18n/translations.ts` (data only)
+ * The translation dictionaries live in `./translations.ts` (data only)
  * to keep this file focused on logic.
  */
 
-import { useStore } from '../../store/useStore';
-import { translations } from './i18n/translations';
+import { useStore } from '../../../store/useStore';
+import { translations } from './translations';
 
 export type Language = 'zh' | 'en';
 

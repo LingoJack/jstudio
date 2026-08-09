@@ -1,4 +1,5 @@
-import { storage, type LinkPreviewTabsState } from '../lib/core/storage';
+import { storage } from '../lib/core/storage';
+import type { LinkPreviewTabsState } from '../types/browser';
 import { onSaveError, type SliceCreator } from './storeHelpers';
 
 // ────────────────────────────────────────────────

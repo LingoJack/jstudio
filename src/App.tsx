@@ -5,7 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
 import { storage } from './lib/core/storage';
-import { toast } from './lib/toast';
+import { toast } from './lib/core/toast';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 import { shortcutManager } from './lib/shortcuts/ShortcutManager';
 import { resolveBinding, toTauriAccelerator } from './lib/shortcuts/keyboardShortcuts';

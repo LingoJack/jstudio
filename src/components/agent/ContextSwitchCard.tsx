@@ -10,9 +10,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronDown, Check, Plus, MessageSquarePlus, List } from 'lucide-react';
-import { storage, type ModelProvider, type AgentConfigFile } from '../../lib/core/storage';
+import { storage } from '../../lib/core/storage';
+import type { ModelProvider, AgentConfigFile } from '../../types/storage';
 import { useI18n } from '../../lib/core/i18n';
-import { toast } from '../../lib/toast';
+import { toast } from '../../lib/core/toast';
 
 // ────────────────────────────────────────────────────────
 // Types

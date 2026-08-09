@@ -1,4 +1,4 @@
-import type { FolderMeta, DocumentMeta } from '../core/storage';
+import type { FolderMeta, DocumentMeta } from '../../types/storage';
 import { sortDocuments, sortFolders, type DocSortKey, type DocSortDirection } from './sortUtils';
 
 /**

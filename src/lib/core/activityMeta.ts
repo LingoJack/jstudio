@@ -6,8 +6,8 @@ import {
   Settings,
   type LucideIcon,
 } from "lucide-react";
-import type { ActivityItemId } from "./core/storage";
-import type { TranslationKey } from "./core/i18n";
+import type { ActivityItemId } from "../../types/settings";
+import type { TranslationKey } from "./i18n";
 
 /**
  * Activity Bar item metadata — single source of truth.

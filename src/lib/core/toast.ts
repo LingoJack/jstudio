@@ -1,11 +1,11 @@
-import { useStore } from '../store/useStore';
+import { useStore } from '../../store/useStore';
 
 /**
  * Imperative toast API.
  *
  * Usage (anywhere — component or plain TS):
  * ```ts
- * import { toast } from '@/lib/toast';
+ * import { toast } from '@/lib/core/toast';
  * toast.success('Saved');
  * toast.error('Failed: ' + err);
  * ```
