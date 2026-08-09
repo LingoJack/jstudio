@@ -21,7 +21,7 @@ interface LanguageDropdownProps {
   language: string;
   onSelect: (language: string) => void;
   editor: Editor;
-  getPos: () => number;
+  getPos: (() => number | undefined) | undefined;
   node: PmNode;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }

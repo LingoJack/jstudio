@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
+import type { MermaidConfig } from "mermaid";
 import { buildMermaidConfig } from "../mermaidConfig";
 
 export interface UseMermaidPreviewParams {
@@ -32,7 +33,7 @@ export function useMermaidPreview({
   // app toggles dark mode so the global mermaid config picks up the new
   // themeVariables before the render effect below regenerates the SVG.
   useEffect(() => {
-    mermaid.initialize(buildMermaidConfig(isDarkMode));
+    mermaid.initialize(buildMermaidConfig(isDarkMode) as MermaidConfig);
   }, [isDarkMode]);
 
   // Render mermaid diagram when preview is shown
