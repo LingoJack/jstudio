@@ -87,8 +87,8 @@ export interface GraphEdge {
   label?: string;
   /** 文字水平对齐（默认 center）。 */
   labelAlign?: LabelAlign;
-  /** 连线走线风格。默认正交（orthogonal）。 */
-  routing?: 'orthogonal' | 'straight';
+  /** 连线走线风格。默认正交（orthogonal）；mindmap = 思维导图贝塞尔曲线。 */
+  routing?: 'orthogonal' | 'straight' | 'mindmap';
   /** 箭头端样式。默认 source 无、target 经典箭头。 */
   startArrow?: string;
   endArrow?: string;

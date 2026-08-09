@@ -205,12 +205,20 @@ function readLabelAlign(style: CellStyle): 'left' | 'center' | 'right' | undefin
  * `endSize` 从 ARROW_END_SIZE 引用；此前未设 -> maxGraph 默认 30 -> 巨型箭头。
  */
 function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
+  // 'mindmapCurveEdgeStyle' 注册于 mindmapLayout.ts；此处用字面量避免
+  // graphModel ↔ mindmapLayout 循环依赖（mindmapLayout 依赖本文件的 styleToNodeShape）。
   const style: CellStyle = {
     // 注意：不能用 undefined 表示"无路由"——Stylesheet.getCellStyle 合并时
     // 会跳过 undefined 值，全局默认 obstacleEdgeStyle 会漏进来，
     // 直线边被重新路由成折线。'none' 会在合并时删除该键，直线才是真直线。
-    edgeStyle: edge.routing === 'straight' ? 'none' : 'obstacleEdgeStyle',
-    rounded: edge.routing !== 'straight',
+    edgeStyle:
+      edge.routing === 'straight'
+        ? 'none'
+        : edge.routing === 'mindmap'
+          ? 'mindmapCurveEdgeStyle'
+          : 'obstacleEdgeStyle',
+    rounded: edge.routing === 'orthogonal' || edge.routing === undefined,
+    curved: edge.routing === 'mindmap',
     endArrow: edge.endArrow ?? 'classic',
     startArrow: edge.startArrow ?? 'none',
     endSize: ARROW_END_SIZE,
@@ -386,8 +394,14 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
       source: String(source.getId() ?? ''),
       target: String(target.getId() ?? ''),
       label: typeof cell.getValue() === 'string' ? (cell.getValue() as string) : '',
-      // 'none' 表示显式"无路由"（见 buildEdgeStyle），视为 straight。
-      routing: style.edgeStyle && style.edgeStyle !== 'none' ? 'orthogonal' : 'straight',
+      // 'none' 表示显式"无路由"（见 buildEdgeStyle），视为 straight；
+      // 'mindmapCurveEdgeStyle' 为思维导图贝塞尔曲线（mindmapLayout.ts）。
+      routing:
+        style.edgeStyle === 'mindmapCurveEdgeStyle'
+          ? 'mindmap'
+          : style.edgeStyle && style.edgeStyle !== 'none'
+            ? 'orthogonal'
+            : 'straight',
     };
     if (typeof style.endArrow === 'string') edge.endArrow = style.endArrow;
     if (typeof style.startArrow === 'string') edge.startArrow = style.startArrow;

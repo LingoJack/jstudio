@@ -90,6 +90,13 @@ import {
 import { applySnapshotToGraph, readSnapshotFromGraph, styleToNodeShape } from './graphModel';
 import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
 import { registerObstacleEdgeStyle } from './obstacleRouting';
+import {
+  MINDMAP_EDGE_STYLE,
+  MINDMAP_GAP_X,
+  MINDMAP_GAP_Y,
+  reflowMindmap,
+  registerMindmapEdgeStyle,
+} from './mindmapLayout';
 import MermaidImportDialog from './MermaidImportDialog';
 import AIGraphImportDialog from './AIGraphImportDialog';
 import {
@@ -175,23 +182,18 @@ function isOnBorder(state: CellState, x: number, y: number, tol: number): boolea
 /* spawnMindmapChild：在父节点右侧生成子节点 + 连线，自动进入编辑。     */
 /* spawnMindmapSibling：在当前节点下方生成同级兄弟节点 + 连线。         */
 /*                                                                    */
-/* 布局策略（简单版）：                                                 */
-/*   - 子节点：父节点右侧偏移 GAP_X，Y 与父节点对齐。                    */
-/*     若已有子节点，新子节点放在最下方子节点再偏移一行。               */
-/*   - 兄弟节点：当前节点下方偏移一行（h + GAP_Y）。                    */
+/* 布局：生发后调用 reflowMindmap（mindmapLayout.ts）对整棵树做        */
+/* 整洁树重排——按子树高度分配 Y 区间，兄弟子树互不重叠，根节点原位。   */
 /*                                                                    */
-/* 连线：父子/兄弟关系用无箭头正交连线（思维导图风格）。                */
+/* 连线：父子/兄弟关系用无箭头贝塞尔 S 曲线（思维导图风格，           */
+/* mindmapCurveEdgeStyle，与流程图的正交连线区分）。                   */
 /* ------------------------------------------------------------------ */
 
-/** 父子节点水平间距（图坐标 px）。 */
-const MINDMAP_GAP_X = 60;
-/** 兄弟节点垂直间距（图坐标 px）。 */
-const MINDMAP_GAP_Y = 16;
-/** 思维导图连线样式：无箭头正交，跟随主题连线色。 */
+/** 思维导图连线样式：无箭头贝塞尔曲线，跟随主题连线色。 */
 function mindmapEdgeStyle(dark: boolean): CellStyle {
   return {
-    edgeStyle: 'obstacleEdgeStyle',
-    rounded: true,
+    edgeStyle: MINDMAP_EDGE_STYLE,
+    curved: true,
     endArrow: 'none',
     startArrow: 'none',
     endSize: ARROW_END_SIZE,
@@ -210,7 +212,7 @@ function nextCellId(prefix: string): string {
 
 /**
  * 在父节点右侧生发一个子节点，并自动进入文本编辑。
- * 若父节点已有子节点（通过出边查找），新子节点放在最下方子节点之后。
+ * 插入后对整棵树做整洁树重排（reflowMindmap），保证兄弟子树互不重叠。
  */
 function spawnMindmapChild(graph: Graph, parentCell: Cell, dark: boolean): void {
   const parentGeo = parentCell.getGeometry();
@@ -218,18 +220,9 @@ function spawnMindmapChild(graph: Graph, parentCell: Cell, dark: boolean): void 
   const parent = graph.getDefaultParent();
   const size = DEFAULT_SIZE['topic'];
 
-  // 查找已有子节点（parentCell 作为 source 的边的 target）
-  const outEdges = graph.getOutgoingEdges(parentCell, parent);
-  let newY = parentGeo.y;
-  for (const edge of outEdges) {
-    const target = edge.getTerminal(false);
-    if (!target) continue;
-    const geo = target.getGeometry();
-    if (!geo) continue;
-    newY = Math.max(newY, geo.y + geo.height + MINDMAP_GAP_Y);
-  }
-
+  // 初始位置放在父节点正右方，最终位置由 reflowMindmap 统一分配。
   const newX = parentGeo.x + parentGeo.width + MINDMAP_GAP_X;
+  const newY = parentGeo.y;
 
   graph.batchUpdate(() => {
     const childCell = graph.insertVertex({
@@ -248,6 +241,8 @@ function spawnMindmapChild(graph: Graph, parentCell: Cell, dark: boolean): void 
       target: childCell,
       style: mindmapEdgeStyle(dark),
     });
+    // 整洁树重排：新子节点会被放到最下方兄弟之后，并推开后续子树。
+    reflowMindmap(graph, childCell);
     graph.setSelectionCell(childCell);
   });
 
@@ -293,6 +288,8 @@ function spawnMindmapSibling(graph: Graph, currentCell: Cell, dark: boolean): vo
         target: siblingCell,
         style: mindmapEdgeStyle(dark),
       });
+      // 整洁树重排：新兄弟节点会挤开当前节点的子树及后续兄弟。
+      reflowMindmap(graph, siblingCell);
     }
     graph.setSelectionCell(siblingCell);
   });
@@ -564,6 +561,8 @@ export function GraphCanvas({
     registerCustomShapes();
     // 注册避障正交边路由样式（A* 网格寻路，避免连线穿过已有图形）
     registerObstacleEdgeStyle();
+    // 注册思维导图贝塞尔曲线边样式（topic 生发连线专用）
+    registerMindmapEdgeStyle();
 
     // 基本交互能力。
     graph.setPanning(true);
