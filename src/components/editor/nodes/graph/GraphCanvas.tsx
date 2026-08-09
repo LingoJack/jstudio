@@ -107,7 +107,6 @@ import {
   getEdgeColor,
   getFontColor,
   fontColorFor,
-  mapFillColor,
   fillPresetsFor,
   getLabelBackgroundColor,
   createConnectionPointSVG,
@@ -138,6 +137,7 @@ import { isOnBorder, mindmapEdgeStyle, nextCellId, FLOW_ANIMATION_THRESHOLD, BOR
 import { spawnMindmapChild, spawnMindmapSibling } from './mindmapSpawn';
 import { shapeGroups, shapeTitleMap } from './graphShapeMenu';
 import { useGraphExport } from './useGraphExport';
+import { useGraphTheme } from './useGraphTheme';
 
 export interface GraphCanvasProps {
   /** 序列化的画板快照（JSON 字符串）。空 = 空白画板。 */
@@ -1244,105 +1244,9 @@ export function GraphCanvas({
     if (!editing) graph.clearSelection();
   }, [editing]);
 
-  // 主题色刷新：暗色切换 / 同模式下切换主题（jstudio-light → ink-light）都走这条路径。
-  // 读 darkModeRef.current 以保证事件回调里拿到最新值（事件触发时组件未必重渲染）。
-  const applyThemeColors = useCallback(() => {
-    const graph = graphRef.current;
-    if (!graph) return;
-    const dark = darkModeRef.current;
+  // 主题色刷新（提取到 useGraphTheme）
+  useGraphTheme({ graphRef, darkModeRef, darkMode });
 
-    const color = getSelectionColor(dark);
-
-    // 更新选中框颜色
-    VertexHandlerConfig.selectionColor = color;
-
-    // 更新手柄颜色
-    HandleConfig.fillColor = getHandleFillColor(dark);
-    HandleConfig.strokeColor = getHandleStrokeColor(dark);
-
-    // 更新连接点样式（maxGraph 中为 ConstraintHandler 实例属性）
-    const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
-    if (connectionHandler?.constraintHandler) {
-      connectionHandler.constraintHandler.pointImage = new ImageBox(
-        createConnectionPointSVG(dark),
-        CONNECTION_POINT_SIZE,
-        CONNECTION_POINT_SIZE,
-      );
-      connectionHandler.constraintHandler.highlightColor = getConnectionPointColor(dark);
-    }
-
-    // 更新拖动预览颜色（SelectionHandler）
-    const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
-    if (selectionHandler) {
-      selectionHandler.previewColor = color;
-    }
-
-    // 更新默认样式（影响新建图形）
-    const defaultPal = paletteFor('rectangle', dark);
-    const vertexDefault = graph.getStylesheet().getDefaultVertexStyle();
-    vertexDefault.fillColor = defaultPal.fill;
-    vertexDefault.strokeColor = defaultPal.stroke;
-    vertexDefault.fontColor = getFontColor(dark);
-
-    const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
-    edgeDefault.strokeColor = getEdgeColor(dark);
-
-    // 更新已存在 cell 的样式：让画板上的图形跟着主题变色。
-    // maxGraph 在 cell 创建时把样式烘焙到 cell 上，不会从默认 stylesheet 重新解析，
-    // 因此切换主题时必须主动遍历刷新。仅刷新颜色（fill/stroke/font），
-    // 保留结构属性（shape/rounded/edgeStyle/arrows 等）。
-    graph.batchUpdate(() => {
-      const parent = graph.getDefaultParent();
-      const cells = graph.getChildCells(parent, true, true);
-      for (const cell of cells) {
-        const oldStyle = (cell.getStyle() as CellStyle) ?? {};
-        if (cell.isVertex()) {
-          const shape = styleToNodeShape(oldStyle);
-          const pal = paletteFor(shape, dark);
-          // 用户填充色走双套色板映射（已知色 ↔ 对应明暗变体，未知自定义色保留），
-          // 避免"深色模式把字刷白、浅色填充保留"导致的白字浅底不可读。
-          const oldFill = oldStyle.fillColor;
-          const newFill =
-            oldFill && oldFill !== 'none' ? mapFillColor(oldFill, dark) : pal.fill;
-          // 所有形状按填充亮度自适应字色（topic 不再硬编码蓝色）。
-          const newFontColor = fontColorFor(newFill, dark);
-          graph.getDataModel().setStyle(cell, {
-            ...oldStyle,
-            fillColor: newFill,
-            strokeColor: pal.stroke,
-            fontColor: newFontColor,
-          });
-        } else if (cell.isEdge()) {
-          graph.getDataModel().setStyle(cell, {
-            ...oldStyle,
-            strokeColor: getEdgeColor(dark),
-            // 边标签底色与画布一致，字色跟随主题。
-            fontColor: getFontColor(dark),
-          });
-        }
-      }
-    });
-
-    // 刷新视图让更改生效
-    graph.getView().validate();
-    graph.refresh();
-  }, []);
-
-  // 暗色模式切换时刷新所有跟随主题的颜色
-  useEffect(() => {
-    applyThemeColors();
-  }, [darkMode, applyThemeColors]);
-
-  // 同模式下切换主题（jstudio-light → ink-light）：applyAppTheme 更新 <html> 上的
-  // CSS 变量后派发 'apptheme-change' 事件，这里监听并重新读取 accent 色。
-  // darkMode 未变，但 --vscode-focusBorder 已更新，需重新刷一遍连线/选中/连接点。
-  useEffect(() => {
-    const handler = () => applyThemeColors();
-    window.addEventListener('apptheme-change', handler);
-    return () => window.removeEventListener('apptheme-change', handler);
-  }, [applyThemeColors]);
-
-  /* -------------------------------------------------------------- */
   /* 键盘：Del 删除 / Cmd+Z 撤销 / Cmd+C·V·D 复制粘贴克隆 / 方向键微移 */
   /* -------------------------------------------------------------- */
 
