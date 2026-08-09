@@ -47,6 +47,9 @@ import { flushDocumentSaves } from '../../../store/storeHelpers';
 import { formatDate } from '../../../lib/commandPalette/shared';
 import { countBlockCharacters } from '../../../lib/documents/charCount';
 import { isDocumentEmpty } from '../../../lib/documents/isDocumentEmpty';
+import { formatRelativeEditedTime } from '../../../lib/documents/formatRelativeEditedTime';
+import { editorForKeyboardTarget } from '../../../lib/editor/editorForKeyboardTarget';
+import { logicalCodeLineBoundary, visualCodeLineBoundary } from '../../../lib/editor/codeLineBoundary';
 import { EditorCursorTrail } from '../../ui/cursor/EditorCursorTrail';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
@@ -71,119 +74,6 @@ export interface DocumentPanelProps {
   readOnly?: boolean;
   /** Document identity committed by the main-window transition boundary. */
   contentDocId?: string;
-}
-
-function editorForKeyboardTarget(
-  target: EventTarget | null,
-  editors: ReadonlyMap<string, Editor>,
-): Editor | null {
-  const node = target instanceof Node ? target : null;
-  const element = node instanceof Element ? node : node?.parentElement;
-  if (!element) return null;
-  if (element.closest('input, textarea, select, button, [contenteditable="false"]')) {
-    return null;
-  }
-
-  const editorDom = element.closest<HTMLElement>('[data-section-id]');
-  const sectionId = editorDom?.dataset.sectionId;
-  if (!editorDom || !sectionId) return null;
-
-  const editor = editors.get(sectionId);
-  if (!editor || editor.isDestroyed || editor.view.dom !== editorDom) return null;
-  return editorDom.contains(node) ? editor : null;
-}
-
-function logicalCodeLineBoundary(
-  text: string,
-  offset: number,
-  toStart: boolean,
-): number {
-  const safeOffset = Math.max(0, Math.min(offset, text.length));
-  if (toStart) {
-    const previousNewline =
-      safeOffset > 0 ? text.lastIndexOf('\n', safeOffset - 1) : -1;
-    return previousNewline === -1 ? 0 : previousNewline + 1;
-  }
-  const nextNewline = text.indexOf('\n', safeOffset);
-  return nextNewline === -1 ? text.length : nextNewline;
-}
-
-function visualCodeLineBoundary(
-  editor: Editor,
-  head: number,
-  blockStart: number,
-  blockEnd: number,
-  toStart: boolean,
-): number | null {
-  const { view } = editor;
-  const nativeSelection = view.dom.ownerDocument.getSelection();
-  if (
-    !nativeSelection ||
-    typeof nativeSelection.modify !== 'function' ||
-    typeof nativeSelection.setBaseAndExtent !== 'function' ||
-    !nativeSelection.anchorNode ||
-    !nativeSelection.focusNode ||
-    !view.dom.contains(nativeSelection.focusNode)
-  ) {
-    return null;
-  }
-
-  const saved = {
-    anchorNode: nativeSelection.anchorNode,
-    anchorOffset: nativeSelection.anchorOffset,
-    focusNode: nativeSelection.focusNode,
-    focusOffset: nativeSelection.focusOffset,
-    range: nativeSelection.rangeCount > 0
-      ? nativeSelection.getRangeAt(0).cloneRange()
-      : null,
-  };
-
-  try {
-    const nativeHead = view.posAtDOM(saved.focusNode, saved.focusOffset);
-    if (nativeHead !== head) return null;
-
-    nativeSelection.collapse(saved.focusNode, saved.focusOffset);
-    nativeSelection.modify('move', toStart ? 'left' : 'right', 'lineboundary');
-    const focusNode = nativeSelection.focusNode;
-    if (!focusNode || !view.dom.contains(focusNode)) return null;
-
-    const mapped = view.posAtDOM(
-      focusNode,
-      nativeSelection.focusOffset,
-      toStart ? -1 : 1,
-    );
-    return mapped >= blockStart && mapped <= blockEnd ? mapped : null;
-  } catch {
-    return null;
-  } finally {
-    try {
-      nativeSelection.setBaseAndExtent(
-        saved.anchorNode,
-        saved.anchorOffset,
-        saved.focusNode,
-        saved.focusOffset,
-      );
-    } catch {
-      nativeSelection.removeAllRanges();
-      if (saved.range) nativeSelection.addRange(saved.range);
-    }
-  }
-}
-
-function formatRelativeEditedTime(
-  iso: string,
-  t: (key: TranslationKey, vars?: Record<string, string | number>) => string,
-  language: Language,
-): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return '';
-  const diff = (Date.now() - ms) / 1000;
-  if (diff < 60) return t('agent.justNow');
-  if (diff < 3600) return t('agent.minutesAgo', { n: Math.floor(diff / 60) });
-  if (diff < 86400) return t('agent.hoursAgo', { n: Math.floor(diff / 3600) });
-  if (diff < 172800) return t('agent.yesterday');
-  if (diff < 604800) return t('agent.daysAgo', { n: Math.floor(diff / 86400) });
-  return formatDate(ms, language);
 }
 
 export default function DocumentPanel({
