@@ -1,6 +1,6 @@
 /** Application settings types - theme, language, cursor styles, activity bar, etc. */
 
-import type { GlobalShortcutConfig } from '../../lib/shortcuts/globalShortcuts';
+import type { GlobalShortcutConfig } from '../lib/shortcuts/globalShortcuts';
 
 /**
  * Theme preference - `system` follows the OS color scheme.

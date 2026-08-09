@@ -121,12 +121,12 @@ export interface BrowserSlice {
   browserShortcuts: BrowserShortcut[];
   setBrowserTabsState: (state: LinkPreviewTabsState) => void;
   setBrowserAddressUrl: (url: string) => void;
-  setBrowserSearchEngine: (id: string) => Promise<void>;
+  setBrowserSearchEngine: (id: string) => void;
   navigateBrowserUrl: (url: string) => void;
   refreshBrowserTab: () => void;
-  openInExternalBrowser: (url: string) => void;
+  openInExternalBrowser: () => void;
   addBrowserTab: (url?: string) => void;
-  setBrowserShortcuts: (s: BrowserShortcut[]) => Promise<void>;
+  setBrowserShortcuts: (s: BrowserShortcut[]) => void;
 }
 
 export const createBrowserSlice: SliceCreator = (set, get) => {

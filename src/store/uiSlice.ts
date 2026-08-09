@@ -207,7 +207,7 @@ export interface UISlice {
   setGlobalShortcuts: (s: GlobalShortcutConfig[]) => void;
   setDocSortKey: (k: DocSortKey) => void;
   setDocSortDirection: (d: DocSortDirection) => void;
-  setRuntimeLoggingEnabled: (v: boolean) => Promise<void>;
+  setRuntimeLoggingEnabled: (v: boolean) => void;
 }
 
 export const createUiSlice: SliceCreator = (set, get) => ({

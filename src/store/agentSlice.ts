@@ -34,14 +34,14 @@ export interface AgentSlice {
   agentSessions: AgentSession[];
   activeAgentSessionId: string | null;
   activeAgentWorkspace: string | null;
-  agentUnsubscribes: Record<string, UnlistenFn>;
+  agentUnsubscribes: UnlistenFn[];
   initAgentSessions: () => Promise<void>;
-  setActiveAgentWorkspace: (path: string | null) => void;
-  createAgentSession: (title?: string, workspace?: string) => Promise<string>;
+  setActiveAgentWorkspace: (workspace: string) => void;
+  createAgentSession: (workspace: string) => Promise<string>;
   openAgentSession: (sessionId: string) => Promise<void>;
   deleteAgentSession: (sessionId: string) => Promise<void>;
   sendAgentMessage: (sessionId: string, text: string, images?: { base64: string; mediaType: string }[]) => Promise<void>;
-  submitAgentToolResult: (sessionId: string, toolCallId: string, result: string, isError: boolean, images?: { base64: string; mediaType: string }[], planDecision?: string) => Promise<void>;
+  submitAgentToolResult: (sessionId: string, toolCallId: string, result: string, isError: boolean, images?: { base64: string; mediaType: string }[], planDecision?: 'approve' | 'reject' | 'approveAndClearContext') => Promise<void>;
   submitAgentPlanDecision: (sessionId: string, decision: 'approve' | 'reject' | 'approveAndClearContext') => Promise<void>;
   submitAgentAskAnswer: (sessionId: string, answer: Record<string, string>) => Promise<void>;
   setAgentAutoApprove: (sessionId: string, enabled: boolean) => Promise<void>;
