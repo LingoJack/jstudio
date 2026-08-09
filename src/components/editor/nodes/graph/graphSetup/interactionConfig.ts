@@ -7,6 +7,7 @@ import { getSelectionColor } from '../graphTheme';
 import { GRID_SIZE } from '../graphConstants';
 import { logger } from '../../../../../lib/core/logger';
 import type { GraphSetupFn } from './types';
+import { EnhancedGuide } from './enhancedGuide';
 
 export const setupInteractionConfig: GraphSetupFn = (ctx) => {
   const { graph } = ctx;
@@ -54,5 +55,9 @@ export const setupInteractionConfig: GraphSetupFn = (ctx) => {
     // maxLivePreview 默认为 0，需要设置一个较大值才能启用
     selectionHandler.maxLivePreview = 100;
     selectionHandler.allowLivePreview = true;
+    // 使用增强版对齐引擎：提升灵敏度 + 水平/垂直等间距对齐
+    selectionHandler.createGuide = () => {
+      return new EnhancedGuide(graph, selectionHandler.getGuideStates(), dark);
+    };
   }
 };
