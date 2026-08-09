@@ -12,7 +12,7 @@
  * batchMenu / batchMoveMenu 状态保留在组件中（供 anyFloatingMenuOpen 使用）。
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import type { FolderTreeNode } from '../../../lib/documents/folderTree';
 import type { TranslationKey } from '../../../lib/core/i18n';
@@ -52,6 +52,11 @@ export function useBatchSelection(params: UseBatchSelectionParams) {
     t,
   } = params;
 
+  // Keep a ref to `t` so callbacks that use it don't need it in their deps
+  // (useI18n returns a new `t` function on every render).
+  const tRef = useRef(t);
+  tRef.current = t;
+
   // ── Batch selection state ─────────────────────────────────
   /** Unified selection set - contains both document ids and folder ids. */
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -88,14 +93,14 @@ export function useBatchSelection(params: UseBatchSelectionParams) {
 
   const batchDelete = useCallback(() => {
     if (selectedIds.size === 0) return;
-    const msg = t('doclist.batchMoveToTrashConfirm', { count: selectedIds.size });
+    const msg = tRef.current('doclist.batchMoveToTrashConfirm', { count: selectedIds.size });
     if (!window.confirm(msg)) return;
     const { selectedDocs, selectedFolders } = splitSelection();
     if (selectedDocs.length > 0) trashDocuments(selectedDocs);
     if (selectedFolders.length > 0) selectedFolders.forEach((id) => trashFolder(id));
     setSelectedIds(new Set());
     setBatchMenu(null);
-  }, [selectedIds, splitSelection, trashDocuments, trashFolder, t]);
+  }, [selectedIds, splitSelection, trashDocuments, trashFolder]);
 
   const batchMove = useCallback((folderId: string | null) => {
     if (selectedIds.size === 0) return;
@@ -116,7 +121,7 @@ export function useBatchSelection(params: UseBatchSelectionParams) {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedIds]);
 
-  const handleContextMenu = (e: React.MouseEvent, id: string, kind: 'doc' | 'folder' = 'doc') => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, id: string, kind: 'doc' | 'folder' = 'doc') => {
     e.preventDefault();
     e.stopPropagation();
     // If right-clicking on an item that's already in a multi-selection,
@@ -131,7 +136,7 @@ export function useBatchSelection(params: UseBatchSelectionParams) {
     } else {
       setContextMenu({ x: e.clientX, y: e.clientY, docId: id });
     }
-  };
+  }, [selectedIds, setBatchMenu, setSelectedIds, setFolderMenu, setContextMenu]);
 
   /**
    * Unified click handler for documents in the sidebar.

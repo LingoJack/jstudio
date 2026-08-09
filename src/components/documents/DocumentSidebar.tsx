@@ -25,13 +25,8 @@ import { NavBranch, NavRow } from '../ui/NavTree';
 // Constants
 // ──────────────────────────────────────────────────────────────────
 
-/** Sentinel id for the root-level drop zone (no folder). */
-
-/** Minimum pointer movement (px) before a click becomes a drag. */
-
 /** Width of the sidebar when collapsed (unpinned, not hovered). */
 const COLLAPSED_WIDTH = 48;
-/** Grace period before collapsing after the pointer leaves (ms). */
 
 interface ContextMenuState {
   x: number;
@@ -109,8 +104,6 @@ export default function DocumentSidebar() {
   // ── Backup & restore dialog state ──
   const [backupDialogDoc, setBackupDialogDoc] = useState<{ id: string; title: string } | null>(null);
 
-  // ── Hover-expand state (only active when sidebarPinned is false) ──
-
   // ── Suppress collapse while a floating menu / inline rename is active ──
   // Floating menus (context menu, folder menu, batch menus, the "more"
   // dropdown and its submenus) are `position: fixed` overlays.  Moving the
@@ -124,10 +117,6 @@ export default function DocumentSidebar() {
     (moreMenuOpen && moreMenuPos)
   );
   const suppressCollapse = anyFloatingMenuOpen || renamingId !== null || renamingFolderId !== null || searchFocused;
-
-
-
-
 
   // ── Hover expand/collapse (extracted to useSidebarHover hook) ──
   const { hoverExpanded, handleHoverEnter, handleHoverLeave, handleTogglePin } = useSidebarHover({
@@ -150,16 +139,6 @@ export default function DocumentSidebar() {
   // full width in the flex layout as before.
   const isOverlay = !sidebarPinned && !isCollapsed;
   const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
-
-
-  // ── Pointer-drag state ────────────────────────────────────
-  /**
-   * Drag state lives entirely in a ref so pointermove never triggers
-   * a React re-render on its own.  We promote to visual state only
-   * when something the user can *see* changes (dragging on/off,
-   * highlight target switch).
-   */
-
 
   // ── Derived: folder expand state ──────────────────────────
   const isFolderExpanded = useCallback(
@@ -186,13 +165,6 @@ export default function DocumentSidebar() {
     [folders, filteredDocs, docSortKey, docSortDirection],
   );
   const rootDocCount = tree.documents.length;
-
-
-  // ── Batch operations ──────────────────────────────────────
-
-  /** Split the unified selection into document ids and folder ids. */
-
-
 
   // ── Effects: auto-close menus ─────────────────────────────
   useEffect(() => {
@@ -230,7 +202,6 @@ export default function DocumentSidebar() {
       folderRenameRef.current.select();
     }
   }, [renamingFolderId]);
-
 
   // ── Effect: auto-close batch menus ────────────────────────
   useEffect(() => {
@@ -455,23 +426,6 @@ export default function DocumentSidebar() {
     }
   }, [documents, addToast, t]);
 
-  // ── Pointer-based drag-and-drop ───────────────────────────
-  //
-  // The drag is split into three phases:
-  //
-  // 1. pointerdown on a doc row  →  record start position + docId.
-  //    We do NOT enter "dragging" yet — a simple click should still
-  //    open the document.
-  //
-  // 2. pointermove (global)      →  once movement exceeds DRAG_THRESHOLD,
-  //    enter dragging mode.  From then on every move uses
-  //    elementFromPoint() to find the `[data-drop-target]` under the
-  //    cursor and highlights it.
-  //
-  // 3. pointerup (global)        →  if dragging, look up the drop target
-  //    one final time and commit the move.  If not dragging (i.e. it
-  //    was a click), do nothing — the row's onClick will fire next.
-
   /**
    * After a successful drag the browser fires a synthetic `click` on the
    * source row.  This ref lets us swallow that single click.
@@ -523,11 +477,6 @@ export default function DocumentSidebar() {
     renamingId,
     suppressClick,
   });
-
-  /**
-   * `true` between pointerdown and pointerup/cancel.
-   * This *state* triggers the effect that attaches global listeners.
-   */
 
   // ── Render helpers ────────────────────────────────────────
 

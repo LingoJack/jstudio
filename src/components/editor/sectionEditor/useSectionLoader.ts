@@ -47,41 +47,40 @@ export function useSectionLoader(params: UseSectionLoaderParams) {
     sectionEditorsRef,
   } = params;
 
-const [sections, setSections] = useState<SectionState[]>([]);
-const sectionsRef = useRef<SectionState[]>([]);
-sectionsRef.current = sections;
-const loadedDocIdRef = useRef<string | null>(null);
-/** `${docId}:${reloadNonce}` — guards against reloading the same doc+nonce.
- *  Separated from `loadedDocIdRef` (pure docId) which is used for flushing
- *  the outgoing doc. When a backup restore bumps the nonce without changing
- *  docId, this guard lets the load effect re-run. */
-const loadTriggerRef = useRef<string | null>(null);
-/** Static-doc identity tracking (isStatic mode only). `doc` is recreated
- *  (new object identity) whenever HelpSection's `useMemo` deps change, e.g.
- *  on a locale switch — `loadedStaticDocRef` detects that and
- *  `staticDocRevRef` produces a fresh key so SectionEditor instances remount
- *  with the new content instead of keeping stale (previous-locale) text. */
-const loadedStaticDocRef = useRef<{ title: string; blocks: Block[] } | undefined>(undefined);
-const staticDocRevRef = useRef(0);
-const [staticDocKey, setStaticDocKey] = useState<string | null>(null);
-/** Unified doc identity used for SectionEditor `key`s and skeleton
- *  comparisons — the static key in static mode, `editorDocId` otherwise. */
-const docKey = isStatic ? staticDocKey : editorDocId;
-/** The doc id whose content has actually finished loading into all
- *  section editors. While this lags behind `editorDocId` we show a
- *  Skeleton overlay so the user doesn't see empty editors / placeholder
- *  text during the load. */
-const [renderedDocId, setRenderedDocId] = useState<string | null>(null);
-/** How many sections have reported "content loaded" for the current
- *  doc. When this reaches the total VISIBLE section count, we set
- *  renderedDocId. */
-const loadedSectionCountRef = useRef(0);
-const expectedSectionCountRef = useRef(0);
-/** How many sections are currently rendered. Grows progressively so we
- *  don't create all N ProseMirror instances at once (which would block the
- *  main thread on large documents). */
-const [visibleCount, setVisibleCount] = useState(0);
-
+  const [sections, setSections] = useState<SectionState[]>([]);
+  const sectionsRef = useRef<SectionState[]>([]);
+  sectionsRef.current = sections;
+  const loadedDocIdRef = useRef<string | null>(null);
+  /** `${docId}:${reloadNonce}` — guards against reloading the same doc+nonce.
+   *  Separated from `loadedDocIdRef` (pure docId) which is used for flushing
+   *  the outgoing doc. When a backup restore bumps the nonce without changing
+   *  docId, this guard lets the load effect re-run. */
+  const loadTriggerRef = useRef<string | null>(null);
+  /** Static-doc identity tracking (isStatic mode only). `doc` is recreated
+   *  (new object identity) whenever HelpSection's `useMemo` deps change, e.g.
+   *  on a locale switch — `loadedStaticDocRef` detects that and
+   *  `staticDocRevRef` produces a fresh key so SectionEditor instances remount
+   *  with the new content instead of keeping stale (previous-locale) text. */
+  const loadedStaticDocRef = useRef<{ title: string; blocks: Block[] } | undefined>(undefined);
+  const staticDocRevRef = useRef(0);
+  const [staticDocKey, setStaticDocKey] = useState<string | null>(null);
+  /** Unified doc identity used for SectionEditor `key`s and skeleton
+   *  comparisons — the static key in static mode, `editorDocId` otherwise. */
+  const docKey = isStatic ? staticDocKey : editorDocId;
+  /** The doc id whose content has actually finished loading into all
+   *  section editors. While this lags behind `editorDocId` we show a
+   *  Skeleton overlay so the user doesn't see empty editors / placeholder
+   *  text during the load. */
+  const [renderedDocId, setRenderedDocId] = useState<string | null>(null);
+  /** How many sections have reported "content loaded" for the current
+   *  doc. When this reaches the total VISIBLE section count, we set
+   *  renderedDocId. */
+  const loadedSectionCountRef = useRef(0);
+  const expectedSectionCountRef = useRef(0);
+  /** How many sections are currently rendered. Grows progressively so we
+   *  don't create all N ProseMirror instances at once (which would block the
+   *  main thread on large documents). */
+  const [visibleCount, setVisibleCount] = useState(0);
 
   // ── Load / re-section when the active document changes ──
   useEffect(() => {
@@ -406,12 +405,10 @@ const [visibleCount, setVisibleCount] = useState(0);
 
   return {
     sections,
-    setSections,
     sectionsRef,
     renderSections,
     visibleCount,
     docKey,
-    renderedDocId,
     showSkeleton,
     handleSectionLoaded,
     handleSectionChange,

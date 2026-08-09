@@ -16,44 +16,11 @@
  * 这是时序图/用例图所必需的能力。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Graph,
-  InternalEvent,
-  RubberBandHandler,
-  UndoManager,
-  ConnectionConstraint,
-  Point,
-  getDefaultPlugins,
-  HandleConfig,
-  VertexHandlerConfig,
-  ImageBox,
-  Rectangle,
-  RectangleShape,
-  RhombusShape,
-  EllipseShape,
-  ConnectorShape,
-  VertexHandler,
-  CellState,
-  type Cell,
-  type CellStyle,
-  type InternalMouseEvent,
-  type ConnectionHandler,
-  type EventObject,
-  type SelectionHandler,
-  type FitPlugin,
-  type PanningHandler,
-  type RubberBandHandler as RubberBandHandlerType,
-  type GraphPluginConstructor,
-  styleUtils,
-  eventUtils,
-} from '@maxgraph/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Graph, UndoManager, type CellStyle } from '@maxgraph/core';
 import '@maxgraph/core/css/common.css';
 
 import { GraphToolbar } from './GraphToolbar';
-
-import { logger } from '../../../../lib/core/logger';
-import { toast } from '../../../../lib/core/toast';
 
 import {
   detectSnapshotKind,
@@ -63,51 +30,9 @@ import {
   type LabelAlign,
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
-import { registerCustomShapes, HEAD_HEIGHT } from './customShapes';
-import { registerObstacleEdgeStyle } from './obstacleRouting';
-import {
-  MINDMAP_EDGE_STYLE,
-  MINDMAP_GAP_X,
-  MINDMAP_GAP_Y,
-  reflowMindmap,
-  registerMindmapEdgeStyle,
-} from './mindmapLayout';
 import MermaidImportDialog from './MermaidImportDialog';
 import AIGraphImportDialog from './AIGraphImportDialog';
-import {
-  paletteFor,
-  getSelectionColor,
-  getHandleFillColor,
-  getHandleStrokeColor,
-  getConnectionPointColor,
-  getEdgeColor,
-  getFontColor,
-  fontColorFor,
-  getLabelBackgroundColor,
-  createConnectionPointSVG,
-  createLifelineConnectionPointSVG,
-  SHAPE_STROKE_WIDTH,
-  SHAPE_FONT_SIZE,
-  SHAPE_ARC_SIZE,
-  ARROW_END_SIZE,
-  HANDLE_SIZE,
-  SELECTION_STROKE_WIDTH,
-  SELECTION_DASHED,
-  CONNECTION_POINT_SIZE,
-} from './graphTheme';
-import {
-  styleForShape,
-  DEFAULT_SIZE,
-  SHAPE_LABEL,
-  GRID_SIZE,
-  EVENT_TOLERANCE,
-  ZOOM_MIN,
-  ZOOM_MAX,
-  MIN_DRAW_SIZE,
-  CONNECTION_POINTS,
-} from './graphCanvasStyle';
-import { attachSequenceInteraction, owningLifeline } from './sequenceInteraction';
-import { isOnBorder, mindmapEdgeStyle, nextCellId, FLOW_ANIMATION_THRESHOLD, BORDER_TOLERANCE_PX } from './graphHelpers';
+import { fontColorFor } from './graphTheme';
 import { useGraphExport } from './useGraphExport';
 import { useGraphKeyboard } from './useGraphKeyboard';
 import { useGraphInit } from './useGraphInit';

@@ -182,11 +182,8 @@ export default function DocumentPanel({
     cursorTrailRegistry,
   });
 
-
-
-
   // ── Cursor trail (extracted to useCursorTrail hook) ──
-  const { trailOverlayRef, trailRef } = useCursorTrail({
+  const { trailOverlayRef } = useCursorTrail({
     readOnly,
     hasActiveDoc,
     editorDocId,
@@ -199,12 +196,10 @@ export default function DocumentPanel({
   // ── Section loading / rebalancing (extracted to useSectionLoader hook) ──
   const {
     sections,
-    setSections,
     sectionsRef,
     renderSections,
     visibleCount,
     docKey,
-    renderedDocId,
     showSkeleton,
     handleSectionLoaded,
     handleSectionChange,
@@ -221,8 +216,6 @@ export default function DocumentPanel({
     focusedEditorRef,
     sectionEditorsRef,
   });
-
-
 
   // ── pagehide / beforeunload: flush pending edits + document saves ──
   useEffect(() => {
@@ -274,9 +267,6 @@ export default function DocumentPanel({
     () => isDocumentEmpty(sectionsRef.current.flatMap((s) => s.blocks)),
     [],
   );
-
-
-
 
   // Stable section list for rendering — identity preserved across edits.
 
@@ -414,8 +404,6 @@ export default function DocumentPanel({
     handle.focusEnd();
     return true;
   }, []);
-
-
 
   // ── Title keydown: Enter → insert paragraph at doc start; ArrowDown → enter
   //    the first section's editor. Ported from the retired EditorPanel's

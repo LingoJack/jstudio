@@ -25,6 +25,8 @@ export function useHtmlPreview({
   collapsed,
 }: UseHtmlPreviewParams) {
   const { t } = useI18n();
+  const tRef = useRef(t);
+  tRef.current = t;
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -54,7 +56,7 @@ export function useHtmlPreview({
     if (showHtmlPreview && !iframeRef.current) {
       const iframe = document.createElement("iframe");
       iframe.className = "code-html-preview";
-      iframe.title = t("code.previewHtml");
+      iframe.title = tRef.current("code.previewHtml");
       iframe.sandbox.add(
         "allow-scripts",
         "allow-forms",
@@ -75,7 +77,7 @@ export function useHtmlPreview({
     ) {
       iframeRef.current.srcdoc = htmlSource;
     }
-  }, [showHtmlPreview, htmlSource, collapsed, t]);
+  }, [showHtmlPreview, htmlSource, collapsed]);
 
   return { previewContainerRef };
 }
