@@ -1,25 +1,20 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { storage } from '../../lib/core/storage';
-import { blocksToMarkdown } from '../../lib/editor/markdownExport';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import { useSidebarHover } from './hooks/useSidebarHover';
 import { useBatchSelection } from './hooks/useBatchSelection';
 import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
-import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folderTree';
-import {
-  FileText, Plus, MoreHorizontal, FileDown,
-  FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
-  X, PackageOpen, Check, ArrowUpNarrowWide, ArrowDownWideNarrow, ArrowDownUp,
-  Pin, Search,
-} from 'lucide-react';
+import { useDocSidebarActions } from './hooks/useDocSidebarActions';
+import { buildFolderTree } from '../../lib/documents/folderTree';
+import { MoreHorizontal, X, Pin, Search } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
+import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
+import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSidebarMenus';
+import { DocumentTreeRenderer, SearchResultsList } from './DocumentTreeRenderer';
 import TrashDialog from './TrashDialog';
 import BackupRestoreDialog from './BackupRestoreDialog';
-import { MenuList, MenuItem, MenuDivider, SubMenu } from '../ui/MenuList';
-import { NavBranch, NavRow } from '../ui/NavTree';
 
 // ──────────────────────────────────────────────────────────────────
 // Constants
@@ -167,7 +162,6 @@ export default function DocumentSidebar() {
     () => buildFolderTree(folders, filteredDocs, { sortKey: docSortKey, direction: docSortDirection }),
     [folders, filteredDocs, docSortKey, docSortDirection],
   );
-  const rootDocCount = tree.documents.length;
 
   // ── Effects: auto-close menus ─────────────────────────────
   useEffect(() => {
@@ -264,8 +258,6 @@ export default function DocumentSidebar() {
     }
   }, [renamingId, renameValue, renameDocument]);
 
-
-
   // ── Handlers: folder actions ──────────────────────────────
   const handleToggleFolder = useCallback(
     (folderId: string) => {
@@ -285,12 +277,6 @@ export default function DocumentSidebar() {
     },
     [createFolder],
   );
-
-  const handleFolderContextMenu = useCallback((e: React.MouseEvent, folderId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFolderMenu({ x: e.clientX, y: e.clientY, folderId });
-  }, []);
 
   const startFolderRename = useCallback((folderId: string, name: string) => {
     setRenamingFolderId(folderId);
@@ -318,118 +304,25 @@ export default function DocumentSidebar() {
     [folders, trashFolder],
   );
 
-  // ── Handlers: path / import ───────────────────────────────
-  const handleOpenInFinder = useCallback(async (docId: string) => {
-    try {
-      await storage.openDocDir(docId);
-    } catch (e) {
-      console.error('Failed to open document folder:', e);
-    }
-    setContextMenu(null);
-  }, []);
-
-  const handleCopyPath = useCallback(async (docId: string) => {
-    try {
-      const path = await storage.getDocPath(docId);
-      await navigator.clipboard.writeText(path);
-    } catch (e) {
-      console.error('Failed to copy path:', e);
-    }
-    setContextMenu(null);
-  }, []);
-
-  const handleCopyRelativePath = useCallback(async (docId: string) => {
-    try {
-      const path = await storage.getDocPath(docId);
-      const home = await storage.init();
-      let rel = path;
-      if (path.startsWith(home)) {
-        rel = path.slice(home.length).replace(/^[/\\]+/, '');
-      }
-      await navigator.clipboard.writeText(rel);
-    } catch (e) {
-      console.error('Failed to copy relative path:', e);
-    }
-    setContextMenu(null);
-  }, []);
-
-  const handleImportMarkdown = useCallback(async (folderId?: string) => {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const filePath = await open({
-        multiple: false,
-        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown'] }],
-      });
-      if (!filePath || typeof filePath !== 'string') return;
-      const bytes = await storage.readFileBytes(filePath);
-      const md = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
-      const filename = filePath.split(/[/\\]/).pop() ?? 'Untitled.md';
-      await importDocumentFromMarkdown(filename, md, folderId);
-    } catch (e) {
-      console.error('Failed to import Markdown:', e);
-    }
-  }, [importDocumentFromMarkdown]);
-
-  const handleImportMarkdownDirectory = useCallback(async (folderId?: string) => {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const dirPath = await open({ directory: true, multiple: false });
-      if (!dirPath || typeof dirPath !== 'string') return;
-      const count = await importMarkdownDirectory(dirPath, folderId);
-      const tt = tRef.current;
-      if (count === 0) {
-        addToast('info', tt('doclist.importDirEmpty'));
-      } else {
-        addToast('success', tt('doclist.importDirSuccess', { count }));
-      }
-    } catch (e) {
-      console.error('Failed to import Markdown directory:', e);
-      addToast('error', tRef.current('doclist.importDirFailed'));
-    }
-  }, [importMarkdownDirectory, addToast]);
-
-  // ── Handlers: lossless backup bundle (.jnote) ─────────────
-  const handleExportBundle = useCallback(async (docId: string) => {
-    setContextMenu(null);
-    try {
-      const ok = await exportDocumentBundle(docId);
-      if (ok) addToast('success', tRef.current('doclist.exportBundleSuccess'));
-    } catch (e) {
-      console.error('Failed to export bundle:', e);
-      addToast('error', tRef.current('doclist.exportBundleFailed'));
-    }
-  }, [exportDocumentBundle, addToast]);
-
-  const handleImportBundle = useCallback(async (folderId?: string) => {
-    try {
-      const id = await importDocumentBundle(folderId);
-      if (id) addToast('success', tRef.current('doclist.importBundleSuccess'));
-    } catch (e) {
-      console.error('Failed to import bundle:', e);
-      addToast('error', tRef.current('doclist.importBundleFailed'));
-    }
-  }, [importDocumentBundle, addToast]);
-
-  // ── Handler: copy document body as Markdown ────────────────
-  const handleCopyAsMarkdown = useCallback(async (docId: string) => {
-    setContextMenu(null);
-    try {
-      const doc = useStore.getState().documents.find((d) => d.id === docId);
-      if (!doc) return;
-      const tt = tRef.current;
-      const md = blocksToMarkdown(doc.blocks, {
-        file: (name) => (name
-          ? tt('doclist.mdPlaceholderFile', { name })
-          : tt('doclist.mdPlaceholderFileEmpty')),
-        diagram: tt('doclist.mdPlaceholderDiagram'),
-      });
-      await navigator.clipboard.writeText(md);
-      addToast('success', tt('doclist.copyAsMarkdownSuccess'));
-    } catch (e) {
-      console.error('Failed to copy as Markdown:', e);
-      addToast('error', tRef.current('doclist.copyAsMarkdownFailed'));
-    }
-  }, [addToast]);
+  // ── Handlers: path / import / export (extracted to useDocSidebarActions) ──
+  const {
+    handleOpenInFinder,
+    handleCopyPath,
+    handleCopyRelativePath,
+    handleImportMarkdown,
+    handleImportMarkdownDirectory,
+    handleExportBundle,
+    handleImportBundle,
+    handleCopyAsMarkdown,
+  } = useDocSidebarActions({
+    importDocumentFromMarkdown,
+    importMarkdownDirectory,
+    exportDocumentBundle,
+    importDocumentBundle,
+    addToast,
+    setContextMenu,
+    t,
+  });
 
   /**
    * After a successful drag the browser fires a synthetic `click` on the
@@ -482,194 +375,6 @@ export default function DocumentSidebar() {
     renamingId,
     suppressClick,
   });
-
-  // ── Render helpers ────────────────────────────────────────
-
-  /**
-   * Render a single document row inside the folder tree.
-   * Uses NavRow (secondary level) so it matches Settings sub-items.
-   */
-  const renderDoc = (doc: (typeof docList)[number]) => {
-    const isActive = doc.id === activeDocId;
-    const isDragging = draggingDocId === doc.id;
-    const isRenaming = renamingId === doc.id;
-    const isSelected = selectedIds.has(doc.id);
-
-    return (
-      <NavRow
-        key={doc.id}
-        level="secondary"
-        active={isActive}
-        selected={isSelected}
-        noHover
-        icon={<FileText className="w-4 h-4 opacity-50 shrink-0" />}
-        onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-        onClick={(e) => handleDocClick(e, doc.id)}
-        onContextMenu={(e) => handleContextMenu(e, doc.id)}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          startRename(doc.id, doc.title || '');
-        }}
-        style={{ opacity: isDragging ? 0.4 : undefined }}
-        className={isDragging ? 'cursor-grabbing' : ''}
-      >
-        {isRenaming ? (
-          <input
-            ref={renameInputRef}
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (handleNativeSelectAll(e)) return;
-              if (e.key === 'Enter') commitRename();
-              if (e.key === 'Escape') setRenamingId(null);
-            }}
-            className="w-full h-6 text-body bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-            placeholder={t('doclist.renamePlaceholder')}
-          />
-        ) : (
-          doc.title || t('doclist.untitled')
-        )}
-      </NavRow>
-    );
-  };
-
-  /**
-   * Recursively render a folder node and its children.
-   *
-   * The folder row itself is a NavRow (can show drop highlight).
-   * Its children are wrapped in a plain NavBranch (indentation only).
-   */
-  const renderNode = (node: FolderTreeNode, depth: number): React.ReactNode => {
-    if (!node.folder) return null;
-    const f = node.folder;
-    const open = isFolderExpanded(f.id);
-    const isDropTarget = dragOverTarget === f.id;
-    const isFlashing = flashFolderId === f.id;
-    const isRenaming = renamingFolderId === f.id;
-
-    return (
-      <div
-        key={f.id}
-        data-drop-target={f.id}
-        className={`rounded-md transition-colors duration-150 ${
-          isDropTarget || isFlashing
-            ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
-            : ''
-        }`}
-      >
-        {/* Folder row */}
-        <NavRow
-          level="primary"
-          highlighted={false}
-          selected={selectedIds.has(f.id)}
-          noHover
-          onClick={(e) => {
-            if (e.metaKey || e.ctrlKey) {
-              // Toggle selection
-              setSelectedIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(f.id)) next.delete(f.id);
-                else next.add(f.id);
-                return next;
-              });
-              setLastClickedId(f.id);
-            } else if (e.shiftKey && lastClickedId) {
-              const start = visibleItemIds.indexOf(lastClickedId);
-              const end = visibleItemIds.indexOf(f.id);
-              if (start !== -1 && end !== -1) {
-                const lo = Math.min(start, end);
-                const hi = Math.max(start, end);
-                setSelectedIds(new Set(visibleItemIds.slice(lo, hi + 1)));
-              }
-              setLastClickedId(f.id);
-            } else {
-              // Plain click: if there's a selection, clear it (don't toggle)
-              if (selectedIds.size > 0) {
-                setSelectedIds(new Set());
-              } else {
-                handleToggleFolder(f.id);
-              }
-              setLastClickedId(f.id);
-            }
-          }}
-          onContextMenu={(e) => handleContextMenu(e, f.id, 'folder')}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            startFolderRename(f.id, f.name);
-          }}
-          icon={open
-            ? <FolderOpen className="w-5 h-5 opacity-70 shrink-0" />
-            : <Folder className="w-5 h-5 opacity-70 shrink-0" />
-          }
-          expandable={!isRenaming}
-          expanded={open}
-        >
-          {isRenaming ? (
-            <input
-              ref={folderRenameRef}
-              type="text"
-              value={folderRenameValue}
-              onChange={(e) => setFolderRenameValue(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={commitFolderRename}
-              onKeyDown={(e) => {
-                if (handleNativeSelectAll(e)) return;
-                if (e.key === 'Enter') commitFolderRename();
-                if (e.key === 'Escape') setRenamingFolderId(null);
-              }}
-              className="w-full h-6 text-sm bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
-              placeholder={t('doclist.folderNamePlaceholder')}
-            />
-          ) : (
-            f.name
-          )}
-        </NavRow>
-
-        {/* Children – indentation only, no guide line */}
-        {open && (
-          <NavBranch plain className="mt-0.5 mb-1 ml-[18px]">
-            {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
-            {node.documents.map((doc) => renderDoc(doc))}
-          </NavBranch>
-        )}
-      </div>
-    );
-  };
-
-  // ── Search mode: flat list (no indentation guides) ────────
-  const renderSearchResults = () => {
-    if (filteredDocs.length === 0) {
-      return (
-        <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
-          {t('doclist.noMatch')}
-        </p>
-      );
-    }
-    return filteredDocs.map((doc) => (
-      <NavRow
-        key={doc.id}
-        level="primary"
-        plainActive
-        active={doc.id === activeDocId}
-        selected={selectedIds.has(doc.id)}
-        noHover
-        icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
-        onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-        onClick={(e) => handleDocClick(e, doc.id)}
-        onContextMenu={(e) => handleContextMenu(e, doc.id)}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          startRename(doc.id, doc.title || '');
-        }}
-        className={draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''}
-      >
-        {doc.title || t('doclist.untitled')}
-      </NavRow>
-    ));
-  };
 
   // ── Main render ───────────────────────────────────────────
   const isRootDropTarget = dragOverTarget === ROOT_DROP_ID;
@@ -766,111 +471,21 @@ export default function DocumentSidebar() {
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {moreMenuOpen && moreMenuPos && (
-              <MenuList
+              <DocumentSidebarMoreMenu
                 x={moreMenuPos.x}
                 y={moreMenuPos.y}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <SubMenu label={t('doclist.new')} icon={<Plus />}>
-                  <MenuItem
-                    icon={<Plus />}
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      createDocument();
-                    }}
-                  >
-                    {t('doclist.newDocument')}
-                  </MenuItem>
-                  <MenuItem
-                    icon={<FolderPlus />}
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      handleCreateFolder();
-                    }}
-                  >
-                    {t('doclist.newFolder')}
-                  </MenuItem>
-                </SubMenu>
-                <SubMenu label={t('doclist.import')} icon={<FileDown />}>
-                  <MenuItem
-                    icon={<FileDown />}
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      handleImportMarkdown();
-                    }}
-                  >
-                    {t('doclist.importMarkdown')}
-                  </MenuItem>
-                  <MenuItem
-                    icon={<FolderDown />}
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      handleImportMarkdownDirectory();
-                    }}
-                  >
-                    {t('doclist.importDirectory')}
-                  </MenuItem>
-                  <MenuItem
-                    icon={<PackageOpen />}
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      handleImportBundle();
-                    }}
-                  >
-                    {t('doclist.importBundle')}
-                  </MenuItem>
-                </SubMenu>
-                <MenuDivider />
-                {/* ── Sort settings (nested submenu) ── */}
-                <SubMenu
-                  label={t('doclist.sortBy')}
-                  icon={<ArrowDownUp />}
-                >
-                  <MenuItem
-                    icon={docSortKey === 'created' ? <Check /> : <span className="w-4 h-4" />}
-                    onClick={() => {
-                      setDocSortKey('created');
-                    }}
-                  >
-                    {t('doclist.sortByCreated')}
-                  </MenuItem>
-                  <MenuItem
-                    icon={docSortKey === 'title' ? <Check /> : <span className="w-4 h-4" />}
-                    onClick={() => {
-                      setDocSortKey('title');
-                    }}
-                  >
-                    {t('doclist.sortByTitle')}
-                  </MenuItem>
-                  <MenuDivider />
-                  <MenuItem
-                    icon={docSortDirection === 'asc' ? <ArrowUpNarrowWide /> : <span className="w-4 h-4" />}
-                    onClick={() => {
-                      setDocSortDirection('asc');
-                    }}
-                  >
-                    {t('doclist.sortAscending')}
-                  </MenuItem>
-                  <MenuItem
-                    icon={docSortDirection === 'desc' ? <ArrowDownWideNarrow /> : <span className="w-4 h-4" />}
-                    onClick={() => {
-                      setDocSortDirection('desc');
-                    }}
-                  >
-                    {t('doclist.sortDescending')}
-                  </MenuItem>
-                </SubMenu>
-                <MenuDivider />
-                <MenuItem
-                  icon={<Trash2 />}
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    setTrashDialogOpen(true);
-                  }}
-                >
-                  {t('doclist.trash')}
-                </MenuItem>
-              </MenuList>
+                docSortKey={docSortKey}
+                docSortDirection={docSortDirection}
+                onClose={() => setMoreMenuOpen(false)}
+                onNewDocument={() => createDocument()}
+                onNewFolder={() => handleCreateFolder()}
+                onImportMarkdown={() => handleImportMarkdown()}
+                onImportMarkdownDirectory={() => handleImportMarkdownDirectory()}
+                onImportBundle={() => handleImportBundle()}
+                onSetSortKey={(key) => setDocSortKey(key)}
+                onSetSortDirection={(dir) => setDocSortDirection(dir)}
+                onOpenTrash={() => setTrashDialogOpen(true)}
+              />
             )}
           </div>
         </div>
@@ -884,38 +499,49 @@ export default function DocumentSidebar() {
         }`}
       >
         {isSearching ? (
-          renderSearchResults()
+          <SearchResultsList
+            filteredDocs={filteredDocs}
+            activeDocId={activeDocId}
+            selectedIds={selectedIds}
+            draggingDocId={draggingDocId}
+            onDocPointerDown={onDocPointerDown}
+            handleDocClick={handleDocClick}
+            handleContextMenu={handleContextMenu}
+            startRename={startRename}
+          />
         ) : (
-          <>
-            {tree.subFolders.map((node) => renderNode(node, 0))}
-            {rootDocCount === 0 && folders.length === 0 ? (
-              <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
-                {t('doclist.noMatch')}
-              </p>
-            ) : (
-              tree.documents.map((doc) => (
-                <NavRow
-                  key={doc.id}
-                  level="primary"
-                  plainActive
-                  active={doc.id === activeDocId}
-                  selected={selectedIds.has(doc.id)}
-                  noHover
-                  icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
-                  onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-                  onClick={(e) => handleDocClick(e, doc.id)}
-                  onContextMenu={(e) => handleContextMenu(e, doc.id)}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    startRename(doc.id, doc.title || '');
-                  }}
-                  className={draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''}
-                >
-                  {doc.title || t('doclist.untitled')}
-                </NavRow>
-              ))
-            )}
-          </>
+          <DocumentTreeRenderer
+            tree={tree}
+            folders={folders}
+            isFolderExpanded={isFolderExpanded}
+            handleToggleFolder={handleToggleFolder}
+            dragOverTarget={dragOverTarget}
+            flashFolderId={flashFolderId}
+            draggingDocId={draggingDocId}
+            selectedIds={selectedIds}
+            setSelectedIds={setSelectedIds}
+            lastClickedId={lastClickedId}
+            setLastClickedId={setLastClickedId}
+            visibleItemIds={visibleItemIds}
+            activeDocId={activeDocId}
+            onDocPointerDown={onDocPointerDown}
+            handleDocClick={handleDocClick}
+            handleContextMenu={handleContextMenu}
+            renamingId={renamingId}
+            renameInputRef={renameInputRef}
+            renameValue={renameValue}
+            setRenameValue={setRenameValue}
+            commitRename={commitRename}
+            setRenamingId={setRenamingId}
+            startRename={startRename}
+            renamingFolderId={renamingFolderId}
+            folderRenameRef={folderRenameRef}
+            folderRenameValue={folderRenameValue}
+            setFolderRenameValue={setFolderRenameValue}
+            commitFolderRename={commitFolderRename}
+            setRenamingFolderId={setRenamingFolderId}
+            startFolderRename={startFolderRename}
+          />
         )}
       </div>
 
@@ -931,64 +557,21 @@ export default function DocumentSidebar() {
 
       {/* Folder context menu */}
       {folderMenu && (
-        <MenuList
+        <FolderContextMenu
           x={folderMenu.x}
           y={folderMenu.y}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MenuItem
-            icon={<FileText />}
-            onClick={() => {
-              createDocument(folderMenu.folderId);
-              setFolderMenu(null);
-            }}
-          >
-            {t('doclist.newDocument')}
-          </MenuItem>
-          <MenuDivider />
-          <MenuItem
-            icon={<FolderPlus />}
-            onClick={() => handleCreateSubfolder(folderMenu.folderId)}
-          >
-            {t('doclist.newSubfolder')}
-          </MenuItem>
-          <MenuItem
-            icon={<FolderInput />}
-            onClick={() => {
-              const f = folders.find((x) => x.id === folderMenu.folderId);
-              if (f) startFolderRename(f.id, f.name);
-            }}
-          >
-            {t('doclist.renameFolder')}
-          </MenuItem>
-          <MenuDivider />
-          <MenuItem
-            icon={<FileDown />}
-            onClick={() => {
-              handleImportMarkdown(folderMenu.folderId);
-              setFolderMenu(null);
-            }}
-          >
-            {t('doclist.importMarkdown')}
-          </MenuItem>
-          <MenuItem
-            icon={<FolderDown />}
-            onClick={() => {
-              handleImportMarkdownDirectory(folderMenu.folderId);
-              setFolderMenu(null);
-            }}
-          >
-            {t('doclist.importDirectory')}
-          </MenuItem>
-          <MenuDivider />
-          <MenuItem
-            variant="danger"
-            icon={<Trash2 />}
-            onClick={() => handleDeleteFolder(folderMenu.folderId)}
-          >
-            {t('doclist.moveToTrash')}
-          </MenuItem>
-        </MenuList>
+          folderId={folderMenu.folderId}
+          onNewDocument={(folderId) => createDocument(folderId)}
+          onCreateSubfolder={handleCreateSubfolder}
+          onRenameFolder={(folderId) => {
+            const f = folders.find((x) => x.id === folderId);
+            if (f) startFolderRename(f.id, f.name);
+          }}
+          onImportMarkdown={(folderId) => handleImportMarkdown(folderId)}
+          onImportMarkdownDirectory={(folderId) => handleImportMarkdownDirectory(folderId)}
+          onDeleteFolder={handleDeleteFolder}
+          onClose={() => setFolderMenu(null)}
+        />
       )}
 
       {/* Document context menu */}
@@ -1019,56 +602,24 @@ export default function DocumentSidebar() {
 
       {/* Batch context menu (right-click on multi-selection) */}
       {batchMenu && (
-        <MenuList
+        <BatchContextMenu
           x={batchMenu.x}
           y={batchMenu.y}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MenuItem
-            icon={<FolderInput />}
-            onClick={() => {
-              setBatchMoveMenu({ x: batchMenu.x, y: batchMenu.y });
-              setBatchMenu(null);
-            }}
-          >
-            {t('doclist.batchMove')}
-          </MenuItem>
-          <MenuDivider />
-          <MenuItem
-            variant="danger"
-            icon={<Trash2 />}
-            onClick={batchDelete}
-          >
-            {t('doclist.batchMoveToTrash')}
-          </MenuItem>
-        </MenuList>
+          onMoveTo={() => setBatchMoveMenu({ x: batchMenu.x, y: batchMenu.y })}
+          onDelete={batchDelete}
+          onClose={() => setBatchMenu(null)}
+        />
       )}
 
       {/* Batch move-to-folder menu (drops down from the action bar) */}
       {batchMoveMenu && (
-        <MenuList
+        <BatchMoveMenu
           x={batchMoveMenu.x}
           y={batchMoveMenu.y}
-          onClick={(e) => e.stopPropagation()}
-          className="max-h-64 overflow-y-auto"
-        >
-          <MenuItem
-            icon={<FileText className="w-4 h-4" />}
-            onClick={() => batchMove(null)}
-          >
-            {t('doclist.rootLevel')}
-          </MenuItem>
-          {folders.length > 0 && <MenuDivider />}
-          {folders.map((f) => (
-            <MenuItem
-              key={f.id}
-              icon={<Folder className="w-4 h-4" />}
-              onClick={() => batchMove(f.id)}
-            >
-              {f.name}
-            </MenuItem>
-          ))}
-        </MenuList>
+          folders={folders}
+          onMove={(folderId) => batchMove(folderId)}
+          onClose={() => setBatchMoveMenu(null)}
+        />
       )}
 
       {/* Resize handle - only when pinned */}
