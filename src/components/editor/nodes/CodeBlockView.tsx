@@ -49,12 +49,12 @@ import { openHtmlPreviewWindow } from "../../../lib/windows/previewWindow";
 import { useI18n } from "../../../lib/core/i18n";
 import { handleNativeSelectAll } from "../../../lib/shortcuts/nativeSelectAll";
 import { useStore } from "../../../store/useStore";
-import { useCursorTrailHostRef } from "../CursorTrailContext";
 import { LANGUAGES, getLanguageLabel } from "./codeBlockLanguages";
 import { buildMermaidPreviewWindowHtml } from "./mermaidWindowHtml";
 import { useMermaidPreview } from "./code-block/useMermaidPreview";
 import { useHtmlPreview } from "./code-block/useHtmlPreview";
 import { CodeBlockActions } from "./code-block/CodeBlockActions";
+import { useCodeBlockTitle } from "./code-block/useCodeBlockTitle";
 import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
 import { LanguageDropdown } from "./code-block/LanguageDropdown";
 
@@ -74,46 +74,16 @@ export default function CodeBlockView({
   // inside such "non-editable islands"), so we need native event shields
   // below to keep ProseMirror from intercepting keystrokes.
   //
-  // UX: when there is no title a small pencil-icon button is shown instead
-  // of an always-visible empty input (avoids a noisy placeholder). Clicking
-  // the icon - or the title text itself - enters edit mode and auto-focuses
-  // the input.
-  const [localTitle, setLocalTitle] = useState(title);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const titleInputRef = useRef<HTMLInputElement>(null);
-  const cursorTrailTitleRef = useCursorTrailHostRef(titleInputRef);
-
-  // Sync local state when the title changes from outside (e.g. undo/redo).
-  useEffect(() => {
-    setLocalTitle(title);
-  }, [title]);
-
-  // Auto-focus + select-all when entering edit mode.
-  useEffect(() => {
-    if (isEditingTitle) {
-      const el = titleInputRef.current;
-      if (el) {
-        el.focus();
-        el.select();
-      }
-    }
-  }, [isEditingTitle]);
-
-  const startEditingTitle = useCallback(() => {
-    setLocalTitle(title);
-    setIsEditingTitle(true);
-  }, [title]);
-
-  const commitTitle = useCallback(() => {
-    const trimmed = localTitle.trim();
-    if (trimmed !== title) {
-      updateAttributes({ title: trimmed });
-    } else {
-      // Re-sync in case the user typed then reverted.
-      setLocalTitle(title);
-    }
-    setIsEditingTitle(false);
-  }, [localTitle, title, updateAttributes]);
+  const {
+    localTitle,
+    setLocalTitle,
+    isEditingTitle,
+    titleInputRef,
+    cursorTrailTitleRef,
+    startEditingTitle,
+    commitTitle,
+    cancelEditingTitle,
+  } = useCodeBlockTitle({ title, updateAttributes });
   const { t } = useI18n();
   // Subscribe to the primitive (per CODEBUDDY.md gotcha — never the object ref).
   const isDarkMode = useStore((s) => s.isDarkMode);
@@ -401,8 +371,7 @@ export default function CodeBlockView({
                 }
                 if (e.key === "Escape") {
                   e.preventDefault();
-                  setLocalTitle(title);
-                  setIsEditingTitle(false);
+                  cancelEditingTitle();
                 }
                 e.stopPropagation();
               }}
