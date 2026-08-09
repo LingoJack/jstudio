@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useCallback } from 'react';
 import { useStore } from '../../store/useStore';
-import { useI18n } from '../../lib/core/i18n';
 import { createTerminalWindow } from '../../lib/windows/terminalDetach';
 import { getTerminalThemeFromAppTheme } from '../../lib/terminal/themes';
-import { Clock, FolderOpen, Trash2, Pencil, X, ExternalLink } from 'lucide-react';
-import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 import TabBar, { type TabItem } from '../ui/TabBar';
+import TerminalRecentDirsDropdown from './TerminalRecentDirsDropdown';
+import { TerminalTabContextMenu } from './TerminalTabContextMenu';
 import type { TerminalSession } from '../../store/terminalSlice';
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -86,11 +84,9 @@ function formatAutoTitle(raw: string): string {
  *   Cmd/Ctrl + Opt/Alt + ← / →   — cycle tabs (secondary)
  */
 export default function TerminalTabs() {
-  const { t } = useI18n();
   const groups = useStore((s) => s.groups);
   const sessions = useStore((s) => s.sessions);
   const activeGroupId = useStore((s) => s.activeGroupId);
-  const recentDirs = useStore((s) => s.recentDirs);
   const closeSession = useStore((s) => s.closeSession);
   const createSession = useStore((s) => s.createSession);
   const renameSession = useStore((s) => s.renameSession);
@@ -152,53 +148,6 @@ export default function TerminalTabs() {
     setRenamingGroupId(null);
   }, []);
 
-  // ── History dropdown (hover-triggered) ───────────────────────────
-  const [showHistory, setShowHistory] = useState(false);
-  const [historyPos, setHistoryPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const historyBtnRef = useRef<HTMLButtonElement>(null);
-  const historyRef = useRef<HTMLDivElement>(null);
-  const historyCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (historyCloseTimer.current) clearTimeout(historyCloseTimer.current);
-    };
-  }, []);
-
-  const openHistory = useCallback(() => {
-    if (historyCloseTimer.current) {
-      clearTimeout(historyCloseTimer.current);
-      historyCloseTimer.current = null;
-    }
-    if (historyBtnRef.current) {
-      const rect = historyBtnRef.current.getBoundingClientRect();
-      const gap = 4;
-      if (tabBarPosition === 'top') {
-        // Tab bar at top → dropdown opens below
-        setHistoryPos({ x: rect.left, y: rect.bottom + gap });
-      } else {
-        // Tab bar at bottom → dropdown opens above
-        setHistoryPos({ x: rect.left, y: rect.top - gap });
-      }
-    }
-    setShowHistory(true);
-  }, [tabBarPosition]);
-
-  const scheduleCloseHistory = useCallback(() => {
-    if (historyCloseTimer.current) clearTimeout(historyCloseTimer.current);
-    historyCloseTimer.current = setTimeout(() => setShowHistory(false), 200);
-  }, []);
-
-  const handlePickRecentDir = useCallback(
-    (cwd: string) => {
-      createSession(undefined, { cwd });
-      setShowHistory(false);
-    },
-    [createSession]
-  );
-
-  const clearRecentDirs = useStore((s) => s.clearRecentDirs);
-
   // ── Map groups → TabItem ──────────────────────────────────────────
   const tabItems: TabItem[] = groups.map((group) => {
     const isActive = group.id === activeGroupId;
@@ -228,65 +177,32 @@ export default function TerminalTabs() {
   const renderContextMenu = useCallback(
     (groupId: string, x: number, y: number, close: () => void) => {
       return (
-        <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
-          <MenuItem
-            icon={<Pencil className="w-4 h-4" />}
-            onClick={() => {
-              startRename(groupId);
-              close();
-            }}
-          >
-            {t('terminal.rename')}
-          </MenuItem>
-
-          {groups.length > 1 && (
-            <MenuItem
-              icon={<ExternalLink className="w-4 h-4" />}
-              onClick={() => {
-                createTerminalWindow(groupId);
-                close();
-              }}
-            >
-              {t('terminal.detachTab')}
-            </MenuItem>
-          )}
-
-          <MenuDivider />
-
-          <MenuItem
-            variant="danger"
-            icon={<X className="w-4 h-4" />}
-            onClick={() => {
-              const group = groups.find((g) => g.id === groupId);
-              if (group) closeSession(group.activeSessionId);
-              close();
-            }}
-          >
-            {t('terminal.close')}
-          </MenuItem>
-        </MenuList>
+        <TerminalTabContextMenu
+          groupId={groupId}
+          x={x}
+          y={y}
+          canDetach={groups.length > 1}
+          onCloseMenu={close}
+          onRename={startRename}
+          onDetach={(gid) => createTerminalWindow(gid)}
+          onCloseTab={(gid) => {
+            const group = groups.find((g) => g.id === gid);
+            if (group) closeSession(group.activeSessionId);
+          }}
+        />
       );
     },
-    [groups, startRename, closeSession, t]
+    [groups, startRename, closeSession]
   );
 
   // ── Extra actions (history dropdown trigger) ──────────────────────
   const extraActions = (
-    <div
-      className="relative shrink-0"
-      onMouseEnter={openHistory}
-      onMouseLeave={scheduleCloseHistory}
-    >
-      <button
-        ref={historyBtnRef}
-        className={`w-6 h-6 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] ${
-          showHistory ? 'opacity-100 bg-[rgba(255,255,255,0.1)]' : 'opacity-50 hover:opacity-100'
-        }`}
-        title={t('terminal.recentDirs')}
-      >
-        <Clock className="w-3.5 h-3.5" />
-      </button>
-    </div>
+    <TerminalRecentDirsDropdown
+      position={tabBarPosition}
+      buttonClassName="w-6 h-6 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] opacity-50 hover:opacity-100"
+      buttonActiveClassName="opacity-100 bg-[rgba(255,255,255,0.1)]"
+      iconClassName="w-3.5 h-3.5"
+    />
   );
 
   if (groups.length === 0) return null;
@@ -312,79 +228,6 @@ export default function TerminalTabs() {
         glassOpacity={tabBarGlassOpacity}
         position={tabBarPosition}
       />
-
-      {/* History dropdown — rendered at root level with fixed position to
-          escape overflow-x-auto clipping from the scroll container.
-          Opens downward when tab bar at top, upward when at bottom. */}
-      {showHistory &&
-        createPortal(
-          <div
-            ref={historyRef}
-            className="fixed z-modal min-w-context max-w-context py-1.5 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl"
-            style={
-              tabBarPosition === 'top'
-                ? { left: historyPos.x, top: `${historyPos.y}px` }
-                : { left: historyPos.x, bottom: `calc(100vh - ${historyPos.y}px)` }
-            }
-            onClick={(e) => e.stopPropagation()}
-            onMouseEnter={() => {
-              if (historyCloseTimer.current) {
-                clearTimeout(historyCloseTimer.current);
-                historyCloseTimer.current = null;
-              }
-            }}
-            onMouseLeave={scheduleCloseHistory}
-          >
-            {recentDirs.length === 0 ? (
-              <div className="px-3 py-3 text-center text-[var(--vscode-descriptionForeground)] text-xs">
-                {t('terminal.noRecentDirs')}
-              </div>
-            ) : (
-              <>
-                <div className="px-3 pb-1.5 text-tiny font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-                  {t('terminal.recentDirs')}
-                </div>
-                <div className="max-h-[300px] overflow-y-auto">
-                  {recentDirs.map((dir) => {
-                    const basename = getCwdBasename(dir);
-                    const parentPath = dir.replace(/\/[^/]*$/, '');
-                    return (
-                      <button
-                        key={dir}
-                        onClick={() => handlePickRecentDir(dir)}
-                        className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer hover:bg-[var(--vscode-menu-hoverBackground)] group"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5 opacity-50 group-hover:opacity-80 shrink-0 mt-0.5" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-[var(--vscode-menu-foreground)] truncate">
-                            {basename}
-                          </div>
-                          {parentPath && parentPath !== dir && (
-                            <div className="text-tiny text-[var(--vscode-descriptionForeground)] truncate font-mono leading-tight">
-                              {parentPath}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="my-1 border-t border-[var(--vscode-menu-border)] opacity-50" />
-                <button
-                  onClick={() => {
-                    clearRecentDirs();
-                    setShowHistory(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left cursor-pointer text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-menu-hoverBackground)]"
-                >
-                  <Trash2 className="w-3.5 h-3.5 opacity-70 shrink-0" />
-                  <span className="text-xs">{t('terminal.clearRecent')}</span>
-                </button>
-              </>
-            )}
-          </div>,
-          document.body
-        )}
     </>
   );
 }

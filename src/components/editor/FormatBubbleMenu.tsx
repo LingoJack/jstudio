@@ -30,9 +30,10 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { NodeSelection } from '@tiptap/pm/state';
-import { Bold, Italic, Strikethrough, Code, ChevronDown, Check } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
 import { useI18n } from '../../lib/core/i18n';
 import type { TranslationKey } from '../../lib/core/i18n';
+import { HeadingDropdown, HEADING_LEVELS } from './HeadingDropdown';
 
 /**
  * Minimal VirtualElement-compatible type (mirrors @floating-ui/dom).
@@ -57,9 +58,6 @@ interface VirtualElementLike {
 interface FormatBubbleMenuProps {
   editor: Editor;
 }
-
-/** Heading levels exposed by the dropdown (matches StarterKit defaults). */
-const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
 /**
  * A focusable toolbar entry. When the selection sits inside a heading, an
@@ -479,76 +477,17 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     >
       <div className="flex items-center gap-0.5">
         {isHeading && (
-          <div
-            className="relative flex items-center"
-            onMouseEnter={openHeadingOnHover}
-            onMouseLeave={scheduleHeadingClose}
-          >
-            <button
-              ref={triggerRef}
-              type="button"
-              title={t('bubble.headingLevel')}
-              aria-label={t('bubble.headingLevel')}
-              aria-expanded={headingOpen}
-              onMouseDown={(e) => {
-                // Prevent the editor from losing selection when clicking the button.
-                // The dropdown opens on hover; clicking the trigger is a no-op.
-                e.preventDefault();
-              }}
-              style={{ width: 'auto' }}
-              className={`editor-toolbar-btn bubble-menu-btn gap-0.5 px-1 ${
-                headingOpen ? 'is-active' : ''
-              } ${0 === activeIndex ? 'is-focused' : ''}`}
-            >
-              <span className="text-[11px] font-semibold leading-none">
-                {typeof currentLevel === 'number' ? `H${currentLevel}` : 'H'}
-              </span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-            {headingOpen && (
-              <div
-                ref={popoverRef}
-                className="editor-toolbar-menu absolute left-0 top-full z-[101] mt-1 min-w-[120px] py-1"
-              >
-                {HEADING_LEVELS.map((level, i) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      applyHeadingOption(i, false);
-                    }}
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
-                      i === headingSelIndex ? 'bg-[var(--vscode-list-hoverBackground)]' : ''
-                    } ${
-                      level === currentLevel
-                        ? 'text-[var(--vscode-textLink-foreground)]'
-                        : 'text-[var(--vscode-editor-foreground)]'
-                    }`}
-                  >
-                    <span>H{level}</span>
-                    {level === currentLevel && <Check className="w-3 h-3" />}
-                  </button>
-                ))}
-                <div className="my-1 h-px bg-[var(--vscode-menu-border)]" />
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    applyHeadingOption(HEADING_LEVELS.length, false);
-                  }}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
-                    HEADING_LEVELS.length === headingSelIndex
-                      ? 'bg-[var(--vscode-list-hoverBackground)]'
-                      : ''
-                  } text-[var(--vscode-editor-foreground)]`}
-                >
-                  <span>{t('bubble.paragraph')}</span>
-                </button>
-              </div>
-            )}
-            <div className="mx-1 h-5 w-px bg-[var(--vscode-menu-border)]" />
-          </div>
+          <HeadingDropdown
+            headingOpen={headingOpen}
+            headingSelIndex={headingSelIndex}
+            currentLevel={currentLevel}
+            isFocused={activeIndex === 0}
+            triggerRef={triggerRef}
+            popoverRef={popoverRef}
+            onHoverEnter={openHeadingOnHover}
+            onHoverLeave={scheduleHeadingClose}
+            onSelectOption={applyHeadingOption}
+          />
         )}
         {MARK_ITEMS.map((item, idx) => {
           const index = (isHeading ? 1 : 0) + idx;

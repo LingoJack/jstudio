@@ -32,6 +32,13 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { MenuList, MenuItem, MenuDivider } from '../../ui/MenuList';
+
+const TABLE_MENU_TRIGGER_CLASS =
+  'editor-toolbar-btn table-ctrl-btn flex h-7 w-7 items-center justify-center rounded text-[var(--vscode-editor-foreground)]';
+const TABLE_MENU_PANEL_CLASS =
+  'absolute right-0 top-full z-[101] mt-1 min-w-[130px]';
+const TABLE_MENU_ACTIVE_CLASS = '!text-[var(--vscode-button-background)]';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -261,106 +268,161 @@ export default function TableControls({ editor }: TableControlsProps) {
       }}
     >
       {/* Row dropdown */}
-      <Dropdown
-        icon={<Rows3 className="h-4 w-4" />}
-        isOpen={open === 'row'}
-        onHover={() => setOpen('row')}
+      <div
+        className="relative flex items-center"
+        onMouseEnter={() => setOpen('row')}
       >
-        <DropdownItem label="上方插入行" onClick={() => run(() => editor.commands.addRowBefore())} />
-        <DropdownItem label="下方插入行" onClick={() => run(() => editor.commands.addRowAfter())} />
-        <DropdownSep />
-        <DropdownItem
-          label={hasHeaderRow ? '取消表头行' : '设为表头行'}
-          icon={<Heading className="h-3.5 w-3.5" />}
-          active={hasHeaderRow}
-          onClick={() => run(() => editor.commands.toggleHeaderRow())}
-        />
-        <DropdownSep />
-        <DropdownItem label="删除行" danger onClick={() => run(() => editor.commands.deleteRow())} />
-      </Dropdown>
+        <button type="button" className={TABLE_MENU_TRIGGER_CLASS}>
+          <Rows3 className="h-4 w-4" />
+        </button>
+        {open === 'row' && (
+          <MenuList className={TABLE_MENU_PANEL_CLASS}>
+            <MenuItem onClick={() => run(() => editor.commands.addRowBefore())}>
+              上方插入行
+            </MenuItem>
+            <MenuItem onClick={() => run(() => editor.commands.addRowAfter())}>
+              下方插入行
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem
+              icon={<Heading className="h-3.5 w-3.5" />}
+              onClick={() => run(() => editor.commands.toggleHeaderRow())}
+              className={hasHeaderRow ? TABLE_MENU_ACTIVE_CLASS : ''}
+            >
+              {hasHeaderRow ? '取消表头行' : '设为表头行'}
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem
+              variant="danger"
+              onClick={() => run(() => editor.commands.deleteRow())}
+            >
+              删除行
+            </MenuItem>
+          </MenuList>
+        )}
+      </div>
 
       {/* Column dropdown */}
-      <Dropdown
-        icon={<Columns3 className="h-4 w-4" />}
-        isOpen={open === 'column'}
-        onHover={() => setOpen('column')}
+      <div
+        className="relative flex items-center"
+        onMouseEnter={() => setOpen('column')}
       >
-        <DropdownItem label="左侧插入列" onClick={() => run(() => editor.commands.addColumnBefore())} />
-        <DropdownItem label="右侧插入列" onClick={() => run(() => editor.commands.addColumnAfter())} />
-        <DropdownSep />
-        <DropdownItem label="删除列" danger onClick={() => run(() => editor.commands.deleteColumn())} />
-      </Dropdown>
+        <button type="button" className={TABLE_MENU_TRIGGER_CLASS}>
+          <Columns3 className="h-4 w-4" />
+        </button>
+        {open === 'column' && (
+          <MenuList className={TABLE_MENU_PANEL_CLASS}>
+            <MenuItem
+              onClick={() => run(() => editor.commands.addColumnBefore())}
+            >
+              左侧插入列
+            </MenuItem>
+            <MenuItem
+              onClick={() => run(() => editor.commands.addColumnAfter())}
+            >
+              右侧插入列
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem
+              variant="danger"
+              onClick={() => run(() => editor.commands.deleteColumn())}
+            >
+              删除列
+            </MenuItem>
+          </MenuList>
+        )}
+      </div>
 
       {/* Align dropdown */}
-      <Dropdown
-        icon={<AlignLeft className="h-4 w-4" />}
-        isOpen={open === 'align'}
-        onHover={() => setOpen('align')}
+      <div
+        className="relative flex items-center"
+        onMouseEnter={() => setOpen('align')}
       >
-        <DropdownItem
-          label="左对齐"
-          icon={<AlignLeft className="h-3.5 w-3.5" />}
-          active={align === 'left'}
-          onClick={() => setAlignment('left')}
-        />
-        <DropdownItem
-          label="居中对齐"
-          icon={<AlignCenter className="h-3.5 w-3.5" />}
-          active={align === 'center'}
-          onClick={() => setAlignment('center')}
-        />
-        <DropdownItem
-          label="右对齐"
-          icon={<AlignRight className="h-3.5 w-3.5" />}
-          active={align === 'right'}
-          onClick={() => setAlignment('right')}
-        />
-        <DropdownSep />
-        <DropdownItem
-          label="顶部对齐"
-          icon={<AlignVerticalJustifyStart className="h-3.5 w-3.5" />}
-          active={vAlign === 'top'}
-          onClick={() => setVAlignment('top')}
-        />
-        <DropdownItem
-          label="垂直居中"
-          icon={<AlignVerticalJustifyCenter className="h-3.5 w-3.5" />}
-          active={vAlign === 'middle'}
-          onClick={() => setVAlignment('middle')}
-        />
-        <DropdownItem
-          label="底部对齐"
-          icon={<AlignVerticalJustifyEnd className="h-3.5 w-3.5" />}
-          active={vAlign === 'bottom'}
-          onClick={() => setVAlignment('bottom')}
-        />
-      </Dropdown>
+        <button type="button" className={TABLE_MENU_TRIGGER_CLASS}>
+          <AlignLeft className="h-4 w-4" />
+        </button>
+        {open === 'align' && (
+          <MenuList className={TABLE_MENU_PANEL_CLASS}>
+            <MenuItem
+              icon={<AlignLeft className="h-3.5 w-3.5" />}
+              onClick={() => setAlignment('left')}
+              className={align === 'left' ? TABLE_MENU_ACTIVE_CLASS : ''}
+            >
+              左对齐
+            </MenuItem>
+            <MenuItem
+              icon={<AlignCenter className="h-3.5 w-3.5" />}
+              onClick={() => setAlignment('center')}
+              className={align === 'center' ? TABLE_MENU_ACTIVE_CLASS : ''}
+            >
+              居中对齐
+            </MenuItem>
+            <MenuItem
+              icon={<AlignRight className="h-3.5 w-3.5" />}
+              onClick={() => setAlignment('right')}
+              className={align === 'right' ? TABLE_MENU_ACTIVE_CLASS : ''}
+            >
+              右对齐
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem
+              icon={<AlignVerticalJustifyStart className="h-3.5 w-3.5" />}
+              onClick={() => setVAlignment('top')}
+              className={vAlign === 'top' ? TABLE_MENU_ACTIVE_CLASS : ''}
+            >
+              顶部对齐
+            </MenuItem>
+            <MenuItem
+              icon={<AlignVerticalJustifyCenter className="h-3.5 w-3.5" />}
+              onClick={() => setVAlignment('middle')}
+              className={vAlign === 'middle' ? TABLE_MENU_ACTIVE_CLASS : ''}
+            >
+              垂直居中
+            </MenuItem>
+            <MenuItem
+              icon={<AlignVerticalJustifyEnd className="h-3.5 w-3.5" />}
+              onClick={() => setVAlignment('bottom')}
+              className={vAlign === 'bottom' ? TABLE_MENU_ACTIVE_CLASS : ''}
+            >
+              底部对齐
+            </MenuItem>
+          </MenuList>
+        )}
+      </div>
 
       {/* Merge / split dropdown */}
-      <Dropdown
-        icon={<Merge className="h-4 w-4" />}
-        isOpen={open === 'merge'}
-        onHover={() => setOpen('merge')}
+      <div
+        className="relative flex items-center"
+        onMouseEnter={() => setOpen('merge')}
       >
-        <DropdownItem
-          label="合并单元格"
-          icon={<Merge className="h-3.5 w-3.5" />}
-          disabled={!canMerge}
-          onClick={() => {
-            if (!canMerge) return;
-            run(() => editor.commands.mergeCells());
-          }}
-        />
-        <DropdownItem
-          label="拆分单元格"
-          icon={<Split className="h-3.5 w-3.5" />}
-          disabled={!canSplit}
-          onClick={() => {
-            if (!canSplit) return;
-            run(() => editor.commands.splitCell());
-          }}
-        />
-      </Dropdown>
+        <button type="button" className={TABLE_MENU_TRIGGER_CLASS}>
+          <Merge className="h-4 w-4" />
+        </button>
+        {open === 'merge' && (
+          <MenuList className={TABLE_MENU_PANEL_CLASS}>
+            <MenuItem
+              icon={<Merge className="h-3.5 w-3.5" />}
+              disabled={!canMerge}
+              onClick={() => {
+                if (!canMerge) return;
+                run(() => editor.commands.mergeCells());
+              }}
+            >
+              合并单元格
+            </MenuItem>
+            <MenuItem
+              icon={<Split className="h-3.5 w-3.5" />}
+              disabled={!canSplit}
+              onClick={() => {
+                if (!canSplit) return;
+                run(() => editor.commands.splitCell());
+              }}
+            >
+              拆分单元格
+            </MenuItem>
+          </MenuList>
+        )}
+      </div>
 
       {/* Collapse / expand table */}
       <button
@@ -390,79 +452,4 @@ export default function TableControls({ editor }: TableControlsProps) {
       </button>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Dropdown trigger + panel
-// ---------------------------------------------------------------------------
-
-interface DropdownProps {
-  icon: React.ReactNode;
-  isOpen: boolean;
-  onHover: () => void;
-  children: React.ReactNode;
-}
-
-function Dropdown({ icon, isOpen, onHover, children }: DropdownProps) {
-  return (
-    <div className="relative flex items-center">
-      <button
-        type="button"
-        onMouseEnter={onHover}
-        className="editor-toolbar-btn table-ctrl-btn flex h-7 w-7 items-center justify-center rounded text-[var(--vscode-editor-foreground)]"
-      >
-        {icon}
-      </button>
-
-      {/* Dropdown panel */}
-      {isOpen && (
-        <div
-          className="editor-toolbar-menu absolute right-0 top-full z-[101] mt-1 min-w-[130px] py-1"
-          onMouseEnter={onHover}
-        >
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DropdownItem({
-  label,
-  icon,
-  active,
-  danger,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  icon?: React.ReactNode;
-  active?: boolean;
-  danger?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[0.78rem] transition-colors hover:bg-[var(--vscode-list-hoverBackground)] ${
-        disabled
-          ? 'cursor-not-allowed text-[var(--vscode-disabledForeground)] opacity-50 hover:bg-transparent'
-          : danger
-            ? 'text-[var(--vscode-errorForeground)]'
-            : active
-              ? 'text-[var(--vscode-button-background)]'
-              : 'text-[var(--vscode-editor-foreground)]'
-      }`}
-    >
-      {icon && <span className="flex h-3.5 w-3.5 items-center justify-center">{icon}</span>}
-      {label}
-    </button>
-  );
-}
-
-function DropdownSep() {
-  return <div className="my-1 h-px bg-[var(--vscode-menu-border)]" />;
 }

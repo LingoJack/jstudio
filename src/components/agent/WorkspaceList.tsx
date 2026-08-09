@@ -3,7 +3,6 @@ import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import {
   FolderOpen,
   Folder,
-  Plus,
   Trash2,
   Bot,
   MessageSquare,
@@ -16,8 +15,8 @@ import {
   Ban,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 import { NavRow, NavBranch } from '../ui/NavTree';
+import { WorkspaceGroupMenu } from './WorkspaceGroupMenu';
 import type { AgentSession, AgentRunState } from '../../types/agent';
 
 // ──────────────────────────────────────────────────────────────────
@@ -354,7 +353,6 @@ function WorkspaceGroupItem({
         <WorkspaceGroupMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          workspace={group.workspace}
           isActiveWorkspace={isActiveWorkspace}
           onCreateSession={() => {
             onCreateInWorkspace(group.workspace);
@@ -372,56 +370,6 @@ function WorkspaceGroupItem({
 }
 
 // ──────────────────────────────────────────────────────────────────
-// WorkspaceGroupMenu
-// ──────────────────────────────────────────────────────────────────
-
-interface WorkspaceGroupMenuProps {
-  x: number;
-  y: number;
-  workspace: string;
-  isActiveWorkspace: boolean;
-  onCreateSession: () => void;
-  onSetWorkspace: () => void;
-  onClose: () => void;
-}
-
-function WorkspaceGroupMenu({
-  isActiveWorkspace,
-  onCreateSession,
-  onSetWorkspace,
-  onClose,
-  x,
-  y,
-}: WorkspaceGroupMenuProps) {
-  const { t } = useI18n();
-
-  return (
-    <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
-      <MenuItem
-        icon={<Plus className="w-4 h-4" />}
-        onClick={() => {
-          onCreateSession();
-          onClose();
-        }}
-      >
-        {t('agent.newTask')}
-      </MenuItem>
-      <MenuDivider />
-      <MenuItem
-        icon={<FolderOpen className="w-4 h-4" />}
-        disabled={isActiveWorkspace}
-        onClick={() => {
-          onSetWorkspace();
-          onClose();
-        }}
-      >
-        {t('agent.setAsCurrentWorkspace')}
-      </MenuItem>
-    </MenuList>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────
 // SessionItem - aligned with NavRow visual language
 // ──────────────────────────────────────────────────────────────────
 
@@ -432,7 +380,7 @@ interface SessionItemProps {
   onDelete: (id: string) => void;
 }
 
-function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) {
+export function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) {
   const { t } = useI18n();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -543,91 +491,6 @@ function SessionItem({ session, active, onSelect, onDelete }: SessionItemProps) 
           />
         )}
       </button>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────
-// ExpandModal
-// ──────────────────────────────────────────────────────────────────
-
-interface ExpandModalProps {
-  group: WorkspaceGroup;
-  activeId: string | null;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onClose: () => void;
-}
-
-export function WorkspaceExpandModal({
-  group,
-  activeId,
-  onSelect,
-  onDelete,
-  onClose,
-}: ExpandModalProps) {
-  const { t } = useI18n();
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
-      onClick={onClose}
-    >
-      <div
-        className="rounded-xl shadow-2xl w-[420px] max-h-[80vh] overflow-hidden flex flex-col"
-        style={{
-          background: 'var(--vscode-menu-background)',
-          border: '1px solid var(--vscode-menu-border)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-4 py-3 shrink-0"
-          style={{ borderBottom: '1px solid var(--vscode-widget-border)' }}
-        >
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex items-center justify-center w-7 h-7 rounded-lg"
-              style={{ background: 'var(--vscode-editor-inactiveSelectionBackground)' }}
-            >
-              <FolderOpen className="w-4 h-4" style={{ color: 'var(--vscode-foreground)' }} />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium" style={{ color: 'var(--vscode-foreground)' }}>
-                {group.displayName}
-              </span>
-              <span className="text-[11px]" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-                {group.sessions.length} {t('agent.moreSessions')}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex items-center justify-center w-7 h-7 rounded-md transition-colors hover:bg-[var(--vscode-toolbar-hoverBackground)]"
-            style={{ color: 'var(--vscode-foreground)' }}
-          >
-            <span className="opacity-60 text-sm">✕</span>
-          </button>
-        </div>
-
-        {/* Session list */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {group.sessions.map((session) => (
-            <SessionItem
-              key={session.id}
-              session={session}
-              active={session.id === activeId}
-              onSelect={(id) => {
-                onSelect(id);
-                onClose();
-              }}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

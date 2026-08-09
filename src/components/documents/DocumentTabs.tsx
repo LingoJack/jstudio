@@ -2,11 +2,10 @@ import { useCallback } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { createDocumentWindow } from '../../lib/windows/documentDetach';
-import { X, FileText, ExternalLink } from 'lucide-react';
-import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 import TabBar, { type TabItem } from '../ui/TabBar';
 import type { UnifiedTab } from '../../store/workspaceSlice';
 import OpenDocumentDialog from './OpenDocumentDialog';
+import { DocumentTabContextMenu } from './DocumentTabContextMenu';
 
 /**
  * DocumentTabs — tab bar for document tabs only.
@@ -67,46 +66,24 @@ export default function DocumentTabs() {
   // ── Context menu renderer ───────────────────────────────────────
   const renderContextMenu = useCallback(
     (tabId: string, x: number, y: number, close: () => void) => {
-      const tab = allTabs.find((t) => t.id === tabId);
+      const tab = allTabs.find((tb) => tb.id === tabId);
       return (
-        <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
-          {allTabs.length > 1 && tab?.docId && (
-            <>
-              <MenuItem
-                icon={<ExternalLink className="w-4 h-4" />}
-                onClick={() => {
-                  createDocumentWindow(tab.docId!, tabId);
-                  close();
-                }}
-              >
-                {t('workspace.detachToWindow')}
-              </MenuItem>
-              <MenuDivider />
-            </>
-          )}
-          <MenuItem
-            icon={<X className="w-4 h-4" />}
-            onClick={() => {
-              closeTab(tabId);
-              close();
-            }}
-          >
-            {t('workspace.closeTab')}
-          </MenuItem>
-          {docTabs.length > 1 && (
-            <MenuItem
-              onClick={() => {
-                closeOtherTabs(tabId);
-                close();
-              }}
-            >
-              {t('workspace.closeOthers')}
-            </MenuItem>
-          )}
-        </MenuList>
+        <DocumentTabContextMenu
+          tabId={tabId}
+          x={x}
+          y={y}
+          canDetach={allTabs.length > 1 && !!tab?.docId}
+          canCloseOthers={docTabs.length > 1}
+          onCloseMenu={close}
+          onDetach={(tid) => {
+            if (tab?.docId) createDocumentWindow(tab.docId, tid);
+          }}
+          onClose={closeTab}
+          onCloseOthers={closeOtherTabs}
+        />
       );
     },
-    [allTabs, docTabs, closeTab, closeOtherTabs, t]
+    [allTabs, docTabs, closeTab, closeOtherTabs]
   );
 
   // Don't render if there are no document tabs.

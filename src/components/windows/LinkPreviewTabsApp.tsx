@@ -22,14 +22,14 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { X, Loader2, ExternalLink, RefreshCw, Globe } from "lucide-react";
+import { Loader2, ExternalLink, RefreshCw, Globe } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { useWindowThemeSync } from "../../lib/windows/useWindowThemeSync";
 import { useI18n } from "../../lib/core/i18n";
 import { storage } from "../../lib/core/storage";
 import type { LinkPreviewTabsState } from "../../types/browser";
 import TabBar, { type TabItem } from "../ui/TabBar";
-import { MenuList, MenuItem, MenuDivider } from "../ui/MenuList";
+import { BrowserTabContextMenu } from "../panels/BrowserTabContextMenu";
 import { handleNativeSelectAll } from "../../lib/shortcuts/nativeSelectAll";
 
 // ── Main Component ─────────────────────────────────────────────────────
@@ -233,51 +233,31 @@ export default function LinkPreviewTabsApp() {
     (tabId: string, x: number, y: number, close: () => void) => {
       const tab = state.tabs.find((tb) => tb.id === tabId);
       return (
-        <MenuList x={x} y={y} onClick={(e) => e.stopPropagation()}>
-          <MenuItem
-            icon={<RefreshCw className="w-4 h-4" />}
-            onClick={() => {
-              if (windowLabel) {
-                storage
-                  .refreshLinkPreviewTab(windowLabel, tabId)
-                  .catch(console.error);
-              }
-              close();
-            }}
-          >
-            {t("linkPreview.refresh")}
-          </MenuItem>
-
-          <MenuItem
-            icon={<ExternalLink className="w-4 h-4" />}
-            onClick={() => {
-              if (tab) {
-                storage.openUrlInBrowser(tab.url).catch(console.error);
-              }
-              close();
-            }}
-          >
-            {t("linkPreview.openBrowser")}
-          </MenuItem>
-
-          {state.tabs.length > 1 && <MenuDivider />}
-
-          {state.tabs.length > 1 && (
-            <MenuItem
-              variant="danger"
-              icon={<X className="w-4 h-4" />}
-              onClick={() => {
-                closeTab(tabId);
-                close();
-              }}
-            >
-              {t("linkPreview.closeTab")}
-            </MenuItem>
-          )}
-        </MenuList>
+        <BrowserTabContextMenu
+          x={x}
+          y={y}
+          tab={tab}
+          canClose={state.tabs.length > 1}
+          onRefresh={(tid) => {
+            if (windowLabel) {
+              storage
+                .refreshLinkPreviewTab(windowLabel, tid)
+                .catch(console.error);
+            }
+            close();
+          }}
+          onOpenInBrowser={(url) => {
+            storage.openUrlInBrowser(url).catch(console.error);
+            close();
+          }}
+          onClose={(tid) => {
+            closeTab(tid);
+            close();
+          }}
+        />
       );
     },
-    [state.tabs, windowLabel, closeTab, t],
+    [state.tabs, windowLabel, closeTab]
   );
 
   const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);

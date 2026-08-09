@@ -8,7 +8,6 @@
 
 import type { RefObject } from "react";
 import {
-  Shapes,
   Undo2,
   Redo2,
   Trash2,
@@ -17,23 +16,15 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Palette,
   ZoomIn,
   ZoomOut,
   Maximize,
-  MoreHorizontal,
-  Grid3x3,
-  Check,
-  SquareStack,
-  FileDown,
-  Sparkles,
-  Download,
-  Copy,
-  ClipboardCopy,
 } from "lucide-react";
 import { ShapeGlyph } from "./ShapeGlyph";
-import { shapeGroups, shapeTitleMap } from "./graphShapeMenu";
-import { fillPresetsFor } from "./graphTheme";
+import { shapeTitleMap } from "./graphShapeMenu";
+import { GraphShapesMenu } from "./GraphShapesMenu";
+import { GraphFillPopover } from "./GraphFillPopover";
+import { GraphMoreMenu } from "./GraphMoreMenu";
 import type { GraphNodeShape, LabelAlign } from "./graphSnapshot";
 
 export interface GraphToolbarProps {
@@ -133,43 +124,15 @@ export function GraphToolbar(props: GraphToolbarProps) {
   return (
     <div className="jgraph-toolbar">
       {/* 形状全量菜单：hover 展开，按类别分区 */}
-      <div
-        className="jgraph-dropdown"
-        ref={shapesMenuRef}
-        onMouseEnter={onShapesEnter}
-        onMouseLeave={onShapesLeave}
-      >
-        <button
-          type="button"
-          className="jgraph-tool-btn"
-          title="全部形状｜悬停展开选择"
-          onClick={onShapesClick}
-        >
-          <Shapes size={16} />
-        </button>
-        {shapesMenuOpen && (
-          <div className="jgraph-dropdown-menu" role="presentation">
-            {shapeGroups.map((group, gi) => (
-              <div key={group.label}>
-                {gi > 0 && <div className="jgraph-dropdown-sep" />}
-                <div className="jgraph-dropdown-section-label">{group.label}</div>
-                {group.shapes.map(({ shape, title }) => (
-                  <button
-                    key={shape}
-                    type="button"
-                    className={`jgraph-dropdown-item ${pendingShape === shape ? 'is-active' : ''}`}
-                    title={`${title}｜点击后在画布拖拽划定大小`}
-                    onClick={() => onSelectShape(shape)}
-                  >
-                    <ShapeGlyph shape={shape} />
-                    <span>{title}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <GraphShapesMenu
+        pendingShape={pendingShape}
+        shapesMenuOpen={shapesMenuOpen}
+        shapesMenuRef={shapesMenuRef}
+        onShapesClick={onShapesClick}
+        onShapesEnter={onShapesEnter}
+        onShapesLeave={onShapesLeave}
+        onSelectShape={onSelectShape}
+      />
       {/* LRU 最近使用：平铺在 Shapes 入口右侧，竖线分隔，免去展开菜单 */}
       {recentShapes.length > 0 && (
         <>
@@ -265,36 +228,14 @@ export function GraphToolbar(props: GraphToolbarProps) {
       {selectedFillColor !== null && (
         <>
           <div className="jgraph-tool-sep" />
-          <div className="jgraph-fill-picker" ref={fillPickerRef}>
-            <button
-              type="button"
-              className={`jgraph-tool-btn ${selectedFillColor !== 'none' ? 'is-active' : ''}`}
-              title="填充颜色"
-              onClick={onToggleFillPicker}
-            >
-              <Palette size={16} />
-            </button>
-            {fillPickerOpen && (
-              <div className="jgraph-fill-popover" role="presentation">
-                <button
-                  type="button"
-                  className={`jgraph-fill-swatch jgraph-fill-none ${selectedFillColor === 'none' ? 'is-active' : ''}`}
-                  title="无填充"
-                  onClick={() => onSetFillColor('none')}
-                />
-                {fillPresetsFor(darkMode).map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    className={`jgraph-fill-swatch ${selectedFillColor === c.value ? 'is-active' : ''}`}
-                    style={{ backgroundColor: c.value }}
-                    title={c.label}
-                    onClick={() => onSetFillColor(c.value)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <GraphFillPopover
+            selectedFillColor={selectedFillColor}
+            fillPickerOpen={fillPickerOpen}
+            fillPickerRef={fillPickerRef}
+            onToggleFillPicker={onToggleFillPicker}
+            onSetFillColor={onSetFillColor}
+            darkMode={darkMode}
+          />
         </>
       )}
       <div className="jgraph-tool-sep" />
@@ -323,101 +264,21 @@ export function GraphToolbar(props: GraphToolbarProps) {
         <Maximize size={16} />
       </button>
       {/* 更多菜单：收纳低频开关 & 导入入口 */}
-      <div className="jgraph-dropdown" ref={moreMenuRef}>
-        <button
-          type="button"
-          className="jgraph-tool-btn"
-          title="更多选项"
-          onClick={onToggleMoreMenu}
-        >
-          <MoreHorizontal size={16} />
-        </button>
-        {moreMenuOpen && (
-          <div className="jgraph-dropdown-menu" role="presentation">
-            <button
-              type="button"
-              className={`jgraph-dropdown-item ${showGrid ? 'is-active' : ''}`}
-              title={showGrid ? '隐藏网格' : '显示网格'}
-              onClick={onToggleGrid}
-            >
-              <Grid3x3 size={16} />
-              <span>{showGrid ? '隐藏网格' : '显示网格'}</span>
-              {showGrid && <Check size={14} className="jgraph-dropdown-check" />}
-            </button>
-            <button
-              type="button"
-              className={`jgraph-dropdown-item ${autoActivation ? 'is-active' : ''}`}
-              title={
-                autoActivation
-                  ? '关闭时序图自动附加块'
-                  : '开启时序图自动附加块｜时序图连线时自动生成活动块'
-              }
-              onClick={onToggleAutoActivation}
-            >
-              <SquareStack size={16} />
-              <span>时序图自动附加块</span>
-              {autoActivation && <Check size={14} className="jgraph-dropdown-check" />}
-            </button>
-            <div className="jgraph-dropdown-sep" />
-            <button
-              type="button"
-              className="jgraph-dropdown-item"
-              title="导入 Mermaid 图表"
-              onClick={onOpenMermaidImport}
-            >
-              <FileDown size={16} />
-              <span>导入 Mermaid</span>
-            </button>
-            <button
-              type="button"
-              className="jgraph-dropdown-item"
-              title="AI 生成图表"
-              onClick={onOpenAiGraphImport}
-            >
-              <Sparkles size={16} />
-              <span>AI 生成图表</span>
-            </button>
-            <div className="jgraph-dropdown-sep" />
-            <button
-              type="button"
-              className="jgraph-dropdown-item"
-              title="导出为 PNG 图片"
-              onClick={onExportPng}
-            >
-              <Download size={16} />
-              <span>导出 PNG</span>
-            </button>
-            <button
-              type="button"
-              className="jgraph-dropdown-item"
-              title="导出为 SVG 矢量图"
-              onClick={onExportSvg}
-            >
-              <Download size={16} />
-              <span>导出 SVG</span>
-            </button>
-            <div className="jgraph-dropdown-sep" />
-            <button
-              type="button"
-              className="jgraph-dropdown-item"
-              title="复制为 PNG 图片到剪贴板"
-              onClick={onCopyImage}
-            >
-              <Copy size={16} />
-              <span>复制为图片</span>
-            </button>
-            <button
-              type="button"
-              className="jgraph-dropdown-item"
-              title="复制 SVG 源码到剪贴板"
-              onClick={onCopySvg}
-            >
-              <ClipboardCopy size={16} />
-              <span>复制 SVG 代码</span>
-            </button>
-          </div>
-        )}
-      </div>
+      <GraphMoreMenu
+        moreMenuOpen={moreMenuOpen}
+        moreMenuRef={moreMenuRef}
+        onToggleMoreMenu={onToggleMoreMenu}
+        showGrid={showGrid}
+        autoActivation={autoActivation}
+        onToggleGrid={onToggleGrid}
+        onToggleAutoActivation={onToggleAutoActivation}
+        onOpenMermaidImport={onOpenMermaidImport}
+        onOpenAiGraphImport={onOpenAiGraphImport}
+        onExportPng={onExportPng}
+        onExportSvg={onExportSvg}
+        onCopyImage={onCopyImage}
+        onCopySvg={onCopySvg}
+      />
     </div>
   );
 }
