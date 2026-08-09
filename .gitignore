@@ -17,3 +17,6 @@ example/
 .opencode/
 .vscode/
 .idea/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
