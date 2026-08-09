@@ -11,6 +11,7 @@ import {
   type Graph,
   HandleConfig,
   VertexHandlerConfig,
+  EdgeHandlerConfig,
   ImageBox,
   type CellStyle,
   type ConnectionHandler,
@@ -49,12 +50,14 @@ export function useGraphTheme({ graphRef, darkModeRef, darkMode }: UseGraphTheme
 
     const color = getSelectionColor(dark);
 
-    // 更新选中框颜色
+    // 更新选中框颜色（节点 + 连线）
     VertexHandlerConfig.selectionColor = color;
+    EdgeHandlerConfig.selectionColor = color;
 
     // 更新手柄颜色
     HandleConfig.fillColor = getHandleFillColor(dark);
     HandleConfig.strokeColor = getHandleStrokeColor(dark);
+    EdgeHandlerConfig.connectFillColor = getHandleFillColor(dark);
 
     // 更新连接点样式（maxGraph 中为 ConstraintHandler 实例属性）
     const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');

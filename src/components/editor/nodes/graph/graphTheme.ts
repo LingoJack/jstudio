@@ -219,10 +219,8 @@ export const ARROW_END_SIZE = 3;
 export const SELECTION_STROKE_WIDTH = 2;
 export const SELECTION_DASHED = false; // 实线更清晰
 
-/** 调整手柄样式（飞书风格：小圆点）- 跟随主题 */
-export const HANDLE_SIZE = 7;
-export const HANDLE_FILL_COLOR_LIGHT = '#FFFFFF';
-export const HANDLE_FILL_COLOR_DARK = '#1F2937';
+/** 调整手柄样式（飞书风格：实心小圆点）- 跟随主题 */
+export const HANDLE_SIZE = 6;
 
 /** 连接点样式（悬停边缘时显示的锚点）- 跟随主题
  * 飞书风格：纯色小圆点，无填充，简洁优雅
@@ -250,9 +248,9 @@ export function getSelectionColor(dark: boolean): string {
   return readThemeAccentColor(dark);
 }
 
-/** 获取手柄填充颜色 */
+/** 获取手柄填充颜色 — 与描边同为 accent 色，实心小圆点（白底圆环观感差，已废弃） */
 export function getHandleFillColor(dark: boolean): string {
-  return dark ? HANDLE_FILL_COLOR_DARK : HANDLE_FILL_COLOR_LIGHT;
+  return readThemeAccentColor(dark);
 }
 
 /** 获取手柄描边颜色 — 跟随主题 accent 色 */
@@ -302,7 +300,7 @@ export function getFontColor(dark: boolean): string {
 }
 
 /** 创建连接点 SVG 图标（飞书风格）
- *  设计：白底圆环 + 蓝色实心圆心的"靶心"，Base64 编码保证所有浏览器/缩放级别都清晰渲染，
+ *  设计：accent 色实心小圆点，Base64 编码保证所有浏览器/缩放级别都清晰渲染，
  *  避免 data URI 的字符编码问题导致显示为方块或缺失。
  *
  *  @param dark 是否暗色主题
@@ -311,13 +309,10 @@ export function getFontColor(dark: boolean): string {
  */
 export function createConnectionPointSVG(dark: boolean, size = CONNECTION_POINT_SIZE): string {
   const color = getConnectionPointColor(dark);
-  const bgColor = dark ? '#1F2937' : '#FFFFFF';
   const cx = size / 2;
   const cy = size / 2;
-  const rOuter = size / 2 - 1;
-  // 内圆半径随外圆缩放：默认 14px 时 rInner=2.5；4px 时 rInner≈0.7（保持比例）
-  const rInner = Math.max(0.7, size * (2.5 / CONNECTION_POINT_SIZE));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">\n    <circle cx="${cx}" cy="${cy}" r="${rOuter}"\n      fill="${bgColor}" stroke="${color}" stroke-width="1.5"/>\n    <circle cx="${cx}" cy="${cy}" r="${rInner}"\n      fill="${color}" stroke="none"/>\n  </svg>`;
+  const r = size / 2 - 1;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">\n    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="none"/>\n  </svg>`;
   const base64 = btoa(
     encodeURIComponent(svg).replace(
       /%([0-9A-F]{2})/g,
