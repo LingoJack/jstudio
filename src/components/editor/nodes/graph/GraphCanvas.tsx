@@ -85,6 +85,9 @@ export function GraphCanvas({
   // 时序图时序图自动附加块开关：开启时从生命线拖消息到生命线会自动生成 activation，
   // 关闭时只画水平消息线、不自动生成活动块（简洁时序图场景）。
   const [autoActivation, setAutoActivation] = useState(false); // 默认关闭
+  // 导出图片时的尺寸模式：true=自适应内容包围盒（自动调整到最佳大小），
+  // false=所见即所得（按当前视窗可见区域导出）。
+  const [exportFitMode, setExportFitMode] = useState(true); // 默认自适应
   // 选中 cell 的文字对齐方式（null 表示无选中或不支持）。
   const [selectedLabelAlign, setSelectedLabelAlign] = useState<LabelAlign | null>(null);
   // 选中 vertex 的填充色（null 表示无选中或边线选中）。'none' = 无填充。
@@ -134,6 +137,14 @@ export function GraphCanvas({
       return next;
     });
   }, []);
+  // 切换导出图片的尺寸模式：自适应内容 ↔ 所见即所得。
+  const toggleExportFitMode = useCallback(() => {
+    setExportFitMode((prev) => {
+      const next = !prev;
+      exportFitModeRef.current = next;
+      return next;
+    });
+  }, []);
   // 暗色模式在初始化时读取一次即可（切换由下方 effect 处理容器底色）。
   const darkModeRef = useRef(darkMode);
   darkModeRef.current = darkMode;
@@ -171,6 +182,9 @@ export function GraphCanvas({
   // autoActivation 的 ref，供 emitSnapshot + isEnabled 回调读取最新值。
   const autoActivationRef = useRef(autoActivation);
   autoActivationRef.current = autoActivation;
+  // exportFitMode 的 ref，供 buildExportSvg 读取最新值。
+  const exportFitModeRef = useRef(exportFitMode);
+  exportFitModeRef.current = exportFitMode;
   // 流动动画开关 ref：边数超过阈值时给容器加 .jgraph-flow-off 类关闭 CSS 动画。
   // 用 ref 间接调用，避免 useEffect 内外 TDZ 顺序依赖。
   const updateFlowAnimationRef = useRef<() => void>(() => {});
@@ -465,6 +479,7 @@ export function GraphCanvas({
     containerRef,
     darkModeRef,
     showGridRef,
+    exportFitModeRef,
     applyingRef,
     lastEmittedRef,
     onChangeRef,
@@ -530,6 +545,8 @@ export function GraphCanvas({
           autoActivation={autoActivation}
           onToggleGrid={toggleGrid}
           onToggleAutoActivation={toggleAutoActivation}
+          exportFitMode={exportFitMode}
+          onToggleExportFitMode={toggleExportFitMode}
           onOpenMermaidImport={() => { setMermaidDialogOpen(true); setMoreMenuOpen(false); }}
           onOpenAiGraphImport={() => { setAiGraphDialogOpen(true); setMoreMenuOpen(false); }}
           onExportPng={handleExportPng}

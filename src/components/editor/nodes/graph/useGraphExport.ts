@@ -22,6 +22,7 @@ export interface UseGraphExportParams {
   containerRef: RefObject<HTMLDivElement | null>;
   darkModeRef: RefObject<boolean>;
   showGridRef: RefObject<boolean>;
+  exportFitModeRef: RefObject<boolean>;
   applyingRef: RefObject<boolean>;
   lastEmittedRef: RefObject<string>;
   onChangeRef: RefObject<(snapshotJson: string) => void>;
@@ -34,6 +35,7 @@ export function useGraphExport({
   containerRef,
   darkModeRef,
   showGridRef,
+  exportFitModeRef,
   applyingRef,
   lastEmittedRef,
   onChangeRef,
@@ -70,7 +72,9 @@ export function useGraphExport({
     // 计算所有 cell 的包围盒（模型坐标 / 未缩放）
     const parent = graph.getDefaultParent();
     const cells = graph.getChildCells(parent);
-    const bounds = graph.getBoundingBoxFromGeometry(cells, true);
+    const bounds = exportFitModeRef.current
+      ? graph.getBoundingBoxFromGeometry(cells, true)
+      : null;
 
     const padding = 20;
     let width: number;
@@ -86,14 +90,18 @@ export function useGraphExport({
     const ty = view.translate.y * scale;
 
     if (bounds) {
+      // 自适应模式：按所有 cell 的包围盒导出，加 padding 留白。
       vx = bounds.x * scale + tx - padding;
       vy = bounds.y * scale + ty - padding;
       width = bounds.width * scale + padding * 2;
       height = bounds.height * scale + padding * 2;
       clone.setAttribute('viewBox', `${vx} ${vy} ${width} ${height}`);
     } else {
+      // 视窗模式（或无内容）：按容器可见区域导出，所见即所得。
+      // SVG 内容的坐标已是屏幕坐标，(0,0) 即容器左上角。
       width = container.clientWidth;
       height = container.clientHeight;
+      clone.setAttribute('viewBox', `0 0 ${width} ${height}`);
     }
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
@@ -142,7 +150,7 @@ export function useGraphExport({
 
     const svgString = new XMLSerializer().serializeToString(clone);
     return { svgString, width, height };
-  }, [containerRef, graphRef, darkModeRef, showGridRef]);
+  }, [containerRef, graphRef, darkModeRef, showGridRef, exportFitModeRef]);
 
   const handleExportSvg = useCallback(() => {
     const result = buildExportSvg();

@@ -74,6 +74,8 @@ export interface GraphToolbarProps {
   autoActivation: boolean;
   onToggleGrid: () => void;
   onToggleAutoActivation: () => void;
+  exportFitMode: boolean;
+  onToggleExportFitMode: () => void;
   onOpenMermaidImport: () => void;
   onOpenAiGraphImport: () => void;
   onExportPng: () => void;
@@ -117,6 +119,8 @@ export function GraphToolbar(props: GraphToolbarProps) {
     autoActivation,
     onToggleGrid,
     onToggleAutoActivation,
+    exportFitMode,
+    onToggleExportFitMode,
     onOpenMermaidImport,
     onOpenAiGraphImport,
     onExportPng,
@@ -278,6 +282,8 @@ export function GraphToolbar(props: GraphToolbarProps) {
         autoActivation={autoActivation}
         onToggleGrid={onToggleGrid}
         onToggleAutoActivation={onToggleAutoActivation}
+        exportFitMode={exportFitMode}
+        onToggleExportFitMode={onToggleExportFitMode}
         onOpenMermaidImport={onOpenMermaidImport}
         onOpenAiGraphImport={onOpenAiGraphImport}
         onExportPng={onExportPng}

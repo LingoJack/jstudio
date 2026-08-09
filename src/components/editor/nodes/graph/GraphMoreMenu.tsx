@@ -18,6 +18,7 @@ import {
   Download,
   Copy,
   ClipboardCopy,
+  Maximize2,
 } from "lucide-react";
 
 export interface GraphMoreMenuProps {
@@ -30,6 +31,8 @@ export interface GraphMoreMenuProps {
   autoActivation: boolean;
   onToggleGrid: () => void;
   onToggleAutoActivation: () => void;
+  exportFitMode: boolean;
+  onToggleExportFitMode: () => void;
   onOpenMermaidImport: () => void;
   onOpenAiGraphImport: () => void;
   onExportPng: () => void;
@@ -48,6 +51,8 @@ export function GraphMoreMenu({
   autoActivation,
   onToggleGrid,
   onToggleAutoActivation,
+  exportFitMode,
+  onToggleExportFitMode,
   onOpenMermaidImport,
   onOpenAiGraphImport,
   onExportPng,
@@ -116,6 +121,20 @@ export function GraphMoreMenu({
             <span>AI 生成图表</span>
           </button>
           <div className="jgraph-dropdown-sep" />
+          <button
+            type="button"
+            className={`jgraph-dropdown-item ${exportFitMode ? 'is-active' : ''}`}
+            title={
+              exportFitMode
+                ? '当前：自适应内容大小。点击切换为按视窗所见即所得'
+                : '当前：按视窗所见即所得。点击切换为自适应内容大小'
+            }
+            onClick={onToggleExportFitMode}
+          >
+            <Maximize2 size={16} />
+            <span>{exportFitMode ? '自适应内容导出' : '视窗所见即所得'}</span>
+            {exportFitMode && <Check size={14} className="jgraph-dropdown-check" />}
+          </button>
           <button
             type="button"
             className="jgraph-dropdown-item"
