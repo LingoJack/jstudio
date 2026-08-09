@@ -71,7 +71,7 @@ export interface SequenceMessage {
   from?: string;
   to?: string;
   message: string | { start: number; step: number; visible: boolean };
-  type?: number; // Mermaid LINETYPE: 0=SOLID, 1=DOTTED, 5=SOLID_OPEN, 6=DOTTED_OPEN, 24=SOLID_POINT, 25=DOTTED_POINT, 33/34=BIDIR
+  type?: number; // Mermaid LINETYPE: 0=->>, 1=-->>, 3=-x, 4=--x, 5=->, 6=-->
 }
 
 /** Sequence 注释数据 */

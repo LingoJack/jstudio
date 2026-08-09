@@ -49,30 +49,25 @@ const SELF_LOOP_OFFSET = 35;
 /* ------------------------------------------------------------------ */
 
 /**
- * Mermaid v11 sequence diagram 的消息类型常量。
- * 参见 node_modules/mermaid/dist/diagrams/sequence/sequenceDb.d.ts
+ * Mermaid v11 sequence diagram 消息类型常量。
+ * 通过运行时测试确认（非 .d.ts 声明值，实际 getMessages() 返回的 type 字段）：
+ *   ->> = 0, -->> = 1, -x = 3, --x = 4, -> = 5, --> = 6
  */
 const LINETYPE = {
-  SOLID: 0,           // 实线无箭头 (-)
-  DOTTED: 1,          // 虚线无箭头 (--)
+  SOLID_POINT: 0,     // 实线填充箭头 (->>)
+  DOTTED_POINT: 1,    // 虚线填充箭头 (-->>
   NOTE: 2,            // 注释（非消息）
   SOLID_CROSS: 3,     // 实线十字 (-x)
   DOTTED_CROSS: 4,    // 虚线十字 (--x)
   SOLID_OPEN: 5,      // 实线开放箭头 (->)
   DOTTED_OPEN: 6,     // 虚线开放箭头 (-->)
-  SOLID_POINT: 24,    // 实线填充箭头 (->>)
-  DOTTED_POINT: 25,   // 虚线填充箭头 (-->>)
-  BIDIR_SOLID: 33,    // 双向实线
-  BIDIR_DOTTED: 34,   // 双向虚线
 } as const;
 
-/** 实际消息类型的白名单（排除 NOTE / LOOP / ALT / OPT / ACTIVE / PAR / RECT / AUTONUMBER / CRITICAL / BREAK 等） */
+/** 实际消息类型的白名单（排除 NOTE=2 / LOOP / ALT / OPT 等控制流标记） */
 const MESSAGE_TYPES = new Set<number>([
-  LINETYPE.SOLID, LINETYPE.DOTTED,
+  LINETYPE.SOLID_POINT, LINETYPE.DOTTED_POINT,
   LINETYPE.SOLID_CROSS, LINETYPE.DOTTED_CROSS,
   LINETYPE.SOLID_OPEN, LINETYPE.DOTTED_OPEN,
-  LINETYPE.SOLID_POINT, LINETYPE.DOTTED_POINT,
-  LINETYPE.BIDIR_SOLID, LINETYPE.BIDIR_DOTTED,
 ]);
 
 /* ------------------------------------------------------------------ */
@@ -90,16 +85,12 @@ function getMessageStyle(type: number | undefined): {
   startArrow?: string;
 } {
   switch (type) {
-    // 实线填充箭头 ->>  / 双向实线
+    // 实线填充箭头 ->>
     case LINETYPE.SOLID_POINT:
       return { dashed: false, endArrow: 'classic' };
-    case LINETYPE.BIDIR_SOLID:
-      return { dashed: false, endArrow: 'classic', startArrow: 'classic' };
-    // 虚线填充箭头 -->>  / 双向虚线
+    // 虚线填充箭头 -->>
     case LINETYPE.DOTTED_POINT:
       return { dashed: true, endArrow: 'classic' };
-    case LINETYPE.BIDIR_DOTTED:
-      return { dashed: true, endArrow: 'classic', startArrow: 'classic' };
     // 实线开放箭头 ->
     case LINETYPE.SOLID_OPEN:
       return { dashed: false, endArrow: 'openThin' };
@@ -111,11 +102,6 @@ function getMessageStyle(type: number | undefined): {
       return { dashed: false, endArrow: 'classic' };
     case LINETYPE.DOTTED_CROSS:
       return { dashed: true, endArrow: 'classic' };
-    // 实线/虚线无箭头 - / --
-    case LINETYPE.SOLID:
-      return { dashed: false, endArrow: 'none' };
-    case LINETYPE.DOTTED:
-      return { dashed: true, endArrow: 'none' };
     default:
       return { dashed: false, endArrow: 'classic' };
   }
