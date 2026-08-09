@@ -6,6 +6,7 @@ import { blocksToMarkdown } from '../../lib/editor/markdownExport';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import { useSidebarHover } from './hooks/useSidebarHover';
+import { useBatchSelection } from './hooks/useBatchSelection';
 import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folderTree';
 import {
   FileText, Plus, MoreHorizontal, FileDown,
@@ -96,10 +97,6 @@ export default function DocumentSidebar() {
   /** Keeps the hover-expanded sidebar open while the search input is focused. */
   const [searchFocused, setSearchFocused] = useState(false);
 
-  // ── Batch selection state ─────────────────────────────────
-  /** Unified selection set — contains both document ids and folder ids. */
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
   const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -204,57 +201,12 @@ export default function DocumentSidebar() {
   );
   const rootDocCount = tree.documents.length;
 
-  // ── Derived: ordered visible item ids (docs + folders, for shift+click range) ──
-  const visibleItemIds = useMemo(() => {
-    const ids: string[] = [];
-    const collect = (nodes: FolderTreeNode[]) => {
-      for (const node of nodes) {
-        if (node.folder) ids.push(node.folder.id);
-        for (const doc of node.documents) ids.push(doc.id);
-        if (node.folder && !node.folder.collapsed) collect(node.subFolders);
-      }
-    };
-    if (isSearching) {
-      return filteredDocs.map((d) => d.id);
-    }
-    collect(tree.subFolders);
-    for (const doc of tree.documents) ids.push(doc.id);
-    return ids;
-  }, [tree, isSearching, filteredDocs]);
 
   // ── Batch operations ──────────────────────────────────────
 
   /** Split the unified selection into document ids and folder ids. */
-  const splitSelection = useCallback(() => {
-    const folderIdSet = new Set(folders.map((f) => f.id));
-    const selectedDocs: string[] = [];
-    const selectedFolders: string[] = [];
-    for (const id of selectedIds) {
-      if (folderIdSet.has(id)) selectedFolders.push(id);
-      else selectedDocs.push(id);
-    }
-    return { selectedDocs, selectedFolders };
-  }, [selectedIds, folders]);
 
-  const batchDelete = useCallback(() => {
-    if (selectedIds.size === 0) return;
-    const msg = t('doclist.batchMoveToTrashConfirm', { count: selectedIds.size });
-    if (!window.confirm(msg)) return;
-    const { selectedDocs, selectedFolders } = splitSelection();
-    if (selectedDocs.length > 0) trashDocuments(selectedDocs);
-    if (selectedFolders.length > 0) selectedFolders.forEach((id) => trashFolder(id));
-    setSelectedIds(new Set());
-    setBatchMenu(null);
-  }, [selectedIds, splitSelection, trashDocuments, trashFolder, t]);
 
-  const batchMove = useCallback((folderId: string | null) => {
-    if (selectedIds.size === 0) return;
-    const { selectedDocs } = splitSelection();
-    if (selectedDocs.length > 0) moveDocumentsToFolder(selectedDocs, folderId);
-    setSelectedIds(new Set());
-    setBatchMoveMenu(null);
-    setBatchMenu(null);
-  }, [selectedIds, splitSelection, moveDocumentsToFolder]);
 
   // ── Effects: auto-close menus ─────────────────────────────
   useEffect(() => {
@@ -293,15 +245,6 @@ export default function DocumentSidebar() {
     }
   }, [renamingFolderId]);
 
-  // ── Effect: Escape clears batch selection ─────────────────
-  useEffect(() => {
-    if (selectedIds.size === 0) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedIds(new Set());
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectedIds]);
 
   // ── Effect: auto-close batch menus ────────────────────────
   useEffect(() => {
@@ -361,63 +304,7 @@ export default function DocumentSidebar() {
     }
   }, [renamingId, renameValue, renameDocument]);
 
-  const handleContextMenu = (e: React.MouseEvent, id: string, kind: 'doc' | 'folder' = 'doc') => {
-    e.preventDefault();
-    e.stopPropagation();
-    // If right-clicking on an item that's already in a multi-selection,
-    // show the batch menu. Otherwise, clear selection and show single menu.
-    if (selectedIds.size > 1 && selectedIds.has(id)) {
-      setBatchMenu({ x: e.clientX, y: e.clientY });
-      return;
-    }
-    setSelectedIds(new Set());
-    if (kind === 'folder') {
-      setFolderMenu({ x: e.clientX, y: e.clientY, folderId: id });
-    } else {
-      setContextMenu({ x: e.clientX, y: e.clientY, docId: id });
-    }
-  };
 
-  /**
-   * Unified document click handler supporting multi-select:
-   * - Cmd/Ctrl+Click: toggle selection
-   * - Shift+Click: range select from last clicked doc
-   * - Plain click: open doc, clear selection
-   */
-  const handleDocClick = useCallback((e: React.MouseEvent, docId: string) => {
-    if (suppressClick.current) {
-      suppressClick.current = false;
-      return;
-    }
-    if (e.metaKey || e.ctrlKey) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(docId)) next.delete(docId);
-        else next.add(docId);
-        return next;
-      });
-      setLastClickedId(docId);
-    } else if (e.shiftKey && lastClickedId) {
-      const start = visibleItemIds.indexOf(lastClickedId);
-      const end = visibleItemIds.indexOf(docId);
-      if (start !== -1 && end !== -1) {
-        const lo = Math.min(start, end);
-        const hi = Math.max(start, end);
-        setSelectedIds(new Set(visibleItemIds.slice(lo, hi + 1)));
-      }
-      setLastClickedId(docId);
-    } else {
-      // If there's an existing multi-selection, a plain click clears it
-      // without opening the document (so user can "click away" to deselect).
-      if (selectedIds.size > 0) {
-        setSelectedIds(new Set());
-        return;
-      }
-      setSelectedIds(new Set());
-      setLastClickedId(docId);
-      openDocumentTab(docId);
-    }
-  }, [lastClickedId, visibleItemIds, selectedIds, openDocumentTab]);
 
   // ── Handlers: folder actions ──────────────────────────────
   const handleToggleFolder = useCallback(
@@ -604,6 +491,35 @@ export default function DocumentSidebar() {
    * source row.  This ref lets us swallow that single click.
    */
   const suppressClick = useRef(false);
+
+  // ── Batch selection (extracted to useBatchSelection hook) ──
+  const {
+    selectedIds,
+    setSelectedIds,
+    lastClickedId,
+    setLastClickedId,
+    visibleItemIds,
+    splitSelection,
+    batchDelete,
+    batchMove,
+    handleDocClick,
+    handleContextMenu,
+  } = useBatchSelection({
+    folders,
+    tree,
+    filteredDocs,
+    isSearching,
+    trashDocuments,
+    trashFolder,
+    moveDocumentsToFolder,
+    openDocumentTab,
+    setContextMenu,
+    setFolderMenu,
+    setBatchMenu,
+    setBatchMoveMenu,
+    suppressClick,
+    t,
+  });
 
   /**
    * `true` between pointerdown and pointerup/cancel.
