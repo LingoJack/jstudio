@@ -2,7 +2,6 @@ import type { GraphNodeShape } from './graphSnapshot';
 import {
   paletteFor,
   getFontColor,
-  getTopicFontColor,
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
@@ -98,18 +97,20 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
       // 数据库：使用自定义 database 形状（圆柱体）
       return { ...base, shape: 'database' };
     case 'topic':
-      // 思维导图节点：圆角矩形 + 无填充 + 无描边 + 蓝色字。
-      // 与 rounded 的区别：无边框、字色硬编码蓝色，支持 Tab/Enter 生发子节点/兄弟节点。
+      // 思维导图节点：圆角矩形 + 无填充 + 中性灰描边 + 常规字色。
+      // 与 rounded 的视觉一致，通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
       return {
         shape: 'rectangle',
         rounded: true,
         absoluteArcSize: true,
         arcSize: SHAPE_ARC_SIZE,
         fillColor: 'none',
-        strokeColor: 'none',
-        fontColor: getTopicFontColor(dark),
+        strokeColor: pal.stroke,
+        strokeWidth: SHAPE_STROKE_WIDTH,
+        fontColor: getFontColor(dark),
         fontSize: SHAPE_FONT_SIZE,
         pointerEvents: false,
+        isTopic: 1,
       };
     // 连线类型：统一实线 + 圆点流动（流动由 CSS 动画驱动，见 vscode-theme.css）。
     // 箭头 marker 由 ConnectorShape.setDashed(false) 渲染为实线，不受流动影响。

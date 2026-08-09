@@ -21,7 +21,6 @@ import type {
 import {
   paletteFor,
   getFontColor,
-  getTopicFontColor,
   getEdgeColor,
   getLabelBackgroundColor,
   SHAPE_STROKE_WIDTH,
@@ -83,18 +82,21 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       return { ...base, shape: 'database' };
     case 'topic':
       // 思维导图节点：圆角矩形 + 无填充 + 无描边 + 蓝色字。
-      // 与 rounded 的视觉区别：无边框、蓝色字。反推依赖 strokeColor='none' 区分。
+      // 思维导图节点：圆角矩形 + 无填充 + 中性灰描边 + 常规字色。
+      // 通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
       return {
         shape: 'rectangle',
         rounded: true,
         absoluteArcSize: true,
         arcSize: SHAPE_ARC_SIZE,
         fillColor: 'none',
-        strokeColor: 'none',
-        fontColor: getTopicFontColor(dark),
+        strokeColor: pal.stroke,
+        strokeWidth: SHAPE_STROKE_WIDTH,
+        fontColor: getFontColor(dark),
         fontSize: SHAPE_FONT_SIZE,
         pointerEvents: false,
-      };
+        isTopic: 1,
+      } as CellStyle;
     // 连线类型（作为预设连线样式）：全部引用 ARROW_END_SIZE 保证箭头大小一致。
     case 'edge-line':
       return {
@@ -151,11 +153,10 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   if (shape === 'rectangle') {
     // 圆角矩形：rounded=true + arcSize=SHAPE_ARC_SIZE(12) 即为 'rounded'
     if (style.rounded) {
-      // 思维导图 topic：圆角矩形 + 无描边（与 rounded 区分，依赖 strokeColor='none'）。
-      // 注意：maxGraph Stylesheet.getCellStyle 合并样式时，值为 'none' 的属性会被删除，
-      // 所以经过 getCurrentCellStyle 后 strokeColor 变为 undefined 而非 'none'。
-      // 用户手动把 rounded 的 strokeColor 设为 'none' 也会被识别为 topic，但正常使用流程不会触发。
-      if (!style.strokeColor) return 'topic';
+      // 思维导图 topic：通过 isTopic 自定义标记识别。
+      // 不依赖 strokeColor（旧方案在 maxGraph 合并样式后 'none' 会被删除导致失效）。
+      const isTopic = (style as Record<string, unknown>).isTopic;
+      if (isTopic) return 'topic';
       return 'rounded';
     }
   }

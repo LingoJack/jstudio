@@ -100,7 +100,6 @@ import {
   getConnectionPointColor,
   getEdgeColor,
   getFontColor,
-  getTopicFontColor,
   fontColorFor,
   mapFillColor,
   fillPresetsFor,
@@ -1471,11 +1470,8 @@ export function GraphCanvas({
           const oldFill = oldStyle.fillColor;
           const newFill =
             oldFill && oldFill !== 'none' ? mapFillColor(oldFill, dark) : pal.fill;
-          // topic 节点字色硬编码蓝色（不跟随主题 accent），其余形状按填充亮度自适应。
-          const newFontColor =
-            shape === 'topic'
-              ? getTopicFontColor(dark)
-              : fontColorFor(newFill, dark);
+          // 所有形状按填充亮度自适应字色（topic 不再硬编码蓝色）。
+          const newFontColor = fontColorFor(newFill, dark);
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,
             fillColor: newFill,
