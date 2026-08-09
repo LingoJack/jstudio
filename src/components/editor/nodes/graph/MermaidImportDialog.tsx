@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FileDown, X, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { FileDown, X, AlertCircle, ArrowRight } from 'lucide-react';
 import { convertMermaidToSnapshot } from '../../../../lib/editor/mermaid';
 import { IconButton } from '../../../ui/IconButton';
 import { useI18n } from '../../../../lib/core/i18n';
@@ -21,20 +21,6 @@ interface MermaidImportDialogProps {
   onImport: (snapshotJson: string) => void;
 }
 
-/** 示例代码 */
-const EXAMPLE_FLOWCHART = `flowchart TD
-    A[开始] --> B[处理数据]
-    B --> C{判断结果}
-    C -->|成功| D[输出报告]
-    C -->|失败| E[错误处理]
-    E --> B`;
-
-const EXAMPLE_SEQUENCE = `sequenceDiagram
-    Alice->>Bob: 你好吗？
-    Bob-->>Alice: 很好！
-    Alice->>Bob: 再见
-    Bob-->>Alice: 再见`;
-
 export default function MermaidImportDialog({
   open,
   onClose,
@@ -46,7 +32,6 @@ export default function MermaidImportDialog({
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
-  const [selectedExample, setSelectedExample] = useState<'flowchart' | 'sequence'>('flowchart');
 
   // Esc 关闭
   useEffect(() => {
@@ -68,11 +53,6 @@ export default function MermaidImportDialog({
   }, [open]);
 
   if (transition === 'closed') return null;
-
-  const handleInsertExample = () => {
-    setCode(selectedExample === 'flowchart' ? EXAMPLE_FLOWCHART : EXAMPLE_SEQUENCE);
-    setError(null);
-  };
 
   const handleConvert = async () => {
     if (!code.trim()) {
@@ -137,37 +117,6 @@ export default function MermaidImportDialog({
           <p className="text-xs text-[var(--vscode-descriptionForeground)] mb-3">
             {t('mermaid.description')}
           </p>
-
-          {/* 示例选择 */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs text-[var(--vscode-descriptionForeground)]">{t('mermaid.insertExample')}</span>
-            <button
-              onClick={() => {
-                setSelectedExample('flowchart');
-                handleInsertExample();
-              }}
-              className={`text-xs px-2.5 py-1 rounded transition-colors ${
-                selectedExample === 'flowchart'
-                  ? 'bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)]'
-                  : 'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-              }`}
-            >
-              {t('mermaid.flowchart')}
-            </button>
-            <button
-              onClick={() => {
-                setSelectedExample('sequence');
-                handleInsertExample();
-              }}
-              className={`text-xs px-2.5 py-1 rounded transition-colors ${
-                selectedExample === 'sequence'
-                  ? 'bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)]'
-                  : 'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-              }`}
-            >
-              {t('mermaid.sequence')}
-            </button>
-          </div>
 
           {/* 代码输入框 */}
           <textarea

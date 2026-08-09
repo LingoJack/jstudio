@@ -26,6 +26,7 @@ export interface MermaidVertex {
   styles?: string[];
   classes?: string[];
   type?: string; // 节点形状类型，如 'round', 'diamond', 'circle' 等
+  shape?: string; // mermaid v11 渲染形状（ShapeID），如 'rect', 'question', 'stadium' 等
 }
 
 /** Flowchart 边数据（从 db.getEdges() 返回） */
@@ -67,10 +68,10 @@ export interface SequenceActor {
 /** Sequence 消息数据 */
 export interface SequenceMessage {
   id?: string | number;
-  from: string;
-  to: string;
-  message: string;
-  type?: number; // 消息类型：-1=实线箭头, 0=实线无箭头, 1=虚线箭头, 2=虚线无箭头
+  from?: string;
+  to?: string;
+  message: string | { start: number; step: number; visible: boolean };
+  type?: number; // Mermaid LINETYPE: 0=SOLID, 1=DOTTED, 5=SOLID_OPEN, 6=DOTTED_OPEN, 24=SOLID_POINT, 25=DOTTED_POINT, 33/34=BIDIR
 }
 
 /** Sequence 注释数据 */
@@ -142,7 +143,7 @@ export async function parseMermaidCode(code: string): Promise<MermaidParseResult
       };
     }
 
-    if (diagramType === 'sequenceDiagram') {
+    if (diagramType === 'sequenceDiagram' || diagramType === 'sequence') {
       // Sequence 数据提取
       // getActors 返回 Map<string, Actor>
       const actorsMap = (db.getActors as () => Map<string, SequenceActor>)?.() ?? new Map();

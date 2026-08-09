@@ -29,7 +29,7 @@ export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
   activation: { fill: '#F3F4F6', stroke: '#374151' },
   note: { fill: 'none', stroke: '#374151' },
   database: { fill: 'none', stroke: '#374151' },
-  topic: { fill: 'none', stroke: '#374151' }, // 思维导图节点：边框 + 常规字色
+  topic: { fill: '#E0E7FF', stroke: '#6366F1' }, // 思维导图根节点默认：浅靛蓝填充
   'edge-line': { fill: 'none', stroke: '#0052D9' },
   'edge-ortho': { fill: 'none', stroke: '#0052D9' },
   'edge-dashed': { fill: 'none', stroke: '#0052D9' },
@@ -50,7 +50,7 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
   activation: { fill: '#374151', stroke: '#9CA3AF' },
   note: { fill: 'none', stroke: '#9CA3AF' },
   database: { fill: 'none', stroke: '#9CA3AF' },
-  topic: { fill: 'none', stroke: '#9CA3AF' }, // 思维导图节点：边框 + 常规字色
+  topic: { fill: '#3730A3', stroke: '#818CF8' }, // 思维导图根节点默认：暗色靛蓝填充
   'edge-line': { fill: 'none', stroke: '#07C160' },
   'edge-ortho': { fill: 'none', stroke: '#07C160' },
   'edge-dashed': { fill: 'none', stroke: '#07C160' },
@@ -200,6 +200,97 @@ function lightenHex(hex: string, amount: number): string {
 export const SHAPE_STROKE_WIDTH = 1.5;
 export const SHAPE_FONT_SIZE = 13;
 export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
+
+/* ------------------------------------------------------------------ */
+/* 思维导图配色 - XMind 风格深度分层                                    */
+/* ------------------------------------------------------------------ */
+
+/** 思维导图连线粗度（比普通连线略粗，突出有机感）。 */
+export const MINDMAP_EDGE_STROKE_WIDTH = 2;
+
+/** 根节点 (depth 0)：浅色填充 + 粗描边 + 深色字 + 加粗。 */
+const MINDMAP_ROOT_LIGHT = { fill: '#E0E7FF', stroke: '#6366F1', font: '#312E81' };
+const MINDMAP_ROOT_DARK = { fill: '#3730A3', stroke: '#818CF8', font: '#E0E7FF' };
+const MINDMAP_ROOT_FONT_SIZE = 15;
+
+/** 分支节点 (depth 1)：极浅填充 + 中等描边 + 深色字。 */
+const MINDMAP_BRANCH_LIGHT = { fill: '#EEF2FF', stroke: '#A5B4FC', font: '#4338CA' };
+const MINDMAP_BRANCH_DARK = { fill: '#312E81', stroke: '#6366F1', font: '#C7D2FE' };
+
+/** 叶子节点 (depth 2+)：几乎无填充 + 细描边 + 中性字色。 */
+const MINDMAP_LEAF_LIGHT = { fill: '#F5F7FF', stroke: '#C7D2FE', font: '#6366F1' };
+const MINDMAP_LEAF_DARK = { fill: '#1E1B4B', stroke: '#4F46E5', font: '#A5B4FC' };
+
+/** 思维导图圆角（比普通形状更大，呈现药丸 / pill 形态）。 */
+export const MINDMAP_ARC_SIZE = 18;
+
+/**
+ * 根据深度返回思维导图节点的配色方案。
+ *
+ * - depth 0（根）：浅色填充 + 粗描边 + 深色字 + 加粗 + 大字号
+ * - depth 1（分支）：极浅填充 + 中等描边 + 深色字
+ * - depth 2+（叶子）：几乎无填充 + 细描边 + 中性字
+ */
+export function mindmapStyleForDepth(
+  depth: number,
+  dark: boolean,
+): { fillColor: string; strokeColor: string; fontColor: string; strokeWidth: number; fontSize: number; fontStyle: number } {
+  if (depth <= 0) {
+    const p = dark ? MINDMAP_ROOT_DARK : MINDMAP_ROOT_LIGHT;
+    return {
+      fillColor: p.fill,
+      strokeColor: p.stroke,
+      fontColor: p.font,
+      strokeWidth: 2, // 根节点粗描边突出
+      fontSize: MINDMAP_ROOT_FONT_SIZE,
+      fontStyle: 1, // bold
+    };
+  }
+  if (depth === 1) {
+    const p = dark ? MINDMAP_BRANCH_DARK : MINDMAP_BRANCH_LIGHT;
+    return {
+      fillColor: p.fill,
+      strokeColor: p.stroke,
+      fontColor: p.font,
+      strokeWidth: 1.5,
+      fontSize: SHAPE_FONT_SIZE,
+      fontStyle: 0, // normal
+    };
+  }
+  const p = dark ? MINDMAP_LEAF_DARK : MINDMAP_LEAF_LIGHT;
+  return {
+    fillColor: p.fill,
+    strokeColor: p.stroke,
+    fontColor: p.font,
+    strokeWidth: 1,
+    fontSize: SHAPE_FONT_SIZE,
+    fontStyle: 0, // normal
+  };
+}
+
+/**
+ * 填充色 → 思维导图深度反查。
+ *
+ * 主题切换时（useGraphTheme.applyThemeColors），需要根据当前填充色推断节点深度，
+ * 再用 `mindmapStyleForDepth(depth, dark)` 重新计算全套配色（fill/stroke/font 等）。
+ *
+ * 返回 null 表示填充色不属于思维导图配色体系（用户可能通过取色器自定义了颜色），
+ * 调用方应回退到通用的 mapFillColor / fontColorFor 逻辑。
+ */
+const MINDMAP_FILL_TO_DEPTH: Record<string, number> = {
+  // Root (depth 0) - 浅色 / 暗色
+  '#e0e7ff': 0, '#3730a3': 0,
+  // Branch (depth 1) - 浅色 / 暗色
+  '#eef2ff': 1, '#312e81': 1,
+  // Leaf (depth 2+) - 浅色 / 暗色
+  '#f5f7ff': 2, '#1e1b4b': 2,
+};
+
+export function mindmapDepthFromFill(fill: string | undefined): number | null {
+  if (!fill || fill === 'none') return null;
+  const key = fill.toLowerCase();
+  return key in MINDMAP_FILL_TO_DEPTH ? MINDMAP_FILL_TO_DEPTH[key] : null;
+}
 
 /**
  * 边默认箭头尺寸（像素）。

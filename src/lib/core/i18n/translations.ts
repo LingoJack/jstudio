@@ -1525,9 +1525,6 @@ export const translations = {
     "mermaid.emptyCode": "Please enter Mermaid code",
     "mermaid.description":
       'Supports flowcharts (flowchart) and sequence diagrams (sequenceDiagram). Paste Mermaid code and click "Convert".',
-    "mermaid.insertExample": "Insert example: ",
-    "mermaid.flowchart": "Flowchart",
-    "mermaid.sequence": "Sequence diagram",
     "mermaid.cancel": "Cancel",
     "mermaid.converting": "Converting…",
     "mermaid.syntaxTitle": "Common syntax tips:",

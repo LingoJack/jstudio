@@ -1,10 +1,10 @@
 /**
- * flowchartConverter — Mermaid Flowchart → GraphSnapshot 转换
+ * flowchartConverter - Mermaid Flowchart -> GraphSnapshot 转换
  *
  * 将 Mermaid flowchart/graph 语法解析后的数据转换为 GraphCanvas 可用的快照格式。
  * 包含：
- *   - 节点形状映射（Mermaid 形状 → GraphNodeShape）
- *   - 连线样式映射（Mermaid 箭头 → GraphEdge 样式）
+ *   - 节点形状映射（Mermaid 形状 -> GraphNodeShape）
+ *   - 连线样式映射（Mermaid 箭头 -> GraphEdge 样式）
  *   - 自动布局算法（基于图拓扑的层级布局）
  */
 
@@ -16,59 +16,41 @@ import type { GraphNode, GraphEdge, GraphNodeShape, GraphSnapshot } from '../../
 /* ------------------------------------------------------------------ */
 
 /**
- * Mermaid 节点形状类型 → GraphNodeShape
+ * Mermaid 节点形状类型 -> GraphNodeShape
  *
- * Mermaid 形状语法：
- *   - 默认方形: id[text] 或 id(text)
- *   - 圆角: id([text])
- *   - 圆形: id((text))
- *   - 菱形: id{text}
- *   - 六边形: id[[text]] → 暂映射为 rectangle
- *   - 不对称: id>text] → 暂映射为 rectangle
- *   - 棍棒/平行四边形: id[/text/] / id[\text\] → 暂映射为 rectangle
+ * Mermaid v11 中 FlowVertex 有两个相关字段：
+ *   - type: FlowVertexTypeParam | ShapeID（逻辑类型，如 'diamond', 'round', 'rect' 等）
+ *   - shape: ShapeID（渲染形状，如 'question'=菱形, 'stadium'=圆角, 'rect'=矩形 等）
  *
- * 参考: https://mermaid.js.org/syntax/flowchart.html#node-shapes
+ * 优先级：shape 字段 > type 字段 > styles 数组 > 默认矩形
  */
 function mapVertexToShape(vertex: MermaidVertex): GraphNodeShape {
-  // Mermaid 内部通过 nodeType 或 shape 字段表示形状
-  // 类型可能在不同版本有差异，这里用多种方式判断
-
-  const text = vertex.text ?? '';
-  const domId = vertex.domId ?? '';
-
-  // 通过 domId 的 pattern 判断形状（flowchart-node-xxx 形式）
-  // 更可靠的方式是检查 vertex 的内部 type 字段
-
-  // 检查 styles 数组中是否有形状标记
-  const styles = vertex.styles ?? [];
-  if (styles.includes('stadium') || styles.includes('round')) {
-    return 'rounded';
-  }
-  if (styles.includes('circle') || styles.includes('ellipse')) {
-    return 'ellipse';
-  }
-  if (styles.includes('diamond') || styles.includes('rhombus')) {
-    return 'diamond';
-  }
-  // Mermaid 数据库圆柱体: [(text)] 语法 → cylinder / database 样式
-  if (styles.includes('cylinder') || styles.includes('database')) {
-    return 'database';
+  // 1. 优先检查 shape 字段（mermaid v11 渲染形状，最可靠）
+  const shape = vertex.shape ?? '';
+  if (shape) {
+    if (shape === 'question' || shape === 'hexagon_alt') return 'diamond';
+    if (shape === 'stadium' || shape === 'rounded') return 'rounded';
+    if (shape === 'circle' || shape === 'doublecircle' || shape === 'ellipse') return 'ellipse';
+    if (shape === 'cylinder') return 'database';
+    if (shape === 'hexagon') return 'rectangle';
+    if (shape === 'rect' || shape === 'square' || shape === 'labelRect') return 'rectangle';
   }
 
-  // 检查 type 字段（mermaid 内部可能设置）
+  // 2. 检查 type 字段（兼容 mermaid v10 及部分 v11 场景）
   const type = vertex.type ?? '';
-  if (type.includes('round') || type.includes('stadium')) {
-    return 'rounded';
+  if (type) {
+    if (type.includes('diamond') || type.includes('rhombus') || type === 'question') return 'diamond';
+    if (type.includes('round') || type.includes('stadium')) return 'rounded';
+    if (type.includes('circle') || type.includes('ellipse')) return 'ellipse';
+    if (type.includes('cylinder') || type.includes('database')) return 'database';
   }
-  if (type.includes('circle') || type.includes('ellipse')) {
-    return 'ellipse';
-  }
-  if (type.includes('diamond') || type.includes('rhombus')) {
-    return 'diamond';
-  }
-  if (type.includes('cylinder') || type.includes('database')) {
-    return 'database';
-  }
+
+  // 3. 检查 styles 数组（兼容旧版本）
+  const styles = vertex.styles ?? [];
+  if (styles.includes('stadium') || styles.includes('round')) return 'rounded';
+  if (styles.includes('circle') || styles.includes('ellipse')) return 'ellipse';
+  if (styles.includes('diamond') || styles.includes('rhombus')) return 'diamond';
+  if (styles.includes('cylinder') || styles.includes('database')) return 'database';
 
   // 默认为矩形
   return 'rectangle';
@@ -100,7 +82,7 @@ const DEFAULT_NODE_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
 /* ------------------------------------------------------------------ */
 
 /**
- * 标签字号。与 graphTheme.SHAPE_FONT_SIZE(13) 对齐——
+ * 标签字号。与 graphTheme.SHAPE_FONT_SIZE(13) 对齐--
  * lib 层不可反向 import components 层的运行时常量，此处本地定义。
  */
 const LABEL_FONT_SIZE = 13;
@@ -233,15 +215,15 @@ export function computeNodeSize(
 /* ------------------------------------------------------------------ */
 
 /**
- * Mermaid 边类型 → GraphEdge 样式
+ * Mermaid 边类型 -> GraphEdge 样式
  *
  * Mermaid 连线语法：
- *   - 箭头实线: --> 或 ---> → endArrow='classic', dashed=false
- *   - 无箭头实线: --- 或 ---- → endArrow='none', dashed=false
- *   - 箭头虚线: -.-> 或 -..-> → endArrow='classic', dashed=true
- *   - 无箭头虚线: -.- 或 -..- → endArrow='none', dashed=true
- *   - 粗箭头: ==> 或 ===> → strokeWidth=3, dashed=false
- *   - 多箭头: --o 或 --x → 特殊箭头类型
+ *   - 箭头实线: --> 或 ---> -> endArrow='classic', dashed=false
+ *   - 无箭头实线: --- 或 ---- -> endArrow='none', dashed=false
+ *   - 箭头虚线: -.-> 或 -..-> -> endArrow='classic', dashed=true
+ *   - 无箭头虚线: -.- 或 -..- -> endArrow='none', dashed=true
+ *   - 粗箭头: ==> 或 ===> -> strokeWidth=3, dashed=false
+ *   - 多箭头: --o 或 --x -> 特殊箭头类型
  *
  * 参考: https://mermaid.js.org/syntax/flowchart.html#links
  */
@@ -279,19 +261,489 @@ function mapEdgeTypeToStyle(edge: MermaidEdge): {
 }
 
 /* ------------------------------------------------------------------ */
-/* 自动布局                                                            */
+/* 自动布局 - Sugiyama 层级布局框架                                      */
 /* ------------------------------------------------------------------ */
 
+/** 布局参数 */
+const LAY_BASE = 50;
+const LAY_H_GAP = 40;
+const LAY_V_GAP = 60;
+/** dummy 节点 ID 前缀 */
+const DUMMY_PREFIX = '__dummy_';
+
 /**
- * 尺寸感知的层级布局。
+ * Phase 1: 构建有向无环图。
  *
- * 算法：
- *   1. BFS 拓扑分层（入度为 0 的节点为第一层，逐层展开，环形图断环兜底）
- *   2. 层内排序：按"已定位前驱节点的交叉轴中心"排序（单遍 barycenter），
- *      使分支节点尽量贴近父节点，减少连线交叉
- *   3. 坐标分配：主轴（层方向）按层内最大节点尺寸 + 间距逐层累计；
- *      交叉轴按节点实际尺寸累计，每层相对最宽层居中
- *   4. BT/RL 通过对主轴坐标翻转实现，复用同一套 TB/LR 分配逻辑
+ * - 移除自环 (A->A)
+ * - DFS 检测回边并翻转，消除所有环
+ * - 返回处理后的邻接表（不修改原始 edges）
+ */
+function buildDAG(
+  nodeIds: string[],
+  edges: { start: string; end: string }[],
+): { outgoing: Map<string, string[]>; incoming: Map<string, string[]> } {
+  const outgoing = new Map<string, string[]>();
+  const incoming = new Map<string, string[]>();
+  for (const id of nodeIds) {
+    outgoing.set(id, []);
+    incoming.set(id, []);
+  }
+
+  const seen = new Set<string>();
+  for (const e of edges) {
+    if (e.start === e.end) continue;
+    const key = `${e.start}->${e.end}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (outgoing.has(e.start) && incoming.has(e.end)) {
+      outgoing.get(e.start)!.push(e.end);
+      incoming.get(e.end)!.push(e.start);
+    }
+  }
+
+  // DFS 回边检测
+  const color = new Map<string, number>();
+  for (const id of nodeIds) color.set(id, 0);
+  const backEdges: [string, string][] = [];
+
+  const dfs = (node: string) => {
+    color.set(node, 1);
+    for (const next of outgoing.get(node) ?? []) {
+      const c = color.get(next) ?? 0;
+      if (c === 1) backEdges.push([node, next]);
+      else if (c === 0) dfs(next);
+    }
+    color.set(node, 2);
+  };
+  for (const id of nodeIds) if (color.get(id) === 0) dfs(id);
+
+  // 翻转回边
+  for (const [u, v] of backEdges) {
+    const ou = outgoing.get(u)!;
+    const iv = incoming.get(v)!;
+    ou.splice(ou.indexOf(v), 1);
+    iv.splice(iv.indexOf(u), 1);
+    outgoing.get(v)!.push(u);
+    incoming.get(u)!.push(v);
+  }
+
+  return { outgoing, incoming };
+}
+
+/**
+ * Phase 2: 最长路径分层。
+ *
+ * 每个节点放在 max(前驱层 + 1)，保证节点出现在正确的"深度"，
+ * 同时图的高度（层数）最小化。
+ */
+function assignLayers(
+  nodeIds: string[],
+  outgoing: Map<string, string[]>,
+  incoming: Map<string, string[]>,
+): string[][] {
+  const inDeg = new Map<string, number>();
+  for (const id of nodeIds) inDeg.set(id, (incoming.get(id) ?? []).length);
+
+  const queue: string[] = [];
+  for (const id of nodeIds) if (inDeg.get(id) === 0) queue.push(id);
+  if (queue.length === 0 && nodeIds.length > 0) {
+    queue.push(nodeIds[0]);
+    inDeg.set(nodeIds[0], 0);
+  }
+
+  const topo: string[] = [];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    topo.push(node);
+    visited.add(node);
+    for (const next of outgoing.get(node) ?? []) {
+      const d = (inDeg.get(next) ?? 1) - 1;
+      inDeg.set(next, d);
+      if (d === 0 && !visited.has(next)) queue.push(next);
+    }
+    if (queue.length === 0 && topo.length < nodeIds.length) {
+      for (const id of nodeIds) {
+        if (!visited.has(id)) {
+          queue.push(id);
+          inDeg.set(id, 0);
+          break;
+        }
+      }
+    }
+  }
+
+  const layer = new Map<string, number>();
+  for (const node of topo) {
+    const preds = incoming.get(node) ?? [];
+    layer.set(node, preds.length === 0 ? 0 : Math.max(...preds.map((p) => (layer.get(p) ?? 0) + 1)));
+  }
+
+  const maxLayer = Math.max(0, ...Array.from(layer.values()));
+  const levels: string[][] = Array.from({ length: maxLayer + 1 }, () => []);
+  for (const node of topo) levels[layer.get(node)!].push(node);
+  return levels;
+}
+
+/**
+ * Phase 3: 为跨层边插入虚拟节点。
+ *
+ * 边 (u, v) 跨 k 层时，在中间各层插入 dummy，使所有边只跨 1 层。
+ * 这是交叉最小化的前提——只有相邻层之间的边才能被正确重排序。
+ */
+function insertDummies(
+  levels: string[][],
+  outgoing: Map<string, string[]>,
+  incoming: Map<string, string[]>,
+): {
+  levels: string[][];
+  outgoing: Map<string, string[]>;
+  incoming: Map<string, string[]>;
+  isDummy: Set<string>;
+} {
+  const newLevels = levels.map((l) => [...l]);
+  const newOut = new Map<string, string[]>();
+  const newIn = new Map<string, string[]>();
+  const isDummy = new Set<string>();
+  for (const [k, v] of outgoing) newOut.set(k, [...v]);
+  for (const [k, v] of incoming) newIn.set(k, [...v]);
+
+  const layerOf = new Map<string, number>();
+  for (let i = 0; i < levels.length; i++)
+    for (const n of levels[i]) layerOf.set(n, i);
+
+  const allEdges: [string, string][] = [];
+  for (const [u, vs] of outgoing) for (const v of vs) allEdges.push([u, v]);
+
+  let count = 0;
+  for (const [u, v] of allEdges) {
+    const lu = layerOf.get(u)!;
+    const lv = layerOf.get(v)!;
+    const span = lv - lu;
+    if (span <= 1) continue;
+
+    newOut.get(u)!.splice(newOut.get(u)!.indexOf(v), 1);
+    newIn.get(v)!.splice(newIn.get(v)!.indexOf(u), 1);
+
+    let prev = u;
+    for (let l = lu + 1; l < lv; l++) {
+      const d = `${DUMMY_PREFIX}${count++}`;
+      isDummy.add(d);
+      newOut.set(d, []);
+      newIn.set(d, []);
+      newLevels[l].push(d);
+      layerOf.set(d, l);
+      newOut.get(prev)!.push(d);
+      newIn.get(d)!.push(prev);
+      prev = d;
+    }
+    newOut.get(prev)!.push(v);
+    newIn.get(v)!.push(prev);
+  }
+
+  return { levels: newLevels, outgoing: newOut, incoming: newIn, isDummy };
+}
+
+/**
+ * 统计两个相邻层之间的边交叉数。
+ * 仅考虑 upper->lower 的边（DAG 后所有边前向）。
+ */
+function countCrossingsBetween(
+  upper: string[],
+  lower: string[],
+  outgoing: Map<string, string[]>,
+): number {
+  const upPos = new Map<string, number>();
+  upper.forEach((n, i) => upPos.set(n, i));
+  const loPos = new Map<string, number>();
+  lower.forEach((n, i) => loPos.set(n, i));
+
+  const pairs: [number, number][] = [];
+  for (const u of upper) {
+    for (const v of outgoing.get(u) ?? []) {
+      const p = loPos.get(v);
+      if (p !== undefined) pairs.push([upPos.get(u)!, p]);
+    }
+  }
+
+  let count = 0;
+  for (let i = 0; i < pairs.length; i++) {
+    for (let j = i + 1; j < pairs.length; j++) {
+      if (pairs[i][0] < pairs[j][0] && pairs[i][1] > pairs[j][1]) count++;
+      else if (pairs[i][0] > pairs[j][0] && pairs[i][1] < pairs[j][1]) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * 相邻交换法 - 直接最小化交叉数。
+ *
+ * 对每层尝试交换相邻节点对，如果交换后与上下层的交叉总数减少则保留。
+ * barycenter 是间接启发式，相邻交换直接优化目标函数，消除残余交叉。
+ */
+function adjacentExchange(
+  levels: string[][],
+  outgoing: Map<string, string[]>,
+  maxRounds = 4,
+): string[][] {
+  const result = levels.map((l) => [...l]);
+
+  const layerCrossings = (l: number): number => {
+    let total = 0;
+    if (l > 0) total += countCrossingsBetween(result[l - 1], result[l], outgoing);
+    if (l < result.length - 1) total += countCrossingsBetween(result[l], result[l + 1], outgoing);
+    return total;
+  };
+
+  for (let round = 0; round < maxRounds; round++) {
+    let improved = false;
+    for (let l = 0; l < result.length; l++) {
+      for (let i = 0; i < result[l].length - 1; i++) {
+        const before = layerCrossings(l);
+        [result[l][i], result[l][i + 1]] = [result[l][i + 1], result[l][i]];
+        const after = layerCrossings(l);
+        if (after < before) improved = true;
+        else [result[l][i], result[l][i + 1]] = [result[l][i + 1], result[l][i]];
+      }
+    }
+    if (!improved) break;
+  }
+  return result;
+}
+
+/**
+ * Phase 4: 交叉最小化 — Barycenter 启发式。
+ *
+ * 多轮上下交替扫描，每层按邻居层位置均值排序。
+ * barycenter 相同时保持原序（稳定排序），避免无谓抖动。
+ */
+function minimizeCrossings(
+  levels: string[][],
+  outgoing: Map<string, string[]>,
+  incoming: Map<string, string[]>,
+  sweeps = 8,
+): string[][] {
+  const result = levels.map((l) => [...l]);
+
+  // --- Step 1: DFS 初始排序 ---
+  const dfsOrder = new Map<string, number>();
+  let counter = 0;
+  const visited = new Set<string>();
+  const dfs = (node: string) => {
+    if (visited.has(node)) return;
+    visited.add(node);
+    dfsOrder.set(node, counter++);
+    for (const next of outgoing.get(node) ?? []) dfs(next);
+  };
+  for (const node of result[0] ?? []) dfs(node);
+  for (const layer of result) for (const node of layer) if (!visited.has(node)) dfs(node);
+  for (const layer of result) layer.sort((a, b) => (dfsOrder.get(a) ?? 0) - (dfsOrder.get(b) ?? 0));
+
+  // --- Step 2: Barycenter ---
+  const baryUp = (node: string, layer: number): number => {
+    const ns = incoming.get(node) ?? [];
+    let sum = 0, n = 0;
+    for (const nb of ns) {
+      const p = result[layer - 1]?.indexOf(nb);
+      if (p !== undefined && p >= 0) { sum += p; n++; }
+    }
+    return n > 0 ? sum / n : -1;
+  };
+
+  const baryDown = (node: string, layer: number): number => {
+    const ns = outgoing.get(node) ?? [];
+    let sum = 0, n = 0;
+    for (const nb of ns) {
+      const p = result[layer + 1]?.indexOf(nb);
+      if (p !== undefined && p >= 0) { sum += p; n++; }
+    }
+    return n > 0 ? sum / n : -1;
+  };
+
+  const sortLayer = (layer: number, baryFn: (n: string, l: number) => number) => {
+    result[layer].sort((a, b) => {
+      const ba = baryFn(a, layer);
+      const bb = baryFn(b, layer);
+      if (ba === -1 && bb === -1) return 0;
+      if (ba === -1) return 1;
+      if (bb === -1) return -1;
+      const diff = ba - bb;
+      return Math.abs(diff) < 0.01 ? 0 : diff;
+    });
+  };
+
+  for (let s = 0; s < sweeps; s++) {
+    if (s % 2 === 0) {
+      for (let l = 1; l < result.length; l++) sortLayer(l, baryUp);
+    } else {
+      for (let l = result.length - 2; l >= 0; l--) sortLayer(l, baryDown);
+    }
+  }
+
+  // --- Step 3: 相邻交换 ---
+  return adjacentExchange(result, outgoing);
+}
+
+/**
+ * Phase 5 + 6: 坐标分配 + 方向转换。
+ *
+ * 交叉轴（cross）：先按排序顺序从左到右放置，再做 2 轮迭代对齐
+ *   - 向下：子节点 X 对齐到父节点中心
+ *   - 向上：父节点 X 对齐到子节点中心
+ * 每轮后消解同层重叠（右推）。
+ *
+ * 主轴（main）：逐层累计层内最大尺寸 + 间距。
+ *
+ * 最后将抽象 main/cross 坐标转为 {x, y}，BT/RL 翻转主轴，
+ * 移除 dummy 节点，整体偏移使最小坐标 ≥ 50。
+ */
+function assignCoordinates(
+  levels: string[][],
+  outgoing: Map<string, string[]>,
+  incoming: Map<string, string[]>,
+  sizes: Map<string, { w: number; h: number }>,
+  isDummy: Set<string>,
+  direction: string,
+): Map<string, { x: number; y: number }> {
+  const isHorizontal = direction === 'LR' || direction === 'RL';
+  const isReverse = direction === 'RL' || direction === 'BT';
+
+  const sizeOf = (id: string) =>
+    isDummy.has(id) ? { w: 0, h: 0 } : sizes.get(id) ?? { w: 120, h: 60 };
+  const mainDim = (id: string) => (isHorizontal ? sizeOf(id).w : sizeOf(id).h);
+  const crossDim = (id: string) => (isHorizontal ? sizeOf(id).h : sizeOf(id).w);
+  const mainGap = isHorizontal ? LAY_H_GAP : LAY_V_GAP;
+  const crossGap = isHorizontal ? LAY_V_GAP : LAY_H_GAP;
+
+  // ---- 主轴（层 Y / 层 X）：逐层累计 ----
+  const mainPos = new Map<string, number>();
+  const levelMaxMain: number[] = [];
+  let mainCursor = 0;
+  for (let l = 0; l < levels.length; l++) {
+    const mx = Math.max(0, ...levels[l].map(mainDim));
+    levelMaxMain.push(mx);
+    for (const node of levels[l]) mainPos.set(node, mainCursor);
+    mainCursor += mx + mainGap;
+  }
+  const totalMain = mainCursor - mainGap;
+
+  // ---- 交叉轴：初始从左到右 ----
+  const crossPos = new Map<string, number>();
+  for (const layer of levels) {
+    let cursor = 0;
+    for (const node of layer) {
+      crossPos.set(node, cursor);
+      cursor += crossDim(node) + crossGap;
+    }
+  }
+
+  const resolveOverlaps = (layer: string[]) => {
+    for (let i = 1; i < layer.length; i++) {
+      const minLeft = crossPos.get(layer[i - 1])! + crossDim(layer[i - 1]) + crossGap;
+      if (crossPos.get(layer[i])! < minLeft) crossPos.set(layer[i], minLeft);
+    }
+  };
+
+  // ---- 3 轮迭代对齐 ----
+  for (let round = 0; round < 3; round++) {
+    // 向下：子节点对齐父节点中心
+    for (let l = 1; l < levels.length; l++) {
+      for (const node of levels[l]) {
+        const preds = incoming.get(node) ?? [];
+        if (preds.length === 0) continue;
+        let sum = 0,
+          n = 0;
+        for (const p of preds) {
+          const cp = crossPos.get(p);
+          if (cp !== undefined) {
+            sum += cp + crossDim(p) / 2;
+            n++;
+          }
+        }
+        if (n > 0) crossPos.set(node, sum / n - crossDim(node) / 2);
+      }
+      resolveOverlaps(levels[l]);
+    }
+    // 向上：父节点对齐子节点中心
+    for (let l = levels.length - 2; l >= 0; l--) {
+      for (const node of levels[l]) {
+        const succs = outgoing.get(node) ?? [];
+        if (succs.length === 0) continue;
+        let sum = 0,
+          n = 0;
+        for (const s of succs) {
+          const cp = crossPos.get(s);
+          if (cp !== undefined) {
+            sum += cp + crossDim(s) / 2;
+            n++;
+          }
+        }
+        if (n > 0) crossPos.set(node, sum / n - crossDim(node) / 2);
+      }
+      resolveOverlaps(levels[l]);
+    }
+  }
+
+  // ---- dummy 平滑：dummy 节点放到前后邻居的中点，使长边走直线 ----
+  for (let l = 1; l < levels.length - 1; l++) {
+    for (const node of levels[l]) {
+      if (!isDummy.has(node)) continue;
+      const preds = incoming.get(node) ?? [];
+      const succs = outgoing.get(node) ?? [];
+      if (preds.length === 1 && succs.length === 1) {
+        const pCenter = (crossPos.get(preds[0]) ?? 0) + crossDim(preds[0]) / 2;
+        const sCenter = (crossPos.get(succs[0]) ?? 0) + crossDim(succs[0]) / 2;
+        crossPos.set(node, (pCenter + sCenter) / 2);
+      }
+    }
+  }
+
+  // ---- 转为 {x, y}，移除 dummy ----
+  const positions = new Map<string, { x: number; y: number }>();
+  let minX = Infinity,
+    minY = Infinity;
+
+  for (let l = 0; l < levels.length; l++) {
+    for (const node of levels[l]) {
+      if (isDummy.has(node)) continue;
+      const mp = mainPos.get(node)!;
+      const cp = crossPos.get(node)!;
+      const s = sizeOf(node);
+      let x: number, y: number;
+      if (isHorizontal) {
+        x = isReverse ? totalMain - mp - s.w : mp;
+        y = cp;
+      } else {
+        x = cp;
+        y = isReverse ? totalMain - mp - s.h : mp;
+      }
+      positions.set(node, { x, y });
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+    }
+  }
+
+  const offX = Math.max(0, LAY_BASE - (minX === Infinity ? 0 : minX));
+  const offY = Math.max(0, LAY_BASE - (minY === Infinity ? 0 : minY));
+  if (offX > 0 || offY > 0) {
+    for (const [, pos] of positions) {
+      pos.x += offX;
+      pos.y += offY;
+    }
+  }
+  return positions;
+}
+
+/**
+ * 尺寸感知的层级布局（Sugiyama 框架）。
+ *
+ * 完整流程：
+ *   1. buildDAG       — 构建有向图，移除自环，DFS 翻转回边消环
+ *   2. assignLayers   — 最长路径分层（拓扑序 + max(前驱层+1)）
+ *   3. insertDummies  — 跨层边插入虚拟节点，使所有边只跨 1 层
+ *   4. minimizeCrossings — Barycenter 启发式，6 轮上下交替减少交叉
+ *   5. assignCoordinates — 迭代对齐坐标（父居中于子、子居中于父）+ 消解重叠
  *
  * @param sizes 每个节点的实际渲染尺寸（由 computeNodeSize 得出）
  */
@@ -301,175 +753,23 @@ export function layoutNodes(
   direction: string,
   sizes: Map<string, { w: number; h: number }>,
 ): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-
-  // 获取所有节点 ID
   const nodeIds = Array.from(vertices.keys());
-  if (nodeIds.length === 0) return positions;
+  if (nodeIds.length === 0) return new Map();
 
-  // 构建邻接关系（有向图）
-  const outgoing = new Map<string, string[]>(); // 节点 → 出边目标列表
-  const incoming = new Map<string, string[]>(); // 节点 → 入边源列表
-
-  for (const nodeId of nodeIds) {
-    outgoing.set(nodeId, []);
-    incoming.set(nodeId, []);
-  }
-
-  for (const edge of edges) {
-    const from = edge.start;
-    const to = edge.end;
-    if (outgoing.has(from)) {
-      outgoing.get(from)?.push(to);
-    }
-    if (incoming.has(to)) {
-      incoming.get(to)?.push(from);
-    }
-  }
-
-  // 计算入度，找出第一层（入度=0 或被所有节点指向）
-  const inDegree = new Map<string, number>();
-  for (const nodeId of nodeIds) {
-    inDegree.set(nodeId, incoming.get(nodeId)?.length ?? 0);
-  }
-
-  // 使用拓扑排序进行层级分配
-  const levels: string[][] = [];
-  const assigned = new Set<string>();
-  const queue: string[] = [];
-
-  // 初始：入度为 0 的节点
-  for (const nodeId of nodeIds) {
-    if (inDegree.get(nodeId) === 0) {
-      queue.push(nodeId);
-    }
-  }
-
-  // 如果没有入度为 0 的节点（环形图），选第一个作为起点
-  if (queue.length === 0 && nodeIds.length > 0) {
-    queue.push(nodeIds[0]);
-  }
-
-  // BFS 分层
-  while (queue.length > 0) {
-    const currentLevel = [...queue];
-    levels.push(currentLevel);
-    queue.length = 0;
-
-    for (const nodeId of currentLevel) {
-      assigned.add(nodeId);
-      // 减少后续节点的入度
-      for (const next of outgoing.get(nodeId) ?? []) {
-        if (!assigned.has(next)) {
-          const deg = inDegree.get(next) ?? 1;
-          inDegree.set(next, deg - 1);
-          if (deg - 1 <= 0) {
-            queue.push(next);
-          }
-        }
-      }
-    }
-
-    // 处理环形图：如果还有未分配节点但 queue 空，加入剩余节点
-    if (queue.length === 0) {
-      for (const nodeId of nodeIds) {
-        if (!assigned.has(nodeId)) {
-          queue.push(nodeId);
-          break; // 只加一个，继续 BFS
-        }
-      }
-    }
-  }
-
-  /* ---------------- 坐标分配（尺寸感知） ---------------- */
-
-  const H_GAP = 40; // 节点间最小间距
-  const V_GAP = 60; // 层间最小间距
-
-  const sizeOf = (id: string) => sizes.get(id) ?? DEFAULT_NODE_SIZE.rectangle;
-
-  const isHorizontal = direction === 'LR' || direction === 'RL';
-  const isReverse = direction === 'RL' || direction === 'BT';
-
-  // 主轴 = 层叠方向，交叉轴 = 层内排列方向。
-  // 垂直布局（TB/BT）：主轴取节点高，交叉轴取节点宽；水平布局相反。
-  const mainDim = (id: string) => (isHorizontal ? sizeOf(id).w : sizeOf(id).h);
-  const crossDim = (id: string) => (isHorizontal ? sizeOf(id).h : sizeOf(id).w);
-  const mainGap = isHorizontal ? H_GAP : V_GAP;
-  const crossGap = isHorizontal ? V_GAP : H_GAP;
-
-  // 层主轴尺寸（层内最大值）与交叉轴尺寸（层内累计值）
-  const levelMain = levels.map((lv) => Math.max(...lv.map(mainDim)));
-  const levelCross = levels.map(
-    (lv) => lv.reduce((sum, id) => sum + crossDim(id), 0) + crossGap * (lv.length - 1),
+  // Phase 1
+  const { outgoing, incoming } = buildDAG(nodeIds, edges);
+  // Phase 2
+  const levels = assignLayers(nodeIds, outgoing, incoming);
+  // Phase 3
+  const { levels: dLevels, outgoing: dOut, incoming: dIn, isDummy } = insertDummies(
+    levels,
+    outgoing,
+    incoming,
   );
-  const maxCross = Math.max(...levelCross);
-  const totalMain = levelMain.reduce((a, b) => a + b, 0) + mainGap * (levels.length - 1);
-
-  // 逐层分配（先按拓扑序以 TB/LR 语义计算，反向方向最后再翻转主轴）
-  const raw = new Map<string, { main: number; cross: number }>();
-  const crossCenter = new Map<string, number>();
-  let mainCursor = 0;
-
-  /** 已定位前驱节点的交叉轴中心均值；无已定位前驱时返回 -1（稳定排序保持 BFS 顺序） */
-  const predCrossAvg = (id: string): number => {
-    let sum = 0;
-    let n = 0;
-    for (const p of incoming.get(id) ?? []) {
-      const c = crossCenter.get(p);
-      if (c !== undefined) {
-        sum += c;
-        n++;
-      }
-    }
-    return n > 0 ? sum / n : -1;
-  };
-
-  for (let i = 0; i < levels.length; i++) {
-    const level = [...levels[i]];
-    if (i > 0) {
-      level.sort((a, b) => predCrossAvg(a) - predCrossAvg(b));
-    }
-    // 每层相对最宽层居中
-    let crossCursor = (maxCross - levelCross[i]) / 2;
-    for (const id of level) {
-      raw.set(id, { main: mainCursor, cross: crossCursor });
-      crossCenter.set(id, crossCursor + crossDim(id) / 2);
-      crossCursor += crossDim(id) + crossGap;
-    }
-    mainCursor += levelMain[i] + mainGap;
-  }
-
-  // 方向映射 + 主轴翻转 + 正坐标校正
-  let minX = Infinity;
-  let minY = Infinity;
-  for (const id of nodeIds) {
-    const r = raw.get(id);
-    if (!r) continue;
-    const s = sizeOf(id);
-    let x: number;
-    let y: number;
-    if (isHorizontal) {
-      x = isReverse ? totalMain - r.main - s.w : r.main;
-      y = r.cross;
-    } else {
-      x = r.cross;
-      y = isReverse ? totalMain - r.main - s.h : r.main;
-    }
-    positions.set(id, { x, y });
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-  }
-
-  const offsetX = Math.max(0, 50 - minX);
-  const offsetY = Math.max(0, 50 - minY);
-  if (offsetX > 0 || offsetY > 0) {
-    for (const [nodeId, pos] of positions) {
-      positions.set(nodeId, { x: pos.x + offsetX, y: pos.y + offsetY });
-    }
-  }
-
-  return positions;
+  // Phase 4
+  const ordered = minimizeCrossings(dLevels, dOut, dIn);
+  // Phase 5 + 6
+  return assignCoordinates(ordered, dOut, dIn, sizes, isDummy, direction);
 }
 
 /* ------------------------------------------------------------------ */

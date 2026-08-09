@@ -10,6 +10,52 @@ import type { Graph, Cell } from '@maxgraph/core';
 import { DEFAULT_SIZE, styleForShape } from './graphConstants';
 import { MINDMAP_GAP_X, MINDMAP_GAP_Y, reflowMindmap } from './mindmapLayout';
 import { mindmapEdgeStyle, nextCellId } from './graphHelpers';
+import { mindmapStyleForDepth } from './graphTheme';
+
+/**
+ * 计算思维导图 topic 节点在树中的深度。
+ *
+ * - 根节点（无 topic 父节点）：depth = 0
+ * - 根的直接子节点：depth = 1
+ * - 以此类推
+ *
+ * 通过沿入边向上遍历 topic 祖先来计数，带环检测保护。
+ */
+function topicDepth(graph: Graph, cell: Cell): number {
+  const parent = graph.getDefaultParent();
+  let cur: Cell | null = cell;
+  const visited = new Set<string>();
+  let depth = 0;
+  while (cur && !visited.has(cur.getId() ?? '')) {
+    visited.add(cur.getId() ?? '');
+    const inEdges = graph.getIncomingEdges(cur, parent);
+    const src = inEdges
+      .map((e) => e.getTerminal(true))
+      .find((c): c is Cell => {
+        if (!c || c === cur) return false;
+        // 判断是否为 topic 父节点：检查 style 中的 isTopic 标记
+        const style = graph.getCurrentCellStyle(c) as Record<string, unknown>;
+        return style?.isTopic === 1 || style?.isTopic === '1';
+      });
+    if (!src) break;
+    cur = src;
+    depth++;
+  }
+  return depth;
+}
+
+/**
+ * 构建指定深度的思维导图节点 CellStyle。
+ *
+ * 以 `styleForShape('topic')` 为基础（提供 shape/rounded/arcSize/isTopic 等结构属性），
+ * 再用 `mindmapStyleForDepth(depth)` 覆盖配色（fillColor/strokeColor/fontColor 等）。
+ */
+function topicStyleForDepth(depth: number, dark: boolean): Record<string, unknown> {
+  return {
+    ...styleForShape('topic', dark),
+    ...mindmapStyleForDepth(depth, dark),
+  };
+}
 
 /**
  * 在父节点右侧生发一个子节点，并自动进入文本编辑。
@@ -25,6 +71,9 @@ export function spawnMindmapChild(graph: Graph, parentCell: Cell, dark: boolean)
   const newX = parentGeo.x + parentGeo.width + MINDMAP_GAP_X;
   const newY = parentGeo.y;
 
+  // 子节点深度 = 父节点深度 + 1，据此选择配色（分支/叶子层级）。
+  const childDepth = topicDepth(graph, parentCell) + 1;
+
   graph.batchUpdate(() => {
     const childCell = graph.insertVertex({
       parent,
@@ -32,7 +81,7 @@ export function spawnMindmapChild(graph: Graph, parentCell: Cell, dark: boolean)
       value: '子主题',
       position: [newX, newY],
       size: [size.w, size.h],
-      style: styleForShape('topic', dark),
+      style: topicStyleForDepth(childDepth, dark),
     });
     graph.insertEdge({
       parent,
@@ -71,6 +120,9 @@ export function spawnMindmapSibling(graph: Graph, currentCell: Cell, dark: boole
   const newX = curGeo.x;
   const newY = curGeo.y + curGeo.height + MINDMAP_GAP_Y;
 
+  // 兄弟节点与当前节点同层，使用相同深度的配色。
+  const siblingDepth = topicDepth(graph, currentCell);
+
   graph.batchUpdate(() => {
     const siblingCell = graph.insertVertex({
       parent,
@@ -78,7 +130,7 @@ export function spawnMindmapSibling(graph: Graph, currentCell: Cell, dark: boole
       value: '分支主题',
       position: [newX, newY],
       size: [size.w, size.h],
-      style: styleForShape('topic', dark),
+      style: topicStyleForDepth(siblingDepth, dark),
     });
     if (parentNode) {
       graph.insertEdge({

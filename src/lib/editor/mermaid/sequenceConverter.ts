@@ -1,5 +1,5 @@
 /**
- * sequenceConverter — Mermaid SequenceDiagram → GraphSnapshot 转换
+ * sequenceConverter - Mermaid SequenceDiagram -> GraphSnapshot 转换
  *
  * 将 Mermaid sequenceDiagram 语法解析后的数据转换为 GraphCanvas 可用的快照格式。
  * 时序图布局特点：
@@ -7,11 +7,15 @@
  *   - 每个参与者是一条 lifeline（矩形头部 + 虚线延伸）
  *   - 消息是水平箭头，从一条生命线到另一条
  *   - 消息按时间顺序垂直排列，从上到下
- *   - 激活框贴在生命线上，表示对象处于活跃状态
- *   - 注释（note）附在生命线旁边
+ *
+ * 关键设计：
+ *   - exit/entry 约束烘焙到 edge style 上（exitX=0.5, entryX=0.5），
+ *     保证连线端点钉在生命线中心线上，不会漂移到矩形中点。
+ *   - exitAbsY/entryAbsY 存储绝对 Y，供 attachSequenceResizeSync 在
+ *     生命线拉长时重算相对 Y，保持连线水平。
  */
 
-import type { SequenceData, SequenceActor, SequenceMessage, SequenceNote } from './mermaidParser';
+import type { SequenceData, SequenceMessage } from './mermaidParser';
 import type { GraphNode, GraphEdge, GraphSnapshot } from '../../../components/editor/nodes/graph/graphSnapshot';
 import { HEAD_HEIGHT } from '../../../components/editor/nodes/graph/customShapes';
 
@@ -19,8 +23,11 @@ import { HEAD_HEIGHT } from '../../../components/editor/nodes/graph/customShapes
 /* 布局参数                                                            */
 /* ------------------------------------------------------------------ */
 
+/** 生命线起始 Y 坐标 */
+const LIFELINE_BASE_Y = 50;
+
 /** 参与者（生命线）之间的水平间距 */
-const PARTICIPANT_SPACING = 150;
+const PARTICIPANT_SPACING = 160;
 
 /** 生命线头部宽度 */
 const LIFELINE_WIDTH = 100;
@@ -29,59 +36,109 @@ const LIFELINE_WIDTH = 100;
 const LIFELINE_DEFAULT_HEIGHT = 200;
 
 /** 消息之间的垂直间距 */
-const MESSAGE_SPACING = 40;
+const MESSAGE_SPACING = 45;
 
-/** 消息起始 Y 坐标（头部下方） */
-const MESSAGE_START_Y = HEAD_HEIGHT + 20;
+/** 消息起始 Y 坐标（生命线头部下方，绝对坐标） */
+const MESSAGE_START_Y = LIFELINE_BASE_Y + HEAD_HEIGHT + 25;
 
-/** 激活框宽度 */
-const ACTIVATION_WIDTH = 16;
+/** 自环消息向右伸出的偏移量 */
+const SELF_LOOP_OFFSET = 35;
 
-/** 激活框默认高度 */
-const ACTIVATION_DEFAULT_HEIGHT = 40;
+/* ------------------------------------------------------------------ */
+/* Mermaid LINETYPE 常量                                               */
+/* ------------------------------------------------------------------ */
 
-/** 注释框宽度 */
-const NOTE_WIDTH = 100;
+/**
+ * Mermaid v11 sequence diagram 的消息类型常量。
+ * 参见 node_modules/mermaid/dist/diagrams/sequence/sequenceDb.d.ts
+ */
+const LINETYPE = {
+  SOLID: 0,           // 实线无箭头 (-)
+  DOTTED: 1,          // 虚线无箭头 (--)
+  NOTE: 2,            // 注释（非消息）
+  SOLID_CROSS: 3,     // 实线十字 (-x)
+  DOTTED_CROSS: 4,    // 虚线十字 (--x)
+  SOLID_OPEN: 5,      // 实线开放箭头 (->)
+  DOTTED_OPEN: 6,     // 虚线开放箭头 (-->)
+  SOLID_POINT: 24,    // 实线填充箭头 (->>)
+  DOTTED_POINT: 25,   // 虚线填充箭头 (-->>)
+  BIDIR_SOLID: 33,    // 双向实线
+  BIDIR_DOTTED: 34,   // 双向虚线
+} as const;
 
-/** 注释框高度 */
-const NOTE_HEIGHT = 60;
+/** 实际消息类型的白名单（排除 NOTE / LOOP / ALT / OPT / ACTIVE / PAR / RECT / AUTONUMBER / CRITICAL / BREAK 等） */
+const MESSAGE_TYPES = new Set<number>([
+  LINETYPE.SOLID, LINETYPE.DOTTED,
+  LINETYPE.SOLID_CROSS, LINETYPE.DOTTED_CROSS,
+  LINETYPE.SOLID_OPEN, LINETYPE.DOTTED_OPEN,
+  LINETYPE.SOLID_POINT, LINETYPE.DOTTED_POINT,
+  LINETYPE.BIDIR_SOLID, LINETYPE.BIDIR_DOTTED,
+]);
 
 /* ------------------------------------------------------------------ */
 /* 辅助函数                                                            */
 /* ------------------------------------------------------------------ */
 
 /**
- * 判断消息类型对应的连线样式
+ * 根据 Mermaid LINETYPE 返回连线样式。
  *
- * Mermaid 消息类型：
- *   - 实线箭头: -> 或 ->
- *   - 实线无箭头: - 或 -x
- *   - 虚线箭头: --> 或 --> 或 ~~>
- *   - 虚线无箭头: -- 或 --x
- *
- * @param type 消息类型数字（-1, 0, 1, 2）
+ * @param type mermaid 消息类型数字（LINETYPE 常量）
  */
 function getMessageStyle(type: number | undefined): {
   dashed: boolean;
   endArrow: string;
+  startArrow?: string;
 } {
-  // mermaid 内部 type 定义：
-  // -1: 实线箭头
-  // 0: 实线无箭头
-  // 1: 虚线箭头
-  // 2: 虚线无箭头
   switch (type) {
-    case -1:
+    // 实线填充箭头 ->>  / 双向实线
+    case LINETYPE.SOLID_POINT:
       return { dashed: false, endArrow: 'classic' };
-    case 0:
-      return { dashed: false, endArrow: 'none' };
-    case 1:
+    case LINETYPE.BIDIR_SOLID:
+      return { dashed: false, endArrow: 'classic', startArrow: 'classic' };
+    // 虚线填充箭头 -->>  / 双向虚线
+    case LINETYPE.DOTTED_POINT:
       return { dashed: true, endArrow: 'classic' };
-    case 2:
+    case LINETYPE.BIDIR_DOTTED:
+      return { dashed: true, endArrow: 'classic', startArrow: 'classic' };
+    // 实线开放箭头 ->
+    case LINETYPE.SOLID_OPEN:
+      return { dashed: false, endArrow: 'openThin' };
+    // 虚线开放箭头 -->
+    case LINETYPE.DOTTED_OPEN:
+      return { dashed: true, endArrow: 'openThin' };
+    // 实线/虚线十字 -x / --x
+    case LINETYPE.SOLID_CROSS:
+      return { dashed: false, endArrow: 'classic' };
+    case LINETYPE.DOTTED_CROSS:
+      return { dashed: true, endArrow: 'classic' };
+    // 实线/虚线无箭头 - / --
+    case LINETYPE.SOLID:
+      return { dashed: false, endArrow: 'none' };
+    case LINETYPE.DOTTED:
       return { dashed: true, endArrow: 'none' };
     default:
       return { dashed: false, endArrow: 'classic' };
   }
+}
+
+/**
+ * 提取消息文本。
+ * mermaid v11 中 message 可能是 autonumber 对象 { start, step, visible }，需安全处理。
+ */
+function extractMessageText(message: unknown): string {
+  if (typeof message === 'string') return message;
+  return '';
+}
+
+/**
+ * 过滤出实际的消息条目（排除 note / loop / alt / opt 等控制流标记）。
+ */
+function filterRealMessages(messages: SequenceMessage[]): SequenceMessage[] {
+  return messages.filter((msg) => {
+    if (!msg.from || !msg.to) return false;
+    if (msg.type != null && !MESSAGE_TYPES.has(msg.type)) return false;
+    return true;
+  });
 }
 
 /**
@@ -99,12 +156,15 @@ function genId(prefix: string): string {
  * 将 Sequence 数据转换为 GraphSnapshot
  */
 export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
-  const { actors, messages, notes } = data;
+  const { actors, messages: rawMessages } = data;
 
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
 
-  // 1. 处理参与者 → lifeline nodes
+  // 过滤出实际消息
+  const messages = filterRealMessages(rawMessages);
+
+  // 1. 处理参与者 -> lifeline nodes
   const actorList = Array.from(actors.entries());
   const actorIdToNodeId = new Map<string, string>();
   const actorPositions = new Map<string, { x: number; y: number }>();
@@ -123,7 +183,7 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
     actorIdToNodeId.set(actorId, nodeId);
 
     const x = 50 + i * PARTICIPANT_SPACING;
-    const y = 50;
+    const y = LIFELINE_BASE_Y;
 
     actorPositions.set(actorId, { x, y });
 
@@ -138,19 +198,12 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
     });
   }
 
-  // 2. 处理消息 → edges（水平连线）
-  // 跟踪每个参与者的当前激活状态（用于生成激活框）
-  const activationStates = new Map<string, { active: boolean; startY: number; nodeId?: string }>();
-  for (const [actorId] of actorList) {
-    activationStates.set(actorId, { active: false, startY: 0 });
-  }
-
+  // 2. 处理消息 -> edges（水平连线）
   for (let msgIdx = 0; msgIdx < messages.length; msgIdx++) {
     const msg = messages[msgIdx];
     const fromNodeId = actorIdToNodeId.get(msg.from);
     const toNodeId = actorIdToNodeId.get(msg.to);
 
-    // 跳过无效消息
     if (!fromNodeId || !toNodeId) continue;
 
     const fromPos = actorPositions.get(msg.from);
@@ -158,76 +211,55 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
 
     if (!fromPos || !toPos) continue;
 
-    // 消息 Y 坐标：按序号递增
+    // 消息 Y 坐标：按序号递增（绝对坐标，相对于画布）
     const msgY = MESSAGE_START_Y + msgIdx * MESSAGE_SPACING;
 
-    // 消息连线：从源生命线中心到目标生命线中心
-    // lifeline 节点宽度为 LIFELINE_WIDTH，中心 x = x + LIFELINE_WIDTH/2
-    const fromCenterX = fromPos.x + LIFELINE_WIDTH / 2;
-    const toCenterX = toPos.x + LIFELINE_WIDTH / 2;
+    // 消息文本
+    const labelText = extractMessageText(msg.message);
 
     const style = getMessageStyle(msg.type);
 
-    // 创建连线（时序图消息是水平箭头）
-    edges.push({
+    // exit/entry 约束：钉在生命线中心线上（x=0.5），Y 为相对比例
+    // 这保证连线端点不会漂移到矩形中点（perimeter 模式），而是精确落在
+    // 生命线中心虚线的指定高度上。
+    const exitY = (msgY - fromPos.y) / lifelineHeight;
+    const entryY = (msgY - toPos.y) / lifelineHeight;
+
+    const edge: GraphEdge = {
       id: genId('msg'),
       source: fromNodeId,
       target: toNodeId,
-      label: msg.message,
-      routing: 'straight', // 时序图消息通常是直线
+      label: labelText,
+      routing: 'straight', // edgeStyle: 'none'，不做自动路由
       endArrow: style.endArrow,
+      exit: { x: 0.5, y: exitY },
+      entry: { x: 0.5, y: entryY },
+      exitAbsY: msgY,
+      entryAbsY: msgY,
       style: {
         dashed: style.dashed,
       },
-    });
+    };
 
-  }
-
-  // 3. 处理注释 → note nodes
-  for (const note of notes) {
-    const actorId = note.from;
-    const actorPos = actorPositions.get(actorId);
-
-    if (!actorPos) continue;
-
-    const noteNodeId = genId('note');
-
-    // 注释位置：根据 note.type 决定在生命线的左侧或右侧
-    const isLeft = note.type === 'left';
-    const noteX = isLeft
-      ? actorPos.x - NOTE_WIDTH - 20
-      : actorPos.x + LIFELINE_WIDTH + 20;
-
-    // 注释 Y：跟随对应消息的位置（如果有）或放在顶部
-    const noteY = 50 + HEAD_HEIGHT + 10;
-
-    nodes.push({
-      id: noteNodeId,
-      shape: 'note',
-      x: noteX,
-      y: noteY,
-      w: NOTE_WIDTH,
-      h: NOTE_HEIGHT,
-      label: note.message,
-    });
-
-    // 注释与生命线的连线（虚线）
-    const lifelineNodeId = actorIdToNodeId.get(actorId);
-    if (lifelineNodeId) {
-      edges.push({
-        id: genId('note-edge'),
-        source: noteNodeId,
-        target: lifelineNodeId,
-        routing: 'straight',
-        endArrow: 'none',
-        style: {
-          dashed: true,
-        },
-      });
+    if (style.startArrow) {
+      edge.startArrow = style.startArrow;
     }
+
+    // 自环消息：添加航点形成右侧 U 形回路
+    // 参照 sequenceInteraction A2 场景
+    if (msg.from === msg.to) {
+      const centerX = fromPos.x + LIFELINE_WIDTH / 2;
+      const wpX = centerX + SELF_LOOP_OFFSET;
+      edge.waypoints = [
+        { x: wpX, y: msgY },
+        { x: wpX, y: msgY },
+      ];
+    }
+
+    edges.push(edge);
   }
 
-  // 4. 构建快照
+  // 3. 构建快照
   return {
     kind: 'jgraph',
     version: 1,

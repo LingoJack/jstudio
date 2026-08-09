@@ -5,6 +5,8 @@ import {
   SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
+  mindmapStyleForDepth,
+  MINDMAP_ARC_SIZE,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -97,19 +99,15 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
       // 数据库：使用自定义 database 形状（圆柱体）
       return { ...base, shape: 'database' };
     case 'topic':
-      // 思维导图节点：圆角矩形 + 无填充 + 中性灰描边 + 常规字色。
-      // 与 rounded 的视觉一致，通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
+      // 思维导图根节点：蓝色强填充 + 白字 + 加粗 + 大圆角（药丸形态）。
+      // 此为 depth=0 默认样式；Tab/Enter 生发子节点时由 mindmapSpawn 按 depth 重新配色。
+      // 通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
       return {
         shape: 'rectangle',
         rounded: true,
         absoluteArcSize: true,
-        arcSize: SHAPE_ARC_SIZE,
-        fillColor: 'none',
-        strokeColor: pal.stroke,
-        strokeWidth: SHAPE_STROKE_WIDTH,
-        fontColor: getFontColor(dark),
-        fontSize: SHAPE_FONT_SIZE,
-        pointerEvents: false,
+        arcSize: MINDMAP_ARC_SIZE,
+        ...mindmapStyleForDepth(0, dark),
         isTopic: 1,
       };
     // 连线类型：统一实线 + 圆点流动（流动由 CSS 动画驱动，见 vscode-theme.css）。

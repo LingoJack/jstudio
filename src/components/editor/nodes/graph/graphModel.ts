@@ -27,6 +27,8 @@ import {
   SHAPE_FONT_SIZE,
   SHAPE_ARC_SIZE,
   ARROW_END_SIZE,
+  mindmapStyleForDepth,
+  MINDMAP_ARC_SIZE,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -81,20 +83,16 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 数据库：使用自定义的 database 形状（圆柱体，见 customShapes.ts）。
       return { ...base, shape: 'database' };
     case 'topic':
-      // 思维导图节点：圆角矩形 + 无填充 + 无描边 + 蓝色字。
-      // 思维导图节点：圆角矩形 + 无填充 + 中性灰描边 + 常规字色。
+      // 思维导图根节点默认样式（depth=0）：蓝色强填充 + 白字 + 加粗 + 大圆角。
+      // 子节点 / 兄弟节点在生发时由 mindmapSpawn 按 depth 覆盖配色，
+      // 保存后通过 node.style 覆盖恢复；无覆盖的旧快照回退为此根节点配色。
       // 通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
       return {
         shape: 'rectangle',
         rounded: true,
         absoluteArcSize: true,
-        arcSize: SHAPE_ARC_SIZE,
-        fillColor: 'none',
-        strokeColor: pal.stroke,
-        strokeWidth: SHAPE_STROKE_WIDTH,
-        fontColor: getFontColor(dark),
-        fontSize: SHAPE_FONT_SIZE,
-        pointerEvents: false,
+        arcSize: MINDMAP_ARC_SIZE,
+        ...mindmapStyleForDepth(0, dark),
         isTopic: 1,
       } as CellStyle;
     // 连线类型（作为预设连线样式）：全部引用 ARROW_END_SIZE 保证箭头大小一致。
@@ -174,6 +172,7 @@ function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
     if (s.strokeWidth !== undefined) base.strokeWidth = s.strokeWidth;
     if (s.dashed !== undefined) base.dashed = s.dashed;
     if (s.fontSize !== undefined) base.fontSize = s.fontSize;
+    if (s.fontStyle !== undefined) base.fontStyle = s.fontStyle;
   }
   applyLabelAlign(base, node.labelAlign);
   return base;
@@ -377,6 +376,7 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
     if (typeof style.strokeWidth === 'number') nStyle.strokeWidth = style.strokeWidth;
     if (typeof style.dashed === 'boolean') nStyle.dashed = style.dashed;
     if (typeof style.fontSize === 'number') nStyle.fontSize = style.fontSize;
+    if (typeof style.fontStyle === 'number') nStyle.fontStyle = style.fontStyle;
     if (Object.keys(nStyle).length > 0) node.style = nStyle;
     const la = readLabelAlign(style);
     if (la) node.labelAlign = la;

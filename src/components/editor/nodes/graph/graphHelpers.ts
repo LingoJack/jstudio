@@ -10,9 +10,9 @@ import {
   getEdgeColor,
   getFontColor,
   getLabelBackgroundColor,
-  SHAPE_STROKE_WIDTH,
   SHAPE_FONT_SIZE,
   ARROW_END_SIZE,
+  MINDMAP_EDGE_STROKE_WIDTH,
 } from './graphTheme';
 import { MINDMAP_EDGE_STYLE } from './mindmapLayout';
 
@@ -56,7 +56,7 @@ export function isOnBorder(state: CellState, x: number, y: number, tol: number):
   return !inInner;
 }
 
-/** 思维导图连线样式：无箭头贝塞尔曲线，跟随主题连线色。 */
+/** 思维导图连线样式：无箭头贝塞尔曲线，跟随主题连线色，比普通连线略粗。 */
 export function mindmapEdgeStyle(dark: boolean): CellStyle {
   return {
     edgeStyle: MINDMAP_EDGE_STYLE,
@@ -65,7 +65,7 @@ export function mindmapEdgeStyle(dark: boolean): CellStyle {
     startArrow: 'none',
     endSize: ARROW_END_SIZE,
     strokeColor: getEdgeColor(dark),
-    strokeWidth: SHAPE_STROKE_WIDTH,
+    strokeWidth: MINDMAP_EDGE_STROKE_WIDTH,
     fontSize: SHAPE_FONT_SIZE,
     fontColor: getFontColor(dark),
     labelBackgroundColor: getLabelBackgroundColor(dark),

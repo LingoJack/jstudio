@@ -30,6 +30,8 @@ import {
   mapFillColor,
   createConnectionPointSVG,
   CONNECTION_POINT_SIZE,
+  mindmapStyleForDepth,
+  mindmapDepthFromFill,
 } from './graphTheme';
 import { styleToNodeShape } from './graphModel';
 
@@ -97,13 +99,32 @@ export function useGraphTheme({ graphRef, darkModeRef, darkMode }: UseGraphTheme
         const oldStyle = (cell.getStyle() as CellStyle) ?? {};
         if (cell.isVertex()) {
           const shape = styleToNodeShape(oldStyle);
+          // 思维导图节点：按填充色推断深度，重新应用对应深度的全套配色。
+          // 用户通过取色器自定义了颜色时（mindmapDepthFromFill 返回 null），
+          // 回退到下方的通用逻辑。
+          if (shape === 'topic') {
+            const depth = mindmapDepthFromFill(oldStyle.fillColor);
+            if (depth !== null) {
+              const mm = mindmapStyleForDepth(depth, dark);
+              graph.getDataModel().setStyle(cell, {
+                ...oldStyle,
+                fillColor: mm.fillColor,
+                strokeColor: mm.strokeColor,
+                fontColor: mm.fontColor,
+                strokeWidth: mm.strokeWidth,
+                fontSize: mm.fontSize,
+                fontStyle: mm.fontStyle,
+              });
+              continue;
+            }
+          }
           const pal = paletteFor(shape, dark);
           // 用户填充色走双套色板映射（已知色 ↔ 对应明暗变体，未知自定义色保留），
           // 避免"深色模式把字刷白、浅色填充保留"导致的白字浅底不可读。
           const oldFill = oldStyle.fillColor;
           const newFill =
             oldFill && oldFill !== 'none' ? mapFillColor(oldFill, dark) : pal.fill;
-          // 所有形状按填充亮度自适应字色（topic 不再硬编码蓝色）。
+          // 所有形状按填充亮度自适应字色。
           const newFontColor = fontColorFor(newFill, dark);
           graph.getDataModel().setStyle(cell, {
             ...oldStyle,

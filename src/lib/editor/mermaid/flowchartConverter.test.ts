@@ -232,6 +232,101 @@ test('layoutNodes: 环形图不死循环且全部节点有坐标', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Sugiyama 布局质量测试                                                 */
+/* ------------------------------------------------------------------ */
+
+test('layoutNodes: 长边跨层--中间层节点不挡在长边路径上', () => {
+  // A -> D 跨 2 层（A layer0, B/C layer1, D layer2）
+  // B 和 C 在中间层，不应被长边 A->D 直接穿过
+  const vertices = new Map<string, MermaidVertex>([
+    ['A', { id: 'A', labelType: 'text', text: 'Start' }],
+    ['B', { id: 'B', labelType: 'text', text: 'Branch B' }],
+    ['C', { id: 'C', labelType: 'text', text: 'Branch C' }],
+    ['D', { id: 'D', labelType: 'text', text: 'End' }],
+  ]);
+  const edges: MermaidEdge[] = [
+    { start: 'A', end: 'B', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'A', end: 'C', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'A', end: 'D', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'B', end: 'D', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'C', end: 'D', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+  ];
+  const sizes = sizesFor(vertices);
+  const positions = layoutNodes(vertices, edges, 'TB', sizes);
+
+  // 所有节点都有坐标
+  for (const id of ['A', 'B', 'C', 'D']) {
+    assert.ok(positions.has(id), `节点 ${id} 应有坐标`);
+  }
+
+  // A 在最顶层，D 在最底层
+  assert.ok(positions.get('A')!.y < positions.get('B')!.y, 'A 应在 B 上方');
+  assert.ok(positions.get('A')!.y < positions.get('C')!.y, 'A 应在 C 上方');
+  assert.ok(positions.get('D')!.y > positions.get('B')!.y, 'D 应在 B 下方');
+  assert.ok(positions.get('D')!.y > positions.get('C')!.y, 'D 应在 C 下方');
+
+  // 无重叠
+  const ids = ['A', 'B', 'C', 'D'];
+  for (let i = 0; i < ids.length; i++) {
+    for (let j = i + 1; j < ids.length; j++) {
+      const a = { ...positions.get(ids[i])!, ...sizes.get(ids[i])! };
+      const b = { ...positions.get(ids[j])!, ...sizes.get(ids[j])! };
+      const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      assert.ok(!overlap, `节点 ${ids[i]} 与 ${ids[j]} 不应重叠`);
+    }
+  }
+});
+
+test('layoutNodes: 钻石分支--父节点居中于子节点之间', () => {
+  // 菱形 D 有两个分支 D->E(是) D->F(否)，D 应大致居中于 E 和 F 之间
+  const vertices = new Map<string, MermaidVertex>([
+    ['S', { id: 'S', labelType: 'text', text: 'Start' }],
+    ['D', { id: 'D', labelType: 'text', text: 'cond?', type: 'diamond' }],
+    ['E', { id: 'E', labelType: 'text', text: 'Yes' }],
+    ['F', { id: 'F', labelType: 'text', text: 'No' }],
+    ['G', { id: 'G', labelType: 'text', text: 'End' }],
+  ]);
+  const edges: MermaidEdge[] = [
+    { start: 'S', end: 'D', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'D', end: 'E', text: '是', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'D', end: 'F', text: '否', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'E', end: 'G', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+    { start: 'F', end: 'G', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
+  ];
+  const sizes = sizesFor(vertices);
+  const positions = layoutNodes(vertices, edges, 'TB', sizes);
+
+  const dCenter = positions.get('D')!.x + sizes.get('D')!.w / 2;
+  const eCenter = positions.get('E')!.x + sizes.get('E')!.w / 2;
+  const fCenter = positions.get('F')!.x + sizes.get('F')!.w / 2;
+
+  // D 的中心应在 E 和 F 的中心之间
+  const leftChild = Math.min(eCenter, fCenter);
+  const rightChild = Math.max(eCenter, fCenter);
+  assert.ok(
+    dCenter >= leftChild - 20 && dCenter <= rightChild + 20,
+    `D 中心 ${dCenter} 应在 E(${eCenter}) 和 F(${fCenter}) 之间`,
+  );
+
+  // G 也应居中于 E 和 F 之间
+  const gCenter = positions.get('G')!.x + sizes.get('G')!.w / 2;
+  assert.ok(
+    gCenter >= leftChild - 20 && gCenter <= rightChild + 20,
+    `G 中心 ${gCenter} 应在 E(${eCenter}) 和 F(${fCenter}) 之间`,
+  );
+});
+
+test('layoutNodes: 单节点不崩', () => {
+  const vertices = new Map<string, MermaidVertex>([
+    ['A', { id: 'A', labelType: 'text', text: 'Solo' }],
+  ]);
+  const positions = layoutNodes(vertices, [], 'TB', sizesFor(vertices));
+  assert.ok(positions.has('A'));
+  assert.ok(positions.get('A')!.x >= 0);
+  assert.ok(positions.get('A')!.y >= 0);
+});
+
+/* ------------------------------------------------------------------ */
 /* convertFlowchartToSnapshot 端到端                                     */
 /* ------------------------------------------------------------------ */
 

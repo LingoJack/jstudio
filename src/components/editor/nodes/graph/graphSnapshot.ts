@@ -76,6 +76,8 @@ export interface GraphNodeStyle {
    * 其余形状始终使用全局默认 SHAPE_FONT_SIZE。
    */
   fontSize?: number;
+  /** 文字粗细（maxGraph 数字编码：1=bold, 0=normal）。思维导图根节点使用 1。 */
+  fontStyle?: number;
 }
 
 /** 一条连线。 */

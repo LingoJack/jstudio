@@ -7,7 +7,7 @@ import {
   GRID_SIZE,
   MIN_DRAW_SIZE,
 } from '../graphConstants';
-import { SHAPE_ARC_SIZE } from '../graphTheme';
+import { SHAPE_ARC_SIZE, MINDMAP_ARC_SIZE } from '../graphTheme';
 import { logger } from '../../../../../lib/core/logger';
 import type { GraphNodeShape } from '../graphSnapshot';
 import type { GraphSetupFn } from './types';
@@ -43,6 +43,7 @@ export const setupDragDraw: GraphSetupFn = (ctx) => {
         el = document.createElementNS(SVG_NS, 'polygon');
         break;
       case 'rounded':
+      case 'topic':
       case 'rectangle':
       case 'text':
       default:
@@ -84,6 +85,16 @@ export const setupDragDraw: GraphSetupFn = (ctx) => {
         r.setAttribute('height', String(h));
         // 圆角随尺寸缩放但封顶，太小则无圆角，避免挤压变形。
         const arc = Math.min(SHAPE_ARC_SIZE, Math.min(w, h) / 3);
+        r.setAttribute('rx', String(arc));
+        r.setAttribute('ry', String(arc));
+        break;
+      }
+      case 'topic': {
+        const r = el as SVGRectElement;
+        r.setAttribute('width', String(w));
+        r.setAttribute('height', String(h));
+        // 思维导图节点使用更大的圆角（药丸形态预览）。
+        const arc = Math.min(MINDMAP_ARC_SIZE, Math.min(w, h) / 3);
         r.setAttribute('rx', String(arc));
         r.setAttribute('ry', String(arc));
         break;
