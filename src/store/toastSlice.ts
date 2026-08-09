@@ -31,6 +31,14 @@ const timers = new Map<string, ReturnType<typeof setTimeout>>();
  * Any component can push a toast via `addToast`; the `ToastContainer`
  * component subscribes to `toasts` for rendering.
  */
+/** State + methods provided by the toast slice. */
+export interface ToastSlice {
+  toasts: ToastItem[];
+  addToast: (type: ToastType, message: string, duration?: number) => void;
+  removeToast: (id: string) => void;
+  clearToasts: () => void;
+}
+
 export const createToastSlice: SliceCreator = (set, get) => ({
   toasts: [],
 

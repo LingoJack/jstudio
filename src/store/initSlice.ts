@@ -1,13 +1,5 @@
 /**
  * Init slice - application startup logic.
- *
- * Extracted from documentsSlice because `init` is a 400+ line bootstrapping
- * function that loads settings, documents, folders, terminal templates,
- * runs asset GC, and auto-installs the CLI - completely unrelated to the
- * document CRUD methods it was bundled with.
- *
- * State fields are initialised in documentsSlice; this slice only provides
- * the `init` method that populates them.
  */
 
 import { storage } from "../lib/core/storage";
@@ -51,6 +43,11 @@ import {
   DEFAULT_DOC_SORT_DIRECTION,
 } from "../lib/documents/sortUtils";
 import type { SliceCreator } from "./storeHelpers";
+
+/** Methods provided by the init slice (no own state). */
+export interface InitSlice {
+  init: () => Promise<void>;
+}
 
 export const createInitSlice: SliceCreator = (set, get) => ({
   init: async () => {

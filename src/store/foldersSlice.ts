@@ -3,6 +3,23 @@ import type { FolderMeta } from '../types/storage';
 import { onSaveError, type SetState, type GetState, type StoreState, scheduleFoldersSave, scheduleIndexSave } from './storeHelpers';
 import { collectDescendantFolderIds } from '../lib/documents/folderTree';
 
+/** State + methods provided by the folders slice. */
+export interface FoldersSlice {
+  folders: FolderMeta[];
+  trashedFolders: FolderMeta[];
+  initFolders: (raw: FolderMeta[]) => void;
+  createFolder: (name: string, parentId: string | null) => string;
+  renameFolder: (id: string, name: string) => void;
+  deleteFolder: (id: string) => void;
+  deleteFolders: (ids: string[]) => void;
+  trashFolder: (id: string) => void;
+  restoreFolder: (id: string) => void;
+  emptyTrashFolders: () => void;
+  toggleFolderCollapsed: (id: string) => void;
+  moveDocumentToFolder: (docId: string, folderId: string | null) => void;
+  moveDocumentsToFolder: (docIds: string[], folderId: string | null) => void;
+}
+
 export function createFoldersSlice(set: SetState, get: GetState) {
   return {
     folders: [] as FolderMeta[],

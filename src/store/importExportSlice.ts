@@ -1,9 +1,5 @@
 /**
  * Import / Export slice - Markdown import + .jnote backup bundles.
- *
- * Extracted from documentsSlice because import/export is a distinct concern
- * from active document CRUD. No new state fields - all state is shared with
- * documentsSlice via the composed store.
  */
 
 import { storage } from "../lib/core/storage";
@@ -11,6 +7,21 @@ import { toMeta, type DocumentMeta, type FolderMeta } from "../types/storage";
 import type { Document } from "../types";
 import { markdownToBlocks } from "../lib/editor/markdownImport";
 import type { SliceCreator } from "./storeHelpers";
+
+/** Methods provided by the import/export slice (no own state). */
+export interface ImportExportSlice {
+  importDocumentFromMarkdown: (
+    filename: string,
+    md: string,
+    folderId?: string,
+  ) => Promise<void>;
+  importMarkdownDirectory: (
+    dirPath: string,
+    targetFolderId?: string,
+  ) => Promise<number>;
+  exportDocumentBundle: (docId: string) => Promise<boolean>;
+  importDocumentBundle: (folderId?: string) => Promise<string | null>;
+}
 
 export const createImportExportSlice: SliceCreator = (set, get) => ({
   importDocumentFromMarkdown: async (filename, md, folderId) => {

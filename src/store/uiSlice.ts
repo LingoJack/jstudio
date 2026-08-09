@@ -5,6 +5,7 @@ import {
   type TerminalCursorStyle,
   type EditorCursorStyle,
   type ActivityBarItemConfig,
+  type ActivityItemId,
   DEFAULT_ACTIVITY_BAR_ITEMS,
   normalizeActivityBarItems,
 } from "../types/settings";
@@ -125,6 +126,90 @@ export type SettingsSectionId =
   | "debug";
 
 /** UI slice — panel visibility, theme, font, and loading state. */
+/** State + methods provided by the UI slice. */
+export interface UISlice {
+  themeMode: ThemeMode;
+  isDarkMode: boolean;
+  appThemeIdDark: string;
+  appThemeIdLight: string;
+  language: Language;
+  activityBarItems: ActivityBarItemConfig[];
+  isSidebarOpen: boolean;
+  sidebarPinned: boolean;
+  leftPanelHovered: boolean;
+  isOutlineOpen: boolean;
+  outlinePinned: boolean;
+  isSettingsOpen: boolean;
+  isCommandPaletteOpen: boolean;
+  isFindBarOpen: boolean;
+  isOpenDocDialogOpen: boolean;
+  findQuery: string;
+  isLoading: boolean;
+  searchQuery: string;
+  fontId: string;
+  cjkFontId: string;
+  fontSize: number;
+  editorLineHeight: number;
+  editorCursorStyle: EditorCursorStyle;
+  editorCursorAnimationEnabled: boolean;
+  sidebarWidth: number;
+  activeSidebarView: SidebarView;
+  settingsActiveSection: SettingsSectionId;
+  terminalFontSize: number;
+  terminalFontId: string;
+  terminalCursorStyle: TerminalCursorStyle;
+  tabBarGlassOpacity: number;
+  tabBarPosition: 'top' | 'bottom';
+  keyboardShortcuts: ShortcutOverrides;
+  globalShortcuts: GlobalShortcutConfig[];
+  docSortKey: DocSortKey;
+  docSortDirection: DocSortDirection;
+  runtimeLoggingEnabled: boolean;
+  setThemeMode: (mode: ThemeMode) => void;
+  toggleDarkMode: () => void;
+  toggleSidebar: () => void;
+  toggleSidebarPinned: () => void;
+  setLeftPanelHovered: (v: boolean) => void;
+  toggleOutline: () => void;
+  setOutlineOpen: (v: boolean) => void;
+  toggleOutlinePinned: () => void;
+  toggleSettings: () => void;
+  setSettingsOpen: (v: boolean) => void;
+  toggleCommandPalette: () => void;
+  setCommandPaletteOpen: (v: boolean) => void;
+  toggleFindBar: () => void;
+  setFindBarOpen: (v: boolean) => void;
+  setOpenDocDialogOpen: (v: boolean) => void;
+  setFindQuery: (q: string) => void;
+  setSearchQuery: (q: string) => void;
+  setFontId: (id: string) => void;
+  setCjkFontId: (id: string) => void;
+  setFontSize: (n: number) => void;
+  setEditorLineHeight: (n: number) => void;
+  setEditorCursorStyle: (s: EditorCursorStyle) => void;
+  setEditorCursorAnimationEnabled: (v: boolean) => void;
+  setSidebarWidth: (n: number) => void;
+  setLanguage: (l: Language) => void;
+  setActivityBarBorder: (id: ActivityItemId, border: boolean) => void;
+  setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
+  setActiveSidebarView: (v: SidebarView) => void;
+  setSettingsActiveSection: (s: SettingsSectionId) => void;
+  setAppThemeIdDark: (id: string) => void;
+  setAppThemeIdLight: (id: string) => void;
+  setTerminalFontSize: (n: number) => void;
+  setTerminalFontId: (id: string) => void;
+  setTerminalCursorStyle: (s: TerminalCursorStyle) => void;
+  setTabBarGlassOpacity: (n: number) => void;
+  setTabBarPosition: (p: 'top' | 'bottom') => void;
+  setKeyboardShortcut: (id: string, keys: string) => void;
+  resetKeyboardShortcut: (id: string) => void;
+  resetAllKeyboardShortcuts: () => void;
+  setGlobalShortcuts: (s: GlobalShortcutConfig[]) => void;
+  setDocSortKey: (k: DocSortKey) => void;
+  setDocSortDirection: (d: DocSortDirection) => void;
+  setRuntimeLoggingEnabled: (v: boolean) => Promise<void>;
+}
+
 export const createUiSlice: SliceCreator = (set, get) => ({
   themeMode: "dark",
   isDarkMode: true,

@@ -32,6 +32,21 @@ function nextTabId(): string {
 // Slice
 // ────────────────────────────────────────────────
 
+/** State + methods provided by the workspace slice. */
+export interface WorkspaceSlice {
+  tabs: UnifiedTab[];
+  activeTabId: string | null;
+  openDocumentTab: (docId: string) => void;
+  openTerminalTab: (groupId: string) => void;
+  closeTab: (tabId: string) => void;
+  closeOtherTabs: (keepTabId: string) => void;
+  selectTab: (tabId: string) => void;
+  commitTabContent: (tabId: string | null) => boolean;
+  cycleTab: (direction: 1 | -1) => void;
+  removeTerminalTabByGroupId: (groupId: string) => void;
+  removeDocumentTabByDocId: (docId: string) => void;
+}
+
 export const createWorkspaceSlice: SliceCreator = (set, get) => ({
   // — state —
   tabs: [],

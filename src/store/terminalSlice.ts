@@ -103,6 +103,41 @@ function makeGroup(sessionId: string): PaneGroup {
 // Slice
 // ────────────────────────────────────────────────
 
+/** State + methods provided by the terminal slice. */
+export interface TerminalSlice {
+  templates: TerminalTemplate[];
+  sessions: TerminalSession[];
+  groups: PaneGroup[];
+  activeGroupId: string | null;
+  activeSessionId: string | null;
+  recentDirs: string[];
+  initTemplates: (raw: unknown) => void;
+  initRecentDirs: (raw: unknown) => void;
+  addRecentDir: (dir: string) => void;
+  clearRecentDirs: () => void;
+  addTemplate: (t: TerminalTemplate) => Promise<void>;
+  removeTemplate: (id: string) => Promise<void>;
+  updateTemplate: (id: string, patch: Partial<TerminalTemplate>) => Promise<void>;
+  createSession: (opts: { cwd?: string; cols: number; rows: number }) => Promise<string>;
+  closeSession: (sessionId: string) => void;
+  renameSession: (sessionId: string, title: string) => void;
+  setAutoTitle: (sessionId: string, auto: boolean) => void;
+  updateSessionCwd: (sessionId: string, cwd: string) => void;
+  setActiveSession: (sessionId: string) => void;
+  removeSessionState: (sessionId: string) => void;
+  removeGroupState: (groupId: string) => void;
+  detachGroup: (groupId: string) => void;
+  splitPane: (groupId: string, direction: 'horizontal' | 'vertical') => Promise<void>;
+  cyclePaneLayout: (groupId: string) => void;
+  setPaneLayout: (groupId: string, layout: PaneLayoutType) => void;
+  setPaneResizeState: (groupId: string, state: PaneResizeState) => void;
+  moveActivePane: (groupId: string, direction: 1 | -1) => void;
+  focusNextPane: (groupId: string) => void;
+  focusPrevPane: (groupId: string) => void;
+  setActivePane: (groupId: string, sessionId: string) => void;
+  closePane: (groupId: string, sessionId: string) => Promise<void>;
+}
+
 export const createTerminalSlice: SliceCreator = (set, get) => ({
   // — state —
   templates: [],

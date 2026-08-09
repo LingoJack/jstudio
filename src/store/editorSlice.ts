@@ -4,6 +4,18 @@ import { scheduleDocumentSave } from './storeHelpers';
 import type { SliceCreator } from './storeHelpers';
 
 /** Editor slice — block operations and asset insertion. */
+/** Methods provided by the editor slice (no own state). */
+export interface EditorSlice {
+  updateBlock: (blockId: string, fields: Partial<Block>) => void;
+  deleteBlock: (blockId: string, mergeContent?: RichText[]) => void;
+  insertBlockBelow: (blockId: string, type: BlockType) => void;
+  appendBlockAtEnd: (type: BlockType) => void;
+  duplicateBlock: (blockId: string) => void;
+  setActiveDocBlocks: (blocks: Block[], docId?: string) => void;
+  flushBlocksToDoc: (docId: string, blocks: Block[]) => void;
+  saveImageToDoc: (blob: Blob, afterBlockId?: string) => Promise<string | null>;
+}
+
 export const createEditorSlice: SliceCreator = (set, get) => ({
   // ================================================================
   // block operations — all operate on activeDoc

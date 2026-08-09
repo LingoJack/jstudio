@@ -1,11 +1,5 @@
 /**
  * Trash slice - document soft-delete (trash / restore / empty) + asset recycle bin.
- *
- * Extracted from documentsSlice because these methods operate on a separate
- * concern (recycle bin lifecycle) that is unrelated to active document CRUD.
- *
- * State fields (trashedDocList, trashedAssets) are initialised in
- * documentsSlice; this slice only provides the methods that mutate them.
  */
 
 import { storage } from "../lib/core/storage";
@@ -14,8 +8,29 @@ import { scheduleIndexSave } from "./storeHelpers";
 import { toast } from "../lib/core/toast";
 import { gcDocumentAssets } from "../lib/documents/assetGc";
 import type { Document } from "../types";
+import type { DocumentMeta, TrashedAsset } from "../types/storage";
+
+/** State + methods provided by the trash slice. */
+export interface TrashSlice {
+  trashedDocList: DocumentMeta[];
+  trashedAssets: TrashedAsset[];
+  trashDocument: (id: string) => Promise<void>;
+  trashDocuments: (ids: string[]) => Promise<void>;
+  restoreDocument: (id: string) => Promise<void>;
+  restoreDocuments: (ids: string[]) => Promise<void>;
+  emptyTrash: () => Promise<void>;
+  loadTrashedAssets: () => Promise<void>;
+  gcDocAssets: (doc: Document) => Promise<void>;
+  restoreTrashedAsset: (id: number) => Promise<void>;
+  deleteTrashedAsset: (id: number) => Promise<void>;
+  emptyTrashAssets: () => Promise<void>;
+}
 
 export const createTrashSlice: SliceCreator = (set, get) => ({
+  // ── state ─────────────────────────────────────────────
+  trashedDocList: [],
+  trashedAssets: [],
+
   // ── document trash / restore ──────────────────────────
 
   trashDocument: async (id) => {

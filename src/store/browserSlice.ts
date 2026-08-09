@@ -1,5 +1,5 @@
 import { storage } from '../lib/core/storage';
-import type { LinkPreviewTabsState } from '../types/browser';
+import type { LinkPreviewTabsState, LinkPreviewTabInfo } from '../types/browser';
 import { onSaveError, type SliceCreator } from './storeHelpers';
 
 // ────────────────────────────────────────────────
@@ -111,6 +111,23 @@ export function getFaviconUrl(url: string): string | undefined {
 // ────────────────────────────────────────────────
 // Slice
 // ────────────────────────────────────────────────
+
+/** State + methods provided by the browser slice. */
+export interface BrowserSlice {
+  browserTabs: LinkPreviewTabInfo[];
+  browserActiveTabId: string | null;
+  browserAddressUrl: string;
+  browserSearchEngine: string;
+  browserShortcuts: BrowserShortcut[];
+  setBrowserTabsState: (state: LinkPreviewTabsState) => void;
+  setBrowserAddressUrl: (url: string) => void;
+  setBrowserSearchEngine: (id: string) => Promise<void>;
+  navigateBrowserUrl: (url: string) => void;
+  refreshBrowserTab: () => void;
+  openInExternalBrowser: (url: string) => void;
+  addBrowserTab: (url?: string) => void;
+  setBrowserShortcuts: (s: BrowserShortcut[]) => Promise<void>;
+}
 
 export const createBrowserSlice: SliceCreator = (set, get) => {
   return {

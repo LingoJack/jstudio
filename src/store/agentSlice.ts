@@ -29,6 +29,26 @@ import { listen } from '@tauri-apps/api/event';
 /**
  * Create the agent slice.
  */
+/** State + methods provided by the agent slice. */
+export interface AgentSlice {
+  agentSessions: AgentSession[];
+  activeAgentSessionId: string | null;
+  activeAgentWorkspace: string | null;
+  agentUnsubscribes: Record<string, UnlistenFn>;
+  initAgentSessions: () => Promise<void>;
+  setActiveAgentWorkspace: (path: string | null) => void;
+  createAgentSession: (title?: string, workspace?: string) => Promise<string>;
+  openAgentSession: (sessionId: string) => Promise<void>;
+  deleteAgentSession: (sessionId: string) => Promise<void>;
+  sendAgentMessage: (sessionId: string, text: string, images?: { base64: string; mediaType: string }[]) => Promise<void>;
+  submitAgentToolResult: (sessionId: string, toolCallId: string, result: string, isError: boolean, images?: { base64: string; mediaType: string }[], planDecision?: string) => Promise<void>;
+  submitAgentPlanDecision: (sessionId: string, decision: 'approve' | 'reject' | 'approveAndClearContext') => Promise<void>;
+  submitAgentAskAnswer: (sessionId: string, answer: Record<string, string>) => Promise<void>;
+  setAgentAutoApprove: (sessionId: string, enabled: boolean) => Promise<void>;
+  cancelAgent: (sessionId: string) => Promise<void>;
+  cleanupAgentListeners: () => void;
+}
+
 export function createAgentSlice(
   set: (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void,
   get: () => StoreState,

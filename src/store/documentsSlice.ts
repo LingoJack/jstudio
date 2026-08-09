@@ -1,14 +1,9 @@
 /**
  * Documents slice - in-memory document state + CRUD operations.
- *
- * Also initialises shared state fields used by other slices:
- *   - trashSlice:        trashedDocList, trashedAssets
- *   - importExportSlice: (no own state, uses documents/docList)
- *   - initSlice:         (no own state, populates all fields via set())
  */
 
 import { storage } from "../lib/core/storage";
-import { toMeta } from "../types/storage";
+import { toMeta, type DocumentMeta } from "../types/storage";
 import type { Document } from "../types";
 import { toast } from "../lib/core/toast";
 import {
@@ -18,11 +13,26 @@ import {
   type SliceCreator,
 } from "./storeHelpers";
 
+/** State + methods provided by the documents slice. */
+export interface DocumentsSlice {
+  docList: DocumentMeta[];
+  documents: Document[];
+  activeDoc: Document | null;
+  activeDocId: string;
+  activeDocReloadNonce: number;
+  studioRoot: string;
+  createDocument: (folderId?: string) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
+  deleteDocuments: (ids: string[]) => Promise<void>;
+  renameDocument: (id: string, title: string) => void;
+  openDocument: (id: string) => Promise<void>;
+  reloadDoc: (docId: string) => Promise<void>;
+  updateDocumentMeta: (fields: Partial<Document>) => void;
+}
+
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
   // ── state ─────────────────────────────────────────────
   docList: [],
-  trashedDocList: [],
-  trashedAssets: [],
   documents: [],
   activeDoc: null,
   activeDocId: "",

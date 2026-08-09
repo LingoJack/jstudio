@@ -1,35 +1,66 @@
-import type { Document, Block, BlockType, RichText } from "../types";
-import type {
-  DocumentMeta,
-  FolderMeta,
-  TrashedAsset,
-} from "../types/storage";
-import type {
-  ThemeMode,
-  Language,
-  TerminalCursorStyle,
-  EditorCursorStyle,
-  ActivityBarItemConfig,
-} from "../types/settings";
-import type { LinkPreviewTabInfo } from "../types/browser";
-import type { DocSortKey, DocSortDirection } from "../lib/documents/sortUtils";
-import type { ShortcutOverrides } from "../lib/shortcuts/keyboardShortcuts";
-import type { GlobalShortcutConfig } from "../lib/shortcuts/globalShortcuts";
-import type {
-  TerminalSession,
-  TerminalTemplate,
-  PaneGroup,
-  PaneLayoutType,
-  PaneResizeState,
-} from "./terminalSlice";
-import type { ToastItem, ToastType } from "./toastSlice";
-import type { SettingsSectionId, SidebarView } from "./uiSlice";
-import type { UnifiedTab } from "./workspaceSlice";
-import type { AgentSession } from "../types/agent";
-import type { BrowserShortcut } from "./browserSlice";
+/**
+ * Store helpers - utility functions + composed StoreState type.
+ *
+ * StoreState is now an intersection of per-slice interfaces, each defined
+ * in its own slice file. This keeps storeHelpers.ts focused on shared
+ * utilities (debounced save, error handler) rather than being a central
+ * type registry that every slice must modify.
+ */
+
+import type { Document } from "../types";
+import type { DocumentMeta, FolderMeta } from "../types/storage";
 import { storage } from "../lib/core/storage";
 import { toast } from "../lib/core/toast";
 import { logger } from "../lib/core/logger";
+
+// ── slice interfaces (type-only imports, no runtime cycle) ──────────
+import type { DocumentsSlice } from "./documentsSlice";
+import type { TrashSlice } from "./trashSlice";
+import type { ImportExportSlice } from "./importExportSlice";
+import type { InitSlice } from "./initSlice";
+import type { UISlice } from "./uiSlice";
+import type { TerminalSlice } from "./terminalSlice";
+import type { ToastSlice } from "./toastSlice";
+import type { FoldersSlice } from "./foldersSlice";
+import type { WorkspaceSlice } from "./workspaceSlice";
+import type { AgentSlice } from "./agentSlice";
+import type { BrowserSlice } from "./browserSlice";
+import type { EditorSlice } from "./editorSlice";
+
+/**
+ * The full store state - composed from individual slice interfaces.
+ * Each slice file exports its own interface; this intersection ties them
+ * together without any single file owning the full type list.
+ */
+export type StoreState = DocumentsSlice &
+  TrashSlice &
+  ImportExportSlice &
+  InitSlice &
+  UISlice &
+  TerminalSlice &
+  ToastSlice &
+  FoldersSlice &
+  WorkspaceSlice &
+  AgentSlice &
+  BrowserSlice &
+  EditorSlice;
+
+/**
+ * Zustand's `create` calls each slice creator with `(set, get, store)`.
+ * Each slice returns its own piece of state; the pieces are then spread
+ * together to form the complete store.
+ */
+export type SetState = (
+  partial: Partial<StoreState> | ((s: StoreState) => Partial<StoreState>),
+) => void;
+export type GetState = () => StoreState;
+
+export type SliceCreator = (
+  set: SetState,
+  get: GetState,
+) => Partial<StoreState>;
+
+// ── shared utility functions ────────────────────────────────────────
 
 /**
  * Unified error handler for fire-and-forget storage saves.
@@ -78,7 +109,7 @@ export function scheduleDocumentSave(doc: Document) {
 /**
  * Synchronously flush every pending document save right now (fire-and-forget
  * IPC). Call this before a risky transition where the debounce might never
- * fire — e.g. app close / window hide. Each save is keyed by id so no pending
+ * fire - e.g. app close / window hide. Each save is keyed by id so no pending
  * edit is lost.
  */
 export function flushDocumentSaves() {
@@ -104,338 +135,3 @@ export function scheduleFoldersSave(folders: FolderMeta[]) {
     storage.saveFolders(folders).catch(onSaveError("文件夹"));
   }, 300);
 }
-
-/**
- * The full store state — composed from individual slice interfaces.
- * Each slice creator adds its own piece to this interface.
- */
-export interface StoreState {
-  // — data (documents slice) —
-  docList: DocumentMeta[];
-  trashedDocList: DocumentMeta[];
-  /** Document-private assets currently in the recycle bin (all documents). */
-  trashedAssets: TrashedAsset[];
-  activeDoc: Document | null;
-  activeDocId: string;
-  /** Incremented to force editors to reload the active doc's content (e.g.
-   *  after restoring a backup). Editors watch this nonce and re-setContent. */
-  activeDocReloadNonce: number;
-  documents: Document[];
-  /** Absolute path of the studio root dir (~/.jdata/studio), cached at init. */
-  studioRoot: string;
-
-  // — data (folders slice) —
-  folders: FolderMeta[];
-  trashedFolders: FolderMeta[];
-
-  // — ui state (ui slice) —
-  themeMode: ThemeMode;
-  isDarkMode: boolean;
-  appThemeIdDark: string;
-  appThemeIdLight: string;
-  language: Language;
-
-  activityBarItems: ActivityBarItemConfig[];
-  isSidebarOpen: boolean;
-  /** When false, DocumentSidebar collapses to a narrow strip and expands on hover. */
-  sidebarPinned: boolean;
-  /** Transient: true while the pointer is over the ActivityBar. */
-  leftPanelHovered: boolean;
-  isOutlineOpen: boolean;
-  /** When false, SectionOutline collapses to a narrow strip and expands on hover. */
-  outlinePinned: boolean;
-  isSettingsOpen: boolean;
-  isCommandPaletteOpen: boolean;
-  isFindBarOpen: boolean;
-  isOpenDocDialogOpen: boolean;
-  findQuery: string;
-  isLoading: boolean;
-  searchQuery: string;
-  fontId: string;
-  cjkFontId: string;
-  fontSize: number;
-  editorLineHeight: number;
-  editorCursorStyle: EditorCursorStyle;
-  editorCursorAnimationEnabled: boolean;
-  sidebarWidth: number;
-  activeSidebarView: SidebarView;
-  settingsActiveSection: SettingsSectionId;
-  terminalFontSize: number;
-  terminalFontId: string;
-  terminalCursorStyle: TerminalCursorStyle;
-  tabBarGlassOpacity: number;
-  tabBarPosition: "top" | "bottom";
-  keyboardShortcuts: ShortcutOverrides;
-  globalShortcuts: GlobalShortcutConfig[];
-  /** Document list sort key – `'created'` or `'title'` */
-  docSortKey: DocSortKey;
-  /** Document list sort direction – `'asc'` or `'desc'` */
-  docSortDirection: DocSortDirection;
-  /** Whether the runtime logger captures errors/warnings to a log file. */
-  runtimeLoggingEnabled: boolean;
-
-  // — terminal state (terminal slice) —
-  templates: TerminalTemplate[];
-  sessions: TerminalSession[];
-  groups: PaneGroup[];
-  activeGroupId: string | null;
-  activeSessionId: string | null;
-  recentDirs: string[];
-
-  // — agent state (agent slice) —
-  agentSessions: AgentSession[];
-  activeAgentSessionId: string | null;
-  activeAgentWorkspace: string | null;
-  agentUnsubscribes: (() => void)[];
-
-  // — toast state (toast slice) —
-  toasts: ToastItem[];
-
-  // — workspace state (workspace slice) —
-  tabs: UnifiedTab[];
-  activeTabId: string | null;
-
-  // — init (documents slice) —
-  init: () => Promise<void>;
-
-  // — document ops (documents slice) —
-  createDocument: (folderId?: string) => Promise<void>;
-  deleteDocument: (id: string) => Promise<void>;
-  deleteDocuments: (ids: string[]) => Promise<void>;
-  trashDocument: (id: string) => Promise<void>;
-  trashDocuments: (ids: string[]) => Promise<void>;
-  restoreDocument: (id: string) => Promise<void>;
-  restoreDocuments: (ids: string[]) => Promise<void>;
-  emptyTrash: () => Promise<void>;
-  /** Reload the asset recycle-bin list from the backend. */
-  loadTrashedAssets: () => Promise<void>;
-  /** Move a document's unreferenced assets into the recycle bin (undo-safe). */
-  gcDocAssets: (doc: Document) => Promise<void>;
-  /** Restore a trashed asset back into its document's assets folder. */
-  restoreTrashedAsset: (id: number) => Promise<void>;
-  /** Permanently delete a single trashed asset. */
-  deleteTrashedAsset: (id: number) => Promise<void>;
-  /** Permanently delete every trashed asset (used by "empty trash"). */
-  emptyTrashAssets: () => Promise<void>;
-  renameDocument: (id: string, title: string) => void;
-  openDocument: (id: string) => Promise<void>;
-  /** Reload a document's content from disk and bump `activeDocReloadNonce`
-   *  so editors re-setContent. Used after restoring a backup. */
-  reloadDoc: (docId: string) => Promise<void>;
-  updateDocumentMeta: (fields: Partial<Document>) => void;
-  importDocumentFromMarkdown: (
-    filename: string,
-    md: string,
-    folderId?: string,
-  ) => Promise<void>;
-  importMarkdownDirectory: (
-    dirPath: string,
-    targetFolderId?: string,
-  ) => Promise<number>;
-  /** Export a document to a lossless `.jnote` ZIP backup. Returns false if cancelled. */
-  exportDocumentBundle: (docId: string) => Promise<boolean>;
-  /** Import a `.jnote` backup as a new document. Returns new doc id, or null if cancelled. */
-  importDocumentBundle: (folderId?: string) => Promise<string | null>;
-
-  // — folder ops (folders slice) —
-  initFolders: (raw: FolderMeta[]) => void;
-  createFolder: (name: string, parentId: string | null) => string;
-  renameFolder: (id: string, name: string) => void;
-  deleteFolder: (id: string) => void;
-  deleteFolders: (ids: string[]) => void;
-  trashFolder: (id: string) => void;
-  restoreFolder: (id: string) => void;
-  emptyTrashFolders: () => void;
-  toggleFolderCollapsed: (id: string) => void;
-  moveDocumentToFolder: (docId: string, folderId: string | null) => void;
-  moveDocumentsToFolder: (docIds: string[], folderId: string | null) => void;
-
-  // — block ops (editor slice) —
-  updateBlock: (blockId: string, fields: Partial<Block>) => void;
-  deleteBlock: (blockId: string, mergeContent?: RichText[]) => void;
-  insertBlockBelow: (blockId: string, type: BlockType) => void;
-  appendBlockAtEnd: (type: BlockType) => void;
-  duplicateBlock: (blockId: string) => void;
-
-  // — batch ops (editor slice) —
-  // Replaces all blocks of the active document in one shot. Used by the
-  // TipTap editor to sync content changes without per-block dispatch.
-  // `docId` (optional) guards against applying edits to the wrong document
-  // when the active doc changed during the debounce window.
-  setActiveDocBlocks: (blocks: Block[], docId?: string) => void;
-  /**
-   * Persist `blocks` to a specific document by id, even if it is no longer the
-   * active document. Used to flush the outgoing document's pending edits when
-   * switching documents.
-   */
-  flushBlocksToDoc: (docId: string, blocks: Block[]) => void;
-
-  // — asset ops (editor slice) —
-  saveImageToDoc: (blob: Blob, afterBlockId?: string) => Promise<string | null>;
-
-  // — ui toggles (ui slice) —
-  setThemeMode: (mode: ThemeMode) => void;
-  toggleDarkMode: () => void;
-  toggleSidebar: () => void;
-  toggleSidebarPinned: () => void;
-  setLeftPanelHovered: (hovered: boolean) => void;
-  toggleOutline: () => void;
-  setOutlineOpen: (open: boolean) => void;
-  toggleOutlinePinned: () => void;
-  toggleSettings: () => void;
-  setSettingsOpen: (open: boolean) => void;
-  toggleCommandPalette: () => void;
-  setCommandPaletteOpen: (open: boolean) => void;
-  toggleFindBar: () => void;
-  setFindBarOpen: (open: boolean) => void;
-  setOpenDocDialogOpen: (open: boolean) => void;
-  setFindQuery: (q: string) => void;
-  setSearchQuery: (q: string) => void;
-  setFontId: (id: string) => void;
-  setCjkFontId: (id: string) => void;
-  setFontSize: (size: number) => void;
-  setEditorLineHeight: (lh: number) => void;
-  setEditorCursorStyle: (style: EditorCursorStyle) => void;
-  setEditorCursorAnimationEnabled: (enabled: boolean) => void;
-  setSidebarWidth: (width: number) => void;
-  setLanguage: (lang: Language) => void;
-  setActivityBarBorder: (enabled: boolean) => void;
-  setActivityBarItems: (items: ActivityBarItemConfig[]) => void;
-  setActiveSidebarView: (view: SidebarView) => void;
-  setSettingsActiveSection: (section: SettingsSectionId) => void;
-  setAppThemeIdDark: (id: string) => void;
-  setAppThemeIdLight: (id: string) => void;
-  setTerminalFontSize: (size: number) => void;
-  setTerminalFontId: (id: string) => void;
-  setTerminalCursorStyle: (style: TerminalCursorStyle) => void;
-  setTabBarGlassOpacity: (opacity: number) => void;
-  setTabBarPosition: (position: "top" | "bottom") => void;
-  setKeyboardShortcut: (id: string, binding: string) => void;
-  resetKeyboardShortcut: (id: string) => void;
-  resetAllKeyboardShortcuts: () => void;
-  setGlobalShortcuts: (configs: GlobalShortcutConfig[]) => void;
-  setDocSortKey: (key: DocSortKey) => void;
-  setDocSortDirection: (dir: DocSortDirection) => void;
-  /** Toggle the runtime logger on/off (persisted to settings). */
-  setRuntimeLoggingEnabled: (enabled: boolean) => void;
-
-  // — terminal ops (terminal slice) —
-  initTemplates: (raw: unknown) => void;
-  initRecentDirs: (raw: unknown) => void;
-  addRecentDir: (cwd: string) => void;
-  clearRecentDirs: () => void;
-  addTemplate: (name: string, cwd: string) => void;
-  removeTemplate: (id: string) => void;
-  updateTemplate: (id: string, fields: { name?: string; cwd?: string }) => void;
-  createSession: (
-    templateId?: string,
-    opts?: { cwd?: string },
-  ) => Promise<void>;
-  closeSession: (id: string) => Promise<void>;
-  renameSession: (id: string, title: string) => void;
-  setAutoTitle: (sessionId: string, title: string) => void;
-  updateSessionCwd: (sessionId: string, cwd: string) => void;
-  setActiveSession: (id: string) => void;
-  removeSessionState: (id: string) => void;
-  removeGroupState: (groupId: string) => void;
-  /**
-   * Detach a group from this window's store WITHOUT killing its PTYs.
-   * Used by the tear-off flow: the torn-off window attaches to the same
-   * PTY sessions, so they must survive removal from the parent store.
-   */
-  detachGroup: (groupId: string) => void;
-  // — pane ops (Kitty-style splits) —
-  splitPane: (templateId?: string) => Promise<void>;
-  cyclePaneLayout: () => void;
-  setPaneLayout: (layout: PaneLayoutType) => void;
-  setPaneResizeState: (groupId: string, resizeState: PaneResizeState) => void;
-  moveActivePane: () => void;
-  focusNextPane: () => void;
-  focusPrevPane: () => void;
-  setActivePane: (sessionId: string) => void;
-  closePane: (sessionId: string) => Promise<void>;
-
-  // — toast ops (toast slice) —
-  addToast: (type: ToastType, message: string, duration?: number) => void;
-  removeToast: (id: string) => void;
-  clearToasts: () => void;
-
-  // — agent ops (agent slice) —
-  initAgentSessions: () => Promise<void>;
-  setActiveAgentWorkspace: (workspace: string) => void;
-  createAgentSession: (workspace: string) => Promise<string>;
-  openAgentSession: (sessionId: string) => Promise<void>;
-  deleteAgentSession: (sessionId: string) => Promise<void>;
-  sendAgentMessage: (
-    sessionId: string,
-    text: string,
-    images?: { base64: string; mediaType: string }[],
-  ) => Promise<void>;
-  submitAgentToolResult: (
-    sessionId: string,
-    toolCallId: string,
-    result: string,
-    isError: boolean,
-    images?: { base64: string; mediaType: string }[],
-    planDecision?: "approve" | "reject" | "approveAndClearContext",
-  ) => Promise<void>;
-  submitAgentPlanDecision: (
-    sessionId: string,
-    decision: "approve" | "reject" | "approveAndClearContext",
-  ) => Promise<void>;
-  submitAgentAskAnswer: (
-    sessionId: string,
-    answer: Record<string, string>,
-  ) => Promise<void>;
-  setAgentAutoApprove: (sessionId: string, enabled: boolean) => Promise<void>;
-  cancelAgent: (sessionId: string) => Promise<void>;
-  cleanupAgentListeners: () => void;
-
-  // — workspace ops (workspace slice) —
-  openDocumentTab: (docId: string) => void;
-  openTerminalTab: (groupId: string) => void;
-  closeTab: (tabId: string) => void;
-  closeOtherTabs: (keepTabId: string) => void;
-  selectTab: (tabId: string) => void;
-  commitTabContent: (tabId: string | null) => boolean;
-  cycleTab: (direction: 1 | -1) => void;
-  /** Called by terminalSlice: remove a terminal tab without killing PTYs. */
-  removeTerminalTabByGroupId: (groupId: string) => void;
-  /** Called by documentsSlice: remove a document tab without deleting the doc. */
-  removeDocumentTabByDocId: (docId: string) => void;
-
-  // - browser state (browser slice) -
-  browserTabs: LinkPreviewTabInfo[];
-  browserActiveTabId: string | null;
-  browserAddressUrl: string;
-  browserSearchEngine: string;
-  browserShortcuts: BrowserShortcut[];
-
-  // - browser ops (browser slice) -
-  setBrowserTabsState: (state: {
-    tabs: LinkPreviewTabInfo[];
-    activeTabId: string | null;
-  }) => void;
-  setBrowserAddressUrl: (url: string) => void;
-  setBrowserSearchEngine: (id: string) => void;
-  navigateBrowserUrl: (input: string) => void;
-  refreshBrowserTab: () => void;
-  openInExternalBrowser: () => void;
-  addBrowserTab: (url?: string) => void;
-  setBrowserShortcuts: (shortcuts: BrowserShortcut[]) => void;
-}
-
-/**
- * Zustand's `create` calls each slice creator with `(set, get, store)`.
- * Each slice returns its own piece of state; the pieces are then spread
- * together to form the complete store.
- */
-export type SetState = (
-  partial: Partial<StoreState> | ((s: StoreState) => Partial<StoreState>),
-) => void;
-export type GetState = () => StoreState;
-
-export type SliceCreator = (
-  set: SetState,
-  get: GetState,
-) => Partial<StoreState>;
