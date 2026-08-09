@@ -16,7 +16,7 @@
  *   - New window edits → Rust relay (set/get_diagram_update) → poll → updateAttributes({ snapshot })
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   type NodeViewProps,
   NodeViewWrapper,
@@ -116,6 +116,68 @@ export default function DiagramBlockView({
   // capture 阶段拦截，避免 maxGraph 内置 keymap 抢先消费。
   useCmdEnterConfirm(exitEditing, editing);
 
+  /**
+   * Shield double-click inside the canvas from ProseMirror and the browser.
+   *
+   * When the user double-clicks a shape, two things happen:
+   *
+   * 1. The second `mousedown` (detail === 2) is **ignored** by maxGraph
+   *    (`isEventIgnored` returns true when `lastEvent.detail === 2`), so
+   *    maxGraph does NOT call `stopPropagation()` on it. The event bubbles
+   *    up to ProseMirror, whose `handlers.mousedown` calls
+   *    `handleDoubleClick` (returns false by default) WITHOUT calling
+   *    `preventDefault()`. The browser then performs native word/element
+   *    selection — and since the canvas is `contentEditable={false}` inside
+   *    the editor's `contentEditable={true}`, the browser can't find a
+   *    proper word boundary and ends up selecting the entire document.
+   *
+   * 2. The `dblclick` event fires on the container. maxGraph calls
+   *    `graph.dblClick(evt)` but, because `cell` is `null` (the container
+   *    listener doesn't resolve the cell), `InternalEvent.consume(evt)` is
+   *    never called. The unconsumed `dblclick` bubbles up, and its default
+   *    action can also trigger selection in some browsers.
+   *
+   * A *native* listener is required because ProseMirror's handler lives on
+   * `view.dom` (an ancestor). React's synthetic `onMouseDown`/`onDoubleClick`
+   * is delegated to the React root and would fire *after* ProseMirror has
+   * already processed the event.
+   *
+   * The fix:
+   *  - `mousedown` with `detail >= 2`: `preventDefault()` stops the browser's
+   *    native word/paragraph selection; `stopPropagation()` prevents
+   *    ProseMirror's `eventBelongsToView` from even running.
+   *  - `dblclick`: `preventDefault()` + `stopPropagation()` blocks the
+   *    browser's `dblclick` default action and prevents bubbling to PM.
+   *
+   * Neither listener affects maxGraph: its listeners are on inner elements
+   * (the graph container) that fire *before* the event reaches this wrapper.
+   * Single clicks (`detail === 1`) are unaffected.
+   */
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.detail >= 2) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const onDblClick = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    el.addEventListener('mousedown', onMouseDown);
+    el.addEventListener('dblclick', onDblClick);
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown);
+      el.removeEventListener('dblclick', onDblClick);
+    };
+  }, []);
+
   /* -------------------------------------------------------------- */
   /* Dark mode detection                                             */
   /* -------------------------------------------------------------- */
@@ -189,6 +251,7 @@ export default function DiagramBlockView({
 
           {/* Canvas renderer */}
           <div
+            ref={canvasRef}
             className="diagram-block-canvas"
             contentEditable={false}
             style={canvasStyle}

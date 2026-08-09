@@ -8,6 +8,7 @@ import {
 import type {
   Cell,
   CellStyle,
+  CellEditorHandler,
   FitPlugin,
 } from '@maxgraph/core';
 import { owningLifeline } from '../sequenceInteraction';
@@ -97,6 +98,19 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
   });
 
   // 双击空白（未命中任何 cell）-> 自适应全图（draw.io 同款）。
+  //
+  // 关键修复：maxGraph 的 CellEditorHandler.startEditing 内部调用
+  // `document.execCommand('selectAll')` 来全选文本。但 textarea
+  // (contentEditable=true) 嵌套在 canvas (contentEditable=false) 里，
+  // 后者又嵌套在 .ProseMirror (contentEditable=true) 里 —— 浏览器会将
+  // selectAll 作用范围扩展到 .ProseMirror，导致整个文档被选中。
+  // ProseMirror 的 onSelectionChange 检测到选择变化并同步，产生全选。
+  //
+  // 修复方式：禁用 CellEditorHandler 的内置 selectText，改为用 Selection
+  // API 精确选中 textarea 自身内容，不影响外层 ProseMirror。
+  const cellEditor = graph.getPlugin<CellEditorHandler>('CellEditorHandler');
+  if (cellEditor) cellEditor.selectText = false;
+
   graph.addListener(InternalEvent.DOUBLE_CLICK, (_s: unknown, evt: EventObject) => {
     let cell = evt.getProperty('cell') as Cell | undefined;
     if (!cell) {
@@ -112,6 +126,16 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
     }
     if (cell && graph.isCellEditable(cell)) {
       graph.startEditingAtCell(cell, evt.getProperty('event'));
+      // startEditingAtCell 已禁用 selectText，这里用 Selection API
+      // 精确选中文本框内容（不触发 document.execCommand）。
+      const textarea = cellEditor?.textarea;
+      if (textarea && textarea.innerHTML.length > 0) {
+        const range = document.createRange();
+        range.selectNodeContents(textarea);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
       evt.consume();
     } else if (!cell) {
       const hasCells = graph.getChildVertices(graph.getDefaultParent()).length > 0;
