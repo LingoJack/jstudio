@@ -155,11 +155,26 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
   const actorIdToNodeId = new Map<string, string>();
   const actorPositions = new Map<string, { x: number; y: number }>();
 
-  // 计算生命线高度：基于消息数量
-  const messageCount = messages.length;
+  // 预计算每条消息的 Y 坐标（自环消息占额外高度，需推高后续消息）
+  const msgYs: number[] = [];
+  let currentY = MESSAGE_START_Y;
+  for (const msg of messages) {
+    msgYs.push(currentY);
+    if (msg.from === msg.to) {
+      const text = extractMessageText(msg.message);
+      // 自环高度：默认 40，标签文字长则适当增加
+      const loopH = Math.max(40, Math.ceil(text.length * 2.5));
+      currentY += loopH + 15; // 自环底部 + 间距
+    } else {
+      currentY += MESSAGE_SPACING;
+    }
+  }
+  const totalMsgHeight = currentY - MESSAGE_START_Y;
+
+  // 计算生命线高度：基于消息实际占用高度
   const lifelineHeight = Math.max(
     LIFELINE_DEFAULT_HEIGHT,
-    MESSAGE_START_Y + messageCount * MESSAGE_SPACING + 50,
+    MESSAGE_START_Y + totalMsgHeight + 50,
   );
 
   // 水平排列参与者
@@ -197,8 +212,8 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
 
     if (!fromPos || !toPos) continue;
 
-    // 消息 Y 坐标：按序号递增（绝对坐标，相对于画布）
-    const msgY = MESSAGE_START_Y + msgIdx * MESSAGE_SPACING;
+    // 消息 Y 坐标：使用预计算的值（自环消息已考虑额外高度）
+    const msgY = msgYs[msgIdx];
 
     // 消息文本
     const labelText = extractMessageText(msg.message);
@@ -206,8 +221,6 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
     const style = getMessageStyle(msg.type);
 
     // exit/entry 约束：钉在生命线中心线上（x=0.5），Y 为相对比例
-    // 这保证连线端点不会漂移到矩形中点（perimeter 模式），而是精确落在
-    // 生命线中心虚线的指定高度上。
     const exitY = (msgY - fromPos.y) / lifelineHeight;
     const entryY = (msgY - toPos.y) / lifelineHeight;
 
@@ -231,14 +244,22 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
       edge.startArrow = style.startArrow;
     }
 
-    // 自环消息：添加航点形成右侧 U 形回路
-    // 参照 sequenceInteraction A2 场景
+    // 自环消息：U 形回路（参照 sequenceInteraction A2 场景）
+    // 自环消息：U 形回路，高度根据标签文字长度动态计算（最小 40）
     if (msg.from === msg.to) {
+      const loopH = Math.max(40, Math.ceil(labelText.length * 2.5));
       const centerX = fromPos.x + LIFELINE_WIDTH / 2;
       const wpX = centerX + SELF_LOOP_OFFSET;
+      const topY = msgY;
+      const bottomY = msgY + loopH;
+      // 重写 exit/entry 使其在不同 Y 位置
+      edge.exit = { x: 0.5, y: (topY - fromPos.y) / lifelineHeight };
+      edge.entry = { x: 0.5, y: (bottomY - fromPos.y) / lifelineHeight };
+      edge.exitAbsY = topY;
+      edge.entryAbsY = bottomY;
       edge.waypoints = [
-        { x: wpX, y: msgY },
-        { x: wpX, y: msgY },
+        { x: wpX, y: topY },
+        { x: wpX, y: bottomY },
       ];
     }
 
