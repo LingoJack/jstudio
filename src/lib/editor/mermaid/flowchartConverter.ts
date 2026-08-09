@@ -400,11 +400,13 @@ function insertDummies(
   outgoing: Map<string, string[]>;
   incoming: Map<string, string[]>;
   isDummy: Set<string>;
+  edgeToDummies: Map<string, string[]>;
 } {
   const newLevels = levels.map((l) => [...l]);
   const newOut = new Map<string, string[]>();
   const newIn = new Map<string, string[]>();
   const isDummy = new Set<string>();
+  const edgeToDummies = new Map<string, string[]>();
   for (const [k, v] of outgoing) newOut.set(k, [...v]);
   for (const [k, v] of incoming) newIn.set(k, [...v]);
 
@@ -426,9 +428,11 @@ function insertDummies(
     newIn.get(v)!.splice(newIn.get(v)!.indexOf(u), 1);
 
     let prev = u;
+    const chain: string[] = [];
     for (let l = lu + 1; l < lv; l++) {
       const d = `${DUMMY_PREFIX}${count++}`;
       isDummy.add(d);
+      chain.push(d);
       newOut.set(d, []);
       newIn.set(d, []);
       newLevels[l].push(d);
@@ -439,9 +443,10 @@ function insertDummies(
     }
     newOut.get(prev)!.push(v);
     newIn.get(v)!.push(prev);
+    edgeToDummies.set(`${u}->${v}`, chain);
   }
 
-  return { levels: newLevels, outgoing: newOut, incoming: newIn, isDummy };
+  return { levels: newLevels, outgoing: newOut, incoming: newIn, isDummy, edgeToDummies };
 }
 
 /**
@@ -628,60 +633,20 @@ function assignCoordinates(
   }
   const totalMain = mainCursor - mainGap;
 
-  // ---- 交叉轴：初始从左到右 ----
+  // ---- 交叉轴：按层打包 + 居中于最宽层 ----
   const crossPos = new Map<string, number>();
-  for (const layer of levels) {
-    let cursor = 0;
-    for (const node of layer) {
+
+  const levelCrossWidth = levels.map((layer) =>
+    layer.reduce((sum, node, i) => sum + crossDim(node) + (i > 0 ? crossGap : 0), 0),
+  );
+  const maxCrossWidth = Math.max(0, ...levelCrossWidth);
+
+  for (let l = 0; l < levels.length; l++) {
+    const offset = (maxCrossWidth - levelCrossWidth[l]) / 2;
+    let cursor = offset;
+    for (const node of levels[l]) {
       crossPos.set(node, cursor);
       cursor += crossDim(node) + crossGap;
-    }
-  }
-
-  const resolveOverlaps = (layer: string[]) => {
-    for (let i = 1; i < layer.length; i++) {
-      const minLeft = crossPos.get(layer[i - 1])! + crossDim(layer[i - 1]) + crossGap;
-      if (crossPos.get(layer[i])! < minLeft) crossPos.set(layer[i], minLeft);
-    }
-  };
-
-  // ---- 3 轮迭代对齐 ----
-  for (let round = 0; round < 3; round++) {
-    // 向下：子节点对齐父节点中心
-    for (let l = 1; l < levels.length; l++) {
-      for (const node of levels[l]) {
-        const preds = incoming.get(node) ?? [];
-        if (preds.length === 0) continue;
-        let sum = 0,
-          n = 0;
-        for (const p of preds) {
-          const cp = crossPos.get(p);
-          if (cp !== undefined) {
-            sum += cp + crossDim(p) / 2;
-            n++;
-          }
-        }
-        if (n > 0) crossPos.set(node, sum / n - crossDim(node) / 2);
-      }
-      resolveOverlaps(levels[l]);
-    }
-    // 向上：父节点对齐子节点中心
-    for (let l = levels.length - 2; l >= 0; l--) {
-      for (const node of levels[l]) {
-        const succs = outgoing.get(node) ?? [];
-        if (succs.length === 0) continue;
-        let sum = 0,
-          n = 0;
-        for (const s of succs) {
-          const cp = crossPos.get(s);
-          if (cp !== undefined) {
-            sum += cp + crossDim(s) / 2;
-            n++;
-          }
-        }
-        if (n > 0) crossPos.set(node, sum / n - crossDim(node) / 2);
-      }
-      resolveOverlaps(levels[l]);
     }
   }
 
@@ -706,7 +671,6 @@ function assignCoordinates(
 
   for (let l = 0; l < levels.length; l++) {
     for (const node of levels[l]) {
-      if (isDummy.has(node)) continue;
       const mp = mainPos.get(node)!;
       const cp = crossPos.get(node)!;
       const s = sizeOf(node);
@@ -719,8 +683,10 @@ function assignCoordinates(
         y = isReverse ? totalMain - mp - s.h : mp;
       }
       positions.set(node, { x, y });
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
+      if (!isDummy.has(node)) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+      }
     }
   }
 
@@ -752,24 +718,47 @@ export function layoutNodes(
   edges: MermaidEdge[],
   direction: string,
   sizes: Map<string, { w: number; h: number }>,
-): Map<string, { x: number; y: number }> {
+): {
+  positions: Map<string, { x: number; y: number }>;
+  waypoints: Map<string, { x: number; y: number }[]>;
+} {
   const nodeIds = Array.from(vertices.keys());
-  if (nodeIds.length === 0) return new Map();
+  if (nodeIds.length === 0) return { positions: new Map(), waypoints: new Map() };
 
   // Phase 1
   const { outgoing, incoming } = buildDAG(nodeIds, edges);
   // Phase 2
   const levels = assignLayers(nodeIds, outgoing, incoming);
   // Phase 3
-  const { levels: dLevels, outgoing: dOut, incoming: dIn, isDummy } = insertDummies(
-    levels,
-    outgoing,
-    incoming,
-  );
+  const { levels: dLevels, outgoing: dOut, incoming: dIn, isDummy, edgeToDummies } =
+    insertDummies(levels, outgoing, incoming);
   // Phase 4
   const ordered = minimizeCrossings(dLevels, dOut, dIn);
-  // Phase 5 + 6
-  return assignCoordinates(ordered, dOut, dIn, sizes, isDummy, direction);
+  // Phase 5 + 6（含 dummy 位置）
+  const allPositions = assignCoordinates(ordered, dOut, dIn, sizes, isDummy, direction);
+
+  // 分离真实节点位置与 dummy 航点
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const [id, pos] of allPositions) {
+    if (!isDummy.has(id)) positions.set(id, pos);
+  }
+
+  // 为跨层边计算航点（用 dummy 位置引导路由器走缝隙）
+  const waypoints = new Map<string, { x: number; y: number }[]>();
+  for (const edge of edges) {
+    if (edge.start === edge.end) continue;
+    const fwdKey = `${edge.start}->${edge.end}`;
+    const revKey = `${edge.end}->${edge.start}`;
+    let chain = edgeToDummies.get(fwdKey);
+    let reversed = false;
+    if (!chain) { chain = edgeToDummies.get(revKey); reversed = true; }
+    if (!chain || chain.length === 0) continue;
+    const pts = chain.map((d) => allPositions.get(d)!).filter((p) => p !== undefined);
+    if (reversed) pts.reverse();
+    waypoints.set(fwdKey, pts);
+  }
+
+  return { positions, waypoints };
 }
 
 /* ------------------------------------------------------------------ */
@@ -796,7 +785,7 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
   }
 
   // 2. 布局计算（尺寸感知）
-  const positions = layoutNodes(vertices, edges, direction ?? 'TB', sizes);
+  const { positions, waypoints } = layoutNodes(vertices, edges, direction ?? 'TB', sizes);
 
   // 3. 转换节点
   for (const [id, vertex] of vertices) {
@@ -826,8 +815,9 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
     }
 
     const style = mapEdgeTypeToStyle(edge);
+    const wp = waypoints.get(`${edge.start}->${edge.end}`);
 
-    graphEdges.push({
+    const graphEdge: GraphEdge = {
       id: `edge-${edge.start}-${edge.end}-${Date.now().toString(36).slice(-4)}`,
       source: sourceId,
       target: targetId,
@@ -838,7 +828,9 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
         dashed: style.dashed,
         strokeWidth: style.strokeWidth,
       },
-    });
+    };
+    if (wp && wp.length > 0) graphEdge.waypoints = wp;
+    graphEdges.push(graphEdge);
   }
 
   // 5. 构建快照

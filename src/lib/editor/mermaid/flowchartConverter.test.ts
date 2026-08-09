@@ -170,7 +170,7 @@ function sizesFor(vertices: Map<string, MermaidVertex>) {
 test('layoutNodes: 用户示例图任意两节点不重叠', () => {
   const { vertices, edges } = makeUserExample();
   const sizes = sizesFor(vertices);
-  const positions = layoutNodes(vertices, edges, 'TB', sizes);
+  const { positions } = layoutNodes(vertices, edges, 'TB', sizes);
 
   const ids = Array.from(vertices.keys());
   for (let i = 0; i < ids.length; i++) {
@@ -187,7 +187,7 @@ test('layoutNodes: 用户示例图任意两节点不重叠', () => {
 test('layoutNodes: TB 布局 y 随拓扑层级递增', () => {
   const { vertices, edges } = makeUserExample();
   const sizes = sizesFor(vertices);
-  const positions = layoutNodes(vertices, edges, 'TB', sizes);
+  const { positions } = layoutNodes(vertices, edges, 'TB', sizes);
 
   // 主链上每条边（非跨层跳过边）的 target.y > source.y
   const chain: Array<[string, string]> = [
@@ -211,7 +211,7 @@ test('layoutNodes: TB 布局 y 随拓扑层级递增', () => {
 test('layoutNodes: LR 布局 x 随拓扑层级递增', () => {
   const { vertices, edges } = makeUserExample();
   const sizes = sizesFor(vertices);
-  const positions = layoutNodes(vertices, edges, 'LR', sizes);
+  const { positions } = layoutNodes(vertices, edges, 'LR', sizes);
   assert.ok(positions.get('O')!.x > positions.get('FC')!.x);
   assert.ok(positions.get('R')!.x > positions.get('S9')!.x);
 });
@@ -227,7 +227,7 @@ test('layoutNodes: 环形图不死循环且全部节点有坐标', () => {
     { start: 'B', end: 'C', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
     { start: 'C', end: 'A', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
   ];
-  const positions = layoutNodes(vertices, edges, 'TB', sizesFor(vertices));
+  const { positions } = layoutNodes(vertices, edges, 'TB', sizesFor(vertices));
   assert.equal(positions.size, 3);
 });
 
@@ -252,7 +252,7 @@ test('layoutNodes: 长边跨层--中间层节点不挡在长边路径上', () =>
     { start: 'C', end: 'D', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
   ];
   const sizes = sizesFor(vertices);
-  const positions = layoutNodes(vertices, edges, 'TB', sizes);
+  const { positions } = layoutNodes(vertices, edges, 'TB', sizes);
 
   // 所有节点都有坐标
   for (const id of ['A', 'B', 'C', 'D']) {
@@ -294,7 +294,7 @@ test('layoutNodes: 钻石分支--父节点居中于子节点之间', () => {
     { start: 'F', end: 'G', text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal' },
   ];
   const sizes = sizesFor(vertices);
-  const positions = layoutNodes(vertices, edges, 'TB', sizes);
+  const { positions } = layoutNodes(vertices, edges, 'TB', sizes);
 
   const dCenter = positions.get('D')!.x + sizes.get('D')!.w / 2;
   const eCenter = positions.get('E')!.x + sizes.get('E')!.w / 2;
@@ -320,7 +320,7 @@ test('layoutNodes: 单节点不崩', () => {
   const vertices = new Map<string, MermaidVertex>([
     ['A', { id: 'A', labelType: 'text', text: 'Solo' }],
   ]);
-  const positions = layoutNodes(vertices, [], 'TB', sizesFor(vertices));
+  const { positions } = layoutNodes(vertices, [], 'TB', sizesFor(vertices));
   assert.ok(positions.has('A'));
   assert.ok(positions.get('A')!.x >= 0);
   assert.ok(positions.get('A')!.y >= 0);

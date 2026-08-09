@@ -58,21 +58,31 @@ function topicStyleForDepth(depth: number, dark: boolean): Record<string, unknow
 }
 
 /**
- * 在父节点右侧生发一个子节点，并自动进入文本编辑。
+ * 在父节点旁生发一个子节点，并自动进入文本编辑。
  * 插入后对整棵树做整洁树重排（reflowMindmap），保证兄弟子树互不重叠。
+ *
+ * **左右分栏**：side 参数决定新子节点放在根节点的右侧还是左侧。
+ * 非根节点的子节点始终跟随 side 方向水平排开。
  */
-export function spawnMindmapChild(graph: Graph, parentCell: Cell, dark: boolean): void {
+export function spawnMindmapChild(
+  graph: Graph,
+  parentCell: Cell,
+  dark: boolean,
+  side: 'right' | 'left' = 'right',
+): void {
   const parentGeo = parentCell.getGeometry();
   if (!parentGeo) return;
   const parent = graph.getDefaultParent();
   const size = DEFAULT_SIZE['topic'];
 
-  // 初始位置放在父节点正右方，最终位置由 reflowMindmap 统一分配。
-  const newX = parentGeo.x + parentGeo.width + MINDMAP_GAP_X;
-  const newY = parentGeo.y;
-
   // 子节点深度 = 父节点深度 + 1，据此选择配色（分支/叶子层级）。
   const childDepth = topicDepth(graph, parentCell) + 1;
+
+  // 初始位置放在父节点对应侧，最终位置由 reflowMindmap 统一分配。
+  const newX = side === 'right'
+    ? parentGeo.x + parentGeo.width + MINDMAP_GAP_X
+    : parentGeo.x - MINDMAP_GAP_X - size.w;
+  const newY = parentGeo.y;
 
   graph.batchUpdate(() => {
     const childCell = graph.insertVertex({

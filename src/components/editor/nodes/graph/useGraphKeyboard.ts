@@ -52,7 +52,7 @@ export function useGraphKeyboard({
       const meta = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      // 思维导图 topic 节点：Tab 生发子节点，Enter 生发同级兄弟节点。
+      // 思维导图 topic 节点：Tab/Shift+Tab 生发子节点（右/左），Enter 生发同级兄弟节点。
       // 即使正在内联编辑文本也支持（先提交编辑再生发），符合思维导图标准交互：
       // 双击 topic 编辑文字 -> 按 Tab/Enter -> 提交文字 -> 生发子/兄弟节点。
       // 必须放在 graph.isEditing() 守卫之前，否则编辑态下 Tab/Enter 会被直接跳过。
@@ -68,7 +68,7 @@ export function useGraphKeyboard({
               graph.stopEditing(false);
             }
             if (e.key === 'Tab') {
-              spawnMindmapChild(graph, sel[0], darkModeRef.current);
+              spawnMindmapChild(graph, sel[0], darkModeRef.current, e.shiftKey ? 'left' : 'right');
             } else {
               spawnMindmapSibling(graph, sel[0], darkModeRef.current);
             }
@@ -153,7 +153,7 @@ export function useGraphKeyboard({
     root.addEventListener('keydown', onKeyDown);
 
     // window 级捕获阶段 keydown：在所有其他监听器（maxGraph、TipTap 等）之前
-    // 拦截 Tab/Enter，确保 topic 节点的 Tab（生发子节点）/ Enter（生发兄弟节点）一定生效。
+    // 拦截 Tab/Enter，确保 topic 节点的 Tab/Shift+Tab（生发子节点 右/左）/ Enter（生发兄弟节点）一定生效。
     // 不依赖 root div 或 container 的焦点状态--只要事件目标在画布内就处理。
     const onWindowKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab' && e.key !== 'Enter') return;
@@ -173,7 +173,7 @@ export function useGraphKeyboard({
         g.stopEditing(false);
       }
       if (e.key === 'Tab') {
-        spawnMindmapChild(g, sel[0], darkModeRef.current);
+        spawnMindmapChild(g, sel[0], darkModeRef.current, e.shiftKey ? 'left' : 'right');
       } else {
         spawnMindmapSibling(g, sel[0], darkModeRef.current);
       }

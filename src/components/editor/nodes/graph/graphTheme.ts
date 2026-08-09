@@ -241,7 +241,7 @@ export function mindmapStyleForDepth(
       fillColor: p.fill,
       strokeColor: p.stroke,
       fontColor: p.font,
-      strokeWidth: 2, // 根节点粗描边突出
+      strokeWidth: 1.5,
       fontSize: MINDMAP_ROOT_FONT_SIZE,
       fontStyle: 1, // bold
     };
@@ -252,7 +252,7 @@ export function mindmapStyleForDepth(
       fillColor: p.fill,
       strokeColor: p.stroke,
       fontColor: p.font,
-      strokeWidth: 1.5,
+      strokeWidth: 1,
       fontSize: SHAPE_FONT_SIZE,
       fontStyle: 0, // normal
     };
@@ -262,7 +262,7 @@ export function mindmapStyleForDepth(
     fillColor: p.fill,
     strokeColor: p.stroke,
     fontColor: p.font,
-    strokeWidth: 1,
+    strokeWidth: 0.5,
     fontSize: SHAPE_FONT_SIZE,
     fontStyle: 0, // normal
   };
