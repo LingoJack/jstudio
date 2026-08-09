@@ -32,7 +32,7 @@
  * label, same as `BrowserTabs`.
  */
 
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useState } from "react";
 import { Loader2, Globe, Plus, RefreshCw, ExternalLink, X } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
 import { storage } from "../../lib/core/storage";
@@ -40,6 +40,7 @@ import type { LinkPreviewTabInfo } from "../../types/browser";
 import { getFaviconUrl } from "../../store/browserSlice";
 import { useStore } from "../../store/useStore";
 import { MenuList, MenuItem, MenuDivider } from "../ui/MenuList";
+import { useSidebarHover } from "../documents/hooks/useSidebarHover";
 
 /** Browser window label — must match BrowserTabs.tsx / browserSlice.ts. */
 const BROWSER_WINDOW_LABEL = "main";
@@ -48,8 +49,6 @@ const BROWSER_WINDOW_LABEL = "main";
 export const COLLAPSED_WIDTH = 44;
 /** Expanded sidebar width (favicon + title + close). */
 export const EXPANDED_WIDTH = 208;
-/** Grace period before collapsing after the pointer leaves (ms). */
-const COLLAPSE_DELAY = 180;
 
 export interface BrowserSidebarProps {
   tabs: LinkPreviewTabInfo[];
@@ -60,17 +59,11 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
   function BrowserSidebar({ tabs, activeTabId }, ref) {
   const { t } = useI18n();
   const leftPanelHovered = useStore((s) => s.leftPanelHovered);
-  const [expanded, setExpanded] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     tabId: string;
   } | null>(null);
-  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Tracks whether the pointer is over the sidebar itself (not the
-   *  ActivityBar). Read in the `leftPanelHovered` effect to avoid starting
-   *  a collapse timer when the sidebar is still being hovered. */
-  const isSidebarHovered = useRef(false);
 
   // ── Actions (storage IPC, scoped to the main window's tab manager) ──
 
@@ -86,45 +79,15 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
     storage.addLinkPreviewTab(BROWSER_WINDOW_LABEL, "about:blank").catch(console.error);
   }, []);
 
-  // ── Hover expand / collapse (with grace period to cross gaps) ──
+  // ── Hover expand / collapse (shared hook) ──
 
-  const handleEnter = useCallback(() => {
-    isSidebarHovered.current = true;
-    if (collapseTimer.current) {
-      clearTimeout(collapseTimer.current);
-      collapseTimer.current = null;
-    }
-    setExpanded(true);
-  }, []);
-
-  const handleLeave = useCallback(() => {
-    isSidebarHovered.current = false;
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    collapseTimer.current = setTimeout(() => setExpanded(false), COLLAPSE_DELAY);
-  }, []);
-
-  // Keep the sidebar expanded while the pointer is on the adjacent
-  // ActivityBar, so overshooting from the sidebar into the ActivityBar
-  // doesn't collapse it.  When the pointer leaves the ActivityBar (and the
-  // sidebar itself isn't hovered), start the normal collapse timer.
-  useEffect(() => {
-    if (leftPanelHovered) {
-      if (collapseTimer.current) {
-        clearTimeout(collapseTimer.current);
-        collapseTimer.current = null;
-      }
-      setExpanded(true);
-    } else if (!isSidebarHovered.current) {
-      if (collapseTimer.current) clearTimeout(collapseTimer.current);
-      collapseTimer.current = setTimeout(() => setExpanded(false), COLLAPSE_DELAY);
-    }
-  }, [leftPanelHovered]);
-
-  useEffect(() => {
-    return () => {
-      if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    };
-  }, []);
+  const {
+    hoverExpanded: expanded,
+    handleHoverEnter,
+    handleHoverLeave,
+  } = useSidebarHover({
+    leftPanelHovered,
+  });
 
   // ── Context menu ──
 
@@ -166,6 +129,7 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
     <>
       <div
         ref={ref}
+        data-sidebar-root
         className="shrink-0 h-full flex flex-col border-r border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] overflow-hidden select-none z-30 relative"
         style={{
           width,
@@ -176,8 +140,8 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
             ? "4px 0 12px rgba(0,0,0,0.3)"
             : "4px 0 12px rgba(0,0,0,0)",
         }}
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
+        onMouseEnter={handleHoverEnter}
+        onMouseLeave={handleHoverLeave}
       >
         {/* ── Tab list ── */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-2">

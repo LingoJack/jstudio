@@ -1,5 +1,7 @@
 /**
- * useSidebarHover - 从 DocumentSidebar 提取的悬停展开逻辑。
+ * useSidebarHover - 共享的侧边栏悬停展开逻辑。
+ *
+ * 被 DocumentSidebar、AgentSidebar、BrowserSidebar 共用。
  *
  * 职责：
  *   - 管理 hoverExpanded 状态 + 相关 ref（isSidebarHovered, lastPointerPos, hoverCollapseTimer）
@@ -8,7 +10,8 @@
  *   - leftPanelHovered 响应 effect
  *   - suppressCollapse 重新评估 effect（菜单关闭后检测鼠标是否仍在 sidebar 上）
  *
- * suppressCollapse 由外部组件从 9 个菜单/重命名/搜索状态计算后传入。
+ * sidebarPinned / toggleSidebarPinned / suppressCollapse 均为可选，
+ * 以便不支持 pinning 的侧边栏（如 BrowserSidebar）也能复用。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,10 +19,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const COLLAPSE_DELAY = 180;
 
 export interface UseSidebarHoverParams {
-  sidebarPinned: boolean;
+  /** Whether the sidebar is pinned open. Default: false (hover-only). */
+  sidebarPinned?: boolean;
   leftPanelHovered: boolean;
-  toggleSidebarPinned: () => void;
-  suppressCollapse: boolean;
+  /** Toggle pin state. Only needed when pinning is supported. */
+  toggleSidebarPinned?: () => void;
+  /** Suppress auto-collapse while a floating menu / modal is active. Default: false. */
+  suppressCollapse?: boolean;
 }
 
 export function useSidebarHover({
@@ -39,7 +45,7 @@ export function useSidebarHover({
   // Mirror suppressCollapse into a ref so scheduleCollapse (a stable useCallback)
   // can read the latest value without re-creating.
   const suppressCollapseRef = useRef(false);
-  suppressCollapseRef.current = suppressCollapse;
+  suppressCollapseRef.current = suppressCollapse ?? false;
   const prevSuppressRef = useRef(false);
 
   const scheduleCollapse = useCallback(() => {
@@ -53,7 +59,7 @@ export function useSidebarHover({
 
   const handleHoverEnter = useCallback(() => {
     isSidebarHovered.current = true;
-    if (sidebarPinned) return;
+    if (sidebarPinned ?? false) return;
     if (hoverCollapseTimer.current) {
       clearTimeout(hoverCollapseTimer.current);
       hoverCollapseTimer.current = null;
@@ -63,7 +69,7 @@ export function useSidebarHover({
 
   const handleHoverLeave = useCallback(() => {
     isSidebarHovered.current = false;
-    if (sidebarPinned) return;
+    if (sidebarPinned ?? false) return;
     if (suppressCollapseRef.current) return;
     scheduleCollapse();
   }, [sidebarPinned, scheduleCollapse]);
@@ -79,7 +85,7 @@ export function useSidebarHover({
 
   // Respond to leftPanelHovered changes from the store.
   useEffect(() => {
-    if (sidebarPinned) return;
+    if (sidebarPinned ?? false) return;
     if (leftPanelHovered) {
       if (hoverCollapseTimer.current) {
         clearTimeout(hoverCollapseTimer.current);
@@ -97,10 +103,10 @@ export function useSidebarHover({
   // schedule a collapse if not.
   useEffect(() => {
     const wasSuppressed = prevSuppressRef.current;
-    prevSuppressRef.current = suppressCollapse;
+    prevSuppressRef.current = suppressCollapse ?? false;
     if (suppressCollapse) return;
     if (!wasSuppressed) return;
-    if (sidebarPinned) return;
+    if (sidebarPinned ?? false) return;
 
     const { x, y } = lastPointerPos.current;
     if (x >= 0 && y >= 0) {
@@ -123,7 +129,7 @@ export function useSidebarHover({
   }, [suppressCollapse, sidebarPinned, scheduleCollapse]);
 
   const handleTogglePin = useCallback(() => {
-    toggleSidebarPinned();
+    toggleSidebarPinned?.();
     setHoverExpanded(false);
   }, [toggleSidebarPinned]);
 

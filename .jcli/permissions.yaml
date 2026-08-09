@@ -132,4 +132,7 @@ allow:
 - Shell(mkdir -p:*)
 - Shell(find /Users/jacklingo/dev_custom/jstudio/src/components/agent:*)
 - Shell(python3 -c:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/src-tauri:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/src-tauri/src:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/src/components:*)
 deny: []

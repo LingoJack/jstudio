@@ -18,6 +18,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { useSidebarResize } from '../documents/hooks/useSidebarResize';
+import { useSidebarHover } from '../documents/hooks/useSidebarHover';
 import {
   Plus,
   FolderOpen,
@@ -48,8 +49,6 @@ const MAX_SESSIONS_PER_GROUP = 5;
 
 /** Width of the sidebar when collapsed (unpinned, not hovered). */
 const COLLAPSED_WIDTH = 48;
-/** Grace period before collapsing after the pointer leaves (ms). */
-const COLLAPSE_DELAY = 180;
 
 // ────────────────────────────────────────────────
 // Helpers
@@ -245,17 +244,9 @@ export default function AgentSidebar() {
   const [workspaceMenuPos, setWorkspaceMenuPos] = useState<{ x: number; y: number } | null>(null);
   const workspaceBtnRef = useRef<HTMLButtonElement>(null);
 
-  // ── Hover-expand state (only active when sidebarPinned is false) ──
-  const [hoverExpanded, setHoverExpanded] = useState(false);
-  const hoverCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isSidebarHovered = useRef(false);
-
   // ── Suppress collapse while a floating menu / modal is active ──
   const anyFloatingMenuOpen = !!workspaceMenuPos || !!expandGroup;
   const suppressCollapse = anyFloatingMenuOpen || showWorkspaceModal;
-  const suppressCollapseRef = useRef(false);
-  suppressCollapseRef.current = suppressCollapse;
-  const prevSuppressRef = useRef(false);
 
   // Init sessions on mount
   useEffect(() => {
@@ -265,70 +256,18 @@ export default function AgentSidebar() {
   const groups = groupSessionsByWorkspace(sessions);
   const existingWorkspaces = useMemo(() => groups.map((g) => g.workspace), [groups]);
 
-  // ── Hover expand / collapse logic (mirrors DocumentSidebar) ──
-
-  const scheduleCollapse = useCallback(() => {
-    if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
-    hoverCollapseTimer.current = setTimeout(() => {
-      if (!suppressCollapseRef.current && !isSidebarHovered.current) {
-        setHoverExpanded(false);
-      }
-    }, COLLAPSE_DELAY);
-  }, []);
-
-  const handleHoverEnter = useCallback(() => {
-    isSidebarHovered.current = true;
-    if (sidebarPinned) return;
-    if (hoverCollapseTimer.current) {
-      clearTimeout(hoverCollapseTimer.current);
-      hoverCollapseTimer.current = null;
-    }
-    setHoverExpanded(true);
-  }, [sidebarPinned]);
-
-  const handleHoverLeave = useCallback(() => {
-    isSidebarHovered.current = false;
-    if (sidebarPinned) return;
-    if (suppressCollapseRef.current) return;
-    scheduleCollapse();
-  }, [sidebarPinned, scheduleCollapse]);
-
-  // Keep the sidebar expanded while the pointer is on the adjacent
-  // ActivityBar, so overshooting from the sidebar into the ActivityBar
-  // doesn't collapse it.
-  useEffect(() => {
-    if (sidebarPinned) return;
-    if (leftPanelHovered) {
-      if (hoverCollapseTimer.current) {
-        clearTimeout(hoverCollapseTimer.current);
-        hoverCollapseTimer.current = null;
-      }
-      setHoverExpanded(true);
-    } else if (!isSidebarHovered.current) {
-      if (suppressCollapseRef.current) return;
-      scheduleCollapse();
-    }
-  }, [leftPanelHovered, sidebarPinned, scheduleCollapse]);
-
-  // When a floating menu / modal closes we no longer know whether
-  // the pointer is still over the sidebar.  Wait for the next
-  // pointer move and decide then whether to collapse.
-  useEffect(() => {
-    const wasSuppressed = prevSuppressRef.current;
-    prevSuppressRef.current = suppressCollapse;
-    if (suppressCollapse) return;
-    if (!wasSuppressed) return;          // only react to suppression *ending*
-    if (sidebarPinned) return;
-    if (isSidebarHovered.current) return;
-    const reeval = (e: MouseEvent) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-      const overSidebar = !!(el && el.closest('[data-sidebar-root]'));
-      isSidebarHovered.current = overSidebar;
-      if (!overSidebar && !suppressCollapseRef.current) scheduleCollapse();
-    };
-    window.addEventListener('mousemove', reeval, { once: true });
-    return () => window.removeEventListener('mousemove', reeval);
-  }, [suppressCollapse, sidebarPinned, scheduleCollapse]);
+  // ── Hover expand / collapse (shared hook) ──
+  const {
+    hoverExpanded,
+    handleHoverEnter,
+    handleHoverLeave,
+    handleTogglePin,
+  } = useSidebarHover({
+    sidebarPinned,
+    leftPanelHovered,
+    toggleSidebarPinned,
+    suppressCollapse,
+  });
 
   const isCollapsed = !sidebarPinned && !hoverExpanded;
   const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
@@ -336,11 +275,6 @@ export default function AgentSidebar() {
   // ── Overlay mode (hover-expand without pinning) ──
   const isOverlay = !sidebarPinned && !isCollapsed;
   const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
-
-  const handleTogglePin = useCallback(() => {
-    toggleSidebarPinned();
-    setHoverExpanded(false);
-  }, [toggleSidebarPinned]);
 
   // ── Handlers ──
 
