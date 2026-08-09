@@ -59,6 +59,7 @@ import { useCursorTrailHostRef } from "../CursorTrailContext";
 import { LANGUAGES, getLanguageLabel } from "./codeBlockLanguages";
 import { buildMermaidPreviewWindowHtml } from "./mermaidWindowHtml";
 import { useMermaidPreview } from "./code-block/useMermaidPreview";
+import { useHtmlPreview } from "./code-block/useHtmlPreview";
 import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
 import { LanguageDropdown } from "./code-block/LanguageDropdown";
 
@@ -129,8 +130,6 @@ export default function CodeBlockView({
   const heightAttr = node.attrs?.height as number | null | undefined;
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
-  const previewContainerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   // "Real" selection: only a genuine NodeSelection on THIS node counts as
   // selected — NOT a text selection that sweeps across the code block.
   // TipTap's NodeViewProps.selected turns true for the latter, wrongly
@@ -179,6 +178,11 @@ export default function CodeBlockView({
   // The current code text, used as the iframe `srcDoc`. Reading
   // `node.textContent` on every render keeps the preview in sync with edits.
   const htmlSource = node.textContent;
+  const { previewContainerRef } = useHtmlPreview({
+    showHtmlPreview,
+    htmlSource,
+    collapsed,
+  });
 
   // ---- Mermaid live preview ----
   // For Mermaid code blocks we offer a toggle that renders the diagram.
@@ -210,54 +214,7 @@ export default function CodeBlockView({
     updateAttributes,
   ]);
 
-  // ── Native DOM iframe management (React 19 sandbox workaround) ──
-  // React 19's development-mode reconciliation traverses DOM trees including
-  // sandboxed iframes, triggering SecurityError: Sandbox access violation.
-  // We render the iframe via native DOM so React never sees its internals.
-  useEffect(() => {
-    const container = previewContainerRef.current;
-    // When collapsed, the preview container is unmounted - drop the iframe
-    // so we don't keep a detached iframe (and its srcdoc) around.
-    if (collapsed && iframeRef.current) {
-      iframeRef.current.remove();
-      iframeRef.current = null;
-      return;
-    }
-    // If preview is hidden (or content emptied), remove the iframe before
-    // the early return below - the container may have already unmounted,
-    // leaving a dangling ref to a detached iframe.
-    if (!showHtmlPreview && iframeRef.current) {
-      iframeRef.current.remove();
-      iframeRef.current = null;
-    }
-    if (!container) return;
-
-    // If preview should be shown and iframe doesn't exist yet, create it.
-    if (showHtmlPreview && !iframeRef.current) {
-      const iframe = document.createElement("iframe");
-      iframe.className = "code-html-preview";
-      iframe.title = t("code.previewHtml");
-      iframe.sandbox.add(
-        "allow-scripts",
-        "allow-forms",
-        "allow-popups",
-        "allow-modals",
-        "allow-same-origin",
-      );
-      iframe.srcdoc = htmlSource;
-      container.appendChild(iframe);
-      iframeRef.current = iframe;
-    }
-
-    // Update srcdoc when htmlSource changes (only if iframe exists).
-    if (
-      showHtmlPreview &&
-      iframeRef.current &&
-      iframeRef.current.srcdoc !== htmlSource
-    ) {
-      iframeRef.current.srcdoc = htmlSource;
-    }
-  }, [showHtmlPreview, htmlSource, collapsed]);
+  // ── Native DOM iframe management moved to useHtmlPreview hook ──
 
   /* -------------------------------------------------------------- */
   /* Resize: drag the bottom-right handle (shared useNodeResize)     */
