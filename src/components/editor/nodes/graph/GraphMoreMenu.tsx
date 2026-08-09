@@ -17,7 +17,6 @@ import {
   Sparkles,
   Download,
   Copy,
-  ClipboardCopy,
   Maximize2,
 } from "lucide-react";
 
@@ -153,7 +152,6 @@ export function GraphMoreMenu({
             <Download size={16} />
             <span>导出 SVG</span>
           </button>
-          <div className="jgraph-dropdown-sep" />
           <button
             type="button"
             className="jgraph-dropdown-item"
@@ -169,7 +167,7 @@ export function GraphMoreMenu({
             title="复制 SVG 源码到剪贴板"
             onClick={onCopySvg}
           >
-            <ClipboardCopy size={16} />
+            <Copy size={16} />
             <span>复制 SVG 代码</span>
           </button>
         </div>
