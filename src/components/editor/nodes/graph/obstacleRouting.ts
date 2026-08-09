@@ -78,6 +78,32 @@ function offsetPoint(pt: ModelPoint, dir: Dir, dist: number): ModelPoint {
   }
 }
 
+/** 节点中心（模型坐标） */
+function centerOfState(cellState: CellState, scale: number): ModelPoint {
+  return {
+    x: (cellState.x + cellState.width / 2) / scale,
+    y: (cellState.y + cellState.height / 2) / scale,
+  };
+}
+
+/** 从节点中心朝 toward 方向的射线与包围盒的交点（模型坐标），保底返回中心 */
+function perimeterPointToward(
+  cellState: CellState,
+  toward: ModelPoint,
+  scale: number,
+): ModelPoint {
+  const c = centerOfState(cellState, scale);
+  const dx = toward.x - c.x;
+  const dy = toward.y - c.y;
+  if (dx === 0 && dy === 0) return c;
+  const hw = cellState.width / 2 / scale;
+  const hh = cellState.height / 2 / scale;
+  const tx = dx !== 0 ? hw / Math.abs(dx) : Infinity;
+  const ty = dy !== 0 ? hh / Math.abs(dy) : Infinity;
+  const t = Math.min(tx, ty);
+  return { x: c.x + dx * t, y: c.y + dy * t };
+}
+
 /**
  * 收集障碍物：画布上所有顶点（排除当前边的源/目标）。
  * 返回的是原始包围盒（未外扩），外扩在 A* 内部按 OBSTACLE_MARGIN 处理。
@@ -442,16 +468,49 @@ export function obstacleAvoidingOrthogonalStyle(
   // 4. 检查内置路由是否穿过障碍物
   if (!routeIntersectsObstacles(result, obstacles, scale)) return; // 路由干净，无需重算
 
-  // 5. 获取连接点（模型坐标）
+  // 5. 获取连接点（模型坐标）。
+  //    首渲染时 GraphView.updateEdgeState 的调用顺序为
+  //    updateFixedTerminalPoints -> updatePoints(调 edgeStyle) -> updateFloatingTerminalPoints，
+  //    style 函数执行时 state.absolutePoints 对新边为空。因此分级推导：
+  //    absolutePoints -> result[0]/exit 端口约束 -> perimeter 点 -> 中心点。
   const absPts = state.absolutePoints;
-  const lastPt = absPts?.[absPts.length - 1];
-  if (!absPts || absPts.length < 2 || !absPts[0] || !lastPt) return;
+  const absFirst = absPts && absPts.length >= 2 ? absPts[0] : undefined;
+  const absLast = absPts && absPts.length >= 2 ? absPts[absPts.length - 1] : undefined;
 
-  const p0: ModelPoint = { x: absPts[0].x / scale, y: absPts[0].y / scale };
-  const pe: ModelPoint = {
-    x: lastPt.x / scale,
-    y: lastPt.y / scale,
-  };
+  let p0: ModelPoint;
+  let pe: ModelPoint;
+  if (absFirst && absLast) {
+    p0 = { x: absFirst.x / scale, y: absFirst.y / scale };
+    pe = { x: absLast.x / scale, y: absLast.y / scale };
+  } else {
+    const st = state.style as unknown as {
+      exitX?: number;
+      exitY?: number;
+      entryX?: number;
+      entryY?: number;
+    };
+    // p0：updatePoints 在调 style 前已把源点推入 result[0]
+    const r0 = result[0];
+    if (r0) {
+      p0 = { x: r0.x / scale, y: r0.y / scale };
+    } else if (typeof st.exitX === 'number' && typeof st.exitY === 'number') {
+      p0 = {
+        x: (source.x + st.exitX * source.width) / scale,
+        y: (source.y + st.exitY * source.height) / scale,
+      };
+    } else {
+      p0 = perimeterPointToward(source, centerOfState(target, scale), scale);
+    }
+    // pe：entry 端口约束 -> 朝 p0 的 perimeter 点 -> 中心点
+    if (typeof st.entryX === 'number' && typeof st.entryY === 'number') {
+      pe = {
+        x: (target.x + st.entryX * target.width) / scale,
+        y: (target.y + st.entryY * target.height) / scale,
+      };
+    } else {
+      pe = perimeterPointToward(target, p0, scale);
+    }
+  }
 
   // 6. 确定出口/入口方向，计算 jetty 点
   const startDir = getExitDirection(p0, source, scale);

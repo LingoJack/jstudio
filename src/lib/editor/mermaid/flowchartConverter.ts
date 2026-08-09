@@ -271,6 +271,16 @@ const LAY_V_GAP = 60;
 /** dummy 节点 ID 前缀 */
 const DUMMY_PREFIX = '__dummy_';
 
+/** 跨层长边（span>=2，已插入 dummy 链）信息，用于通道航点烘焙 */
+interface LongEdgeInfo {
+  /** DAG 方向 key `${u}->${v}` */
+  key: string;
+  u: string;
+  v: string;
+  /** 中间各层的 dummy 节点（从 lu+1 到 lv-1） */
+  chain: string[];
+}
+
 /**
  * Phase 1: 构建有向无环图。
  *
@@ -400,13 +410,13 @@ function insertDummies(
   outgoing: Map<string, string[]>;
   incoming: Map<string, string[]>;
   isDummy: Set<string>;
-  edgeToDummies: Map<string, string[]>;
+  edgeToDummies: Map<string, { u: string; v: string; chain: string[] }>;
 } {
   const newLevels = levels.map((l) => [...l]);
   const newOut = new Map<string, string[]>();
   const newIn = new Map<string, string[]>();
   const isDummy = new Set<string>();
-  const edgeToDummies = new Map<string, string[]>();
+  const edgeToDummies = new Map<string, { u: string; v: string; chain: string[] }>();
   for (const [k, v] of outgoing) newOut.set(k, [...v]);
   for (const [k, v] of incoming) newIn.set(k, [...v]);
 
@@ -443,7 +453,7 @@ function insertDummies(
     }
     newOut.get(prev)!.push(v);
     newIn.get(v)!.push(prev);
-    edgeToDummies.set(`${u}->${v}`, chain);
+    edgeToDummies.set(`${u}->${v}`, { u, v, chain });
   }
 
   return { levels: newLevels, outgoing: newOut, incoming: newIn, isDummy, edgeToDummies };
@@ -590,18 +600,34 @@ function minimizeCrossings(
   return adjacentExchange(result, outgoing);
 }
 
+/** 数值数组中位数（偶数个取中间两值均值） */
+function medianOf(values: number[]): number {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 === 1 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
 /**
- * Phase 5 + 6: 坐标分配 + 方向转换。
+ * Phase 5 + 6: 坐标分配 + 方向转换 + 跨层边通道航点烘焙。
  *
- * 交叉轴（cross）：先按排序顺序从左到右放置，再做 2 轮迭代对齐
- *   - 向下：子节点 X 对齐到父节点中心
- *   - 向上：父节点 X 对齐到子节点中心
- * 每轮后消解同层重叠（右推）。
+ * 交叉轴（cross）：真正的中位数迭代对齐——4 轮交替
+ *   下扫（节点期望 cross 中心 = 父节点 cross 中心中位数）/
+ *   上扫（子节点 cross 中心中位数），每轮后做保序防重叠放置
+ *   （左→右 与 右→左 镜像交替，保证不引入新交叉）。
+ *   dummy 节点（0 宽）参与中位数对齐，使跨层长边尽量拉直。
  *
- * 主轴（main）：逐层累计层内最大尺寸 + 间距。
+ * 主轴（main）：逐层累计层内最大尺寸 + 自适应缝隙——
+ *   被 k 条跨层长边（span>=2）穿过的缝，gap = max(LAY_*_GAP, 20 + k*12)，
+ *   为通道线留位。
+ *
+ * 跨层长边：每条缝的通道带 = [上层最大底 + 8, 下层最小顶 - 8]，穿过该缝的
+ *   长边按 cross 坐标排序均摊到不同通道线；航点序列沿 dummy 链逐缝按
+ *   (cross_cur, channel) -> (cross_next, channel) 交替生成，与节点坐标一起
+ *   做 main/cross -> x/y 变换。相邻层边不生成航点——端口约束 + 内置 Z 形
+ *   路由已保证干净，且保留用户拖节点后的动态重路由能力。
  *
  * 最后将抽象 main/cross 坐标转为 {x, y}，BT/RL 翻转主轴，
- * 移除 dummy 节点，整体偏移使最小坐标 ≥ 50。
+ * 整体偏移使最小坐标 >= LAY_BASE。
  */
 function assignCoordinates(
   levels: string[][],
@@ -610,7 +636,11 @@ function assignCoordinates(
   sizes: Map<string, { w: number; h: number }>,
   isDummy: Set<string>,
   direction: string,
-): Map<string, { x: number; y: number }> {
+  longEdges: LongEdgeInfo[],
+): {
+  positions: Map<string, { x: number; y: number }>;
+  channelWaypoints: Map<string, { x: number; y: number }[]>;
+} {
   const isHorizontal = direction === 'LR' || direction === 'RL';
   const isReverse = direction === 'RL' || direction === 'BT';
 
@@ -618,10 +648,21 @@ function assignCoordinates(
     isDummy.has(id) ? { w: 0, h: 0 } : sizes.get(id) ?? { w: 120, h: 60 };
   const mainDim = (id: string) => (isHorizontal ? sizeOf(id).w : sizeOf(id).h);
   const crossDim = (id: string) => (isHorizontal ? sizeOf(id).h : sizeOf(id).w);
-  const mainGap = isHorizontal ? LAY_H_GAP : LAY_V_GAP;
+  const baseMainGap = isHorizontal ? LAY_H_GAP : LAY_V_GAP;
   const crossGap = isHorizontal ? LAY_V_GAP : LAY_H_GAP;
 
-  // ---- 主轴（层 Y / 层 X）：逐层累计 ----
+  const layerOf = new Map<string, number>();
+  for (let l = 0; l < levels.length; l++)
+    for (const n of levels[l]) layerOf.set(n, l);
+
+  // ---- 主轴（层 Y / 层 X）：逐层累计，缝隙按穿过长边数自适应 ----
+  const seamCount = new Array<number>(Math.max(0, levels.length - 1)).fill(0);
+  for (const le of longEdges) {
+    const lu = layerOf.get(le.u)!;
+    const lv = layerOf.get(le.v)!;
+    for (let m = lu; m < lv; m++) seamCount[m]++;
+  }
+
   const mainPos = new Map<string, number>();
   const levelMaxMain: number[] = [];
   let mainCursor = 0;
@@ -629,28 +670,111 @@ function assignCoordinates(
     const mx = Math.max(0, ...levels[l].map(mainDim));
     levelMaxMain.push(mx);
     for (const node of levels[l]) mainPos.set(node, mainCursor);
-    mainCursor += mx + mainGap;
+    mainCursor += mx;
+    if (l < levels.length - 1) {
+      mainCursor += Math.max(baseMainGap, 20 + seamCount[l] * 12);
+    }
   }
-  const totalMain = mainCursor - mainGap;
+  const totalMain = mainCursor;
 
-  // ---- 交叉轴：按层打包 + 居中于最宽层 ----
+  // ---- 交叉轴：中位数迭代对齐 ----
   const crossPos = new Map<string, number>();
-
-  const levelCrossWidth = levels.map((layer) =>
-    layer.reduce((sum, node, i) => sum + crossDim(node) + (i > 0 ? crossGap : 0), 0),
-  );
-  const maxCrossWidth = Math.max(0, ...levelCrossWidth);
-
-  for (let l = 0; l < levels.length; l++) {
-    const offset = (maxCrossWidth - levelCrossWidth[l]) / 2;
-    let cursor = offset;
-    for (const node of levels[l]) {
+  // 初始放置：按定序从左到右打包
+  for (const layer of levels) {
+    let cursor = 0;
+    for (const node of layer) {
       crossPos.set(node, cursor);
       cursor += crossDim(node) + crossGap;
     }
   }
+  const crossCenter = (id: string) => crossPos.get(id)! + crossDim(id) / 2;
 
-  // ---- 转为 {x, y}，移除 dummy ----
+  /** 保序防重叠放置：leftToRight 与镜像交替，保持层内既定顺序 */
+  const placeLayer = (
+    layer: string[],
+    desired: Map<string, number>,
+    leftToRight: boolean,
+  ) => {
+    if (leftToRight) {
+      let cursor = -Infinity;
+      for (const node of layer) {
+        const w = crossDim(node);
+        const d = desired.get(node);
+        let x = d !== undefined ? d - w / 2 : crossPos.get(node)!;
+        x = Math.max(x, cursor);
+        crossPos.set(node, x);
+        cursor = x + w + crossGap;
+      }
+    } else {
+      let cursor = Infinity;
+      for (let i = layer.length - 1; i >= 0; i--) {
+        const node = layer[i];
+        const w = crossDim(node);
+        const d = desired.get(node);
+        let x = d !== undefined ? d - w / 2 : crossPos.get(node)!;
+        x = Math.min(x, cursor - w);
+        crossPos.set(node, x);
+        cursor = x - crossGap;
+      }
+    }
+  };
+
+  for (let round = 0; round < 4; round++) {
+    const down = round % 2 === 0;
+    const leftToRight = round % 2 === 0;
+    if (down) {
+      for (let l = 1; l < levels.length; l++) {
+        const desired = new Map<string, number>();
+        for (const node of levels[l]) {
+          const centers = (incoming.get(node) ?? []).map((nb) => crossCenter(nb));
+          if (centers.length > 0) desired.set(node, medianOf(centers));
+        }
+        placeLayer(levels[l], desired, leftToRight);
+      }
+    } else {
+      for (let l = levels.length - 2; l >= 0; l--) {
+        const desired = new Map<string, number>();
+        for (const node of levels[l]) {
+          const centers = (outgoing.get(node) ?? []).map((nb) => crossCenter(nb));
+          if (centers.length > 0) desired.set(node, medianOf(centers));
+        }
+        placeLayer(levels[l], desired, leftToRight);
+      }
+    }
+  }
+
+  // ---- 跨层长边通道布线（仅 span>=2 的边） ----
+  /** 长边在层 l 处经过的节点（u / dummy / v） */
+  const nodeAtLayer = (le: LongEdgeInfo, l: number): string => {
+    const lu = layerOf.get(le.u)!;
+    if (l === lu) return le.u;
+    if (l === layerOf.get(le.v)!) return le.v;
+    return le.chain[l - lu - 1];
+  };
+
+  // 每条缝独立分配通道线：穿过该缝的长边按 cross 排序，均摊到通道带内
+  const channelOf = new Map<string, number[]>(); // key -> 按缝升序的通道 main 坐标
+  for (let m = 0; m < levels.length - 1; m++) {
+    const crossing = longEdges
+      .filter((le) => layerOf.get(le.u)! <= m && layerOf.get(le.v)! > m)
+      .sort((a, b) => {
+        const ca = (crossCenter(nodeAtLayer(a, m)) + crossCenter(nodeAtLayer(a, m + 1))) / 2;
+        const cb = (crossCenter(nodeAtLayer(b, m)) + crossCenter(nodeAtLayer(b, m + 1))) / 2;
+        return ca - cb;
+      });
+    if (crossing.length === 0) continue;
+    const bandTop = mainPos.get(levels[m][0])! + levelMaxMain[m] + 8;
+    const bandBottom = mainPos.get(levels[m + 1][0])! - 8;
+    const bandH = bandBottom - bandTop;
+    crossing.forEach((le, i) => {
+      const ch = bandTop + (bandH * (i + 1)) / (crossing.length + 1);
+      const arr = channelOf.get(le.key) ?? [];
+      arr.push(ch);
+      channelOf.set(le.key, arr);
+    });
+  }
+
+  // ---- 转为 {x, y}（含 dummy），BT/RL 翻转主轴 ----
   const positions = new Map<string, { x: number; y: number }>();
   let minX = Infinity,
     minY = Infinity;
@@ -669,10 +793,8 @@ function assignCoordinates(
         y = isReverse ? totalMain - mp - s.h : mp;
       }
       positions.set(node, { x, y });
-      if (!isDummy.has(node)) {
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-      }
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
     }
   }
 
@@ -684,7 +806,40 @@ function assignCoordinates(
       pos.y += offY;
     }
   }
-  return positions;
+
+  // ---- 通道航点：main/cross -> x/y（与节点同一变换 + 同一偏移） ----
+  const toXY = (main: number, cross: number): { x: number; y: number } => {
+    const m = isReverse ? totalMain - main : main;
+    return isHorizontal
+      ? { x: m + offX, y: cross + offY }
+      : { x: cross + offX, y: m + offY };
+  };
+
+  const channelWaypoints = new Map<string, { x: number; y: number }[]>();
+  for (const le of longEdges) {
+    const channels = channelOf.get(le.key);
+    if (!channels) continue;
+    const lu = layerOf.get(le.u)!;
+    const lv = layerOf.get(le.v)!;
+    const abs: { main: number; cross: number }[] = [];
+    for (let m = lu; m < lv; m++) {
+      const ch = channels[m - lu];
+      const cCur = crossCenter(nodeAtLayer(le, m));
+      const cNext = crossCenter(nodeAtLayer(le, m + 1));
+      abs.push({ main: ch, cross: cCur });
+      abs.push({ main: ch, cross: cNext });
+    }
+    // 去除连续重复点（长边在该缝完全拉直时 cCur === cNext）
+    const deduped: { main: number; cross: number }[] = [];
+    for (const p of abs) {
+      const last = deduped[deduped.length - 1];
+      if (last && last.main === p.main && last.cross === p.cross) continue;
+      deduped.push(p);
+    }
+    channelWaypoints.set(le.key, deduped.map((p) => toXY(p.main, p.cross)));
+  }
+
+  return { positions, channelWaypoints };
 }
 
 /**
@@ -694,8 +849,8 @@ function assignCoordinates(
  *   1. buildDAG       — 构建有向图，移除自环，DFS 翻转回边消环
  *   2. assignLayers   — 最长路径分层（拓扑序 + max(前驱层+1)）
  *   3. insertDummies  — 跨层边插入虚拟节点，使所有边只跨 1 层
- *   4. minimizeCrossings — Barycenter 启发式，6 轮上下交替减少交叉
- *   5. assignCoordinates — 迭代对齐坐标（父居中于子、子居中于父）+ 消解重叠
+ *   4. minimizeCrossings — Barycenter 启发式，8 轮上下交替减少交叉
+ *   5. assignCoordinates — 中位数迭代对齐 + 自适应缝隙 + 跨层边通道航点烘焙
  *
  * @param sizes 每个节点的实际渲染尺寸（由 computeNodeSize 得出）
  */
@@ -720,8 +875,20 @@ export function layoutNodes(
     insertDummies(levels, outgoing, incoming);
   // Phase 4
   const ordered = minimizeCrossings(dLevels, dOut, dIn);
-  // Phase 5 + 6（含 dummy 位置）
-  const allPositions = assignCoordinates(ordered, dOut, dIn, sizes, isDummy, direction);
+  // Phase 5 + 6（含 dummy 位置与跨层边通道航点）
+  const longEdges: LongEdgeInfo[] = [];
+  for (const [key, info] of edgeToDummies) {
+    longEdges.push({ key, u: info.u, v: info.v, chain: info.chain });
+  }
+  const { positions: allPositions, channelWaypoints } = assignCoordinates(
+    ordered,
+    dOut,
+    dIn,
+    sizes,
+    isDummy,
+    direction,
+    longEdges,
+  );
 
   // 分离真实节点位置与 dummy 航点
   const positions = new Map<string, { x: number; y: number }>();
@@ -729,19 +896,20 @@ export function layoutNodes(
     if (!isDummy.has(id)) positions.set(id, pos);
   }
 
-  // 为跨层边计算航点（用 dummy 位置引导路由器走缝隙）
+  // 跨层边航点（键统一为原始边方向；回边在 DAG 中被翻转过，需反转航点序列）
   const waypoints = new Map<string, { x: number; y: number }[]>();
   for (const edge of edges) {
     if (edge.start === edge.end) continue;
     const fwdKey = `${edge.start}->${edge.end}`;
     const revKey = `${edge.end}->${edge.start}`;
-    let chain = edgeToDummies.get(fwdKey);
+    let pts = channelWaypoints.get(fwdKey);
     let reversed = false;
-    if (!chain) { chain = edgeToDummies.get(revKey); reversed = true; }
-    if (!chain || chain.length === 0) continue;
-    const pts = chain.map((d) => allPositions.get(d)!).filter((p) => p !== undefined);
-    if (reversed) pts.reverse();
-    waypoints.set(fwdKey, pts);
+    if (!pts) {
+      pts = channelWaypoints.get(revKey);
+      reversed = true;
+    }
+    if (!pts || pts.length === 0) continue;
+    waypoints.set(fwdKey, reversed ? [...pts].reverse() : pts);
   }
 
   return { positions, waypoints };
@@ -771,7 +939,9 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
   }
 
   // 2. 布局计算（尺寸感知）
-  const { positions, waypoints } = layoutNodes(vertices, edges, direction ?? 'TB', sizes);
+  const dir = direction ?? 'TB';
+  const { positions, waypoints } = layoutNodes(vertices, edges, dir, sizes);
+  const isHorizontalDir = dir === 'LR' || dir === 'RL';
 
   // 3. 转换节点
   for (const [id, vertex] of vertices) {
@@ -791,7 +961,8 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
   }
 
   // 4. 转换连线
-  for (const edge of edges) {
+  for (let edgeIdx = 0; edgeIdx < edges.length; edgeIdx++) {
+    const edge = edges[edgeIdx];
     const sourceId = `node-${edge.start}`;
     const targetId = `node-${edge.end}`;
 
@@ -804,7 +975,8 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
     const wp = waypoints.get(`${edge.start}->${edge.end}`);
 
     const graphEdge: GraphEdge = {
-      id: `edge-${edge.start}-${edge.end}-${Date.now().toString(36).slice(-4)}`,
+      // 平行边（A->B 写两次）需靠循环索引区分，不能用时间戳（同一毫秒内相同）
+      id: `edge-${edge.start}-${edge.end}-${edgeIdx}`,
       source: sourceId,
       target: targetId,
       label: edge.text ?? undefined,
@@ -815,6 +987,27 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
         strokeWidth: style.strokeWidth,
       },
     };
+
+    // 烘焙端口约束（下出上进 / 右出左进）：让内置正交路由器的水平段
+    // 落在层间缝隙，结构上不可能横穿同层节点。按最终坐标比较中心，
+    // 天然兼容回边翻转与 BT/RL。
+    const sp = positions.get(edge.start);
+    const tp = positions.get(edge.end);
+    if (sp && tp) {
+      const ss = sizes.get(edge.start) ?? DEFAULT_NODE_SIZE.rectangle;
+      const ts = sizes.get(edge.end) ?? DEFAULT_NODE_SIZE.rectangle;
+      const forward = isHorizontalDir
+        ? tp.x + ts.w / 2 >= sp.x + ss.w / 2
+        : tp.y + ts.h / 2 >= sp.y + ss.h / 2;
+      if (isHorizontalDir) {
+        graphEdge.exit = forward ? { x: 1, y: 0.5 } : { x: 0, y: 0.5 };
+        graphEdge.entry = forward ? { x: 0, y: 0.5 } : { x: 1, y: 0.5 };
+      } else {
+        graphEdge.exit = forward ? { x: 0.5, y: 1 } : { x: 0.5, y: 0 };
+        graphEdge.entry = forward ? { x: 0.5, y: 0 } : { x: 0.5, y: 1 };
+      }
+    }
+
     if (wp && wp.length > 0) graphEdge.waypoints = wp;
     graphEdges.push(graphEdge);
   }

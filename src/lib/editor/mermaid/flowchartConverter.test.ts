@@ -22,6 +22,7 @@ import {
   convertFlowchartToSnapshot,
 } from './flowchartConverter';
 import type { FlowchartData, MermaidVertex, MermaidEdge } from './mermaidParser';
+import type { GraphEdge, GraphNode } from '../../../components/editor/nodes/graph/graphSnapshot';
 
 /* ------------------------------------------------------------------ */
 /* measureLabel                                                        */
@@ -363,4 +364,208 @@ test('convertFlowchartToSnapshot: 节点尺寸容纳 label，坐标不重叠', (
       assert.ok(!overlap, `节点 ${a.id} 与 ${b.id} 不应重叠`);
     }
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* 路由不变量：烘焙端口 + 通道航点后，任何边线段不穿过非端点节点            */
+/* ------------------------------------------------------------------ */
+
+/** 用户截图同款四层架构拓扑：12 节点 / 14 边，含 2 条跨层长边 */
+function makeFourLayerArch(): FlowchartData {
+  const v = (id: string, text: string): [string, MermaidVertex] => [
+    id,
+    { id, labelType: 'text', text },
+  ];
+  const vertices = new Map<string, MermaidVertex>([
+    v('App', '移动App'),
+    v('Web', 'Web端'),
+    v('Mini', '小程序'),
+    v('GW', '网关'),
+    v('S1', '服务A'),
+    v('S2', '服务B'),
+    v('S3', '服务C'),
+    v('S4', '服务D'),
+    v('DB', '数据库'),
+    v('Cache', '缓存'),
+    v('MQ', '消息队列'),
+    v('ES', '搜索'),
+  ]);
+  const e = (start: string, end: string): MermaidEdge => ({
+    start,
+    end,
+    text: '',
+    type: 'arrow_point',
+    labelType: 'text',
+    stroke: 'normal',
+  });
+  const edges: MermaidEdge[] = [
+    e('App', 'GW'),
+    e('Web', 'GW'),
+    e('Mini', 'GW'),
+    e('GW', 'S1'),
+    e('GW', 'S2'),
+    e('GW', 'S3'),
+    e('GW', 'S4'),
+    e('S1', 'DB'),
+    e('S2', 'DB'),
+    e('S2', 'ES'),
+    e('S3', 'Cache'),
+    e('S4', 'MQ'),
+    e('GW', 'DB'), // 跨层长边 span=2
+    e('App', 'S4'), // 跨层长边 span=2
+  ];
+  return { vertices, edges, subgraphs: [], direction: 'TB' };
+}
+
+type Pt = { x: number; y: number };
+
+/** 两线段严格相交（共线/端点接触不算，避免擦边误判） */
+function segmentsCross(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
+  const cross = (o: Pt, p: Pt, q: Pt) =>
+    (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+  const d1 = cross(a, b, c);
+  const d2 = cross(a, b, d);
+  const d3 = cross(c, d, a);
+  const d4 = cross(c, d, b);
+  return d1 * d2 < 0 && d3 * d4 < 0;
+}
+
+/** 线段是否与矩形内部相交（严格：贴边/擦角不算） */
+function segIntersectsRect(p: Pt, q: Pt, n: GraphNode): boolean {
+  const inside = (pt: Pt) =>
+    pt.x > n.x && pt.x < n.x + n.w && pt.y > n.y && pt.y < n.y + n.h;
+  if (inside(p) || inside(q)) return true;
+  const tl = { x: n.x, y: n.y };
+  const tr = { x: n.x + n.w, y: n.y };
+  const bl = { x: n.x, y: n.y + n.h };
+  const br = { x: n.x + n.w, y: n.y + n.h };
+  return (
+    segmentsCross(p, q, tl, tr) ||
+    segmentsCross(p, q, tr, br) ||
+    segmentsCross(p, q, br, bl) ||
+    segmentsCross(p, q, bl, tl)
+  );
+}
+
+/**
+ * 还原一条边的运行时折线：
+ *  - 跨层边：exit 端口点 -> 烘焙航点 -> entry 端口点
+ *  - 相邻层边：模拟内置 OrthogonalConnector 的 Z 形路由，
+ *    水平段落在相邻层缝隙中点
+ */
+function edgePolyline(
+  edge: GraphEdge,
+  nodeById: Map<string, GraphNode>,
+  isHorizontal: boolean,
+): Pt[] {
+  const s = nodeById.get(edge.source)!;
+  const t = nodeById.get(edge.target)!;
+  const exit: Pt = { x: s.x + edge.exit!.x * s.w, y: s.y + edge.exit!.y * s.h };
+  const entry: Pt = { x: t.x + edge.entry!.x * t.w, y: t.y + edge.entry!.y * t.h };
+  const pts: Pt[] = [exit];
+  if (edge.waypoints && edge.waypoints.length > 0) {
+    pts.push(...edge.waypoints);
+  } else if (isHorizontal) {
+    const midX =
+      exit.x <= entry.x ? (s.x + s.w + t.x) / 2 : (s.x + t.x + t.w) / 2;
+    pts.push({ x: midX, y: exit.y }, { x: midX, y: entry.y });
+  } else {
+    const midY =
+      exit.y <= entry.y ? (s.y + s.h + t.y) / 2 : (s.y + t.y + t.h) / 2;
+    pts.push({ x: exit.x, y: midY }, { x: entry.x, y: midY });
+  }
+  pts.push(entry);
+  // 去除连续重复点（零长线段不参与相交判断）
+  return pts.filter((p, i) => {
+    const prev = pts[i - 1];
+    return !prev || prev.x !== p.x || prev.y !== p.y;
+  });
+}
+
+/** 核心断言：每条边折线的任何线段不与任何非端点节点的 bbox 相交 */
+function assertNoEdgeCrossesNodes(snap: { nodes: GraphNode[]; edges: GraphEdge[] }, direction: string) {
+  const nodeById = new Map(snap.nodes.map((n) => [n.id, n]));
+  const isHorizontal = direction === 'LR' || direction === 'RL';
+  for (const edge of snap.edges) {
+    const pts = edgePolyline(edge, nodeById, isHorizontal);
+    for (let i = 0; i < pts.length - 1; i++) {
+      for (const node of snap.nodes) {
+        if (node.id === edge.source || node.id === edge.target) continue;
+        assert.ok(
+          !segIntersectsRect(pts[i], pts[i + 1], node),
+          `边 ${edge.id} 线段(${pts[i].x},${pts[i].y})->(${pts[i + 1].x},${pts[i + 1].y}) 不应穿过节点 ${node.id}`,
+        );
+      }
+    }
+  }
+}
+
+test('snapshot: 所有边都带 exit/entry 端口约束', () => {
+  const snap = convertFlowchartToSnapshot(makeFourLayerArch());
+  for (const edge of snap.edges) {
+    assert.ok(edge.exit, `边 ${edge.id} 应有 exit 端口`);
+    assert.ok(edge.entry, `边 ${edge.id} 应有 entry 端口`);
+  }
+});
+
+test('snapshot: 跨层边 waypoints 逐段正交（相邻点共享 x 或 y）', () => {
+  const snap = convertFlowchartToSnapshot(makeFourLayerArch());
+  const withWp = snap.edges.filter((e) => e.waypoints && e.waypoints.length > 0);
+  assert.ok(withWp.length >= 2, '应至少有 2 条跨层边带航点');
+  for (const edge of withWp) {
+    const s = snap.nodes.find((n) => n.id === edge.source)!;
+    const t = snap.nodes.find((n) => n.id === edge.target)!;
+    const pts: Pt[] = [
+      { x: s.x + edge.exit!.x * s.w, y: s.y + edge.exit!.y * s.h },
+      ...edge.waypoints!,
+      { x: t.x + edge.entry!.x * t.w, y: t.y + edge.entry!.y * t.h },
+    ].filter((p, i, arr) => {
+      const prev = arr[i - 1];
+      return !prev || prev.x !== p.x || prev.y !== p.y;
+    });
+    for (let i = 0; i < pts.length - 1; i++) {
+      const ok = pts[i].x === pts[i + 1].x || pts[i].y === pts[i + 1].y;
+      assert.ok(ok, `边 ${edge.id} 第 ${i} 段应正交: (${pts[i].x},${pts[i].y})->(${pts[i + 1].x},${pts[i + 1].y})`);
+    }
+  }
+});
+
+test('snapshot: TB 四层架构图任何边线段不穿过非端点节点', () => {
+  const snap = convertFlowchartToSnapshot(makeFourLayerArch());
+  assertNoEdgeCrossesNodes(snap, 'TB');
+});
+
+test('snapshot: LR 四层架构图任何边线段不穿过非端点节点', () => {
+  const data = { ...makeFourLayerArch(), direction: 'LR' };
+  const snap = convertFlowchartToSnapshot(data);
+  assertNoEdgeCrossesNodes(snap, 'LR');
+});
+
+test('snapshot: 用户示例图任何边线段不穿过非端点节点', () => {
+  const { vertices, edges } = makeUserExample();
+  const snap = convertFlowchartToSnapshot({ vertices, edges, subgraphs: [], direction: 'TB' });
+  assertNoEdgeCrossesNodes(snap, 'TB');
+});
+
+test('snapshot: 平行边生成不同 id', () => {
+  const vertices = new Map<string, MermaidVertex>([
+    ['A', { id: 'A', labelType: 'text', text: 'A' }],
+    ['B', { id: 'B', labelType: 'text', text: 'B' }],
+  ]);
+  const e = (): MermaidEdge => ({
+    start: 'A',
+    end: 'B',
+    text: '',
+    type: 'arrow_point',
+    labelType: 'text',
+    stroke: 'normal',
+  });
+  const snap = convertFlowchartToSnapshot({
+    vertices,
+    edges: [e(), e()],
+    subgraphs: [],
+    direction: 'TB',
+  });
+  assert.equal(snap.edges.length, 2);
+  assert.notEqual(snap.edges[0].id, snap.edges[1].id);
 });
