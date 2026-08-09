@@ -225,3 +225,45 @@ ctxRef.current.getHandle(sel.anchorId)?.setTextSelection(anchorRange.from, ancho
 3. **能用 decoration 就别用原生选区**。跨 section 选区的视觉表现应该完全由 ProseMirror decoration 控制，原生选区只用于保持焦点，且应保持折叠状态。
 
 ---
+
+## #003 — 拖拽高亮框缺底边/右下角（inset box-shadow 绘制残缺）
+
+**状态**：已修复
+**日期**：2026-08
+**影响文件**：`src/components/documents/DocumentTreeRenderer.tsx`、`src/components/documents/DocumentSidebar.tsx`
+
+### 症状
+
+把文档拖到文件夹上时，文件夹的 drop-target 高亮框（圆角边框 + 浅色背景）**底边和右下角不绘制**：只画出左下角一小段弧线，上/左/右边框正常。
+
+### 根因
+
+高亮框用的是 `ring-1 ring-inset`（即 `box-shadow: inset 0 0 0 1px`）。元素的**背景色完整绘制、只有 inset 阴影残缺**，排除布局/裁剪问题——这是 WKWebView 分块（tiled）绘制对 inset box-shadow 的漏绘：拖拽过程中 `dragOverTarget` 随 pointermove 高频切换，类名增删 + `transition-colors` 逐帧重绘时，部分 tile 没有把阴影画进去，且之后没有触发完整重绘，残缺就一直留在屏幕上。
+
+### 解决方案
+
+把 inset ring 换成**常驻的透明真实边框**，高亮时只切换 `border-color`：
+
+```tsx
+// 旧：
+isDropTarget ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)] bg-[...]' : ''
+
+// 新：border 永远占位（无布局跳动），只过渡颜色
+isDropTarget ? 'border-[var(--vscode-focusBorder)] bg-[...]' : 'border-transparent'
+```
+
+边框随盒模型原子绘制，不走 box-shadow 的分块阴影路径，彻底绕开该问题。透明边框常驻也保证了高亮出现/消失时不会有 1px 布局抖动。
+
+### 墓志铭
+
+> 背景画满了、影子缺一角——不是布局错了，是阴影没被画进去。
+> WKWebView 的 inset box-shadow 在频繁重绘时会漏 tile；
+> 要稳定的"内描边"，用常驻透明 border，别用 inset ring。
+
+### 教训
+
+1. **"背景完整但边框残缺"指向绘制层而非布局层**。先确认缺的是哪种绘制产物（bg / border / box-shadow），再决定怀疑谁。
+2. **WKWebView 里高频切换的 inset box-shadow 不可靠**。`ring-inset` 适合静态装饰，不适合拖拽高亮这类逐帧增删的场景。
+3. **同类隐患**：`NavTree.tsx` 的 `NavRow` `highlighted` 态仍用 `ring-1 ring-inset`（静态高亮，暂未观察到问题）；若日后出现同样症状，按本条目同款方案修。
+
+---

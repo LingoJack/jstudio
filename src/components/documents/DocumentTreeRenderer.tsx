@@ -170,10 +170,13 @@ export function DocumentTreeRenderer({
       <div
         key={f.id}
         data-drop-target={f.id}
-        className={`rounded-md transition-colors duration-150 ${
+        // Reserved transparent border instead of ring-inset: WKWebView
+        // intermittently fails to paint the full inset box-shadow (missing
+        // bottom/right edges). A real border always paints atomically.
+        className={`rounded-md border transition-colors duration-150 ${
           isDropTarget || isFlashing
-            ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
-            : ''
+            ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
+            : 'border-transparent'
         }`}
       >
         {/* Folder row */}

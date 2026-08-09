@@ -47,6 +47,7 @@ import {
   DEFAULT_APP_THEME_ID_DARK,
   DEFAULT_APP_THEME_ID_LIGHT,
 } from '../../lib/themes';
+import { pinyinMatchRange } from '../../lib/documents/pinyinMatch';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -231,9 +232,8 @@ export default function CommandPaletteWindow() {
     if (scope === 'documents') {
       return documents
         .map((doc): { doc: DocumentMeta; titleMatch: [number, number] | null } | null => {
-          const title = (doc.title || '').toLowerCase();
-          const idx = title.indexOf(effectiveQuery);
-          return idx === -1 ? null : { doc, titleMatch: [idx, idx + effectiveQuery.length] };
+          const match = pinyinMatchRange(effectiveQuery, doc.title || '');
+          return match ? { doc, titleMatch: match } : null;
         })
         .filter((x): x is { doc: DocumentMeta; titleMatch: [number, number] | null } => x !== null)
         .map((x) => ({ kind: 'document' as const, ...x }));
@@ -242,9 +242,8 @@ export default function CommandPaletteWindow() {
     if (scope === 'terminal') {
       return sessions
         .map((s): { session: TerminalSessionInfo; titleMatch: [number, number] | null } | null => {
-          const title = getSessionTitle(s).toLowerCase();
-          const idx = title.indexOf(effectiveQuery);
-          return idx === -1 ? null : { session: s, titleMatch: [idx, idx + effectiveQuery.length] };
+          const match = pinyinMatchRange(effectiveQuery, getSessionTitle(s));
+          return match ? { session: s, titleMatch: match } : null;
         })
         .filter((x): x is { session: TerminalSessionInfo; titleMatch: [number, number] | null } => x !== null)
         .map((x) => ({ kind: 'session' as const, ...x }));
@@ -252,9 +251,8 @@ export default function CommandPaletteWindow() {
 
     return SETTINGS_SECTIONS.map(
       (sec): { sectionId: SettingsSectionId; titleMatch: [number, number] | null } | null => {
-        const label = t(sec.labelKey).toLowerCase();
-        const idx = label.indexOf(effectiveQuery);
-        return idx === -1 ? null : { sectionId: sec.id, titleMatch: [idx, idx + effectiveQuery.length] };
+        const match = pinyinMatchRange(effectiveQuery, t(sec.labelKey));
+        return match ? { sectionId: sec.id, titleMatch: match } : null;
       },
     )
       .filter((x): x is { sectionId: SettingsSectionId; titleMatch: [number, number] | null } => x !== null)

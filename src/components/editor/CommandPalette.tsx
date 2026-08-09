@@ -33,6 +33,7 @@ import {
   getSessionTitle,
   formatDateOr,
 } from '../../lib/commandPalette/shared.tsx';
+import { pinyinMatchRange } from '../../lib/documents/pinyinMatch';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -128,44 +129,32 @@ export default function CommandPalette() {
     }
 
     if (searchScope === 'documents') {
-      const q = debouncedQuery.toLowerCase();
       return documents
         .map((doc): { doc: DocumentMeta; titleMatch: [number, number] | null } | null => {
-          const title = (doc.title || '').toLowerCase();
-          if (!q) return { doc, titleMatch: null };
-          const idx = title.indexOf(q);
-          return idx === -1
-            ? null
-            : { doc, titleMatch: [idx, idx + q.length] };
+          if (!debouncedQuery) return { doc, titleMatch: null };
+          const match = pinyinMatchRange(debouncedQuery, doc.title || '');
+          return match ? { doc, titleMatch: match } : null;
         })
         .filter((x): x is { doc: DocumentMeta; titleMatch: [number, number] | null } => x !== null)
         .map((x) => ({ kind: 'document' as const, ...x }));
     }
 
     if (searchScope === 'terminal') {
-      const q = debouncedQuery.toLowerCase();
       return sessions
         .map((s): { session: TerminalSession; titleMatch: [number, number] | null } | null => {
-          const title = getSessionTitle(s).toLowerCase();
-          if (!q) return { session: s, titleMatch: null };
-          const idx = title.indexOf(q);
-          return idx === -1
-            ? null
-            : { session: s, titleMatch: [idx, idx + q.length] };
+          if (!debouncedQuery) return { session: s, titleMatch: null };
+          const match = pinyinMatchRange(debouncedQuery, getSessionTitle(s));
+          return match ? { session: s, titleMatch: match } : null;
         })
         .filter((x): x is { session: TerminalSession; titleMatch: [number, number] | null } => x !== null)
         .map((x) => ({ kind: 'session' as const, ...x }));
     }
 
     // settings
-    const q = debouncedQuery.toLowerCase();
     return SETTINGS_SECTIONS.map((sec): { sectionId: SettingsSectionId; titleMatch: [number, number] | null } | null => {
-      const label = t(sec.labelKey).toLowerCase();
-      if (!q) return { sectionId: sec.id, titleMatch: null };
-      const idx = label.indexOf(q);
-      return idx === -1
-        ? null
-        : { sectionId: sec.id, titleMatch: [idx, idx + q.length] };
+      if (!debouncedQuery) return { sectionId: sec.id, titleMatch: null };
+      const match = pinyinMatchRange(debouncedQuery, t(sec.labelKey));
+      return match ? { sectionId: sec.id, titleMatch: match } : null;
     })
       .filter((x): x is { sectionId: SettingsSectionId; titleMatch: [number, number] | null } => x !== null)
       .map((x) => ({ kind: 'settings' as const, ...x }));

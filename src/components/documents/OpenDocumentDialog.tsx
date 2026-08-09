@@ -12,6 +12,7 @@ import { useI18n } from '../../lib/core/i18n';
 import { IconButton } from '../ui/IconButton';
 import { useDialogTransition } from '../ui/useDialogTransition';
 import { HighlightedText, formatDateOr } from '../../lib/commandPalette/shared';
+import { pinyinMatchRange } from '../../lib/documents/pinyinMatch';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { DocumentMeta } from '../../types/storage';
 
@@ -71,11 +72,8 @@ export default function OpenDocumentDialog({
     }
     return sorted
       .map((doc) => {
-        const title = (doc.title || '').toLowerCase();
-        const idx = title.indexOf(q);
-        return idx === -1
-          ? null
-          : { doc, titleMatch: [idx, idx + q.length] as [number, number] };
+        const match = pinyinMatchRange(q, doc.title || '');
+        return match ? { doc, titleMatch: match } : null;
       })
       .filter((x): x is { doc: DocumentMeta; titleMatch: [number, number] } => x !== null);
   }, [docList, query]);

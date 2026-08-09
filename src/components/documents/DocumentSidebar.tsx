@@ -8,6 +8,7 @@ import { useBatchSelection } from './hooks/useBatchSelection';
 import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
 import { buildFolderTree } from '../../lib/documents/folderTree';
+import { pinyinIncludes } from '../../lib/documents/pinyinMatch';
 import { MoreHorizontal, X, Pin, Search } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
@@ -152,9 +153,7 @@ export default function DocumentSidebar() {
   const filteredDocs = useMemo(
     () =>
       isSearching
-        ? docList.filter((d) =>
-            (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
-          )
+        ? docList.filter((d) => pinyinIncludes(d.title || '', searchQuery))
         : docList,
     [docList, searchQuery, isSearching],
   );
@@ -492,10 +491,12 @@ export default function DocumentSidebar() {
       </div>
 
       {/* Documents + folders list (root drop zone) */}
+      {/* border-transparent reserved: avoids WKWebView inset box-shadow
+          paint glitches that ring-inset exhibits (see bug-graveyard #003) */}
       <div
         data-drop-target={ROOT_DROP_ID}
-        className={`flex-1 overflow-y-auto rounded-md px-3 space-y-0.5 transition-colors duration-150 ${
-          isRootDropTarget ? 'ring-1 ring-inset ring-[var(--vscode-focusBorder)]' : ''
+        className={`flex-1 overflow-y-auto rounded-md border px-3 space-y-0.5 transition-colors duration-150 ${
+          isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >
         {isSearching ? (
