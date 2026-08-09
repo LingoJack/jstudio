@@ -102,6 +102,8 @@ export function GraphCanvas({
   const moreMenuRef = useRef<HTMLDivElement>(null);
   // 形状菜单 hover 延迟关闭定时器（鼠标穿越 trigger→menu 间隙时防误关）。
   const shapesHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 更多菜单 hover 延迟关闭定时器（同 shapes 菜单）。
+  const moreHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 最近使用的形状 LRU 队列（最近优先，最多 4 个），用于下拉菜单顶部快速复用 +
   // trigger 按钮默认显示最近一个形状的 glyph。
   const [recentShapes, setRecentShapes] = useState<GraphNodeShape[]>([]);
@@ -347,6 +349,22 @@ export function GraphCanvas({
     }, 200);
   }, []);
 
+  // 更多菜单 hover 展开：同 shapes 菜单，进入立即打开，离开延迟 200ms 关闭。
+  const handleMoreEnter = useCallback(() => {
+    if (moreHoverTimer.current) {
+      clearTimeout(moreHoverTimer.current);
+      moreHoverTimer.current = null;
+    }
+    setMoreMenuOpen(true);
+  }, []);
+
+  const handleMoreLeave = useCallback(() => {
+    moreHoverTimer.current = setTimeout(() => {
+      setMoreMenuOpen(false);
+      moreHoverTimer.current = null;
+    }, 200);
+  }, []);
+
   const handleUndo = useCallback(() => undoManagerRef.current?.undo(), []);
   const handleRedo = useCallback(() => undoManagerRef.current?.redo(), []);
   const handleDelete = useCallback(() => {
@@ -504,7 +522,9 @@ export function GraphCanvas({
           onFit={handleFit}
           moreMenuOpen={moreMenuOpen}
           moreMenuRef={moreMenuRef}
-          onToggleMoreMenu={() => setMoreMenuOpen((v) => !v)}
+          onMoreClick={() => setMoreMenuOpen(true)}
+          onMoreEnter={handleMoreEnter}
+          onMoreLeave={handleMoreLeave}
           showGrid={showGrid}
           autoActivation={autoActivation}
           onToggleGrid={toggleGrid}

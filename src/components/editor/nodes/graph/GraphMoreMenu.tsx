@@ -1,8 +1,9 @@
 /**
- * GraphMoreMenu - 更多选项下拉菜单。
+ * GraphMoreMenu - 更多选项下拉菜单（hover 展开）。
  *
  * 抽取自 GraphToolbar。包含触发按钮 + 下拉内容 + 外层 ref 容器。
  * 收纳低频开关（网格 / 时序图自动附加块）和导入导出入口。
+ * 交互与 GraphShapesMenu 对齐：悬停展开，离开延迟关闭。
  * 样式沿用 jgraph-dropdown / jgraph-dropdown-menu 自有体系。
  */
 
@@ -22,7 +23,9 @@ import {
 export interface GraphMoreMenuProps {
   moreMenuOpen: boolean;
   moreMenuRef: RefObject<HTMLDivElement | null>;
-  onToggleMoreMenu: () => void;
+  onMoreClick: () => void;
+  onMoreEnter: () => void;
+  onMoreLeave: () => void;
   showGrid: boolean;
   autoActivation: boolean;
   onToggleGrid: () => void;
@@ -38,7 +41,9 @@ export interface GraphMoreMenuProps {
 export function GraphMoreMenu({
   moreMenuOpen,
   moreMenuRef,
-  onToggleMoreMenu,
+  onMoreClick,
+  onMoreEnter,
+  onMoreLeave,
   showGrid,
   autoActivation,
   onToggleGrid,
@@ -51,12 +56,17 @@ export function GraphMoreMenu({
   onCopySvg,
 }: GraphMoreMenuProps) {
   return (
-    <div className="jgraph-dropdown" ref={moreMenuRef}>
+    <div
+      className="jgraph-dropdown"
+      ref={moreMenuRef}
+      onMouseEnter={onMoreEnter}
+      onMouseLeave={onMoreLeave}
+    >
       <button
         type="button"
         className="jgraph-tool-btn"
-        title="更多选项"
-        onClick={onToggleMoreMenu}
+        title="更多选项｜悬停展开"
+        onClick={onMoreClick}
       >
         <MoreHorizontal size={16} />
       </button>

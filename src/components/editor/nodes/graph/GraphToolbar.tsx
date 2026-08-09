@@ -67,7 +67,9 @@ export interface GraphToolbarProps {
   // More menu
   moreMenuOpen: boolean;
   moreMenuRef: RefObject<HTMLDivElement | null>;
-  onToggleMoreMenu: () => void;
+  onMoreClick: () => void;
+  onMoreEnter: () => void;
+  onMoreLeave: () => void;
   showGrid: boolean;
   autoActivation: boolean;
   onToggleGrid: () => void;
@@ -108,7 +110,9 @@ export function GraphToolbar(props: GraphToolbarProps) {
     onFit,
     moreMenuOpen,
     moreMenuRef,
-    onToggleMoreMenu,
+    onMoreClick,
+    onMoreEnter,
+    onMoreLeave,
     showGrid,
     autoActivation,
     onToggleGrid,
@@ -263,11 +267,13 @@ export function GraphToolbar(props: GraphToolbarProps) {
       >
         <Maximize size={16} />
       </button>
-      {/* 更多菜单：收纳低频开关 & 导入入口 */}
+      {/* 更多菜单：收纳低频开关 & 导入入口（hover 展开） */}
       <GraphMoreMenu
         moreMenuOpen={moreMenuOpen}
         moreMenuRef={moreMenuRef}
-        onToggleMoreMenu={onToggleMoreMenu}
+        onMoreClick={onMoreClick}
+        onMoreEnter={onMoreEnter}
+        onMoreLeave={onMoreLeave}
         showGrid={showGrid}
         autoActivation={autoActivation}
         onToggleGrid={onToggleGrid}
