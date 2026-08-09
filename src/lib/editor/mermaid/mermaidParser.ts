@@ -63,6 +63,7 @@ export interface SequenceActor {
   name: string;
   description?: string;
   id?: string;
+  type?: string; // 'actor' | 'participant'
 }
 
 /** Sequence 消息数据 */

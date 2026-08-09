@@ -190,7 +190,7 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
 
     nodes.push({
       id: nodeId,
-      shape: 'lifeline',
+      shape: actor.type === 'actor' ? 'actor' : 'lifeline',
       x,
       y,
       w: LIFELINE_WIDTH,
