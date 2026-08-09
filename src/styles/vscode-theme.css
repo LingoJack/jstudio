@@ -3423,7 +3423,7 @@ button {
 
 .jgraph-fill-popover {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
@@ -3480,7 +3480,7 @@ button {
 
 .jgraph-dropdown-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;

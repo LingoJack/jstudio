@@ -37,7 +37,7 @@ import { MenuList, MenuItem, MenuDivider } from '../../ui/MenuList';
 const TABLE_MENU_TRIGGER_CLASS =
   'editor-toolbar-btn table-ctrl-btn flex h-7 w-7 items-center justify-center rounded text-[var(--vscode-editor-foreground)]';
 const TABLE_MENU_PANEL_CLASS =
-  'absolute right-0 top-full z-[101] mt-1 min-w-[130px]';
+  'absolute right-0 top-full z-[101] mt-2 min-w-[130px]';
 const TABLE_MENU_ACTIVE_CLASS = '!text-[var(--vscode-button-background)]';
 
 // ---------------------------------------------------------------------------

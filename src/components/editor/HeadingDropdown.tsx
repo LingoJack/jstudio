@@ -80,7 +80,7 @@ export function HeadingDropdown({
       {headingOpen && (
         <div
           ref={popoverRef}
-          className="editor-toolbar-menu absolute left-0 top-full z-[101] mt-1 min-w-[120px] py-1"
+          className="editor-toolbar-menu absolute left-0 top-full z-[101] mt-2 min-w-[120px] py-1"
         >
           {HEADING_LEVELS.map((level, i) => (
             <button

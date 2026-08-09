@@ -205,7 +205,7 @@ export default function BrowserStartPage() {
                     setBrowserSearchEngine(id);
                     setEngineMenuOpen(false);
                   }}
-                  className="absolute left-0 top-full mt-1"
+                  className="absolute left-0 top-full mt-2"
                 />
               )}
             </div>
