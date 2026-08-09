@@ -10,7 +10,7 @@ import {
   FileText, Plus, MoreHorizontal, FileDown,
   FolderPlus, Folder, FolderOpen, ChevronRight, Trash2, FolderInput, FolderDown,
   X, PackageOpen, Check, ArrowUpNarrowWide, ArrowDownWideNarrow, ArrowDownUp,
-  Pin,
+  Pin, Search,
 } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import TrashDialog from './TrashDialog';
@@ -61,6 +61,7 @@ export default function DocumentSidebar() {
   const addToast = useStore((s) => s.addToast);
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
+  const setSearchQuery = useStore((s) => s.setSearchQuery);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
   const sidebarPinned = useStore((s) => s.sidebarPinned);
   const toggleSidebarPinned = useStore((s) => s.toggleSidebarPinned);
@@ -92,6 +93,8 @@ export default function DocumentSidebar() {
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [moreMenuPos, setMoreMenuPos] = useState<{ x: number; y: number } | null>(null);
+  /** Keeps the hover-expanded sidebar open while the search input is focused. */
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // ── Batch selection state ─────────────────────────────────
   /** Unified selection set — contains both document ids and folder ids. */
@@ -135,7 +138,7 @@ export default function DocumentSidebar() {
     contextMenu || folderMenu || batchMenu || batchMoveMenu ||
     (moreMenuOpen && moreMenuPos)
   );
-  const suppressCollapse = anyFloatingMenuOpen || renamingId !== null || renamingFolderId !== null;
+  const suppressCollapse = anyFloatingMenuOpen || renamingId !== null || renamingFolderId !== null || searchFocused;
   const suppressCollapseRef = useRef(false);
   suppressCollapseRef.current = suppressCollapse;
   const prevSuppressRef = useRef(false);
@@ -1032,9 +1035,43 @@ export default function DocumentSidebar() {
         </div>
       ) : (
         <>
-      {/* Header - aligned with the tab bar height (h-9) */}
-      <div className="h-9 shrink-0 flex items-center justify-end px-3">
-        <div className="flex items-center gap-0.5">
+      {/* Header - aligned with the tab bar height (h-9); search is inline here */}
+      <div className="h-9 shrink-0 flex items-center gap-1.5 px-3">
+        <div
+          className={`flex-1 min-w-0 flex items-center gap-1.5 h-6 px-1.5 rounded-md transition-colors duration-150 ${
+            searchQuery || searchFocused
+              ? 'bg-[var(--vscode-input-background)] ring-1 ring-[var(--vscode-input-border)]'
+              : 'hover:bg-[var(--vscode-list-hoverBackground)]'
+          } focus-within:bg-[var(--vscode-input-background)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]`}
+        >
+          <Search className="w-3.5 h-3.5 opacity-50 shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            onKeyDown={(e) => {
+              if (handleNativeSelectAll(e)) return;
+              if (e.key === 'Escape') {
+                if (searchQuery) setSearchQuery('');
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            placeholder={t('search.placeholder')}
+            className="w-full min-w-0 bg-transparent text-body text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] focus:outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="shrink-0 p-0.5 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] transition-colors duration-150 cursor-pointer"
+              title={t('doclist.clearSearch')}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
           {/* Pin toggle */}
           <button
             onClick={handleTogglePin}
