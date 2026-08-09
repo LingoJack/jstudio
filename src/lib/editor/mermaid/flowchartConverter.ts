@@ -650,20 +650,6 @@ function assignCoordinates(
     }
   }
 
-  // ---- dummy 平滑：dummy 节点放到前后邻居的中点，使长边走直线 ----
-  for (let l = 1; l < levels.length - 1; l++) {
-    for (const node of levels[l]) {
-      if (!isDummy.has(node)) continue;
-      const preds = incoming.get(node) ?? [];
-      const succs = outgoing.get(node) ?? [];
-      if (preds.length === 1 && succs.length === 1) {
-        const pCenter = (crossPos.get(preds[0]) ?? 0) + crossDim(preds[0]) / 2;
-        const sCenter = (crossPos.get(succs[0]) ?? 0) + crossDim(succs[0]) / 2;
-        crossPos.set(node, (pCenter + sCenter) / 2);
-      }
-    }
-  }
-
   // ---- 转为 {x, y}，移除 dummy ----
   const positions = new Map<string, { x: number; y: number }>();
   let minX = Infinity,
