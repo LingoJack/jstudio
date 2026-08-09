@@ -61,6 +61,7 @@ import { LANGUAGES, getLanguageLabel } from "./codeBlockLanguages";
 import { buildMermaidConfig } from "./mermaidConfig";
 import { buildMermaidPreviewWindowHtml } from "./mermaidWindowHtml";
 import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
+import { LanguageDropdown } from "./code-block/LanguageDropdown";
 
 export default function CodeBlockView({
   node,
@@ -393,19 +394,7 @@ export default function CodeBlockView({
     [editor, getPos],
   );
 
-  // ---- Language dropdown state ----
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const [dropdownPosition, setDropdownPosition] = useState({
-    top: 0,
-    right: 0,
-  });
-  const badgeRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const savedSelectionRef = useRef<number | null>(null);
+  // ---- Language dropdown ---- (extracted to <LanguageDropdown />)
 
   const handleCopy = useCallback(() => {
     const codeEl = codeRef.current?.querySelector(".hljs");
@@ -426,120 +415,6 @@ export default function CodeBlockView({
   // events from reaching ProseMirror - identical pattern to CollapsibleView.
   const headerRef = useRef<HTMLDivElement | null>(null);
   useHeaderEventShield(headerRef);
-
-  const selectLanguage = useCallback(
-    (value: string) => {
-      updateAttributes({ language: value });
-      setDropdownOpen(false);
-      setSearchQuery("");
-      setHighlightedIndex(0);
-
-      // Restore editor focus after the dropdown closes. Use a microtask
-      // so React has time to unmount the search input first.
-      const savedPos = savedSelectionRef.current;
-      queueMicrotask(() => {
-        editor.commands.focus();
-        if (savedPos != null) {
-          // Place cursor at the saved position (clamped to the code block).
-          try {
-            const codeBlockPos = typeof getPos === "function" ? getPos() : null;
-            if (codeBlockPos != null) {
-              const nodeStart = codeBlockPos + 1; // +1 to enter the node
-              const nodeEnd = nodeStart + node.content.size;
-              const clamped = Math.max(nodeStart, Math.min(savedPos, nodeEnd));
-              editor.commands.setTextSelection(clamped);
-            }
-          } catch {
-            // best-effort; focus alone is sufficient fallback
-          }
-        }
-      });
-    },
-    [updateAttributes, editor, getPos, node],
-  );
-
-  // Close dropdown on outside click / Escape
-  useEffect(() => {
-    if (!dropdownOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        badgeRef.current &&
-        !badgeRef.current.contains(e.target as Node) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setDropdownOpen(false);
-        setSearchQuery("");
-        setHighlightedIndex(0);
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setDropdownOpen(false);
-        setSearchQuery("");
-        setHighlightedIndex(0);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    // Focus search input when opened
-    requestAnimationFrame(() => searchInputRef.current?.focus());
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [dropdownOpen]);
-
-  const toggleDropdown = useCallback(() => {
-    setDropdownOpen((prev) => {
-      if (!prev) {
-        // Opening — save current editor selection so we can restore it later
-        savedSelectionRef.current = editor.state.selection.from;
-        // Calculate position for portal rendering
-        if (badgeRef.current) {
-          const badgeRect = badgeRef.current.getBoundingClientRect();
-          setDropdownPosition({
-            top: badgeRect.bottom + 8,
-            right: window.innerWidth - badgeRect.right,
-          });
-        }
-      }
-      return !prev;
-    });
-  }, [editor]);
-
-  const filteredLanguages = searchQuery
-    ? LANGUAGES.filter(({ label, value }) => {
-        const q = searchQuery.toLowerCase();
-        return (
-          label.toLowerCase().includes(q) || value.toLowerCase().includes(q)
-        );
-      })
-    : LANGUAGES;
-
-  // Reset highlight when the filtered list changes
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    // Default to the currently selected language if it's in the filtered
-    // list, otherwise fall back to the first item.
-    const currentIdx = filteredLanguages.findIndex((l) => l.value === language);
-    setHighlightedIndex(currentIdx >= 0 ? currentIdx : 0);
-  }, [searchQuery, dropdownOpen]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Scroll highlighted item into view
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const list = listRef.current;
-    if (!list) return;
-    const item = list.children[highlightedIndex] as HTMLElement | undefined;
-    if (item) {
-      item.scrollIntoView({ block: "nearest" });
-    }
-  }, [highlightedIndex, dropdownOpen]);
 
   // ---- Action buttons (HTML/Mermaid preview toggle + copy) ----
   // Both reuse the shared `editor-toolbar-btn block-toolbar-btn` skin (--sm size variant) so the
@@ -716,90 +591,15 @@ export default function CodeBlockView({
               <span className="code-block-title-text">{title}</span>
             </button>
           ) : null}
-          <div
-            ref={badgeRef}
-            className="code-lang-badge"
-            onClick={toggleDropdown}
-            role="button"
-            tabIndex={0}
-          >
-            <span className="code-lang-label">
-              {getLanguageLabel(language)}
-            </span>
-            <ChevronDown size={12} className="code-lang-chevron" />
-          </div>
+          <LanguageDropdown
+            language={language}
+            onSelect={(value) => updateAttributes({ language: value })}
+            editor={editor}
+            getPos={getPos}
+            node={node}
+            t={t}
+          />
         </div>
-
-        {/* Custom dropdown panel - rendered via Portal to escape ProseMirror's event handling */}
-        {dropdownOpen &&
-          createPortal(
-            <div
-              ref={dropdownRef}
-              className="code-lang-dropdown code-lang-dropdown-portal"
-              style={{
-                position: "fixed",
-                top: dropdownPosition.top,
-                right: dropdownPosition.right,
-              }}
-            >
-              <div className="code-lang-search">
-                <Search size={13} className="code-lang-search-icon" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (handleNativeSelectAll(e)) return;
-                    if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      if (filteredLanguages.length === 0) return;
-                      setHighlightedIndex((prev) =>
-                        prev >= filteredLanguages.length - 1 ? 0 : prev + 1,
-                      );
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      if (filteredLanguages.length === 0) return;
-                      setHighlightedIndex((prev) =>
-                        prev <= 0 ? filteredLanguages.length - 1 : prev - 1,
-                      );
-                    } else if (e.key === "Enter") {
-                      e.preventDefault();
-                      const item =
-                        filteredLanguages[highlightedIndex] ??
-                        filteredLanguages[0];
-                      if (item) selectLanguage(item.value);
-                    } else if (e.key === "Escape") {
-                      e.preventDefault();
-                      setDropdownOpen(false);
-                      setSearchQuery("");
-                      setHighlightedIndex(0);
-                    }
-                  }}
-                  placeholder={t("code.searchLang")}
-                  className="code-lang-search-input"
-                />
-              </div>
-              <div ref={listRef} className="code-lang-list">
-                {filteredLanguages.length === 0 ? (
-                  <div className="code-lang-empty">{t("code.noLangMatch")}</div>
-                ) : (
-                  filteredLanguages.map(({ value, label }, index) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => selectLanguage(value)}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      className={`code-lang-option ${value === language ? "is-active" : ""} ${index === highlightedIndex ? "is-highlighted" : ""}`}
-                    >
-                      {label}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>,
-            document.body,
-          )}
 
         {/* Code content — highlighted by lowlight.
             Height is driven by the resize handle (displayHeight); when unset the

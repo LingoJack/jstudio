@@ -128,4 +128,7 @@ allow:
 - Shell(tail -10:*)
 - Shell(head -929:*)
 - Shell(mv /Users/jacklingo/dev_custom/jstudio/src/lib/toast.ts:*)
+- Shell(ls /Users/jacklingo/dev_custom/jstudio/src/components/editor/nodes/code-block/:*)
+- Shell(mkdir -p:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/src/components/agent:*)
 deny: []
