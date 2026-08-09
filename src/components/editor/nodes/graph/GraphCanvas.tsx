@@ -464,6 +464,7 @@ export function GraphCanvas({
     graphRef,
     containerRef,
     darkModeRef,
+    showGridRef,
     applyingRef,
     lastEmittedRef,
     onChangeRef,

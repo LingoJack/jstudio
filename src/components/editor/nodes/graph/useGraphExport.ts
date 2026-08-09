@@ -21,6 +21,7 @@ export interface UseGraphExportParams {
   graphRef: RefObject<Graph | null>;
   containerRef: RefObject<HTMLDivElement | null>;
   darkModeRef: RefObject<boolean>;
+  showGridRef: RefObject<boolean>;
   applyingRef: RefObject<boolean>;
   lastEmittedRef: RefObject<string>;
   onChangeRef: RefObject<(snapshotJson: string) => void>;
@@ -32,6 +33,7 @@ export function useGraphExport({
   graphRef,
   containerRef,
   darkModeRef,
+  showGridRef,
   applyingRef,
   lastEmittedRef,
   onChangeRef,
@@ -73,6 +75,8 @@ export function useGraphExport({
     const padding = 20;
     let width: number;
     let height: number;
+    let vx = 0;
+    let vy = 0;
 
     // view 的 scale 和 translate 已被 SvgCanvas2D 烘焙到元素坐标中，
     // 因此 viewBox 也必须用缩放后的坐标。
@@ -82,8 +86,8 @@ export function useGraphExport({
     const ty = view.translate.y * scale;
 
     if (bounds) {
-      const vx = bounds.x * scale + tx - padding;
-      const vy = bounds.y * scale + ty - padding;
+      vx = bounds.x * scale + tx - padding;
+      vy = bounds.y * scale + ty - padding;
       width = bounds.width * scale + padding * 2;
       height = bounds.height * scale + padding * 2;
       clone.setAttribute('viewBox', `${vx} ${vy} ${width} ${height}`);
@@ -99,9 +103,46 @@ export function useGraphExport({
     // 定位元素计算固有尺寸，导致内容纵向被拉伸约 20%（Chromium 无此问题）。
     clone.removeAttribute('style');
 
+    // 网格背景注入：maxGraph 的网格是 CSS background-image 画在容器 <div> 上的，
+    // 克隆 SVG 时不会带过去。当用户开启了网格（showGrid）时，需要在 SVG 内部
+    // 用 <pattern> + <rect> 复刻同样的 10px 点阵网格，使导出图片与画布一致。
+    if (showGridRef.current) {
+      const dark = darkModeRef.current;
+      const gridColor = dark
+        ? 'rgba(255,255,255,0.06)'
+        : 'rgba(0,0,0,0.035)';
+      const gridSize = 10;
+
+      const ns = 'http://www.w3.org/2000/svg';
+      const defs = document.createElementNS(ns, 'defs');
+      const pattern = document.createElementNS(ns, 'pattern');
+      pattern.setAttribute('id', 'jgraph-export-grid');
+      pattern.setAttribute('width', String(gridSize));
+      pattern.setAttribute('height', String(gridSize));
+      pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', `M ${gridSize} 0 L 0 0 0 ${gridSize}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', gridColor);
+      path.setAttribute('stroke-width', '1');
+      pattern.appendChild(path);
+      defs.appendChild(pattern);
+
+      const rect = document.createElementNS(ns, 'rect');
+      rect.setAttribute('x', String(vx));
+      rect.setAttribute('y', String(vy));
+      rect.setAttribute('width', String(width));
+      rect.setAttribute('height', String(height));
+      rect.setAttribute('fill', 'url(#jgraph-export-grid)');
+
+      // 插入到最前面，确保网格在最底层（所有 <g> 之前）。
+      clone.insertBefore(rect, clone.firstChild);
+      clone.insertBefore(defs, rect);
+    }
+
     const svgString = new XMLSerializer().serializeToString(clone);
     return { svgString, width, height };
-  }, [containerRef, graphRef]);
+  }, [containerRef, graphRef, darkModeRef, showGridRef]);
 
   const handleExportSvg = useCallback(() => {
     const result = buildExportSvg();
