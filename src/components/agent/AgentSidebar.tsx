@@ -24,22 +24,15 @@ import {
   FolderOpen,
   ChevronRight,
   ChevronDown,
-  Check,
-  Folder,
-  X,
   Pin,
 } from 'lucide-react';
-import {
-  MenuList,
-  MenuItem,
-  MenuDivider,
-} from '../ui/MenuList';
 import {
   WorkspaceList,
   WorkspaceExpandModal,
   groupSessionsByWorkspace,
   type WorkspaceGroup,
 } from './WorkspaceList';
+import { AgentWorkspaceMenu, workspaceDisplayName } from './AgentWorkspaceMenu';
 
 // ────────────────────────────────────────────────
 // Constants
@@ -49,15 +42,6 @@ const MAX_SESSIONS_PER_GROUP = 5;
 
 /** Width of the sidebar when collapsed (unpinned, not hovered). */
 const COLLAPSED_WIDTH = 48;
-
-// ────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────
-
-/** Extract a short display name from a workspace path */
-function workspaceDisplayName(ws: string): string {
-  return ws.split('/').pop() || ws;
-}
 
 // ────────────────────────────────────────────────
 // Workspace Select Modal (for creating task without active workspace)
@@ -510,55 +494,26 @@ export default function AgentSidebar() {
         </>
       )}
 
-      {/* ── Workspace dropdown menu (MenuList) ── */}
+      {/* ── Workspace dropdown menu ── */}
       {workspaceMenuPos && (
-        <MenuList
+        <AgentWorkspaceMenu
           x={workspaceMenuPos.x}
           y={workspaceMenuPos.y}
-          onClick={(e) => e.stopPropagation()}
-          className="max-h-[300px] overflow-y-auto"
-        >
-          {existingWorkspaces.length > 0 && (
-            <>
-              {existingWorkspaces.map((ws) => {
-                const isActive = ws === activeAgentWorkspace;
-                return (
-                  <MenuItem
-                    key={ws}
-                    icon={isActive ? <Check className="w-4 h-4" /> : <Folder className="w-4 h-4" />}
-                    onClick={() => {
-                      setActiveAgentWorkspace(ws);
-                      setWorkspaceMenuPos(null);
-                    }}
-                  >
-                    {workspaceDisplayName(ws)}
-                  </MenuItem>
-                );
-              })}
-              <MenuDivider />
-            </>
-          )}
-          <MenuItem
-            icon={<FolderOpen className="w-4 h-4" />}
-            onClick={() => {
-              handleOpenDirectory();
-              setWorkspaceMenuPos(null);
-            }}
-          >
-            {t('agent.openDirectory')}
-          </MenuItem>
-          {activeAgentWorkspace && (
-            <MenuItem
-              icon={<X className="w-4 h-4" />}
-              onClick={() => {
-                handleClearWorkspace();
-                setWorkspaceMenuPos(null);
-              }}
-            >
-              {t('agent.clearWorkspace')}
-            </MenuItem>
-          )}
-        </MenuList>
+          existingWorkspaces={existingWorkspaces}
+          activeAgentWorkspace={activeAgentWorkspace}
+          onSelectWorkspace={(ws) => {
+            setActiveAgentWorkspace(ws);
+            setWorkspaceMenuPos(null);
+          }}
+          onOpenDirectory={() => {
+            handleOpenDirectory();
+            setWorkspaceMenuPos(null);
+          }}
+          onClearWorkspace={() => {
+            handleClearWorkspace();
+            setWorkspaceMenuPos(null);
+          }}
+        />
       )}
 
       {/* Expand modal */}
