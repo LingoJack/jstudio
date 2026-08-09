@@ -36,7 +36,6 @@ import { Clock, ListTree } from 'lucide-react';
 import { useStore } from '../../../store/useStore';
 import { useI18n, type Language, type TranslationKey } from '../../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
-import { eventToBinding, resolveBinding } from '../../../lib/shortcuts/keyboardShortcuts';
 import {
   setFocusedEditor as setFocusedEditorRegistry,
   clearFocusedEditor as clearFocusedEditorRegistry,
@@ -48,8 +47,6 @@ import { formatDate } from '../../../lib/commandPalette/shared';
 import { countBlockCharacters } from '../../../lib/documents/charCount';
 import { isDocumentEmpty } from '../../../lib/documents/isDocumentEmpty';
 import { formatRelativeEditedTime } from '../../../lib/documents/formatRelativeEditedTime';
-import { editorForKeyboardTarget } from '../../../lib/editor/editorForKeyboardTarget';
-import { logicalCodeLineBoundary, visualCodeLineBoundary } from '../../../lib/editor/codeLineBoundary';
 import FormatBubbleMenu from '../FormatBubbleMenu';
 import TableControls from '../nodes/TableControls';
 import type { Block } from '../../../types';
@@ -61,6 +58,7 @@ import FindBar from './FindBar';
 import { EditorSkeleton } from './SectionSkeleton';
 import { useCursorTrail } from './useCursorTrail';
 import { useSectionLoader } from './useSectionLoader';
+import { useEditorKeyboardNav } from './useEditorKeyboardNav';
 import {
   CursorTrailProvider,
   CursorTrailRegistry,
@@ -176,153 +174,13 @@ export default function DocumentPanel({
     });
   }, []);
 
-  // -----------------------------------------------------------------
-  // Cmd/Ctrl + ArrowLeft / ArrowRight → jump to block/line start / end.
-  //
-  // Ported from the retired EditorPanel (see git history for the
-  // single-editor version). macOS WKWebView (Tauri's webview) intercepts
-  // Cmd+Left/Right at the native level and calls preventDefault()
-  // before the event reaches ProseMirror's handleKeyDown, so we must listen
-  // at the window capture phase — the earliest point we can see the event —
-  // and handle it ourselves. Route each event through its DOM target so a
-  // stale focused-editor ref cannot hijack title, portal, or toolbar inputs.
-  //
-  // Cmd/Ctrl+A (select-all) was previously handled here too, but is now
-  // forwarded through the macOS "Select All" menu item → `native-command`
-  // → `commandRegistry` ("app.selectAll") → `selectAllRegistry` handler
-  // registered above. Same pattern as Cmd+Z/Cmd+Shift+Z (undo/redo) and
-  // Cmd+` (inline code).
-  //
-  // NOTE: Cmd/Ctrl + ArrowUp/Down do NOT need this treatment — WKWebView
-  // does not intercept them, and SectionEditor's own `handleKeyDown` already
-  // routes them to `onJumpDocStart`/`onJumpDocEnd` at the normal DOM event
-  // phase (see SectionEditor.tsx).
-  // -----------------------------------------------------------------
-  useEffect(() => {
-    if (readOnly) return;
-
-    const handler = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      // Cmd+Option+Arrow is the workspace tab-cycle shortcut — let it
-      // pass through to the global handler in App.tsx.
-      if (e.altKey) return;
-
-      // ── Cmd/Ctrl+` → toggle inline code (editor.inlineCode) ──
-      // macOS/WKWebView intercepts Cmd+` as the system "cycle window"
-      // accelerator via performKeyEquivalent:, marking defaultPrevented
-      // before ProseMirror's keymap runs (same family as bug-graveyard #001
-      // and the Cmd+A menu-item issue). Resolve the effective binding from
-      // the shortcut registry so user overrides are respected.
-      if (e.key === '`') {
-        const editor = editorForKeyboardTarget(e.target, sectionEditorsRef.current);
-        if (editor) {
-          const binding = eventToBinding(e);
-          const overrides = useStore.getState().keyboardShortcuts;
-          if (binding === resolveBinding('editor.inlineCode', overrides)) {
-            editor.chain().focus().toggleCode().run();
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-          }
-        }
-      }
-
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-
-      // ── Title <input> branch ──
-      // When the title input is focused, Cmd/Ctrl+Arrow should jump to the
-      // start / end of the title text (it is a single line), optionally
-      // extending the selection with Shift — NOT move into the sections
-      // below. WKWebView intercepts Cmd+Arrow natively, so we must drive the
-      // input's selection ourselves here at the window capture phase.
-      const titleEl = titleInputRef.current;
-      if (titleEl && e.target === titleEl) {
-        const toStart = e.key === 'ArrowLeft';
-        const len = titleEl.value.length;
-        const target = toStart ? 0 : len;
-        if (e.shiftKey) {
-          // Keep the fixed (anchor) end and move the caret end to the edge.
-          const s = titleEl.selectionStart ?? 0;
-          const en = titleEl.selectionEnd ?? 0;
-          const anchor = titleEl.selectionDirection === 'backward' ? en : s;
-          titleEl.setSelectionRange(
-            Math.min(anchor, target),
-            Math.max(anchor, target),
-            target < anchor ? 'backward' : 'forward',
-          );
-        } else {
-          titleEl.setSelectionRange(target, target);
-        }
-        // The trail re-measures on the input's 'select' event; nudge it too
-        // in case the selection didn't actually change (already at the edge).
-        cursorTrailRegistry.markDirty();
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      const editor = editorForKeyboardTarget(e.target, sectionEditorsRef.current);
-      if (!editor) return;
-
-      const view = editor.view;
-      const { state } = view;
-      const { selection } = state;
-      if (!(selection instanceof TextSelection)) return;
-      const $head = selection.$head;
-      if ($head.depth < 1) return;
-
-      const toStart = e.key === 'ArrowLeft';
-      const extend = e.shiftKey;
-      let edge: number;
-      // Code blocks wrap long lines. Ask WebKit for the current visual line
-      // boundary, then map that DOM caret back to a ProseMirror position.
-      // If the native selection cannot be measured safely, fall back to the
-      // source line delimited by \n.
-      const inCodeBlock =
-        $head.depth > 0 && $head.parent.type.name === 'codeBlock';
-      if (inCodeBlock) {
-        const codeNode = $head.parent;
-        const blockStart = $head.start();
-        const blockEnd = blockStart + codeNode.content.size;
-        edge =
-          visualCodeLineBoundary(
-            editor,
-            selection.head,
-            blockStart,
-            blockEnd,
-            toStart,
-          ) ??
-          blockStart +
-            logicalCodeLineBoundary(
-              codeNode.textContent,
-              $head.parentOffset,
-              toStart,
-            );
-      } else {
-        // Use $head.start() / $head.end() (defaults to $head.depth) so that we
-        // always resolve to the **text block** boundary (paragraph/heading)
-        // rather than the top-level node. For list items the paragraph lives at
-        // depth 3 (doc > bulletList > listItem > paragraph); using depth 1
-        // would jump to the start/end of the *entire list* instead of the
-        // current item.
-        edge = toStart ? $head.start() : $head.end();
-      }
-
-      const tr = extend
-        ? state.tr.setSelection(
-            TextSelection.create(state.doc, selection.$anchor.pos, edge),
-          )
-        : state.tr.setSelection(TextSelection.create(state.doc, edge));
-      tr.setMeta('addToHistory', false);
-      view.dispatch(tr);
-      view.focus();
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
-  }, [readOnly]);
+  // ── Keyboard navigation (extracted to useEditorKeyboardNav hook) ──
+  useEditorKeyboardNav({
+    readOnly,
+    titleInputRef,
+    sectionEditorsRef,
+    cursorTrailRegistry,
+  });
 
 
 
