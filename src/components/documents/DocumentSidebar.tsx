@@ -7,6 +7,7 @@ import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import { useSidebarHover } from './hooks/useSidebarHover';
 import { useBatchSelection } from './hooks/useBatchSelection';
+import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folderTree';
 import {
   FileText, Plus, MoreHorizontal, FileDown,
@@ -25,10 +26,8 @@ import { NavBranch, NavRow } from '../ui/NavTree';
 // ──────────────────────────────────────────────────────────────────
 
 /** Sentinel id for the root-level drop zone (no folder). */
-const ROOT_DROP_ID = '__root__';
 
 /** Minimum pointer movement (px) before a click becomes a drag. */
-const DRAG_THRESHOLD = 5;
 
 /** Width of the sidebar when collapsed (unpinned, not hovered). */
 const COLLAPSED_WIDTH = 48;
@@ -160,20 +159,7 @@ export default function DocumentSidebar() {
    * when something the user can *see* changes (dragging on/off,
    * highlight target switch).
    */
-  const drag = useRef({
-    docId: '',
-    startX: 0,
-    startY: 0,
-    active: false,   // true once the threshold is exceeded
-    pointerId: -1,
-  });
 
-  /** Visual: which doc row is currently being dragged (dim it). */
-  const [draggingDocId, setDraggingDocId] = useState<string | null>(null);
-  /** Visual: which drop target is currently highlighted. */
-  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
-  /** Brief flash when a move succeeds. */
-  const [flashFolderId, setFlashFolderId] = useState<string | null>(null);
 
   // ── Derived: folder expand state ──────────────────────────
   const isFolderExpanded = useCallback(
@@ -521,117 +507,27 @@ export default function DocumentSidebar() {
     t,
   });
 
+  // ── Drag-and-drop (extracted to useDocDragDrop hook) ──
+  const {
+    draggingDocId,
+    dragOverTarget,
+    flashFolderId,
+    dragArmed,
+    onDocPointerDown,
+  } = useDocDragDrop({
+    docList,
+    selectedIds,
+    setSelectedIds,
+    moveDocumentToFolder,
+    moveDocumentsToFolder,
+    renamingId,
+    suppressClick,
+  });
+
   /**
    * `true` between pointerdown and pointerup/cancel.
    * This *state* triggers the effect that attaches global listeners.
    */
-  const [dragArmed, setDragArmed] = useState(false);
-
-  const onDocPointerDown = (e: React.PointerEvent, docId: string) => {
-    // Only left button
-    if (e.button !== 0) return;
-    // Don't interfere with text selection inside rename input
-    if (renamingId === docId) return;
-
-    drag.current = {
-      docId,
-      startX: e.clientX,
-      startY: e.clientY,
-      active: false,
-      pointerId: e.pointerId,
-    };
-    setDragArmed(true);
-  };
-
-  // Global pointermove / pointerup — attached whenever a potential
-  // drag is in progress (pointerdown happened but pointerup hasn't yet).
-  useEffect(() => {
-    if (!dragArmed) return;
-
-    /** Find the drop-target id under a screen point, or null. */
-    const findDropTarget = (x: number, y: number): string | null => {
-      const el = document.elementFromPoint(x, y);
-      if (!el) return null;
-      const target = (el as HTMLElement).closest('[data-drop-target]') as HTMLElement | null;
-      return target?.dataset.dropTarget ?? null;
-    };
-
-    const onMove = (e: PointerEvent) => {
-      const d = drag.current;
-      if (d.pointerId === -1) return;
-
-      const dx = e.clientX - d.startX;
-      const dy = e.clientY - d.startY;
-
-      // Activate drag once threshold is crossed
-      if (!d.active) {
-        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
-        d.active = true;
-        setDraggingDocId(d.docId);
-      }
-
-      e.preventDefault();
-
-      // Highlight the folder under the cursor
-      const target = findDropTarget(e.clientX, e.clientY);
-      setDragOverTarget(target);
-    };
-
-    const onUp = (e: PointerEvent) => {
-      const d = drag.current;
-
-      if (d.active) {
-        // Commit the drop
-        const target = findDropTarget(e.clientX, e.clientY);
-        if (target) {
-          const folderId = target === ROOT_DROP_ID ? null : target;
-
-          // If the dragged doc is part of a multi-selection, move all
-          // selected docs. Otherwise move just the one (and clear selection).
-          if (selectedIds.size > 1 && selectedIds.has(d.docId)) {
-            moveDocumentsToFolder([...selectedIds], folderId);
-            setSelectedIds(new Set());
-          } else {
-            const doc = docList.find((x) => x.id === d.docId);
-            const currentFolder = doc?.folderId ?? null;
-            if (currentFolder !== folderId) {
-              moveDocumentToFolder(d.docId, folderId);
-            }
-            setSelectedIds(new Set());
-          }
-          if (folderId) {
-            setFlashFolderId(folderId);
-            setTimeout(() => setFlashFolderId(null), 600);
-          }
-        }
-        // Suppress the click that follows pointerup so we don't
-        // accidentally open the document.
-        suppressClick.current = true;
-      }
-
-      // Reset
-      drag.current = { docId: '', startX: 0, startY: 0, active: false, pointerId: -1 };
-      setDraggingDocId(null);
-      setDragOverTarget(null);
-      setDragArmed(false);
-    };
-
-    const onCancel = () => {
-      drag.current = { docId: '', startX: 0, startY: 0, active: false, pointerId: -1 };
-      setDraggingDocId(null);
-      setDragOverTarget(null);
-      setDragArmed(false);
-    };
-
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onCancel);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onCancel);
-    };
-  }, [dragArmed, docList, moveDocumentToFolder, selectedIds, moveDocumentsToFolder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render helpers ────────────────────────────────────────
 
