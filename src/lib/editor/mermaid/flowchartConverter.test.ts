@@ -569,3 +569,125 @@ test('snapshot: 平行边生成不同 id', () => {
   assert.equal(snap.edges.length, 2);
   assert.notEqual(snap.edges[0].id, snap.edges[1].id);
 });
+
+/* ------------------------------------------------------------------ */
+/* 回边外侧环路：截图同款 LR 主链 + 多条回边                                */
+/* ------------------------------------------------------------------ */
+
+/** 截图同款：LR 软件流程主链 + 3 条回边（否/否/是） */
+function makeFlowWithLoops(): FlowchartData {
+  const v = (id: string, text: string, type = ''): [string, MermaidVertex] => [
+    id,
+    { id, labelType: 'text', text, type },
+  ];
+  const vertices = new Map<string, MermaidVertex>([
+    v('A', '需求分析'),
+    v('B', '系统设计'),
+    v('C', '编码开发'),
+    v('D', '代码审查'),
+    v('E', '通过审查?', 'diamond'),
+    v('F', '单元测试'),
+    v('G', '测试通过?', 'diamond'),
+    v('H', '部署上线'),
+    v('I', '运维监控'),
+    v('J', '发现问题?', 'diamond'),
+    v('K', '稳定运行'),
+  ]);
+  const e = (start: string, end: string, text = ''): MermaidEdge => ({
+    start,
+    end,
+    text,
+    type: 'arrow_point',
+    labelType: 'text',
+    stroke: 'normal',
+  });
+  const edges: MermaidEdge[] = [
+    e('A', 'B'),
+    e('B', 'C'),
+    e('C', 'D'),
+    e('D', 'E'),
+    e('E', 'F', '是'),
+    e('E', 'C', '否'), // 回边 span=2
+    e('F', 'G'),
+    e('G', 'H', '是'),
+    e('G', 'C', '否'), // 回边 span=4
+    e('H', 'I'),
+    e('I', 'J'),
+    e('J', 'D', '是'), // 回边 span=6
+    e('J', 'K', '否'),
+  ];
+  return { vertices, edges, subgraphs: [], direction: 'LR' };
+}
+
+test('snapshot: 回边不参与布局——LR 主链所有节点同一行', () => {
+  const snap = convertFlowchartToSnapshot(makeFlowWithLoops());
+  const cys = snap.nodes.map((n) => n.y + n.h / 2);
+  const min = Math.min(...cys);
+  const max = Math.max(...cys);
+  assert.ok(max - min < 1, `主链节点中心 y 应一致（差 ${max - min}）`);
+});
+
+test('snapshot: 回边走图外侧环路，线段不穿过任何节点', () => {
+  const snap = convertFlowchartToSnapshot(makeFlowWithLoops());
+  assertNoEdgeCrossesNodes(snap, 'LR');
+
+  // 三条回边（E->C, G->C, J->D）应有烘焙航点且车道在所有节点下方
+  const maxBottom = Math.max(...snap.nodes.map((n) => n.y + n.h));
+  const loops = snap.edges.filter((e) => e.waypoints && e.waypoints.length > 0);
+  assert.equal(loops.length, 3, '应有 3 条回边带环路航点');
+  for (const e of loops) {
+    const laneY = Math.max(...e.waypoints!.map((p) => p.y));
+    assert.ok(laneY > maxBottom, `回边 ${e.id} 车道应在图外（${laneY} <= ${maxBottom}）`);
+  }
+  // 三条环路车道互不相同的 y（外圈堆叠）
+  const laneYs = loops.map((e) => Math.max(...e.waypoints!.map((p) => p.y)));
+  assert.equal(new Set(laneYs).size, 3, '三条环路车道应互不重叠');
+});
+
+test('snapshot: 共享目标面的回边端口摊开（不共用同一 entry 点）', () => {
+  const snap = convertFlowchartToSnapshot(makeFlowWithLoops());
+  // E->C 与 G->C 都进入 C 的右侧面（LR 回边 entry x=1；B->C 是前向边 entry x=0）
+  const intoC = snap.edges.filter((e) => e.target === 'node-C' && e.entry!.x === 1);
+  assert.equal(intoC.length, 2);
+  assert.ok(
+    intoC[0].entry!.y !== intoC[1].entry!.y,
+    `两条回边进入 C 的端口 y 应不同（${intoC[0].entry!.y} vs ${intoC[1].entry!.y}）`,
+  );
+});
+
+test('snapshot: 回边环路逐段正交', () => {
+  const snap = convertFlowchartToSnapshot(makeFlowWithLoops());
+  for (const e of snap.edges) {
+    if (!e.waypoints || e.waypoints.length === 0) continue;
+    const s = snap.nodes.find((n) => n.id === e.source)!;
+    const t = snap.nodes.find((n) => n.id === e.target)!;
+    const pts = [
+      { x: s.x + e.exit!.x * s.w, y: s.y + e.exit!.y * s.h },
+      ...e.waypoints,
+      { x: t.x + e.entry!.x * t.w, y: t.y + e.entry!.y * t.h },
+    ];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (a.x === b.x && a.y === b.y) continue; // 零长段
+      assert.ok(
+        a.x === b.x || a.y === b.y,
+        `边 ${e.id} 第 ${i} 段应正交: (${a.x},${a.y})->(${b.x},${b.y})`,
+      );
+    }
+  }
+});
+
+test('snapshot: TB 方向回边环路同样不穿过节点', () => {
+  const data = { ...makeFlowWithLoops(), direction: 'TB' };
+  const snap = convertFlowchartToSnapshot(data);
+  assertNoEdgeCrossesNodes(snap, 'TB');
+  // TB 环路车道在所有节点右侧
+  const maxRight = Math.max(...snap.nodes.map((n) => n.x + n.w));
+  const loops = snap.edges.filter((e) => e.waypoints && e.waypoints.length > 0);
+  assert.equal(loops.length, 3);
+  for (const e of loops) {
+    const laneX = Math.max(...e.waypoints!.map((p) => p.x));
+    assert.ok(laneX > maxRight, `回边 ${e.id} 车道应在图右侧外`);
+  }
+});

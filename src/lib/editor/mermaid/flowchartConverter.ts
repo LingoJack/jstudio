@@ -285,7 +285,9 @@ interface LongEdgeInfo {
  * Phase 1: 构建有向无环图。
  *
  * - 移除自环 (A->A)
- * - DFS 检测回边并翻转，消除所有环
+ * - DFS 检测回边并**移除**（而非翻转）消环：
+ *   回边不参与分层/排序/对齐，避免其 dummy 链扰动主链的交叉轴对齐；
+ *   布局完成后回边以"外侧环路"方式独立布线（见 layoutNodes）。
  * - 返回处理后的邻接表（不修改原始 edges）
  */
 function buildDAG(
@@ -327,14 +329,12 @@ function buildDAG(
   };
   for (const id of nodeIds) if (color.get(id) === 0) dfs(id);
 
-  // 翻转回边
+  // 移除回边（不翻转）：回边不参与布局，布局后走外侧环路
   for (const [u, v] of backEdges) {
     const ou = outgoing.get(u)!;
     const iv = incoming.get(v)!;
     ou.splice(ou.indexOf(v), 1);
     iv.splice(iv.indexOf(u), 1);
-    outgoing.get(v)!.push(u);
-    incoming.get(u)!.push(v);
   }
 
   return { outgoing, incoming };
@@ -640,6 +640,16 @@ function assignCoordinates(
 ): {
   positions: Map<string, { x: number; y: number }>;
   channelWaypoints: Map<string, { x: number; y: number }[]>;
+  /** 每条缝（层 m 与 m+1 之间）中点的抽象 main 坐标，供回边外侧环路取道 */
+  seamMids: number[];
+  /** main/cross -> x/y 变换参数（回边环路在 xy 空间直接构造时需要） */
+  geom: {
+    isHorizontal: boolean;
+    isReverse: boolean;
+    totalMain: number;
+    offX: number;
+    offY: number;
+  };
 } {
   const isHorizontal = direction === 'LR' || direction === 'RL';
   const isReverse = direction === 'RL' || direction === 'BT';
@@ -839,20 +849,41 @@ function assignCoordinates(
     channelWaypoints.set(le.key, deduped.map((p) => toXY(p.main, p.cross)));
   }
 
-  return { positions, channelWaypoints };
+  // ---- 缝隙中点（抽象 main 坐标），供回边外侧环路取道 ----
+  const seamMids: number[] = [];
+  for (let m = 0; m < levels.length - 1; m++) {
+    if (levels[m].length === 0 || levels[m + 1].length === 0) {
+      seamMids.push(0);
+      continue;
+    }
+    const upper = mainPos.get(levels[m][0])! + levelMaxMain[m];
+    const lower = mainPos.get(levels[m + 1][0])!;
+    seamMids.push((upper + lower) / 2);
+  }
+
+  return {
+    positions,
+    channelWaypoints,
+    seamMids,
+    geom: { isHorizontal, isReverse, totalMain, offX, offY },
+  };
 }
 
 /**
  * 尺寸感知的层级布局（Sugiyama 框架）。
  *
  * 完整流程：
- *   1. buildDAG       — 构建有向图，移除自环，DFS 翻转回边消环
+ *   1. buildDAG       — 构建有向图，移除自环，DFS 检测回边并移除（不翻转）
  *   2. assignLayers   — 最长路径分层（拓扑序 + max(前驱层+1)）
  *   3. insertDummies  — 跨层边插入虚拟节点，使所有边只跨 1 层
  *   4. minimizeCrossings — Barycenter 启发式，8 轮上下交替减少交叉
  *   5. assignCoordinates — 中位数迭代对齐 + 自适应缝隙 + 跨层边通道航点烘焙
+ *   6. 回边外侧环路布线 —— 回边（逆流边）不参与上述布局，统一走图外侧
+ *      车道（cross 轴外侧按跨距堆叠），4 段直角环路，不穿节点、互不重叠；
+ *      共享源/目标面的多条回边端口按 cross 方向摊开，缝隙取道错开。
  *
  * @param sizes 每个节点的实际渲染尺寸（由 computeNodeSize 得出）
+ * @returns waypoints / ports 均以原始 edges 数组下标为键
  */
 export function layoutNodes(
   vertices: Map<string, MermaidVertex>,
@@ -861,10 +892,12 @@ export function layoutNodes(
   sizes: Map<string, { w: number; h: number }>,
 ): {
   positions: Map<string, { x: number; y: number }>;
-  waypoints: Map<string, { x: number; y: number }[]>;
+  waypoints: Map<number, { x: number; y: number }[]>;
+  ports: Map<number, { exit: { x: number; y: number }; entry: { x: number; y: number } }>;
 } {
   const nodeIds = Array.from(vertices.keys());
-  if (nodeIds.length === 0) return { positions: new Map(), waypoints: new Map() };
+  if (nodeIds.length === 0)
+    return { positions: new Map(), waypoints: new Map(), ports: new Map() };
 
   // Phase 1
   const { outgoing, incoming } = buildDAG(nodeIds, edges);
@@ -875,12 +908,12 @@ export function layoutNodes(
     insertDummies(levels, outgoing, incoming);
   // Phase 4
   const ordered = minimizeCrossings(dLevels, dOut, dIn);
-  // Phase 5 + 6（含 dummy 位置与跨层边通道航点）
+  // Phase 5（含 dummy 位置与跨层边通道航点）
   const longEdges: LongEdgeInfo[] = [];
   for (const [key, info] of edgeToDummies) {
     longEdges.push({ key, u: info.u, v: info.v, chain: info.chain });
   }
-  const { positions: allPositions, channelWaypoints } = assignCoordinates(
+  const { positions: allPositions, channelWaypoints, seamMids, geom } = assignCoordinates(
     ordered,
     dOut,
     dIn,
@@ -890,18 +923,176 @@ export function layoutNodes(
     longEdges,
   );
 
-  // 分离真实节点位置与 dummy 航点
+  // 分离真实节点位置与 dummy
   const positions = new Map<string, { x: number; y: number }>();
   for (const [id, pos] of allPositions) {
     if (!isDummy.has(id)) positions.set(id, pos);
   }
 
-  // 跨层边航点（键统一为原始边方向；回边在 DAG 中被翻转过，需反转航点序列）
-  const waypoints = new Map<string, { x: number; y: number }[]>();
-  for (const edge of edges) {
-    if (edge.start === edge.end) continue;
-    const fwdKey = `${edge.start}->${edge.end}`;
-    const revKey = `${edge.end}->${edge.start}`;
+  // 真实节点层号（前向图分层，回边不参与）
+  const layerOf = new Map<string, number>();
+  for (let l = 0; l < levels.length; l++)
+    for (const n of levels[l]) layerOf.set(n, l);
+
+  const isHorizontal = geom.isHorizontal;
+  const sizeOf = (id: string) => sizes.get(id) ?? { w: 120, h: 60 };
+  const mainCenterOf = (id: string) => {
+    const p = positions.get(id)!;
+    const s = sizeOf(id);
+    return isHorizontal ? p.x + s.w / 2 : p.y + s.h / 2;
+  };
+  /** 抽象 main 坐标 -> xy 主轴坐标（含翻转与偏移） */
+  const mainToXY = (m: number) =>
+    (geom.isReverse ? geom.totalMain - m : m) + (isHorizontal ? geom.offX : geom.offY);
+
+  const waypoints = new Map<number, { x: number; y: number }[]>();
+  const ports = new Map<number, { exit: { x: number; y: number }; entry: { x: number; y: number } }>();
+
+  // ---- 分类：回边（逆流边）按最终主轴坐标判定 ----
+  // 坐标方向与布局流向相反的边 = 回边。比较的是最终坐标，天然兼容 BT/RL
+  // 与平行边（buildDAG 去重后平行回边不在布局图里，但坐标判定能覆盖到）。
+  const loopIdx: number[] = [];
+  const edgeDelta: number[] = []; // 各边 target - source 的主轴中心差
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    edgeDelta.push(0);
+    if (e.start === e.end) continue;
+    if (!positions.has(e.start) || !positions.has(e.end)) continue;
+    const d = mainCenterOf(e.end) - mainCenterOf(e.start);
+    edgeDelta[i] = d;
+    const backward = geom.isReverse ? d > 0 : d < 0;
+    if (backward && layerOf.has(e.start) && layerOf.has(e.end)) loopIdx.push(i);
+  }
+
+  // ---- 端口烘焙（所有边）：顺流右出左进 / 下出上进，逆流反之 ----
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    if (e.start === e.end) continue;
+    if (!positions.has(e.start) || !positions.has(e.end)) continue;
+    const forward = edgeDelta[i] >= 0;
+    let exit: { x: number; y: number };
+    let entry: { x: number; y: number };
+    if (isHorizontal) {
+      exit = forward ? { x: 1, y: 0.5 } : { x: 0, y: 0.5 };
+      entry = forward ? { x: 0, y: 0.5 } : { x: 1, y: 0.5 };
+    } else {
+      exit = forward ? { x: 0.5, y: 1 } : { x: 0.5, y: 0 };
+      entry = forward ? { x: 0.5, y: 0 } : { x: 0.5, y: 1 };
+    }
+    ports.set(i, { exit, entry });
+  }
+
+  // ---- 回边外侧环路布线 ----
+  if (loopIdx.length > 0) {
+    // 车道排序：跨距越大（目标层越小、源层越大）的环路走越外侧，
+    // 外层环路的竖/横段不会穿过内层环路的水平车道
+    const sorted = [...loopIdx].sort((a, b) => {
+      const la = layerOf.get(edges[a].end)! - layerOf.get(edges[a].start)!;
+      const lb = layerOf.get(edges[b].end)! - layerOf.get(edges[b].start)!;
+      if (la !== lb) return la - lb; // 跨距（end - start 为负，越小跨越大）
+      return a - b;
+    });
+    const laneRank = new Map<number, number>();
+    sorted.forEach((idx, rank) => laneRank.set(idx, rank));
+
+    // 外侧车道基准：所有真实节点的 cross 轴最大外延
+    let maxCross = -Infinity;
+    for (const [id, p] of positions) {
+      const s = sizeOf(id);
+      maxCross = Math.max(maxCross, isHorizontal ? p.y + s.h : p.x + s.w);
+    }
+    const laneOf = (idx: number) =>
+      maxCross + 24 + (sorted.length - 1 - laneRank.get(idx)!) * 16;
+
+    // 共享源/目标面的回边端口沿 cross 方向摊开（0.5 为中心，步长 0.2）
+    const spreadPort = (keyOf: (e: MermaidEdge) => string, isExit: boolean) => {
+      const groups = new Map<string, number[]>();
+      for (const idx of loopIdx) {
+        const k = keyOf(edges[idx]);
+        const arr = groups.get(k) ?? [];
+        arr.push(idx);
+        groups.set(k, arr);
+      }
+      for (const arr of groups.values()) {
+        if (arr.length < 2) continue;
+        arr.sort((a, b) => laneRank.get(a)! - laneRank.get(b)!);
+        arr.forEach((idx, i) => {
+          const rel = 0.5 + (i - (arr.length - 1) / 2) * 0.2;
+          const p = ports.get(idx)!;
+          if (isExit) {
+            p.exit = isHorizontal ? { x: p.exit.x, y: rel } : { x: rel, y: p.exit.y };
+          } else {
+            p.entry = isHorizontal ? { x: p.entry.x, y: rel } : { x: rel, y: p.entry.y };
+          }
+        });
+      }
+    };
+    spreadPort((e) => e.start, true);
+    spreadPort((e) => e.end, false);
+
+    // 缝隙取道错开：共用同一条缝（源侧/目标侧）的环路按车道序错开 ±12
+    const staggerOf = (seamOf: (idx: number) => number) => {
+      const groups = new Map<number, number[]>();
+      for (const idx of loopIdx) {
+        const m = seamOf(idx);
+        const arr = groups.get(m) ?? [];
+        arr.push(idx);
+        groups.set(m, arr);
+      }
+      const result = new Map<number, number>();
+      for (const arr of groups.values()) {
+        arr.sort((a, b) => laneRank.get(a)! - laneRank.get(b)!);
+        arr.forEach((idx, i) => result.set(idx, (i - (arr.length - 1) / 2) * 12));
+      }
+      return result;
+    };
+    const stagSource = staggerOf((idx) => layerOf.get(edges[idx].start)! - 1);
+    const stagTarget = staggerOf((idx) => layerOf.get(edges[idx].end)!);
+
+    for (const idx of loopIdx) {
+      const e = edges[idx];
+      const sp = positions.get(e.start)!;
+      const tp = positions.get(e.end)!;
+      const ss = sizeOf(e.start);
+      const ts = sizeOf(e.end);
+      const p = ports.get(idx)!;
+      // 端口的 cross 轴绝对坐标（用摊开后的相对值）
+      const exitCross = isHorizontal ? sp.y + p.exit.y * ss.h : sp.x + p.exit.x * ss.w;
+      const entryCross = isHorizontal ? tp.y + p.entry.y * ts.h : tp.x + p.entry.x * ts.w;
+      const gapS = mainToXY(seamMids[layerOf.get(e.start)! - 1]) + (stagSource.get(idx) ?? 0);
+      const gapT = mainToXY(seamMids[layerOf.get(e.end)!]) + (stagTarget.get(idx) ?? 0);
+      const lane = laneOf(idx);
+
+      const raw = isHorizontal
+        ? [
+            { x: gapS, y: exitCross },
+            { x: gapS, y: lane },
+            { x: gapT, y: lane },
+            { x: gapT, y: entryCross },
+          ]
+        : [
+            { x: exitCross, y: gapS },
+            { x: lane, y: gapS },
+            { x: lane, y: gapT },
+            { x: entryCross, y: gapT },
+          ];
+      // 去除连续重复点（相邻层回边时 gapS === gapT，环路退化为单侧绕线）
+      const pts: { x: number; y: number }[] = [];
+      for (const pt of raw) {
+        const last = pts[pts.length - 1];
+        if (last && last.x === pt.x && last.y === pt.y) continue;
+        pts.push(pt);
+      }
+      waypoints.set(idx, pts);
+    }
+  }
+
+  // ---- 前向跨层长边：通道航点（在 DAG 中可能被去重/不包含回边） ----
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    if (e.start === e.end || waypoints.has(i)) continue;
+    const fwdKey = `${e.start}->${e.end}`;
+    const revKey = `${e.end}->${e.start}`;
     let pts = channelWaypoints.get(fwdKey);
     let reversed = false;
     if (!pts) {
@@ -909,10 +1100,10 @@ export function layoutNodes(
       reversed = true;
     }
     if (!pts || pts.length === 0) continue;
-    waypoints.set(fwdKey, reversed ? [...pts].reverse() : pts);
+    waypoints.set(i, reversed ? [...pts].reverse() : pts);
   }
 
-  return { positions, waypoints };
+  return { positions, waypoints, ports };
 }
 
 /* ------------------------------------------------------------------ */
@@ -940,8 +1131,7 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
 
   // 2. 布局计算（尺寸感知）
   const dir = direction ?? 'TB';
-  const { positions, waypoints } = layoutNodes(vertices, edges, dir, sizes);
-  const isHorizontalDir = dir === 'LR' || dir === 'RL';
+  const { positions, waypoints, ports } = layoutNodes(vertices, edges, dir, sizes);
 
   // 3. 转换节点
   for (const [id, vertex] of vertices) {
@@ -972,7 +1162,8 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
     }
 
     const style = mapEdgeTypeToStyle(edge);
-    const wp = waypoints.get(`${edge.start}->${edge.end}`);
+    const wp = waypoints.get(edgeIdx);
+    const pt = ports.get(edgeIdx);
 
     const graphEdge: GraphEdge = {
       // 平行边（A->B 写两次）需靠循环索引区分，不能用时间戳（同一毫秒内相同）
@@ -988,24 +1179,11 @@ export function convertFlowchartToSnapshot(data: FlowchartData): GraphSnapshot {
       },
     };
 
-    // 烘焙端口约束（下出上进 / 右出左进）：让内置正交路由器的水平段
-    // 落在层间缝隙，结构上不可能横穿同层节点。按最终坐标比较中心，
-    // 天然兼容回边翻转与 BT/RL。
-    const sp = positions.get(edge.start);
-    const tp = positions.get(edge.end);
-    if (sp && tp) {
-      const ss = sizes.get(edge.start) ?? DEFAULT_NODE_SIZE.rectangle;
-      const ts = sizes.get(edge.end) ?? DEFAULT_NODE_SIZE.rectangle;
-      const forward = isHorizontalDir
-        ? tp.x + ts.w / 2 >= sp.x + ss.w / 2
-        : tp.y + ts.h / 2 >= sp.y + ss.h / 2;
-      if (isHorizontalDir) {
-        graphEdge.exit = forward ? { x: 1, y: 0.5 } : { x: 0, y: 0.5 };
-        graphEdge.entry = forward ? { x: 0, y: 0.5 } : { x: 1, y: 0.5 };
-      } else {
-        graphEdge.exit = forward ? { x: 0.5, y: 1 } : { x: 0.5, y: 0 };
-        graphEdge.entry = forward ? { x: 0.5, y: 0 } : { x: 0.5, y: 1 };
-      }
+    // 烘焙端口约束（顺流右出左进 / 下出上进，逆流反之；共享面的回边已摊开）：
+    // 让内置正交路由器的水平段落在层间缝隙，结构上不可能横穿同层节点。
+    if (pt) {
+      graphEdge.exit = pt.exit;
+      graphEdge.entry = pt.entry;
     }
 
     if (wp && wp.length > 0) graphEdge.waypoints = wp;
