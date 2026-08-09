@@ -202,6 +202,8 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
   // 2. 处理消息 -> edges（水平连线）
   for (let msgIdx = 0; msgIdx < messages.length; msgIdx++) {
     const msg = messages[msgIdx];
+    if (!msg.from || !msg.to) continue;
+
     const fromNodeId = actorIdToNodeId.get(msg.from);
     const toNodeId = actorIdToNodeId.get(msg.to);
 
