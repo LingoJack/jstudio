@@ -198,53 +198,7 @@ export default function CodeBlockView({
   // app toggles dark mode so the global mermaid config picks up the new
   // themeVariables before the render effect below regenerates the SVG.
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "loose", // Allow click events in diagrams
-      theme: "base", // Use base theme for customization
-      themeVariables: isDarkMode ? MERMAID_THEME_DARK : MERMAID_THEME_LIGHT,
-      flowchart: {
-        useMaxWidth: false, // Generate fixed-size SVG for proper scaling
-        htmlLabels: true,
-        curve: "basis", // Smooth curved lines
-        padding: 15,
-        nodeSpacing: 50,
-        rankSpacing: 50,
-        diagramPadding: 8,
-      },
-      sequence: {
-        useMaxWidth: false, // Generate fixed-size SVG for proper scaling
-        diagramMarginX: 8,
-        diagramMarginY: 8,
-        actorMargin: 50,
-        width: 150,
-        height: 65,
-        boxMargin: 10,
-        boxTextMargin: 5,
-        noteMargin: 10,
-        messageMargin: 35,
-        mirrorActors: false,
-        bottomMarginAdj: 1,
-      },
-      gantt: {
-        useMaxWidth: false,
-        leftPadding: 75,
-        gridLineStartPadding: 35,
-        barHeight: 20,
-        barGap: 4,
-        topPadding: 50,
-        titleTopMargin: 25,
-      },
-      class: {
-        useMaxWidth: false,
-      },
-      state: {
-        useMaxWidth: false,
-      },
-      pie: {
-        useMaxWidth: false,
-      },
-    });
+    mermaid.initialize(buildMermaidConfig(isDarkMode));
   }, [isDarkMode]);
 
   // Render mermaid diagram when preview is shown
@@ -471,56 +425,7 @@ export default function CodeBlockView({
   // the title state).  These bubble-phase listeners stop form-control
   // events from reaching ProseMirror - identical pattern to CollapsibleView.
   const headerRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-
-    const isFormControl = (target: EventTarget | null): boolean => {
-      const t = target as HTMLElement | null;
-      if (!t) return false;
-      // Includes [role="button"] to cover the language badge (a div with
-      // role="button" rather than a real <button> element).
-      return (
-        SHIELD_TAGS.has(t.tagName) ||
-        !!t.closest("input, textarea, select, button, [role='button']")
-      );
-    };
-
-    const mousedownShield = (e: MouseEvent) => {
-      if (isFormControl(e.target)) {
-        e.stopPropagation();
-        const button = (e.target as HTMLElement | null)?.closest("button");
-        if (button) {
-          e.preventDefault();
-          button.focus();
-        }
-      }
-    };
-    const keydownShield = (e: KeyboardEvent) => {
-      if (isFormControl(e.target)) e.stopPropagation();
-    };
-    const beforeinputShield = (e: InputEvent) => {
-      if (isFormControl(e.target)) e.stopPropagation();
-    };
-    const compositionShield = (e: CompositionEvent) => {
-      if (isFormControl(e.target)) e.stopPropagation();
-    };
-
-    el.addEventListener("mousedown", mousedownShield);
-    el.addEventListener("keydown", keydownShield);
-    el.addEventListener("beforeinput", beforeinputShield);
-    el.addEventListener("compositionstart", compositionShield);
-    el.addEventListener("compositionupdate", compositionShield);
-    el.addEventListener("compositionend", compositionShield);
-    return () => {
-      el.removeEventListener("mousedown", mousedownShield);
-      el.removeEventListener("keydown", keydownShield);
-      el.removeEventListener("beforeinput", beforeinputShield);
-      el.removeEventListener("compositionstart", compositionShield);
-      el.removeEventListener("compositionupdate", compositionShield);
-      el.removeEventListener("compositionend", compositionShield);
-    };
-  }, []);
+  useHeaderEventShield(headerRef);
 
   const selectLanguage = useCallback(
     (value: string) => {
@@ -693,54 +598,7 @@ export default function CodeBlockView({
       <button
         type="button"
         onClick={() => {
-          const bg = isDarkMode
-            ? "linear-gradient(135deg, #1e1e1e 0%, #252526 100%)"
-            : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)";
-          const btnBg = isDarkMode
-            ? "rgba(255,255,255,0.1)"
-            : "rgba(0,0,0,0.06)";
-          const btnHover = isDarkMode
-            ? "rgba(255,255,255,0.2)"
-            : "rgba(0,0,0,0.12)";
-          const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    html,body{margin:0;padding:0;height:100%;overflow:hidden}
-    body{background:${bg};cursor:grab;user-select:none}
-    body.dragging{cursor:grabbing}
-    .w{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
-    svg{display:block}
-    .c{position:fixed;top:8px;right:8px;display:flex;gap:2px;opacity:0.5;transition:opacity 0.2s}
-    body:hover .c{opacity:1}
-    .b{width:28px;height:28px;border:none;border-radius:4px;background:${btnBg};cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
-    .b:hover{background:${btnHover}}
-  </style>
-</head>
-<body>
-  <div class="w" id="w">${mermaidSvg}</div>
-  <div class="c">
-    <button class="b" onclick="z(0.8)">−</button>
-    <button class="b" onclick="z(1.25)">+</button>
-    <button class="b" onclick="fit()">⊗</button>
-  </div>
-  <script>
-    const w=document.getElementById('w'),s=document.querySelector('svg');
-    let scale=1,px=0,py=0;
-    const upd=()=>w.style.transform='translate(-50%,-50%)translate('+px+'px,'+py+'px)scale('+scale+')';
-    const z=d=>{scale=Math.max(0.1,Math.min(scale*d,5));upd()};
-    const fit=()=>{const v=s.getAttribute('viewBox')?.split(' ').map(Number)||[0,0,s.getBBox().width,s.getBBox().height];const b=document.body.getBoundingClientRect();scale=Math.min((b.width*0.9)/v[2],(b.height*0.9)/v[3],3);px=0;py=0;upd()};
-    setTimeout(fit,50);
-    addEventListener('wheel',e=>{e.preventDefault();if(e.altKey){z(e.deltaY>0?0.9:1.1)}else{px-=e.deltaX;py-=e.deltaY;upd()}},{passive:false});
-    let drag=0,sx,sy,sp,st;
-    onmousedown=e=>{drag=1;sx=e.clientX;sy=e.clientY;sp=px;st=py;document.body.classList.add('dragging')};
-    onmousemove=e=>{if(!drag)return;px=sp+e.clientX-sx;py=st+e.clientY-sy;upd()};
-    onmouseup=()=>{drag=0;document.body.classList.remove('dragging')};
-  </script>
-</body>
-</html>`;
-          openHtmlPreviewWindow(htmlContent, "Mermaid");
+          openHtmlPreviewWindow(buildMermaidPreviewWindowHtml(mermaidSvg, isDarkMode), "Mermaid");
         }}
         className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
         title={t("code.previewNewWindow")}
