@@ -46,7 +46,6 @@ import {
   ChevronRight,
   Pencil,
 } from "lucide-react";
-import mermaid from "mermaid";
 import { ResizeHandle } from "../../ui/ResizeHandle";
 import { useNodeResize } from "../hooks/useNodeResize";
 import { useEditorWidth } from "../hooks/useEditorWidth";
@@ -58,8 +57,8 @@ import { handleNativeSelectAll } from "../../../lib/shortcuts/nativeSelectAll";
 import { useStore } from "../../../store/useStore";
 import { useCursorTrailHostRef } from "../CursorTrailContext";
 import { LANGUAGES, getLanguageLabel } from "./codeBlockLanguages";
-import { buildMermaidConfig } from "./mermaidConfig";
 import { buildMermaidPreviewWindowHtml } from "./mermaidWindowHtml";
+import { useMermaidPreview } from "./code-block/useMermaidPreview";
 import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
 import { LanguageDropdown } from "./code-block/LanguageDropdown";
 
@@ -191,41 +190,11 @@ export default function CodeBlockView({
     hasContent &&
     (node.attrs?.mermaidPreview as boolean | null | undefined) !== false;
   const mermaidSource = node.textContent;
-  const [mermaidSvg, setMermaidSvg] = useState<string | null>(null);
-  const [mermaidError, setMermaidError] = useState<string | null>(null);
-  const mermaidPreviewRef = useRef<HTMLDivElement>(null);
-
-  // Initialize mermaid with high-quality rendering settings. Re-runs when the
-  // app toggles dark mode so the global mermaid config picks up the new
-  // themeVariables before the render effect below regenerates the SVG.
-  useEffect(() => {
-    mermaid.initialize(buildMermaidConfig(isDarkMode));
-  }, [isDarkMode]);
-
-  // Render mermaid diagram when preview is shown
-  useEffect(() => {
-    if (!showMermaidPreview || !mermaidSource.trim()) {
-      setMermaidSvg(null);
-      setMermaidError(null);
-      return;
-    }
-
-    const renderMermaid = async () => {
-      try {
-        // Generate unique id for this diagram
-        const id = `mermaid-${Date.now()}`;
-        const { svg } = await mermaid.render(id, mermaidSource);
-        setMermaidSvg(svg);
-        setMermaidError(null);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Unknown error";
-        setMermaidError(errorMsg);
-        setMermaidSvg(null);
-      }
-    };
-
-    renderMermaid();
-  }, [showMermaidPreview, mermaidSource, isDarkMode]);
+  const { mermaidSvg, mermaidError, mermaidPreviewRef } = useMermaidPreview({
+    isDarkMode,
+    showMermaidPreview,
+    mermaidSource,
+  });
 
   // Reset the persisted preview flag when the language changes away from HTML/Mermaid.
   useEffect(() => {
