@@ -5,6 +5,7 @@ import { storage } from '../../lib/core/storage';
 import { blocksToMarkdown } from '../../lib/editor/markdownExport';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { useSidebarResize } from './hooks/useSidebarResize';
+import { useSidebarHover } from './hooks/useSidebarHover';
 import { buildFolderTree, type FolderTreeNode } from '../../lib/documents/folderTree';
 import {
   FileText, Plus, MoreHorizontal, FileDown,
@@ -31,7 +32,6 @@ const DRAG_THRESHOLD = 5;
 /** Width of the sidebar when collapsed (unpinned, not hovered). */
 const COLLAPSED_WIDTH = 48;
 /** Grace period before collapsing after the pointer leaves (ms). */
-const COLLAPSE_DELAY = 180;
 
 interface ContextMenuState {
   x: number;
@@ -114,17 +114,6 @@ export default function DocumentSidebar() {
   const [backupDialogDoc, setBackupDialogDoc] = useState<{ id: string; title: string } | null>(null);
 
   // ── Hover-expand state (only active when sidebarPinned is false) ──
-  const [hoverExpanded, setHoverExpanded] = useState(false);
-  const hoverCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Tracks whether the pointer is currently over the sidebar itself (not
-   *  the ActivityBar). Read inside the `leftPanelHovered` effect to avoid
-   *  starting a collapse timer when the sidebar is still being hovered. */
-  const isSidebarHovered = useRef(false);
-  /** Last known pointer position, updated on every mousemove. Used to
-   *  re-evaluate isSidebarHovered after a floating menu closes, because
-   *  mouseleave on the sidebar root may not have fired while the pointer
-   *  was over a position:fixed DOM child (the floating menu). */
-  const lastPointerPos = useRef({ x: -1, y: -1 });
 
   // ── Suppress collapse while a floating menu / inline rename is active ──
   // Floating menus (context menu, folder menu, batch menus, the "more"
@@ -139,104 +128,18 @@ export default function DocumentSidebar() {
     (moreMenuOpen && moreMenuPos)
   );
   const suppressCollapse = anyFloatingMenuOpen || renamingId !== null || renamingFolderId !== null || searchFocused;
-  const suppressCollapseRef = useRef(false);
-  suppressCollapseRef.current = suppressCollapse;
-  const prevSuppressRef = useRef(false);
 
-  const scheduleCollapse = useCallback(() => {
-    if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
-    hoverCollapseTimer.current = setTimeout(() => {
-      if (!suppressCollapseRef.current && !isSidebarHovered.current) {
-        setHoverExpanded(false);
-      }
-    }, COLLAPSE_DELAY);
-  }, []);
 
-  const handleHoverEnter = useCallback(() => {
-    isSidebarHovered.current = true;
-    if (sidebarPinned) return;
-    if (hoverCollapseTimer.current) {
-      clearTimeout(hoverCollapseTimer.current);
-      hoverCollapseTimer.current = null;
-    }
-    setHoverExpanded(true);
-  }, [sidebarPinned]);
 
-  const handleHoverLeave = useCallback(() => {
-    isSidebarHovered.current = false;
-    if (sidebarPinned) return;
-    if (suppressCollapseRef.current) return;
-    scheduleCollapse();
-  }, [sidebarPinned, scheduleCollapse]);
 
-  // Track the last known pointer position so we can re-evaluate
-  // isSidebarHovered immediately after a floating menu closes (without
-  // waiting for the next mousemove).
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      lastPointerPos.current = { x: e.clientX, y: e.clientY };
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, []);
 
-  // Keep the sidebar expanded while the pointer is on the adjacent
-  // ActivityBar, so overshooting from the sidebar into the ActivityBar
-  // doesn't collapse it.  When the pointer leaves the ActivityBar (and the
-  // sidebar itself isn't hovered), start the normal collapse timer.
-  useEffect(() => {
-    if (sidebarPinned) return;
-    if (leftPanelHovered) {
-      if (hoverCollapseTimer.current) {
-        clearTimeout(hoverCollapseTimer.current);
-        hoverCollapseTimer.current = null;
-      }
-      setHoverExpanded(true);
-    } else if (!isSidebarHovered.current) {
-      if (suppressCollapseRef.current) return;
-      scheduleCollapse();
-    }
-  }, [leftPanelHovered, sidebarPinned, scheduleCollapse]);
-
-  // When a floating menu / inline rename closes we no longer know whether
-  // the pointer is still over the sidebar.  The floating menu was a
-  // position:fixed DOM child of the sidebar, so mouseleave on the sidebar
-  // root may not have fired while the pointer was over the menu — and when
-  // the menu is removed from the DOM, the browser fires mouseleave
-  // asynchronously (after this effect runs), leaving isSidebarHovered stale.
-  //
-  // To handle this, we use elementFromPoint with the last known pointer
-  // position to get an accurate read immediately, then also register a
-  // one-time mousemove listener as a safety net.
-  useEffect(() => {
-    const wasSuppressed = prevSuppressRef.current;
-    prevSuppressRef.current = suppressCollapse;
-    if (suppressCollapse) return;
-    if (!wasSuppressed) return;          // only react to suppression *ending*
-    if (sidebarPinned) return;
-
-    // Immediately re-evaluate using the last known pointer position.
-    const { x, y } = lastPointerPos.current;
-    if (x >= 0 && y >= 0) {
-      const el = document.elementFromPoint(x, y) as HTMLElement | null;
-      isSidebarHovered.current = !!(el && el.closest('[data-sidebar-root]'));
-    }
-
-    if (!isSidebarHovered.current) {
-      scheduleCollapse();
-    }
-
-    // Safety net: re-evaluate on the next pointer move in case the
-    // elementFromPoint check above was inaccurate.
-    const reeval = (e: MouseEvent) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-      const overSidebar = !!(el && el.closest('[data-sidebar-root]'));
-      isSidebarHovered.current = overSidebar;
-      if (!overSidebar && !suppressCollapseRef.current) scheduleCollapse();
-    };
-    window.addEventListener('mousemove', reeval, { once: true });
-    return () => window.removeEventListener('mousemove', reeval);
-  }, [suppressCollapse, sidebarPinned, scheduleCollapse]);
+  // ── Hover expand/collapse (extracted to useSidebarHover hook) ──
+  const { hoverExpanded, handleHoverEnter, handleHoverLeave, handleTogglePin } = useSidebarHover({
+    sidebarPinned,
+    leftPanelHovered,
+    toggleSidebarPinned,
+    suppressCollapse,
+  });
 
   const isCollapsed = !sidebarPinned && !hoverExpanded;
   const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
@@ -252,10 +155,6 @@ export default function DocumentSidebar() {
   const isOverlay = !sidebarPinned && !isCollapsed;
   const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
 
-  const handleTogglePin = useCallback(() => {
-    toggleSidebarPinned();
-    setHoverExpanded(false);
-  }, [toggleSidebarPinned]);
 
   // ── Pointer-drag state ────────────────────────────────────
   /**
