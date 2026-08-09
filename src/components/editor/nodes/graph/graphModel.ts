@@ -152,8 +152,10 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
     // 圆角矩形：rounded=true + arcSize=SHAPE_ARC_SIZE(12) 即为 'rounded'
     if (style.rounded) {
       // 思维导图 topic：圆角矩形 + 无描边（与 rounded 区分，依赖 strokeColor='none'）。
+      // 注意：maxGraph Stylesheet.getCellStyle 合并样式时，值为 'none' 的属性会被删除，
+      // 所以经过 getCurrentCellStyle 后 strokeColor 变为 undefined 而非 'none'。
       // 用户手动把 rounded 的 strokeColor 设为 'none' 也会被识别为 topic，但正常使用流程不会触发。
-      if (style.strokeColor === 'none') return 'topic';
+      if (!style.strokeColor) return 'topic';
       return 'rounded';
     }
   }

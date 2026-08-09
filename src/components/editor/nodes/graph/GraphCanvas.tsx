@@ -1185,6 +1185,10 @@ export function GraphCanvas({
     const finishDraw = (e: MouseEvent) => {
       if (!drawing) return;
       drawing = false;
+      // 绘制完成后确保 root 获得焦点，使键盘快捷键（Tab/Enter 等）生效。
+      // onMouseDown(capture) 在待绘制态会 stopPropagation，导致 onCanvasMouseDown 不触发，
+      // 这里补一次 focus。
+      rootRef.current?.focus({ preventScroll: true });
       preview.style.display = 'none';
       const shape = pendingShapeRef.current;
       if (!shape) return;
@@ -1524,7 +1528,32 @@ export function GraphCanvas({
       const meta = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      // 正在内联编辑文本时，交给 CellEditor，不拦截。
+      // 思维导图 topic 节点：Tab 生发子节点，Enter 生发同级兄弟节点。
+      // 即使正在内联编辑文本也支持（先提交编辑再生发），符合思维导图标准交互：
+      // 双击 topic 编辑文字 -> 按 Tab/Enter -> 提交文字 -> 生发子/兄弟节点。
+      // 必须放在 graph.isEditing() 守卫之前，否则编辑态下 Tab/Enter 会被直接跳过。
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        const sel = graph.getSelectionCells();
+        if (sel.length === 1 && sel[0].isVertex()) {
+          const cellStyle = graph.getCurrentCellStyle(sel[0]);
+          const shape = styleToNodeShape(cellStyle);
+          if (shape === 'topic') {
+            e.preventDefault();
+            // 正在编辑文本时先提交，再生发子/兄弟节点。
+            if (graph.isEditing()) {
+              graph.stopEditing(false);
+            }
+            if (e.key === 'Tab') {
+              spawnMindmapChild(graph, sel[0], darkModeRef.current);
+            } else {
+              spawnMindmapSibling(graph, sel[0], darkModeRef.current);
+            }
+            return;
+          }
+        }
+      }
+
+      // 正在内联编辑文本时，交给 CellEditor，不拦截（Tab/Enter 对 topic 的处理已在上方完成）。
       if (graph.isEditing()) return;
 
       // ESC：退出待绘制态。
@@ -1534,25 +1563,6 @@ export function GraphCanvas({
           setPending(null);
         }
         return;
-      }
-
-      // 思维导图 topic 节点：Tab 生发子节点，Enter 生发同级兄弟节点。
-      // 仅当唯一选中是 topic 形状时触发，避免与编辑器其他 Tab/Enter 行为冲突。
-      if (e.key === 'Tab' || e.key === 'Enter') {
-        const sel = graph.getSelectionCells();
-        if (sel.length === 1 && sel[0].isVertex()) {
-          const cellStyle = graph.getCurrentCellStyle(sel[0]);
-          const shape = styleToNodeShape(cellStyle);
-          if (shape === 'topic') {
-            e.preventDefault();
-            if (e.key === 'Tab') {
-              spawnMindmapChild(graph, sel[0], darkModeRef.current);
-            } else {
-              spawnMindmapSibling(graph, sel[0], darkModeRef.current);
-            }
-            return;
-          }
-        }
       }
 
       if (meta && key === 'z') {
@@ -1617,7 +1627,49 @@ export function GraphCanvas({
     };
 
     root.addEventListener('keydown', onKeyDown);
-    return () => root.removeEventListener('keydown', onKeyDown);
+
+    // window 级捕获阶段 keydown：在所有其他监听器（maxGraph、TipTap 等）之前
+    // 拦截 Tab/Enter，确保 topic 节点的 Tab（生发子节点）/ Enter（生发兄弟节点）一定生效。
+    // 不依赖 root div 或 container 的焦点状态——只要事件目标在画布内就处理。
+    const onWindowKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' && e.key !== 'Enter') return;
+      // 只处理源自画布内部的 keydown。
+      const r = rootRef.current;
+      if (!r || !r.contains(e.target as Node)) return;
+      const g = graphRef.current;
+      if (!g) return;
+      const sel = g.getSelectionCells();
+      if (sel.length !== 1 || !sel[0].isVertex()) return;
+      const cellStyle = g.getCurrentCellStyle(sel[0]);
+      if (styleToNodeShape(cellStyle) !== 'topic') return;
+      // 命中 topic 节点：拦截并处理。
+      e.preventDefault();
+      e.stopPropagation();
+      if (g.isEditing()) {
+        g.stopEditing(false);
+      }
+      if (e.key === 'Tab') {
+        spawnMindmapChild(g, sel[0], darkModeRef.current);
+      } else {
+        spawnMindmapSibling(g, sel[0], darkModeRef.current);
+      }
+    };
+    window.addEventListener('keydown', onWindowKeyDown, true);
+
+    // 点击画布时确保 root 获得焦点，使键盘快捷键（Del/Cmd+Z 等）生效。
+    const container = containerRef.current;
+    const onCanvasMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.isContentEditable) return;
+      root.focus({ preventScroll: true });
+    };
+    container?.addEventListener('mousedown', onCanvasMouseDown);
+
+    return () => {
+      root.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onWindowKeyDown, true);
+      container?.removeEventListener('mousedown', onCanvasMouseDown);
+    };
   }, [editing]);
 
   /* -------------------------------------------------------------- */
@@ -2309,12 +2361,14 @@ export function GraphCanvas({
       <div
         ref={containerRef}
         className="jgraph-surface"
+        tabIndex={editing ? -1 : undefined}
         style={{
           flex: 1,
           minWidth: 0,
           minHeight: 0,
           position: 'relative',
           overflow: 'hidden',
+          outline: 'none',
         }}
       />
     </div>
