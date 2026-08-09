@@ -21,7 +21,7 @@ import {
   Maximize,
 } from "lucide-react";
 import { ShapeGlyph } from "./ShapeGlyph";
-import { shapeTitleMap } from "./graphShapeMenu";
+import { shapeTitleMap } from "./shapeMenuData";
 import { GraphShapesMenu } from "./GraphShapesMenu";
 import { GraphFillPopover } from "./GraphFillPopover";
 import { GraphMoreMenu } from "./GraphMoreMenu";

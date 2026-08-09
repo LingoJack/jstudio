@@ -1,4 +1,4 @@
-import { storage } from '../core/storage';
+import { ipc } from '../core/ipc';
 import { toMeta, type DocumentMeta } from '../../types/storage';
 import type { Document } from '../../types';
 
@@ -25,7 +25,7 @@ const OLD_THEME_KEY = 'omninote_theme';
 /** Check whether the file-system store has already been seeded. */
 async function isFileSystemEmpty(): Promise<boolean> {
   try {
-    const index = await storage.loadIndex();
+    const index = await ipc.loadIndex();
     return !index || index.length === 0;
   } catch {
     return true; // index.json doesn't exist yet
@@ -86,17 +86,17 @@ export async function migrateFromLocalStorage(): Promise<{
     // Write each document + build the index.
     const metas: DocumentMeta[] = [];
     for (const doc of docs) {
-      await storage.saveDocument(doc);
+      await ipc.saveDocument(doc);
       metas.push(toMeta(doc));
     }
-    await storage.saveIndex(metas);
+    await ipc.saveIndex(metas);
     documentCount = docs.length;
   }
 
   // --- Theme / settings ---
   const settings: Record<string, unknown> = {};
   try {
-    const existing = await storage.loadSettings();
+    const existing = await ipc.loadSettings();
     Object.assign(settings, existing);
   } catch {
     // ignore
@@ -106,7 +106,7 @@ export async function migrateFromLocalStorage(): Promise<{
     settings.theme = oldTheme === 'light' ? 'light' : 'dark';
   }
   if (Object.keys(settings).length > 0) {
-    await storage.saveSettings(settings);
+    await ipc.saveSettings(settings);
   }
 
   // --- Backup old localStorage keys (don't delete, just rename) ---

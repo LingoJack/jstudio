@@ -31,7 +31,7 @@ import {
 import { registerCustomShapes } from './customShapes';
 import { registerObstacleEdgeStyle } from './obstacleRouting';
 import { registerMindmapEdgeStyle } from './mindmapLayout';
-import { EVENT_TOLERANCE } from './graphCanvasStyle';
+import { EVENT_TOLERANCE } from './graphConstants';
 import type { GraphNodeShape } from './graphSnapshot';
 import {
   setupEdgeFlowAnimation,

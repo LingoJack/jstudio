@@ -10,7 +10,7 @@
  * that connect to the Zustand store to resolve the active document id.
  */
 
-import { storage } from '../core/storage';
+import { ipc } from '../core/ipc';
 import { useStore } from '../../store/useStore';
 
 /* ------------------------------------------------------------------ */
@@ -32,7 +32,7 @@ export async function saveBytesAsAsset(
   storedName?: string,
 ): Promise<string> {
   if (activeDocId && storedName) {
-    const finalName = await storage.saveDocAsset(activeDocId, storedName, bytes);
+    const finalName = await ipc.saveDocAsset(activeDocId, storedName, bytes);
     return `assets/${finalName}`;
   }
   // Fallback: encode directly in-memory.

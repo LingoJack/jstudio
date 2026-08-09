@@ -6,7 +6,7 @@
  * page, so `<img>`, `<audio>`, `<video>`, `fetch()`, and `<iframe>` are blocked
  * with "Domains, protocols and ports must match".
  *
- * This hook reads the on-disk asset via `storage.readFileBytes` and creates a
+ * This hook reads the on-disk asset via `ipc.readFileBytes` and creates a
  * same-origin `blob:tauri://localhost/...` URL that WebKit allows to load.
  *
  * Non-asset sources (`data:`, `http(s):`, `blob:`, absolute file URLs) pass
@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { storage } from '../../core/storage';
+import { ipc } from '../../core/ipc';
 import { getExtension, getMimeType } from '../fileUtils';
 import { isAssetPath, resolveAssetFilePath } from './assetUrl';
 
@@ -69,7 +69,7 @@ export function useAssetBlobUrl(
         : { url: '', loading: true, error: null },
     );
 
-    storage
+    ipc
       .readFileBytes(filePath)
       .then((bytes) => {
         if (cancelled) return;

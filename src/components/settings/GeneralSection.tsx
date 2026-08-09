@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink, Folder, Loader2, Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/core/toast';
@@ -9,7 +9,7 @@ import { AppThemeGrid } from './AppThemeGrid';
 import { LanguageDropdown } from './LanguageDropdown';
 import { JcliSection } from './JcliSection';
 import { ActivityBarItemsSection } from './ActivityBarItemsSection';
-import { TabBarGlassOpacitySlider, TabBarPositionSelector } from './TabBarSettings';
+import { TabBarGlassOpacitySlider, TabBarPositionSelector } from './TabBarControls';
 
 /**
  * GeneralSection - app-wide settings.
@@ -39,7 +39,7 @@ export default function GeneralSection() {
   const setAppThemeIdLight = useStore((s) => s.setAppThemeIdLight);
 
   useEffect(() => {
-    storage
+    ipc
       .init()
       .then(setDataPath)
       .catch((e) => toast.error(String(e)));
@@ -49,7 +49,7 @@ export default function GeneralSection() {
     if (!dataPath) return;
     setOpening(true);
     try {
-      await storage.openDataDir();
+      await ipc.openDataDir();
     } catch (e) {
       toast.error(String(e));
     } finally {

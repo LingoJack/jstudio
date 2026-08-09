@@ -60,7 +60,7 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../../store/useStore";
-import { storage } from "../../lib/core/storage";
+import { ipc } from "../../lib/core/ipc";
 import type { LinkPreviewTabsState, BrowserPanelRect } from "../../types/browser";
 import { COLLAPSED_WIDTH } from "./BrowserSidebar";
 import BrowserSidebar from "./BrowserSidebar";
@@ -92,14 +92,14 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
   // webviews off-screen -- tabs are preserved for the next show.
   useEffect(() => {
     if (hidden) {
-      storage.hideBrowserPanel().catch(console.error);
+      ipc.hideBrowserPanel().catch(console.error);
       return;
     }
-    storage.showBrowserPanel().catch(console.error);
+    ipc.showBrowserPanel().catch(console.error);
     // Fetch current tabs state (covers the case where tabs were preserved
     // from a previous show/hide cycle) and feed the shared browserSlice so
     // the title-bar address bar reflects the live tabs.
-    storage
+    ipc
       .getBrowserPanelTabsState()
       .then((state) => useStore.getState().setBrowserTabsState(state))
       .catch(console.error);
@@ -169,7 +169,7 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
         width: rootRect.width - COLLAPSED_WIDTH,
         height: rootRect.height,
       };
-      storage.updateBrowserPanelRect(browserRect).catch(console.error);
+      ipc.updateBrowserPanelRect(browserRect).catch(console.error);
     };
 
     // Report immediately so the webviews are positioned without waiting

@@ -33,7 +33,7 @@ import { useTerminalInput } from './useTerminalInput';
  * useTerminalManager — owns the lifecycle of all xterm.js Terminal instances.
  *
  * Each session gets a cached entry (Terminal + FitAddon + DOM container +
- * CursorTrail).  Switching tabs reuses cached instances — scrollback and
+ * TerminalCursorTrail).  Switching tabs reuses cached instances — scrollback and
  * state are preserved.
  *
  * Responsibilities (delegated to sub-hooks):

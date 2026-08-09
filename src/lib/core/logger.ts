@@ -34,7 +34,7 @@
  *   diagnostic log.
  */
 
-import { storage } from "./storage";
+import { ipc } from "./ipc";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -156,9 +156,9 @@ class Logger {
     const lines = this.buffer.splice(0);
     for (const entry of lines) {
       const line = `[${entry.ts}] [${entry.level.toUpperCase()}] [${WINDOW_LABEL}] [${entry.source}] ${entry.msg}`;
-      // Fire-and-forget; storage.appendLogLine returns a Promise that we
+      // Fire-and-forget; ipc.appendLogLine returns a Promise that we
       // intentionally don't await (flushing is async by design).
-      storage.appendLogLine(line).catch(() => {
+      ipc.appendLogLine(line).catch(() => {
         // Swallow — the logger must never throw. Disk-full / permission
         // errors just mean we lose this line; we don't re-buffer to avoid
         // unbounded growth.

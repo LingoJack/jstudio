@@ -14,7 +14,7 @@ import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react'
 import { Copy, Check, Maximize2 } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
-import { storage } from '../../../lib/core/storage';
+import { ipc } from '../../../lib/core/ipc';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
 import { useAssetBlobUrl } from '../../../lib/editor/content/useAssetBlobUrl';
 import { resolveAssetFilePath } from '../../../lib/editor/content/assetUrl';
@@ -100,7 +100,7 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
       if (!filePath || typeof filePath !== 'string') return;
 
       const activeDocId = useStore.getState().activeDocId;
-      const bytes = await storage.readFileBytes(filePath);
+      const bytes = await ipc.readFileBytes(filePath);
       const ext = filePath.split('.').pop()?.toLowerCase() || 'png';
       const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
       const fileName = genStoredName('image', ext);
@@ -191,7 +191,7 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
       // sends only a short path string over IPC instead of the full image
       // bytes, which is what made the previous JS-side writeImage() slow.
       const filePath = resolveAssetFilePath(studioRoot, activeDocId, src);
-      await storage.copyImageToClipboard(filePath);
+      await ipc.copyImageToClipboard(filePath);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

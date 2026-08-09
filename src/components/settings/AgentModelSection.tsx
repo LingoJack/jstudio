@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Circle,
 } from 'lucide-react';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import type { ModelProvider, AgentConfigFile, ToolCallMode } from '../../types/storage';
 import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/core/toast';
@@ -39,7 +39,7 @@ export default function AgentModelSection() {
     setLoading(true);
     setError(null);
     try {
-      const raw = await storage.loadAgentConfig();
+      const raw = await ipc.loadAgentConfig();
       // Normalise: ensure providers array + active_index exist
       const normalised: AgentConfigFile = {
         ...raw,
@@ -63,7 +63,7 @@ export default function AgentModelSection() {
     async (next: AgentConfigFile) => {
       setSaving(true);
       try {
-        await storage.saveAgentConfig(next);
+        await ipc.saveAgentConfig(next);
         setConfig(next);
         toast.success(t('agent.saveSuccess'));
       } catch (e) {

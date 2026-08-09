@@ -43,7 +43,7 @@
   - 同文件 `:51`、`:98` 两处调用 `editorForKeyboardTarget(...)`。
   - 仅文字提及：`src/lib/editor/focusedEditorRegistry.ts:7`。
 
-### 6. `src/lib/documents/assetGc.ts` → `assetCleanup.ts`
+### 6. `src/lib/documents/assetRecycle.ts` → `assetCleanup.ts`
 - **理由**：`Gc` 缩写对非后端读者不友好（garbage collection）。
 - **导出符号**：`collectReferencedAssets` / `gcDocumentAssets`（不变）。
 - **引用清单**：
@@ -85,9 +85,9 @@
 - **导出符号**：`handleNativeSelectAll`（改 `handleInputSelectAll`）。
 - **引用清单（共 19 处 import + 注释）**：
   - `src/components/editor/nodes/CollapsibleView.tsx:62`
-  - `src/components/windows/LinkPreviewTabsApp.tsx:33`
+  - `src/components/windows/LinkPreviewTabsWindowApp.tsx:33`
   - `src/components/editor/nodes/graph/MermaidImportDialog.tsx:15`
-  - `src/components/windows/CommandPaletteWindow.tsx:34`
+  - `src/components/windows/CommandPaletteWindowApp.tsx:34`
   - `src/components/settings/GlobalShortcutsSection.tsx:39`
   - `src/components/documents/DocumentSidebar.tsx:4`
   - `src/components/editor/nodes/graph/AIGraphImportDialog.tsx:20`
@@ -121,7 +121,7 @@
 - **当前引用清单**（改名/拆分都需更新）：
   - `src/lib/documents/formatRelativeEditedTime.ts:9` — `import { formatDate } from '../commandPalette/shared';`
   - `src/components/documents/OpenDocumentDialog.tsx:14` — `import { HighlightedText, formatDateOr } from '../../lib/commandPalette/shared';`
-  - `src/components/windows/CommandPaletteWindow.tsx:43` — `import { ... } from '../../lib/commandPalette/shared.tsx';`
+  - `src/components/windows/CommandPaletteWindowApp.tsx:43` — `import { ... } from '../../lib/commandPalette/shared.tsx';`
   - `src/components/editor/sectionEditor/DocumentPanel.tsx:46` — `import { formatDate } from '../../../lib/commandPalette/shared';`
   - `src/components/editor/CommandPalette.tsx:35` — `import { ... } from '../../lib/commandPalette/shared.tsx';`
 - **决策**：因 churn 较大且涉及对外（被 `documents/` 复用 `formatDate`），建议暂缓，先只做 Tier 1+2。

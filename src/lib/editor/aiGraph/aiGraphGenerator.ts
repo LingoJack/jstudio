@@ -15,7 +15,7 @@
  * 部分兼容层不支持（返回 400）。先尝试带该字段，遇 400 降级重试不带。
  */
 
-import { storage } from '../../core/storage';
+import { ipc } from '../../core/ipc';
 import type { AiGraphFetchRequest } from '../../../types/browser';
 import { serializeGraphSnapshot } from '../../../components/editor/nodes/graph/graphSnapshot';
 import { validateAiGraph } from './aiGraphValidator';
@@ -130,7 +130,7 @@ async function callOnce(
   };
 
   // Rust 代理转发，绕过 webview CORS
-  const resp = await storage.aiGraphFetch(request);
+  const resp = await ipc.aiGraphFetch(request);
 
   if (!resp.ok) {
     // 尝试从响应体抽错误信息
@@ -181,7 +181,7 @@ export async function generateGraphFromAI(
   // 1. 读配置
   let config;
   try {
-    config = await storage.loadAgentConfig();
+    config = await ipc.loadAgentConfig();
   } catch (e) {
     return {
       success: false,

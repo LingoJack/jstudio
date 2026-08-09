@@ -17,8 +17,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { useSidebarResize } from '../documents/hooks/useSidebarResize';
-import { useSidebarHover } from '../documents/hooks/useSidebarHover';
+import { useSidebarResize } from '../hooks/useSidebarResize';
+import { useSidebarHover } from '../hooks/useSidebarHover';
 import {
   Plus,
   FolderOpen,

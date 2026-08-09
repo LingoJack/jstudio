@@ -7,13 +7,13 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useStore } from '../../store/useStore';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import {
   getTerminalThemeFromAppTheme,
   withSemanticTerminalCursor,
 } from '../../lib/terminal/themes';
 import { useTerminalManager } from './useTerminalManager';
-import CursorTrail from './CursorTrail';
+import TerminalCursorTrail from './TerminalCursorTrail';
 import type { PaneLayoutType, PaneResizeState } from './types';
 
 /**
@@ -322,7 +322,7 @@ export default function PaneLayoutView({
 
   // ── Shared overlay canvas for cursor trail ──
   const overlayRef = useRef<HTMLDivElement>(null);
-  const trailRef = useRef<CursorTrail | null>(null);
+  const trailRef = useRef<TerminalCursorTrail | null>(null);
 
   /** Create the shared trail once. */
   useEffect(() => {
@@ -344,7 +344,7 @@ export default function PaneLayoutView({
     }
 
     try {
-      trailRef.current = new CursorTrail(canvas, theme.cursor, terminalCursorStyle);
+      trailRef.current = new TerminalCursorTrail(canvas, theme.cursor, terminalCursorStyle);
       trailRef.current.resize();
       trailRef.current.start();
     } catch {
@@ -445,7 +445,7 @@ export default function PaneLayoutView({
         if (!entry) continue;
         try {
           entry.fit.fit();
-          storage
+          ipc
             .ptyResize(sid, entry.term.cols, entry.term.rows)
             .catch(() => {});
         } catch {
@@ -486,7 +486,7 @@ export default function PaneLayoutView({
         if (!entry) continue;
         try {
           entry.fit.fit();
-          storage
+          ipc
             .ptyResize(sid, entry.term.cols, entry.term.rows)
             .catch(() => {});
         } catch {
@@ -643,7 +643,7 @@ export default function PaneLayoutView({
             ([, v]) => v.term === term,
           )?.[0];
           if (sid) {
-            storage.ptyResize(sid, term.cols, term.rows).catch(() => {});
+            ipc.ptyResize(sid, term.cols, term.rows).catch(() => {});
           }
         } catch {
           // ignore

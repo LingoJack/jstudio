@@ -11,7 +11,7 @@ import type {
   FitPlugin,
 } from '@maxgraph/core';
 import { owningLifeline } from '../sequenceInteraction';
-import { DEFAULT_SIZE } from '../graphCanvasStyle';
+import { DEFAULT_SIZE } from '../graphConstants';
 import { SHAPE_FONT_SIZE } from '../graphTheme';
 import type { GraphSetupFn } from './types';
 

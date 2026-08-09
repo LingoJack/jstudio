@@ -11,7 +11,7 @@
 
 硬性约束：
 - **引擎复用**：agent 运行逻辑来自 `j-agent` crate（`/Users/lingojack/dev_custom/jstudio/jcli/j-agent/`），它已经被 `src-tauri/Cargo.toml` 以 `j_agent = { path = "../jcli/j-agent", package = "j-agent" }` 形式链入。**不要**重写 `run_main_agent_loop`、工具系统、权限系统本身。
-- **只重写 JStudio 这一侧**：`src-tauri/src/commands/agent.rs`（Rust 桥）、`src/store/agentSlice.ts`、`src/types/agent.ts`、`src/components/agent/*`、`src/lib/core/storage.ts` 的 agent 封装、i18n。
+- **只重写 JStudio 这一侧**：`src-tauri/src/commands/agent.rs`（Rust 桥）、`src/store/agentSlice.ts`、`src/types/agent.ts`、`src/components/agent/*`、`src/lib/core/ipc.ts` 的 agent 封装、i18n。
 - **j-agent 只允许极小改动**：若必须让前端看到工具执行结果，仅在 `j-agent` 的 `message_types.rs` 增加 `StreamMsg::ToolResult` 变体并在工具执行后 emit；并同步修好 `j` 终端的 `StreamMsg` 匹配（保持 `j` 仍可编译）。
 
 ---
@@ -24,7 +24,7 @@
 - 前端 store：`src/store/agentSlice.ts`、`src/store/storeHelpers.ts`
 - 类型：`src/types/agent.ts`
 - 组件：`src/components/agent/AgentPanel.tsx`、`src/components/agent/MarkdownMessage.tsx`
-- IPC 封装：`src/lib/core/storage.ts` 中 `agent*` 系列
+- IPC 封装：`src/lib/core/ipc.ts` 中 `agent*` 系列
 - 路由/入口：`src/App.tsx`、`src/components/layout/ActivityBar.tsx`、`src/lib/activityMeta.ts`
 - i18n：`src/lib/i18n/translations.ts` 的 `agent.*` 键
 
@@ -154,7 +154,7 @@ ToolResult(ToolResultMsg),
 **禁止做：**
 - 不要动 `src-tauri/src/commands/jcli.rs`（嵌入 `j` 二进制安装逻辑）以外的无关模块，除非为修编译必须。
 - 不要引入与现有 `agent:*` 事件命名冲突的新事件前缀。
-- 不要在组件里直接 `invoke(...)`；一律走 `src/lib/core/storage.ts` 封装。
+- 不要在组件里直接 `invoke(...)`；一律走 `src/lib/core/ipc.ts` 封装。
 - 不要把 API key 明文写进前端 state 之外的地方或打印到 console（仅用于传给后端）。
 
 ---
@@ -162,7 +162,7 @@ ToolResult(ToolResultMsg),
 ## 4. 约定（严格遵循现有代码库风格）
 
 - **Rust**：`#[tauri::command] pub fn ...(app: AppHandle) -> Result<_, String>`；跨线程共享状态放 `Arc<Mutex<..>>` 内、集中到 `LazyLock<Mutex<HashMap<..>>>` 全局表；流式用 `app.emit("agent:<evt>", Payload{..})`；每个命令在 `lib.rs` 的 `generate_handler!` 与 `commands/mod.rs` 注册。
-- **IPC 封装**：`src/lib/core/storage.ts` 内每个命令一个 `invoke` 包装（camelCase 参数），如现有 `agentSendMessage({ sessionId, text, images })`。
+- **IPC 封装**：`src/lib/core/ipc.ts` 内每个命令一个 `invoke` 包装（camelCase 参数），如现有 `agentSendMessage({ sessionId, text, images })`。
 - **Store**：新字段/action 先在 `storeHelpers.ts` 的 `StoreState` 声明签名，再在 `agentSlice.ts` 用 `(set, get)` 实现，最后在 `useStore.ts` 组合。
 - **事件**：`import { listen } from '@tauri-apps/api/event'`；监听设置做去重/可清理。
 - **UI**：VSCode CSS 变量主题、`lucide-react` 图标、`useI18n()` 文案、面板 mount-once/CSS 隐藏。
@@ -192,7 +192,7 @@ ToolResult(ToolResultMsg),
 - [ ] `src-tauri/src/commands/agent.rs` 重写：tool-result emit、安全/危险工具分流、auto-approve、plan-request、全部 `agent:*` 事件
 - [ ] `src/types/agent.ts` 类型扩展
 - [ ] `src/store/agentSlice.ts` + `storeHelpers.ts`：全事件监听（含 tool-result/compacted）、plan/tool actions、auto-approve、清理接线
-- [ ] `src/lib/core/storage.ts`：新增封装（`agentSetAutoApprove` / `agentSetWorkspace` 等）
+- [ ] `src/lib/core/ipc.ts`：新增封装（`agentSetAutoApprove` / `agentSetWorkspace` 等）
 - [ ] `src/components/agent/AgentPanel.tsx` 重写：ToolCallConfirm（批准/拒绝/plan）、ToolResultBubble、设置区、运行态、无 workspace 会话
 - [ ] `src/components/agent/MarkdownMessage.tsx` 保留/增强
 - [ ] i18n 补齐 `agent.*` 键（zh+en）

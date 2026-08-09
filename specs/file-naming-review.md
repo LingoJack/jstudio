@@ -128,10 +128,26 @@
 
 ---
 
-## 七、建议执行顺序
+## 七、执行记录
 
-1. ~~**A2 决策**~~ ✅ **已完成**：`sequence/` 4 文件 + plan 文档已 `git rm` 删除（全项目零引用，tsc 验证无破坏）。
-2. **批量低成本项**（B1–B10 + C3/C4/C5，共 13 项，均 ≤3 引用）：可一次性提交，review 噪音小。
-3. **A1 单独提交**：`SectionSkeleton→EditorSkeleton` 高收益、零外部消费者。
-4. **C1 缓解先行**：先给 `storage.ts` 补 doc comment，真正重命名留大重构窗口。
-5. **C2 视情**：`graphCanvasStyle` 改名 10 引用，建议结合下次 graph 子系统大改时顺手做。
+全部 17 项已完成。type check 通过，前端测试全绿（9/9），knip 无新增问题。
+
+| 项 | 动作 | 引用数 | 状态 |
+|---|---|---|---|
+| A1 | `SectionSkeleton.tsx` → `EditorSkeleton.tsx` | 1 | ✅ |
+| A2 | `sequence/` 4 文件 + plan 文档 `git rm` 删除 | 0 | ✅ |
+| B1 | `graphShapeMenu.ts` → `shapeMenuData.ts` | 2 | ✅ |
+| B2 | `codeBlockLanguages.ts` → `code-block/` | 2 | ✅ |
+| B3 | `mermaidConfig.ts` → `code-block/` | 1 | ✅ |
+| B4 | `mermaidWindowHtml.ts` → `code-block/` | 1 | ✅ |
+| B5 | `CursorTrail.ts` → `TerminalCursorTrail.ts`（含类名） | 1 | ✅ |
+| B6 | `TabBarSettings.tsx` → `TabBarControls.tsx` | 1 | ✅ |
+| B7 | `useSidebarHover.ts` → `hooks/` | 3 | ✅ |
+| B8 | `useSidebarResize.ts` → `hooks/` | 2 | ✅ |
+| B9 | `migrate.ts` → `migrateLegacyStore.ts` | 1 | ✅ |
+| B10 | `download.ts` → `fileExport.ts` | 1 | ✅ |
+| C1 | `storage.ts` → `ipc.ts`（文件名 + 导出名 `storage`→`ipc` + 全部调用点） | 41 | ✅ |
+| C2 | `graphCanvasStyle.ts` → `graphConstants.ts` | 10 | ✅ |
+| C3 | `CommandPaletteWindow.tsx` → `CommandPaletteWindowApp.tsx` | 1 | ✅ |
+| C4 | `LinkPreviewTabsApp.tsx` → `LinkPreviewTabsWindowApp.tsx` | 1 | ✅ |
+| C5 | `assetGc.ts` → `assetRecycle.ts` | 1 | ✅ |

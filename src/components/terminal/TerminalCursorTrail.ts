@@ -6,7 +6,7 @@ import {
 } from '../ui/cursor/BaseCursorTrail';
 
 /**
- * CursorTrail — terminal cursor trail (xterm), built on BaseCursorTrail.
+ * TerminalCursorTrail — terminal cursor trail (xterm), built on BaseCursorTrail.
  *
  * Terminal-specific responsibilities:
  *   - Reading cursor position from xterm's buffer (cursorX / cursorY).
@@ -36,7 +36,7 @@ const BLINK_PERIOD_MS = 700;
 /** Reduced frame rate once the cursor is stationary and only blink remains. */
 const THROTTLE_FPS = 20;
 
-export default class CursorTrail extends BaseCursorTrail {
+export default class TerminalCursorTrail extends BaseCursorTrail {
   /** The terminal currently being tracked. */
   private term: Terminal | null = null;
   /** The DOM container of the tracked terminal (for measuring grid). */

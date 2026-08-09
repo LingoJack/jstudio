@@ -15,7 +15,7 @@
 
 import { useRef, useCallback } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import { useStore } from '../../store/useStore';
 import type { Terminal } from '@xterm/xterm';
 
@@ -128,7 +128,7 @@ export function usePtySessions(): UsePtySessionsReturn {
     // This is essential during HMR: when the frontend reloads, old callback
     // IDs become invalid, and the Rust reader thread continues emitting
     // pty-data events → "Couldn't find callback id" errors.
-    storage.ptyKill(sessionId).catch(() => {});
+    ipc.ptyKill(sessionId).catch(() => {});
   }, []);
 
   /**
@@ -142,14 +142,14 @@ export function usePtySessions(): UsePtySessionsReturn {
     unlistenRef.current.clear();
     sessionsRef.current.clear();
     // Kill all backend PTY sessions in one call.
-    storage.ptyKillAll().catch(() => {});
+    ipc.ptyKillAll().catch(() => {});
   }, []);
 
   /**
    * Write data to PTY (user input → shell).
    */
   const writeToPty = useCallback((sessionId: string, data: string) => {
-    storage.ptyWrite(sessionId, data).catch(console.error);
+    ipc.ptyWrite(sessionId, data).catch(console.error);
   }, []);
 
   /**
@@ -157,7 +157,7 @@ export function usePtySessions(): UsePtySessionsReturn {
    */
   const resizePty = useCallback(
     (sessionId: string, cols: number, rows: number) => {
-      storage.ptyResize(sessionId, cols, rows).catch(console.error);
+      ipc.ptyResize(sessionId, cols, rows).catch(console.error);
     },
     [],
   );

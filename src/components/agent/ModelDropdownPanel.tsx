@@ -17,7 +17,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Check } from 'lucide-react';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import type { ModelProvider, AgentConfigFile } from '../../types/storage';
 import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/core/toast';
@@ -49,7 +49,7 @@ export function useModelDropdown(direction: 'up' | 'down' = 'up') {
   useEffect(() => {
     const load = async () => {
       try {
-        const raw = await storage.loadAgentConfig();
+        const raw = await ipc.loadAgentConfig();
         const normalised: AgentConfigFile = {
           ...raw,
           providers: Array.isArray(raw.providers) ? (raw.providers as ModelProvider[]) : [],
@@ -97,7 +97,7 @@ export function useModelDropdown(direction: 'up' | 'down' = 'up') {
       if (!config || idx === config.active_index) return;
       try {
         const next = { ...config, active_index: idx };
-        await storage.saveAgentConfig(next);
+        await ipc.saveAgentConfig(next);
         setConfig(next);
         setOpen(false);
         window.dispatchEvent(new Event(AGENT_CONFIG_CHANGED_EVENT));

@@ -1,4 +1,4 @@
-import { storage } from '../lib/core/storage';
+import { ipc } from '../lib/core/ipc';
 import { onSaveError, type SliceCreator } from './storeHelpers';
 import type {
   PaneGroup,
@@ -80,7 +80,7 @@ const DEFAULT_TEMPLATE: TerminalTemplate = {
 // ────────────────────────────────────────────────
 
 function saveTemplates(templates: TerminalTemplate[]) {
-  storage
+  ipc
     .saveSettings({ terminalTemplates: templates })
     .catch(onSaveError('终端'));
 }
@@ -198,7 +198,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     set((s) => {
       const filtered = s.recentDirs.filter((d) => d !== cwd);
       const recentDirs = [cwd, ...filtered].slice(0, 10);
-      storage.saveSettings({ terminalRecentDirs: recentDirs }).catch(onSaveError('终端'));
+      ipc.saveSettings({ terminalRecentDirs: recentDirs }).catch(onSaveError('终端'));
       return { recentDirs };
     });
   },
@@ -206,7 +206,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
   /** Clear all recent directories. */
   clearRecentDirs: () => {
     set({ recentDirs: [] });
-    storage.saveSettings({ terminalRecentDirs: [] }).catch(onSaveError('终端'));
+    ipc.saveSettings({ terminalRecentDirs: [] }).catch(onSaveError('终端'));
   },
 
   /** Create a new template and persist it. */
@@ -260,7 +260,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     // Explicit cwd overrides template cwd.
     const cwd = opts?.cwd ?? tmpl?.cwd ?? '~';
 
-    const info = await storage.ptyCreate({
+    const info = await ipc.ptyCreate({
       cwd,
       cols: DEFAULT_COLS,
       rows: DEFAULT_ROWS,
@@ -310,7 +310,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     // Kill all PTYs in the group.
     await Promise.all(
       group.sessionIds.map((sid) =>
-        storage.ptyKill(sid).catch((e) =>
+        ipc.ptyKill(sid).catch((e) =>
           console.error('Failed to kill PTY session:', e),
         ),
       ),
@@ -341,7 +341,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
           : sess,
       ),
     }));
-    storage.ptySetTitle(id, trimmed || 'Terminal').catch(onSaveError('终端'));
+    ipc.ptySetTitle(id, trimmed || 'Terminal').catch(onSaveError('终端'));
   },
 
   /** Set the auto-detected title from OSC sequences (won't override customTitle). */
@@ -511,7 +511,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
     );
     const cwd = tmpl?.cwd ?? activeSession?.cwd ?? '~';
 
-    const info = await storage.ptyCreate({
+    const info = await ipc.ptyCreate({
       cwd,
       cols: DEFAULT_COLS,
       rows: DEFAULT_ROWS,
@@ -683,7 +683,7 @@ export const createTerminalSlice: SliceCreator = (set, get) => ({
 
     // Kill just this one PTY.
     try {
-      await storage.ptyKill(sessionId);
+      await ipc.ptyKill(sessionId);
     } catch (e) {
       console.error('Failed to kill PTY session:', e);
     }

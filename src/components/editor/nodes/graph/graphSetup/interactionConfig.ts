@@ -4,7 +4,7 @@ import type {
   SelectionHandler,
 } from '@maxgraph/core';
 import { getSelectionColor } from '../graphTheme';
-import { GRID_SIZE } from '../graphCanvasStyle';
+import { GRID_SIZE } from '../graphConstants';
 import { logger } from '../../../../../lib/core/logger';
 import type { GraphSetupFn } from './types';
 

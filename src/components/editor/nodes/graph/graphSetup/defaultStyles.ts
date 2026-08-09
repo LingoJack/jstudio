@@ -8,7 +8,7 @@ import {
   SHAPE_FONT_SIZE,
   ARROW_END_SIZE,
 } from '../graphTheme';
-import { CONNECTION_POINTS } from '../graphCanvasStyle';
+import { CONNECTION_POINTS } from '../graphConstants';
 import { HEAD_HEIGHT } from '../customShapes';
 import type { GraphSetupFn } from './types';
 

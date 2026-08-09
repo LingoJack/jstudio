@@ -13,7 +13,7 @@ import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/react";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { ChevronDown, Search } from "lucide-react";
-import { LANGUAGES, getLanguageLabel } from "../codeBlockLanguages";
+import { LANGUAGES, getLanguageLabel } from "./codeBlockLanguages";
 import { handleNativeSelectAll } from "../../../../lib/shortcuts/nativeSelectAll";
 import type { TranslationKey } from "../../../../lib/core/i18n";
 

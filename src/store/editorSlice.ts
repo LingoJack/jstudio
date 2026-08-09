@@ -1,5 +1,5 @@
 import type { Block, BlockType, RichText } from '../types';
-import { storage } from '../lib/core/storage';
+import { ipc } from '../lib/core/ipc';
 import { scheduleDocumentSave } from './storeHelpers';
 import type { SliceCreator } from './storeHelpers';
 
@@ -230,7 +230,7 @@ export const createEditorSlice: SliceCreator = (set, get) => ({
     const bytes = Array.from(new Uint8Array(arrayBuffer));
 
     // Save to document's assets folder
-    await storage.saveDocAsset(activeDocId, fileName, bytes);
+    await ipc.saveDocAsset(activeDocId, fileName, bytes);
 
     const assetPath = `assets/${fileName}`;
 

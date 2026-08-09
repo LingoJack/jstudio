@@ -1,4 +1,4 @@
-import { storage } from '../lib/core/storage';
+import { ipc } from '../lib/core/ipc';
 import type { FolderMeta } from '../types/storage';
 import { onSaveError, type SetState, type GetState, type StoreState, scheduleFoldersSave, scheduleIndexSave } from './storeHelpers';
 import { collectDescendantFolderIds } from '../lib/documents/folderTree';
@@ -108,7 +108,7 @@ export function createFoldersSlice(set: SetState, get: GetState) {
 
       // 4. Persist: delete document files from disk (best-effort)
       for (const docId of docIdsToRemove) {
-        storage.deleteDocument(docId).catch(onSaveError(`文档 ${docId}`));
+        ipc.deleteDocument(docId).catch(onSaveError(`文档 ${docId}`));
       }
     },
 
@@ -163,7 +163,7 @@ export function createFoldersSlice(set: SetState, get: GetState) {
 
       // 4. Persist: delete document files from disk (best-effort)
       for (const docId of docIdsToRemove) {
-        storage.deleteDocument(docId).catch(onSaveError(`文档 ${docId}`));
+        ipc.deleteDocument(docId).catch(onSaveError(`文档 ${docId}`));
       }
     },
 

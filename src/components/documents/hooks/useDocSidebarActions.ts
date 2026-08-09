@@ -7,13 +7,13 @@
  *   - handleExportBundle / handleImportBundle
  *   - handleCopyAsMarkdown
  *
- * 这些 handler 涉及文件 I/O（storage、dialog 插件、剪贴板）以及 store 的
+ * 这些 handler 涉及文件 I/O（ipc、dialog 插件、剪贴板）以及 store 的
  * 导入/导出方法和 toast 通知。上下文菜单的关闭（setContextMenu）也由本 hook 负责调用。
  */
 
 import { useCallback, useRef } from 'react';
 import { useStore } from '../../../store/useStore';
-import { storage } from '../../../lib/core/storage';
+import { ipc } from '../../../lib/core/ipc';
 import { blocksToMarkdown } from '../../../lib/editor/markdownExport';
 import type { ToastType } from '../../../store/toastSlice';
 import type { TranslationKey } from '../../../lib/core/i18n';
@@ -51,7 +51,7 @@ export function useDocSidebarActions({
 
   const handleOpenInFinder = useCallback(async (docId: string) => {
     try {
-      await storage.openDocDir(docId);
+      await ipc.openDocDir(docId);
     } catch (e) {
       console.error('Failed to open document folder:', e);
     }
@@ -60,7 +60,7 @@ export function useDocSidebarActions({
 
   const handleCopyPath = useCallback(async (docId: string) => {
     try {
-      const path = await storage.getDocPath(docId);
+      const path = await ipc.getDocPath(docId);
       await navigator.clipboard.writeText(path);
     } catch (e) {
       console.error('Failed to copy path:', e);
@@ -70,8 +70,8 @@ export function useDocSidebarActions({
 
   const handleCopyRelativePath = useCallback(async (docId: string) => {
     try {
-      const path = await storage.getDocPath(docId);
-      const home = await storage.init();
+      const path = await ipc.getDocPath(docId);
+      const home = await ipc.init();
       let rel = path;
       if (path.startsWith(home)) {
         rel = path.slice(home.length).replace(/^[/\\]+/, '');
@@ -91,7 +91,7 @@ export function useDocSidebarActions({
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown'] }],
       });
       if (!filePath || typeof filePath !== 'string') return;
-      const bytes = await storage.readFileBytes(filePath);
+      const bytes = await ipc.readFileBytes(filePath);
       const md = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
       const filename = filePath.split(/[/\\]/).pop() ?? 'Untitled.md';
       await importDocumentFromMarkdown(filename, md, folderId);

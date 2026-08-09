@@ -22,7 +22,7 @@ export function isAssetPath(src: string): boolean {
  *
  * `studioRoot` may use OS-native separators (backslashes on Windows); we
  * normalize to forward slashes. The returned path is suitable for passing
- * to Tauri commands such as `storage.readFileBytes`.
+ * to Tauri commands such as `ipc.readFileBytes`.
  */
 export function resolveAssetFilePath(
   studioRoot: string,

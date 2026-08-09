@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
-import { storage } from './lib/core/storage';
+import { ipc } from './lib/core/ipc';
 import { toast } from './lib/core/toast';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 import { shortcutManager } from './lib/shortcuts/ShortcutManager';

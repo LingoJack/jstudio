@@ -7,7 +7,7 @@
  */
 
 import type { Graph, Cell } from '@maxgraph/core';
-import { DEFAULT_SIZE, styleForShape } from './graphCanvasStyle';
+import { DEFAULT_SIZE, styleForShape } from './graphConstants';
 import { MINDMAP_GAP_X, MINDMAP_GAP_Y, reflowMindmap } from './mindmapLayout';
 import { mindmapEdgeStyle, nextCellId } from './graphHelpers';
 

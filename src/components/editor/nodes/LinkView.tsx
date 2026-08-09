@@ -43,7 +43,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { storage } from '../../../lib/core/storage';
+import { ipc } from '../../../lib/core/ipc';
 import type { LinkMetadata } from '../../../types/browser';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { useNodeResize } from '../hooks/useNodeResize';
@@ -169,7 +169,7 @@ export default function LinkView({
       setError(null);
       setLoading(true);
       try {
-        const meta: LinkMetadata = await storage.fetchLinkMetadata(normalized);
+        const meta: LinkMetadata = await ipc.fetchLinkMetadata(normalized);
         updateAttributes({
           url: meta.url || normalized,
           title: meta.title || hostnameFromUrl(normalized),
@@ -285,7 +285,7 @@ export default function LinkView({
   const handleRefresh = useCallback(() => {
     if (!url) return;
     setLoading(true);
-    storage
+    ipc
       .fetchLinkMetadata(url)
       .then((meta) => {
         updateAttributes({
@@ -302,7 +302,7 @@ export default function LinkView({
 
   const handleOpenPreview = useCallback(() => {
     if (!url) return;
-    storage.openLinkPreviewWithTabs(url).catch(() => {});
+    ipc.openLinkPreviewWithTabs(url).catch(() => {});
   }, [url]);
 
   const handleOpenExternal = useCallback(() => {
@@ -352,7 +352,7 @@ export default function LinkView({
       });
 
       setLoading(true);
-      storage
+      ipc
         .fetchLinkMetadata(normalized)
         .then((meta) => {
           // Refine with fetched metadata. meta.url may differ from normalized

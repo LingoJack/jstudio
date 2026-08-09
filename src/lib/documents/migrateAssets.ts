@@ -11,7 +11,7 @@
  * render time via the asset protocol). One-time cost per document.
  */
 
-import { storage } from '../core/storage';
+import { ipc } from '../core/ipc';
 import { genStoredName } from '../editor/upload';
 import type { Document, Block } from '../../types';
 
@@ -76,7 +76,7 @@ export async function migrateDocAssets(
             b.type === 'image' ? 'image' : 'file',
             ext,
           );
-          const finalName = await storage.saveDocAsset(
+          const finalName = await ipc.saveDocAsset(
             doc.id,
             storedName,
             bytes,

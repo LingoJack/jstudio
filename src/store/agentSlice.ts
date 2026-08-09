@@ -21,7 +21,7 @@ import type {
   ToolExecResult,
   ToolResultStatus,
 } from '../types/agent';
-import { storage } from '../lib/core/storage';
+import { ipc } from '../lib/core/ipc';
 import type { StoreState } from './storeHelpers';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { listen } from '@tauri-apps/api/event';
@@ -62,7 +62,7 @@ export function createAgentSlice(
     // — agent ops —
     initAgentSessions: async () => {
       try {
-        const metas = await storage.agentListSessions();
+        const metas = await ipc.agentListSessions();
         const sessions: AgentSession[] = metas.map((m) => ({
           id: m.id,
           title: m.title ?? '',
@@ -81,7 +81,7 @@ export function createAgentSlice(
 
         // Load active workspace from settings
         try {
-          const settings = await storage.loadSettings();
+          const settings = await ipc.loadSettings();
           if (settings.agentActiveWorkspace) {
             set({ activeAgentWorkspace: settings.agentActiveWorkspace as string });
           }
@@ -95,7 +95,7 @@ export function createAgentSlice(
 
     setActiveAgentWorkspace: (workspace: string) => {
       set({ activeAgentWorkspace: workspace });
-      storage.saveSettings({ agentActiveWorkspace: workspace }).catch((e) => {
+      ipc.saveSettings({ agentActiveWorkspace: workspace }).catch((e) => {
         console.error('Failed to save active workspace:', e);
       });
     },
@@ -103,7 +103,7 @@ export function createAgentSlice(
     createAgentSession: async (workspace: string) => {
       try {
         // 不需要 title，标题会在用户发送第一条消息时自动生成
-        const id = await storage.agentCreateSession('', workspace);
+        const id = await ipc.agentCreateSession('', workspace);
         const session: AgentSession = {
           id,
           title: '', // 空 title，等待第一条消息填充
@@ -140,7 +140,7 @@ export function createAgentSlice(
         }
 
         // Load messages from backend
-        const messages = await storage.agentLoadSession(sessionId);
+        const messages = await ipc.agentLoadSession(sessionId);
         set((s) => ({
           agentSessions: s.agentSessions.map((session) =>
             session.id === sessionId
@@ -156,7 +156,7 @@ export function createAgentSlice(
 
     deleteAgentSession: async (sessionId: string) => {
       try {
-        await storage.agentDeleteSession(sessionId);
+        await ipc.agentDeleteSession(sessionId);
         set((s) => ({
           agentSessions: s.agentSessions.filter((session) => session.id !== sessionId),
           activeAgentSessionId:
@@ -203,7 +203,7 @@ export function createAgentSlice(
         await ensureAgentEventListeners(sessionId, set, get);
 
         // Send to backend - backend handles queuing if agent is busy
-        await storage.agentSendMessage({
+        await ipc.agentSendMessage({
           sessionId,
           text,
           images,
@@ -244,7 +244,7 @@ export function createAgentSlice(
         }));
 
         // Send to backend (backend will emit tool-result event)
-        await storage.agentToolResult({
+        await ipc.agentToolResult({
           sessionId,
           toolCallId,
           result,
@@ -270,7 +270,7 @@ export function createAgentSlice(
         }
 
         // Send to backend via tool_result with planDecision
-        await storage.agentToolResult({
+        await ipc.agentToolResult({
           sessionId,
           toolCallId: 'plan-request', // Special ID for plan
           result: decision,
@@ -297,7 +297,7 @@ export function createAgentSlice(
 
     setAgentAutoApprove: async (sessionId: string, enabled: boolean) => {
       try {
-        await storage.agentSetAutoApprove(sessionId, enabled);
+        await ipc.agentSetAutoApprove(sessionId, enabled);
         set((s) => ({
           agentSessions: s.agentSessions.map((session) =>
             session.id === sessionId
@@ -322,7 +322,7 @@ export function createAgentSlice(
         }));
 
         // Send answer to backend
-        await storage.agentSubmitAskAnswer(sessionId, JSON.stringify(answer));
+        await ipc.agentSubmitAskAnswer(sessionId, JSON.stringify(answer));
       } catch (e) {
         console.error('Failed to submit ask answer:', e);
       }
@@ -330,7 +330,7 @@ export function createAgentSlice(
 
     cancelAgent: async (sessionId: string) => {
       try {
-        await storage.agentCancel(sessionId);
+        await ipc.agentCancel(sessionId);
         set((s) => ({
           agentSessions: s.agentSessions.map((session) =>
             session.id === sessionId

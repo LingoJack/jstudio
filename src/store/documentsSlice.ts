@@ -2,7 +2,7 @@
  * Documents slice - in-memory document state + CRUD operations.
  */
 
-import { storage } from "../lib/core/storage";
+import { ipc } from "../lib/core/ipc";
 import { toMeta, type DocumentMeta } from "../types/storage";
 import type { Document } from "../types";
 import { toast } from "../lib/core/toast";
@@ -59,13 +59,13 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       ],
     };
 
-    await storage.saveDocument(newDoc);
+    await ipc.saveDocument(newDoc);
 
     const meta = { ...toMeta(newDoc), folderId: folderId ?? null };
     const newDocList = [meta, ...get().docList];
     const newDocuments = [newDoc, ...get().documents];
 
-    await storage.saveIndex(newDocList);
+    await ipc.saveIndex(newDocList);
 
     set({
       docList: newDocList,
@@ -84,7 +84,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     // Update in-memory state FIRST so the UI reacts immediately even if
     // disk operations fail. This prevents the app from getting stuck in
-    // an inconsistent state (e.g. black screen if storage throws).
+    // an inconsistent state (e.g. black screen if ipc throws).
     const newDocuments = documents.filter((d) => d.id !== id);
     const newDocList = docList.filter((d) => d.id !== id);
 
@@ -106,14 +106,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
     // Now persist to disk - failures are logged but don't crash the app.
     try {
-      await storage.deleteDocument(id);
+      await ipc.deleteDocument(id);
     } catch (e) {
       console.error("Failed to delete document from disk:", e);
       toast.error("删除文档失败");
     }
 
     try {
-      await storage.saveIndex(newDocList);
+      await ipc.saveIndex(newDocList);
     } catch (e) {
       console.error("Failed to save index after delete:", e);
       toast.error("索引保存失败");
@@ -146,10 +146,10 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
     ids.forEach((id) => get().removeDocumentTabByDocId(id));
 
     // Persist: delete document files from disk (best-effort, parallel)
-    await Promise.allSettled(ids.map((id) => storage.deleteDocument(id)));
+    await Promise.allSettled(ids.map((id) => ipc.deleteDocument(id)));
 
     try {
-      await storage.saveIndex(newDocList);
+      await ipc.saveIndex(newDocList);
     } catch (e) {
       console.error("Failed to save index after batch delete:", e);
       toast.error("索引保存失败");
@@ -198,7 +198,7 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
 
   reloadDoc: async (docId) => {
     try {
-      const doc = await storage.loadDocument(docId);
+      const doc = await ipc.loadDocument(docId);
       const { documents, activeDocId, activeDocReloadNonce } = get();
       const newDocuments = documents.map((d) => (d.id === docId ? doc : d));
       const patch: Partial<StoreState> = {

@@ -1,5 +1,5 @@
 /**
- * LinkPreviewTabsApp — link preview window tab strip UI (browser-like).
+ * LinkPreviewTabsWindowApp — link preview window tab strip UI (browser-like).
  *
  * Layout:
  *   ┌────────────────────────────────────────────────────┐
@@ -26,7 +26,7 @@ import { Loader2, ExternalLink, RefreshCw, Globe } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { useWindowThemeSync } from "../../lib/windows/useWindowThemeSync";
 import { useI18n } from "../../lib/core/i18n";
-import { storage } from "../../lib/core/storage";
+import { ipc } from "../../lib/core/ipc";
 import type { LinkPreviewTabsState } from "../../types/browser";
 import TabBar, { type TabItem } from "../ui/TabBar";
 import { BrowserTabContextMenu } from "../panels/BrowserTabContextMenu";
@@ -34,7 +34,7 @@ import { handleNativeSelectAll } from "../../lib/shortcuts/nativeSelectAll";
 
 // ── Main Component ─────────────────────────────────────────────────────
 
-export default function LinkPreviewTabsApp() {
+export default function LinkPreviewTabsWindowApp() {
   // Window label from URL param
   const [windowLabel] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -54,7 +54,7 @@ export default function LinkPreviewTabsApp() {
   // Init: fetch tabs state
   useEffect(() => {
     if (!windowLabel) return;
-    storage
+    ipc
       .getLinkPreviewTabsState(windowLabel)
       .then(setState)
       .catch(console.error);
@@ -94,7 +94,7 @@ export default function LinkPreviewTabsApp() {
   const switchTab = useCallback(
     (tabId: string) => {
       if (!windowLabel) return;
-      storage.switchLinkPreviewTab(windowLabel, tabId).catch(console.error);
+      ipc.switchLinkPreviewTab(windowLabel, tabId).catch(console.error);
     },
     [windowLabel],
   );
@@ -102,14 +102,14 @@ export default function LinkPreviewTabsApp() {
   const closeTab = useCallback(
     (tabId: string) => {
       if (!windowLabel) return;
-      storage.closeLinkPreviewTab(windowLabel, tabId).catch(console.error);
+      ipc.closeLinkPreviewTab(windowLabel, tabId).catch(console.error);
     },
     [windowLabel],
   );
 
   const addNewTab = useCallback(() => {
     if (!windowLabel) return;
-    storage.addLinkPreviewTab(windowLabel, "about:blank").catch(console.error);
+    ipc.addLinkPreviewTab(windowLabel, "about:blank").catch(console.error);
   }, [windowLabel]);
 
   const navigateToUrl = useCallback(
@@ -135,11 +135,11 @@ export default function LinkPreviewTabsApp() {
 
       const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
       if (activeTab) {
-        storage
+        ipc
           .navigateLinkPreviewTab(windowLabel, activeTab.id, normalizedUrl)
           .catch(console.error);
       } else {
-        storage
+        ipc
           .addLinkPreviewTab(windowLabel, normalizedUrl)
           .catch(console.error);
       }
@@ -151,7 +151,7 @@ export default function LinkPreviewTabsApp() {
     if (!windowLabel) return;
     const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
     if (activeTab) {
-      storage
+      ipc
         .refreshLinkPreviewTab(windowLabel, activeTab.id)
         .catch(console.error);
     }
@@ -160,7 +160,7 @@ export default function LinkPreviewTabsApp() {
   const openInBrowser = useCallback(() => {
     const activeTab = state.tabs.find((tb) => tb.id === state.activeTabId);
     if (activeTab) {
-      storage.openUrlInBrowser(activeTab.url).catch(console.error);
+      ipc.openUrlInBrowser(activeTab.url).catch(console.error);
     }
   }, [state.tabs, state.activeTabId]);
 
@@ -240,14 +240,14 @@ export default function LinkPreviewTabsApp() {
           canClose={state.tabs.length > 1}
           onRefresh={(tid) => {
             if (windowLabel) {
-              storage
+              ipc
                 .refreshLinkPreviewTab(windowLabel, tid)
                 .catch(console.error);
             }
             close();
           }}
           onOpenInBrowser={(url) => {
-            storage.openUrlInBrowser(url).catch(console.error);
+            ipc.openUrlInBrowser(url).catch(console.error);
             close();
           }}
           onClose={(tid) => {

@@ -2,7 +2,7 @@
  * Init slice - application startup logic.
  */
 
-import { storage } from "../lib/core/storage";
+import { ipc } from "../lib/core/ipc";
 import type { DocumentMeta } from "../types/storage";
 import {
   DEFAULT_ACTIVITY_BAR_ITEMS,
@@ -13,7 +13,7 @@ import {
   type EditorCursorStyle,
   type ActivityBarItemConfig,
 } from "../types/settings";
-import { migrateFromLocalStorage } from "../lib/documents/migrate";
+import { migrateFromLocalStorage } from "../lib/documents/migrateLegacyStore";
 import { resolveDark, applyFont, applyLineHeight } from "./uiSlice";
 import {
   DEFAULT_LATIN_FONT_ID,
@@ -52,12 +52,12 @@ export interface InitSlice {
 export const createInitSlice: SliceCreator = (set, get) => ({
   init: async () => {
     try {
-      const studioRoot = await storage.init();
+      const studioRoot = await ipc.init();
       await migrateFromLocalStorage();
 
       // One-time cleanup: remove the legacy global assets directory.
       try {
-        await storage.cleanGlobalAssets();
+        await ipc.cleanGlobalAssets();
       } catch {
         // ignore - best-effort cleanup
       }
@@ -93,7 +93,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       let docSortDirection = DEFAULT_DOC_SORT_DIRECTION;
       let runtimeLoggingEnabled: boolean | undefined;
       try {
-        const settings = await storage.loadSettings();
+        const settings = await ipc.loadSettings();
         if (settings.theme === "light" || settings.theme === "system") {
           themeMode = settings.theme;
         }
@@ -247,7 +247,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       // Load index
       let index: DocumentMeta[] = [];
       try {
-        index = await storage.loadIndex();
+        index = await ipc.loadIndex();
       } catch {
         // index.json doesn't exist yet
       }
@@ -267,14 +267,14 @@ export const createInitSlice: SliceCreator = (set, get) => ({
           for (const old of index) {
             if (LEGACY_PRESET_IDS.includes(old.id)) {
               try {
-                await storage.deleteDocument(old.id);
+                await ipc.deleteDocument(old.id);
               } catch {
                 // best-effort cleanup
               }
             }
           }
           index = filtered;
-          await storage.saveIndex(index);
+          await ipc.saveIndex(index);
         }
       }
 
@@ -285,10 +285,10 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       const docs: Document[] = [];
       for (const meta of index) {
         try {
-          const doc = await storage.loadDocument(meta.id);
+          const doc = await ipc.loadDocument(meta.id);
           const migrated = await migrateDocAssets(doc);
           if (migrated) {
-            await storage.saveDocument(migrated);
+            await ipc.saveDocument(migrated);
             docs.push(migrated);
           } else {
             docs.push(doc);
@@ -364,7 +364,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
 
       // Load folder index
       try {
-        const folders = await storage.loadFolders();
+        const folders = await ipc.loadFolders();
         get().initFolders(folders);
       } catch {
         // folders.json doesn't exist yet - fine
@@ -391,19 +391,19 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       // sudo prompt), we mark it as attempted and don't retry automatically.
       void (async () => {
         try {
-          const currentSettings = await storage.loadSettings();
+          const currentSettings = await ipc.loadSettings();
           const attempted = currentSettings?.jcliAutoInstallAttempted;
           if (!attempted) {
-            const status = await storage.checkJcli();
+            const status = await ipc.checkJcli();
             if (!status.installed) {
-              const result = await storage.installJcli();
+              const result = await ipc.installJcli();
               if (result) {
                 toast.success("CLI 模式已安装，你可以在终端使用 j 命令");
               }
             }
             // Mark as attempted regardless of success/failure
-            await storage.saveSettings({
-              ...((await storage.loadSettings()) ?? {}),
+            await ipc.saveSettings({
+              ...((await ipc.loadSettings()) ?? {}),
               jcliAutoInstallAttempted: true,
             });
           }
@@ -411,8 +411,8 @@ export const createInitSlice: SliceCreator = (set, get) => ({
           console.warn("Auto-install CLI skipped:", e);
           // Mark as attempted even on error to avoid retrying every launch
           try {
-            await storage.saveSettings({
-              ...((await storage.loadSettings()) ?? {}),
+            await ipc.saveSettings({
+              ...((await ipc.loadSettings()) ?? {}),
               jcliAutoInstallAttempted: true,
             });
           } catch {

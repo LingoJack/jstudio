@@ -2,7 +2,7 @@
  * Import / Export slice - Markdown import + .jnote backup bundles.
  */
 
-import { storage } from "../lib/core/storage";
+import { ipc } from "../lib/core/ipc";
 import { toMeta, type DocumentMeta, type FolderMeta } from "../types/storage";
 import type { Document } from "../types";
 import { markdownToBlocks } from "../lib/editor/markdownImport";
@@ -42,13 +42,13 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
       blocks,
     };
 
-    await storage.saveDocument(newDoc);
+    await ipc.saveDocument(newDoc);
 
     const meta = { ...toMeta(newDoc), folderId: folderId ?? null };
     const newDocList = [meta, ...get().docList];
     const newDocuments = [newDoc, ...get().documents];
 
-    await storage.saveIndex(newDocList);
+    await ipc.saveIndex(newDocList);
 
     set({
       docList: newDocList,
@@ -75,7 +75,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
    * @returns the number of documents that were imported.
    */
   importMarkdownDirectory: async (dirPath, targetFolderId) => {
-    const entries = await storage.listMarkdownFiles(dirPath);
+    const entries = await ipc.listMarkdownFiles(dirPath);
 
     // Extract the directory name (e.g. "/path/to/MyNotes" -> "MyNotes")
     const dirName =
@@ -110,7 +110,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
       if (entry.isDir) continue; // directories are created lazily below
 
       // Read + decode the Markdown file.
-      const bytes = await storage.readFileBytes(entry.path);
+      const bytes = await ipc.readFileBytes(entry.path);
       const md = new TextDecoder("utf-8").decode(new Uint8Array(bytes));
       const filename = entry.relativePath.split("/").pop() ?? "Untitled.md";
 
@@ -155,7 +155,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
       };
       docCount++;
 
-      await storage.saveDocument(doc);
+      await ipc.saveDocument(doc);
       newDocs.push(doc);
       newMetas.push({ ...toMeta(doc), folderId: parentId });
     }
@@ -166,8 +166,8 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
     const newDocList = [...newMetas, ...get().docList];
     const newDocuments = [...newDocs, ...get().documents];
 
-    await storage.saveFolders(mergedFolders);
-    await storage.saveIndex(newDocList);
+    await ipc.saveFolders(mergedFolders);
+    await ipc.saveIndex(newDocList);
 
     set({
       folders: mergedFolders,
@@ -207,7 +207,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
     });
     if (!destPath || typeof destPath !== "string") return false;
 
-    await storage.exportDocumentBundle(docId, destPath);
+    await ipc.exportDocumentBundle(docId, destPath);
     return true;
   },
 
@@ -228,7 +228,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
     if (!srcPath || typeof srcPath !== "string") return null;
 
     const newDocId = `doc-${Date.now()}`;
-    const imported = await storage.importDocumentBundle(srcPath, newDocId);
+    const imported = await ipc.importDocumentBundle(srcPath, newDocId);
 
     // The backend rewrote `id`; trust its returned Document but keep our id.
     const newDoc: Document = { ...imported, id: newDocId };
@@ -237,7 +237,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
     const newDocList = [meta, ...get().docList];
     const newDocuments = [newDoc, ...get().documents];
 
-    await storage.saveIndex(newDocList);
+    await ipc.saveIndex(newDocList);
 
     set({
       docList: newDocList,

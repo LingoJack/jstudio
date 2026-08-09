@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
 import { useStore } from "../../store/useStore";
-import { storage } from "../../lib/core/storage";
+import { ipc } from "../../lib/core/ipc";
 import { logger } from "../../lib/core/logger";
 import { toast } from "../../lib/core/toast";
 
@@ -34,7 +34,7 @@ export default function DebugSection() {
       .catch(() => {});
     // Load the log file path for display (independent of whether logging
     // is currently enabled — the path is valid either way).
-    storage
+    ipc
       .getLogFilePath()
       .then(setLogFilePath)
       .catch(() => {});
@@ -57,7 +57,7 @@ export default function DebugSection() {
   };
 
   const handleOpenLogsDir = () => {
-    storage.openLogsDir().catch(() => {
+    ipc.openLogsDir().catch(() => {
       toast.error(t("debug.openLogsDirFailed"));
     });
   };
@@ -65,7 +65,7 @@ export default function DebugSection() {
   const handleClearLogs = async () => {
     setIsClearing(true);
     try {
-      const removed = await storage.clearLogs();
+      const removed = await ipc.clearLogs();
       toast.info(t("debug.logsClearedToast", { count: removed }));
     } catch {
       toast.error(t("debug.clearLogsFailed"));

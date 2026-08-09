@@ -41,9 +41,9 @@ npx tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts
 - **Frontend** (`src/`) — React 19 + TypeScript (strict) + Vite 6 + Tailwind v4 + Zustand. The TipTap v3 / ProseMirror editor is the largest subsystem.
 - **Backend** (`src-tauri/src/`) — Rust. Owns SQLite, the PTY terminal backend, j-agent integration, link preview HTTP, and `.jnote` bundle import/export. Exposes `#[tauri::command]`s registered in `src-tauri/src/lib.rs`.
 
-### IPC boundary — `src/lib/core/storage.ts` is the only gate
+### IPC boundary — `src/lib/core/ipc.ts` is the only gate
 
-Frontend code MUST NOT call `invoke()` directly. All Tauri IPC goes through `src/lib/core/storage.ts`, which exports a typed `storage` object with one method per Rust command. Every Rust command in `src-tauri/src/lib.rs` `invoke_handler!` must have a corresponding method here. Rust commands return `Result<T, String>`.
+Frontend code MUST NOT call `invoke()` directly. All Tauri IPC goes through `src/lib/core/ipc.ts`, which exports a typed `ipc` object with one method per Rust command. Every Rust command in `src-tauri/src/lib.rs` `invoke_handler!` must have a corresponding method here. Rust commands return `Result<T, String>`.
 
 ### Editor — sectioned ProseMirror
 
@@ -76,7 +76,7 @@ Per-document save timers are keyed by doc id (`storeHelpers.ts`) so switching do
 
 ### Multi-window architecture
 
-`src/main.tsx` dispatches on `?window=` query param to render one of: main `App`, `DocumentWindowApp`, `TerminalWindowApp`, `DiagramWindowApp`, `PreviewWindowApp`, `CommandPaletteWindow`, `LinkPreviewTabsApp`. Knip entry points (`knip.json`) enumerate these `*WindowApp.tsx` files. Rust passes detach payloads via in-process mailbox commands in `commands/detach.rs`. The main window intercepts `Cmd+W` (see `on_window_close_requested` in `src-tauri/src/lib.rs`) and emits `window-close-requested` to JS; child windows close directly.
+`src/main.tsx` dispatches on `?window=` query param to render one of: main `App`, `DocumentWindowApp`, `TerminalWindowApp`, `DiagramWindowApp`, `PreviewWindowApp`, `CommandPaletteWindowApp`, `LinkPreviewTabsWindowApp`. Knip entry points (`knip.json`) enumerate these `*WindowApp.tsx` files. Rust passes detach payloads via in-process mailbox commands in `commands/detach.rs`. The main window intercepts `Cmd+W` (see `on_window_close_requested` in `src-tauri/src/lib.rs`) and emits `window-close-requested` to JS; child windows close directly.
 
 ### macOS menu quirk
 
@@ -102,11 +102,11 @@ On startup, `connection.rs::open_and_init` runs: schema create → `migrate_from
 
 ## Conventions
 
-- Tauri command naming: `snake_case` on the Rust side, called via `storage.<camelCaseMethod>` on the TS side.
+- Tauri command naming: `snake_case` on the Rust side, called via `ipc.<camelCaseMethod>` on the TS side.
 - Block property fields are prefixed with their block type (e.g. `codeWidthPct`, `collapsibleOpen`, `diagramSnapshot`).
 - Legacy px-based dimensions (`width`, `height`) are kept for backward compat; prefer percentage variants (`widthPct`, `heightPct`) for new code.
 - Theme: use Tailwind v4 + VSCode-style CSS variables in `src/styles/vscode-theme.css`. Do not hardcode colors.
-- Rust: `Result<T, String>` for all command return types. Register new commands in `src-tauri/src/lib.rs` `invoke_handler!` AND add a typed method to `src/lib/core/storage.ts`.
+- Rust: `Result<T, String>` for all command return types. Register new commands in `src-tauri/src/lib.rs` `invoke_handler!` AND add a typed method to `src/lib/core/ipc.ts`.
 - Patches: `patches/prosemirror-view+1.41.9.patch` fixes a WKWebView caret-positioning bug inside code blocks with lowlight decorations. Applied via `patch-package` (`postinstall` hook).
 - Vite manual chunks split heavy vendors (excalidraw, mermaid, cytoscape, katex, mammoth) into separate bundles.
 
@@ -116,7 +116,7 @@ On startup, `connection.rs::open_and_init` runs: schema create → `migrate_from
 |------|------|
 | `src/main.tsx` | Root mount; multi-window dispatch on `?window=` |
 | `src/App.tsx` | Main window layout (title bar, activity bar, sidebar, tabs, editor, terminal, agent, settings) |
-| `src/lib/core/storage.ts` | **Only** Tauri IPC surface (typed `storage` object) |
+| `src/lib/core/ipc.ts` | **Only** Tauri IPC surface (typed `ipc` object) |
 | `src/store/useStore.ts` | Zustand store composition (8 slices) |
 | `src/store/storeHelpers.ts` | `StoreState` interface, debounced save timers |
 | `src/components/editor/sectionEditor/DocumentPanel.tsx` | Editor orchestrator |

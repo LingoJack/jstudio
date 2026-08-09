@@ -1,3 +1,11 @@
+/**
+ * ipc — Tauri IPC 唯一闸口。
+ *
+ * 封装所有 `invoke()` 调用（文档/终端/浏览器/设置/资产等），
+ * 是 frontend → Rust backend 的唯一通道。
+ * Frontend 代码禁止直接调用 `invoke()`，必须通过此模块。
+ */
+
 import { invoke } from "@tauri-apps/api/core";
 import type { Document } from "../../types";
 import type {
@@ -26,7 +34,7 @@ import type {
   MarkdownEntry,
 } from "../../types/browser";
 
-export const storage = {
+export const ipc = {
   // ---- lifecycle ----
 
   /** Create the `~/.jdata/studio/{documents,assets}` directory tree. */

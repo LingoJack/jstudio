@@ -20,7 +20,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import { resolveMonospaceFont } from '../../lib/editor/fonts';
 import type { TerminalCursorStyle } from '../../types/settings';
 import type { TerminalTheme } from '../../lib/terminal/themes';

@@ -35,7 +35,7 @@ import { type NodeViewProps, NodeViewWrapper, type Editor } from '@tiptap/react'
 import { File as FileIcon, Eye, PanelsTopLeft, Loader2, Maximize2 } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
-import { storage } from '../../../lib/core/storage';
+import { ipc } from '../../../lib/core/ipc';
 import {
   formatFileSize,
   getExtension,
@@ -235,7 +235,7 @@ export default function FileView({
       const ext = getExtension(originalName);
       const mime = getMimeType(ext);
 
-      const bytes = await storage.readFileBytes(filePath);
+      const bytes = await ipc.readFileBytes(filePath);
       const sizeBytes = bytes.length;
       const storedName = genStoredName('file', ext);
       const ref = await saveBytesAsAsset(bytes, mime, activeDocId, storedName);

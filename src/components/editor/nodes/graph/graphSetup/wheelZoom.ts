@@ -1,5 +1,5 @@
 import type { FitPlugin } from '@maxgraph/core';
-import { ZOOM_MIN, ZOOM_MAX } from '../graphCanvasStyle';
+import { ZOOM_MIN, ZOOM_MAX } from '../graphConstants';
 import type { GraphSetupFn } from './types';
 
 export const setupWheelZoom: GraphSetupFn = (ctx) => {

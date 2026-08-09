@@ -1,4 +1,4 @@
-import { storage } from "../lib/core/storage";
+import { ipc } from "../lib/core/ipc";
 import {
   type ThemeMode,
   type Language,
@@ -259,7 +259,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     applyAppTheme(theme);
     applyDark(isDark);
     set({ themeMode: mode, isDarkMode: isDark });
-    storage.saveSettings({ theme: mode }).catch(onSaveError("设置"));
+    ipc.saveSettings({ theme: mode }).catch(onSaveError("设置"));
   },
 
   toggleDarkMode: () => {
@@ -271,14 +271,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     applyAppTheme(theme);
     applyDark(next);
     set({ themeMode: mode, isDarkMode: next });
-    storage.saveSettings({ theme: mode }).catch(onSaveError("设置"));
+    ipc.saveSettings({ theme: mode }).catch(onSaveError("设置"));
   },
 
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
   toggleSidebarPinned: () => {
     const next = !get().sidebarPinned;
     set({ sidebarPinned: next });
-    storage.saveSettings({ sidebarPinned: next }).catch(onSaveError("设置"));
+    ipc.saveSettings({ sidebarPinned: next }).catch(onSaveError("设置"));
   },
   setLeftPanelHovered: (hovered) => set({ leftPanelHovered: hovered }),
   toggleOutline: () => set((s) => ({ isOutlineOpen: !s.isOutlineOpen })),
@@ -286,7 +286,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   toggleOutlinePinned: () => {
     const next = !get().outlinePinned;
     set({ outlinePinned: next });
-    storage.saveSettings({ outlinePinned: next }).catch(onSaveError("设置"));
+    ipc.saveSettings({ outlinePinned: next }).catch(onSaveError("设置"));
   },
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
@@ -304,14 +304,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
 
   setLanguage: (lang: Language) => {
     set({ language: lang });
-    storage.saveSettings({ language: lang }).catch(onSaveError("设置"));
+    ipc.saveSettings({ language: lang }).catch(onSaveError("设置"));
   },
 
   setActivityBarItems: (items: ActivityBarItemConfig[]) => {
     // Normalize on every write so settings always stays visible and pinned to the bottom.
     const normalized = normalizeActivityBarItems(items);
     set({ activityBarItems: normalized });
-    storage
+    ipc
       .saveSettings({ activityBarItems: normalized })
       .catch(onSaveError("设置"));
   },
@@ -320,14 +320,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     const s = get();
     applyFont(id, s.cjkFontId, s.fontSize);
     set({ fontId: id });
-    storage.saveSettings({ fontId: id }).catch(onSaveError("设置"));
+    ipc.saveSettings({ fontId: id }).catch(onSaveError("设置"));
   },
 
   setCjkFontId: (id) => {
     const s = get();
     applyFont(s.fontId, id, s.fontSize);
     set({ cjkFontId: id });
-    storage.saveSettings({ cjkFontId: id }).catch(onSaveError("设置"));
+    ipc.saveSettings({ cjkFontId: id }).catch(onSaveError("设置"));
   },
 
   setFontSize: (size) => {
@@ -335,28 +335,28 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     const s = get();
     applyFont(s.fontId, s.cjkFontId, clamped);
     set({ fontSize: clamped });
-    storage.saveSettings({ fontSize: clamped }).catch(onSaveError("设置"));
+    ipc.saveSettings({ fontSize: clamped }).catch(onSaveError("设置"));
   },
 
   setEditorLineHeight: (lh) => {
     const clamped = Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, lh));
     applyLineHeight(clamped);
     set({ editorLineHeight: clamped });
-    storage
+    ipc
       .saveSettings({ editorLineHeight: clamped })
       .catch(onSaveError("设置"));
   },
 
   setEditorCursorStyle: (style) => {
     set({ editorCursorStyle: style });
-    storage
+    ipc
       .saveSettings({ editorCursorStyle: style })
       .catch(onSaveError("设置"));
   },
 
   setEditorCursorAnimationEnabled: (enabled) => {
     set({ editorCursorAnimationEnabled: enabled });
-    storage
+    ipc
       .saveSettings({ editorCursorAnimationEnabled: enabled })
       .catch(onSaveError("设置"));
   },
@@ -367,7 +367,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       Math.max(MIN_SIDEBAR_WIDTH, width),
     );
     set({ sidebarWidth: clamped });
-    storage.saveSettings({ sidebarWidth: clamped }).catch(onSaveError("设置"));
+    ipc.saveSettings({ sidebarWidth: clamped }).catch(onSaveError("设置"));
   },
 
   setAppThemeIdDark: (id) => {
@@ -377,7 +377,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       const theme = getAppTheme(id, true);
       applyAppTheme(theme);
     }
-    storage.saveSettings({ appThemeIdDark: id }).catch(onSaveError("设置"));
+    ipc.saveSettings({ appThemeIdDark: id }).catch(onSaveError("设置"));
   },
 
   setAppThemeIdLight: (id) => {
@@ -387,7 +387,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       const theme = getAppTheme(id, false);
       applyAppTheme(theme);
     }
-    storage.saveSettings({ appThemeIdLight: id }).catch(onSaveError("设置"));
+    ipc.saveSettings({ appThemeIdLight: id }).catch(onSaveError("设置"));
   },
 
   setTerminalFontSize: (size) => {
@@ -396,19 +396,19 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       Math.max(MIN_TERMINAL_FONT_SIZE, size),
     );
     set({ terminalFontSize: clamped });
-    storage
+    ipc
       .saveSettings({ terminalFontSize: clamped })
       .catch(onSaveError("设置"));
   },
 
   setTerminalFontId: (id) => {
     set({ terminalFontId: id });
-    storage.saveSettings({ terminalFontId: id }).catch(onSaveError("设置"));
+    ipc.saveSettings({ terminalFontId: id }).catch(onSaveError("设置"));
   },
 
   setTerminalCursorStyle: (style) => {
     set({ terminalCursorStyle: style });
-    storage
+    ipc
       .saveSettings({ terminalCursorStyle: style })
       .catch(onSaveError("设置"));
   },
@@ -419,14 +419,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       Math.max(MIN_TAB_BAR_GLASS_OPACITY, opacity),
     );
     set({ tabBarGlassOpacity: clamped });
-    storage
+    ipc
       .saveSettings({ tabBarGlassOpacity: clamped })
       .catch(onSaveError("设置"));
   },
 
   setTabBarPosition: (position) => {
     set({ tabBarPosition: position });
-    storage
+    ipc
       .saveSettings({ tabBarPosition: position })
       .catch(onSaveError("设置"));
   },
@@ -434,7 +434,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setKeyboardShortcut: (id: string, binding: string) => {
     const next = { ...get().keyboardShortcuts, [id]: binding };
     set({ keyboardShortcuts: next });
-    storage
+    ipc
       .saveSettings({ keyboardShortcuts: next })
       .catch(onSaveError("设置"));
   },
@@ -443,36 +443,36 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     const next = { ...get().keyboardShortcuts };
     delete next[id];
     set({ keyboardShortcuts: next });
-    storage
+    ipc
       .saveSettings({ keyboardShortcuts: next })
       .catch(onSaveError("设置"));
   },
 
   resetAllKeyboardShortcuts: () => {
     set({ keyboardShortcuts: {} });
-    storage.saveSettings({ keyboardShortcuts: {} }).catch(onSaveError("设置"));
+    ipc.saveSettings({ keyboardShortcuts: {} }).catch(onSaveError("设置"));
   },
 
   setGlobalShortcuts: (configs) => {
     set({ globalShortcuts: configs });
-    storage
+    ipc
       .saveSettings({ globalShortcuts: configs })
       .catch(onSaveError("设置"));
   },
 
   setDocSortKey: (key: DocSortKey) => {
     set({ docSortKey: key });
-    storage.saveSettings({ docSortKey: key }).catch(onSaveError("设置"));
+    ipc.saveSettings({ docSortKey: key }).catch(onSaveError("设置"));
   },
 
   setDocSortDirection: (dir: DocSortDirection) => {
     set({ docSortDirection: dir });
-    storage.saveSettings({ docSortDirection: dir }).catch(onSaveError("设置"));
+    ipc.saveSettings({ docSortDirection: dir }).catch(onSaveError("设置"));
   },
 
   setRuntimeLoggingEnabled: (enabled: boolean) => {
     set({ runtimeLoggingEnabled: enabled });
-    storage
+    ipc
       .saveSettings({ runtimeLoggingEnabled: enabled })
       .catch(onSaveError("设置"));
   },

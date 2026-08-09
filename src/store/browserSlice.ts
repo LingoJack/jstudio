@@ -1,4 +1,4 @@
-import { storage } from '../lib/core/storage';
+import { ipc } from '../lib/core/ipc';
 import type { LinkPreviewTabsState, LinkPreviewTabInfo } from '../types/browser';
 import { onSaveError, type SliceCreator } from './storeHelpers';
 
@@ -56,7 +56,7 @@ export const DEFAULT_SEARCH_ENGINE_ID = 'google';
 /**
  * The start page ships with NO preset shortcuts — the grid starts empty and
  * only shows links the user explicitly added. User shortcuts are persisted
- * via `setBrowserShortcuts` (SQLite settings, see `storage.saveSettings`)
+ * via `setBrowserShortcuts` (SQLite settings, see `ipc.saveSettings`)
  * and restored on startup in `documentsSlice.init`.
  */
 export const DEFAULT_BROWSER_SHORTCUTS: BrowserShortcut[] = [];
@@ -159,7 +159,7 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
     /** Change the selected search engine and persist. */
     setBrowserSearchEngine: (id: string) => {
       set({ browserSearchEngine: id });
-      storage.saveSettings({ browserSearchEngine: id }).catch(onSaveError('浏览器'));
+      ipc.saveSettings({ browserSearchEngine: id }).catch(onSaveError('浏览器'));
     },
 
     /**
@@ -170,11 +170,11 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
       const url = resolveBrowserUrl(input, get().browserSearchEngine);
       const activeTabId = get().browserActiveTabId;
       if (activeTabId) {
-        storage
+        ipc
           .navigateLinkPreviewTab(BROWSER_WINDOW_LABEL, activeTabId, url)
           .catch(console.error);
       } else {
-        storage.addLinkPreviewTab(BROWSER_WINDOW_LABEL, url).catch(console.error);
+        ipc.addLinkPreviewTab(BROWSER_WINDOW_LABEL, url).catch(console.error);
       }
     },
 
@@ -182,7 +182,7 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
     refreshBrowserTab: () => {
       const tabId = get().browserActiveTabId;
       if (tabId) {
-        storage.refreshLinkPreviewTab(BROWSER_WINDOW_LABEL, tabId).catch(console.error);
+        ipc.refreshLinkPreviewTab(BROWSER_WINDOW_LABEL, tabId).catch(console.error);
       }
     },
 
@@ -192,13 +192,13 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
       const activeId = get().browserActiveTabId;
       const activeTab = tabs.find((t) => t.id === activeId);
       if (activeTab?.url) {
-        storage.openUrlInBrowser(activeTab.url).catch(console.error);
+        ipc.openUrlInBrowser(activeTab.url).catch(console.error);
       }
     },
 
     /** Add a new browser tab (defaults to about:blank). */
     addBrowserTab: (url?: string) => {
-      storage
+      ipc
         .addLinkPreviewTab(BROWSER_WINDOW_LABEL, url ?? 'about:blank')
         .catch(console.error);
     },
@@ -206,7 +206,7 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
     /** Update the shortcuts list and persist. */
     setBrowserShortcuts: (shortcuts: BrowserShortcut[]) => {
       set({ browserShortcuts: shortcuts });
-      storage.saveSettings({ browserShortcuts: shortcuts }).catch(onSaveError('浏览器'));
+      ipc.saveSettings({ browserShortcuts: shortcuts }).catch(onSaveError('浏览器'));
     },
   };
 }

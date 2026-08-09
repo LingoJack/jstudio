@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Terminal, CheckCircle2, XCircle, Trash2, Download, Loader2, AlertCircle } from 'lucide-react';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import type { JcliStatus } from '../../types/terminal';
 import { useI18n } from '../../lib/core/i18n';
 import { toast } from '../../lib/core/toast';
@@ -12,7 +12,7 @@ export function JcliSection() {
 
   const refresh = useCallback(async () => {
     try {
-      const s = await storage.checkJcli();
+      const s = await ipc.checkJcli();
       setStatus(s);
     } catch {
       setStatus(null);
@@ -26,7 +26,7 @@ export function JcliSection() {
   const handleInstall = async () => {
     setBusy(true);
     try {
-      await storage.installJcli();
+      await ipc.installJcli();
       await refresh();
       toast.success(t('jcli.installSuccess'));
     } catch (e) {
@@ -39,7 +39,7 @@ export function JcliSection() {
   const handleUninstall = async () => {
     setBusy(true);
     try {
-      await storage.uninstallJcli();
+      await ipc.uninstallJcli();
       await refresh();
       toast.success(t('jcli.uninstallSuccess'));
     } catch (e) {

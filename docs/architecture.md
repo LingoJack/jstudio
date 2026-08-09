@@ -32,8 +32,8 @@ src/
 │   ├── documents/     # DocumentList（计划拆 FolderTree/DocumentRow/Menus）
 │   └── editor/
 │       ├── BlockEditor.tsx / SectionedBlockEditor.tsx
-│       ├── nodes/        # 含 graph/（graphCanvasStyle.ts + ShapeGlyph.tsx 已拆出）
-│       ├── sectionEditor/ # SectionedBlockEditor + SectionSkeleton.tsx + SectionEditor + SectionOutline
+│       ├── nodes/        # 含 graph/（graphConstants.ts + ShapeGlyph.tsx 已拆出）
+│       ├── sectionEditor/ # SectionedBlockEditor + EditorSkeleton.tsx + SectionEditor + SectionOutline
 │       ├── hooks/ CommandPalette.tsx
 ├── store/            # Zustand（slice 模式）
 ├── data/ styles/     # 静态内容 / 全局样式

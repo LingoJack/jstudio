@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { storage } from '../core/storage';
+import { ipc } from '../core/ipc';
 import type { ThemeMode } from '../../types/settings';
 import {
   applyAppTheme,
@@ -48,7 +48,7 @@ export function useWindowThemeSync(): boolean {
     document.documentElement.classList.toggle('dark', isDark);
 
     // Load settings and apply the saved app theme
-    storage.loadSettings().then((settings) => {
+    ipc.loadSettings().then((settings) => {
       const mode = settings.theme ?? 'system';
       const dark = resolveDark(mode);
 
@@ -74,7 +74,7 @@ export function useWindowThemeSync(): boolean {
     // Listen for system preference changes (when theme is 'system')
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
-      storage.loadSettings().then((settings) => {
+      ipc.loadSettings().then((settings) => {
         if (settings.theme === 'system') {
           const themeId = e.matches
             ? (settings.appThemeIdDark ?? DEFAULT_APP_THEME_ID_DARK)

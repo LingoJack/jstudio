@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronUp } from 'lucide-react';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import type { ModelProvider } from '../../types/storage';
 import { useI18n } from '../../lib/core/i18n';
 import {
@@ -36,7 +36,7 @@ export function useActiveProvider(): ModelProvider | null {
   useEffect(() => {
     const load = async () => {
       try {
-        const raw = await storage.loadAgentConfig();
+        const raw = await ipc.loadAgentConfig();
         const providers = Array.isArray(raw.providers)
           ? (raw.providers as ModelProvider[])
           : [];

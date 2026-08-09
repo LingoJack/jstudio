@@ -5,8 +5,8 @@ import PreviewWindowApp from "./components/windows/PreviewWindowApp";
 import DiagramWindowApp from "./components/windows/DiagramWindowApp";
 import TerminalWindowApp from "./components/terminal/TerminalWindowApp";
 import DocumentWindowApp from "./components/windows/DocumentWindowApp";
-import CommandPaletteWindow from "./components/windows/CommandPaletteWindow";
-import LinkPreviewTabsApp from "./components/windows/LinkPreviewTabsApp";
+import CommandPaletteWindowApp from "./components/windows/CommandPaletteWindowApp";
+import LinkPreviewTabsWindowApp from "./components/windows/LinkPreviewTabsWindowApp";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { logger } from "./lib/core/logger";
 import "./index.css";
@@ -92,13 +92,13 @@ const rootElement = (
     ) : isDocumentWindow ? (
       <DocumentWindowApp />
     ) : isCommandPaletteWindow ? (
-      <CommandPaletteWindow />
+      <CommandPaletteWindowApp />
     ) : isPreviewWindow ? (
       <PreviewWindowApp />
     ) : isDiagramWindow ? (
       <DiagramWindowApp />
     ) : isLinkPreviewTabsWindow ? (
-      <LinkPreviewTabsApp />
+      <LinkPreviewTabsWindowApp />
     ) : (
       <App />
     )}

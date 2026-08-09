@@ -10,12 +10,12 @@ import type { RefObject } from 'react';
 import { type Graph, type FitPlugin } from '@maxgraph/core';
 
 import { logger } from '../../../../lib/core/logger';
-import { saveSvg, saveBlob, svgToPngBlob, copyImageToClipboard, copyTextToClipboard } from '../../../../lib/export/download';
+import { saveSvg, saveBlob, svgToPngBlob, copyImageToClipboard, copyTextToClipboard } from '../../../../lib/export/fileExport';
 import { toast } from '../../../../lib/core/toast';
 
 import { parseGraphSnapshot } from './graphSnapshot';
 import { applySnapshotToGraph } from './graphModel';
-import { ZOOM_MIN, ZOOM_MAX } from './graphCanvasStyle';
+import { ZOOM_MIN, ZOOM_MAX } from './graphConstants';
 
 export interface UseGraphExportParams {
   graphRef: RefObject<Graph | null>;

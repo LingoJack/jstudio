@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Square, Paperclip, X } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import { ModelSelector } from './ModelSelector';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { AgentSession } from '../../types/agent';
@@ -83,7 +83,7 @@ export function ChatInput({ session, onSend, onCancel }: InputAreaProps) {
 
       for (const filePath of files) {
         try {
-          const bytes = await storage.readFileBytes(filePath);
+          const bytes = await ipc.readFileBytes(filePath);
           const ext = filePath.split('.').pop()?.toLowerCase() || 'png';
           const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
           // Convert number[] to base64

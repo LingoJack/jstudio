@@ -6,7 +6,7 @@ import {
   SHAPE_LABEL,
   GRID_SIZE,
   MIN_DRAW_SIZE,
-} from '../graphCanvasStyle';
+} from '../graphConstants';
 import { SHAPE_ARC_SIZE } from '../graphTheme';
 import { logger } from '../../../../../lib/core/logger';
 import type { GraphNodeShape } from '../graphSnapshot';

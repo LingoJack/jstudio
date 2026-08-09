@@ -16,7 +16,7 @@ import { type Graph, type UndoManager, Clipboard } from '@maxgraph/core';
 
 import { styleToNodeShape } from './graphModel';
 import { spawnMindmapChild, spawnMindmapSibling } from './mindmapSpawn';
-import { GRID_SIZE } from './graphCanvasStyle';
+import { GRID_SIZE } from './graphConstants';
 import type { GraphNodeShape } from './graphSnapshot';
 
 export interface UseGraphKeyboardParams {

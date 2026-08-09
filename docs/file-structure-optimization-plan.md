@@ -165,7 +165,7 @@ import { translations } from './i18n/translations';
 | 提取内容 | 行号 | 目标文件 | 源文件替换为 |
 |---|---|---|---|
 | `SECTION_SIZE`/`SECTION_MAX`/`SECTION_MERGE_BELOW` + `SectionState` + `splitIntoSections` | 43–81 | `src/lib/editor/sectioning.ts` | `import { splitIntoSections, SECTION_SIZE, SECTION_MAX, SECTION_MERGE_BELOW, type SectionState } from '../../editor/sectioning';` |
-| `EditorSkeleton` 组件 | 82–~107 | `src/components/editor/sectionEditor/SectionSkeleton.tsx` | `import { EditorSkeleton } from './SectionSkeleton';` |
+| `EditorSkeleton` 组件 | 82–~107 | `src/components/editor/sectionEditor/EditorSkeleton.tsx` | `import { EditorSkeleton } from './EditorSkeleton';` |
 
 **`src/lib/editor/sectioning.ts`（新建）：**
 ```ts
@@ -187,11 +187,11 @@ export function splitIntoSections(blocks: Block[]): SectionState[] {
 
 | 提取内容 | 行号 | 目标文件 | 源文件替换为 |
 |---|---|---|---|
-| `DEFAULT_SIZE` + `SHAPE_LABEL` + `GRID_SIZE`/`EVENT_TOLERANCE`/`ZOOM_MIN`/`ZOOM_MAX`/`MIN_DRAW_SIZE` + `CONNECTION_POINTS` + `styleForShape` | 117–160, 289–370 | `src/components/editor/nodes/graph/graphCanvasStyle.ts` | `import { styleForShape, DEFAULT_SIZE, SHAPE_LABEL, GRID_SIZE, ZOOM_MIN, ZOOM_MAX, CONNECTION_POINTS } from './graphCanvasStyle';` |
+| `DEFAULT_SIZE` + `SHAPE_LABEL` + `GRID_SIZE`/`EVENT_TOLERANCE`/`ZOOM_MIN`/`ZOOM_MAX`/`MIN_DRAW_SIZE` + `CONNECTION_POINTS` + `styleForShape` | 117–160, 289–370 | `src/components/editor/nodes/graph/graphConstants.ts` | `import { styleForShape, DEFAULT_SIZE, SHAPE_LABEL, GRID_SIZE, ZOOM_MIN, ZOOM_MAX, CONNECTION_POINTS } from './graphConstants';` |
 | `ShapeGlyph` 组件 | 161–288 | `src/components/editor/nodes/graph/ShapeGlyph.tsx` | `import { ShapeGlyph } from './ShapeGlyph';` |
 | 交互接线（`useEffect` 内的 `onDown`/`onUp`/`onMouseDown`/`onMouseMove`/`finishDraw`/`onWheel`/`onKeyDown`/`clientToContainer`/`snap`/`ensurePreviewShape`/`applyPreviewSize`） | 组件体内约 423–920（定位：包住这些 handler 的那个 `useEffect`） | `src/components/editor/nodes/graph/useGraphCanvasInteractions.ts` | 该 `useEffect` 替换为 `useGraphCanvasInteractions(/* refs/state */);` |
 
-**`graphCanvasStyle.ts`（新建，纯数据/纯函数，无 JSX）**：把上表行号内容搬入，导出 `styleForShape` 等；`styleForShape` 依赖的 `GraphNodeShape` 从 `graph/graphModel` 或本文件 import。
+**`graphConstants.ts`（新建，纯数据/纯函数，无 JSX）**：把上表行号内容搬入，导出 `styleForShape` 等；`styleForShape` 依赖的 `GraphNodeShape` 从 `graph/graphModel` 或本文件 import。
 **`ShapeGlyph.tsx`（新建）**：搬入原 161–288 行，注意其 `import`（`GraphNodeShape` 等）要保留。
 > 完成定义：`tsc` 绿；graph 画布绘制/缩放/连线行为肉眼不变。提交：`refactor: extract ShapeGlyph + styling + interactions from GraphCanvas`。
 

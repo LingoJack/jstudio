@@ -28,18 +28,18 @@
  *     menu (Refresh / Open in browser / Close).
  *   - `+` at the bottom -> new about:blank tab.
  *
- * Actions go through the storage IPC layer with the `"main"` window
+ * Actions go through the IPC layer with the `"main"` window
  * label, same as `BrowserTabs`.
  */
 
 import { forwardRef, useCallback, useEffect, useState } from "react";
 import { Loader2, Globe, Plus, X } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
-import { storage } from "../../lib/core/storage";
+import { ipc } from "../../lib/core/ipc";
 import type { LinkPreviewTabInfo } from "../../types/browser";
 import { getFaviconUrl } from "../../store/browserSlice";
 import { useStore } from "../../store/useStore";
-import { useSidebarHover } from "../documents/hooks/useSidebarHover";
+import { useSidebarHover } from "../hooks/useSidebarHover";
 import { BrowserTabContextMenu } from "./BrowserTabContextMenu";
 
 /** Browser window label - must match BrowserTabs.tsx / browserSlice.ts. */
@@ -65,18 +65,18 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
       tabId: string;
     } | null>(null);
 
-    // ── Actions (storage IPC, scoped to the main window's tab manager) ──
+    // ── Actions (IPC, scoped to the main window's tab manager) ──
 
     const switchTab = useCallback((tabId: string) => {
-      storage.switchLinkPreviewTab(BROWSER_WINDOW_LABEL, tabId).catch(console.error);
+      ipc.switchLinkPreviewTab(BROWSER_WINDOW_LABEL, tabId).catch(console.error);
     }, []);
 
     const closeTab = useCallback((tabId: string) => {
-      storage.closeLinkPreviewTab(BROWSER_WINDOW_LABEL, tabId).catch(console.error);
+      ipc.closeLinkPreviewTab(BROWSER_WINDOW_LABEL, tabId).catch(console.error);
     }, []);
 
     const addNewTab = useCallback(() => {
-      storage.addLinkPreviewTab(BROWSER_WINDOW_LABEL, "about:blank").catch(console.error);
+      ipc.addLinkPreviewTab(BROWSER_WINDOW_LABEL, "about:blank").catch(console.error);
     }, []);
 
     // ── Hover expand / collapse (shared hook) ──
@@ -238,13 +238,13 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
             y={contextMenu.y}
             tab={tabs.find((tb) => tb.id === contextMenu.tabId)}
             onRefresh={(tabId) => {
-              storage
+              ipc
                 .refreshLinkPreviewTab(BROWSER_WINDOW_LABEL, tabId)
                 .catch(console.error);
               setContextMenu(null);
             }}
             onOpenInBrowser={(url) => {
-              storage.openUrlInBrowser(url).catch(console.error);
+              ipc.openUrlInBrowser(url).catch(console.error);
               setContextMenu(null);
             }}
             onClose={(tabId) => {

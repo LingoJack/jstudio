@@ -22,7 +22,7 @@ import {
   SHAPE_FONT_SIZE,
   CONNECTION_POINT_SIZE,
 } from '../graphTheme';
-import { styleForShape } from '../graphCanvasStyle';
+import { styleForShape } from '../graphConstants';
 import { attachSequenceInteraction } from '../sequenceInteraction';
 import type { GraphSetupFn } from './types';
 

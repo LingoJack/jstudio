@@ -17,7 +17,7 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LayoutGrid, TerminalSquare, Eye } from 'lucide-react';
-import { storage } from '../core/storage';
+import { ipc } from '../core/ipc';
 import { registerActionDef } from './globalShortcuts';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ registerActionDef({
 //   - `command`: optional shell command to execute after the shell starts
 //
 // Flow:
-//   1. Create a PTY session via `storage.ptyCreate({ cwd })`.
+//   1. Create a PTY session via `ipc.ptyCreate({ cwd })`.
 //   2. If a command is specified, write it to the PTY (appends `\n` to execute).
 //   3. Open a terminal window, passing the session id via URL params.
 //      The child window runs `TerminalWindowApp` which picks up the session.
@@ -137,7 +137,7 @@ registerActionDef({
     const command = (params.command as string | undefined)?.trim();
 
     // 1. Spawn a PTY session.
-    const session = await storage.ptyCreate({
+    const session = await ipc.ptyCreate({
       cwd,
       cols: 80,
       rows: 24,
@@ -147,7 +147,7 @@ registerActionDef({
     if (command) {
       // Small delay to let the shell initialize before sending the command.
       await new Promise((r) => setTimeout(r, 300));
-      await storage.ptyWrite(session.id, command + '\n');
+      await ipc.ptyWrite(session.id, command + '\n');
     }
 
     // 3. Open the terminal window.

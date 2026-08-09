@@ -55,7 +55,7 @@ import SectionOutline from './SectionOutline';
 import { useCrossSectionSelection, type CrossSelectionContext } from './useCrossSectionSelection';
 import { useCrossSectionFind } from './useCrossSectionFind';
 import FindBar from './FindBar';
-import { EditorSkeleton } from './SectionSkeleton';
+import { EditorSkeleton } from './EditorSkeleton';
 import { useCursorTrail } from './useCursorTrail';
 import { useSectionLoader } from './useSectionLoader';
 import { useEditorKeyboardNav } from './useEditorKeyboardNav';

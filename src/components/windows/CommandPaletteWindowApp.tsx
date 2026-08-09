@@ -1,8 +1,8 @@
 /**
- * CommandPaletteWindow — macOS Spotlight/Raycast 风格浮动搜索窗口。
+ * CommandPaletteWindowApp — macOS Spotlight/Raycast 风格浮动搜索窗口。
  *
  * 渲染在独立的 Tauri webview 窗口中（通过 open-panel 全局快捷键打开）。
- * 不共享主窗口的 Zustand store，数据通过 storage API 直接加载。
+ * 不共享主窗口的 Zustand store，数据通过 IPC 直接加载。
  *
  * 交互（Spotlight 风格）：
  *   - 打开时只有一个搜索输入框，无结果列表
@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import type { DocumentMeta } from '../../types/storage';
 import type { TerminalSessionInfo } from '../../types/terminal';
 import { useI18n, type Language } from '../../lib/core/i18n';
@@ -68,7 +68,7 @@ function resolveDark(mode: string): boolean {
 // Component
 // ──────────────────────────────────────────────────────────────────
 
-export default function CommandPaletteWindow() {
+export default function CommandPaletteWindowApp() {
   const { t, language } = useI18n();
   const lang = language as Language;
 
@@ -105,7 +105,7 @@ export default function CommandPaletteWindow() {
 
     // (b) 同步主题 + 应用配色
     document.documentElement.classList.add('dark'); // 先默认暗色，避免闪烁
-    storage.loadSettings().then((settings) => {
+    ipc.loadSettings().then((settings) => {
       const isDark = resolveDark(settings.theme ?? 'system');
       const themeId = isDark
         ? (settings.appThemeIdDark ?? DEFAULT_APP_THEME_ID_DARK)
@@ -128,8 +128,8 @@ export default function CommandPaletteWindow() {
     (async () => {
       try {
         const [docs, sess] = await Promise.all([
-          storage.loadIndex(),
-          storage.ptyList().catch(() => [] as TerminalSessionInfo[]),
+          ipc.loadIndex(),
+          ipc.ptyList().catch(() => [] as TerminalSessionInfo[]),
         ]);
         setDocuments(docs);
         setSessions(sess);

@@ -18,7 +18,7 @@ import {
   SquareTerminal,
 } from "lucide-react";
 import type { StoreState } from "../../store/storeHelpers";
-import { storage } from "./storage";
+import { ipc } from "./ipc";
 import { ACTIVITY_ITEM_META } from "./activityMeta";
 import { createTerminalWindow } from "../windows/terminalDetach";
 import { getFocusedEditor } from "../editor/focusedEditorRegistry";
@@ -303,7 +303,7 @@ async function importMarkdown(store: StoreState) {
     filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown"] }],
   });
   if (!filePath || typeof filePath !== "string") return;
-  const bytes = await storage.readFileBytes(filePath);
+  const bytes = await ipc.readFileBytes(filePath);
   const md = new TextDecoder("utf-8").decode(new Uint8Array(bytes));
   const filename = filePath.split(/[/\\]/).pop() ?? "Untitled.md";
   await store.importDocumentFromMarkdown(filename, md);

@@ -4,7 +4,7 @@ import { RotateCcw, X, History, FileText } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { useAnimatedExit } from '../ui/useDialogTransition';
-import { storage } from '../../lib/core/storage';
+import { ipc } from '../../lib/core/ipc';
 import type { DocBackup } from '../../types/storage';
 import { toast } from '../../lib/core/toast';
 import { formatFileSize } from '../../lib/editor/fileUtils';
@@ -35,7 +35,7 @@ export default function BackupRestoreDialog({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    storage
+    ipc
       .listDocBackups(docId)
       .then((list) => {
         if (cancelled) return;
@@ -61,7 +61,7 @@ export default function BackupRestoreDialog({
     }
     let cancelled = false;
     setLoadingPreview(true);
-    storage
+    ipc
       .readDocBackup(docId, selected.id)
       .then((doc) => {
         if (cancelled) return;
@@ -95,7 +95,7 @@ export default function BackupRestoreDialog({
     if (!window.confirm(t('backup.restoreConfirm'))) return;
     setRestoring(true);
     try {
-      await storage.restoreDocBackup(docId, selected.id);
+      await ipc.restoreDocBackup(docId, selected.id);
       // Reload the document in the store so the editor picks up the restored
       // content (reloadDoc bumps a nonce that editors watch).
       await useStore.getState().reloadDoc(docId);

@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 import type { MermaidConfig } from "mermaid";
-import { buildMermaidConfig } from "../mermaidConfig";
+import { buildMermaidConfig } from "./mermaidConfig";
 
 export interface UseMermaidPreviewParams {
   isDarkMode: boolean;

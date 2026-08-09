@@ -8,7 +8,7 @@
 import type { RefObject } from "react";
 import { Shapes } from "lucide-react";
 import { ShapeGlyph } from "./ShapeGlyph";
-import { shapeGroups } from "./graphShapeMenu";
+import { shapeGroups } from "./shapeMenuData";
 import type { GraphNodeShape } from "./graphSnapshot";
 
 export interface GraphShapesMenuProps {

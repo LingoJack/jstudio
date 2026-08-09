@@ -9,7 +9,7 @@
 
 import type { Document } from "../types";
 import type { DocumentMeta, FolderMeta } from "../types/storage";
-import { storage } from "../lib/core/storage";
+import { ipc } from "../lib/core/ipc";
 import { toast } from "../lib/core/toast";
 import { logger } from "../lib/core/logger";
 
@@ -63,7 +63,7 @@ export type SliceCreator = (
 // ── shared utility functions ────────────────────────────────────────
 
 /**
- * Unified error handler for fire-and-forget storage saves.
+ * Unified error handler for fire-and-forget ipc saves.
  * Logs to console, the runtime log file, AND shows a user-facing toast.
  */
 export function onSaveError(label: string) {
@@ -101,7 +101,7 @@ export function scheduleDocumentSave(doc: Document) {
   const timer = setTimeout(() => {
     docSaveTimers.delete(doc.id);
     pendingDocs.delete(doc.id);
-    storage.saveDocument(doc).catch(onSaveError("文档"));
+    ipc.saveDocument(doc).catch(onSaveError("文档"));
   }, 500);
   docSaveTimers.set(doc.id, timer);
 }
@@ -116,7 +116,7 @@ export function flushDocumentSaves() {
   for (const [id, timer] of docSaveTimers) {
     clearTimeout(timer);
     const doc = pendingDocs.get(id);
-    if (doc) storage.saveDocument(doc).catch(onSaveError("文档"));
+    if (doc) ipc.saveDocument(doc).catch(onSaveError("文档"));
   }
   docSaveTimers.clear();
   pendingDocs.clear();
@@ -125,13 +125,13 @@ export function flushDocumentSaves() {
 export function scheduleIndexSave(metas: DocumentMeta[]) {
   if (indexTimer) clearTimeout(indexTimer);
   indexTimer = setTimeout(() => {
-    storage.saveIndex(metas).catch(onSaveError("索引"));
+    ipc.saveIndex(metas).catch(onSaveError("索引"));
   }, 500);
 }
 
 export function scheduleFoldersSave(folders: FolderMeta[]) {
   if (foldersTimer) clearTimeout(foldersTimer);
   foldersTimer = setTimeout(() => {
-    storage.saveFolders(folders).catch(onSaveError("文件夹"));
+    ipc.saveFolders(folders).catch(onSaveError("文件夹"));
   }, 300);
 }

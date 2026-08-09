@@ -12,7 +12,7 @@
  */
 
 import type { Document } from '../../types';
-import { storage } from '../core/storage';
+import { ipc } from '../core/ipc';
 
 /**
  * Collect every `assets/{fileName}` reference anywhere in a document.
@@ -45,7 +45,7 @@ export function collectReferencedAssets(doc: Document): Set<string> {
 export async function gcDocumentAssets(doc: Document): Promise<number> {
   let trashed = 0;
   try {
-    const onDisk = await storage.listDocAssets(doc.id);
+    const onDisk = await ipc.listDocAssets(doc.id);
     if (onDisk.length === 0) return 0;
 
     const referenced = collectReferencedAssets(doc);
@@ -53,7 +53,7 @@ export async function gcDocumentAssets(doc: Document): Promise<number> {
 
     for (const orphan of orphans) {
       try {
-        await storage.trashDocAsset(doc.id, orphan.fileName);
+        await ipc.trashDocAsset(doc.id, orphan.fileName);
         trashed++;
       } catch {
         // ignore — leave this file in place, retry on a later GC pass

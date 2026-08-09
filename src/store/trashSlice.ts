@@ -2,11 +2,11 @@
  * Trash slice - document soft-delete (trash / restore / empty) + asset recycle bin.
  */
 
-import { storage } from "../lib/core/storage";
+import { ipc } from "../lib/core/ipc";
 import type { StoreState, SliceCreator } from "./storeHelpers";
 import { scheduleIndexSave } from "./storeHelpers";
 import { toast } from "../lib/core/toast";
-import { gcDocumentAssets } from "../lib/documents/assetGc";
+import { gcDocumentAssets } from "../lib/documents/assetRecycle";
 import type { Document } from "../types";
 import type { DocumentMeta, TrashedAsset } from "../types/storage";
 
@@ -61,7 +61,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
     get().removeDocumentTabByDocId(id);
 
     try {
-      await storage.saveIndex([...newDocList, ...newTrashed]);
+      await ipc.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error("Failed to save index after trash:", e);
       toast.error("移入废纸篓失败");
@@ -97,7 +97,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
     ids.forEach((id) => get().removeDocumentTabByDocId(id));
 
     try {
-      await storage.saveIndex([...newDocList, ...newTrashed]);
+      await ipc.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error("Failed to save index after batch trash:", e);
       toast.error("移入废纸篓失败");
@@ -116,7 +116,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
     set({ docList: newDocList, trashedDocList: newTrashed });
 
     try {
-      await storage.saveIndex([...newDocList, ...newTrashed]);
+      await ipc.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error("Failed to save index after restore:", e);
       toast.error("恢复文档失败");
@@ -137,7 +137,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
     set({ docList: newDocList, trashedDocList: newTrashed });
 
     try {
-      await storage.saveIndex([...newDocList, ...newTrashed]);
+      await ipc.saveIndex([...newDocList, ...newTrashed]);
     } catch (e) {
       console.error("Failed to save index after batch restore:", e);
       toast.error("恢复文档失败");
@@ -155,7 +155,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
     // launch). Only the ids that were actually deleted are removed from the
     // UI/index; failed ones stay in trash so the user can retry.
     const results = await Promise.allSettled(
-      trashedIds.map((id) => storage.deleteDocument(id)),
+      trashedIds.map((id) => ipc.deleteDocument(id)),
     );
     const deletedIds = new Set(
       trashedIds.filter((_, i) => results[i].status === "fulfilled"),
@@ -172,7 +172,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
 
     try {
       const { docList } = get();
-      await storage.saveIndex([...docList, ...newTrashed]);
+      await ipc.saveIndex([...docList, ...newTrashed]);
     } catch (e) {
       console.error("Failed to save index after empty trash:", e);
       toast.error("清空废纸篓失败");
@@ -187,7 +187,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
 
   loadTrashedAssets: async () => {
     try {
-      const list = await storage.listTrashedAssets();
+      const list = await ipc.listTrashedAssets();
       set({ trashedAssets: list });
     } catch (e) {
       console.error("Failed to load trashed assets:", e);
@@ -203,7 +203,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
 
   restoreTrashedAsset: async (id) => {
     try {
-      await storage.restoreTrashedAsset(id);
+      await ipc.restoreTrashedAsset(id);
       set({ trashedAssets: get().trashedAssets.filter((a) => a.id !== id) });
     } catch (e) {
       console.error("Failed to restore trashed asset:", e);
@@ -213,7 +213,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
 
   deleteTrashedAsset: async (id) => {
     try {
-      await storage.deleteTrashedAsset(id);
+      await ipc.deleteTrashedAsset(id);
       set({ trashedAssets: get().trashedAssets.filter((a) => a.id !== id) });
     } catch (e) {
       console.error("Failed to delete trashed asset:", e);
@@ -226,7 +226,7 @@ export const createTrashSlice: SliceCreator = (set, get) => ({
     if (trashedAssets.length === 0) return;
 
     const results = await Promise.allSettled(
-      trashedAssets.map((a) => storage.deleteTrashedAsset(a.id)),
+      trashedAssets.map((a) => ipc.deleteTrashedAsset(a.id)),
     );
     const deletedIds = new Set(
       trashedAssets
