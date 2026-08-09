@@ -42,7 +42,10 @@ interface FolderMenuState {
 
 export default function DocumentSidebar() {
   const { t } = useI18n();
-  const documents = useStore((s) => s.documents);
+  // Keep a ref to `t` so callbacks that use it don't need it in their deps
+  // (useI18n returns a new `t` function on every render).
+  const tRef = useRef(t);
+  tRef.current = t;
   const docList = useStore((s) => s.docList);
   const activeDocId = useStore((s) => s.activeDocId);
   const openDocumentTab = useStore((s) => s.openDocumentTab);
@@ -272,22 +275,22 @@ export default function DocumentSidebar() {
   );
 
   const handleCreateFolder = useCallback(() => {
-    createFolder(t('doclist.untitledFolder'), null);
-  }, [createFolder, t]);
+    createFolder(tRef.current('doclist.untitledFolder'), null);
+  }, [createFolder]);
 
   const handleCreateSubfolder = useCallback(
     (parentId: string) => {
-      createFolder(t('doclist.untitledFolder'), parentId);
+      createFolder(tRef.current('doclist.untitledFolder'), parentId);
       setFolderMenu(null);
     },
-    [createFolder, t],
+    [createFolder],
   );
 
-  const handleFolderContextMenu = (e: React.MouseEvent, folderId: string) => {
+  const handleFolderContextMenu = useCallback((e: React.MouseEvent, folderId: string) => {
     e.preventDefault();
     e.stopPropagation();
     setFolderMenu({ x: e.clientX, y: e.clientY, folderId });
-  };
+  }, []);
 
   const startFolderRename = useCallback((folderId: string, name: string) => {
     setRenamingFolderId(folderId);
@@ -306,13 +309,13 @@ export default function DocumentSidebar() {
     (folderId: string) => {
       const folder = folders.find((f) => f.id === folderId);
       if (!folder) return;
-      const msg = t('doclist.deleteFolderToTrashConfirm').replace('{name}', folder.name);
+      const msg = tRef.current('doclist.deleteFolderToTrashConfirm').replace('{name}', folder.name);
       if (window.confirm(msg)) {
         trashFolder(folderId);
       }
       setFolderMenu(null);
     },
-    [folders, trashFolder, t],
+    [folders, trashFolder],
   );
 
   // ── Handlers: path / import ───────────────────────────────
@@ -373,58 +376,60 @@ export default function DocumentSidebar() {
       const dirPath = await open({ directory: true, multiple: false });
       if (!dirPath || typeof dirPath !== 'string') return;
       const count = await importMarkdownDirectory(dirPath, folderId);
+      const tt = tRef.current;
       if (count === 0) {
-        addToast('info', t('doclist.importDirEmpty'));
+        addToast('info', tt('doclist.importDirEmpty'));
       } else {
-        addToast('success', t('doclist.importDirSuccess', { count }));
+        addToast('success', tt('doclist.importDirSuccess', { count }));
       }
     } catch (e) {
       console.error('Failed to import Markdown directory:', e);
-      addToast('error', t('doclist.importDirFailed'));
+      addToast('error', tRef.current('doclist.importDirFailed'));
     }
-  }, [importMarkdownDirectory, addToast, t]);
+  }, [importMarkdownDirectory, addToast]);
 
   // ── Handlers: lossless backup bundle (.jnote) ─────────────
   const handleExportBundle = useCallback(async (docId: string) => {
     setContextMenu(null);
     try {
       const ok = await exportDocumentBundle(docId);
-      if (ok) addToast('success', t('doclist.exportBundleSuccess'));
+      if (ok) addToast('success', tRef.current('doclist.exportBundleSuccess'));
     } catch (e) {
       console.error('Failed to export bundle:', e);
-      addToast('error', t('doclist.exportBundleFailed'));
+      addToast('error', tRef.current('doclist.exportBundleFailed'));
     }
-  }, [exportDocumentBundle, addToast, t]);
+  }, [exportDocumentBundle, addToast]);
 
   const handleImportBundle = useCallback(async (folderId?: string) => {
     try {
       const id = await importDocumentBundle(folderId);
-      if (id) addToast('success', t('doclist.importBundleSuccess'));
+      if (id) addToast('success', tRef.current('doclist.importBundleSuccess'));
     } catch (e) {
       console.error('Failed to import bundle:', e);
-      addToast('error', t('doclist.importBundleFailed'));
+      addToast('error', tRef.current('doclist.importBundleFailed'));
     }
-  }, [importDocumentBundle, addToast, t]);
+  }, [importDocumentBundle, addToast]);
 
   // ── Handler: copy document body as Markdown ────────────────
   const handleCopyAsMarkdown = useCallback(async (docId: string) => {
     setContextMenu(null);
     try {
-      const doc = documents.find((d) => d.id === docId);
+      const doc = useStore.getState().documents.find((d) => d.id === docId);
       if (!doc) return;
+      const tt = tRef.current;
       const md = blocksToMarkdown(doc.blocks, {
         file: (name) => (name
-          ? t('doclist.mdPlaceholderFile', { name })
-          : t('doclist.mdPlaceholderFileEmpty')),
-        diagram: t('doclist.mdPlaceholderDiagram'),
+          ? tt('doclist.mdPlaceholderFile', { name })
+          : tt('doclist.mdPlaceholderFileEmpty')),
+        diagram: tt('doclist.mdPlaceholderDiagram'),
       });
       await navigator.clipboard.writeText(md);
-      addToast('success', t('doclist.copyAsMarkdownSuccess'));
+      addToast('success', tt('doclist.copyAsMarkdownSuccess'));
     } catch (e) {
       console.error('Failed to copy as Markdown:', e);
-      addToast('error', t('doclist.copyAsMarkdownFailed'));
+      addToast('error', tRef.current('doclist.copyAsMarkdownFailed'));
     }
-  }, [documents, addToast, t]);
+  }, [addToast]);
 
   /**
    * After a successful drag the browser fires a synthetic `click` on the
@@ -992,7 +997,7 @@ export default function DocumentSidebar() {
           x={contextMenu.x}
           y={contextMenu.y}
           onRename={() => {
-            const doc = documents.find((d) => d.id === contextMenu.docId);
+            const doc = useStore.getState().documents.find((d) => d.id === contextMenu.docId);
             if (doc) startRename(doc.id, doc.title || '');
           }}
           onDelete={() => {
@@ -1005,7 +1010,7 @@ export default function DocumentSidebar() {
           onExportBundle={() => handleExportBundle(contextMenu.docId)}
           onCopyAsMarkdown={() => handleCopyAsMarkdown(contextMenu.docId)}
           onBackupRestore={() => {
-            const doc = documents.find((d) => d.id === contextMenu.docId);
+            const doc = useStore.getState().documents.find((d) => d.id === contextMenu.docId);
             setBackupDialogDoc({ id: contextMenu.docId, title: doc?.title || '' });
             setContextMenu(null);
           }}
