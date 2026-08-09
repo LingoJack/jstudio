@@ -39,22 +39,18 @@
 | 收益 | 高 |
 | 动作 | 重命名文件为 `EditorSkeleton.tsx`（对齐导出名，而非反向改导出名） |
 
-### A2. `lib/editor/sequence/` 4 文件 —— 死代码/WIP，需决策
+### A2. `lib/editor/sequence/` 4 文件 —— 死代码，已删除 ✅
 
-| 文件 | 状态 |
+| 文件 | 原状态 |
 |---|---|
 | `sequence/sequenceConstants.ts` | 头注释自称"唯一常量真源"，但 HEAD_HEIGHT 等仍由 `customShapes.ts` 提供，零外部引用 |
 | `sequence/sequenceModel.ts` | 定义 Participant/SeqMessage 接口，零外部引用 |
 | `sequence/sequenceLayout.ts` | 头注释自称"唯一入口"，但 `layoutSequence()` 无调用方；三路径（mermaid/aiGraph/`graph/sequenceInteraction.ts`）各有内联实现 |
 | `sequence/index.ts` | barrel re-export 上述三文件，零外部引用 |
 
-| 字段 | 值 |
-|---|---|
-| 违反原则 | 四（历史遗留） |
-| 引用数 | 0（已 grep 验证：`src/` 内无任何 `lib/editor/sequence` 的 import） |
-| 收益 | 高 |
-| 背景 | 存在 `.jcli/plans/plan-unify-sequence-diagram-logic.md` 规划文档，`sequence/` 系该计划产物，但三条消费路径均未接线 |
-| 动作 | **二选一**：①完成三路径接线（落地统一抽象）；②删除 4 文件及 plan 文档。当前状态对后续维护者有误导（注释声称 SSOT/唯一入口却无消费方） |
+- **违反原则**：四（历史遗留）
+- **引用数**：0（全项目 grep 验证：`src/` + `src-tauri/` 内无任何 `editor/sequence` 的 import）
+- **处理**：`git rm` 删除 4 文件 + 关联 plan 文档 `.jcli/plans/plan-unify-sequence-diagram-logic.md`（共 5 文件，均在 git 跟踪中）。删除后 `tsc -b` 验证 sequence 相关零破坏（工作区里 graph 三文件的 pre-existing 类型错误与本次删除无关，系未完成的进行中改动）
 
 ---
 
@@ -134,7 +130,7 @@
 
 ## 七、建议执行顺序
 
-1. **先做 A2 决策**：确认 `sequence/` 重构计划是否继续——这是唯一需要你拍板的项，其余皆可直接执行。
+1. ~~**A2 决策**~~ ✅ **已完成**：`sequence/` 4 文件 + plan 文档已 `git rm` 删除（全项目零引用，tsc 验证无破坏）。
 2. **批量低成本项**（B1–B10 + C3/C4/C5，共 13 项，均 ≤3 引用）：可一次性提交，review 噪音小。
 3. **A1 单独提交**：`SectionSkeleton→EditorSkeleton` 高收益、零外部消费者。
 4. **C1 缓解先行**：先给 `storage.ts` 补 doc comment，真正重命名留大重构窗口。
