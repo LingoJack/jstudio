@@ -34,6 +34,10 @@ export default function FindBar({ find }: FindBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Focus the input on open ──────────────────────────────────────────
+  // On macOS, Cmd+F is intercepted by the native menu and forwarded via
+  // Tauri IPC. The webview may not have fully regained focus from the menu
+  // bar by the time requestAnimationFrame fires, so we retry focus with a
+  // small delay as a fallback.
   useEffect(() => {
     if (!isOpen) return;
     const raf = requestAnimationFrame(() => {
@@ -43,8 +47,37 @@ export default function FindBar({ find }: FindBarProps) {
       const len = el.value.length;
       el.setSelectionRange(len, len);
     });
-    return () => cancelAnimationFrame(raf);
+    // Retry once after a longer delay in case the initial focus was
+    // clobbered by the editor reclaiming focus after the native menu event.
+    const retry = setTimeout(() => {
+      if (document.activeElement !== inputRef.current) {
+        inputRef.current?.focus();
+      }
+    }, 100);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(retry);
+    };
   }, [isOpen]);
+
+  // ── Global Escape handler ────────────────────────────────────────────
+  // When the FindBar is opened via the native menu (Cmd+F on macOS), the
+  // input may not receive focus (the webview's focus state is unreliable
+  // after a native menu activation). Without focus, the input's onKeyDown
+  // never fires, so Escape can't close the bar. This window-level listener
+  // catches Escape regardless of focus state.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setFindBarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [isOpen, setFindBarOpen]);
 
   // ── Clear highlights when the bar closes; re-scan when it reopens ────
   // Listen for open<->close transitions so we don't run on every render.
