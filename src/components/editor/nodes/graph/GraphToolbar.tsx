@@ -19,6 +19,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize,
+  Contrast,
 } from "lucide-react";
 import { ShapeGlyph } from "./ShapeGlyph";
 import { shapeTitleMap } from "./shapeMenuData";
@@ -26,6 +27,7 @@ import { GraphShapesMenu } from "./GraphShapesMenu";
 import { GraphFillPopover } from "./GraphFillPopover";
 import { GraphMoreMenu } from "./GraphMoreMenu";
 import type { GraphNodeShape, LabelAlign } from "./graphSnapshot";
+import type { MindmapScheme } from "../../../../lib/editor/extensions/diagramExtension";
 
 export interface GraphToolbarProps {
   // Shape menu
@@ -46,6 +48,11 @@ export interface GraphToolbarProps {
   // Sequence diagram
   selectedSeqEdge: "call" | "return" | null;
   onToggleSeqMessage: () => void;
+
+  // Mindmap color scheme toggle (shown only when a topic node is selected)
+  selectedMindmapTopic: boolean;
+  mindmapScheme: MindmapScheme;
+  onToggleMindmapScheme: () => void;
 
   // Label alignment
   selectedLabelAlign: LabelAlign | null;
@@ -99,6 +106,9 @@ export function GraphToolbar(props: GraphToolbarProps) {
     onDelete,
     selectedSeqEdge,
     onToggleSeqMessage,
+    selectedMindmapTopic,
+    mindmapScheme,
+    onToggleMindmapScheme,
     selectedLabelAlign,
     onSetLabelAlign,
     selectedFillColor,
@@ -201,6 +211,23 @@ export function GraphToolbar(props: GraphToolbarProps) {
             ) : (
               <Reply size={16} />
             )}
+          </button>
+        </>
+      )}
+      {selectedMindmapTopic && (
+        <>
+          <div className="jgraph-tool-sep" />
+          <button
+            type="button"
+            className={`jgraph-tool-btn ${mindmapScheme === 'neon' ? 'is-active' : ''}`}
+            title={
+              mindmapScheme === 'neon'
+                ? '思维导图：暗夜霓虹（M）｜点击切换为极简黑白（N）'
+                : '思维导图：极简黑白（N）｜点击切换为暗夜霓虹（M）'
+            }
+            onClick={onToggleMindmapScheme}
+          >
+            <Contrast size={16} />
           </button>
         </>
       )}

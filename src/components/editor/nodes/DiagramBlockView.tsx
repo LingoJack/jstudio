@@ -25,7 +25,7 @@ import {
   NodeViewWrapper,
   type Editor,
 } from '@tiptap/react';
-import { Maximize2, Pencil, Check, Contrast } from 'lucide-react';
+import { Maximize2, Pencil, Check } from 'lucide-react';
 
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
@@ -66,13 +66,19 @@ export default function DiagramBlockView({
   const blockId = attrs.id ?? undefined;
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
   const mindmapScheme = (attrs.mindmapScheme ?? DEFAULT_MINDMAP_SCHEME) as MindmapScheme;
+  const handleMindmapSchemeChange = useCallback(
+    (next: MindmapScheme) => {
+      updateAttributes({ mindmapScheme: next });
+    },
+    [updateAttributes],
+  );
 
   /* -------------------------------------------------------------- */
   /* Selection & toolbar navigation                                  */
   /* -------------------------------------------------------------- */
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
-  const toolbarBtnCount = 5;
+  const toolbarBtnCount = 4;
   const {
     activeIndex,
     registerButton,
@@ -270,20 +276,6 @@ export default function DiagramBlockView({
             >
               <Maximize2 size={15} />
             </BlockToolbarButton>
-            {/* Toggle mindmap color scheme: M (neon) / N (mono) */}
-            <BlockToolbarButton
-              nav={{ activeIndex, registerButton }}
-              index={4}
-              active={mindmapScheme === 'neon'}
-              title={mindmapScheme === 'neon' ? '思维导图：暗夜霓虹（M）' : '思维导图：极简黑白（N）'}
-              onClick={() =>
-                updateAttributes({
-                  mindmapScheme: mindmapScheme === 'neon' ? 'mono' : 'neon',
-                })
-              }
-            >
-              <Contrast size={15} />
-            </BlockToolbarButton>
           </BlockToolbar>
 
           {/* Canvas renderer */}
@@ -300,6 +292,7 @@ export default function DiagramBlockView({
               rootElRef={handleRootRef}
               editing={editing}
               mindmapScheme={mindmapScheme}
+              onMindmapSchemeChange={handleMindmapSchemeChange}
             />
           </div>
 

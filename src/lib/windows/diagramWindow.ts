@@ -50,7 +50,7 @@ let diagramCounter = 0;
  */
 export async function openDiagramWindow(
   snapshot: string,
-  onUpdate: (snapshotJson: string) => void,
+  onUpdate: (snapshotJson: string, mindmapScheme?: MindmapScheme) => void,
   darkMode: boolean,
   blockId?: string,
   onClosed?: () => void,
@@ -90,7 +90,7 @@ export async function openDiagramWindow(
         ) {
           logger.debug('DiagramWindow', 'Received update from window, length: ' + data.snapshot.length);
           lastApplied = data.snapshot;
-          onUpdate(data.snapshot);
+          onUpdate(data.snapshot, data.mindmapScheme);
         }
       } catch (e) {
         console.error('[DiagramWindow] Poll error:', e);
@@ -212,15 +212,27 @@ export function fetchDiagramData(): Promise<DiagramPayload | null> {
  * Uses a Rust in-memory command (`set_diagram_update`) rather than Tauri
  * events, because cross-window `emitTo` may be blocked by capabilities
  * permissions.  The main window polls `get_diagram_update` periodically.
+ *
+ * @param snapshot      Updated diagram snapshot JSON.
+ * @param mindmapScheme Optional latest mindmap scheme; relayed back to the
+ *                      main window so the block attribute stays in sync
+ *                      with the mm markers baked into the snapshot.
  */
-export async function sendDiagramUpdate(snapshot: string): Promise<void> {
+export async function sendDiagramUpdate(
+  snapshot: string,
+  mindmapScheme?: MindmapScheme,
+): Promise<void> {
   const label = resolveLabel();
   logger.debug('DiagramWindow', 'Sending update for label: ' + label + ' snapshot length: ' + snapshot.length);
   try {
     const payload = await fetchDiagramData();
     await invoke('set_diagram_update', {
       label,
-      data: { snapshot, blockId: payload?.blockId } satisfies DiagramPayload,
+      data: {
+        snapshot,
+        blockId: payload?.blockId,
+        mindmapScheme,
+      } satisfies DiagramPayload,
     });
     logger.debug('DiagramWindow', 'Update stored in Rust cache OK');
   } catch (e) {

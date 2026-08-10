@@ -16,7 +16,7 @@ export interface UseDiagramWindowOptions {
   blockId: string | undefined;
   isDark: boolean;
   mindmapScheme: MindmapScheme;
-  updateAttributes: (attrs: { snapshot?: string }) => void;
+  updateAttributes: (attrs: { snapshot?: string; mindmapScheme?: MindmapScheme }) => void;
 }
 
 export interface UseDiagramWindowResult {
@@ -44,11 +44,17 @@ export function useDiagramWindow({
     schemeRef.current = mindmapScheme;
   }, [snapshot, blockId, mindmapScheme]);
 
-  // Stable callback for updates from the diagram window
+  // Stable callback for updates from the diagram window.
+  // Receives the updated snapshot and optionally the latest mindmap scheme
+  // (relayed from the window's inline toolbar toggle); both are persisted
+  // to the TipTap node attributes so subsequent re-renders stay consistent.
   const handleWindowUpdate = useCallback(
-    (updatedSnapshot: string) => {
+    (updatedSnapshot: string, nextScheme?: MindmapScheme) => {
       if (blockIdRef.current && blockId && blockIdRef.current !== blockId) return;
-      updateAttributes({ snapshot: updatedSnapshot });
+      updateAttributes({
+        snapshot: updatedSnapshot,
+        ...(nextScheme ? { mindmapScheme: nextScheme } : {}),
+      });
     },
     [blockId, updateAttributes],
   );

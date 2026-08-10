@@ -53,6 +53,11 @@ export interface GraphCanvasProps {
   editing?: boolean;
   /** 思维导图配色方案（'neon' M 暗夜霓虹 / 'mono' N 极简黑白）。默认 'mono'。 */
   mindmapScheme?: MindmapScheme;
+  /**
+   * 思维导图配色切换回调。用户在画布内联工具栏点击 M/N 切换按钮时触发，
+   * 父组件（DiagramBlockView）负责持久化到 TipTap 节点属性。
+   */
+  onMindmapSchemeChange?: (next: MindmapScheme) => void;
 }
 
 
@@ -70,6 +75,7 @@ export function GraphCanvas({
   rootElRef,
   editing = true,
   mindmapScheme = DEFAULT_MINDMAP_SCHEME,
+  onMindmapSchemeChange,
 }: GraphCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -98,6 +104,8 @@ export function GraphCanvas({
   // 选中边是时序图消息时：'call'（实线调用）/ 'return'（虚线返回）；否则 null。
   // 用于显示"调用/返回切换"按钮——算法判定不准时用户可手动翻转。
   const [selectedSeqEdge, setSelectedSeqEdge] = useState<'call' | 'return' | null>(null);
+  // 选中 vertex 是思维导图 topic 时为 true，用于显示 M/N 配色切换按钮。
+  const [selectedMindmapTopic, setSelectedMindmapTopic] = useState(false);
   // 填充色弹出面板开关
   const [fillPickerOpen, setFillPickerOpen] = useState(false);
   const fillPickerRef = useRef<HTMLDivElement>(null);
@@ -262,6 +270,7 @@ export function GraphCanvas({
     setSelectedLabelAlign,
     setSelectedFillColor,
     setSelectedSeqEdge,
+    setSelectedMindmapTopic,
     setFillPickerOpen,
     setPending,
   });
@@ -312,7 +321,7 @@ export function GraphCanvas({
   }, [editing]);
 
   // 主题色刷新（提取到 useGraphTheme）
-  useGraphTheme({ graphRef, darkModeRef, darkMode, mindmapScheme });
+  const { applyThemeColors } = useGraphTheme({ graphRef, darkModeRef, darkMode, mindmapScheme });
 
   useGraphKeyboard({
     editing,
@@ -421,6 +430,18 @@ export function GraphCanvas({
     });
     setSelectedSeqEdge(isReturn ? 'call' : 'return');
   }, []);
+
+  // 切换思维导图配色方案：M（暗夜霓虹）/ N（极简黑白）。
+  // 用户在选中 topic 节点后，画布内联工具栏出现切换按钮。
+  // applyThemeColors(next) 会把所有 topic cell 的 mmScheme 标记 + 配色强制重写，
+  // 并触发 model CHANGE -> scheduleEmit 持久化到快照。
+  // 同时通过 onMindmapSchemeChange 回传给父组件，更新 TipTap 节点属性，
+  // 保证新窗口打开 / 重渲染时 scheme 一致。
+  const handleToggleMindmapScheme = useCallback(() => {
+    const next: MindmapScheme = mindmapSchemeRef.current === 'neon' ? 'mono' : 'neon';
+    applyThemeColors(next);
+    onMindmapSchemeChange?.(next);
+  }, [applyThemeColors, onMindmapSchemeChange]);
 
   // 设置选中 vertex 的填充色。color='none' 表示清除填充（透明）。
   const handleSetFillColor = useCallback((color: string) => {
@@ -532,6 +553,9 @@ export function GraphCanvas({
           onDelete={handleDelete}
           selectedSeqEdge={selectedSeqEdge}
           onToggleSeqMessage={handleToggleSeqMessage}
+          selectedMindmapTopic={selectedMindmapTopic}
+          mindmapScheme={mindmapScheme}
+          onToggleMindmapScheme={handleToggleMindmapScheme}
           selectedLabelAlign={selectedLabelAlign}
           onSetLabelAlign={handleSetLabelAlign}
           selectedFillColor={selectedFillColor}

@@ -67,6 +67,7 @@ export interface UseGraphInitParams {
   setSelectedLabelAlign: (v: 'left' | 'center' | 'right' | null) => void;
   setSelectedFillColor: (v: string | null) => void;
   setSelectedSeqEdge: (v: 'call' | 'return' | null) => void;
+  setSelectedMindmapTopic: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
 }
@@ -92,6 +93,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     setSelectedLabelAlign,
     setSelectedFillColor,
     setSelectedSeqEdge,
+    setSelectedMindmapTopic,
     setFillPickerOpen,
     setPending,
   } = params;
@@ -152,6 +154,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       setSelectedLabelAlign,
       setSelectedFillColor,
       setSelectedSeqEdge,
+      setSelectedMindmapTopic,
       setFillPickerOpen,
       setPending,
     };

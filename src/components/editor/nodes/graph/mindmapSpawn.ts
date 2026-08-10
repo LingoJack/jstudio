@@ -10,7 +10,7 @@ import type { Graph, Cell } from '@maxgraph/core';
 import { DEFAULT_SIZE, styleForShape } from './graphConstants';
 import { MINDMAP_GAP_X, MINDMAP_GAP_Y, reflowMindmap } from './mindmapLayout';
 import { mindmapEdgeStyle, nextCellId } from './graphHelpers';
-import { mindmapStyleForDepth, type MindmapScheme } from './graphTheme';
+import { mindmapStyleForDepth, DEFAULT_MINDMAP_SCHEME, type MindmapScheme } from './graphTheme';
 
 /**
  * 计算思维导图 topic 节点在树中的深度。
@@ -107,7 +107,7 @@ export function spawnMindmapChild(
   parentCell: Cell,
   dark: boolean,
   side: 'right' | 'left' = 'right',
-  scheme: MindmapScheme = 'mono',
+  scheme: MindmapScheme = DEFAULT_MINDMAP_SCHEME,
 ): void {
   const parentGeo = parentCell.getGeometry();
   if (!parentGeo) return;
@@ -165,7 +165,7 @@ export function spawnMindmapSibling(
   graph: Graph,
   currentCell: Cell,
   dark: boolean,
-  scheme: MindmapScheme = 'mono',
+  scheme: MindmapScheme = DEFAULT_MINDMAP_SCHEME,
 ): void {
   const curGeo = currentCell.getGeometry();
   if (!curGeo) return;

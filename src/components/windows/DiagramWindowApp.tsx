@@ -32,6 +32,11 @@ export default function DiagramWindowApp() {
 
   // Keep latest snapshot in a ref so we can send a final update on close.
   const latestSnapshot = useRef('');
+  // 当前思维导图配色方案 + ref（ref 供 handleChange 稳定回调读取）。
+  // 初始值来自 payload，用户在内联工具栏切换后会同步更新；
+  // 切换后随快照一起回传主窗口，保持 block 属性与 mm 标记一致。
+  const [mindmapScheme, setMindmapScheme] = useState<MindmapScheme>(DEFAULT_MINDMAP_SCHEME);
+  const mindmapSchemeRef = useRef<MindmapScheme>(DEFAULT_MINDMAP_SCHEME);
 
   // Sync theme with main window (includes app theme colors)
   const isDark = useWindowThemeSync();
@@ -53,6 +58,9 @@ export default function DiagramWindowApp() {
       if (cancelled) return;
       if (data) {
         latestSnapshot.current = data.snapshot || '';
+        const initialScheme = (data.mindmapScheme ?? DEFAULT_MINDMAP_SCHEME) as MindmapScheme;
+        mindmapSchemeRef.current = initialScheme;
+        setMindmapScheme(initialScheme);
         setPayload(data);
       } else {
         setError(t('diagram.loadError'));
@@ -74,7 +82,7 @@ export default function DiagramWindowApp() {
     const handleClose = () => {
       if (latestSnapshot.current) {
         // Fire-and-forget; cannot await in beforeunload.
-        sendDiagramUpdate(latestSnapshot.current);
+        sendDiagramUpdate(latestSnapshot.current, mindmapSchemeRef.current);
       }
     };
 
@@ -86,7 +94,16 @@ export default function DiagramWindowApp() {
     latestSnapshot.current = json;
     // Send each update back to the main window in real time.
     // This ensures data is never lost even if the window is closed abruptly.
-    sendDiagramUpdate(json);
+    sendDiagramUpdate(json, mindmapSchemeRef.current);
+  }, []);
+
+  const handleMindmapSchemeChange = useCallback((next: MindmapScheme) => {
+    mindmapSchemeRef.current = next;
+    setMindmapScheme(next);
+    // 立即把新方案回传主窗口，避免窗口被强行关闭时 scheme 丢失。
+    if (latestSnapshot.current) {
+      sendDiagramUpdate(latestSnapshot.current, next);
+    }
   }, []);
 
   if (loading) {
@@ -121,7 +138,8 @@ export default function DiagramWindowApp() {
           initialSnapshot={payload?.snapshot ?? ''}
           onChange={handleChange}
           darkMode={isDark}
-          mindmapScheme={(payload?.mindmapScheme ?? DEFAULT_MINDMAP_SCHEME) as MindmapScheme}
+          mindmapScheme={mindmapScheme}
+          onMindmapSchemeChange={handleMindmapSchemeChange}
         />
       </div>
     </div>

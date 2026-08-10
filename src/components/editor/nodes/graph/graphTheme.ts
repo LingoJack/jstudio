@@ -215,35 +215,37 @@ export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
 export type MindmapScheme = 'neon' | 'mono';
 
 /** 默认方案（新建思维导图 / 块属性未设置时）。 */
-export const DEFAULT_MINDMAP_SCHEME: MindmapScheme = 'mono';
+export const DEFAULT_MINDMAP_SCHEME: MindmapScheme = 'neon';
 
 /** M 霓虹：根节点用青色（独立于分支循环色）。 */
 const NEON_ROOT = {
   dark: { fill: '#0D1117', stroke: '#22D3EE', text: '#22D3EE' },
-  light: { fill: '#FFFFFF', stroke: '#0891B2', text: '#0E7490' },
+  light: { fill: '#0D1117', stroke: '#22D3EE', text: '#22D3EE' },
 };
 
 /** M 霓虹：分支循环色（按兄弟顺序循环）。叶子继承父分支色。 */
+/* M（暗夜霓虹）本质是深色美学——无论 app 主题是 light/dark，节点都画在
+ * 深底上、用霓虹色描边/文字。因此 light 变体与 dark 一致，不做反色适配。 */
 const NEON_BRANCH_COLORS = [
   {
     name: 'purple',
     dark: { stroke: '#A78BFA', text: '#C4B5FD' },
-    light: { stroke: '#8B5CF6', text: '#6D28D9' },
+    light: { stroke: '#A78BFA', text: '#C4B5FD' },
   },
   {
     name: 'emerald',
     dark: { stroke: '#34D399', text: '#6EE7B7' },
-    light: { stroke: '#10B981', text: '#047857' },
+    light: { stroke: '#34D399', text: '#6EE7B7' },
   },
   {
     name: 'amber',
     dark: { stroke: '#FBBF24', text: '#FDE68A' },
-    light: { stroke: '#F59E0B', text: '#B45309' },
+    light: { stroke: '#FBBF24', text: '#FDE68A' },
   },
 ] as const;
 
-/** M 霓虹：所有节点 fill 同画布底色（让节点"漂浮"在画布上，仅靠霓虹描边勾勒）。 */
-const NEON_FILL = { dark: '#0D1117', light: '#FFFFFF' };
+/** M 霓虹：所有节点 fill 同深底色（让节点"漂浮"在画布上，仅靠霓虹描边勾勒）。 */
+const NEON_FILL = { dark: '#0D1117', light: '#0D1117' };
 
 /** N 极简：浅色（SVG 原样）+ 深色（反色）。 */
 const MONO_ROOT = {

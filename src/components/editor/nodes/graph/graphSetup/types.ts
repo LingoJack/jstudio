@@ -22,6 +22,7 @@ export interface GraphSetupContext {
   setSelectedLabelAlign: (v: 'left' | 'center' | 'right' | null) => void;
   setSelectedFillColor: (v: string | null) => void;
   setSelectedSeqEdge: (v: 'call' | 'return' | null) => void;
+  setSelectedMindmapTopic: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
 }

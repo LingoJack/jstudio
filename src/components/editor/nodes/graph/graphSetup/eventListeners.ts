@@ -14,6 +14,7 @@ import type {
 import { owningLifeline } from '../sequenceInteraction';
 import { DEFAULT_SIZE } from '../graphConstants';
 import { SHAPE_FONT_SIZE } from '../graphTheme';
+import { styleToNodeShape } from '../graphModel';
 import type { GraphSetupFn } from './types';
 
 export const setupEventListeners: GraphSetupFn = (ctx) => {
@@ -34,7 +35,8 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
     ctx.updateFlowAnimationRef.current?.();
   });
 
-  // 选中变化 -> 更新对齐按钮高亮状态 + 填充色状态 + 时序消息切换按钮。
+  // 选中变化 -> 更新对齐按钮高亮状态 + 填充色状态 + 时序消息切换按钮
+  // + 思维导图配色切换按钮。
   graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
     const cell = graph.getSelectionCell();
     if (cell) {
@@ -59,10 +61,15 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
       } else {
         ctx.setSelectedSeqEdge(null);
       }
+      // 思维导图 topic 节点选中时显示 M/N 配色切换按钮。
+      ctx.setSelectedMindmapTopic(
+        cell.isVertex() && styleToNodeShape(style) === 'topic',
+      );
     } else {
       ctx.setSelectedLabelAlign(null);
       ctx.setSelectedFillColor(null);
       ctx.setSelectedSeqEdge(null);
+      ctx.setSelectedMindmapTopic(false);
     }
     ctx.setFillPickerOpen(false);
   });
