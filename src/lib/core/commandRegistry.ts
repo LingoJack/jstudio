@@ -120,6 +120,15 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       // Main window: close the current tab, or the whole window when only
       // one tab remains (matching the window-close-requested handler in
       // App.tsx). On the last tab, gate behind an exit confirmation.
+      //
+      // Focus guard: if the main window doesn't have focus (e.g. a child
+      // window like diagram/preview/terminal is focused), Cmd+W was
+      // misrouted here by on_menu_event because FocusedWindow state was
+      // stale. Bail out — the child window's useCloseOnCmdW handles its
+      // own close when the event is correctly routed to it. Without this
+      // guard, closing a diagram window would silently close a main-window
+      // tab.
+      if (!document.hasFocus()) return;
       if (!store.activeTabId) return;
       if (store.tabs.length > 1) {
         store.closeTab(store.activeTabId);

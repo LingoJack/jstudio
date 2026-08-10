@@ -14,6 +14,13 @@
  * with `getCurrentWindow().label`. The browser engine fires `focus`
  * reliably when the OS window becomes key, bypassing the Tauri bug.
  *
+ * First-report robustness: a freshly created child webview may fire its
+ * initial `focus` event *before* React mounts and registers the
+ * listener. We therefore attempt the first report in a `useEffect`
+ * (post-mount) and retry a couple of times in case the Tauri runtime
+ * isn't ready to dispatch the IPC yet. Subsequent focus changes are
+ * picked up by the `focus` event listener.
+ *
  * We do NOT clear the state on `blur` — the next window to gain focus
  * overwrites it. When the app loses focus entirely the state stays at
  * the last-focused window, which is harmless because native menu
@@ -27,16 +34,39 @@ import { ipc } from '../core/ipc';
 export function useWindowFocusTracking(): void {
   useEffect(() => {
     const label = getCurrentWindow().label;
+
     const report = () => {
       ipc.reportWindowFocus(label).catch(() => {
         /* best-effort; failures don't matter — the next focus retries */
       });
     };
-    // Report once on mount so a freshly-created window is tracked even
-    // before its first focus event fires (Tauri sometimes delays the
-    // initial focus event for child webviews).
-    report();
+
+    // First-report retry loop. The Tauri runtime inside a freshly
+    // created webview can take a few ticks to be ready to dispatch
+    // IPC; if the very first report fails, retry a couple of times.
+    let attempts = 0;
+    const maxAttempts = 3;
+    const firstReport = () => {
+      ipc
+        .reportWindowFocus(label)
+        .then(() => {
+          /* reported ok */
+        })
+        .catch(() => {
+          attempts += 1;
+          if (attempts < maxAttempts) {
+            setTimeout(firstReport, 100);
+          }
+        });
+    };
+    // setTimeout(0) ensures we run after the current synchronous batch,
+    // giving the Tauri runtime a chance to finish wiring up the webview.
+    const timer = setTimeout(firstReport, 0);
+
     window.addEventListener('focus', report);
-    return () => window.removeEventListener('focus', report);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('focus', report);
+    };
   }, []);
 }
