@@ -32,7 +32,7 @@ import {
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
 import MermaidImportDialog from './MermaidImportDialog';
 import AIGraphImportDialog from './AIGraphImportDialog';
-import { fontColorFor } from './graphTheme';
+import { fontColorFor, DEFAULT_MINDMAP_SCHEME, type MindmapScheme } from './graphTheme';
 import { useGraphExport } from './useGraphExport';
 import { useGraphKeyboard } from './useGraphKeyboard';
 import { useGraphInit } from './useGraphInit';
@@ -51,6 +51,8 @@ export interface GraphCanvasProps {
   rootElRef?: (el: HTMLDivElement | null) => void;
   /** 当前是否处于编辑态。false 时只读、隐藏工具栏。默认 true。 */
   editing?: boolean;
+  /** 思维导图配色方案（'neon' M 暗夜霓虹 / 'mono' N 极简黑白）。默认 'mono'。 */
+  mindmapScheme?: MindmapScheme;
 }
 
 
@@ -67,6 +69,7 @@ export function GraphCanvas({
   className = '',
   rootElRef,
   editing = true,
+  mindmapScheme = DEFAULT_MINDMAP_SCHEME,
 }: GraphCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -148,6 +151,9 @@ export function GraphCanvas({
   // 暗色模式在初始化时读取一次即可（切换由下方 effect 处理容器底色）。
   const darkModeRef = useRef(darkMode);
   darkModeRef.current = darkMode;
+  // 思维导图配色方案同步到 ref，给事件回调（spawn / theme refresh）使用。
+  const mindmapSchemeRef = useRef(mindmapScheme);
+  mindmapSchemeRef.current = mindmapScheme;
 
   // Cmd/Ctrl 键按住态：用于切换「复制拖动」光标提示。给用户一个可见反馈，确认复制拖动已就绪。
   const [cloneHeld, setCloneHeld] = useState(false);
@@ -274,7 +280,7 @@ export function GraphCanvas({
     const parsed = parseGraphSnapshot(initialSnapshot);
     applyingRef.current = true;
     try {
-      applySnapshotToGraph(graph, parsed, darkMode);
+      applySnapshotToGraph(graph, parsed, darkMode, mindmapScheme);
       // 恢复网格显隐状态（applySnapshotToGraph 已设引擎 gridEnabled，这里同步组件态）。
       if (typeof parsed.showGrid === 'boolean') {
         setShowGrid(parsed.showGrid);
@@ -306,7 +312,7 @@ export function GraphCanvas({
   }, [editing]);
 
   // 主题色刷新（提取到 useGraphTheme）
-  useGraphTheme({ graphRef, darkModeRef, darkMode });
+  useGraphTheme({ graphRef, darkModeRef, darkMode, mindmapScheme });
 
   useGraphKeyboard({
     editing,
@@ -316,6 +322,7 @@ export function GraphCanvas({
     undoManagerRef,
     pendingShapeRef,
     darkModeRef,
+    mindmapSchemeRef,
     setPending,
   });
 

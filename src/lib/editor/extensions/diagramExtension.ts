@@ -6,15 +6,19 @@
  * rendering and window editing are handled by DiagramBlockView.
  *
  * Supported attributes:
- *   snapshot — serialized diagram snapshot JSON (empty string = blank canvas)
- *   width    — display width in px (null = auto, defaults to ~520px)
- *   height   — canvas height in px (null = auto, defaults to ~320px)
- *   align    — 'left' | 'center' (default 'center')
+ *   snapshot       — serialized diagram snapshot JSON (empty string = blank canvas)
+ *   width          — display width in px (null = auto, defaults to ~520px)
+ *   height         — canvas height in px (null = auto, defaults to ~320px)
+ *   align          — 'left' | 'center' (default 'center')
+ *   mindmapScheme  — 'neon' | 'mono' | null (default 'mono') — mind map color scheme
  */
 
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import DiagramBlockView from '../../../components/editor/nodes/DiagramBlockView';
+
+/** 思维导图配色方案（M 暗夜霓虹 / N 极简黑白）。null 视同 'mono'。 */
+export type MindmapScheme = 'neon' | 'mono';
 
 export interface DiagramNodeAttributes {
   id?: string | null;
@@ -27,6 +31,8 @@ export interface DiagramNodeAttributes {
   /** Height as a percentage of the editor surface width (0-100). Preferred. */
   heightPct?: number | null;
   align: 'left' | 'center';
+  /** 思维导图配色方案；未设置时默认 'mono'。 */
+  mindmapScheme?: MindmapScheme | null;
 }
 
 declare module '@tiptap/core' {
@@ -115,6 +121,18 @@ export const DiagramExtension = Node.create({
         renderHTML: (attrs) => {
           if (!attrs.align) return {};
           return { 'data-align': attrs.align };
+        },
+      },
+      mindmapScheme: {
+        default: null as MindmapScheme | null,
+        parseHTML: (el) => {
+          const v = el.getAttribute('data-mindmap-scheme');
+          if (v === 'neon' || v === 'mono') return v;
+          return null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.mindmapScheme) return {};
+          return { 'data-mindmap-scheme': attrs.mindmapScheme };
         },
       },
     };

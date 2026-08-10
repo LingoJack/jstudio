@@ -21,6 +21,8 @@ import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import { useCmdEnterConfirm } from '../../lib/windows/useCmdEnterConfirm';
 import { useI18n } from '../../lib/core/i18n';
+import { DEFAULT_MINDMAP_SCHEME } from '../editor/nodes/graph/graphTheme';
+import type { MindmapScheme } from '../../lib/editor/extensions/diagramExtension';
 
 export default function DiagramWindowApp() {
   const [payload, setPayload] = useState<DiagramPayload | null>(null);
@@ -119,6 +121,7 @@ export default function DiagramWindowApp() {
           initialSnapshot={payload?.snapshot ?? ''}
           onChange={handleChange}
           darkMode={isDark}
+          mindmapScheme={(payload?.mindmapScheme ?? DEFAULT_MINDMAP_SCHEME) as MindmapScheme}
         />
       </div>
     </div>

@@ -7,6 +7,8 @@ import {
   SHAPE_ARC_SIZE,
   mindmapStyleForDepth,
   MINDMAP_ARC_SIZE,
+  DEFAULT_MINDMAP_SCHEME,
+  type MindmapScheme,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -56,8 +58,15 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
 /**
  * shape → maxGraph 样式对象（白板风格：无填充 + 中性灰描边）。
  * 注意：text 形状无填充无边框。
+ *
+ * topic 形状可选传入 scheme（默认 'mono'），用于决定根节点配色 + 写入
+ * mmScheme/mmBranch/mmDepth 标记，供主题刷新反查。
  */
-function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unknown> {
+function styleForShape(
+  shape: GraphNodeShape,
+  dark: boolean,
+  scheme: MindmapScheme = DEFAULT_MINDMAP_SCHEME,
+): Record<string, unknown> {
   const pal = paletteFor(shape, dark);
   const base: Record<string, unknown> = {
     fillColor: pal.fill,
@@ -99,16 +108,19 @@ function styleForShape(shape: GraphNodeShape, dark: boolean): Record<string, unk
       // 数据库：使用自定义 database 形状（圆柱体）
       return { ...base, shape: 'database' };
     case 'topic':
-      // 思维导图根节点：蓝色强填充 + 白字 + 加粗 + 大圆角（药丸形态）。
-      // 此为 depth=0 默认样式；Tab/Enter 生发子节点时由 mindmapSpawn 按 depth 重新配色。
+      // 思维导图根节点：按 scheme 给配色 + 写入 mmScheme/mmBranch/mmDepth 标记。
+      // Tab/Enter 生发子节点时由 mindmapSpawn 按 depth 重新配色并更新标记。
       // 通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
       return {
         shape: 'rectangle',
         rounded: true,
         absoluteArcSize: true,
         arcSize: MINDMAP_ARC_SIZE,
-        ...mindmapStyleForDepth(0, dark),
+        ...mindmapStyleForDepth(0, dark, scheme, 0),
         isTopic: 1,
+        mmScheme: scheme,
+        mmBranch: 0,
+        mmDepth: 0,
       };
     // 连线类型：统一实线 + 圆点流动（流动由 CSS 动画驱动，见 vscode-theme.css）。
     // 箭头 marker 由 ConnectorShape.setDashed(false) 渲染为实线，不受流动影响。

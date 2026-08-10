@@ -12,6 +12,7 @@ import type { Graph, Cell } from '@maxgraph/core';
 
 import { styleToNodeShape } from './graphModel';
 import { spawnMindmapChild, spawnMindmapSibling } from './mindmapSpawn';
+import type { MindmapScheme } from './graphTheme';
 
 /**
  * 根据当前选中 shape 的类别分派 Tab/Enter 行为。
@@ -24,13 +25,14 @@ export function handleShapeTabEnter(
   key: 'Tab' | 'Enter',
   shiftKey: boolean,
   dark: boolean,
+  mindmapScheme: MindmapScheme,
 ): boolean {
   const sel = graph.getSelectionCells();
   if (sel.length !== 1 || !sel[0].isVertex()) return false;
   const shape = styleToNodeShape(graph.getCurrentCellStyle(sel[0]));
 
   if (shape === 'topic') {
-    return handleMindmapTopic(graph, sel[0], key, shiftKey, dark);
+    return handleMindmapTopic(graph, sel[0], key, shiftKey, dark, mindmapScheme);
   }
   return handlePlainShape(graph, sel[0], key, shiftKey);
 }
@@ -51,14 +53,15 @@ function handleMindmapTopic(
   key: 'Tab' | 'Enter',
   shiftKey: boolean,
   dark: boolean,
+  scheme: MindmapScheme,
 ): boolean {
   if (graph.isEditing()) {
     graph.stopEditing(false);
   }
   if (key === 'Tab') {
-    spawnMindmapChild(graph, cell, dark, shiftKey ? 'left' : 'right');
+    spawnMindmapChild(graph, cell, dark, shiftKey ? 'left' : 'right', scheme);
   } else {
-    spawnMindmapSibling(graph, cell, dark);
+    spawnMindmapSibling(graph, cell, dark, scheme);
   }
   return true;
 }

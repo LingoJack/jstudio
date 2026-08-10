@@ -202,95 +202,294 @@ export const SHAPE_FONT_SIZE = 13;
 export const SHAPE_ARC_SIZE = 12; // 飞书风格：更大的圆角
 
 /* ------------------------------------------------------------------ */
-/* 思维导图配色 - XMind 风格深度分层                                    */
+/* 思维导图配色 - M 暗夜霓虹 / N 极简黑白（双方案 + 旧靛蓝 fallback） */
 /* ------------------------------------------------------------------ */
 
-/** 思维导图连线粗度（比普通连线略粗，突出有机感）。 */
-export const MINDMAP_EDGE_STROKE_WIDTH = 2;
+/**
+ * 思维导图配色方案。
+ * - 'neon' = M 暗夜霓虹：深底 + 霓虹描边/文字，分支按 紫/绿/琥珀 循环
+ * - 'mono' = N 极简黑白：纯黑灰白，层次靠字号/字重
+ *
+ * 默认 'mono'（用户偏好极简）。旧快照无 mmScheme 标记时回退到 legacy 靛蓝配色。
+ */
+export type MindmapScheme = 'neon' | 'mono';
 
-/** 根节点 (depth 0)：浅色填充 + 粗描边 + 深色字 + 加粗。 */
-const MINDMAP_ROOT_LIGHT = { fill: '#E0E7FF', stroke: '#6366F1', font: '#312E81' };
-const MINDMAP_ROOT_DARK = { fill: '#3730A3', stroke: '#818CF8', font: '#E0E7FF' };
-const MINDMAP_ROOT_FONT_SIZE = 15;
+/** 默认方案（新建思维导图 / 块属性未设置时）。 */
+export const DEFAULT_MINDMAP_SCHEME: MindmapScheme = 'mono';
 
-/** 分支节点 (depth 1)：极浅填充 + 中等描边 + 深色字。 */
-const MINDMAP_BRANCH_LIGHT = { fill: '#EEF2FF', stroke: '#A5B4FC', font: '#4338CA' };
-const MINDMAP_BRANCH_DARK = { fill: '#312E81', stroke: '#6366F1', font: '#C7D2FE' };
+/** M 霓虹：根节点用青色（独立于分支循环色）。 */
+const NEON_ROOT = {
+  dark: { fill: '#0D1117', stroke: '#22D3EE', text: '#22D3EE' },
+  light: { fill: '#FFFFFF', stroke: '#0891B2', text: '#0E7490' },
+};
 
-/** 叶子节点 (depth 2+)：几乎无填充 + 细描边 + 中性字色。 */
-const MINDMAP_LEAF_LIGHT = { fill: '#F5F7FF', stroke: '#C7D2FE', font: '#6366F1' };
-const MINDMAP_LEAF_DARK = { fill: '#1E1B4B', stroke: '#4F46E5', font: '#A5B4FC' };
+/** M 霓虹：分支循环色（按兄弟顺序循环）。叶子继承父分支色。 */
+const NEON_BRANCH_COLORS = [
+  {
+    name: 'purple',
+    dark: { stroke: '#A78BFA', text: '#C4B5FD' },
+    light: { stroke: '#8B5CF6', text: '#6D28D9' },
+  },
+  {
+    name: 'emerald',
+    dark: { stroke: '#34D399', text: '#6EE7B7' },
+    light: { stroke: '#10B981', text: '#047857' },
+  },
+  {
+    name: 'amber',
+    dark: { stroke: '#FBBF24', text: '#FDE68A' },
+    light: { stroke: '#F59E0B', text: '#B45309' },
+  },
+] as const;
+
+/** M 霓虹：所有节点 fill 同画布底色（让节点"漂浮"在画布上，仅靠霓虹描边勾勒）。 */
+const NEON_FILL = { dark: '#0D1117', light: '#FFFFFF' };
+
+/** N 极简：浅色（SVG 原样）+ 深色（反色）。 */
+const MONO_ROOT = {
+  dark: { fill: '#FAFAFA', stroke: 'none', text: '#18181B' },
+  light: { fill: '#18181B', stroke: 'none', text: '#FFFFFF' },
+};
+const MONO_BRANCH = {
+  dark: { fill: '#18181B', stroke: '#FAFAFA', text: '#FAFAFA' },
+  light: { fill: '#FFFFFF', stroke: '#18181B', text: '#18181B' },
+};
+const MONO_LEAF = {
+  dark: { fill: '#18181B', stroke: '#52525B', text: '#A1A1AA' },
+  light: { fill: '#FFFFFF', stroke: '#D4D4D8', text: '#71717A' },
+};
+
+/** N 极简连线色（分支级 / 叶级）。 */
+const MONO_EDGE = {
+  dark: { branch: '#FAFAFA', leaf: '#52525B' },
+  light: { branch: '#18181B', leaf: '#D4D4D8' },
+};
 
 /** 思维导图圆角（比普通形状更大，呈现药丸 / pill 形态）。 */
 export const MINDMAP_ARC_SIZE = 18;
 
+/* ---- 旧靛蓝 XMind 配色（保留用于旧快照 fallback） ---- */
+const LEGACY_MINDMAP_ROOT_LIGHT = { fill: '#E0E7FF', stroke: '#6366F1', font: '#312E81' };
+const LEGACY_MINDMAP_ROOT_DARK = { fill: '#3730A3', stroke: '#818CF8', font: '#E0E7FF' };
+const LEGACY_MINDMAP_ROOT_FONT_SIZE = 15;
+const LEGACY_MINDMAP_BRANCH_LIGHT = { fill: '#EEF2FF', stroke: '#A5B4FC', font: '#4338CA' };
+const LEGACY_MINDMAP_BRANCH_DARK = { fill: '#312E81', stroke: '#6366F1', font: '#C7D2FE' };
+const LEGACY_MINDMAP_LEAF_LIGHT = { fill: '#F5F7FF', stroke: '#C7D2FE', font: '#6366F1' };
+const LEGACY_MINDMAP_LEAF_DARK = { fill: '#1E1B4B', stroke: '#4F46E5', font: '#A5B4FC' };
+
+/** 填充色 → 旧靛蓝深度反查（仅用于旧快照主题切换时识别深度）。 */
+const LEGACY_MINDMAP_FILL_TO_DEPTH: Record<string, number> = {
+  '#e0e7ff': 0, '#3730a3': 0,
+  '#eef2ff': 1, '#312e81': 1,
+  '#f5f7ff': 2, '#1e1b4b': 2,
+};
+
 /**
- * 根据深度返回思维导图节点的配色方案。
+ * 根据深度 + 方案返回思维导图节点的配色。
  *
- * - depth 0（根）：浅色填充 + 粗描边 + 深色字 + 加粗 + 大字号
- * - depth 1（分支）：极浅填充 + 中等描边 + 深色字
- * - depth 2+（叶子）：几乎无填充 + 细描边 + 中性字
+ * - depth 0（根）：neon=青色描边 + 深底；mono=黑/白实心 + 反色字 + 加粗 + 大字号
+ * - depth 1（分支）：neon=循环色（紫/绿/琥珀）；mono=深/浅边框
+ * - depth 2+（叶子）：neon=父分支色提亮；mono=灰
+ *
+ * branchIndex 仅 neon 方案用，决定分支循环色。叶子继承父分支的 branchIndex。
  */
 export function mindmapStyleForDepth(
   depth: number,
   dark: boolean,
-): { fillColor: string; strokeColor: string; fontColor: string; strokeWidth: number; fontSize: number; fontStyle: number } {
+  scheme: MindmapScheme = DEFAULT_MINDMAP_SCHEME,
+  branchIndex = 0,
+): {
+  fillColor: string;
+  strokeColor: string;
+  fontColor: string;
+  strokeWidth: number;
+  fontSize: number;
+  fontStyle: number;
+} {
+  if (scheme === 'neon') {
+    const fill = dark ? NEON_FILL.dark : NEON_FILL.light;
+    if (depth <= 0) {
+      const p = dark ? NEON_ROOT.dark : NEON_ROOT.light;
+      return {
+        fillColor: p.fill,
+        strokeColor: p.stroke,
+        fontColor: p.text,
+        strokeWidth: 2,
+        fontSize: 15,
+        fontStyle: 1, // bold
+      };
+    }
+    const branch = NEON_BRANCH_COLORS[branchIndex % NEON_BRANCH_COLORS.length];
+    const bc = dark ? branch.dark : branch.light;
+    if (depth === 1) {
+      return {
+        fillColor: fill,
+        strokeColor: bc.stroke,
+        fontColor: bc.stroke,
+        strokeWidth: 1.5,
+        fontSize: SHAPE_FONT_SIZE,
+        fontStyle: 1, // bold（分支字号小但加粗，对标 SVG）
+      };
+    }
+    // 叶子：父分支色提亮做字色，描边带透明度
+    return {
+      fillColor: fill,
+      strokeColor: bc.stroke,
+      fontColor: bc.text,
+      strokeWidth: 1,
+      fontSize: SHAPE_FONT_SIZE,
+      fontStyle: 0,
+    };
+  }
+
+  // mono
   if (depth <= 0) {
-    const p = dark ? MINDMAP_ROOT_DARK : MINDMAP_ROOT_LIGHT;
+    const p = dark ? MONO_ROOT.dark : MONO_ROOT.light;
+    return {
+      fillColor: p.fill,
+      strokeColor: p.stroke,
+      fontColor: p.text,
+      strokeWidth: 0,
+      fontSize: 15,
+      fontStyle: 1, // bold
+    };
+  }
+  if (depth === 1) {
+    const p = dark ? MONO_BRANCH.dark : MONO_BRANCH.light;
+    return {
+      fillColor: p.fill,
+      strokeColor: p.stroke,
+      fontColor: p.text,
+      strokeWidth: 1.5,
+      fontSize: SHAPE_FONT_SIZE,
+      fontStyle: 1, // bold
+    };
+  }
+  const p = dark ? MONO_LEAF.dark : MONO_LEAF.light;
+  return {
+    fillColor: p.fill,
+    strokeColor: p.stroke,
+    fontColor: p.text,
+    strokeWidth: 1,
+    fontSize: SHAPE_FONT_SIZE,
+    fontStyle: 0,
+  };
+}
+
+/**
+ * 思维导图连线 strokeColor。
+ *
+ * - neon：分支用循环色，叶子用父分支色
+ * - mono：分支级用主色，叶级用灰色
+ *
+ * depth 0 不产生连线（根节点无父边），调用方不会传 depth=0。
+ */
+export function mindmapEdgeStrokeColor(
+  scheme: MindmapScheme,
+  dark: boolean,
+  depth: number,
+  branchIndex = 0,
+): string {
+  if (scheme === 'neon') {
+    const branch = NEON_BRANCH_COLORS[branchIndex % NEON_BRANCH_COLORS.length];
+    return (dark ? branch.dark : branch.light).stroke;
+  }
+  // mono
+  const ec = dark ? MONO_EDGE.dark : MONO_EDGE.light;
+  return depth <= 1 ? ec.branch : ec.leaf;
+}
+
+/** 思维导图连线粗度（按方案 + 深度）。 */
+export function mindmapEdgeStrokeWidth(
+  scheme: MindmapScheme,
+  depth: number,
+): number {
+  if (scheme === 'neon') {
+    return depth <= 1 ? 2.5 : 1;
+  }
+  return 1.5; // mono 全 1.5
+}
+
+/**
+ * 旧靛蓝 XMind 配色（仅用于旧快照 fallback，主题切换时保留原配色）。
+ */
+function legacyMindmapStyleForDepth(
+  depth: number,
+  dark: boolean,
+): {
+  fillColor: string;
+  strokeColor: string;
+  fontColor: string;
+  strokeWidth: number;
+  fontSize: number;
+  fontStyle: number;
+} {
+  if (depth <= 0) {
+    const p = dark ? LEGACY_MINDMAP_ROOT_DARK : LEGACY_MINDMAP_ROOT_LIGHT;
     return {
       fillColor: p.fill,
       strokeColor: p.stroke,
       fontColor: p.font,
       strokeWidth: 1.5,
-      fontSize: MINDMAP_ROOT_FONT_SIZE,
-      fontStyle: 1, // bold
+      fontSize: LEGACY_MINDMAP_ROOT_FONT_SIZE,
+      fontStyle: 1,
     };
   }
   if (depth === 1) {
-    const p = dark ? MINDMAP_BRANCH_DARK : MINDMAP_BRANCH_LIGHT;
+    const p = dark ? LEGACY_MINDMAP_BRANCH_DARK : LEGACY_MINDMAP_BRANCH_LIGHT;
     return {
       fillColor: p.fill,
       strokeColor: p.stroke,
       fontColor: p.font,
       strokeWidth: 1,
       fontSize: SHAPE_FONT_SIZE,
-      fontStyle: 0, // normal
+      fontStyle: 0,
     };
   }
-  const p = dark ? MINDMAP_LEAF_DARK : MINDMAP_LEAF_LIGHT;
+  const p = dark ? LEGACY_MINDMAP_LEAF_DARK : LEGACY_MINDMAP_LEAF_LIGHT;
   return {
     fillColor: p.fill,
     strokeColor: p.stroke,
     fontColor: p.font,
     strokeWidth: 0.5,
     fontSize: SHAPE_FONT_SIZE,
-    fontStyle: 0, // normal
+    fontStyle: 0,
   };
 }
 
 /**
- * 填充色 → 思维导图深度反查。
+ * 从 CellStyle 读取思维导图元信息（方案 / 深度 / 分支索引）。
  *
- * 主题切换时（useGraphTheme.applyThemeColors），需要根据当前填充色推断节点深度，
- * 再用 `mindmapStyleForDepth(depth, dark)` 重新计算全套配色（fill/stroke/font 等）。
- *
- * 返回 null 表示填充色不属于思维导图配色体系（用户可能通过取色器自定义了颜色），
- * 调用方应回退到通用的 mapFillColor / fontColorFor 逻辑。
+ * - 有 mmScheme 标记：返回 { scheme, depth, branchIndex }
+ * - 无标记（旧快照）：返回 null，调用方应回退到 legacyMindmapStyleForDepth
+ *   （深度可通过 mindmapDepthFromFill 反查）
  */
-const MINDMAP_FILL_TO_DEPTH: Record<string, number> = {
-  // Root (depth 0) - 浅色 / 暗色
-  '#e0e7ff': 0, '#3730a3': 0,
-  // Branch (depth 1) - 浅色 / 暗色
-  '#eef2ff': 1, '#312e81': 1,
-  // Leaf (depth 2+) - 浅色 / 暗色
-  '#f5f7ff': 2, '#1e1b4b': 2,
-};
+export function mindmapMetaFromStyle(
+  style: Record<string, unknown> | undefined,
+): { scheme: MindmapScheme; depth: number; branchIndex: number } | null {
+  if (!style) return null;
+  const rawScheme = style.mmScheme;
+  if (rawScheme !== 'neon' && rawScheme !== 'mono') return null;
+  const depth =
+    typeof style.mmDepth === 'number' ? style.mmDepth : 0;
+  const branchIndex =
+    typeof style.mmBranch === 'number' ? style.mmBranch : 0;
+  return { scheme: rawScheme, depth, branchIndex };
+}
 
+/**
+ * 填充色 → 旧靛蓝思维导图深度反查（仅用于旧快照 fallback）。
+ *
+ * 返回 null 表示填充色不属于旧靛蓝配色体系（用户自定义了颜色，或已是新 M/N 方案）。
+ */
 export function mindmapDepthFromFill(fill: string | undefined): number | null {
   if (!fill || fill === 'none') return null;
   const key = fill.toLowerCase();
-  return key in MINDMAP_FILL_TO_DEPTH ? MINDMAP_FILL_TO_DEPTH[key] : null;
+  return key in LEGACY_MINDMAP_FILL_TO_DEPTH ? LEGACY_MINDMAP_FILL_TO_DEPTH[key] : null;
 }
+
+/** 旧靛蓝配色导出（useGraphTheme 在 fallback 路径里用）。 */
+export { legacyMindmapStyleForDepth };
 
 /**
  * 边默认箭头尺寸（像素）。

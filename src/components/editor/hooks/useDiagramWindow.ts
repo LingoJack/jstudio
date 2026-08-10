@@ -9,11 +9,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { openDiagramWindow } from '../../../lib/windows/diagramWindow';
+import type { MindmapScheme } from '../../../lib/editor/extensions/diagramExtension';
 
 export interface UseDiagramWindowOptions {
   snapshot: string | null;
   blockId: string | undefined;
   isDark: boolean;
+  mindmapScheme: MindmapScheme;
   updateAttributes: (attrs: { snapshot?: string }) => void;
 }
 
@@ -26,6 +28,7 @@ export function useDiagramWindow({
   snapshot,
   blockId,
   isDark,
+  mindmapScheme,
   updateAttributes,
 }: UseDiagramWindowOptions): UseDiagramWindowResult {
   const unlistenRef = useRef<(() => void) | null>(null);
@@ -34,10 +37,12 @@ export function useDiagramWindow({
   // Stable refs to latest values — prevents callback recreation on every change
   const snapshotRef = useRef(snapshot);
   const blockIdRef = useRef(blockId);
+  const schemeRef = useRef(mindmapScheme);
   useEffect(() => {
     snapshotRef.current = snapshot;
     blockIdRef.current = blockId;
-  }, [snapshot, blockId]);
+    schemeRef.current = mindmapScheme;
+  }, [snapshot, blockId, mindmapScheme]);
 
   // Stable callback for updates from the diagram window
   const handleWindowUpdate = useCallback(
@@ -62,6 +67,7 @@ export function useDiagramWindow({
         unlistenRef.current?.();
         unlistenRef.current = null;
       },
+      schemeRef.current,
     )
       .then((unlisten) => {
         unlistenRef.current = unlisten;

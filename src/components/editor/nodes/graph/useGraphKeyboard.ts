@@ -22,6 +22,7 @@ import { styleToNodeShape } from './graphModel';
 import { handleShapeTabEnter } from './shapeKeyHandlers';
 import { GRID_SIZE } from './graphConstants';
 import type { GraphNodeShape } from './graphSnapshot';
+import type { MindmapScheme } from './graphTheme';
 
 export interface UseGraphKeyboardParams {
   editing: boolean;
@@ -31,6 +32,7 @@ export interface UseGraphKeyboardParams {
   undoManagerRef: RefObject<UndoManager | null>;
   pendingShapeRef: RefObject<GraphNodeShape | null>;
   darkModeRef: RefObject<boolean>;
+  mindmapSchemeRef: RefObject<MindmapScheme>;
   setPending: (shape: GraphNodeShape | null) => void;
 }
 
@@ -42,6 +44,7 @@ export function useGraphKeyboard({
   undoManagerRef,
   pendingShapeRef,
   darkModeRef,
+  mindmapSchemeRef,
   setPending,
 }: UseGraphKeyboardParams) {
   useEffect(() => {
@@ -63,7 +66,15 @@ export function useGraphKeyboard({
       // 普通形状的 Enter 在编辑态由 CellEditor 原生处理，handleShapeTabEnter
       // 内部会返回 false 让其穿透。
       if (e.key === 'Tab' || e.key === 'Enter') {
-        if (handleShapeTabEnter(graph, e.key, e.shiftKey, darkModeRef.current)) {
+        if (
+          handleShapeTabEnter(
+            graph,
+            e.key,
+            e.shiftKey,
+            darkModeRef.current,
+            mindmapSchemeRef.current,
+          )
+        ) {
           e.preventDefault();
           return;
         }
@@ -195,7 +206,13 @@ export function useGraphKeyboard({
       // 命中 topic 节点：拦截并处理。
       e.preventDefault();
       e.stopPropagation();
-      handleShapeTabEnter(g, e.key, e.shiftKey, darkModeRef.current);
+      handleShapeTabEnter(
+        g,
+        e.key,
+        e.shiftKey,
+        darkModeRef.current,
+        mindmapSchemeRef.current,
+      );
     };
     window.addEventListener('keydown', onWindowKeyDown, true);
 

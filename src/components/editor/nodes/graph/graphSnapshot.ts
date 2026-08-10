@@ -12,6 +12,8 @@
  *   - 其它                -> 'unknown'（无法识别，调用方按需降级处理）
  */
 
+import type { MindmapScheme } from '../../../../lib/editor/extensions/diagramExtension';
+
 /** 自研格式的判别标记。出现在快照根对象的 `kind` 字段。 */
 export const JGRAPH_KIND = 'jgraph' as const;
 
@@ -78,6 +80,12 @@ export interface GraphNodeStyle {
   fontSize?: number;
   /** 文字粗细（maxGraph 数字编码：1=bold, 0=normal）。思维导图根节点使用 1。 */
   fontStyle?: number;
+  /** 思维导图配色方案标记（仅 topic 形状用）；未设置表示旧快照，回退 legacy 配色。 */
+  mmScheme?: MindmapScheme;
+  /** 思维导图节点深度（root=0, branch=1, leaf=2+）。 */
+  mmDepth?: number;
+  /** 思维导图分支索引（neon 方案下分支循环色用，叶子继承父分支）。 */
+  mmBranch?: number;
 }
 
 /** 一条连线。 */
@@ -121,6 +129,10 @@ export interface GraphEdgeStyle {
   stroke?: string;
   strokeWidth?: number;
   dashed?: boolean;
+  /** 思维导图连线分支索引（neon 方案下颜色跟随分支）。 */
+  mmBranch?: number;
+  /** 思维导图连线深度（branch=1 / leaf=2+，决定 strokeWidth 与颜色）。 */
+  mmDepth?: number;
 }
 
 /** 视口（缩放 / 平移），用于跨挂载恢复用户视角。 */

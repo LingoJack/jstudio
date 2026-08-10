@@ -251,7 +251,8 @@ function mindmapCurveEdgeStyle(
   const c2x = tx - dir * d;
 
   // 三次贝塞尔采样（两端点由 updatePoints 自动推入，这里只推中间点）。
-  const SAMPLES = [0.15, 0.325, 0.5, 0.675, 0.85];
+  // 采样点越多曲线越平滑；选中时不会显示为手柄（见 vertexHandlers 的 isHandleVisible 覆盖）。
+  const SAMPLES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
   for (const t of SAMPLES) {
     const mt = 1 - t;
     const bx =

@@ -29,6 +29,8 @@ import {
   ARROW_END_SIZE,
   mindmapStyleForDepth,
   MINDMAP_ARC_SIZE,
+  DEFAULT_MINDMAP_SCHEME,
+  type MindmapScheme,
 } from './graphTheme';
 
 /* ------------------------------------------------------------------ */
@@ -36,7 +38,11 @@ import {
 /* ------------------------------------------------------------------ */
 
 /** 把自研节点形状映射成 maxGraph 的基础 CellStyle（白板风格配色）。 */
-export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyle {
+export function nodeShapeToStyle(
+  shape: GraphNodeShape,
+  dark: boolean,
+  scheme: MindmapScheme = DEFAULT_MINDMAP_SCHEME,
+): CellStyle {
   const pal = paletteFor(shape, dark);
   const base: CellStyle = {
     fillColor: pal.fill,
@@ -83,17 +89,21 @@ export function nodeShapeToStyle(shape: GraphNodeShape, dark: boolean): CellStyl
       // 数据库：使用自定义的 database 形状（圆柱体，见 customShapes.ts）。
       return { ...base, shape: 'database' };
     case 'topic':
-      // 思维导图根节点默认样式（depth=0）：蓝色强填充 + 白字 + 加粗 + 大圆角。
+      // 思维导图根节点默认样式（depth=0）：按 scheme 给配色。
       // 子节点 / 兄弟节点在生发时由 mindmapSpawn 按 depth 覆盖配色，
       // 保存后通过 node.style 覆盖恢复；无覆盖的旧快照回退为此根节点配色。
       // 通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
+      // mmScheme/mmBranch/mmDepth 标记用于主题切换时反查配色（多方案下 fill 会冲突）。
       return {
         shape: 'rectangle',
         rounded: true,
         absoluteArcSize: true,
         arcSize: MINDMAP_ARC_SIZE,
-        ...mindmapStyleForDepth(0, dark),
+        ...mindmapStyleForDepth(0, dark, scheme, 0),
         isTopic: 1,
+        mmScheme: scheme,
+        mmBranch: 0,
+        mmDepth: 0,
       } as CellStyle;
     // 连线类型（作为预设连线样式）：全部引用 ARROW_END_SIZE 保证箭头大小一致。
     case 'edge-line':
@@ -162,8 +172,8 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
 }
 
 /** 合并节点的可选样式覆盖到基础 CellStyle 上。 */
-function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
-  const base = nodeShapeToStyle(node.shape, dark);
+function buildNodeStyle(node: GraphNode, dark: boolean, scheme: MindmapScheme): CellStyle {
+  const base = nodeShapeToStyle(node.shape, dark, scheme);
   const s = node.style;
   if (s) {
     if (s.fill !== undefined) base.fillColor = s.fill;
@@ -173,6 +183,12 @@ function buildNodeStyle(node: GraphNode, dark: boolean): CellStyle {
     if (s.dashed !== undefined) base.dashed = s.dashed;
     if (s.fontSize !== undefined) base.fontSize = s.fontSize;
     if (s.fontStyle !== undefined) base.fontStyle = s.fontStyle;
+    // 思维导图标记透传（mmScheme/mmBranch/mmDepth）。
+    // 旧快照无这些字段时，base 里的默认值（来自 nodeShapeToStyle）保持不变。
+    const baseRecord = base as Record<string, unknown>;
+    if (s.mmScheme !== undefined) baseRecord.mmScheme = s.mmScheme;
+    if (s.mmBranch !== undefined) baseRecord.mmBranch = s.mmBranch;
+    if (s.mmDepth !== undefined) baseRecord.mmDepth = s.mmDepth;
   }
   applyLabelAlign(base, node.labelAlign);
   return base;
@@ -234,6 +250,10 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     if (s.stroke !== undefined) style.strokeColor = s.stroke;
     if (s.strokeWidth !== undefined) style.strokeWidth = s.strokeWidth;
     if (s.dashed !== undefined) style.dashed = s.dashed;
+    // 思维导图连线标记透传（mmBranch/mmDepth）。
+    const styleRecord = style as Record<string, unknown>;
+    if (s.mmBranch !== undefined) styleRecord.mmBranch = s.mmBranch;
+    if (s.mmDepth !== undefined) styleRecord.mmDepth = s.mmDepth;
   }
   // 恢复端点连接约束（时序图消息的固定端点位置）。
   // 缺省时 maxGraph 会用 perimeter 重算端点，水平消息会被吸到图形中点。
@@ -261,8 +281,14 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
 /**
  * 把一份快照灌入 graph（清空后重建）。在 batchUpdate 内执行，单步可撤销。
  * @param dark 是否暗色模式（决定飞书配色的深浅变体）。
+ * @param scheme 思维导图配色方案，用于新建 topic 节点的默认配色。
  */
-export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot, dark = false): void {
+export function applySnapshotToGraph(
+  graph: Graph,
+  snap: GraphSnapshot,
+  dark = false,
+  scheme: MindmapScheme = DEFAULT_MINDMAP_SCHEME,
+): void {
   const parent = graph.getDefaultParent();
   const model = graph.getDataModel();
 
@@ -280,7 +306,7 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot, dark = f
         value: node.label ?? '',
         position: [node.x, node.y],
         size: [node.w, node.h],
-        style: buildNodeStyle(node, dark),
+        style: buildNodeStyle(node, dark, scheme),
       });
       idToCell.set(node.id, cell);
     }
@@ -383,6 +409,13 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
     if (typeof style.dashed === 'boolean') nStyle.dashed = style.dashed;
     if (typeof style.fontSize === 'number') nStyle.fontSize = style.fontSize;
     if (typeof style.fontStyle === 'number') nStyle.fontStyle = style.fontStyle;
+    // 读回思维导图标记（mmScheme/mmBranch/mmDepth）。
+    const nodeStyleRecord = style as Record<string, unknown>;
+    if (nodeStyleRecord.mmScheme === 'neon' || nodeStyleRecord.mmScheme === 'mono') {
+      nStyle.mmScheme = nodeStyleRecord.mmScheme;
+    }
+    if (typeof nodeStyleRecord.mmBranch === 'number') nStyle.mmBranch = nodeStyleRecord.mmBranch;
+    if (typeof nodeStyleRecord.mmDepth === 'number') nStyle.mmDepth = nodeStyleRecord.mmDepth;
     if (Object.keys(nStyle).length > 0) node.style = nStyle;
     const la = readLabelAlign(style);
     if (la) node.labelAlign = la;
@@ -415,6 +448,10 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
     if (colorStr(style.strokeColor)) eStyle.stroke = colorStr(style.strokeColor);
     if (typeof style.strokeWidth === 'number') eStyle.strokeWidth = style.strokeWidth;
     if (typeof style.dashed === 'boolean') eStyle.dashed = style.dashed;
+    // 读回思维导图连线标记（mmBranch/mmDepth）。
+    const edgeStyleRecord = style as Record<string, unknown>;
+    if (typeof edgeStyleRecord.mmBranch === 'number') eStyle.mmBranch = edgeStyleRecord.mmBranch;
+    if (typeof edgeStyleRecord.mmDepth === 'number') eStyle.mmDepth = edgeStyleRecord.mmDepth;
     if (Object.keys(eStyle).length > 0) edge.style = eStyle;
     const la = readLabelAlign(style);
     if (la) edge.labelAlign = la;

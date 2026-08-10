@@ -25,7 +25,7 @@ import {
   NodeViewWrapper,
   type Editor,
 } from '@tiptap/react';
-import { Maximize2, Pencil, Check } from 'lucide-react';
+import { Maximize2, Pencil, Check, Contrast } from 'lucide-react';
 
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
@@ -45,7 +45,11 @@ import {
 import { ResizeHandle } from '../../ui/ResizeHandle';
 
 import { GraphCanvas } from './graph/GraphCanvas';
-import type { DiagramNodeAttributes } from '../../../lib/editor/extensions/diagramExtension';
+import {
+  type DiagramNodeAttributes,
+  type MindmapScheme,
+} from '../../../lib/editor/extensions/diagramExtension';
+import { DEFAULT_MINDMAP_SCHEME } from './graph/graphTheme';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
@@ -61,13 +65,14 @@ export default function DiagramBlockView({
   const { snapshot, align } = attrs;
   const blockId = attrs.id ?? undefined;
   const effectiveAlign = (align ?? 'center') as 'left' | 'center';
+  const mindmapScheme = (attrs.mindmapScheme ?? DEFAULT_MINDMAP_SCHEME) as MindmapScheme;
 
   /* -------------------------------------------------------------- */
   /* Selection & toolbar navigation                                  */
   /* -------------------------------------------------------------- */
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
 
-  const toolbarBtnCount = 4;
+  const toolbarBtnCount = 5;
   const {
     activeIndex,
     registerButton,
@@ -203,6 +208,7 @@ export default function DiagramBlockView({
     snapshot,
     blockId,
     isDark,
+    mindmapScheme,
     updateAttributes,
   });
 
@@ -264,6 +270,20 @@ export default function DiagramBlockView({
             >
               <Maximize2 size={15} />
             </BlockToolbarButton>
+            {/* Toggle mindmap color scheme: M (neon) / N (mono) */}
+            <BlockToolbarButton
+              nav={{ activeIndex, registerButton }}
+              index={4}
+              active={mindmapScheme === 'neon'}
+              title={mindmapScheme === 'neon' ? '思维导图：暗夜霓虹（M）' : '思维导图：极简黑白（N）'}
+              onClick={() =>
+                updateAttributes({
+                  mindmapScheme: mindmapScheme === 'neon' ? 'mono' : 'neon',
+                })
+              }
+            >
+              <Contrast size={15} />
+            </BlockToolbarButton>
           </BlockToolbar>
 
           {/* Canvas renderer */}
@@ -279,6 +299,7 @@ export default function DiagramBlockView({
               darkMode={isDark}
               rootElRef={handleRootRef}
               editing={editing}
+              mindmapScheme={mindmapScheme}
             />
           </div>
 

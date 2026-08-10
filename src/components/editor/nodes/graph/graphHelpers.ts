@@ -7,12 +7,13 @@
 
 import type { CellState, CellStyle } from '@maxgraph/core';
 import {
-  getEdgeColor,
   getFontColor,
   getLabelBackgroundColor,
   SHAPE_FONT_SIZE,
   ARROW_END_SIZE,
-  MINDMAP_EDGE_STROKE_WIDTH,
+  mindmapEdgeStrokeColor,
+  mindmapEdgeStrokeWidth,
+  type MindmapScheme,
 } from './graphTheme';
 import { MINDMAP_EDGE_STYLE } from './mindmapLayout';
 
@@ -56,20 +57,34 @@ export function isOnBorder(state: CellState, x: number, y: number, tol: number):
   return !inInner;
 }
 
-/** 思维导图连线样式：无箭头贝塞尔曲线，跟随主题连线色，比普通连线略粗。 */
-export function mindmapEdgeStyle(dark: boolean): CellStyle {
+/**
+ * 思维导图连线样式：无箭头贝塞尔曲线，跟随方案 + 深度 + 分支索引着色。
+ *
+ * - neon：分支用循环色（紫/绿/琥珀），叶子用父分支色
+ * - mono：分支级用主色，叶级用灰色
+ *
+ * mmBranch/mmDepth 写入 CellStyle 供主题刷新反查。
+ */
+export function mindmapEdgeStyle(
+  dark: boolean,
+  scheme: MindmapScheme,
+  depth: number,
+  branchIndex = 0,
+): CellStyle {
   return {
     edgeStyle: MINDMAP_EDGE_STYLE,
     curved: true,
     endArrow: 'none',
     startArrow: 'none',
     endSize: ARROW_END_SIZE,
-    strokeColor: getEdgeColor(dark),
-    strokeWidth: MINDMAP_EDGE_STROKE_WIDTH,
+    strokeColor: mindmapEdgeStrokeColor(scheme, dark, depth, branchIndex),
+    strokeWidth: mindmapEdgeStrokeWidth(scheme, depth),
     fontSize: SHAPE_FONT_SIZE,
     fontColor: getFontColor(dark),
     labelBackgroundColor: getLabelBackgroundColor(dark),
-  };
+    mmBranch: branchIndex,
+    mmDepth: depth,
+  } as CellStyle;
 }
 
 /** 生成唯一 cell id。 */

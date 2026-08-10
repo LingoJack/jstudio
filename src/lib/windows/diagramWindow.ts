@@ -14,6 +14,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 
 import { logger } from '../core/logger';
+import type { MindmapScheme } from '../editor/extensions/diagramExtension';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -26,6 +27,8 @@ export interface DiagramPayload {
   snapshot: string;
   /** Dark mode flag. */
   darkMode?: boolean;
+  /** Mindmap color scheme ('neon' M / 'mono' N). Defaults to 'mono'. */
+  mindmapScheme?: MindmapScheme;
 }
 
 /* ------------------------------------------------------------------ */
@@ -37,10 +40,13 @@ let diagramCounter = 0;
 /**
  * Open a diagram editor in a new independent OS window.
  *
- * @param snapshot  Initial diagram snapshot JSON (empty = blank board).
- * @param onUpdate  Callback fired whenever the diagram window sends an updated snapshot.
- * @param darkMode  Whether to render in dark mode.
- * @returns         An unsubscribe function — call to stop listening for updates.
+ * @param snapshot      Initial diagram snapshot JSON (empty = blank board).
+ * @param onUpdate      Callback fired whenever the diagram window sends an updated snapshot.
+ * @param darkMode      Whether to render in dark mode.
+ * @param blockId       Source block id (guards updates against stale windows).
+ * @param onClosed      Optional callback when the window is destroyed.
+ * @param mindmapScheme Mindmap color scheme to render ('neon' M / 'mono' N).
+ * @returns             An unsubscribe function — call to stop listening for updates.
  */
 export async function openDiagramWindow(
   snapshot: string,
@@ -48,12 +54,13 @@ export async function openDiagramWindow(
   darkMode: boolean,
   blockId?: string,
   onClosed?: () => void,
+  mindmapScheme?: MindmapScheme,
 ): Promise<() => void> {
   diagramCounter += 1;
   const label = `diagram-${Date.now()}-${diagramCounter}`;
   logger.debug('DiagramWindow', 'Opening new window: ' + label);
 
-  const payload: DiagramPayload = { snapshot, darkMode, blockId };
+  const payload: DiagramPayload = { snapshot, darkMode, blockId, mindmapScheme };
 
   // 1. Store payload in Rust memory so the new window can retrieve it.
   try {
