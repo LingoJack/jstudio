@@ -1,11 +1,14 @@
 /**
  * DiagramBlockView — React NodeView for the diagram (jgraph) block.
  *
- * Interaction model matches FileView:
- *   - When NOT selected: a transparent overlay sits above the canvas
- *     so the user can click to select the node (canvas eats mouse events).
- *   - When selected: the overlay disappears, a floating toolbar (top-right) and
- *     resize handle (bottom-right) appear — same as ImageView / FileView.
+ * Interaction model matches FileView / ImageView:
+ *   - When NOT editing: a transparent overlay sits above the canvas so the
+ *     user can click to select the node via useNodeSelectionClick (the canvas
+ *     would otherwise eat mouse events). The overlay also keeps the browser
+ *     from stealing focus on the contentEditable={false} block.
+ *   - When editing: the overlay is removed and the canvas becomes interactive;
+ *     the selection handler is detached so it won't interfere with canvas
+ *     mouse events. A floating toolbar (top-right) and resize handle — same as ImageView / FileView.
  *
  * Architecture:
  *   - Logic split into custom hooks (see ../hooks/useDiagram*)
@@ -26,6 +29,7 @@ import { Maximize2, Pencil, Check } from 'lucide-react';
 
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
 import { useNodeSelected } from '../hooks/useNodeSelected';
+import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
 import { useDiagramSize } from '../hooks/useDiagramSize';
 import { useDiagramEditMode } from '../hooks/useDiagramEditMode';
 import { useDiagramWindow } from '../hooks/useDiagramWindow';
@@ -201,6 +205,17 @@ export default function DiagramBlockView({
     updateAttributes,
   });
 
+  // Reliable click-to-select fallback (matches ImageView / FileView).
+  // When NOT editing the transparent overlay covers the canvas, so every
+  // click on the figure lands on a contentEditable={false} element that
+  // ProseMirror's stopEvent ignores - useNodeSelectionClick reliably turns
+  // that click into a NodeSelection (and preventDefault stops focus theft).
+  // When editing the overlay is removed and the canvas is interactive, so
+  // we detach the handler to avoid interfering with canvas mouse events.
+  const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
+    selected,
+  });
+
   /* -------------------------------------------------------------- */
   /* Render                                                          */
   /* ---------------------------------------------------------------- */
@@ -218,6 +233,7 @@ export default function DiagramBlockView({
             editing ? 'is-editing' : ''
           }`}
           style={figureStyle}
+          onMouseDown={!editing ? handleSelectMouseDown : undefined}
           {...interactiveProps}
         >
           {/* Floating toolbar (top-right) — visible when selected */}
@@ -265,7 +281,9 @@ export default function DiagramBlockView({
             />
           </div>
 
-          {/* Overlay when NOT editing — enables node selection */}
+          {/* Overlay when NOT editing — blocks the canvas from receiving
+              mouse events. Node selection is handled by the figure-level
+              onMouseDown (useNodeSelectionClick) above. */}
           {!editing && (
             <div className="diagram-block-overlay" contentEditable={false} />
           )}

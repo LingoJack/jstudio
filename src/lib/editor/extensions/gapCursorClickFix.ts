@@ -96,6 +96,53 @@ function isContentContainer(
   return false;
 }
 
+type ResolvedPos = ReturnType<EditorView['state']['doc']['resolve']>;
+
+/**
+ * Extended gap-cursor validity check.
+ *
+ * ProseMirror's `GapCursor.valid` only allows gap cursors between two
+ * "closed" (atom/isolating) block nodes — both `closedBefore` and
+ * `closedAfter` must return true.  This means clicking in the margin
+ * between an atom block (e.g. a diagram) and a paragraph will NOT
+ * produce a gap cursor, because the paragraph has inline content and
+ * `closedAfter` returns false.
+ *
+ * This wrapper falls back to a relaxed check: if the standard check
+ * fails, allow the gap cursor when the position is at a block boundary
+ * where **at least one** adjacent node is an atom/isolating block and
+ * the default content type is a textblock (so the user can type to
+ * insert a new paragraph).
+ *
+ * The `Gapcursor` plugin's `drawGapCursor` decoration only checks
+ * `instanceof GapCursor`, not `GapCursor.valid`, so a manually-created
+ * `GapCursor` at a relaxed position will still be rendered correctly.
+ */
+function isValidGapCursorAt($pos: ResolvedPos): boolean {
+  // Standard check first.
+  if (GapCursorValid($pos)) return true;
+
+  // Fallback: allow gap cursors between an atom/isolating block and a
+  // text block.
+  const parent = $pos.parent;
+  if (parent.inlineContent) return false;
+
+  const before = $pos.nodeBefore;
+  const after = $pos.nodeAfter;
+  const beforeNeedsGap =
+    !!before && (before.isAtom || before.type.spec.isolating);
+  const afterNeedsGap =
+    !!after && (after.isAtom || after.type.spec.isolating);
+
+  if (!beforeNeedsGap && !afterNeedsGap) return false;
+
+  // Only create a gap cursor if the default content type at this
+  // position is a textblock — so the user can type to insert a new
+  // paragraph.
+  const defaultType = parent.contentMatchAt($pos.index()).defaultType;
+  return !!(defaultType && defaultType.isTextblock);
+}
+
 export const GapCursorClickFix = Extension.create({
   name: 'gapCursorClickFix',
 
@@ -141,7 +188,7 @@ export const GapCursorClickFix = Extension.create({
 
               // Attempt 1: the resolved text position itself
               const $pos = view.state.doc.resolve(clickPos.pos);
-              if (GapCursorValid($pos)) {
+              if (isValidGapCursorAt($pos)) {
                 view.dispatch(
                   view.state.tr.setSelection(new GapCursor($pos)),
                 );
@@ -150,20 +197,41 @@ export const GapCursorClickFix = Extension.create({
                 return true;
               }
 
-              // Attempt 2: the "inside" position - when the click is closest
-              // to the start of a node, `inside` holds that node's position.
-              // This is the position *between* the node and its predecessor,
-              // which is the actual gap cursor location.
-              //
-              // Guard: skip when the click landed inside a text block's
-              // content (`$pos.parent.inlineContent`). In that case the user
-              // is clicking inside editable text, not in a gap area, so
-              // creating a gap cursor would be wrong.
-              if (clickPos.inside > -1 && !$pos.parent.inlineContent) {
-                const $insidePos = view.state.doc.resolve(clickPos.inside);
-                if (GapCursorValid($insidePos)) {
+              // Attempt 2: the "inside" position - `posAtCoords` often
+              // resolves `pos` to a text position inside an adjacent
+              // text block, while `inside` holds the position of the
+              // block-level node the user actually clicked near.  This
+              // is the position *between* that node and its predecessor,
+              // which is the real gap cursor location.
+              if (clickPos.inside > -1) {
+                const $insidePos = view.state.doc.resolve(
+                  clickPos.inside,
+                );
+                if (isValidGapCursorAt($insidePos)) {
                   view.dispatch(
-                    view.state.tr.setSelection(new GapCursor($insidePos)),
+                    view.state.tr.setSelection(
+                      new GapCursor($insidePos),
+                    ),
+                  );
+                  view.focus();
+                  event.preventDefault();
+                  return true;
+                }
+              }
+
+              // Attempt 3: when `pos` landed inside a text block (e.g.
+              // the paragraph just below a diagram block), try the
+              // position just before that text block.  This is the gap
+              // between the previous block and the text block, which is
+              // where the user expects the gap cursor to appear.
+              if ($pos.parent.inlineContent && $pos.depth > 0) {
+                const blockPos = $pos.before($pos.depth);
+                const $blockPos = view.state.doc.resolve(blockPos);
+                if (isValidGapCursorAt($blockPos)) {
+                  view.dispatch(
+                    view.state.tr.setSelection(
+                      new GapCursor($blockPos),
+                    ),
                   );
                   view.focus();
                   event.preventDefault();

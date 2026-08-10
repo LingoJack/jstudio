@@ -25,6 +25,11 @@ const OBSTACLE_MARGIN = 12;
 /** Jetty 偏移量（模型单位）——连接点沿出口方向延伸的距离，需 > OBSTACLE_MARGIN */
 const JETTY_SIZE = 20;
 
+/** 同侧连接（如左->左、上->上）的 jetty 偏移量。
+ *  内置正交路由器默认 buffer 仅 10px，同侧 U 形拐弯的平行段几乎贴着节点边框；
+ *  加大同侧 jetty 让 A* 路径有充足间距绕开端点节点。 */
+const JETTY_SIZE_SAME_SIDE = 30;
+
 /** A* 转弯惩罚（格）——值越大路径越直，但可能绕远 */
 const TURN_PENALTY = 6;
 
@@ -420,6 +425,73 @@ function simplifyGridPath(
   return result;
 }
 
+/**
+ * 将 A* 路径首尾对齐到精确 jetty 坐标，消除网格取整导致的对角线歪斜。
+ *
+ * A* 的起点/终点经过 `Math.round` 对齐到 GRID_STEP 网格，非 jetty 轴
+ * （W/E 方向时为 Y 轴，N/S 方向时为 X 轴）可能偏移多达 GRID_STEP/2，
+ * 使连接点到首个路径点之间出现可见的斜线。
+ *
+ * 本函数将首尾替换为精确坐标；若替换后首段/末段出现对角线
+ * （两点 X、Y 均不同），则插入一个 L 形拐点恢复正交。
+ */
+function snapPathEndpoints(
+  path: ModelPoint[],
+  start: ModelPoint,
+  end: ModelPoint,
+  startDir: Dir,
+  endDir: Dir,
+): void {
+  if (path.length === 0) return;
+
+  // 单点路径：start/end 落在同一格，直接用精确坐标替换
+  if (path.length === 1) {
+    path[0] = { ...start };
+    if (start.x !== end.x || start.y !== end.y) {
+      path.push({ ...end });
+      if (start.x !== end.x && start.y !== end.y) {
+        const isH = startDir === 'W' || startDir === 'E';
+        path.splice(1, 0, isH
+          ? { x: end.x, y: start.y }
+          : { x: start.x, y: end.y });
+      }
+    }
+    return;
+  }
+
+  // --- 对齐起点 ---
+  path[0] = { ...start };
+  {
+    const p1 = path[0];
+    const p2 = path[1];
+    if (p1.x !== p2.x && p1.y !== p2.y) {
+      // 对角线 -> 插入 L 形拐点
+      // W/E（水平 jetty）：先水平（保持 Y），再垂直
+      // N/S（垂直 jetty）：先垂直（保持 X），再水平
+      const isH = startDir === 'W' || startDir === 'E';
+      path.splice(1, 0, isH
+        ? { x: p2.x, y: p1.y }
+        : { x: p1.x, y: p2.y });
+    }
+  }
+
+  // --- 对齐终点 ---
+  const lastIdx = path.length - 1;
+  path[lastIdx] = { ...end };
+  {
+    const pn1 = path[lastIdx];
+    const pn2 = path[lastIdx - 1];
+    if (pn1.x !== pn2.x && pn1.y !== pn2.y) {
+      // W/E：先垂直（保持 X=pn2.x），再水平
+      // N/S：先水平（保持 Y=pn2.y），再垂直
+      const isH = endDir === 'W' || endDir === 'E';
+      path.splice(lastIdx, 0, isH
+        ? { x: pn2.x, y: pn1.y }
+        : { x: pn1.x, y: pn2.y });
+    }
+  }
+}
+
 // ─── 边路由函数 ────────────────────────────────────────────
 
 /**
@@ -428,9 +500,13 @@ function simplifyGridPath(
  * 流程：
  * 1. 运行内置 OrthogonalConnector 获取基础路由
  * 2. 若有手动航点 / 边到边连接 / 无目标 -> 直接返回内置结果
- * 3. 收集障碍物，检查内置路由是否穿过
- * 4. 若穿过 -> 用 A* 寻路替换中间路径点
- * 5. A* 失败 -> 保留内置结果
+ * 3. 收集障碍物（排除源/目标）
+ * 4. 获取连接点，确定出口/入口方向
+ * 5. 检测同侧连接（如左->左）：同侧时强制 A* 重路由 + 加大 jetty
+ * 6. 非同侧：仅在内置路由穿过障碍物时才 A* 重路由
+ * 7. 计算 jetty 点（同侧使用更大偏移）
+ * 8. A* 寻路 + 首尾对齐到精确 jetty 坐标（消除网格取整歪斜）
+ * 9. A* 失败 -> 保留内置结果
  *
  * 坐标系：state/source/target 中的坐标均为缩放坐标（屏幕像素），
  * 除以 state.view.scale 得到模型坐标。A* 在模型坐标中运算，
@@ -463,12 +539,8 @@ export function obstacleAvoidingOrthogonalStyle(
   const sourceCell = source.cell;
   const targetCell = target.cell;
   const obstacles = collectObstacles(state, sourceCell, targetCell, scale);
-  if (obstacles.length === 0) return; // 无障碍物，内置路由已足够
 
-  // 4. 检查内置路由是否穿过障碍物
-  if (!routeIntersectsObstacles(result, obstacles, scale)) return; // 路由干净，无需重算
-
-  // 5. 获取连接点（模型坐标）。
+  // 4. 获取连接点（模型坐标）。
   //    首渲染时 GraphView.updateEdgeState 的调用顺序为
   //    updateFixedTerminalPoints -> updatePoints(调 edgeStyle) -> updateFloatingTerminalPoints，
   //    style 函数执行时 state.absolutePoints 对新边为空。因此分级推导：
@@ -512,13 +584,29 @@ export function obstacleAvoidingOrthogonalStyle(
     }
   }
 
-  // 6. 确定出口/入口方向，计算 jetty 点
+  // 5. 确定出口/入口方向
   const startDir = getExitDirection(p0, source, scale);
   const endDir = getExitDirection(pe, target, scale);
-  const jettyStart = offsetPoint(p0, startDir, JETTY_SIZE);
-  const jettyEnd = offsetPoint(pe, endDir, JETTY_SIZE);
 
-  // 7. 将源/目标也作为障碍物（防止 A* 路径穿过自身端点）
+  // 同侧连接（如左->左、右->右、上->上、下->下）：
+  // 内置正交路由器的 U 形拐弯偏移很小（默认 buffer=10），当两端节点紧挨时，
+  // 中间平行段几乎贴着端点节点边框，视觉局促。对同侧连接强制 A* 重路由 + 加大 jetty。
+  const isSameSide = startDir !== null && startDir === endDir;
+
+  // 6. 检查是否需要 A* 重路由
+  //    非同侧：仅在内置路由穿过障碍物时才重算
+  //    同侧：总是重算（内置路由即便不穿障碍物也会贴着端点节点）
+  if (!isSameSide) {
+    if (obstacles.length === 0) return; // 无障碍物，内置路由已足够
+    if (!routeIntersectsObstacles(result, obstacles, scale)) return; // 路由干净，无需重算
+  }
+
+  // 7. 计算 jetty 点（同侧连接使用更大偏移，确保平行段与节点边框有充足间距）
+  const jettySize = isSameSide ? JETTY_SIZE_SAME_SIDE : JETTY_SIZE;
+  const jettyStart = offsetPoint(p0, startDir, jettySize);
+  const jettyEnd = offsetPoint(pe, endDir, jettySize);
+
+  // 8. 将源/目标也作为障碍物（防止 A* 路径穿过自身端点）
   const allObstacles: ModelRect[] = [...obstacles];
   allObstacles.push({
     x: source.x / scale, y: source.y / scale,
@@ -529,11 +617,14 @@ export function obstacleAvoidingOrthogonalStyle(
     w: target.width / scale, h: target.height / scale,
   });
 
-  // 8. 运行 A* 寻路
+  // 9. 运行 A* 寻路
   const path = aStarRoute(jettyStart, jettyEnd, allObstacles);
   if (!path || path.length === 0) return; // A* 失败，保留内置结果
 
-  // 9. 替换 result 中的中间路径点
+  // 将 A* 路径首尾对齐到精确 jetty 坐标，消除网格取整导致的对角线歪斜
+  snapPathEndpoints(path, jettyStart, jettyEnd, startDir, endDir);
+
+  // 10. 替换 result 中的中间路径点
   //    result[0] = 源连接点（由 updatePoints 推入，必须保留）
   //    之后推入 A* 路径点（jettyStart -> ... -> jettyEnd）
   //    目标连接点由 updatePoints 在调用结束后自动追加
@@ -557,3 +648,4 @@ export function registerObstacleEdgeStyle(): void {
     isOrthogonal: true,
   });
 }
+
