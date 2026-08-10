@@ -3,6 +3,7 @@ import {
   VertexHandlerConfig,
   EdgeHandlerConfig,
   VertexHandler,
+  EdgeHandler,
   EllipseShape,
   RectangleShape,
   RhombusShape,
@@ -21,6 +22,7 @@ import {
   SELECTION_STROKE_WIDTH,
   SELECTION_DASHED,
 } from "../graphTheme";
+import { MINDMAP_EDGE_STYLE } from "../mindmapLayout";
 import type { GraphSetupFn } from "./types";
 import { ResizeGuide } from "./resizeGuide";
 
@@ -29,6 +31,11 @@ import { ResizeGuide } from "./resizeGuide";
  * setupVertexHandlers 可能在主题刷新时被多次调用，用此标志避免重复覆盖。
  */
 let resizeGuideInstalled = false;
+
+/**
+ * 是否已安装思维导图边手柄过滤（prototype 全局只需装一次）。
+ */
+let edgeHandleOverrideInstalled = false;
 
 export const setupVertexHandlers: GraphSetupFn = (ctx) => {
   const { graph } = ctx;
@@ -114,6 +121,7 @@ export const setupVertexHandlers: GraphSetupFn = (ctx) => {
   };
 
   installResizeGuide(graph, dark);
+  installEdgeHandleFilter();
 };
 
 /**
@@ -205,4 +213,32 @@ function syncUnscaledBounds(handler: any): void {
   handler.unscaledBounds.y = (handler.bounds.y - originY) / scale;
   handler.unscaledBounds.width = handler.bounds.width / scale;
   handler.unscaledBounds.height = handler.bounds.height / scale;
+}
+
+/**
+ * 隐藏思维导图曲线边的中间采样点手柄。
+ *
+ * mindmapCurveEdgeStyle 会采样 5 个中间点推入 absolutePoints 用于渲染平滑贝塞尔
+ * 曲线。EdgeHandler.createBends 默认为每个 absolutePoint 创建手柄（圆点），
+ * 选中边时曲线上会出现一堆杂乱小点。
+ *
+ * 覆盖 isHandleVisible：对思维导图边只保留两端连接手柄（index 0 和 last），
+ * 中间采样点不创建手柄。采样点仍保留在 absolutePoints 中，曲线渲染不受影响。
+ * 与 bendable:false 不同，这不改变边的可弯折语义，也不会干扰 EdgeHandler 内部
+ * 的 points 数组，避免 undefined/null 写入 geometry.points。
+ */
+function installEdgeHandleFilter(): void {
+  if (edgeHandleOverrideInstalled) return;
+  edgeHandleOverrideInstalled = true;
+
+  const original = EdgeHandler.prototype.isHandleVisible;
+  EdgeHandler.prototype.isHandleVisible = function (
+    this: EdgeHandler,
+    index: number,
+  ): boolean {
+    if (this.state?.style?.edgeStyle === MINDMAP_EDGE_STYLE) {
+      return index === 0 || index === this.abspoints.length - 1;
+    }
+    return original.call(this, index);
+  };
 }

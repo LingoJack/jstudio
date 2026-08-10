@@ -302,7 +302,13 @@ export function applySnapshotToGraph(graph: Graph, snap: GraphSnapshot, dark = f
         const geo = edgeCell.getGeometry();
         if (geo) {
           const newGeo = geo.clone();
-          newGeo.points = edge.waypoints.map((wp) => new Point(wp.x, wp.y));
+          // 过滤 null/undefined 条目——EdgeHandler 在 bendable 时可能往
+          // geometry.points 写入空值，序列化后会变成 null，导致 wp.x 崩溃。
+          newGeo.points = edge.waypoints
+            .filter((wp): wp is { x: number; y: number } =>
+              wp != null && Number.isFinite(wp.x) && Number.isFinite(wp.y),
+            )
+            .map((wp) => new Point(wp.x, wp.y));
           graph.getDataModel().setGeometry(edgeCell, newGeo);
         }
       }
@@ -428,7 +434,11 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
     // 读回 waypoints（时序图消息的 Y 坐标信息）
     const geo = cell.getGeometry();
     if (geo?.points && geo.points.length > 0) {
-      edge.waypoints = geo.points.map((p) => ({ x: p.x, y: p.y }));
+      edge.waypoints = geo.points
+        .filter((p): p is Point =>
+          p != null && Number.isFinite(p.x) && Number.isFinite(p.y),
+        )
+        .map((p) => ({ x: p.x, y: p.y }));
     }
 
     outEdges.push(edge);
