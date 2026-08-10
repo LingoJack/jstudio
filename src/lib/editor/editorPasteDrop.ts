@@ -208,7 +208,16 @@ export function createPasteHandler(
           const { from, to } = selection;
           const tr = view.state.tr;
           tr.insertText(plainText, from, to);
-          tr.scrollIntoView();
+          // Do NOT call tr.scrollIntoView() here. For HTML code blocks,
+          // pasting into an empty block triggers a layout switch (source →
+          // iframe preview). scrollIntoView runs against the old (tall
+          // source) layout and scrolls far down; the subsequent React
+          // re-render collapses the block to a fixed-height preview, leaving
+          // the scroll position past the block — at the document bottom.
+          // For non-HTML blocks, scrollIntoView jumps to the end of a large
+          // paste (bottom of the block). Skipping it keeps the viewport at
+          // the original position; insertText already places the caret at
+          // the end of the pasted text for continued typing.
           view.dispatch(tr);
           return true;
         }
