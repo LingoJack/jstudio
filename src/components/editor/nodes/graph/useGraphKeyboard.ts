@@ -171,6 +171,10 @@ export function useGraphKeyboard({
           e.preventDefault();
           e.stopImmediatePropagation();
           g.stopEditing(false);
+          // stopEditing 会销毁 cell editor 的 textarea，焦点掉到 body，
+          // 导致后续 Tab/Enter 不再命中 root 的 keydown listener。
+          // 主动把焦点拉回 root，保留选中态以便继续 Tab 循环 / Enter 编辑。
+          r.focus({ preventScroll: true });
           return;
         }
       }

@@ -1,20 +1,24 @@
 /**
- * LinkView — React NodeView for the web link block.
+ * LinkView - React NodeView for the web link block.
  *
  * Three visual states:
  *   1. Placeholder (no URL): card with URL input.
  *   2. Editing: inline form to change name + URL.
  *   3. Loaded card: favicon, title, description, thumbnail.
  *
- * Interaction model:
- *   - Hover → toolbar floats at top-right (preview, refresh, browser, edit, delete).
- *   - Click card body → local "selected" state (blue border).
- *   - Click input → focus input for typing.
+ * Interaction model (consistent with ImageView / FileView / DiagramBlock):
+ *   - Click card body -> ProseMirror NodeSelection (via useNodeSelectionClick).
+ *   - Selected -> BlockToolbar floats at top-center (align, preview, refresh,
+ *     browser, edit, delete) + resize handle.
+ *   - Tab / Shift+Tab -> cycle toolbar buttons; Enter -> activate; Escape ->
+ *     deselect. (useNodeToolbarNav)
+ *   - Edit button -> enter editing mode (interactive); the form owns the
+ *     keyboard; Escape exits back to selected.
  *
  * Critical WKWebView caret fix:
  *   ProseMirror registers its mousedown handler on `view.dom`, which is an
  *   ANCESTOR of this NodeView. React's synthetic onMouseDown is delegated at
- *   the React root — also above view.dom — so a React-level stopPropagation
+ *   the React root - also above view.dom - so a React-level stopPropagation
  *   runs *after* ProseMirror has already handled the event and called
  *   preventDefault() (to make a NodeSelection on this atom node). That cancels
  *   the browser's native "drop the caret where you clicked" action, so clicking
@@ -23,7 +27,7 @@
  *   The fix is a NATIVE, bubble-phase listener on the figure element (which
  *   sits *below* view.dom): it fires before the event bubbles up to
  *   ProseMirror. For clicks on form controls / buttons we stopPropagation, so
- *   ProseMirror never sees the mousedown and never calls preventDefault — the
+ *   ProseMirror never sees the mousedown and never calls preventDefault - the
  *   browser then runs its default action and places the caret exactly where
  *   the user clicked.
  */
@@ -48,6 +52,15 @@ import type { LinkMetadata } from '../../../types/browser';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
+import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
+import { useNodeSelected } from '../hooks/useNodeSelected';
+import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
+import {
+  BlockToolbar,
+  AlignButtonGroup,
+  BlockToolbarButton,
+  BlockToolbarDivider,
+} from '../../ui/BlockToolbar';
 import { ResizeHandle } from '../../ui/ResizeHandle';
 import type { LinkNodeAttributes } from '../../../lib/editor/extensions/linkExtension';
 import { useCursorTrailHostRef } from '../CursorTrailContext';
@@ -83,6 +96,8 @@ const SHIELD_TAGS = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT']);
 
 export default function LinkView({
   node,
+  editor,
+  getPos,
   updateAttributes,
   deleteNode,
 }: NodeViewProps) {
@@ -104,10 +119,6 @@ export default function LinkView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [hovered, setHovered] = useState(false);
-  const [isSelected, setIsSelected] = useState(false);
-
-  const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editUrl, setEditUrl] = useState('');
   const editTitleRef = useRef<HTMLInputElement>(null);
@@ -116,6 +127,28 @@ export default function LinkView({
   const editTitleTrailRef = useCursorTrailHostRef(editTitleRef);
   const editUrlTrailRef = useCursorTrailHostRef(editUrlRef);
   const placeholderTrailRef = useCursorTrailHostRef(placeholderInputRef);
+
+  /* -------------------------------------------------------------- */
+  /* Selection + toolbar keyboard navigation                        */
+  /* -------------------------------------------------------------- */
+
+  const selected = useNodeSelected(editor, getPos);
+
+  // Loaded card: align(2) + preview + refresh + browser + edit + delete = 7
+  // Placeholder:  align(2) + delete = 3
+  const toolbarBtnCount = url ? 7 : 3;
+
+  const {
+    editing,
+    enterEditing,
+    exitEditing,
+    buttonRefs,
+    interactiveRef,
+  } = useNodeToolbarNav(selected, editor, toolbarBtnCount, true);
+
+  const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
+    selected,
+  });
 
   /* -------------------------------------------------------------- */
   /* Focus management                                                */
@@ -136,16 +169,12 @@ export default function LinkView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* -------------------------------------------------------------- */
-  /* Deselect when clicking outside                                 */
-  /* -------------------------------------------------------------- */
-
+  // Clear error whenever we leave editing mode.
   useEffect(() => {
-    if (!isSelected) return;
-    const handleDown = () => setIsSelected(false);
-    document.addEventListener('mousedown', handleDown, true);
-    return () => document.removeEventListener('mousedown', handleDown, true);
-  }, [isSelected]);
+    if (!editing) {
+      setError(null);
+    }
+  }, [editing]);
 
   /* -------------------------------------------------------------- */
   /* URL submission                                                 */
@@ -248,6 +277,15 @@ export default function LinkView({
     [],
   );
 
+  /** Merged ref for the editing figure: also feeds interactiveRef. */
+  const setEditingFigureRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      setFigureRef(el);
+      interactiveRef(el);
+    },
+    [setFigureRef, interactiveRef],
+  );
+
   /* -------------------------------------------------------------- */
   /* Caret shield (see file header)                                  */
   /* -------------------------------------------------------------- */
@@ -256,7 +294,7 @@ export default function LinkView({
    * Native bubble-phase mousedown listener on the figure. Runs before the
    * event bubbles up to ProseMirror (on view.dom). When the click lands on a
    * form control, we stopPropagation so ProseMirror never preventDefault()s
-   * it — letting the browser place the caret where the user clicked.
+   * it - letting the browser place the caret where the user clicked.
    */
   useEffect(() => {
     const el = figureRefInternal.current;
@@ -313,8 +351,8 @@ export default function LinkView({
   const handleStartEdit = useCallback(() => {
     setEditTitle(title || '');
     setEditUrl(url || '');
-    setEditing(true);
-  }, [title, url]);
+    enterEditing();
+  }, [title, url, enterEditing]);
 
   const handleSaveEdit = useCallback(() => {
     const trimmedUrl = editUrl.trim();
@@ -337,11 +375,11 @@ export default function LinkView({
     if (normalized !== url) {
       // Optimistic update: write the new URL + title to the node IMMEDIATELY,
       // before kicking off the async metadata fetch. Otherwise the component
-      // flips back to the loaded-card state (setEditing(false) below) while
-      // `url` is still the OLD value — any click / double-click / toolbar
-      // "open" action taken during the fetch window would navigate to the
-      // previous URL. Clearing the metadata fields here also avoids showing
-      // stale favicon/description for the old page while the new one loads.
+      // flips back to the loaded-card state (exitEditing() below) while
+      // `url` is still the OLD value - any click / toolbar "open" action
+      // taken during the fetch window would navigate to the previous URL.
+      // Clearing the metadata fields here also avoids showing stale
+      // favicon/description for the old page while the new one loads.
       updateAttributes({
         url: normalized,
         title: newTitle || hostnameFromUrl(normalized),
@@ -372,100 +410,121 @@ export default function LinkView({
         })
         .finally(() => setLoading(false));
     } else {
-      // URL unchanged — only update the title.
+      // URL unchanged - only update the title.
       updateAttributes({ title: newTitle });
     }
 
-    setEditing(false);
-  }, [editUrl, editTitle, url, updateAttributes]);
+    exitEditing();
+  }, [editUrl, editTitle, url, updateAttributes, exitEditing]);
 
   const handleCancelEdit = useCallback(() => {
-    setEditing(false);
-    setError(null);
-  }, []);
+    exitEditing();
+  }, [exitEditing]);
 
   const handleDelete = useCallback(() => deleteNode(), [deleteNode]);
-
-  /* -------------------------------------------------------------- */
-  /* Click card body → select                                        */
-  /* -------------------------------------------------------------- */
-
-  const handleCardClick = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    // Don't toggle selection when clicking form controls.
-    if (SHIELD_TAGS.has(target.tagName) || target.closest('button')) return;
-    e.stopPropagation();
-    setIsSelected((prev) => !prev);
-  }, []);
 
   /* -------------------------------------------------------------- */
   /* Render                                                          */
   /* -------------------------------------------------------------- */
 
-  const showToolbar = hovered || isSelected;
-  const activeClass = showToolbar ? 'is-active' : '';
   const displayName = title || hostnameFromUrl(url);
   const displayDesc = description || '';
   const hostname = hostnameFromUrl(url);
 
-  /** Shared toolbar — rendered inside figure when showToolbar is true. */
+  /** Shared toolbar for loaded card - rendered inside figure when selected. */
   const toolbar = url && !editing && (
-    <div className="link-block-hover-toolbar" contentEditable={false}>
-      <button className="link-block-hover-btn" title="Open preview window" onClick={handleOpenPreview}>
+    <BlockToolbar selected={selected}>
+      <AlignButtonGroup
+        editor={editor}
+        align={effectiveAlign}
+        onChange={(a) => updateAttributes({ align: a })}
+        startIndex={0}
+        buttonRefs={buttonRefs}
+      />
+      <BlockToolbarDivider />
+      <BlockToolbarButton
+        index={2}
+        buttonRefs={buttonRefs}
+        title="Open preview window"
+        onClick={handleOpenPreview}
+      >
         <Eye size={15} />
-      </button>
-      <button className="link-block-hover-btn" title="Refresh metadata" onClick={handleRefresh}>
+      </BlockToolbarButton>
+      <BlockToolbarButton
+        index={3}
+        buttonRefs={buttonRefs}
+        title="Refresh metadata"
+        onClick={handleRefresh}
+      >
         <RefreshCw size={15} />
-      </button>
-      <button className="link-block-hover-btn" title="Open in browser" onClick={handleOpenExternal}>
+      </BlockToolbarButton>
+      <BlockToolbarButton
+        index={4}
+        buttonRefs={buttonRefs}
+        title="Open in browser"
+        onClick={handleOpenExternal}
+      >
         <ExternalLink size={15} />
-      </button>
-      <div className="link-block-hover-divider" />
-      <button className="link-block-hover-btn" title="Edit name and URL" onClick={handleStartEdit}>
+      </BlockToolbarButton>
+      <BlockToolbarDivider />
+      <BlockToolbarButton
+        index={5}
+        buttonRefs={buttonRefs}
+        title="Edit name and URL"
+        onClick={handleStartEdit}
+      >
         <Pencil size={15} />
-      </button>
-      <button
-        className="link-block-hover-btn link-block-hover-btn-danger"
+      </BlockToolbarButton>
+      <BlockToolbarButton
+        index={6}
+        buttonRefs={buttonRefs}
         title="Delete"
         onClick={handleDelete}
+        className="block-toolbar-btn-danger"
       >
         <Trash2 size={15} />
-      </button>
-    </div>
+      </BlockToolbarButton>
+    </BlockToolbar>
   );
 
-  /** Placeholder-only toolbar (just delete). */
-  const placeholderToolbar = (
-    <div className="link-block-hover-toolbar" contentEditable={false}>
-      <button
-        className="link-block-hover-btn link-block-hover-btn-danger"
+  /** Placeholder-only toolbar (align + delete). */
+  const placeholderToolbar = !url && (
+    <BlockToolbar selected={selected}>
+      <AlignButtonGroup
+        editor={editor}
+        align={effectiveAlign}
+        onChange={(a) => updateAttributes({ align: a })}
+        startIndex={0}
+        buttonRefs={buttonRefs}
+      />
+      <BlockToolbarDivider />
+      <BlockToolbarButton
+        index={2}
+        buttonRefs={buttonRefs}
         title="Delete"
         onClick={handleDelete}
+        className="block-toolbar-btn-danger"
       >
         <Trash2 size={15} />
-      </button>
-    </div>
+      </BlockToolbarButton>
+    </BlockToolbar>
   );
 
   return (
     <NodeViewWrapper className="link-block-wrapper" data-align={effectiveAlign} as="div">
       <div className="link-block-container">
-        {/* ── Placeholder state (no URL) — card style with URL input ── */}
+        {/* ── Placeholder state (no URL) - card style with URL input ── */}
         {!url ? (
           <div
             ref={setFigureRef}
-            className={`link-block-figure is-card is-placeholder ${activeClass}`}
+            className={`link-block-figure is-card is-placeholder ${selected ? 'is-selected' : ''}`}
             style={figureStyle}
             contentEditable={false}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            onMouseDown={handleSelectMouseDown}
           >
-            {showToolbar && placeholderToolbar}
+            {placeholderToolbar}
 
-            <div
-              className="link-block-card link-block-card-placeholder"
-              onClick={handleCardClick}
-            >
+            <div className="link-block-card link-block-card-placeholder">
               <div className="link-block-card-left">
                 <Link2 size={16} className="link-block-card-favicon-fallback" />
                 <div className="link-block-card-info">
@@ -485,8 +544,12 @@ export default function LinkView({
                         submitUrl(inputUrl);
                       } else if (e.key === 'Escape') {
                         e.preventDefault();
-                        // Cancel and clear
-                        setInputUrl('');
+                        // Clear input text, or delete the block if already empty
+                        if (inputUrl) {
+                          setInputUrl('');
+                        } else {
+                          deleteNode();
+                        }
                       }
                     }}
                     onPaste={(e) => {
@@ -509,17 +572,15 @@ export default function LinkView({
               </div>
             </div>
 
-            <ResizeHandle onPointerDown={onResizeStart} />
+            {selected && <ResizeHandle onPointerDown={onResizeStart} />}
           </div>
         ) : editing ? (
           /* ── Inline edit form ── */
           <div
-            ref={setFigureRef}
+            ref={setEditingFigureRef}
             className="link-block-figure is-card is-editing"
             style={figureStyle}
             contentEditable={false}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
           >
             <div
               className="link-block-edit-form"
@@ -540,9 +601,6 @@ export default function LinkView({
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleSaveEdit();
-                    } else if (e.key === 'Escape') {
-                      e.preventDefault();
-                      handleCancelEdit();
                     }
                   }}
                 />
@@ -562,9 +620,6 @@ export default function LinkView({
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleSaveEdit();
-                    } else if (e.key === 'Escape') {
-                      e.preventDefault();
-                      handleCancelEdit();
                     }
                   }}
                 />
@@ -594,23 +649,14 @@ export default function LinkView({
           /* ── Loaded card state ── */
           <div
             ref={setFigureRef}
-            className={`link-block-figure is-card ${activeClass}`}
+            className={`link-block-figure is-card ${selected ? 'is-selected' : ''}`}
             style={figureStyle}
             contentEditable={false}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            onMouseDown={handleSelectMouseDown}
           >
-            {showToolbar && toolbar}
+            {toolbar}
 
-            <div
-              className="link-block-card"
-              onClick={handleCardClick}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                handleOpenPreview();
-              }}
-              title="Click to select · Double-click to open preview"
-            >
+            <div className="link-block-card">
               <div className="link-block-card-left">
                 {favicon ? (
                   <img
@@ -656,7 +702,7 @@ export default function LinkView({
               )}
             </div>
 
-            <ResizeHandle onPointerDown={onResizeStart} />
+            {selected && <ResizeHandle onPointerDown={onResizeStart} />}
           </div>
         )}
       </div>
