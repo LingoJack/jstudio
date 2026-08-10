@@ -139,12 +139,15 @@ export default function LinkView({
   const toolbarBtnCount = url ? 7 : 3;
 
   const {
+    activeIndex,
+    registerButton,
     editing,
     enterEditing,
     exitEditing,
-    buttonRefs,
     interactiveRef,
   } = useNodeToolbarNav(selected, editor, toolbarBtnCount, true);
+
+  const nav = { activeIndex, registerButton };
 
   const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
     selected,
@@ -435,16 +438,14 @@ export default function LinkView({
   const toolbar = url && !editing && (
     <BlockToolbar selected={selected}>
       <AlignButtonGroup
-        editor={editor}
+        nav={nav}
         align={effectiveAlign}
-        onChange={(a) => updateAttributes({ align: a })}
-        startIndex={0}
-        buttonRefs={buttonRefs}
+        onAlignChange={(a) => updateAttributes({ align: a })}
       />
       <BlockToolbarDivider />
       <BlockToolbarButton
         index={2}
-        buttonRefs={buttonRefs}
+        nav={nav}
         title="Open preview window"
         onClick={handleOpenPreview}
       >
@@ -452,7 +453,7 @@ export default function LinkView({
       </BlockToolbarButton>
       <BlockToolbarButton
         index={3}
-        buttonRefs={buttonRefs}
+        nav={nav}
         title="Refresh metadata"
         onClick={handleRefresh}
       >
@@ -460,7 +461,7 @@ export default function LinkView({
       </BlockToolbarButton>
       <BlockToolbarButton
         index={4}
-        buttonRefs={buttonRefs}
+        nav={nav}
         title="Open in browser"
         onClick={handleOpenExternal}
       >
@@ -469,7 +470,7 @@ export default function LinkView({
       <BlockToolbarDivider />
       <BlockToolbarButton
         index={5}
-        buttonRefs={buttonRefs}
+        nav={nav}
         title="Edit name and URL"
         onClick={handleStartEdit}
       >
@@ -477,7 +478,7 @@ export default function LinkView({
       </BlockToolbarButton>
       <BlockToolbarButton
         index={6}
-        buttonRefs={buttonRefs}
+        nav={nav}
         title="Delete"
         onClick={handleDelete}
         className="block-toolbar-btn-danger"
@@ -491,16 +492,14 @@ export default function LinkView({
   const placeholderToolbar = !url && (
     <BlockToolbar selected={selected}>
       <AlignButtonGroup
-        editor={editor}
+        nav={nav}
         align={effectiveAlign}
-        onChange={(a) => updateAttributes({ align: a })}
-        startIndex={0}
-        buttonRefs={buttonRefs}
+        onAlignChange={(a) => updateAttributes({ align: a })}
       />
       <BlockToolbarDivider />
       <BlockToolbarButton
         index={2}
-        buttonRefs={buttonRefs}
+        nav={nav}
         title="Delete"
         onClick={handleDelete}
         className="block-toolbar-btn-danger"
