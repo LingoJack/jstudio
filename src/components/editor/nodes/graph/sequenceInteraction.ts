@@ -18,6 +18,7 @@ import {
   type CellState,
   type CellStyle,
   type ConnectionHandler,
+  type Geometry,
   type InternalMouseEvent,
 } from '@maxgraph/core';
 import { invoke } from '@tauri-apps/api/core';
@@ -748,32 +749,41 @@ export function attachActivationImmovable(graph: AbstractGraph): () => void {
 /* ------------------------------------------------------------------ */
 
 /**
- * 监听 CELLS_RESIZED：当活动块（activation）或生命线（lifeline）被调节大小后，
- * 根据边上存储的 entryAbsY / exitAbsY（绝对坐标）重算相对 entryY / exitY，
- * 使连线端点保持原始绝对 Y，连线仍然水平。
+ * 监听 CELLS_RESIZED：当活动块（activation）、生命线（lifeline）或角色（umlActor，
+ * 小人和虚线生命线是同一个 cell）被调节大小后，根据边上存储的 entryAbsY / exitAbsY
+ * （绝对坐标）重算相对 entryY / exitY，使连线端点保持原始绝对 Y，连线仍然水平。
  *
- * 为什么需要处理 lifeline：消息线的 exitY/entryY 是相对 lifeline 高度的 0-1 比例值，
- * 当用户拉长生命线时 height 增大，同样的相对比例会指向新的绝对 Y，原本水平的
- * 消息线就会倾斜。用 resize 前存下的 exitAbsY/entryAbsY 反推新的相对 Y 即可锁定
- * 端点的绝对位置。
+ * 为什么需要处理 lifeline / actor：消息线的 exitY/entryY 是相对 lifeline 高度的
+ * 0-1 比例值，当用户拉长生命线时 height 增大，同样的相对比例会指向新的绝对 Y，
+ * 原本水平的消息线就会倾斜。用 resize 前存下的 exitAbsY/entryAbsY 反推新的相对 Y
+ * 即可锁定端点的绝对位置。
  */
 export function attachSequenceResizeSync(graph: AbstractGraph): () => void {
   const listener = (_sender: unknown, evt: { getProperty: (key: string) => unknown }) => {
     const cells = evt.getProperty('cells') as Cell[] | undefined;
     if (!cells || cells.length === 0) return;
+    // prev[i] 是 cells[i] resize 前的几何（maxGraph 在 CELLS_RESIZED 里随事件提供），
+    // 用于给"没有存 exitAbsY/entryAbsY 的旧边"反推 resize 前的绝对 Y。
+    const prevs = evt.getProperty('prev') as (Geometry | null | undefined)[] | undefined;
 
     const model = graph.getDataModel();
     model.beginUpdate();
     try {
-      for (const cell of cells) {
-        // 处理 activation 和 lifeline 的 resize：
+      for (let i = 0; i < cells.length; i += 1) {
+        const cell = cells[i];
+        // 处理 activation / lifeline / actor 的 resize：
         //  - activation resize：消息端点跟随 ac 顶/底边移动
-        //  - lifeline resize：消息端点保持原始绝对 Y，不被高度变化影响
-        if (!isActivation(cell) && !isLifeline(cell)) continue;
+        //  - lifeline / actor resize：消息端点保持原始绝对 Y，不被高度变化影响
+        //    （actor 的小人 + 虚线生命线是同一个 cell，漏掉它的话拉长 actor
+        //     生命线时挂在上面的消息线会倾斜）
+        if (!isActivation(cell) && !isLifeline(cell) && !isActor(cell)) continue;
         const cellGeo = cell.getGeometry();
         if (!cellGeo || cellGeo.height === 0) continue;
+        const prevGeo = prevs?.[i];
 
-        const edges = graph.getEdges(cell, graph.getDefaultParent(), true, true, false);
+        // includeLoops=true：生命线/activation 自环的两端都挂在这个 cell 上，
+        // 漏掉的话拉长生命线后回形两端会随相对 Y 漂移。
+        const edges = graph.getEdges(cell, graph.getDefaultParent(), true, true, true);
         for (const edge of edges) {
           const style = edge.getStyle() as Record<string, number | undefined> | null;
           if (!style) continue;
@@ -782,11 +792,27 @@ export function attachSequenceResizeSync(graph: AbstractGraph): () => void {
           const isSource = edge.getTerminal(true) === cell;
           const isTarget = edge.getTerminal(false) === cell;
 
-          if (isTarget && style.entryAbsY != null) {
-            patch.entryY = (style.entryAbsY - cellGeo.y) / cellGeo.height;
+          if (isTarget) {
+            let absY = style.entryAbsY;
+            // 旧数据兼容：没有 entryAbsY 时，用 resize 前的几何反推当前绝对 Y，
+            // 补存入 style，之后的 resize 走正常路径。
+            if (absY == null && style.entryY != null && prevGeo && prevGeo.height > 0) {
+              absY = prevGeo.y + style.entryY * prevGeo.height;
+              patch.entryAbsY = absY;
+            }
+            if (absY != null) {
+              patch.entryY = (absY - cellGeo.y) / cellGeo.height;
+            }
           }
-          if (isSource && style.exitAbsY != null) {
-            patch.exitY = (style.exitAbsY - cellGeo.y) / cellGeo.height;
+          if (isSource) {
+            let absY = style.exitAbsY;
+            if (absY == null && style.exitY != null && prevGeo && prevGeo.height > 0) {
+              absY = prevGeo.y + style.exitY * prevGeo.height;
+              patch.exitAbsY = absY;
+            }
+            if (absY != null) {
+              patch.exitY = (absY - cellGeo.y) / cellGeo.height;
+            }
           }
 
           if (Object.keys(patch).length > 0) {

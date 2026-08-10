@@ -28,7 +28,7 @@ interface FakeCtx {
   model: GraphDataModel;
   parent: Cell;
   fireConnect: (edge: Cell) => void;
-  fireResize: (cells: Cell[]) => void;
+  fireResize: (cells: Cell[], prevs?: (Geometry | null)[]) => void;
 }
 
 function makeGraph(): FakeCtx {
@@ -96,10 +96,16 @@ function makeGraph(): FakeCtx {
     fireConnect: (edge: Cell) => {
       connectListener?.(null, { getProperty: (k) => (k === 'cell' ? edge : undefined) });
     },
-    fireResize: (cells: Cell[]) => {
+    fireResize: (cells: Cell[], prevs?: (Geometry | null)[]) => {
       const arr = graphListeners.get('cellsResized') ?? [];
       for (const l of arr) {
-        l(null, { getProperty: (k) => (k === 'cells' ? cells : undefined) });
+        l(null, {
+          getProperty: (k) => {
+            if (k === 'cells') return cells;
+            if (k === 'prev') return prevs;
+            return undefined;
+          },
+        });
       }
     },
   };
@@ -326,4 +332,102 @@ test('lifeline 拉长后，已画的消息端点保持原始绝对 Y（连线仍
   assert.ok(st.exitAbsY != null, 'exitAbsY 应已存储');
   const newExitAbsY = aGeo.y + st.exitY * aGeo.height;
   assert.ok(Math.abs(newExitAbsY - origMsgY) < 1e-6, `exit 端点应保持在 Y=${origMsgY}，实际 ${newExitAbsY}`);
+});
+
+test('旧边（无 exitAbsY/entryAbsY）：lifeline 拉长时用 prev 几何反推绝对 Y，连线仍水平', () => {
+  const ctx = makeGraph();
+  const a = addLifeline(ctx, 'A', 0);
+  const b = addLifeline(ctx, 'B', 300);
+
+  // 手工构造一条"旧版"水平消息边：只有相对约束，没有 absY（不触发 CONNECT）
+  const edge = new Cell('', new Geometry(), {
+    edgeStyle: 'none',
+    endArrow: 'classic',
+    exitX: 0.5,
+    exitY: 0.2, // msgY = 100 + 0.2*400 = 180
+    entryX: 0.5,
+    entryY: 0.2,
+  });
+  edge.setEdge(true);
+  ctx.model.add(ctx.parent, edge);
+  ctx.model.setTerminal(edge, a, true);
+  ctx.model.setTerminal(edge, b, false);
+
+  const origMsgY = 180;
+
+  // 拉长 A 生命线：y=100 不变，height 400 → 600（prev 为 resize 前几何）
+  const prevA = new Geometry(0, 100, 100, 400);
+  const aGeo = a.getGeometry()!;
+  aGeo.height = 600;
+  ctx.fireResize([a], [prevA]);
+
+  // exitY 应被重算为 (180-100)/600，且 exitAbsY 被补存为 180
+  const st = edge.getStyle() as Record<string, number>;
+  assert.equal(st.exitAbsY, 180, '应从 prev 几何补存 exitAbsY');
+  const newExitAbsY = aGeo.y + st.exitY * aGeo.height;
+  assert.ok(Math.abs(newExitAbsY - origMsgY) < 1e-6, `exit 端点应保持在 Y=${origMsgY}，实际 ${newExitAbsY}`);
+
+  // 第二次拉长（600 → 800）无需 prev，走补存后的正常路径
+  aGeo.height = 800;
+  ctx.fireResize([a]);
+  const st2 = edge.getStyle() as Record<string, number>;
+  const newExitAbsY2 = aGeo.y + st2.exitY * aGeo.height;
+  assert.ok(Math.abs(newExitAbsY2 - origMsgY) < 1e-6, `第二次 resize 后 exit 端点仍应保持 Y=${origMsgY}，实际 ${newExitAbsY2}`);
+});
+
+test('生命线自环：拉长生命线后回形两端保持原始绝对 Y', () => {
+  const ctx = makeGraph();
+  const a = addLifeline(ctx, 'A', 0);
+
+  // A → A 自环：exitY=0.2 (Y=180)，entryY=0.4 (Y=260)
+  const edge = connect(ctx, a, a, 0.2);
+  const st0 = edge.getStyle() as Record<string, unknown>;
+  ctx.model.setStyle(edge, { ...st0, entryY: 0.4 });
+  ctx.fireConnect(edge);
+
+  // 拉长 A：height 400 → 600
+  const aGeo = a.getGeometry()!;
+  aGeo.height = 600;
+  ctx.fireResize([a]);
+
+  const st = edge.getStyle() as Record<string, number>;
+  const newExitAbsY = aGeo.y + st.exitY * aGeo.height;
+  const newEntryAbsY = aGeo.y + st.entryY * aGeo.height;
+  assert.ok(Math.abs(newExitAbsY - 180) < 1e-6, `自环 exit 端点应保持 Y=180，实际 ${newExitAbsY}`);
+  assert.ok(Math.abs(newEntryAbsY - 260) < 1e-6, `自环 entry 端点应保持 Y=260，实际 ${newEntryAbsY}`);
+});
+
+test('actor 生命线（umlActor 单 cell）：拉长后挂在上面的消息端点保持原始绝对 Y', () => {
+  const ctx = makeGraph();
+  // actor = 小人 + 虚线生命线同一个 cell（shape='umlActor'）
+  const actor = new Cell('', new Geometry(0, 100, 100, 400), { shape: 'umlActor' });
+  actor.setId('actor');
+  actor.setVertex(true);
+  ctx.model.add(ctx.parent, actor);
+  const b = addLifeline(ctx, 'B', 300);
+
+  // 旧图：actor 生命线 → B 的水平消息（只有相对约束，无 absY）
+  const edge = new Cell('', new Geometry(), {
+    edgeStyle: 'none',
+    endArrow: 'classic',
+    exitX: 0.5,
+    exitY: 0.2, // msgY = 100 + 0.2*400 = 180
+    entryX: 0.5,
+    entryY: 0.2,
+  });
+  edge.setEdge(true);
+  ctx.model.add(ctx.parent, edge);
+  ctx.model.setTerminal(edge, actor, true);
+  ctx.model.setTerminal(edge, b, false);
+
+  // 拉长 actor 生命线：height 400 → 900（截图中的场景：虚线拖到画布底部）
+  const prevActor = new Geometry(0, 100, 100, 400);
+  const actorGeo = actor.getGeometry()!;
+  actorGeo.height = 900;
+  ctx.fireResize([actor], [prevActor]);
+
+  const st = edge.getStyle() as Record<string, number>;
+  assert.equal(st.exitAbsY, 180, '应从 prev 几何补存 exitAbsY');
+  const newExitAbsY = actorGeo.y + st.exitY * actorGeo.height;
+  assert.ok(Math.abs(newExitAbsY - 180) < 1e-6, `actor 上的 exit 端点应保持 Y=180，实际 ${newExitAbsY}`);
 });
