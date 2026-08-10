@@ -115,6 +115,26 @@ export function useGraphTheme({ graphRef, darkModeRef, darkMode, mindmapScheme }
       graph.batchUpdate(() => {
         const parent = graph.getDefaultParent();
         const cells = graph.getChildCells(parent, true, true);
+
+        // Pre-pass: reindex depth=1 branches so each sibling gets a unique
+        // cycling color. Fixes old snapshots where all branches had
+        // branchIndex=0 (due to a spawn bug), causing neon mode to render
+        // all branches the same color.
+        const branchIndexMap = new Map<string, number>();
+        const siblingCount = new Map<string, number>();
+        for (const cell of cells) {
+          if (!cell.isVertex()) continue;
+          const s = (cell.getStyle() as CellStyle) ?? {};
+          if (styleToNodeShape(s) !== 'topic') continue;
+          const m = mindmapMetaFromStyle(s as Record<string, unknown>);
+          if (!m || m.depth !== 1) continue;
+          const inEdges = graph.getIncomingEdges(cell, parent);
+          const rootCell = inEdges[0]?.getTerminal(true);
+          const rootId = String(rootCell?.getId() ?? '');
+          const idx = siblingCount.get(rootId) ?? 0;
+          branchIndexMap.set(String(cell.getId() ?? ''), idx);
+          siblingCount.set(rootId, idx + 1);
+        }
         for (const cell of cells) {
           const oldStyle = (cell.getStyle() as CellStyle) ?? {};
           if (cell.isVertex()) {
