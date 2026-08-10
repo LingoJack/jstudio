@@ -1,18 +1,20 @@
 /**
  * MathBlockView - React NodeView for the math formula block.
  *
- * Interaction model:
- *   - When NOT selected: shows rendered KaTeX output (display mode).
- *   - When selected (first time, empty): auto-enters edit mode so the user
- *     can immediately type after creating the block via slash menu.
- *   - When selected (subsequent times): shows rendered KaTeX with selection
- *     border. Backspace/Delete removes the block. Enter/double-click/second
- *     click enters edit mode.
- *   - Edit mode: textarea with live KaTeX preview; Esc / blur to commit.
+ * Interaction model (consistent with ImageView / FileView / DiagramBlock):
+ *   - Click display -> ProseMirror NodeSelection (via useNodeSelectionClick).
+ *   - Selected -> BlockToolbar floats at top-center (align, edit, delete).
+ *   - Tab / Shift+Tab -> cycle toolbar buttons; Enter -> enter edit mode;
+ *     Escape -> deselect. (useNodeToolbarNav, interactive=true)
+ *   - Double-click display -> enter edit mode (interactiveProps.onDoubleClick).
+ *   - Edit mode: textarea with live KaTeX preview; Escape / click-outside to
+ *     commit and exit.
+ *   - Auto-enters edit mode on the FIRST selection after creation (empty
+ *     latex) so the user can immediately type after inserting via slash menu.
  *
  * Data flow:
  *   - textarea input -> local draft state -> live preview
- *   - commit (blur/Esc) -> updateAttributes({ latex: draft })
+ *   - exit editing -> updateAttributes({ latex: draft })
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -21,77 +23,145 @@ import {
   NodeViewWrapper,
   type Editor,
 } from '@tiptap/react';
-import { NodeSelection } from '@tiptap/pm/state';
 import katex from 'katex';
+import { Pencil, Trash2 } from 'lucide-react';
 
 import { useNodeSelected } from '../hooks/useNodeSelected';
-import { MATH_BLOCK_EDIT_EVENT } from '../../../lib/editor/extensions/mathBlockExtension';
+import { useNodeSelectionClick } from '../hooks/useNodeSelectionClick';
+import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
+import {
+  BlockToolbar,
+  AlignButtonGroup,
+  BlockToolbarButton,
+  BlockToolbarDivider,
+} from '../../ui/BlockToolbar';
+
+/** Tags that should be shielded from ProseMirror's event interception. */
+const SHIELD_TAGS = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT']);
 
 export default function MathBlockView({
   node,
-  updateAttributes,
   editor,
   getPos,
+  updateAttributes,
+  deleteNode,
 }: NodeViewProps) {
   const latex = (node.attrs?.latex as string) || '';
-  const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
+  const align = (node.attrs?.align as 'left' | 'center' | null) ?? 'center';
+  const effectiveAlign = align === 'left' ? 'left' : 'center';
 
-  const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(latex);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
   /** Whether this block has ever been edited (prevents re-auto-entering edit mode). */
   const hasBeenEdited = useRef(false);
-  /** Whether the node was already selected at the moment of mousedown. */
-  const wasSelectedAtMousedown = useRef(false);
+  /** Tracks the previous editing state to detect exit-editing transitions. */
+  const prevEditing = useRef(false);
+
+  /* -------------------------------------------------------------- */
+  /* Selection + toolbar keyboard navigation                        */
+  /* -------------------------------------------------------------- */
+
+  const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
+
+  // Toolbar: align(2) + edit + delete = 4
+  const {
+    activeIndex,
+    registerButton,
+    editing,
+    enterEditing,
+    exitEditing,
+    interactiveRef,
+    interactiveProps,
+  } = useNodeToolbarNav(
+    selected,
+    (editor as Editor | null) ?? null,
+    4,
+    true,
+  );
+
+  const nav = { activeIndex, registerButton };
+
+  const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
+    selected,
+  });
+
+  /* -------------------------------------------------------------- */
+  /* Draft sync + focus management                                   */
+  /* -------------------------------------------------------------- */
 
   // Sync draft from external latex changes when not editing
   useEffect(() => {
-    if (!isEditing) setDraft(latex);
-  }, [latex, isEditing]);
+    if (!editing) setDraft(latex);
+  }, [latex, editing]);
 
   // Auto-enter edit mode only on the FIRST selection after creation
   // (so the user can immediately type after inserting via slash menu).
   // Subsequent selections keep the block in display mode so it can be
   // deleted with Backspace.
   useEffect(() => {
-    if (selected && !latex && !isEditing && !hasBeenEdited.current) {
-      setIsEditing(true);
+    if (selected && !latex && !editing && !hasBeenEdited.current) {
+      enterEditing();
     }
-  }, [selected, latex, isEditing]);
+  }, [selected, latex, editing, enterEditing]);
 
   // Auto-focus textarea when entering edit mode
   useEffect(() => {
-    if (isEditing && textareaRef.current) {
+    if (editing && textareaRef.current) {
       textareaRef.current.focus();
       autoResize(textareaRef.current);
     }
-  }, [isEditing]);
+  }, [editing]);
 
-  // Listen for the custom 'mathblock:edit' event (dispatched by the
-  // Enter keyboard shortcut when the block has a NodeSelection).
+  // Commit draft when exiting edit mode (covers Escape, click-outside, etc.)
   useEffect(() => {
-    const editorDom = editor?.view.dom;
-    if (!editorDom) return;
+    if (prevEditing.current && !editing) {
+      updateAttributes({ latex: draft });
+      hasBeenEdited.current = true;
+    }
+    prevEditing.current = editing;
+  }, [editing, draft, updateAttributes]);
 
-    const handleEdit = () => {
-      const pos = typeof getPos === 'function' ? getPos() : null;
-      if (pos == null) return;
-      const sel = editor.state.selection;
-      if (sel instanceof NodeSelection && sel.from === pos) {
-        setIsEditing(true);
+  /* -------------------------------------------------------------- */
+  /* Caret shield (see LinkView for detailed explanation)            */
+  /* -------------------------------------------------------------- */
+
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+
+    const shield = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        SHIELD_TAGS.has(target.tagName) ||
+        target.closest('textarea, input, button, a')
+      ) {
+        e.stopPropagation();
       }
     };
 
-    editorDom.addEventListener(MATH_BLOCK_EDIT_EVENT, handleEdit);
-    return () => {
-      editorDom.removeEventListener(MATH_BLOCK_EDIT_EVENT, handleEdit);
-    };
-  }, [editor, getPos]);
+    el.addEventListener('mousedown', shield);
+    return () => el.removeEventListener('mousedown', shield);
+    // Re-bind whenever the host element is (re)created across states.
+  }, [editing]);
 
-  // Render KaTeX from the current draft (for live preview) or stored latex
+  /** Merged ref for the editor host: hostRef + interactiveRef. */
+  const setEditorHostRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      hostRef.current = el;
+      interactiveRef(el);
+    },
+    [interactiveRef],
+  );
+
+  /* -------------------------------------------------------------- */
+  /* KaTeX rendering                                                 */
+  /* -------------------------------------------------------------- */
+
   const renderedHtml = useMemo(() => {
-    const source = isEditing ? draft : latex;
+    const source = editing ? draft : latex;
     if (!source.trim()) return '';
     try {
       return katex.renderToString(source, {
@@ -104,21 +174,18 @@ export default function MathBlockView({
     } catch {
       return '<span style="color:#cc0000">渲染失败</span>';
     }
-  }, [isEditing, draft, latex]);
+  }, [editing, draft, latex]);
 
-  const commit = useCallback(() => {
-    updateAttributes({ latex: draft });
-    setIsEditing(false);
-    hasBeenEdited.current = true;
-  }, [draft, updateAttributes]);
+  /* -------------------------------------------------------------- */
+  /* Actions                                                         */
+  /* -------------------------------------------------------------- */
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Escape') {
+      // Tab: insert two spaces (Escape is handled by the hook's host listener)
+      if (e.key === 'Tab') {
         e.preventDefault();
-        commit();
-      } else if (e.key === 'Tab') {
-        e.preventDefault();
+        e.stopPropagation();
         const el = e.currentTarget;
         const start = el.selectionStart;
         const end = el.selectionEnd;
@@ -129,37 +196,35 @@ export default function MathBlockView({
         });
       }
     },
-    [commit, draft],
+    [draft],
   );
 
-  // Record whether the node was already selected at mousedown time.
-  // This lets us distinguish "first click = select" from "second click = edit".
-  const handleMouseDown = useCallback(() => {
-    const pos = typeof getPos === 'function' ? getPos() : null;
-    if (pos != null && editor) {
-      const sel = editor.state.selection;
-      wasSelectedAtMousedown.current =
-        sel instanceof NodeSelection && sel.from === pos;
-    }
-  }, [editor, getPos]);
+  const handleStartEdit = useCallback(() => {
+    setDraft(latex);
+    enterEditing();
+  }, [latex, enterEditing]);
 
-  // If the node was already selected when the click started, enter edit mode.
-  // Otherwise the click just selects the node (ProseMirror handles this).
-  const handleClick = useCallback(() => {
-    if (wasSelectedAtMousedown.current) {
-      setIsEditing(true);
-    }
-  }, []);
+  const handleDelete = useCallback(() => deleteNode(), [deleteNode]);
 
-  // Double-click always enters edit mode.
-  const handleDoubleClick = useCallback(() => {
-    setIsEditing(true);
-  }, []);
+  /* -------------------------------------------------------------- */
+  /* Render                                                          */
+  /* -------------------------------------------------------------- */
 
   return (
-    <NodeViewWrapper className="math-block-wrapper" as="div" contentEditable={false}>
-      {isEditing ? (
-        <div className="math-block-editor" contentEditable={false}>
+    <NodeViewWrapper
+      className="math-block-wrapper"
+      data-align={effectiveAlign}
+      as="div"
+      contentEditable={false}
+    >
+      {editing ? (
+        /* ── Edit mode: textarea + live preview ── */
+        <div
+          ref={setEditorHostRef}
+          className="math-block-editor"
+          contentEditable={false}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <textarea
             ref={textareaRef}
             value={draft}
@@ -167,7 +232,6 @@ export default function MathBlockView({
               setDraft(e.target.value);
               autoResize(e.target);
             }}
-            onBlur={commit}
             onKeyDown={handleKeyDown}
             placeholder="输入 LaTeX 公式，如：x^2 + y^2 = r^2"
             className="math-block-textarea"
@@ -182,18 +246,49 @@ export default function MathBlockView({
           )}
         </div>
       ) : (
+        /* ── Display mode: rendered KaTeX ── */
         <div
+          ref={(el) => { hostRef.current = el; }}
           className={`math-block-display ${selected ? 'is-selected' : ''}`}
           contentEditable={false}
-          onMouseDown={handleMouseDown}
-          onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
-          dangerouslySetInnerHTML={{
-            __html:
-              renderedHtml ||
-              '<div class="math-block-placeholder"><span class="math-block-placeholder-icon">∑</span><span>点击编辑公式</span></div>',
-          }}
-        />
+          onMouseDown={handleSelectMouseDown}
+          {...interactiveProps}
+        >
+          <BlockToolbar selected={selected}>
+            <AlignButtonGroup
+              nav={nav}
+              align={effectiveAlign}
+              onAlignChange={(a) => updateAttributes({ align: a })}
+            />
+            <BlockToolbarDivider />
+            <BlockToolbarButton
+              index={2}
+              nav={nav}
+              title="Edit formula"
+              onClick={handleStartEdit}
+            >
+              <Pencil size={15} />
+            </BlockToolbarButton>
+            <BlockToolbarButton
+              index={3}
+              nav={nav}
+              title="Delete"
+              onClick={handleDelete}
+              className="block-toolbar-btn-danger"
+            >
+              <Trash2 size={15} />
+            </BlockToolbarButton>
+          </BlockToolbar>
+
+          <div
+            className="math-block-display-inner"
+            dangerouslySetInnerHTML={{
+              __html:
+                renderedHtml ||
+                '<div class="math-block-placeholder"><span class="math-block-placeholder-icon">∑</span><span>双击或按 Enter 编辑公式</span></div>',
+            }}
+          />
+        </div>
       )}
     </NodeViewWrapper>
   );

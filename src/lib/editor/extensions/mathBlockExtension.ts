@@ -12,19 +12,22 @@
  *
  * Supported attributes:
  *   latex - the LaTeX source string (empty string = placeholder)
+ *   align - 'left' | 'center' (default: 'center')
+ *
+ * Keyboard:
+ *   Enter when selected -> enter edit mode (handled by useNodeToolbarNav
+ *   in MathBlockView, not by a keyboard shortcut here).
  */
 
 import { Node, InputRule, type JSONContent } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { NodeSelection, TextSelection } from '@tiptap/pm/state';
+import { TextSelection } from '@tiptap/pm/state';
 import MathBlockView from '../../../components/editor/nodes/MathBlockView';
-
-/** Custom DOM event dispatched to tell a mathBlock NodeView to enter edit mode. */
-export const MATH_BLOCK_EDIT_EVENT = 'mathblock:edit';
 
 export interface MathBlockNodeAttributes {
   id?: string | null;
   latex: string;
+  align?: 'left' | 'center' | null;
 }
 
 declare module '@tiptap/core' {
@@ -61,6 +64,14 @@ export const MathBlockExtension = Node.create({
         renderHTML: (attrs) => {
           if (!attrs.latex) return {};
           return { 'data-latex': attrs.latex };
+        },
+      },
+      align: {
+        default: 'center',
+        parseHTML: (el) => el.getAttribute('data-align') || 'center',
+        renderHTML: (attrs) => {
+          const a = attrs.align ?? 'center';
+          return a === 'center' ? {} : { 'data-align': a };
         },
       },
     };
@@ -173,28 +184,6 @@ export const MathBlockExtension = Node.create({
         },
       }),
     ];
-  },
-
-  /* ------------------------------------------------------------------ */
-  /* Keyboard shortcuts                                                 */
-  /* ------------------------------------------------------------------ */
-
-  addKeyboardShortcuts() {
-    return {
-      Enter: ({ editor }) => {
-        const { selection } = editor.state;
-        if (
-          selection instanceof NodeSelection &&
-          selection.node.type.name === 'mathBlock'
-        ) {
-          editor.view.dom.dispatchEvent(
-            new CustomEvent(MATH_BLOCK_EDIT_EVENT, { bubbles: true }),
-          );
-          return true;
-        }
-        return false;
-      },
-    };
   },
 });
 

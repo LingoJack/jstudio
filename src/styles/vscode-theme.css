@@ -4008,6 +4008,9 @@ button {
   justify-content: center;
   margin: 12px 0;
 }
+.math-block-wrapper[data-align="left"] {
+  justify-content: flex-start;
+}
 
 .ProseMirror-selectednode:has(> .math-block-wrapper) {
   outline: none;
@@ -4017,17 +4020,20 @@ button {
 /* ── Display mode (not editing) ─── */
 
 .math-block-display {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  cursor: default;
+  transition: border-color 0.15s, background 0.15s;
+}
+.math-block-display-inner {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
   min-height: 48px;
   padding: 16px 20px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  cursor: pointer;
   overflow-x: auto;
-  transition: border-color 0.15s, background 0.15s;
 }
 
 .math-block-display.is-selected {
@@ -4040,7 +4046,7 @@ button {
 }
 
 /* KaTeX should scale with the editor font size */
-.math-block-display .katex {
+.math-block-display-inner .katex {
   font-size: 1.1em;
 }
 
@@ -4061,6 +4067,11 @@ button {
 
 .math-block-display:not(.is-selected):hover .math-block-placeholder {
   color: var(--vscode-foreground);
+}
+/* Edit-mode glow border (same as DiagramBlock) */
+.math-block-display:has(.math-block-editor),
+.math-block-editor {
+  border-radius: 8px;
 }
 
 /* ── Edit mode ─── */
