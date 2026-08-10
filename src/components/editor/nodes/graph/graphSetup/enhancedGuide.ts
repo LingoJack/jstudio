@@ -28,6 +28,9 @@ const SPACING_GUIDE_COLOR = '#F59E0B';
 /** 引导线描边宽度 */
 const GUIDE_STROKEWIDTH = 1;
 
+/** 等间距标注线端点 tick 标记长度（px，|---| 两端的竖线） */
+const TICK_SIZE = 4;
+
 /** 垂直方向重叠容差（px），用于水平等间距的"同行"筛选 */
 const OVERLAP_TOLERANCE = 20;
 
@@ -504,10 +507,18 @@ export class EnhancedGuide extends Guide {
   // ───────────────────────── 引导线绘制 ─────────────────────────
 
   /**
-   * 绘制等间距标注线段。
+   * 绘制等间距标注线段（|---| 样式）。
    *
-   * @param slot  'x1'|'x2' -> 水平线段（y 固定，x 从 v1 到 v2）
-   *              'y1'|'y2' -> 竖直线段（x 固定，y 从 v1 到 v2）
+   * 水平 gap（slot x1/x2）：在 y=fixed 处画水平线，两端各加竖直 tick 标记
+   *   |--------|
+   *
+   * 竖直 gap（slot y1/y2）：在 x=fixed 处画竖直线，两端各加水平 tick 标记
+   *   ─
+   *   |
+   *   ─
+   *
+   * @param slot  'x1'|'x2' -> 水平标注线
+   *              'y1'|'y2' -> 竖直标注线
    * @param seg   [v1, v2] 线段端点坐标
    * @param fixed 垂直/水平固定坐标
    */
@@ -521,12 +532,30 @@ export class EnhancedGuide extends Guide {
     if (Math.abs(v2 - v1) < 1) return; // 间距太小不画
 
     const shape = this.ensureSpacingGuide(slot);
+    const tick = TICK_SIZE * this.graph.getView().scale;
+
     if (slot === 'x1' || slot === 'x2') {
-      // 水平线段
-      shape.points = [new Point(v1, fixed), new Point(v2, fixed)];
+      // 水平标注线 |---|
+      // 路径：左tick顶 -> 左tick底 -> 回到中心 -> 水平线 -> 右tick顶 -> 右tick底
+      shape.points = [
+        new Point(v1, fixed - tick),  // 左 | 上端
+        new Point(v1, fixed + tick),  // 左 | 下端
+        new Point(v1, fixed),         // 回到左中心（重绘左 | 下半段）
+        new Point(v2, fixed),         // 水平 --- 到右中心
+        new Point(v2, fixed - tick),  // 右 | 上端
+        new Point(v2, fixed + tick),  // 右 | 下端
+      ];
     } else {
-      // 竖直线段
-      shape.points = [new Point(fixed, v1), new Point(fixed, v2)];
+      // 竖直标注线（旋转 90°）
+      // 路径：上tick左 -> 上tick右 -> 回到中心 -> 竖直线 -> 下tick左 -> 下tick右
+      shape.points = [
+        new Point(fixed - tick, v1),  // 上 ─ 左端
+        new Point(fixed + tick, v1),  // 上 ─ 右端
+        new Point(fixed, v1),         // 回到上中心（重绘上 ─ 右半段）
+        new Point(fixed, v2),         // 竖直 | 到下中心
+        new Point(fixed - tick, v2),  // 下 ─ 左端
+        new Point(fixed + tick, v2),  // 下 ─ 右端
+      ];
     }
     shape.stroke = SPACING_GUIDE_COLOR;
     shape.node.style.visibility = 'visible';
@@ -565,10 +594,10 @@ export class EnhancedGuide extends Guide {
     return this[prop]!;
   }
 
-  /** 创建等间距引导线 shape（琥珀色虚线） */
+  /** 创建等间距引导线 shape（琥珀色实线，|---| 样式） */
   private createSpacingGuideShape(): PolylineShape {
     const guide = new PolylineShape([], SPACING_GUIDE_COLOR, GUIDE_STROKEWIDTH);
-    guide.isDashed = true;
+    guide.isDashed = false;
     return guide;
   }
 
