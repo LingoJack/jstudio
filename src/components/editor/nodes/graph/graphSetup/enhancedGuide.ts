@@ -6,6 +6,10 @@
  * 2. 水平等间距（平分间隔）对齐
  * 3. 垂直等间距对齐
  * 4. 视觉区分：标准对齐=主题色，等间距=琥珀色
+ *
+ * 等间距引导线样式：
+ * - 水平等间距 -> 两条水平短线段标注两侧 gap（|---|  |---|）
+ * - 垂直等间距 -> 两条竖直短线段标注上下 gap
  */
 
 import { Guide, Point, PolylineShape } from '@maxgraph/core';
@@ -47,23 +51,30 @@ function horizontalOverlap(a: Rectangle, b: Rectangle, tol: number): boolean {
 
 // ───────────────────────── 等间距匹配结果 ─────────────────────────
 
+/** 等间距场景类型 */
+type SpacingScenario = 1 | 2 | 3;
+
 interface SpacingMatch {
   /** 吸附后的 delta（相对于 bounds 原始位置） */
   delta: number;
-  /** 引导线绘制的坐标值 */
-  value: number;
   /** 参与的两个参考节点 */
   refs: { a: CellState; b: CellState };
   /** 匹配距离（越小越优先） */
   dist: number;
+  /** 匹配场景（1=中间, 2=右侧/下方, 3=左侧/上方） */
+  scenario: SpacingScenario;
 }
 
 // ───────────────────────── EnhancedGuide ─────────────────────────
 
 export class EnhancedGuide extends Guide {
   private dark: boolean;
-  private guideSpacingX: PolylineShape | null = null;
-  private guideSpacingY: PolylineShape | null = null;
+  /** 水平等间距引导线：两条水平短线段（标注两侧 gap） */
+  private guideSpacingX1: PolylineShape | null = null;
+  private guideSpacingX2: PolylineShape | null = null;
+  /** 垂直等间距引导线：两条竖直短线段（标注上下 gap） */
+  private guideSpacingY1: PolylineShape | null = null;
+  private guideSpacingY2: PolylineShape | null = null;
 
   constructor(graph: ConstructorParameters<typeof Guide>[0], states: CellState[], dark: boolean) {
     super(graph, states);
@@ -82,7 +93,7 @@ export class EnhancedGuide extends Guide {
    * 阶段 A：标准对齐（左/中/右、上/中/下），容差提升至 6px
    * 阶段 B：等间距检测（三种场景 × 水平/垂直）
    * 阶段 C：择优 -- 等间距 ≤ 标准时优先等间距
-   * 阶段 D：绘制引导线（标准=主题色，等间距=琥珀色）
+   * 阶段 D：绘制引导线（标准=主题色竖/横线，等间距=琥珀色间距标注线）
    */
   override move(
     bounds: Rectangle | null | undefined,
@@ -242,27 +253,41 @@ export class EnhancedGuide extends Guide {
     // 先隐藏所有引导线
     this.hideAllGuides();
 
-    // ── X 轴引导线（竖线） ──
+    // ── X 轴引导线 ──
     if (useSpacingX && spMatchX) {
-      // 等间距引导线：琥珀色，跨越所有参与节点
-      this.ensureSpacingGuide('x');
+      // 等间距：绘制两条水平短线段标注两侧 gap
+      // 拖动节点的左右边（overlay 坐标系）
+      const cLeft = bounds.x + delta.x - panDx;
+      const cRight = cLeft + bounds.width;
+      // Y 取拖动节点垂直中心
+      const cy2 = bounds.y + delta.y - panDy + bounds.height / 2;
+
       const { a, b: refB } = spMatchX.refs;
-      const minY = Math.min(
-        bounds.y + delta.y - panDy,
-        a.y,
-        refB.y,
-      );
-      const maxY = Math.max(
-        bounds.y + bounds.height + delta.y - panDy,
-        a.y + a.height,
-        refB.y + refB.height,
-      );
-      this.guideSpacingX!.points = [new Point(spMatchX.value, minY), new Point(spMatchX.value, maxY)];
-      this.guideSpacingX!.stroke = SPACING_GUIDE_COLOR;
-      this.guideSpacingX!.node.style.visibility = 'visible';
-      this.guideSpacingX!.redraw();
+      const aRight = a.x + a.width;
+      const bLeft = refB.x;
+
+      // 根据场景计算两条 gap 线段的端点
+      let seg1: [number, number] | null = null; // [x1, x2]
+      let seg2: [number, number] | null = null;
+
+      if (spMatchX.scenario === 1) {
+        // C 在 A、B 之间：gap1 = A.right -> C.left, gap2 = C.right -> B.left
+        seg1 = [aRight, cLeft];
+        seg2 = [cRight, bLeft];
+      } else if (spMatchX.scenario === 2) {
+        // C 在 A、B 右侧：gap1 = A.right -> B.left, gap2 = B.right -> C.left
+        seg2 = [refB.x + refB.width, cLeft];
+        seg1 = [aRight, bLeft];
+      } else {
+        // C 在 A、B 左侧：gap1 = C.right -> A.left, gap2 = A.right -> B.left
+        seg1 = [cRight, a.x];
+        seg2 = [aRight, bLeft];
+      }
+
+      this.drawSpacingLine('x1', seg1, cy2);
+      this.drawSpacingLine('x2', seg2, cy2);
     } else if (stdOverrideX && std.valueX !== null) {
-      // 标准引导线：主题色
+      // 标准引导线：主题色竖线
       this.ensureGuide('x');
       let minY: number | null = null;
       let maxY: number | null = null;
@@ -283,25 +308,39 @@ export class EnhancedGuide extends Guide {
       this.guideX!.redraw();
     }
 
-    // ── Y 轴引导线（横线） ──
+    // ── Y 轴引导线 ──
     if (useSpacingY && spMatchY) {
-      this.ensureSpacingGuide('y');
+      // 等间距：绘制两条竖直短线段标注上下 gap
+      const cTop = bounds.y + delta.y - panDy;
+      const cBottom = cTop + bounds.height;
+      // X 取拖动节点水平中心
+      const cx2 = bounds.x + delta.x - panDx + bounds.width / 2;
+
       const { a, b: refB } = spMatchY.refs;
-      const minX = Math.min(
-        bounds.x + delta.x - panDx,
-        a.x,
-        refB.x,
-      );
-      const maxX = Math.max(
-        bounds.x + bounds.width + delta.x - panDx,
-        a.x + a.width,
-        refB.x + refB.width,
-      );
-      this.guideSpacingY!.points = [new Point(minX, spMatchY.value), new Point(maxX, spMatchY.value)];
-      this.guideSpacingY!.stroke = SPACING_GUIDE_COLOR;
-      this.guideSpacingY!.node.style.visibility = 'visible';
-      this.guideSpacingY!.redraw();
+      const aBottom = a.y + a.height;
+      const bTop = refB.y;
+
+      let seg1: [number, number] | null = null; // [y1, y2]
+      let seg2: [number, number] | null = null;
+
+      if (spMatchY.scenario === 1) {
+        // C 在 A、B 之间：gap1 = A.bottom -> C.top, gap2 = C.bottom -> B.top
+        seg1 = [aBottom, cTop];
+        seg2 = [cBottom, bTop];
+      } else if (spMatchY.scenario === 2) {
+        // C 在 A、B 下方：gap1 = A.bottom -> B.top, gap2 = B.bottom -> C.top
+        seg1 = [aBottom, bTop];
+        seg2 = [refB.y + refB.height, cTop];
+      } else {
+        // C 在 A、B 上方：gap1 = C.bottom -> A.top, gap2 = A.bottom -> B.top
+        seg1 = [cBottom, a.y];
+        seg2 = [aBottom, bTop];
+      }
+
+      this.drawSpacingLine('y1', seg1, cx2);
+      this.drawSpacingLine('y2', seg2, cx2);
     } else if (stdOverrideY && std.valueY !== null) {
+      // 标准引导线：主题色横线
       this.ensureGuide('y');
       let minX: number | null = null;
       let maxX: number | null = null;
@@ -332,9 +371,9 @@ export class EnhancedGuide extends Guide {
    *
    * 三种场景（A、B 为参考节点，C 为拖动节点）：
    *
-   *   场景1 C 在 A、B 之间：gap(A→C) == gap(C→B)
-   *   场景2 C 在 A、B 右侧：gap(A→B) == gap(B→C)
-   *   场景3 C 在 A、B 左侧：gap(C→A) == gap(A→B)
+   *   场景1 C 在 A、B 之间：gap(A->C) == gap(C->B)
+   *   场景2 C 在 A、B 右侧：gap(A->B) == gap(B->C)
+   *   场景3 C 在 A、B 左侧：gap(C->A) == gap(A->B)
    *
    * @param bounds  拖动前的原始包围盒
    * @param b       拖动后的当前包围盒（bounds + delta）
@@ -369,30 +408,27 @@ export class EnhancedGuide extends Guide {
         if (!verticalOverlap(b, A, overlapTol) || !verticalOverlap(b, B, overlapTol)) continue;
 
         // 场景1：C 在 A、B 之间 -- 平分间隙
-        //   target = aRight + (gapAB - C.width) / 2
         const target1 = aRight + (gapAB - b.width) / 2;
         const dist1 = Math.abs(b.x - target1);
         if (dist1 < bestDist) {
           bestDist = dist1;
-          best = { delta: target1 - bounds.x, value: target1, refs: { a: A, b: B }, dist: dist1 };
+          best = { delta: target1 - bounds.x, refs: { a: A, b: B }, dist: dist1, scenario: 1 };
         }
 
-        // 场景2：C 在 B 右侧 -- gap(B→C) == gap(A→B)
-        //   target = B.right + gapAB
+        // 场景2：C 在 B 右侧 -- gap(B->C) == gap(A->B)
         const target2 = B.x + B.width + gapAB;
         const dist2 = Math.abs(b.x - target2);
         if (dist2 < bestDist) {
           bestDist = dist2;
-          best = { delta: target2 - bounds.x, value: target2, refs: { a: A, b: B }, dist: dist2 };
+          best = { delta: target2 - bounds.x, refs: { a: A, b: B }, dist: dist2, scenario: 2 };
         }
 
-        // 场景3：C 在 A 左侧 -- gap(C→A) == gap(A→B)
-        //   C.right = A.left - gapAB → target = A.left - gapAB - C.width
+        // 场景3：C 在 A 左侧 -- gap(C->A) == gap(A->B)
         const target3 = A.x - gapAB - b.width;
         const dist3 = Math.abs(b.x - target3);
         if (dist3 < bestDist) {
           bestDist = dist3;
-          best = { delta: target3 - bounds.x, value: target3, refs: { a: A, b: B }, dist: dist3 };
+          best = { delta: target3 - bounds.x, refs: { a: A, b: B }, dist: dist3, scenario: 3 };
         }
       }
     }
@@ -405,14 +441,9 @@ export class EnhancedGuide extends Guide {
    *
    * 三种场景（A、B 为参考节点，C 为拖动节点）：
    *
-   *   场景1 C 在 A、B 之间：gap(A→C) == gap(C→B)
-   *   场景2 C 在 A、B 下方：gap(A→B) == gap(B→C)
-   *   场景3 C 在 A、B 上方：gap(C→A) == gap(A→B)
-   *
-   * @param bounds  拖动前的原始包围盒
-   * @param b       拖动后的当前包围盒（bounds + delta）
-   * @param spTol   等间距吸附容差（已乘 scale）
-   * @param overlapTol 水平重叠筛选容差（已乘 scale）
+   *   场景1 C 在 A、B 之间：gap(A->C) == gap(C->B)
+   *   场景2 C 在 A、B 下方：gap(A->B) == gap(B->C)
+   *   场景3 C 在 A、B 上方：gap(C->A) == gap(A->B)
    */
   private detectVerticalSpacing(
     bounds: Rectangle,
@@ -446,28 +477,60 @@ export class EnhancedGuide extends Guide {
         const dist1 = Math.abs(b.y - target1);
         if (dist1 < bestDist) {
           bestDist = dist1;
-          best = { delta: target1 - bounds.y, value: target1, refs: { a: A, b: B }, dist: dist1 };
+          best = { delta: target1 - bounds.y, refs: { a: A, b: B }, dist: dist1, scenario: 1 };
         }
 
-        // 场景2：C 在 B 下方 -- gap(B→C) == gap(A→B)
+        // 场景2：C 在 B 下方 -- gap(B->C) == gap(A->B)
         const target2 = B.y + B.height + gapAB;
         const dist2 = Math.abs(b.y - target2);
         if (dist2 < bestDist) {
           bestDist = dist2;
-          best = { delta: target2 - bounds.y, value: target2, refs: { a: A, b: B }, dist: dist2 };
+          best = { delta: target2 - bounds.y, refs: { a: A, b: B }, dist: dist2, scenario: 2 };
         }
 
-        // 场景3：C 在 A 上方 -- gap(C→A) == gap(A→B)
+        // 场景3：C 在 A 上方 -- gap(C->A) == gap(A->B)
         const target3 = A.y - gapAB - b.height;
         const dist3 = Math.abs(b.y - target3);
         if (dist3 < bestDist) {
           bestDist = dist3;
-          best = { delta: target3 - bounds.y, value: target3, refs: { a: A, b: B }, dist: dist3 };
+          best = { delta: target3 - bounds.y, refs: { a: A, b: B }, dist: dist3, scenario: 3 };
         }
       }
     }
 
     return best;
+  }
+
+  // ───────────────────────── 引导线绘制 ─────────────────────────
+
+  /**
+   * 绘制等间距标注线段。
+   *
+   * @param slot  'x1'|'x2' -> 水平线段（y 固定，x 从 v1 到 v2）
+   *              'y1'|'y2' -> 竖直线段（x 固定，y 从 v1 到 v2）
+   * @param seg   [v1, v2] 线段端点坐标
+   * @param fixed 垂直/水平固定坐标
+   */
+  private drawSpacingLine(
+    slot: 'x1' | 'x2' | 'y1' | 'y2',
+    seg: [number, number] | null,
+    fixed: number,
+  ): void {
+    if (!seg) return;
+    const [v1, v2] = seg;
+    if (Math.abs(v2 - v1) < 1) return; // 间距太小不画
+
+    const shape = this.ensureSpacingGuide(slot);
+    if (slot === 'x1' || slot === 'x2') {
+      // 水平线段
+      shape.points = [new Point(v1, fixed), new Point(v2, fixed)];
+    } else {
+      // 竖直线段
+      shape.points = [new Point(fixed, v1), new Point(fixed, v2)];
+    }
+    shape.stroke = SPACING_GUIDE_COLOR;
+    shape.node.style.visibility = 'visible';
+    shape.redraw();
   }
 
   // ───────────────────────── 引导线管理 ─────────────────────────
@@ -487,19 +550,19 @@ export class EnhancedGuide extends Guide {
     }
   }
 
-  /** 确保等间距引导线 shape 已创建 */
-  private ensureSpacingGuide(axis: 'x' | 'y'): void {
-    if (axis === 'x' && !this.guideSpacingX) {
-      this.guideSpacingX = this.createSpacingGuideShape();
-      this.guideSpacingX.dialect = 'svg';
-      this.guideSpacingX.pointerEvents = false;
-      this.guideSpacingX.init(this.graph.getView().getOverlayPane());
-    } else if (axis === 'y' && !this.guideSpacingY) {
-      this.guideSpacingY = this.createSpacingGuideShape();
-      this.guideSpacingY.dialect = 'svg';
-      this.guideSpacingY.pointerEvents = false;
-      this.guideSpacingY.init(this.graph.getView().getOverlayPane());
+  /** 确保等间距引导线 shape 已创建并返回 */
+  private ensureSpacingGuide(slot: 'x1' | 'x2' | 'y1' | 'y2'): PolylineShape {
+    const prop = `guideSpacing${slot.toUpperCase()}` as
+      | 'guideSpacingX1' | 'guideSpacingX2'
+      | 'guideSpacingY1' | 'guideSpacingY2';
+    if (!this[prop]) {
+      const guide = this.createSpacingGuideShape();
+      guide.dialect = 'svg';
+      guide.pointerEvents = false;
+      guide.init(this.graph.getView().getOverlayPane());
+      this[prop] = guide;
     }
+    return this[prop]!;
   }
 
   /** 创建等间距引导线 shape（琥珀色虚线） */
@@ -513,29 +576,29 @@ export class EnhancedGuide extends Guide {
   private hideAllGuides(): void {
     if (this.guideX) this.guideX.node.style.visibility = 'hidden';
     if (this.guideY) this.guideY.node.style.visibility = 'hidden';
-    if (this.guideSpacingX) this.guideSpacingX.node.style.visibility = 'hidden';
-    if (this.guideSpacingY) this.guideSpacingY.node.style.visibility = 'hidden';
+    if (this.guideSpacingX1) this.guideSpacingX1.node.style.visibility = 'hidden';
+    if (this.guideSpacingX2) this.guideSpacingX2.node.style.visibility = 'hidden';
+    if (this.guideSpacingY1) this.guideSpacingY1.node.style.visibility = 'hidden';
+    if (this.guideSpacingY2) this.guideSpacingY2.node.style.visibility = 'hidden';
   }
 
   override setVisible(visible: boolean): void {
     super.setVisible(visible);
-    if (this.guideSpacingX) {
-      this.guideSpacingX.node.style.visibility = visible ? 'visible' : 'hidden';
-    }
-    if (this.guideSpacingY) {
-      this.guideSpacingY.node.style.visibility = visible ? 'visible' : 'hidden';
-    }
+    const v = visible ? 'visible' : 'hidden';
+    if (this.guideSpacingX1) this.guideSpacingX1.node.style.visibility = v;
+    if (this.guideSpacingX2) this.guideSpacingX2.node.style.visibility = v;
+    if (this.guideSpacingY1) this.guideSpacingY1.node.style.visibility = v;
+    if (this.guideSpacingY2) this.guideSpacingY2.node.style.visibility = v;
   }
 
   override destroy(): void {
     super.destroy();
-    if (this.guideSpacingX) {
-      this.guideSpacingX.destroy();
-      this.guideSpacingX = null;
+    for (const shape of [this.guideSpacingX1, this.guideSpacingX2, this.guideSpacingY1, this.guideSpacingY2]) {
+      if (shape) shape.destroy();
     }
-    if (this.guideSpacingY) {
-      this.guideSpacingY.destroy();
-      this.guideSpacingY = null;
-    }
+    this.guideSpacingX1 = null;
+    this.guideSpacingX2 = null;
+    this.guideSpacingY1 = null;
+    this.guideSpacingY2 = null;
   }
 }
