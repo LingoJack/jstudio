@@ -107,10 +107,20 @@ export function ShapeGlyph({ shape }: { shape: GraphNodeShape }) {
         </svg>
       );
     case 'topic':
-      // 思维导图节点：无边框圆角矩形 + 蓝色字（用蓝色描边预览表示字色）
+      // 思维导图：根节点在左，曲线分支向右连接子节点，与画布实际布局一致
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <rect x="2" y="5" width="12" height="6" rx="3" stroke="#0052D9" strokeWidth={sw} fill="none" strokeOpacity={0.5} />
+          {/* 根节点 */}
+          <rect x="1" y="6.5" width="4.5" height="3" rx="1.5" stroke="currentColor" strokeWidth={sw} />
+          {/* 上分支 + 子节点 */}
+          <path d="M5.5 7 C7.5 7 8 4 10 4" stroke="currentColor" strokeWidth={sw} fill="none" />
+          <rect x="10" y="2.5" width="4.5" height="3" rx="1.5" stroke="currentColor" strokeWidth={sw} />
+          {/* 中分支 + 子节点 */}
+          <path d="M5.5 8 L10 8" stroke="currentColor" strokeWidth={sw} />
+          <rect x="10" y="6.5" width="4.5" height="3" rx="1.5" stroke="currentColor" strokeWidth={sw} />
+          {/* 下分支 + 子节点 */}
+          <path d="M5.5 9 C7.5 9 8 12 10 12" stroke="currentColor" strokeWidth={sw} fill="none" />
+          <rect x="10" y="10.5" width="4.5" height="3" rx="1.5" stroke="currentColor" strokeWidth={sw} />
         </svg>
       );
     case 'edge-line':
