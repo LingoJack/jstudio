@@ -3,9 +3,13 @@
  *
  * 职责：
  *   - root keydown：Del 删除、Cmd+Z 撤销/重做、Cmd+C/X/V 复制粘贴、
- *     Cmd+D 克隆、方向键微移、ESC 退出待绘制、Tab/Enter 思维导图生发
+ *     Cmd+D 克隆、方向键微移、ESC 退出待绘制、Tab/Enter 按 shape 类别分派
+ *     （topic 生发思维导图节点 / 普通形状循环选中或编辑文字）
  *   - window 捕获阶段 keydown：确保 topic 节点的 Tab/Enter 一定生效
  *   - container mousedown：点击画布时聚焦 root，使快捷键生效
+ *
+ * Tab/Enter 的具体行为按 shape 类别分派到 shapeKeyHandlers，本 hook 只负责
+ * DOM 接线和 preventDefault。
  *
  * 依赖项均为 ref 或原始值，不引入额外渲染周期。
  */
@@ -15,7 +19,7 @@ import type { RefObject } from 'react';
 import { type Graph, type UndoManager, Clipboard } from '@maxgraph/core';
 
 import { styleToNodeShape } from './graphModel';
-import { spawnMindmapChild, spawnMindmapSibling } from './mindmapSpawn';
+import { handleShapeTabEnter } from './shapeKeyHandlers';
 import { GRID_SIZE } from './graphConstants';
 import type { GraphNodeShape } from './graphSnapshot';
 
@@ -52,32 +56,20 @@ export function useGraphKeyboard({
       const meta = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      // 思维导图 topic 节点：Tab/Shift+Tab 生发子节点（右/左），Enter 生发同级兄弟节点。
-      // 即使正在内联编辑文本也支持（先提交编辑再生发），符合思维导图标准交互：
-      // 双击 topic 编辑文字 -> 按 Tab/Enter -> 提交文字 -> 生发子/兄弟节点。
-      // 必须放在 graph.isEditing() 守卫之前，否则编辑态下 Tab/Enter 会被直接跳过。
+      // Tab/Enter：按选中 shape 的类别分派。
+      //   - topic（思维导图）：Tab 生发子节点 / Enter 生发兄弟节点（即便编辑中也支持）
+      //   - 其它 vertex：Tab 循环选中 / Enter 编辑文字
+      // topic 的编辑态处理必须在 graph.isEditing() 守卫之前，否则会被跳过；
+      // 普通形状的 Enter 在编辑态由 CellEditor 原生处理，handleShapeTabEnter
+      // 内部会返回 false 让其穿透。
       if (e.key === 'Tab' || e.key === 'Enter') {
-        const sel = graph.getSelectionCells();
-        if (sel.length === 1 && sel[0].isVertex()) {
-          const cellStyle = graph.getCurrentCellStyle(sel[0]);
-          const shape = styleToNodeShape(cellStyle);
-          if (shape === 'topic') {
-            e.preventDefault();
-            // 正在编辑文本时先提交，再生发子/兄弟节点。
-            if (graph.isEditing()) {
-              graph.stopEditing(false);
-            }
-            if (e.key === 'Tab') {
-              spawnMindmapChild(graph, sel[0], darkModeRef.current, e.shiftKey ? 'left' : 'right');
-            } else {
-              spawnMindmapSibling(graph, sel[0], darkModeRef.current);
-            }
-            return;
-          }
+        if (handleShapeTabEnter(graph, e.key, e.shiftKey, darkModeRef.current)) {
+          e.preventDefault();
+          return;
         }
       }
 
-      // 正在内联编辑文本时，交给 CellEditor，不拦截（Tab/Enter 对 topic 的处理已在上方完成）。
+      // 正在内联编辑文本时，交给 CellEditor，不拦截。
       if (graph.isEditing()) return;
 
       // ESC：退出待绘制态。
@@ -191,19 +183,15 @@ export function useGraphKeyboard({
       if (!g) return;
       const sel = g.getSelectionCells();
       if (sel.length !== 1 || !sel[0].isVertex()) return;
+      // window 捕获阶段只负责 topic：确保不依赖焦点也能生发思维导图节点。
+      // 非 topic 的 Tab/Enter（循环选中 / 编辑文字）交给 root keydown 处理，
+      // 这里早返回让事件继续传播。
       const cellStyle = g.getCurrentCellStyle(sel[0]);
       if (styleToNodeShape(cellStyle) !== 'topic') return;
       // 命中 topic 节点：拦截并处理。
       e.preventDefault();
       e.stopPropagation();
-      if (g.isEditing()) {
-        g.stopEditing(false);
-      }
-      if (e.key === 'Tab') {
-        spawnMindmapChild(g, sel[0], darkModeRef.current, e.shiftKey ? 'left' : 'right');
-      } else {
-        spawnMindmapSibling(g, sel[0], darkModeRef.current);
-      }
+      handleShapeTabEnter(g, e.key, e.shiftKey, darkModeRef.current);
     };
     window.addEventListener('keydown', onWindowKeyDown, true);
 
