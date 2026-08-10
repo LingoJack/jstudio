@@ -179,9 +179,14 @@ export function spawnMindmapSibling(
   const newX = curGeo.x;
   const newY = curGeo.y + curGeo.height + MINDMAP_GAP_Y;
 
-  // 兄弟节点与当前节点同层，使用相同深度的配色 + 相同分支索引（同级）。
+  // 兄弟节点与当前节点同层，使用相同深度的配色。
+  // 分支索引：depth=1 时每个兄弟都是独立分支，按兄弟顺序循环 neon 分支色；
+  // depth>=2 时继承当前节点的分支索引（同一分支下叶子共享颜色）。
   const siblingDepth = topicDepth(graph, currentCell);
-  const branchIndex = branchIndexOf(currentCell);
+  const branchIndex =
+    siblingDepth === 1 && parentNode
+      ? nextBranchIndex(graph, parentNode)
+      : branchIndexOf(currentCell);
 
   graph.batchUpdate(() => {
     const siblingCell = graph.insertVertex({
