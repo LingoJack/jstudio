@@ -146,12 +146,13 @@ export class ResizeGuide {
     };
 
     const movableCoord = viaLeft ? bounds.x : bounds.x + bounds.width;
-    const centerCoord = bounds.getCenterX();
 
     for (const s of this.states) {
       if (!s) continue;
+      // 只做"可移动边 ↔ 对方边/中心"对齐。
+      // 不做"被 resize shape 的 center ↔ 对方"对齐：拖底边时 center
+      // 跟着动，center 撞进容差会画出误导性的中线，把真正的底边对齐挤掉。
       const targets = [s.x, s.x + s.width, s.getCenterX()];
-      // 边对齐：可移动边 贴 对方边/中心
       for (const t of targets) {
         const dist = Math.abs(movableCoord - t);
         consider(t, s, dist, (b) => {
@@ -163,23 +164,6 @@ export class ResizeGuide {
             b.width = Math.max(0, t - b.x);
           }
         });
-      }
-      // center 对齐：仅当该轴只有一条可移动边时（标准 8 手柄均满足），
-      // 通过该边把 center 移到 target，避免两边都可移时的歧义。
-      if (mvLeft !== mvRight) {
-        for (const t of targets) {
-          const dist = Math.abs(centerCoord - t);
-          consider(t, s, dist, (b) => {
-            if (viaLeft) {
-              const right = b.x + b.width;
-              const newLeft = 2 * t - right;
-              b.x = newLeft;
-              b.width = Math.max(0, right - newLeft);
-            } else {
-              b.width = Math.max(0, 2 * (t - b.x));
-            }
-          });
-        }
       }
     }
     return best;
@@ -210,10 +194,10 @@ export class ResizeGuide {
     };
 
     const movableCoord = viaTop ? bounds.y : bounds.y + bounds.height;
-    const centerCoord = bounds.getCenterY();
 
     for (const s of this.states) {
       if (!s) continue;
+      // 只做"可移动边 ↔ 对方边/中心"对齐（理由同 snapX）。
       const targets = [s.y, s.y + s.height, s.getCenterY()];
       for (const t of targets) {
         const dist = Math.abs(movableCoord - t);
@@ -226,21 +210,6 @@ export class ResizeGuide {
             b.height = Math.max(0, t - b.y);
           }
         });
-      }
-      if (mvTop !== mvBottom) {
-        for (const t of targets) {
-          const dist = Math.abs(centerCoord - t);
-          consider(t, s, dist, (b) => {
-            if (viaTop) {
-              const bottom = b.y + b.height;
-              const newTop = 2 * t - bottom;
-              b.y = newTop;
-              b.height = Math.max(0, bottom - newTop);
-            } else {
-              b.height = Math.max(0, 2 * (t - b.y));
-            }
-          });
-        }
       }
     }
     return best;
