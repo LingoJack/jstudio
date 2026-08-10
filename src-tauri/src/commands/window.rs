@@ -3,6 +3,8 @@
 //! Provides commands for the frontend to control window lifecycle,
 //! bypassing the intercept layer we added in `lib.rs`.
 
+use tauri::Manager;
+
 #[cfg(target_os = "macos")]
 pub struct NativeMenuState {
     pub find_item: tauri::menu::MenuItem<tauri::Wry>,
@@ -24,6 +26,35 @@ pub struct NativeMenuState {
 #[tauri::command]
 pub fn close_window(webview_window: tauri::WebviewWindow) -> Result<(), String> {
     webview_window.destroy().map_err(|e| e.to_string())
+}
+
+/// Quit the entire application.
+///
+/// Called by the frontend `app.quit` shortcut action (Cmd+Q), after the
+/// exit-confirmation dialog (if enabled) has been accepted. We use
+/// `app.exit(0)` for a clean shutdown — Tauri handles window teardown
+/// and process termination.
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
+
+/// Report that a window gained focus, updating the `FocusedWindow` state.
+///
+/// The frontend calls this from each window's JS `focus` event listener
+/// (see `useWindowFocusTracking` hook). This bypasses Tauri's
+/// `WindowEvent::Focused`, which is unreliable for child webview windows
+/// and causes native menu commands (Cmd+W, etc.) to be misrouted to the
+/// main window even when a child window has focus.
+#[tauri::command]
+pub fn report_window_focus(label: String, app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(state) = app.try_state::<crate::FocusedWindow>() {
+        if let Ok(mut guard) = state.0.lock() {
+            *guard = label;
+        }
+    }
+    Ok(())
 }
 
 /// Update the accelerator of a native menu item at runtime.

@@ -1,4 +1,5 @@
 import { StrictMode } from "react";
+import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import PreviewWindowApp from "./components/windows/PreviewWindowApp";
@@ -9,6 +10,7 @@ import CommandPaletteWindowApp from "./components/windows/CommandPaletteWindowAp
 import LinkPreviewTabsWindowApp from "./components/windows/LinkPreviewTabsWindowApp";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { logger } from "./lib/core/logger";
+import { useWindowFocusTracking } from "./lib/windows/useWindowFocusTracking";
 import "./index.css";
 import "./styles/vscode-theme.css";
 
@@ -87,23 +89,37 @@ if (isCommandPaletteWindow) {
 
 const rootElement = (
   <ErrorBoundary>
-    {isTerminalWindow ? (
-      <TerminalWindowApp />
-    ) : isDocumentWindow ? (
-      <DocumentWindowApp />
-    ) : isCommandPaletteWindow ? (
-      <CommandPaletteWindowApp />
-    ) : isPreviewWindow ? (
-      <PreviewWindowApp />
-    ) : isDiagramWindow ? (
-      <DiagramWindowApp />
-    ) : isLinkPreviewTabsWindow ? (
-      <LinkPreviewTabsWindowApp />
-    ) : (
-      <App />
-    )}
+    <WindowFocusReporter>
+      {isTerminalWindow ? (
+        <TerminalWindowApp />
+      ) : isDocumentWindow ? (
+        <DocumentWindowApp />
+      ) : isCommandPaletteWindow ? (
+        <CommandPaletteWindowApp />
+      ) : isPreviewWindow ? (
+        <PreviewWindowApp />
+      ) : isDiagramWindow ? (
+        <DiagramWindowApp />
+      ) : isLinkPreviewTabsWindow ? (
+        <LinkPreviewTabsWindowApp />
+      ) : (
+        <App />
+      )}
+    </WindowFocusReporter>
   </ErrorBoundary>
 );
+
+/**
+ * Mount-once wrapper that reports this window's label to Rust whenever
+ * the OS window gains focus. Keeps the Rust-side `FocusedWindow` state
+ * accurate so native menu commands (Cmd+W, etc.) route to the correct
+ * window. See `useWindowFocusTracking` for why Tauri's built-in focus
+ * tracking can't be relied on for child webview windows.
+ */
+function WindowFocusReporter({ children }: { children: ReactNode }) {
+  useWindowFocusTracking();
+  return <>{children}</>;
+}
 
 createRoot(document.getElementById("root")!).render(
   USE_STRICT_MODE ? <StrictMode>{rootElement}</StrictMode> : rootElement,

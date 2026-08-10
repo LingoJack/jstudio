@@ -382,4 +382,18 @@ export const ipc = {
    */
   getBrowserPanelTabsState: () =>
     invoke<LinkPreviewTabsState>("get_browser_panel_tabs_state"),
+
+  // ---- window control ----
+
+  /** Quit the entire application (called after exit-confirmation gate). */
+  quitApp: () => invoke<void>("quit_app"),
+
+  /**
+   * Report that the calling window gained focus. Updates Rust-side
+   * `FocusedWindow` state so native menu commands (Cmd+W, etc.) route
+   * to the correct window. Bypasses Tauri's unreliable
+   * `WindowEvent::Focused` for child webview windows.
+   */
+  reportWindowFocus: (label: string) =>
+    invoke<void>("report_window_focus", { label }),
 };

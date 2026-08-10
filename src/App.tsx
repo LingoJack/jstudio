@@ -6,6 +6,7 @@ import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
 import { ipc } from './lib/core/ipc';
 import { toast } from './lib/core/toast';
+import { confirmExitIfEnabled } from './lib/core/exitConfirm';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 import { shortcutManager } from './lib/shortcuts/ShortcutManager';
 import { resolveBinding, toTauriAccelerator } from './lib/shortcuts/keyboardShortcuts';
@@ -170,7 +171,7 @@ export default function App() {
       // fires when the user clicks the window's close button.
       // Frontend decides: close tab if multiple tabs exist, or close window
       // if it's the last tab.
-      unlistenClose = await listen('window-close-requested', () => {
+      unlistenClose = await listen('window-close-requested', async () => {
         const store = useStore.getState();
         const tabs = store.tabs;
         const activeTabId = store.activeTabId;
@@ -179,7 +180,14 @@ export default function App() {
           // Multiple tabs: close the current tab.
           store.closeTab(activeTabId);
         } else {
-          // Last tab (or no tabs): close the window.
+          // Last tab: confirm before closing the window.
+          const ok = await confirmExitIfEnabled(
+            t('dialog.exitConfirmTitle'),
+            t('dialog.exitConfirmMessage'),
+            t('dialog.confirm'),
+            t('dialog.cancel'),
+          );
+          if (!ok) return;
           invoke('close_window').catch((err) => {
             console.error('[App] Failed to close window:', err);
           });

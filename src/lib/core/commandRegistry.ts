@@ -25,6 +25,8 @@ import { getFocusedEditor } from "../editor/focusedEditorRegistry";
 import { getSelectAllHandler } from "../editor/selectAllRegistry";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { tSync } from "./i18n";
+import { confirmExitIfEnabled } from "./exitConfirm";
 
 // ──────────────────────────────────────────────────────────────────
 // Shortcut Action Registry
@@ -117,15 +119,42 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       }
       // Main window: close the current tab, or the whole window when only
       // one tab remains (matching the window-close-requested handler in
-      // App.tsx).
+      // App.tsx). On the last tab, gate behind an exit confirmation.
       if (!store.activeTabId) return;
       if (store.tabs.length > 1) {
         store.closeTab(store.activeTabId);
       } else {
-        invoke("close_window").catch((err) =>
-          console.error("Failed to close window:", err),
-        );
+        confirmExitIfEnabled(
+          tSync("dialog.exitConfirmTitle"),
+          tSync("dialog.exitConfirmMessage"),
+          tSync("dialog.confirm"),
+          tSync("dialog.cancel"),
+        ).then((ok) => {
+          if (!ok) return;
+          invoke("close_window").catch((err) =>
+            console.error("Failed to close window:", err),
+          );
+        });
       }
+    },
+  },
+  {
+    id: "app.quit",
+    perform: () => {
+      // Triggered by the macOS native App > Quit JStudio menu item (Cmd+Q).
+      // Custom MenuItem (NOT PredefinedMenuItem::quit) so the keypress
+      // routes through on_menu_event -> "native-command" -> here, giving
+      // us a chance to gate on the exit-confirmation dialog before the
+      // process terminates.
+      confirmExitIfEnabled(
+        tSync("dialog.exitConfirmTitle"),
+        tSync("dialog.exitConfirmMessage"),
+        tSync("dialog.confirm"),
+        tSync("dialog.cancel"),
+      ).then((ok) => {
+        if (!ok) return;
+        ipc.quitApp().catch((err) => console.error("Failed to quit:", err));
+      });
     },
   },
   { id: "app.toggleDarkMode", perform: (store) => store.toggleDarkMode() },

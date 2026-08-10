@@ -44,3 +44,16 @@ export function useI18n() {
 
   return { t, language };
 }
+
+/**
+ * Non-hook translation function for use in logic modules (e.g.
+ * commandRegistry) that cannot call React hooks. Reads the current
+ * language from the store at call time — does not subscribe, so a
+ * language change won't re-render callers (they'd need to re-invoke
+ * on next interaction anyway).
+ */
+export function tSync(key: TranslationKey, vars?: Record<string, string | number>): string {
+  const language = useStore.getState().language;
+  const value = translations[language][key] ?? translations.zh[key] ?? key;
+  return interpolate(value, vars);
+}

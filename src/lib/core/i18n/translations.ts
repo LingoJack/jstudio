@@ -383,6 +383,15 @@ export const translations = {
       "控制标签栏显示在内容区域的上方还是下方（文档、终端、浏览器面板均生效）",
     "general.tabBarPosition_top": "上方",
     "general.tabBarPosition_bottom": "下方",
+    "general.confirmOnExit": "退出确认",
+    "general.confirmOnExitDesc":
+      "关闭主窗口最后一个标签页或退出应用时弹确认框",
+
+    // ── Dialog ──
+    "dialog.exitConfirmTitle": "退出 JStudio",
+    "dialog.exitConfirmMessage": "确定要退出 JStudio 吗？未保存的更改会丢失。",
+    "dialog.confirm": "确认",
+    "dialog.cancel": "取消",
 
     // ── Appearance section ──
     "appearance.theme": "主题",
@@ -1276,6 +1285,16 @@ export const translations = {
       "Controls whether the tab bar appears above or below the content area (applies to documents, terminal, and the browser panel)",
     "general.tabBarPosition_top": "Top",
     "general.tabBarPosition_bottom": "Bottom",
+    "general.confirmOnExit": "Exit Confirmation",
+    "general.confirmOnExitDesc":
+      "Show a confirmation dialog when closing the last main-window tab or quitting the app",
+
+    // ── Dialog ──
+    "dialog.exitConfirmTitle": "Quit JStudio",
+    "dialog.exitConfirmMessage":
+      "Are you sure you want to quit JStudio? Unsaved changes will be lost.",
+    "dialog.confirm": "Confirm",
+    "dialog.cancel": "Cancel",
 
     // ── Appearance section ──
     "appearance.theme": "Theme",

@@ -152,6 +152,11 @@ export interface AppSettings {
    */
   runtimeLoggingEnabled?: boolean;
   /**
+   * Whether to show a confirmation dialog before exiting the app
+   * (closing the last main-window tab or pressing Cmd+Q). Default true.
+   */
+  confirmOnExit?: boolean;
+  /**
    * Tab bar glassmorphism background opacity (0.02–0.15).
    * Controls the transparency of the floating pill-shaped tab bar container.
    * Higher = more visible/solid; lower = more transparent/glass-like.

@@ -121,7 +121,12 @@ fn build_app_menu<R: Runtime>(
                 Some("CmdOrCtrl+,"),
             )?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, None)?,
+            // Custom Quit item (NOT PredefinedMenuItem::quit) so Cmd+Q
+            // routes through on_menu_event -> "native-command" -> frontend
+            // `app.quit` command, which can gate on the exit-confirmation
+            // dialog. PredefinedMenuItem::quit would fire NSApp terminate:
+            // directly with no JS intercept opportunity.
+            &MenuItem::with_id(app, "app.quit", "Quit JStudio", true, Some("CmdOrCtrl+Q"))?,
         ],
     )?;
 
@@ -321,7 +326,8 @@ pub fn on_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
         || id == "app.selectAll"
         || id == "app.cut"
         || id == "app.copy"
-        || id == "app.paste";
+        || id == "app.paste"
+        || id == "app.quit";
     if !routed {
         return;
     }

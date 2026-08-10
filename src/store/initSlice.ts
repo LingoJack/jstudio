@@ -92,6 +92,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       let docSortKey = DEFAULT_DOC_SORT_KEY;
       let docSortDirection = DEFAULT_DOC_SORT_DIRECTION;
       let runtimeLoggingEnabled: boolean | undefined;
+      let confirmOnExit: boolean | undefined;
       try {
         const settings = await ipc.loadSettings();
         if (settings.theme === "light" || settings.theme === "system") {
@@ -206,6 +207,11 @@ export const createInitSlice: SliceCreator = (set, get) => ({
         // flip on when the user explicitly opts in.
         if (typeof settings.runtimeLoggingEnabled === "boolean") {
           runtimeLoggingEnabled = settings.runtimeLoggingEnabled;
+        }
+        // Load exit-confirmation toggle (General settings). Default on -
+        // only flip off when the user explicitly opts out.
+        if (typeof settings.confirmOnExit === "boolean") {
+          confirmOnExit = settings.confirmOnExit;
         }
         // Load browser search engine preference
         if (
@@ -341,6 +347,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
         ...(runtimeLoggingEnabled !== undefined
           ? { runtimeLoggingEnabled }
           : {}),
+        ...(confirmOnExit !== undefined ? { confirmOnExit } : {}),
         docSortKey,
         docSortDirection,
         isLoading: false,

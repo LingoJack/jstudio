@@ -165,6 +165,7 @@ export interface UISlice {
   docSortKey: DocSortKey;
   docSortDirection: DocSortDirection;
   runtimeLoggingEnabled: boolean;
+  confirmOnExit: boolean;
   setThemeMode: (mode: ThemeMode) => void;
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
@@ -208,6 +209,7 @@ export interface UISlice {
   setDocSortKey: (k: DocSortKey) => void;
   setDocSortDirection: (d: DocSortDirection) => void;
   setRuntimeLoggingEnabled: (v: boolean) => void;
+  setConfirmOnExit: (v: boolean) => void;
 }
 
 export const createUiSlice: SliceCreator = (set, get) => ({
@@ -251,6 +253,8 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   docSortDirection: DEFAULT_DOC_SORT_DIRECTION,
   /** Runtime logger off by default — opt-in via Debug settings. */
   runtimeLoggingEnabled: false,
+  /** Exit confirmation on by default — opt-out via General settings. */
+  confirmOnExit: true,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -475,5 +479,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     ipc
       .saveSettings({ runtimeLoggingEnabled: enabled })
       .catch(onSaveError("设置"));
+  },
+
+  setConfirmOnExit: (enabled: boolean) => {
+    set({ confirmOnExit: enabled });
+    ipc.saveSettings({ confirmOnExit: enabled }).catch(onSaveError("设置"));
   },
 });
