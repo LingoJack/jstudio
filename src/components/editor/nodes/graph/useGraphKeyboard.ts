@@ -155,7 +155,34 @@ export function useGraphKeyboard({
     // window 级捕获阶段 keydown：在所有其他监听器（maxGraph、TipTap 等）之前
     // 拦截 Tab/Enter，确保 topic 节点的 Tab/Shift+Tab（生发子节点 右/左）/ Enter（生发兄弟节点）一定生效。
     // 不依赖 root div 或 container 的焦点状态--只要事件目标在画布内就处理。
+    //
+    // Cmd/Ctrl+Enter 特殊处理：当正在内联编辑某个 shape 的文本时，Cmd+Enter
+    // 确认该 shape 的文本编辑（graph.stopEditing(false)），而非退出整个块的编辑模式。
+    // 本 handler 属于子组件 GraphCanvas 的 effect，注册早于父组件（DiagramBlockView /
+    // DiagramWindowApp）的 useCmdEnterConfirm，因此先于后者执行；用
+    // stopImmediatePropagation 阻止 useCmdEnterConfirm 触发 exitEditing / closeWindow。
     const onWindowKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl+Enter：确认当前 shape 的内联文本编辑。
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key === 'Enter'
+      ) {
+        // IME 组合中忽略，避免中断中文/日文输入。
+        if (e.isComposing || e.keyCode === 229) return;
+        const g = graphRef.current;
+        if (g?.isEditing()) {
+          // 仅处理源自画布内部的 keydown（cell editor 的 textarea 在 root 内）。
+          const r = rootRef.current;
+          if (!r || !r.contains(e.target as Node)) return;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          g.stopEditing(false);
+          return;
+        }
+      }
+
       if (e.key !== 'Tab' && e.key !== 'Enter') return;
       // 只处理源自画布内部的 keydown。
       const r = rootRef.current;

@@ -8,6 +8,10 @@
  * 使用 capture 阶段监听，先于 maxGraph 内置 keymap 处理，
  * 避免 Cmd+Enter 被画板引擎拦截成"绑定文本到形状"等内部行为。
  *
+ * 例外：当正在内联编辑某个 shape 的文本时，useGraphKeyboard（子组件 effect，
+ * 注册更早）会先拦截 Cmd+Enter，调用 graph.stopEditing(false) 确认 shape 文本编辑，
+ * 并用 stopImmediatePropagation 阻止本 hook 触发，避免误退出整个块的编辑模式。
+ *
  * @param callback 触发确认时的回调（exitEditing / close window）
  * @param enabled  是否启用监听，默认 true。false 时不挂任何监听器。
  */

@@ -117,7 +117,8 @@ export default function DiagramBlockView({
   const { handleRootRef } = useDiagramEditMode(editing);
 
   // Cmd/Ctrl+Enter：确认提交，退出编辑模式（与 toolbar 的 ✓ 按钮等价）。
-  // capture 阶段拦截，避免 maxGraph 内置 keymap 抢先消费。
+  // 注意：正在内联编辑某个 shape 文本时，Cmd+Enter 会先被 useGraphKeyboard
+  // （子组件 effect，注册更早）拦截为"确认 shape 文本编辑"，不会到达此处。
   useCmdEnterConfirm(exitEditing, editing);
 
   /**

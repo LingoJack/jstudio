@@ -37,6 +37,8 @@ export default function DiagramWindowApp() {
   useCloseOnCmdW();
   // Cmd/Ctrl+Enter：确认提交并关闭窗口（数据已通过 handleChange 实时回传）。
   // close() 会触发 CloseRequested → beforeunload 安全网，逻辑与 Cmd+W 一致。
+  // 注意：正在内联编辑某个 shape 文本时，Cmd+Enter 会先被 useGraphKeyboard
+  // （子组件 effect，注册更早）拦截为"确认 shape 文本编辑"，不会到达此处。
   useCmdEnterConfirm(() => {
     getCurrentWindow().close().catch((err) => {
       console.error('[DiagramWindowApp] Cmd+Enter close failed:', err);
