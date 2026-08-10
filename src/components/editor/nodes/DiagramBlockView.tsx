@@ -104,7 +104,7 @@ export default function DiagramBlockView({
   }
 
   const canvasStyle: React.CSSProperties = {
-    height: displayHeight ? `${displayHeight}px` : '400px',
+    height: displayHeight ? `${displayHeight}px` : '600px',
   };
 
   /* -------------------------------------------------------------- */

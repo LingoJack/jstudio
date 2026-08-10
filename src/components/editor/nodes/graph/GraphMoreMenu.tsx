@@ -19,6 +19,7 @@ import {
   Copy,
   Maximize2,
 } from "lucide-react";
+import { useDropdownMenuFit } from "./useDropdownMenuFit";
 
 export interface GraphMoreMenuProps {
   moreMenuOpen: boolean;
@@ -59,6 +60,8 @@ export function GraphMoreMenu({
   onCopyImage,
   onCopySvg,
 }: GraphMoreMenuProps) {
+  const menuListRef = useDropdownMenuFit(moreMenuOpen);
+
   return (
     <div
       className="jgraph-dropdown"
@@ -75,7 +78,7 @@ export function GraphMoreMenu({
         <MoreHorizontal size={16} />
       </button>
       {moreMenuOpen && (
-        <div className="jgraph-dropdown-menu" role="presentation">
+        <div className="jgraph-dropdown-menu" ref={menuListRef} role="presentation">
           <button
             type="button"
             className={`jgraph-dropdown-item ${showGrid ? 'is-active' : ''}`}

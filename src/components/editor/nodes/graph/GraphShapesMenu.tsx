@@ -9,6 +9,7 @@ import type { RefObject } from "react";
 import { Shapes } from "lucide-react";
 import { ShapeGlyph } from "./ShapeGlyph";
 import { shapeGroups } from "./shapeMenuData";
+import { useDropdownMenuFit } from "./useDropdownMenuFit";
 import type { GraphNodeShape } from "./graphSnapshot";
 
 export interface GraphShapesMenuProps {
@@ -30,6 +31,8 @@ export function GraphShapesMenu({
   onShapesLeave,
   onSelectShape,
 }: GraphShapesMenuProps) {
+  const menuListRef = useDropdownMenuFit(shapesMenuOpen);
+
   return (
     <div
       className="jgraph-dropdown"
@@ -46,7 +49,7 @@ export function GraphShapesMenu({
         <Shapes size={16} />
       </button>
       {shapesMenuOpen && (
-        <div className="jgraph-dropdown-menu" role="presentation">
+        <div className="jgraph-dropdown-menu" ref={menuListRef} role="presentation">
           {shapeGroups.map((group, gi) => (
             <div key={group.label}>
               {gi > 0 && <div className="jgraph-dropdown-sep" />}

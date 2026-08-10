@@ -35,7 +35,7 @@ export function useDiagramSize({
   minWidth = 300,
   minHeight = 200,
   fallbackWidth = 520,
-  fallbackHeight = 400,
+  fallbackHeight = 600,
 }: UseDiagramSizeOptions): UseDiagramSizeResult {
   const { width, widthPct, height, heightPct } = attrs;
   const editorWidth = useEditorWidth();
