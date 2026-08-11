@@ -426,10 +426,11 @@ function ProviderEditForm({
     }
     // Normalise max_tokens: empty / invalid -> null (API default)
     const rawTokens = form.max_tokens;
+    const num = Math.floor(Number(rawTokens));
     const maxTokens =
-      rawTokens === null || rawTokens === undefined || rawTokens === 0
+      rawTokens === null || rawTokens === undefined || rawTokens === 0 || Number.isNaN(num)
         ? null
-        : Math.max(1, Math.floor(Number(rawTokens)) || null);
+        : Math.max(1, num);
     onSave({
       ...form,
       name: form.name.trim(),

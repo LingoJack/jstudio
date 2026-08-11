@@ -1422,6 +1422,14 @@ export const translations = {
       "Native uses the OpenAI function calling protocol; Disabled turns off tool calls",
     "agent.field.toolCallModeNative": "Native",
     "agent.field.toolCallModeDisabled": "Disabled",
+    "agent.field.maxTokens": "Max Output Tokens",
+    "agent.field.maxTokensPlaceholder": "8192",
+    "agent.field.maxTokensDesc":
+      "Maximum output tokens per request; leave empty to use API default. Increase for reasoning models.",
+    "agent.field.thinkingEffort": "Thinking Effort",
+    "agent.field.thinkingEffortPlaceholder": "low / high / max",
+    "agent.field.thinkingEffortDesc":
+      "reasoning_effort parameter; leave empty to omit. Common values: low / high / max / xhigh",
 
     // Agent actions
     "agent.save": "Save",
