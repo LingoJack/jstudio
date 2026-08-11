@@ -190,10 +190,6 @@ export const ipc = {
   agentDeleteSession: (sessionId: string) =>
     invoke<void>("agent_delete_session", { sessionId }),
 
-  /** Start or resume an agent session (creates backend handle). */
-  agentStartSession: (sessionId: string) =>
-    invoke<void>("agent_start_session", { sessionId }),
-
   /** Send a user message to the agent session. */
   agentSendMessage: (params: {
     sessionId: string;
@@ -209,6 +205,8 @@ export const ipc = {
     isError: boolean;
     images?: ImageData[];
     planDecision?: string;
+    /** Set to `true` when the user approved a pending dangerous tool call. */
+    approved?: boolean;
   }) => invoke<void>("agent_tool_result", { params }),
 
   /** Cancel the current agent response. */

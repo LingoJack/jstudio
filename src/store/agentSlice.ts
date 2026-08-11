@@ -34,14 +34,18 @@ export interface AgentSlice {
   agentSessions: AgentSession[];
   activeAgentSessionId: string | null;
   activeAgentWorkspace: string | null;
+  /** UI state: whether the WorkspaceSelectModal is open. Shared between
+   * AgentSidebar (renders the modal) and AgentChatPanel (empty-state CTA). */
+  showAgentWorkspaceModal: boolean;
   agentUnsubscribes: UnlistenFn[];
   initAgentSessions: () => Promise<void>;
   setActiveAgentWorkspace: (workspace: string) => void;
+  setShowAgentWorkspaceModal: (v: boolean) => void;
   createAgentSession: (workspace: string) => Promise<string>;
   openAgentSession: (sessionId: string) => Promise<void>;
   deleteAgentSession: (sessionId: string) => Promise<void>;
   sendAgentMessage: (sessionId: string, text: string, images?: { base64: string; mediaType: string }[]) => Promise<void>;
-  submitAgentToolResult: (sessionId: string, toolCallId: string, result: string, isError: boolean, images?: { base64: string; mediaType: string }[], planDecision?: 'approve' | 'reject' | 'approveAndClearContext') => Promise<void>;
+  submitAgentToolResult: (sessionId: string, toolCallId: string, result: string, isError: boolean, images?: { base64: string; mediaType: string }[], planDecision?: 'approve' | 'reject' | 'approveAndClearContext', approved?: boolean) => Promise<void>;
   submitAgentPlanDecision: (sessionId: string, decision: 'approve' | 'reject' | 'approveAndClearContext') => Promise<void>;
   submitAgentAskAnswer: (sessionId: string, answer: Record<string, string>) => Promise<void>;
   setAgentAutoApprove: (sessionId: string, enabled: boolean) => Promise<void>;
@@ -58,6 +62,7 @@ export function createAgentSlice(
     agentSessions: [],
     activeAgentSessionId: null,
     activeAgentWorkspace: null,
+    showAgentWorkspaceModal: false,
 
     // — agent ops —
     initAgentSessions: async () => {
@@ -98,6 +103,10 @@ export function createAgentSlice(
       ipc.saveSettings({ agentActiveWorkspace: workspace }).catch((e) => {
         console.error('Failed to save active workspace:', e);
       });
+    },
+
+    setShowAgentWorkspaceModal: (v: boolean) => {
+      set({ showAgentWorkspaceModal: v });
     },
 
     createAgentSession: async (workspace: string) => {
@@ -227,6 +236,7 @@ export function createAgentSlice(
       isError: boolean,
       images?: { base64: string; mediaType: string }[],
       planDecision?: 'approve' | 'reject' | 'approveAndClearContext',
+      approved?: boolean,
     ) => {
       try {
         // Clear pending tool calls locally
@@ -251,6 +261,7 @@ export function createAgentSlice(
           isError,
           images,
           planDecision,
+          approved,
         });
       } catch (e) {
         console.error('Failed to submit tool result:', e);

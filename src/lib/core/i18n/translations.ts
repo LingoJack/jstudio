@@ -246,18 +246,10 @@ export const translations = {
     "agent.scrollToBottom": "回到底部",
     "agent.hintKeys": "Enter 发送 · Shift+Enter 换行",
 
-    // Agent empty state & suggestions
+    // Agent empty state
     "agent.welcomeTitle": "有什么可以帮你的？",
     "agent.welcomeSubtitle":
       "我是你的智能体，可以帮你写代码、分析问题、解释概念",
-    "agent.suggestionAnalyzeCode": "分析代码",
-    "agent.suggestionAnalyzeCodeDesc": "帮我理解这段代码的逻辑",
-    "agent.suggestionWriteFunction": "写函数",
-    "agent.suggestionWriteFunctionDesc": "帮我实现一个功能",
-    "agent.suggestionExplainConcept": "解释概念",
-    "agent.suggestionExplainConceptDesc": "用简单的话解释技术概念",
-    "agent.suggestionDebugIssue": "调试问题",
-    "agent.suggestionDebugIssueDesc": "帮我排查报错原因",
     "agent.modelPoweredBy": "Powered by {model}",
 
     // Agent relative time
@@ -1155,14 +1147,6 @@ export const translations = {
     "agent.welcomeTitle": "How can I help you?",
     "agent.welcomeSubtitle":
       "I'm your agent. I can write code, analyze problems, and explain concepts",
-    "agent.suggestionAnalyzeCode": "Analyze Code",
-    "agent.suggestionAnalyzeCodeDesc": "Help me understand this code",
-    "agent.suggestionWriteFunction": "Write Function",
-    "agent.suggestionWriteFunctionDesc": "Help me implement a feature",
-    "agent.suggestionExplainConcept": "Explain Concept",
-    "agent.suggestionExplainConceptDesc": "Explain a technical concept simply",
-    "agent.suggestionDebugIssue": "Debug Issue",
-    "agent.suggestionDebugIssueDesc": "Help me troubleshoot an error",
     "agent.modelPoweredBy": "Powered by {model}",
 
     // Agent relative time

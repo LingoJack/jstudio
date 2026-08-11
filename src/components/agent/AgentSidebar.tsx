@@ -69,6 +69,8 @@ export default function AgentSidebar() {
   const openAgentSession = useStore((s) => s.openAgentSession);
   const deleteAgentSession = useStore((s) => s.deleteAgentSession);
   const initAgentSessions = useStore((s) => s.initAgentSessions);
+  const showWorkspaceModal = useStore((s) => s.showAgentWorkspaceModal);
+  const setShowWorkspaceModal = useStore((s) => s.setShowAgentWorkspaceModal);
 
   // ── Sidebar UI store state (shared with DocumentSidebar) ──
   const sidebarWidth = useStore((s) => s.sidebarWidth);
@@ -80,7 +82,6 @@ export default function AgentSidebar() {
 
   // ── UI state ──
   const [expandGroup, setExpandGroup] = useState<WorkspaceGroup | null>(null);
-  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [createWorkspace, setCreateWorkspace] = useState<string | undefined>(undefined);
   const [workspaceMenuPos, setWorkspaceMenuPos] = useState<{ x: number; y: number } | null>(null);
   const workspaceBtnRef = useRef<HTMLButtonElement>(null);

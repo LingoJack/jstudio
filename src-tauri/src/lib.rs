@@ -143,7 +143,6 @@ pub fn run() {
             commands::agent::agent_create_session,
             commands::agent::agent_load_session,
             commands::agent::agent_delete_session,
-            commands::agent::agent_start_session,
             commands::agent::agent_send_message,
             commands::agent::agent_tool_result,
             commands::agent::agent_cancel,

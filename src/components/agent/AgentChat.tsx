@@ -203,8 +203,12 @@ export function AgentChat({ session, onBack }: AgentChatProps) {
           <ToolCallBubble
             toolCalls={session.pendingToolCalls}
             sessionId={session.id}
-            onApprove={submitAgentToolResult}
-            onReject={submitAgentToolResult}
+            onApprove={(sid, tcId, result, isErr, approved) =>
+              submitAgentToolResult(sid, tcId, result, isErr, undefined, undefined, approved)
+            }
+            onReject={(sid, tcId, result, isErr) =>
+              submitAgentToolResult(sid, tcId, result, isErr)
+            }
             pendingPlan={session.pendingPlan}
             onPlanDecision={submitAgentPlanDecision}
           />

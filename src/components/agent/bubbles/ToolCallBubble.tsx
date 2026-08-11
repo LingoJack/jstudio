@@ -15,7 +15,7 @@ export function ToolCallBubble({
 }: {
   toolCalls: ToolCallItem[];
   sessionId: string;
-  onApprove: (sessionId: string, toolCallId: string, result: string, isError: boolean) => void;
+  onApprove: (sessionId: string, toolCallId: string, result: string, isError: boolean, approved: boolean) => void;
   onReject: (sessionId: string, toolCallId: string, result: string, isError: boolean) => void;
   pendingPlan?: { plan: string };
   onPlanDecision?: (
@@ -265,7 +265,7 @@ export function ToolCallBubble({
               >
                 <button
                   onClick={() =>
-                    onApprove(sessionId, tc.id, JSON.stringify({ approved: true }), false)
+                    onApprove(sessionId, tc.id, JSON.stringify({ approved: true }), false, true)
                   }
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-110"
                   style={{

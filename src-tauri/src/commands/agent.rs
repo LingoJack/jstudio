@@ -49,8 +49,6 @@ use tokio_util::sync::CancellationToken;
 /// A live agent session handle.
 /// Contains the shared state + channels for communication with the agent thread.
 pub struct AgentSessionHandle {
-    #[allow(dead_code)]
-    pub session_id: String,
     /// Streaming content buffer (agent writes, UI reads)
     pub streaming_content: Arc<Mutex<String>>,
     /// Streaming reasoning content buffer
@@ -65,9 +63,9 @@ pub struct AgentSessionHandle {
     pub cancel_token: CancellationToken,
     /// Sender for tool results (UI -> agent)
     pub tool_result_tx: Mutex<Option<mpsc::Sender<ToolResultMsg>>>,
-    /// Receiver for stream messages (agent -> UI)
-    pub stream_rx: Mutex<Option<mpsc::Receiver<StreamMsg>>>,
-    /// Ask request receiver (from j-agent Ask tool)
+    /// Ask request receiver (from j-agent Ask tool).
+    /// Set once when the handle is created, taken out by `spawn_agent_loop`
+    /// and moved into the event listener thread.
     pub ask_rx: Mutex<Option<mpsc::Receiver<j_agent::message_types::AskRequest>>>,
     /// Ask response sender (back to j-agent)
     pub ask_response_tx: Mutex<Option<mpsc::Sender<String>>>,
@@ -79,7 +77,9 @@ pub struct AgentSessionHandle {
     pub tool_registry: Arc<ToolRegistry>,
     /// Background manager
     pub background_manager: Arc<BackgroundManager>,
-    /// Task manager
+    /// Task manager. Held by the handle to keep it alive for the session's
+    /// lifetime; `ToolRegistry` stores its own `Arc` clone at construction.
+    #[allow(dead_code)]
     pub task_manager: Arc<TaskManager>,
     /// Hook manager
     pub hook_manager: Arc<Mutex<HookManager>>,
@@ -348,6 +348,10 @@ pub struct ToolResultParams {
     pub images: Option<Vec<ImageDataPayload>>,
     #[serde(default)]
     pub plan_decision: Option<String>,
+    /// Whether the user approved a pending dangerous tool call.
+    /// Replaces the old `result.contains("\"approved\":true")` string match.
+    #[serde(default)]
+    pub approved: Option<bool>,
 }
 
 // Global session registry, keyed by session id.
@@ -440,23 +444,27 @@ pub fn agent_delete_session(session_id: String) -> Result<(), String> {
 // Phase 2: Agent Loop commands
 // ────────────────────────────────────────────────
 
-/// Start or resume an agent session in JStudio.
-/// Creates a session handle if not already present.
-#[tauri::command]
-pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), String> {
+/// Ensure a session handle exists in the registry. Called internally by
+/// `agent_send_message` before pushing a user message. Idempotent — returns
+/// Ok(()) if the handle is already present.
+///
+/// Note: this was previously a `#[tauri::command]` exposed as
+/// `agent_start_session`, but the frontend never invoked it; it is now a
+/// private helper.
+fn ensure_session_started(session_id: &str) -> Result<(), String> {
     // Check if session already exists in registry
     {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
-        if sessions.contains_key(&session_id) {
+        if sessions.contains_key(session_id) {
             return Ok(()); // Already started
         }
     }
 
     // Load existing messages
-    let messages = load_display_session(&session_id);
+    let messages = load_display_session(session_id);
 
     // Load session meta to get workspace
-    let paths = SessionPaths::new(&session_id);
+    let paths = SessionPaths::new(session_id);
     let meta_file = paths.meta_file();
     let workspace = if meta_file.exists() {
         let meta_content = std::fs::read_to_string(&meta_file).map_err(|e| e.to_string())?;
@@ -469,7 +477,7 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
 
     // Create managers
     let background_manager = Arc::new(BackgroundManager::new());
-    let task_manager = Arc::new(TaskManager::new_with_session(&session_id));
+    let task_manager = Arc::new(TaskManager::new_with_session(session_id));
     let hook_manager = Arc::new(Mutex::new(HookManager::load()));
     let invoked_skills = new_invoked_skills_map();
     let cancel_token = CancellationToken::new();
@@ -498,7 +506,6 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
 
     // Create handle
     let handle = AgentSessionHandle {
-        session_id: session_id.clone(),
         streaming_content,
         streaming_reasoning_content,
         display_messages,
@@ -506,7 +513,6 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
         pending_user_messages,
         cancel_token,
         tool_result_tx: Mutex::new(None),
-        stream_rx: Mutex::new(None),
         ask_rx: Mutex::new(Some(ask_rx)),
         ask_response_tx: Mutex::new(None),
         is_running: Mutex::new(false),
@@ -522,7 +528,7 @@ pub fn agent_start_session(session_id: String, _app: AppHandle) -> Result<(), St
     // Register session
     {
         let mut sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
-        sessions.insert(session_id, handle);
+        sessions.insert(session_id.to_string(), handle);
     }
 
     Ok(())
@@ -535,7 +541,7 @@ pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Re
     let session_id = params.session_id.clone();
 
     // Ensure session is started
-    agent_start_session(session_id.clone(), app.clone())?;
+    ensure_session_started(&session_id)?;
 
     // Create user message
     let user_msg = ChatMessage {
@@ -594,9 +600,11 @@ pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Re
 /// Submit a tool result back to the agent.
 /// If the user approved a dangerous tool, this function executes it and sends the real result.
 #[tauri::command]
-pub fn agent_tool_result(params: ToolResultParams, app: AppHandle) -> Result<(), String> {
-    // Check if this is an approval (result contains "approved":true)
-    let is_approval = params.result.contains("\"approved\":true");
+pub fn agent_tool_result(params: ToolResultParams, _app: AppHandle) -> Result<(), String> {
+    // Check if this is an approval. The frontend sets `approved: true` on the
+    // approve path; the old `result.contains("\"approved\":true")` string match
+    // was fragile (broke on any JSON formatting variance).
+    let is_approval = params.approved == Some(true);
 
     if is_approval {
         // Try to find a pending tool call and execute it
@@ -606,7 +614,10 @@ pub fn agent_tool_result(params: ToolResultParams, app: AppHandle) -> Result<(),
                 .get(&params.session_id)
                 .ok_or("Session not found")?;
 
-            let mut pending = handle.pending_tool_calls.lock().unwrap();
+            let mut pending = handle
+                .pending_tool_calls
+                .lock()
+                .map_err(|e| e.to_string())?;
             if let Some((name, arguments)) = pending.remove(&params.tool_call_id) {
                 let tx_guard = handle.tool_result_tx.lock().map_err(|e| e.to_string())?;
                 let tx = tx_guard.as_ref().ok_or("No tool result channel")?.clone();
@@ -616,16 +627,16 @@ pub fn agent_tool_result(params: ToolResultParams, app: AppHandle) -> Result<(),
                     name,
                     arguments,
                     handle.workspace.clone(),
+                    handle.cancel_token.clone(),
                 ))
             } else {
                 None
             }
         };
 
-        if let Some((tool_registry, tx, name, arguments, workspace)) = exec_info {
+        if let Some((tool_registry, tx, name, arguments, workspace, cancel_token)) = exec_info {
             // Spawn a thread to execute the tool (execution is synchronous and may block)
             let tool_call_id = params.tool_call_id.clone();
-            let session_id = params.session_id.clone();
             std::thread::spawn(move || {
                 // Set thread-local working directory so file tools resolve paths correctly
                 if let Some(ref ws) = workspace {
@@ -633,42 +644,16 @@ pub fn agent_tool_result(params: ToolResultParams, app: AppHandle) -> Result<(),
                 }
 
                 let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+                if cancel_token.is_cancelled() {
+                    cancelled.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
 
-                // Execute the tool
+                // Execute the tool. Note: we do NOT emit `agent:tool-result`
+                // here — j-agent's tool_processor emits `StreamMsg::ToolResult`
+                // for all tool results, and `listen_stream_only` forwards that
+                // to the frontend. Emitting here used to cause a double-emit
+                // (approval path only).
                 let result = tool_registry.execute(&name, &arguments, &cancelled);
-
-                // Emit tool result event to frontend for UI display
-                let images = if result.images.is_empty() {
-                    None
-                } else {
-                    Some(
-                        result
-                            .images
-                            .clone()
-                            .into_iter()
-                            .map(|img| ImageDataPayload {
-                                base64: img.base64,
-                                media_type: img.media_type,
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                };
-                let _ = app.emit(
-                    "agent:tool-result",
-                    ToolResultPayload {
-                        session_id: session_id.clone(),
-                        tool_call_id: tool_call_id.clone(),
-                        tool_name: name,
-                        content: result.output.clone(),
-                        is_error: result.is_error,
-                        images,
-                        status: if result.is_error {
-                            "failed".to_string()
-                        } else {
-                            "executed".to_string()
-                        },
-                    },
-                );
 
                 // Send the real result to the agent loop
                 let result_msg = ToolResultMsg {
@@ -785,6 +770,10 @@ pub fn agent_submit_ask_answer(
 // ────────────────────────────────────────────────
 
 /// Spawn a thread that listens for StreamMsg and Ask requests, emits Tauri events.
+///
+/// `stream_rx` and `ask_rx` are moved in directly — they were previously
+/// stored in the session handle and re-acquired via a global-table lock inside
+/// the listener thread, but those fields have no other consumers.
 fn spawn_event_listener(
     session_id: String,
     app: AppHandle,
@@ -793,62 +782,17 @@ fn spawn_event_listener(
     cancel_token: CancellationToken,
     tool_registry: Arc<ToolRegistry>,
     pending_tool_calls: Arc<Mutex<HashMap<String, (String, String)>>>,
+    stream_rx: mpsc::Receiver<StreamMsg>,
+    ask_rx: mpsc::Receiver<j_agent::message_types::AskRequest>,
 ) {
     std::thread::spawn(move || {
-        // Get stream receiver and ask receiver from session
-        let (stream_rx, ask_rx) = {
-            let sessions = AGENT_SESSIONS.lock().ok();
-            if let Some(s) = sessions {
-                if let Some(h) = s.get(&session_id) {
-                    let mut rx = h.stream_rx.lock().ok();
-                    let mut ask = h.ask_rx.lock().ok();
-                    let stream = if let Some(r) = rx.as_mut() {
-                        r.take()
-                    } else {
-                        None
-                    };
-                    let ask = if let Some(a) = ask.as_mut() {
-                        a.take()
-                    } else {
-                        None
-                    };
-                    (stream, ask)
-                } else {
-                    (None, None)
-                }
-            } else {
-                (None, None)
-            }
-        };
-
-        let stream_rx = match stream_rx {
-            Some(rx) => rx,
-            None => return,
-        };
-        let ask_rx = match ask_rx {
-            Some(rx) => rx,
-            None => {
-                // Ask not needed for this session, just listen to stream
-                listen_stream_only(
-                    session_id,
-                    app,
-                    streaming_content,
-                    streaming_reasoning_content,
-                    cancel_token,
-                    tool_registry,
-                    pending_tool_calls,
-                    stream_rx,
-                );
-                return;
-            }
-        };
-
-        // Create ask_response_tx and store it in session
+        // Create ask_response_tx and store it in session (Ask response goes
+        // back to j-agent via this channel; the handle holds the tx so
+        // `agent_submit_ask_answer` can reach it).
         let (ask_response_tx, ask_response_rx) = mpsc::channel::<String>();
         {
-            let sessions = AGENT_SESSIONS.lock().ok();
-            if let Some(s) = sessions {
-                if let Some(h) = s.get(&session_id) {
+            if let Ok(sessions) = AGENT_SESSIONS.lock() {
+                if let Some(h) = sessions.get(&session_id) {
                     if let Ok(mut guard) = h.ask_response_tx.lock() {
                         *guard = Some(ask_response_tx);
                     }
@@ -993,7 +937,13 @@ fn listen_stream_only(
                     // Only dangerous tools reach here (safe tools auto-execute in j-agent)
                     // Store pending tool calls for later execution after user approval
                     {
-                        let mut pending = pending_tool_calls.lock().unwrap();
+                        let mut pending = match pending_tool_calls.lock() {
+                            Ok(g) => g,
+                            Err(e) => {
+                                eprintln!("[agent] pending_tool_calls poisoned: {e}");
+                                e.into_inner()
+                            }
+                        };
                         for c in &calls {
                             pending.insert(c.id.clone(), (c.name.clone(), c.arguments.clone()));
                         }
@@ -1143,21 +1093,28 @@ fn listen_stream_only(
     }
 }
 
-/// Mark a session as not running.
+/// Mark a session as not running. Best-effort: if the global table or the
+/// is_running mutex is poisoned we log and continue rather than propagating,
+/// because this is called from listener threads that have no way to surface
+/// an error to the user.
 fn mark_not_running(session_id: &str) {
-    if let Some(sessions) = AGENT_SESSIONS.lock().ok() {
-        if let Some(handle) = sessions.get(session_id) {
-            if let Ok(mut r) = handle.is_running.lock() {
-                *r = false;
+    match AGENT_SESSIONS.lock() {
+        Ok(sessions) => {
+            if let Some(handle) = sessions.get(session_id) {
+                match handle.is_running.lock() {
+                    Ok(mut r) => *r = false,
+                    Err(e) => eprintln!("[agent] is_running poisoned: {e}"),
+                }
             }
         }
+        Err(e) => eprintln!("[agent] AGENT_SESSIONS poisoned: {e}"),
     }
 }
 
-/// Spawn the agent loop in a tokio runtime.
+/// Spawn the agent loop on the Tauri global async runtime.
 fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
     // Collect everything needed within one lock scope
-    let (config, provider, messages, shared_state_components) = {
+    let (config, provider, messages, shared_state_components, ask_rx_opt) = {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
         let handle = sessions.get(&session_id).ok_or("Session not found")?;
 
@@ -1181,7 +1138,12 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
             .map_err(|e| e.to_string())?
             .clone();
 
-        // Collect shared state components (Arc refs)
+        // Take ask_rx out of the handle — it's moved into the event listener.
+        let ask_rx_opt = handle.ask_rx.lock().map_err(|e| e.to_string())?.take();
+
+        // Collect shared state components (Arc refs). Only the fields actually
+        // consumed below are cloned; `_task_manager` is intentionally unused
+        // (TodoManager comes from tool_registry.todo_manager).
         (
             config,
             provider,
@@ -1195,11 +1157,11 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
                 handle.cancel_token.clone(),
                 handle.tool_registry.clone(),
                 handle.background_manager.clone(),
-                handle.task_manager.clone(),
                 handle.hook_manager.clone(),
                 handle.invoked_skills.clone(),
                 handle.workspace.clone(),
             ),
+            ask_rx_opt,
         )
     };
 
@@ -1207,14 +1169,11 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
     let (stream_tx, stream_rx) = mpsc::channel();
     let (tool_result_tx, tool_result_rx) = mpsc::channel();
 
-    // Update channels in handle
+    // Update tool_result_tx in handle (stream_rx is moved directly into the
+    // listener, no longer stored on the handle).
     let pending_tool_calls = {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
         let handle = sessions.get(&session_id).ok_or("Session not found")?;
-        {
-            let mut rx_guard = handle.stream_rx.lock().map_err(|e| e.to_string())?;
-            *rx_guard = Some(stream_rx);
-        }
         {
             let mut tx_guard = handle.tool_result_tx.lock().map_err(|e| e.to_string())?;
             *tx_guard = Some(tool_result_tx);
@@ -1231,13 +1190,15 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         cancel_token,
         tool_registry,
         background_manager,
-        _task_manager,
-        _hook_manager,
+        hook_manager,
         invoked_skills,
         workspace,
     ) = shared_state_components;
 
-    // Spawn event listener
+    let ask_rx = ask_rx_opt.expect("ask_rx must be present on first spawn_agent_loop call");
+
+    // Spawn event listener — stream_rx and ask_rx are moved in directly,
+    // no reverse lock on the global session table needed.
     spawn_event_listener(
         session_id.clone(),
         app,
@@ -1246,14 +1207,21 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         cancel_token.clone(),
         tool_registry.clone(),
         pending_tool_calls.clone(),
+        stream_rx,
+        ask_rx,
     );
 
-    // Create agent loop config
+    // Create agent loop config. Reuse the hook_manager from the handle rather
+    // than calling HookManager::load() a second time.
+    let hook_manager_clone = {
+        let guard = hook_manager.lock().map_err(|e| e.to_string())?;
+        guard.clone()
+    };
     let loop_config = AgentLoopConfig {
         provider,
         max_llm_rounds: config.max_tool_rounds,
         compact_config: CompactConfig::default(),
-        hook_manager: HookManager::load(),
+        hook_manager: hook_manager_clone,
         disabled_hooks: config.disabled_hooks.clone(),
         cancel_token: cancel_token.clone(),
     };
@@ -1284,9 +1252,17 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
     let system_prompt_fn: Arc<dyn Fn() -> Option<String> + Send + Sync> =
         Arc::new(|| load_system_prompt());
 
-    // Spawn in tokio runtime
+    // Spawn the agent loop on a dedicated OS thread with a single-threaded
+    // tokio runtime. We can't use `tauri::async_runtime::spawn` here because
+    // `run_main_agent_loop` borrows `tool_result_rx` (a std::mpsc::Receiver,
+    // which is not Sync) across await points, making the future non-Send.
+    // A current-thread runtime is much lighter than the multi-thread default
+    // and avoids creating a worker thread pool per message.
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build agent loop runtime");
         rt.block_on(async {
             run_main_agent_loop(MainAgentLoopParams {
                 config: loop_config,
