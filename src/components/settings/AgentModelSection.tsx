@@ -285,10 +285,17 @@ export default function AgentModelSection() {
                   <div className="text-xs text-[var(--vscode-descriptionForeground)] truncate">
                     {provider.api_base}
                   </div>
+                  {provider.max_tokens != null && provider.max_tokens > 0 && (
+                    <div className="text-xs text-[var(--vscode-descriptionForeground)] truncate">
+                      {t('agent.field.maxTokens')}: {provider.max_tokens}
+                    </div>
+                  )}
                 </div>
 
                 {/* Badges */}
-                {(provider.supports_vision || provider.tool_call_mode === 'disabled') && (
+                {(provider.supports_vision ||
+                  provider.tool_call_mode === 'disabled' ||
+                  (provider.thinking_effort ?? '').trim() !== '') && (
                   <div className="flex items-center gap-1.5 mb-3 flex-wrap">
                     {provider.supports_vision && (
                       <span className="text-tiny px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)] flex-shrink-0 leading-tight">
@@ -298,6 +305,14 @@ export default function AgentModelSection() {
                     {provider.tool_call_mode === 'disabled' && (
                       <span className="text-tiny px-1.5 py-0.5 rounded bg-[var(--vscode-editorWarning-background)] text-[var(--vscode-editorWarning-foreground)] flex-shrink-0 leading-tight">
                         No Tools
+                      </span>
+                    )}
+                    {(provider.thinking_effort ?? '').trim() !== '' && (
+                      <span
+                        className="text-tiny px-1.5 py-0.5 rounded bg-[var(--vscode-textBlockQuote-background)] text-[var(--vscode-textBlockQuote-foreground)] flex-shrink-0 leading-tight font-mono"
+                        title={t('agent.field.thinkingEffort')}
+                      >
+                        {t('agent.field.thinkingEffort')}: {provider.thinking_effort}
                       </span>
                     )}
                   </div>
@@ -380,6 +395,8 @@ function emptyProvider(): ModelProvider {
     model: '',
     supports_vision: false,
     tool_call_mode: 'native',
+    max_tokens: null,
+    thinking_effort: '',
   };
 }
 
@@ -407,12 +424,20 @@ function ProviderEditForm({
       toast.warning(t('agent.fillRequired'));
       return;
     }
+    // Normalise max_tokens: empty / invalid -> null (API default)
+    const rawTokens = form.max_tokens;
+    const maxTokens =
+      rawTokens === null || rawTokens === undefined || rawTokens === 0
+        ? null
+        : Math.max(1, Math.floor(Number(rawTokens)) || null);
     onSave({
       ...form,
       name: form.name.trim(),
       api_base: form.api_base.trim(),
       model: form.model.trim(),
       api_key: form.api_key.trim(),
+      thinking_effort: form.thinking_effort?.trim() ?? '',
+      max_tokens: maxTokens,
     });
   };
 
@@ -513,6 +538,38 @@ function ProviderEditForm({
             {t('agent.field.toolCallModeDesc')}
           </p>
         </div>
+      </div>
+
+      {/* Max Tokens + Thinking Effort */}
+      <div className="grid grid-cols-2 gap-4 pt-1">
+        <FormField label={t('agent.field.maxTokens')}>
+          <input
+            type="number"
+            min={1}
+            value={form.max_tokens ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              update('max_tokens', v === '' ? null : Number(v));
+            }}
+            placeholder={t('agent.field.maxTokensPlaceholder')}
+            className={inputClass}
+          />
+          <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5 opacity-70 leading-tight">
+            {t('agent.field.maxTokensDesc')}
+          </p>
+        </FormField>
+        <FormField label={t('agent.field.thinkingEffort')}>
+          <input
+            type="text"
+            value={form.thinking_effort ?? ''}
+            onChange={(e) => update('thinking_effort', e.target.value)}
+            placeholder={t('agent.field.thinkingEffortPlaceholder')}
+            className={`${inputClass} font-mono`}
+          />
+          <p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1.5 opacity-70 leading-tight">
+            {t('agent.field.thinkingEffortDesc')}
+          </p>
+        </FormField>
       </div>
 
       {/* Actions */}

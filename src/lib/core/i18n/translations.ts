@@ -523,6 +523,14 @@ export const translations = {
       "原生模式使用 OpenAI function calling 协议；禁用则关闭工具调用",
     "agent.field.toolCallModeNative": "原生 (Native)",
     "agent.field.toolCallModeDisabled": "禁用 (Disabled)",
+    "agent.field.maxTokens": "最大输出 Token",
+    "agent.field.maxTokensPlaceholder": "8192",
+    "agent.field.maxTokensDesc":
+      "单次请求最大输出 token 数，留空使用 API 默认值。推理模型建议调大",
+    "agent.field.thinkingEffort": "思考强度",
+    "agent.field.thinkingEffortPlaceholder": "low / high / max",
+    "agent.field.thinkingEffortDesc":
+      "reasoning_effort 参数，留空则不发送。常用值：low / high / max / xhigh",
 
     // Agent actions
     "agent.save": "保存",

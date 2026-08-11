@@ -138,4 +138,5 @@ allow:
 - Shell(ls /Users/jacklingo/dev_custom/jstudio/src/lib/documents/:*)
 - Shell(npx tsx:*)
 - Shell(ls /Users/jacklingo/dev_custom/jstudio/src/:*)
+- Shell(find /Users/jacklingo/dev_custom/jstudio/jcli:*)
 deny: []

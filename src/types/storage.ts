@@ -129,6 +129,22 @@ export interface ModelProvider {
   supports_vision: boolean;
   /** Tool-call protocol mode */
   tool_call_mode: ToolCallMode;
+  /**
+   * Max output tokens per request (`None`/`undefined` = API default).
+   * Reasoning models (deepseek-r1, ark-code-latest) often burn tokens
+   * on reasoning and produce empty visible output, so bump this
+   * (e.g. 8192, 16384) when needed.
+   */
+  max_tokens?: number | null;
+  /**
+   * Thinking effort / `reasoning_effort`. Empty string = don't send
+   * the thinking parameter (use API default behavior).
+   * Common values: `low` / `high` / `max` / `xhigh`.
+   * When non-empty, both `reasoning_effort` and
+   * `thinking: {"type":"enabled"}` are sent, compatible with
+   * DeepSeek official API and Volcengine Ark API.
+   */
+  thinking_effort?: string;
 }
 
 /**
