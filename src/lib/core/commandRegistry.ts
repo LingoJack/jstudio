@@ -72,6 +72,7 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: "app.toggleOutline", perform: (store) => store.toggleOutline() },
   { id: "app.openSettings", perform: (store) => store.setSettingsOpen(true) },
   { id: "app.find", perform: (store) => store.setFindBarOpen(true) },
+  { id: "app.globalSearch", perform: (store) => store.setGlobalSearchOpen(true) },
   {
     id: "app.goToDocuments",
     perform: (store) => {

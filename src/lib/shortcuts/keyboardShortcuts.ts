@@ -121,6 +121,15 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'shortcut.app.find',
     descKey: 'shortcut.app.find.desc',
   },
+  {
+    id: 'app.globalSearch',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+shift+f',
+    customizable: true,
+    labelKey: 'shortcut.app.globalSearch',
+    descKey: 'shortcut.app.globalSearch.desc',
+  },
 
   // ── Navigation ──
   {

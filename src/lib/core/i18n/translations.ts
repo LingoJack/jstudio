@@ -378,6 +378,9 @@ export const translations = {
     "general.confirmOnExit": "退出确认",
     "general.confirmOnExitDesc":
       "关闭主窗口最后一个标签页或退出应用时弹确认框",
+    "general.doubleShiftSearch": "双击 Shift 全局搜索",
+    "general.doubleShiftSearchDesc":
+      "连续按两次 Shift 键打开全局搜索弹窗（搜索文档标题和内容）",
 
     // ── Dialog ──
     "dialog.exitConfirmTitle": "退出 JStudio",
@@ -714,6 +717,13 @@ export const translations = {
     "palette.noResults": "无匹配结果",
     "palette.footer": "↑↓ 导航 · Enter 执行 · Esc 关闭",
 
+    // ── Global Search (Double Shift) ──
+    "globalSearch.placeholder": "搜索文档标题或内容…",
+    "globalSearch.noResults": "无匹配结果",
+    "globalSearch.footer": "↑↓ 导航 · Enter 打开 · Esc 关闭",
+    "globalSearch.tagTitle": "标题",
+    "globalSearch.tagContent": "内容",
+
     // ── Open Document Dialog ──
     "openDoc.placeholder": "搜索文档…",
     "openDoc.noResults": "未找到匹配的文档",
@@ -825,6 +835,8 @@ export const translations = {
     "shortcut.app.toggleOutline.desc": "展开或收起文档大纲",
     "shortcut.app.find": "查找",
     "shortcut.app.find.desc": "在当前文档中查找",
+    "shortcut.app.globalSearch": "全局搜索",
+    "shortcut.app.globalSearch.desc": "搜索所有文档的标题和内容（也可双击 Shift）",
     "shortcut.app.newTab": "新建标签页",
     "shortcut.app.newTab.desc":
       "终端视图中新建终端标签页，其他视图中打开文档选择弹窗",
@@ -1280,6 +1292,9 @@ export const translations = {
     "general.confirmOnExit": "Exit Confirmation",
     "general.confirmOnExitDesc":
       "Show a confirmation dialog when closing the last main-window tab or quitting the app",
+    "general.doubleShiftSearch": "Double Shift Global Search",
+    "general.doubleShiftSearchDesc":
+      "Press Shift twice quickly to open the global search dialog (searches document titles and content)",
 
     // ── Dialog ──
     "dialog.exitConfirmTitle": "Quit JStudio",
@@ -1623,6 +1638,13 @@ export const translations = {
     "palette.noResults": "No matching results",
     "palette.footer": "↑↓ Navigate · Enter Select · Esc Close",
 
+    // ── Global Search (Double Shift) ──
+    "globalSearch.placeholder": "Search document titles and content…",
+    "globalSearch.noResults": "No matching results",
+    "globalSearch.footer": "↑↓ Navigate · Enter Open · Esc Close",
+    "globalSearch.tagTitle": "Title",
+    "globalSearch.tagContent": "Content",
+
     // ── Open Document Dialog ──
     "openDoc.placeholder": "Search documents…",
     "openDoc.noResults": "No matching documents found",
@@ -1740,6 +1762,8 @@ export const translations = {
     "shortcut.app.toggleOutline.desc": "Show or hide the document outline",
     "shortcut.app.find": "Find",
     "shortcut.app.find.desc": "Find in current document",
+    "shortcut.app.globalSearch": "Global Search",
+    "shortcut.app.globalSearch.desc": "Search all document titles and content (or double-Shift)",
     "shortcut.app.newTab": "New Tab",
     "shortcut.app.newTab.desc":
       "New terminal tab in terminal view, open document dialog elsewhere",

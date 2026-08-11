@@ -32,8 +32,8 @@ mod macos_menu_cleanup {
 
     /// Items we explicitly add to the Edit menu:
     /// Undo, Redo, separator, Cut, Copy, Paste, Paste as Plain Text,
-    /// Select All, separator, Inline Code, separator, Find
-    const EDIT_MENU_ITEM_COUNT: isize = 12;
+    /// Select All, separator, Inline Code, separator, Find, Search Everywhere
+    const EDIT_MENU_ITEM_COUNT: isize = 13;
 
     // dispatch_get_main_queue() is a C macro (not a real function) that
     // expands to &_dispatch_main_q. We declare the global directly.
@@ -136,6 +136,19 @@ fn build_app_menu<R: Runtime>(
     // `set_native_menu_accelerator`; an explicit unbind therefore remains
     // unbound instead of briefly restoring Cmd+F during startup.
     let find_item = MenuItem::with_id(app, "app.find", "Find...", true, None::<&str>)?;
+
+    // Global Search (Search Everywhere) - searches all document titles and content.
+    // Bound to Cmd+Shift+F (standard "Search in Files" accelerator). Also
+    // triggerable via double-Shift (handled in ShortcutManager). The native
+    // menu item ensures the shortcut works reliably on macOS ( WKWebView
+    // may not forward bare modifier-key sequences to JS reliably).
+    let global_search_item = MenuItem::with_id(
+        app,
+        "app.globalSearch",
+        "Search Everywhere...",
+        true,
+        Some("CmdOrCtrl+Shift+F"),
+    )?;
 
     // Select All menu item - custom MenuItem (NOT PredefinedMenuItem).
     //
@@ -240,6 +253,7 @@ fn build_app_menu<R: Runtime>(
             &inline_code_item,
             &PredefinedMenuItem::separator(app)?,
             &find_item,
+            &global_search_item,
         ],
     )?;
 
@@ -337,6 +351,7 @@ fn forward_native_edit_action(action: &str) {
 pub fn on_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     let id = event.id().as_ref();
     let routed = id == "app.find"
+        || id == "app.globalSearch"
         || id == "app.openSettings"
         || id == "editor.inlineCode"
         || id == "editor.undo"

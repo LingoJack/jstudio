@@ -25,6 +25,7 @@ import BrowserPanel from './components/panels/BrowserPanel';
 import DeferredWorkspaceContent from './components/workspace/DeferredWorkspaceContent';
 import SettingsPanel from './components/settings/SettingsPanel';
 import CommandPalette from './components/editor/CommandPalette';
+import GlobalSearchDialog from './components/search/GlobalSearchDialog';
 import { ToastContainer } from './components/ui/Toast';
 
 export default function App() {
@@ -306,6 +307,11 @@ export default function App() {
           Command Palette (global overlay, above everything)
          ============================== */}
       <CommandPalette />
+
+      {/* ==============================
+           Global Search Dialog (double-Shift, above everything)
+          ============================== */}
+      <GlobalSearchDialog />
     </div>
   );
 }

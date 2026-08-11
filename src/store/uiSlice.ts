@@ -166,6 +166,10 @@ export interface UISlice {
   docSortDirection: DocSortDirection;
   runtimeLoggingEnabled: boolean;
   confirmOnExit: boolean;
+  /** Whether double-Shift opens the global search dialog. */
+  doubleShiftSearchEnabled: boolean;
+  /** Whether the global search dialog is currently open. */
+  isGlobalSearchOpen: boolean;
   setThemeMode: (mode: ThemeMode) => void;
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
@@ -210,6 +214,9 @@ export interface UISlice {
   setDocSortDirection: (d: DocSortDirection) => void;
   setRuntimeLoggingEnabled: (v: boolean) => void;
   setConfirmOnExit: (v: boolean) => void;
+  setDoubleShiftSearchEnabled: (v: boolean) => void;
+  setGlobalSearchOpen: (v: boolean) => void;
+  toggleGlobalSearch: () => void;
 }
 
 export const createUiSlice: SliceCreator = (set, get) => ({
@@ -255,6 +262,10 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   runtimeLoggingEnabled: false,
   /** Exit confirmation on by default — opt-out via General settings. */
   confirmOnExit: true,
+  /** Double-Shift global search on by default - opt-out via General settings. */
+  doubleShiftSearchEnabled: true,
+  /** Global search dialog closed by default. */
+  isGlobalSearchOpen: false,
 
   setThemeMode: (mode) => {
     const isDark = resolveDark(mode);
@@ -485,4 +496,15 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     set({ confirmOnExit: enabled });
     ipc.saveSettings({ confirmOnExit: enabled }).catch(onSaveError("设置"));
   },
+
+  setDoubleShiftSearchEnabled: (enabled: boolean) => {
+    set({ doubleShiftSearchEnabled: enabled });
+    ipc
+      .saveSettings({ doubleShiftSearchEnabled: enabled })
+      .catch(onSaveError("设置"));
+  },
+
+  setGlobalSearchOpen: (open: boolean) => set({ isGlobalSearchOpen: open }),
+  toggleGlobalSearch: () =>
+    set((s) => ({ isGlobalSearchOpen: !s.isGlobalSearchOpen })),
 });

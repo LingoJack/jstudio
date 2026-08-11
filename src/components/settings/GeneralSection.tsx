@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink, Folder, Loader2, Sun, Moon, Monitor, LogOut, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Folder, Loader2, Sun, Moon, Monitor, LogOut, Search, type LucideIcon } from 'lucide-react';
 import { ipc } from '../../lib/core/ipc';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
@@ -39,6 +39,12 @@ export default function GeneralSection() {
   const setAppThemeIdLight = useStore((s) => s.setAppThemeIdLight);
   const confirmOnExit = useStore((s) => s.confirmOnExit);
   const setConfirmOnExit = useStore((s) => s.setConfirmOnExit);
+  const doubleShiftSearchEnabled = useStore(
+    (s) => s.doubleShiftSearchEnabled,
+  );
+  const setDoubleShiftSearchEnabled = useStore(
+    (s) => s.setDoubleShiftSearchEnabled,
+  );
 
   useEffect(() => {
     ipc
@@ -221,6 +227,49 @@ export default function GeneralSection() {
             <span
               className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
                 confirmOnExit
+                  ? 'translate-x-3 bg-[var(--vscode-button-foreground)]'
+                  : 'bg-[var(--vscode-descriptionForeground)]'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- Double-Shift Global Search ---- */}
+      <div id="settings-general-doubleShiftSearch">
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('general.doubleShiftSearch')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('general.doubleShiftSearchDesc')}
+        </p>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--vscode-list-hoverBackground)] border border-[var(--vscode-widget-border)]">
+          <Search className="w-5 h-5 text-[var(--vscode-descriptionForeground)] shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-[var(--vscode-foreground)]">
+              {t('general.doubleShiftSearch')}
+            </div>
+            <div className="text-xs text-[var(--vscode-descriptionForeground)]">
+              {t('general.doubleShiftSearchDesc')}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setDoubleShiftSearchEnabled(!doubleShiftSearchEnabled)
+            }
+            aria-label={t('general.doubleShiftSearch')}
+            className={`relative w-8 h-5 rounded-full transition-colors flex-shrink-0 cursor-pointer ${
+              doubleShiftSearchEnabled
+                ? 'bg-[var(--vscode-button-background)]'
+                : 'bg-[var(--vscode-input-border)]'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
+                doubleShiftSearchEnabled
                   ? 'translate-x-3 bg-[var(--vscode-button-foreground)]'
                   : 'bg-[var(--vscode-descriptionForeground)]'
               }`}
