@@ -60,11 +60,12 @@ export function useGraphKeyboard({
       const key = e.key.toLowerCase();
 
       // Tab/Enter：按选中 shape 的类别分派。
-      //   - topic（思维导图）：Tab 生发子节点 / Enter 生发兄弟节点（即便编辑中也支持）
+      //   - topic（思维导图）：Tab 生发子节点 / Enter（非编辑态）生发兄弟节点；
+      //     编辑态 Enter 穿透为换行（提交用 Cmd/Ctrl+Enter）
       //   - 其它 vertex：Tab 循环选中 / Enter 编辑文字
       // topic 的编辑态处理必须在 graph.isEditing() 守卫之前，否则会被跳过；
       // 普通形状的 Enter 在编辑态由 CellEditor 原生处理，handleShapeTabEnter
-      // 内部会返回 false 让其穿透。
+      // 内部会返回 false 让其穿透。topic 的编辑态 Enter 同样返回 false 穿透为换行。
       if (e.key === 'Tab' || e.key === 'Enter') {
         if (
           handleShapeTabEnter(
@@ -156,7 +157,8 @@ export function useGraphKeyboard({
     root.addEventListener('keydown', onKeyDown);
 
     // window 级捕获阶段 keydown：在所有其他监听器（maxGraph、TipTap 等）之前
-    // 拦截 Tab/Enter，确保 topic 节点的 Tab/Shift+Tab（生发子节点 右/左）/ Enter（生发兄弟节点）一定生效。
+    // 拦截 Tab/Enter，确保 topic 节点的 Tab/Shift+Tab（生发子节点 右/左）/
+    // Enter（非编辑态生发兄弟节点）一定生效。编辑态 Enter 穿透为换行，不在此拦截。
     // 不依赖 root div 或 container 的焦点状态--只要事件目标在画布内就处理。
     //
     // Cmd/Ctrl+Enter 特殊处理：当正在内联编辑某个 shape 的文本时，Cmd+Enter
@@ -203,16 +205,20 @@ export function useGraphKeyboard({
       // 这里早返回让事件继续传播。
       const cellStyle = g.getCurrentCellStyle(sel[0]);
       if (styleToNodeShape(cellStyle) !== 'topic') return;
-      // 命中 topic 节点：拦截并处理。
-      e.preventDefault();
-      e.stopPropagation();
-      handleShapeTabEnter(
-        g,
-        e.key,
-        e.shiftKey,
-        darkModeRef.current,
-        mindmapSchemeRef.current,
-      );
+      // 命中 topic 节点：尝试分派；返回 true 表示已处理（生发节点），需拦截默认行为；
+      // 返回 false 表示正在编辑文本、Enter 应穿透为换行，放行事件给 CellEditor。
+      if (
+        handleShapeTabEnter(
+          g,
+          e.key,
+          e.shiftKey,
+          darkModeRef.current,
+          mindmapSchemeRef.current,
+        )
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
     window.addEventListener('keydown', onWindowKeyDown, true);
 

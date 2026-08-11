@@ -30,6 +30,10 @@ import {
   createPasteHandler,
   createDropHandler,
 } from "../../../lib/editor/editorPasteDrop";
+import {
+  setPlainTextPaste,
+  consumePlainTextPaste,
+} from "../../../lib/editor/plainTextPaste";
 import { createSectionExtensions } from "./extensions";
 import type { Block } from "../../../types";
 
@@ -247,6 +251,20 @@ export default function SectionEditor({
             event.preventDefault();
             return true;
           }
+          return false;
+        }
+
+        // ── Cmd/Ctrl+Shift+V -> paste plain text (strip all formatting) ──
+        // On macOS the native menu item claims Cmd+Shift+V and routes the
+        // keypress to `on_menu_event` (Rust), which sets the flag via eval
+        // and forwards the native paste. This keydown handler is the
+        // non-macOS fallback. ClipboardEvent has no modifier state, so we
+        // set a flag here and let the browser fire the native paste event.
+        // The flag is consumed (reset) inside the main paste handler; the
+        // setTimeout is a safety net for when no paste event follows.
+        if ((metaKey || ctrlKey) && shiftKey && !altKey && key.toLowerCase() === "v") {
+          setPlainTextPaste();
+          setTimeout(() => consumePlainTextPaste(), 0);
           return false;
         }
 

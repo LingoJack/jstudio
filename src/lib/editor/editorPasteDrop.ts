@@ -11,6 +11,7 @@ import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './upload';
 import { getClipboardImageAsFile } from './clipboardImage';
 import { looksLikeMarkdown, dedupeMarks } from './pasteMarkdown';
+import { consumePlainTextPaste } from './plainTextPaste';
 
 /**
  * Strip inline styles and style-only tags from external HTML while preserving
@@ -152,6 +153,12 @@ export function createPasteHandler(
     const items = event.clipboardData?.items;
     if (!items) return false;
 
+    // Consume the plain-text-paste flag (set by Cmd/Ctrl+Shift+V in the
+    // editor's handleKeyDown). Read + reset here so that even if this
+    // handler returns early (e.g. image-only clipboard), the flag is
+    // cleared and doesn't leak into the next paste.
+    const forcePlainText = consumePlainTextPaste();
+
     // 1. Browser clipboard has image → use it directly (standard path)
     for (const item of Array.from(items)) {
       if (item.type.startsWith('image/')) {
@@ -170,6 +177,41 @@ export function createPasteHandler(
       }
     }
 
+    // Cmd/Ctrl+Shift+V: strip ALL formatting (Markdown, HTML, styles, TSV
+    // tables) and insert only the raw text/plain content.
+    if (forcePlainText) {
+      const plainText = event.clipboardData?.getData('text/plain') ?? '';
+      if (plainText) {
+        event.preventDefault();
+        const editor = editorRef.current;
+        // Inside a code block: insert literal text (newlines stay as-is).
+        const { selection } = view.state;
+        let inCodeBlock = false;
+        for (let d = selection.$head.depth; d > 0; d--) {
+          if (selection.$head.node(d).type.name === 'codeBlock') {
+            inCodeBlock = true;
+            break;
+          }
+        }
+        if (inCodeBlock) {
+          const { from, to } = selection;
+          view.dispatch(view.state.tr.insertText(plainText, from, to));
+        } else if (editor) {
+          // Escape HTML and convert newlines to <br> (hardBreak) so that
+          // multi-line text preserves line breaks without carrying any
+          // source formatting (bold, color, links, etc.).
+          const html = plainText
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>');
+          editor.chain().focus().insertContent(html).run();
+        }
+        return true;
+      }
+      // No text/plain available -> fall through to default handling.
+    }
+
     // 2. Tauri WebView fallback: system-level image copies (screenshots,
     //    Finder file copies) may NOT appear as image/* in clipboardData.
     //    We probe the native clipboard via Tauri's clipboard-manager plugin.
@@ -178,6 +220,7 @@ export function createPasteHandler(
     //    here. The PasteMarkdown plugin handles markdown detection/parsing,
     //    and ProseMirror's default handles everything else. This function
     //    only intercepts clipboard items with a `file` kind.
+
     const hasFileItem = Array.from(items).some((i) => i.kind === 'file');
 
     if (!hasFileItem) {

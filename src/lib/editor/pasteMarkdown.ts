@@ -28,6 +28,7 @@
 import { Extension } from '@tiptap/core';
 import type { JSONContent } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
+import { isPlainTextPaste } from './plainTextPaste';
 
 /**
  * Remove duplicate marks from text nodes in Tiptap JSON (in-place).
@@ -102,6 +103,11 @@ export const PasteMarkdown = Extension.create<PasteMarkdownOptions>({
       new Plugin({
         props: {
           handlePaste(view, event: ClipboardEvent): boolean {
+            // Cmd/Ctrl+Shift+V: defer to the main paste handler which strips
+            // all formatting and inserts raw text only. Peek (don't consume)
+            // so the flag survives for the editorProps.handlePaste.
+            if (isPlainTextPaste()) return false;
+
             if (!enabled || !editor.markdown) return false;
 
             const clipboardData = event.clipboardData;

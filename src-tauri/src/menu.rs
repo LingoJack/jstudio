@@ -31,9 +31,9 @@ mod macos_menu_cleanup {
     use std::ffi::c_void;
 
     /// Items we explicitly add to the Edit menu:
-    /// Undo, Redo, separator, Cut, Copy, Paste, Select All, separator,
-    /// Inline Code, separator, Find
-    const EDIT_MENU_ITEM_COUNT: isize = 11;
+    /// Undo, Redo, separator, Cut, Copy, Paste, Paste as Plain Text,
+    /// Select All, separator, Inline Code, separator, Find
+    const EDIT_MENU_ITEM_COUNT: isize = 12;
 
     // dispatch_get_main_queue() is a C macro (not a real function) that
     // expands to &_dispatch_main_q. We declare the global directly.
@@ -204,6 +204,25 @@ fn build_app_menu<R: Runtime>(
     let copy_item = MenuItem::with_id(app, "app.copy", "Copy", true, Some("CmdOrCtrl+C"))?;
     let paste_item = MenuItem::with_id(app, "app.paste", "Paste", true, Some("CmdOrCtrl+V"))?;
 
+    // Paste as Plain Text - custom MenuItem bound to Cmd+Shift+V.
+    //
+    // Why: macOS WKWebView has a built-in `pasteAsPlainText:` action bound to
+    // Cmd+Shift+V. Without a menu item claiming that accelerator, the system
+    // swallows the keypress at `performKeyEquivalent:` time and no DOM keydown
+    // ever reaches the webview (same family as the Cmd+` issue in
+    // bug-graveyard.md #001). By installing a menu item with Cmd+Shift+V,
+    // macOS routes the keypress to `on_menu_event` instead. There we set a
+    // JS flag via `eval` and then forward the native `paste:` action - the
+    // paste event fires in the webview and the flag tells the paste handler
+    // to strip all formatting (Markdown, HTML, styles).
+    let paste_plain_text_item = MenuItem::with_id(
+        app,
+        "app.pastePlainText",
+        "Paste as Plain Text",
+        true,
+        Some("CmdOrCtrl+Shift+V"),
+    )?;
+
     let edit_submenu = Submenu::with_items(
         app,
         "Edit",
@@ -215,6 +234,7 @@ fn build_app_menu<R: Runtime>(
             &cut_item,
             &copy_item,
             &paste_item,
+            &paste_plain_text_item,
             &select_all_item,
             &PredefinedMenuItem::separator(app)?,
             &inline_code_item,
@@ -327,6 +347,7 @@ pub fn on_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
         || id == "app.cut"
         || id == "app.copy"
         || id == "app.paste"
+        || id == "app.pastePlainText"
         || id == "app.quit";
     if !routed {
         return;
@@ -370,6 +391,24 @@ pub fn on_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
                 .map(|(label, _)| label)
         })
         .unwrap_or_else(|| "main".to_string());
+
+    // ── app.pastePlainText (Cmd+Shift+V): set flag, then forward paste ──
+    // The native menu item claims Cmd+Shift+V so macOS routes the keypress
+    // here instead of to WKWebView's built-in `pasteAsPlainText:`. We set a
+    // JS flag via `eval` (so the paste handler knows to strip formatting),
+    // then forward the native `paste:` action which fires the paste event in
+    // the webview. The `eval` is queued before the paste event is dispatched,
+    // so the flag is set by the time the paste handler runs.
+    #[cfg(target_os = "macos")]
+    {
+        if id == "app.pastePlainText" {
+            if let Some(wv) = app.get_webview(&target) {
+                let _ = wv.eval("window.__setPlainTextPaste && window.__setPlainTextPaste();");
+            }
+            forward_native_edit_action("paste:");
+            return;
+        }
+    }
 
     // Link-preview window handles Cmd+T / Cmd+W natively on the
     // Rust side - don't emit `native-command` for these, otherwise
