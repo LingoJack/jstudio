@@ -34,6 +34,7 @@ import {
   setSectionSearchMatches,
   type SearchMatchRange,
 } from '../../../lib/editor/extensions/sectionSearchHighlight';
+import { pinyinMatchAllRanges } from '../../../lib/documents/pinyinMatch';
 import type { CrossSelectionContext } from './useCrossSectionSelection';
 
 /** A single match: which section it lives in + the local ProseMirror range. */
@@ -135,7 +136,6 @@ export function useCrossSectionFind(
     }
 
     const order = ctxRef.current.getOrder();
-    const needle = q.toLowerCase();
     const found: SearchMatch[] = [];
 
     for (const id of order) {
@@ -143,15 +143,20 @@ export function useCrossSectionFind(
       if (!editor || editor.isDestroyed) continue;
       editor.state.doc.descendants((node, pos) => {
         if (node.isText && node.text) {
-          const text = node.text.toLowerCase();
-          let idx = text.indexOf(needle);
-          while (idx !== -1) {
+          // Pinyin-aware: matches direct substring ("hello" → "hello"),
+          // full pinyin ("linshi" → "临时"), and first-letter ("ls" → "临时").
+          // The returned range is in the original text's UTF-16 indices, so
+          // `pos + start` / `pos + end` gives the correct ProseMirror range.
+          // Note: matched-text length may differ from query length for pinyin
+          // matches (e.g. "linshi" → "临时", 6 chars → 2 chars), so we use
+          // the range endpoints rather than `q.length`.
+          const ranges = pinyinMatchAllRanges(q, node.text);
+          for (const [start, end] of ranges) {
             found.push({
               sectionId: id,
-              from: pos + idx,
-              to: pos + idx + q.length,
+              from: pos + start,
+              to: pos + end,
             });
-            idx = text.indexOf(needle, idx + needle.length);
           }
         }
         return true;

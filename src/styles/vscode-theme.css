@@ -846,6 +846,26 @@ pre[class*="language-"] {
 }
 
 /* ============================================
+   Search Dialog Hit Highlight
+   ============================================
+   Used by GlobalSearchDialog to highlight matched query substrings inside
+   result rows (both title and content snippet). Stronger than the editor's
+   dim findMatchHighlightBackground — uses the active-match background plus
+   a visible outline so the hit pops against both normal and selected row
+   backgrounds. */
+.search-hit {
+  background: var(
+    --vscode-editor-findMatchHighlightBackground,
+    rgba(234, 184, 60, 0.6)
+  );
+  outline: 1px solid
+    var(--vscode-editor-findMatchHighlightBorder, rgba(234, 184, 60, 0.8));
+  border-radius: 2px;
+  padding: 0 2px;
+  color: inherit;
+}
+
+/* ============================================
    Link Styles
    ============================================ */
 

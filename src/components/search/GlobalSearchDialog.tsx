@@ -364,7 +364,7 @@ function TitleHighlight({
   return (
     <>
       {text.slice(0, start)}
-      <mark className="bg-[var(--vscode-editor-findMatchHighlightBackground)] text-[var(--vscode-foreground)] rounded-sm px-0.5 font-medium">
+      <mark className="search-hit font-medium">
         {text.slice(start, end)}
       </mark>
       {text.slice(end)}
@@ -387,7 +387,7 @@ function SnippetHighlight({
   return (
     <>
       <span>{snippet.slice(0, start)}</span>
-      <mark className="bg-[var(--vscode-editor-findMatchHighlightBackground)] text-[var(--vscode-foreground)] rounded-sm px-0.5">
+      <mark className="search-hit">
         {snippet.slice(start, end)}
       </mark>
       <span>{snippet.slice(end)}</span>

@@ -2,141 +2,141 @@
 
 This file provides guidance to CodeBuddy Code when working with code in this repository.
 
-## Project Overview
+## 项目概览
 
-JStudio is an offline-first, Notion-style local note-taking desktop app built on **Tauri v2 + React 19**. All data lives locally at `~/.jdata/studio/` (SQLite + filesystem); there is no cloud sync.
+JStudio 是一款离线优先、Notion 风格的本地笔记桌面应用，基于 **Tauri v2 + React 19** 构建。所有数据存储在本地 `~/.jdata/studio/`（SQLite + 文件系统），无云端同步。
 
-The `jcli/` directory is a git submodule (the `j` CLI). JStudio links against `jcli/j-agent` (Rust) for the in-app Agent chat feature.
+`jcli/` 是 git submodule（即 `j` CLI）。JStudio 通过 `jcli/j-agent`（Rust）集成应用内 Agent 聊天功能。
 
-## Common Commands
+## 常用命令
 
-| Task | Command |
+| 任务 | 命令 |
 |------|---------|
-| Dev (Tauri + Vite hot reload, port 1420) | `make dev` or `npm run tauri:dev` |
-| Build production app | `make build` or `npm run tauri:build` |
-| Install to `/Applications` (macOS) | `make install` |
-| Format everything | `make fmt` (runs `cargo fmt` + prettier check) |
-| Lint (TS + Rust clippy) | `make lint` |
-| Pre-commit gate (fmt + lint + test) | `make pre-commit` |
-| Rust check only | `make check-rust` (cargo check) |
-| TypeScript type check | `npm run lint` (tsc -b) / `npm run lint:tsc` (tsc --noEmit) |
-| Dead-code / unused-export check | `npm run knip` |
-| Frontend tests | `npm run test:shortcuts` and `npm run test:cursor` |
-| Rust tests | `cd src-tauri && cargo test` |
-| Bump patch version (syncs 3 files) | `make bump-version` |
-| Set specific version | `make set-version V=1.2.3` |
+| 开发模式（Tauri + Vite 热重载，端口 1420） | `make dev` 或 `npm run tauri:dev` |
+| 构建生产应用 | `make build` 或 `npm run tauri:build` |
+| 安装到 `/Applications`（macOS） | `make install` |
+| 格式化全部代码 | `make fmt`（执行 `cargo fmt` + prettier check） |
+| Lint（TS + Rust clippy） | `make lint` |
+| 提交前检查门（fmt + lint + test） | `make pre-commit` |
+| 仅 Rust 检查 | `make check-rust`（cargo check） |
+| TypeScript 类型检查 | `npm run lint`（tsc -b）/ `npm run lint:tsc`（tsc --noEmit） |
+| 死代码 / 未使用导出检查 | `npm run knip` |
+| 前端测试 | `npm run test:shortcuts` 和 `npm run test:cursor` |
+| Rust 测试 | `cd src-tauri && cargo test` |
+| 递增 patch 版本号（同步 3 个文件） | `make bump-version` |
+| 设置指定版本号 | `make set-version V=1.2.3` |
 
-Tests use Node's built-in test runner via `tsx --test` (no Jest/Vitest). Run a single test file:
+测试使用 Node 内置 test runner 通过 `tsx --test`（无 Jest/Vitest）。运行单个测试文件：
 
 ```bash
 npx tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts
 ```
 
-`make help` lists all available Make targets.
+`make help` 列出所有可用 Make 目标。
 
-## Architecture
+## 架构
 
-### Two-process app
+### 双进程应用
 
-- **Frontend** (`src/`) — React 19 + TypeScript (strict) + Vite 6 + Tailwind v4 + Zustand. The TipTap v3 / ProseMirror editor is the largest subsystem.
-- **Backend** (`src-tauri/src/`) — Rust. Owns SQLite, the PTY terminal backend, j-agent integration, link preview HTTP, and `.jnote` bundle import/export. Exposes `#[tauri::command]`s registered in `src-tauri/src/lib.rs`.
+- **前端**（`src/`）— React 19 + TypeScript（strict）+ Vite 6 + Tailwind v4 + Zustand。TipTap v3 / ProseMirror 编辑器是最大的子系统。
+- **后端**（`src-tauri/src/`）— Rust。负责 SQLite、PTY 终端后端、j-agent 集成、链接预览 HTTP、`.jnote` bundle 导入导出。通过在 `src-tauri/src/lib.rs` 注册的 `#[tauri::command]` 暴露能力。
 
-### IPC boundary — `src/lib/core/ipc.ts` is the only gate
+### IPC 边界 — `src/lib/core/ipc.ts` 是唯一闸口
 
-Frontend code MUST NOT call `invoke()` directly. All Tauri IPC goes through `src/lib/core/ipc.ts`, which exports a typed `ipc` object with one method per Rust command. Every Rust command in `src-tauri/src/lib.rs` `invoke_handler!` must have a corresponding method here. Rust commands return `Result<T, String>`.
+前端代码禁止直接调用 `invoke()`。所有 Tauri IPC 必须经过 `src/lib/core/ipc.ts`，该模块导出一个带类型的 `ipc` 对象，每个方法对应一个 Rust 命令。`src-tauri/src/lib.rs` `invoke_handler!` 中的每个 Rust 命令都必须在此有对应方法。Rust 命令返回 `Result<T, String>`。
 
-### Editor — sectioned ProseMirror
+### 编辑器 — 分段式 ProseMirror
 
-The editor (`src/components/editor/sectionEditor/`) splits each document into ~30-block sections (`SECTION_SIZE`, `lib/editor/sectioning.ts`), each with its own ProseMirror instance (`SectionEditor.tsx`). This is a performance fix for the 232KB-contenteditable lag in WebKit — a keystroke only re-lays-out its own section. `DocumentPanel.tsx` is the orchestrator; block-level ops are debounced (500ms per-document, keyed by doc id in `store/storeHelpers.ts`) and reassembled into the full `Block[]` before being written back to the store. Sections are recomputed on document switch, not live-rebalanced.
+编辑器（`src/components/editor/sectionEditor/`）将每个文档切分为约 30 块一段（`SECTION_SIZE`，见 `lib/editor/sectioning.ts`），每段拥有独立的 ProseMirror 实例（`SectionEditor.tsx`）。这是为修复 WebKit 中 232KB contenteditable 卡顿的性能方案 —— 一次按键只重排当前段。`DocumentPanel.tsx` 是编排器；块级操作按文档 id 为 key 做 500ms 防抖（见 `store/storeHelpers.ts`），再重新拼装成完整 `Block[]` 写回 store。文档切换时重新分段，不做实时再均衡。
 
-Known limitation: no cross-section selection / Cmd+A / copy-paste across sections.
+已知限制：不支持跨段选择 / Cmd+A / 跨段复制粘贴。
 
-### Data adapter — `lib/editor/tiptapAdapter/`
+### 数据适配器 — `lib/editor/tiptapAdapter/`
 
-The single source of truth for converting between JStudio's `Block[]` format (`types/document.ts`) and TipTap's `JSONContent[]`. Files split by concern: `blocks.ts` (main), `richText.ts` (inline), `table.ts`, `list.ts`, `todo.ts`. Neither the editor nor the store knows about the other's representation.
+JStudio `Block[]` 格式（`types/document.ts`）与 TipTap `JSONContent[]` 之间互相转换的唯一事实源。文件按关注点拆分：`blocks.ts`（主体）、`richText.ts`（行内）、`table.ts`、`list.ts`、`todo.ts`。编辑器与 store 互不知道对方的表示形式。
 
-### Block types — 5-layer addition
+### 块类型 — 5 层新增流程
 
-Adding a new block type touches all 5 layers (see `docs/how-to-add-block-type.md` for a worked example):
-1. `src/types/document.ts` — `BlockType` union + `BlockProperties` fields (prefix field names with the block type, e.g. `collapsible*`)
-2. `src/lib/editor/extensions/` — TipTap `Node` definition + commands
-3. `src/components/editor/nodes/` — React NodeView component
-4. `src/lib/editor/tiptapAdapter/blocks.ts` — bidirectional Block ↔ TipTap JSON
-5. Registration in the section editor extensions + slash menu (`lib/editor/slashMenu/`)
+新增一个块类型需触及全部 5 层（参见 `docs/how-to-add-block-type.md` 的完整示例）：
+1. `src/types/document.ts` — `BlockType` 联合类型 + `BlockProperties` 字段（字段名以块类型为前缀，如 `collapsible*`）
+2. `src/lib/editor/extensions/` — TipTap `Node` 定义 + 命令
+3. `src/components/editor/nodes/` — React NodeView 组件
+4. `src/lib/editor/tiptapAdapter/blocks.ts` — Block ↔ TipTap JSON 双向转换
+5. 在 section editor extensions + slash menu（`lib/editor/slashMenu/`）中注册
 
-### Diagram blocks
+### 画板块
 
-Two coexisting engines share the same `properties.diagramSnapshot` string channel. `kind: 'jgraph'` magic key selects the in-house maxGraph format (`components/editor/nodes/graph/`); anything else parseable as JSON falls back to Excalidraw. Detection lives in `nodes/graph/graphSnapshot.ts`. Mermaid import converts flowchart/sequence syntax to jgraph nodes.
+两套并存引擎共享同一个 `properties.diagramSnapshot` 字符串通道。`kind: 'jgraph'` magic key 选中自研 maxGraph 格式（`components/editor/nodes/graph/`）；其他可解析为 JSON 的内容回退到 Excalidraw。检测逻辑位于 `nodes/graph/graphSnapshot.ts`。Mermaid 导入会将 flowchart/sequence 语法转换为 jgraph 节点。
 
-### State — Zustand slice pattern
+### 状态 — Zustand slice 模式
 
-`src/store/useStore.ts` composes 12 slices (documents, init, trash, importExport, editor, ui, terminal, toast, folders, workspace, agent, browser) into one store. Each slice is a `createXxxSlice(set, get)` function returning a `Partial<StoreState>`. The full interface is in `src/store/storeHelpers.ts`. Selectors in `src/store/selectors.ts` are the preferred way to subscribe — always subscribe to primitives/booleans, not object references, to avoid re-rendering the editor on every debounced content update. Slice responsibilities are documented in the comment block at the top of `useStore.ts`.
+`src/store/useStore.ts` 将 12 个 slice（documents、init、trash、importExport、editor、ui、terminal、toast、folders、workspace、agent、browser）组合为一个 store。每个 slice 是 `createXxxSlice(set, get)` 函数，返回 `Partial<StoreState>`。完整接口在 `src/store/storeHelpers.ts`。订阅优先使用 `src/store/selectors.ts` 中的选择器 —— 始终订阅原始值/布尔值，不要订阅对象引用，避免每次防抖内容更新都触发编辑器重渲染。Slice 职责记录在 `useStore.ts` 顶部的注释块中。
 
-Per-document save timers are keyed by doc id (`storeHelpers.ts`) so switching documents within the debounce window doesn't drop pending edits.
+按文档 id 为 key 的保存定时器（`storeHelpers.ts`）确保在防抖窗口内切换文档不会丢失待写编辑。
 
-### Multi-window architecture
+### 多窗口架构
 
-`src/main.tsx` dispatches on `?window=` query param to render one of: main `App`, `DocumentWindowApp`, `TerminalWindowApp`, `DiagramWindowApp`, `PreviewWindowApp`, `CommandPaletteWindowApp`, `LinkPreviewTabsWindowApp`. Knip entry points (`knip.json`) enumerate these `*WindowApp.tsx` files. Rust passes detach payloads via in-process mailbox commands in `commands/detach.rs`. The main window intercepts `Cmd+W` (see `on_window_close_requested` in `src-tauri/src/lib.rs`) and emits `window-close-requested` to JS; child windows close directly.
+`src/main.tsx` 根据 `?window=` 查询参数分发到以下根组件之一：主窗口 `App`、`DocumentWindowApp`、`TerminalWindowApp`、`DiagramWindowApp`、`PreviewWindowApp`、`CommandPaletteWindowApp`、`LinkPreviewTabsWindowApp`。Knip 入口（`knip.json`）枚举这些 `*WindowApp.tsx` 文件。Rust 通过 `commands/detach.rs` 中的进程内邮箱命令传递 detach 载荷。主窗口拦截 `Cmd+W`（见 `src-tauri/src/lib.rs` 中的 `on_window_close_requested`）并向 JS 发送 `window-close-requested` 事件；子窗口直接关闭。
 
-### macOS menu quirk
+### macOS 菜单陷阱
 
-`src-tauri/src/lib.rs::build_app_menu` installs a custom macOS menu identical to Tauri's default EXCEPT it omits Edit > "Select All". The default `Cmd+A` menu item is intercepted by macOS via `performKeyEquivalent:` before any DOM keydown fires, breaking in-editor Cmd+A. Removing the menu item lets Cmd+A flow through to the webview. `docs/bug-graveyard.md` records this and similar WKWebView quirks (e.g. `Cmd+Arrow` requires window-capture-stage interception).
+`src-tauri/src/lib.rs::build_app_menu` 安装的自定义 macOS 菜单与 Tauri 默认菜单一致，但**省略了 Edit > "Select All"**。默认 `Cmd+A` 菜单项会被 macOS 通过 `performKeyEquivalent:` 在任何 DOM keydown 之前拦截，导致编辑器内 Cmd+A 失效。移除该菜单项后 Cmd+A 可流向 webview。`docs/bug-graveyard.md` 记录了此问题及类似 WKWebView 怪癖（例如 `Cmd+Arrow` 需在 window-capture 阶段拦截）。
 
-## Data Storage
+## 数据存储
 
-Canonical store is SQLite (`~/.jdata/studio/studio.db`, WAL mode, single global `Mutex<Connection>` in `src-tauri/src/db/connection.rs`). All DB access goes through `db::db()`. Schema lives in `src-tauri/src/db/schema.rs` with `ensure_column` for incremental migrations.
+规范存储是 SQLite（`~/.jdata/studio/studio.db`，WAL 模式，全局唯一 `Mutex<Connection>` 在 `src-tauri/src/db/connection.rs`）。所有 DB 访问通过 `db::db()` 进行。Schema 位于 `src-tauri/src/db/schema.rs`，通过 `ensure_column` 实现增量迁移。
 
-Tables: `documents` (metadata + `body` column), `folders`, `settings` (key/value, JSON value), `deleted_documents` (tombstones), `trashed_assets` (per-doc recycle bin).
+数据表：`documents`（元数据 + `body` 列）、`folders`、`settings`（key/value，JSON 字符串值）、`deleted_documents`（墓碑）、`trashed_assets`（按文档的资源回收站）。
 
-Filesystem holds binaries and backups only: `documents/{docId}/assets/` (images), `documents/{docId}/.backups/` (write-before-overwrite snapshots), `documents/{docId}/.trash/` (trashed assets), and legacy `document.json` (fallback path / migration source).
+文件系统仅存二进制与备份：`documents/{docId}/assets/`（图片）、`documents/{docId}/.backups/`（写前快照）、`documents/{docId}/.trash/`（回收资源）、以及遗留 `document.json`（回退路径 / 迁移源）。
 
-On startup, `connection.rs::open_and_init` runs: schema create → `migrate_from_json` (one-time import of legacy `index.json`/`folders.json`/`settings.json`, renaming to `*.json.bak`) → `reconcile_orphan_documents` (scans `documents/` for folders not in the DB, skipping tombstoned ids, skipping fully-blank docs) → `migrate_document_bodies` (backfills the `body` column from `document.json`).
+启动时 `connection.rs::open_and_init` 执行流程：建 schema → `migrate_from_json`（一次性导入遗留 `index.json`/`folders.json`/`settings.json`，重命名为 `*.json.bak`）→ `reconcile_orphan_documents`（扫描 `documents/` 找回未注册到 DB 的文件夹，跳过已墓碑的 id 与全空文档）→ `migrate_document_bodies`（从 `document.json` 回填 `body` 列）。
 
-## Layering rules (`docs/architecture.md`)
+## 分层规则（`docs/architecture.md`）
 
-- `src/lib/` = logic layer (pure functions, store adapters, tiptap extensions, conversions, themes, shortcuts, i18n, constants). No business components.
-- `src/components/` = view layer (all React components).
-- Dependency direction is one-way: `components/` → `lib/`. `lib/` MUST NOT import business components from `components/`.
-- Sole exception: TipTap extension UI tightly bound to a suggestion plugin (e.g. `lib/editor/slashMenu/SlashMenuList.tsx`) may live in `lib/editor/`.
-- File-size red line: > 400 lines (component) / > 500 lines (logic) should be split. Run `npm run knip` before committing to catch unused exports.
+- `src/lib/` = 逻辑层（纯函数、store 适配器、tiptap 扩展、转换、主题、快捷键、i18n、常量）。不允许放业务组件。
+- `src/components/` = 视图层（所有 React 组件）。
+- 依赖方向单向：`components/` → `lib/`。`lib/` 禁止从 `components/` 导入业务组件。
+- 唯一例外：与 suggestion 插件紧绑定的 TipTap 扩展 UI（如 `lib/editor/slashMenu/SlashMenuList.tsx`）可放在 `lib/editor/`。
+- 文件大小红线：> 400 行（组件）/ > 500 行（逻辑）应拆分。提交前运行 `npm run knip` 检查未使用导出。
 
-## Conventions
+## 约定
 
-- Tauri command naming: `snake_case` on the Rust side, called via `ipc.<camelCaseMethod>` on the TS side.
-- Block property fields are prefixed with their block type (e.g. `codeWidthPct`, `collapsibleOpen`, `diagramSnapshot`).
-- Legacy px-based dimensions (`width`, `height`) are kept for backward compat; prefer percentage variants (`widthPct`, `heightPct`) for new code.
-- Theme: use Tailwind v4 + VSCode-style CSS variables in `src/styles/vscode-theme.css`. Do not hardcode colors.
-- Rust: `Result<T, String>` for all command return types. Register new commands in `src-tauri/src/lib.rs` `invoke_handler!` AND add a typed method to `src/lib/core/ipc.ts`.
-- Patches: `patches/prosemirror-view+1.41.9.patch` fixes a WKWebView caret-positioning bug inside code blocks with lowlight decorations. Applied via `patch-package` (`postinstall` hook).
-- Vite manual chunks split heavy vendors (excalidraw, mermaid, cytoscape, katex, mammoth) into separate bundles.
-- No emoji: never use emoji in code, comments, commit messages, or UI strings. UI text is user-facing and must stay plain.
-- No magic values: literals with meaning (thresholds, timeouts, sizes, IDs, keys, colors, enum-like strings) must be named constants in `src/lib/constants/` (or a co-located `constants.ts` for feature-scoped values). Inline numbers/strings that aren't self-evident are a smell — extract them. The existing `SECTION_SIZE` in `lib/editor/sectioning.ts` and the `kind: 'jgraph'` magic key in `nodes/graph/graphSnapshot.ts` are the canonical patterns.
-- File structure: respect the `lib/` vs `components/` layering above. Group by feature, not by type — co-locate a feature's logic, types, and constants together. Split files past the size red line (> 400 lines component / > 500 lines logic). Prefer barrel `index.ts` files for feature directories.
+- Tauri 命令命名：Rust 侧 `snake_case`，TS 侧通过 `ipc.<camelCaseMethod>` 调用。
+- 块属性字段以块类型为前缀（如 `codeWidthPct`、`collapsibleOpen`、`diagramSnapshot`）。
+- 遗留基于 px 的尺寸（`width`、`height`）保留以向后兼容；新代码优先使用百分比变体（`widthPct`、`heightPct`）。
+- 主题：使用 Tailwind v4 + `src/styles/vscode-theme.css` 中的 VSCode 风格 CSS 变量。禁止硬编码颜色。
+- Rust：所有命令返回类型为 `Result<T, String>`。新增命令需在 `src-tauri/src/lib.rs` `invoke_handler!` 注册 **并** 在 `src/lib/core/ipc.ts` 添加带类型方法。
+- Patches：`patches/prosemirror-view+1.41.9.patch` 修复了代码块内 lowlight decoration 的 WKWebView 光标定位 bug。通过 `patch-package`（`postinstall` 钩子）应用。
+- Vite manual chunks 将重型 vendor（excalidraw、mermaid、cytoscape、katex、mammoth）拆分为独立 bundle。
+- 禁止 emoji：代码、注释、commit message、UI 文案中绝不使用 emoji。UI 文案面向用户，必须保持纯文本。
+- 禁止魔法值：带语义的字面量（阈值、超时、尺寸、ID、key、颜色、类枚举字符串）必须命名为常量，放在 `src/lib/constants/`（或功能就近的 `constants.ts`）。不直观的内联数字/字符串是坏味道 —— 抽取它们。`lib/editor/sectioning.ts` 中的 `SECTION_SIZE` 和 `nodes/graph/graphSnapshot.ts` 中的 `kind: 'jgraph'` magic key 是规范模式。
+- 文件结构：遵循上述 `lib/` 与 `components/` 分层。按功能而非类型分组 —— 功能的 logic、types、constants 就近共置。超过大小红线（> 400 行组件 / > 500 行逻辑）的文件需拆分。功能目录优先使用 barrel `index.ts`。
 
-## Key Entry Points
+## 关键入口
 
-| File | Role |
+| 文件 | 职责 |
 |------|------|
-| `src/main.tsx` | Root mount; multi-window dispatch on `?window=` |
-| `src/App.tsx` | Main window layout (title bar, activity bar, sidebar, tabs, editor, terminal, agent, settings) |
-| `src/lib/core/ipc.ts` | **Only** Tauri IPC surface (typed `ipc` object) |
-| `src/store/useStore.ts` | Zustand store composition (12 slices) |
-| `src/store/storeHelpers.ts` | `StoreState` interface, debounced save timers |
-| `src/components/editor/sectionEditor/DocumentPanel.tsx` | Editor orchestrator |
-| `src/components/editor/sectionEditor/SectionEditor.tsx` | One ProMirror instance per section |
-| `src/lib/editor/tiptapAdapter/index.ts` | Block ↔ TipTap conversion barrel |
+| `src/main.tsx` | 根挂载；按 `?window=` 分发多窗口 |
+| `src/App.tsx` | 主窗口布局（title bar、activity bar、sidebar、tabs、editor、terminal、agent、settings） |
+| `src/lib/core/ipc.ts` | **唯一** Tauri IPC 表面（带类型的 `ipc` 对象） |
+| `src/store/useStore.ts` | Zustand store 组合（12 个 slice） |
+| `src/store/storeHelpers.ts` | `StoreState` 接口、防抖保存定时器 |
+| `src/components/editor/sectionEditor/DocumentPanel.tsx` | 编辑器编排器 |
+| `src/components/editor/sectionEditor/SectionEditor.tsx` | 每段一个 ProMirror 实例 |
+| `src/lib/editor/tiptapAdapter/index.ts` | Block ↔ TipTap 转换 barrel |
 | `src/lib/editor/sectioning.ts` | `SECTION_SIZE` / `splitIntoSections` |
-| `src/types/document.ts` | `Block`, `BlockType`, `BlockProperties`, `Document` |
-| `src-tauri/src/lib.rs` | Plugin registration + `invoke_handler!` (all commands) |
-| `src-tauri/src/db/connection.rs` | Global SQLite `Mutex<Connection>` + init pipeline |
-| `src-tauri/src/db/schema.rs` | Table DDL + `ensure_column` incremental migrations |
-| `src-tauri/src/commands/storage/mod.rs` | Storage command modules (paths/documents/folders/settings/assets/backups/cache/markdown) |
+| `src/types/document.ts` | `Block`、`BlockType`、`BlockProperties`、`Document` |
+| `src-tauri/src/lib.rs` | 插件注册 + `invoke_handler!`（所有命令） |
+| `src-tauri/src/db/connection.rs` | 全局 SQLite `Mutex<Connection>` + 初始化流水线 |
+| `src-tauri/src/db/schema.rs` | 表 DDL + `ensure_column` 增量迁移 |
+| `src-tauri/src/commands/storage/mod.rs` | 存储命令模块（paths/documents/folders/settings/assets/backups/cache/markdown） |
 
-## Gotchas
+## 陷阱
 
-- Subscribing to `activeDoc` (object reference) in a parent component causes ProseMirror cursor lag — subscribe to `hasActiveDoc` (boolean) or use a selector. See comment in `src/App.tsx:33-38`.
-- Dev mode disables React `StrictMode` intentionally (`src/main.tsx:21`) — React 19's dev-mode DOM traversal triggers SecurityError on sandboxed iframes.
-- Native context menu is disabled globally in `src/main.tsx`; components that need a custom right-click menu must call `e.preventDefault()` themselves.
-- macOS WKWebView swallows `Cmd+Arrow` and (by default) `Cmd+A` before JS sees the keydown. Window-capture-stage handlers are the only fix. See `docs/bug-graveyard.md`.
-- `src-tauri/resources/bin/` is gitignored — bundled `j` binary lives there at build time, not in the repo.
-- `jcli/` is a submodule; the Cargo workspace pulls `jcli/j-agent` via `path = "../jcli/j-agent"`. Updating `jcli` requires committing the new submodule pointer.
+- 在父组件中订阅 `activeDoc`（对象引用）会导致 ProseMirror 光标卡顿 —— 订阅 `hasActiveDoc`（布尔值）或使用选择器。参见 `src/App.tsx:33-38` 的注释。
+- 开发模式有意禁用 React `StrictMode`（`src/main.tsx:21`）—— React 19 的开发模式 DOM 遍历会在沙箱 iframe 上触发 SecurityError。
+- 原生右键菜单在 `src/main.tsx` 全局禁用；需要自定义右键菜单的组件必须自行调用 `e.preventDefault()`。
+- macOS WKWebView 在 JS 收到 keydown 之前吞掉 `Cmd+Arrow` 和（默认情况下）`Cmd+A`。window-capture 阶段处理器是唯一解。参见 `docs/bug-graveyard.md`。
+- `src-tauri/resources/bin/` 被 gitignore —— 打包时放入的 `j` 二进制不在仓库中。
+- `jcli/` 是 submodule；Cargo workspace 通过 `path = "../jcli/j-agent"` 引用 `jcli/j-agent`。更新 `jcli` 需提交新的 submodule 指针。

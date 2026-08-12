@@ -86,6 +86,102 @@ function decomposePinyin(str: string): CharPinyinInfo[] {
 // ──────────────────────────────────────────────────────────────────
 
 /**
+ * Find ALL non-overlapping match ranges of `query` in `target`, using the
+ * same pinyin-aware strategy as `pinyinMatchRange` (direct → full pinyin →
+ * first-letter). Returns ranges in UTF-16 code-unit indices, in document
+ * order. Only the first strategy that yields matches contributes — the
+ * others are not mixed in.
+ *
+ * Used by FindBar to highlight every occurrence in a text node.
+ */
+export function pinyinMatchAllRanges(
+  query: string,
+  target: string,
+): [number, number][] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const targetLower = target.toLowerCase();
+
+  // ── 1. Direct substring matches (all occurrences) ──
+  const directRanges: [number, number][] = [];
+  let from = 0;
+  let idx = targetLower.indexOf(q, from);
+  while (idx !== -1) {
+    directRanges.push([idx, idx + q.length]);
+    from = idx + q.length;
+    idx = targetLower.indexOf(q, from);
+  }
+  if (directRanges.length > 0) return directRanges;
+
+  // ── 2. Pinyin-based matching ──
+  const info = decomposePinyin(target);
+
+  // Build full-pinyin string + start offset of each char's pinyin.
+  const pinyinStartOffsets: number[] = [];
+  const fullPinyinParts: string[] = [];
+  let pos = 0;
+  for (const item of info) {
+    pinyinStartOffsets.push(pos);
+    fullPinyinParts.push(item.pinyin);
+    pos += item.pinyin.length;
+  }
+  const fullPinyin = fullPinyinParts.join('');
+
+  // ── 2a. Full pinyin match (all occurrences) ──
+  // The query may end mid-character (e.g. "linsh" → "临时", where "sh" is
+  // only part of "shi"). The matched character range includes every char
+  // whose pinyin overlaps the query span. To avoid overlapping results,
+  // after a match we resume searching just past the last included char's
+  // pinyin — not at matchEnd, which may fall inside that char.
+  const pinyinRanges: [number, number][] = [];
+  let pyFrom = 0;
+  let pyIdx = fullPinyin.indexOf(q, pyFrom);
+  while (pyIdx !== -1) {
+    const matchEnd = pyIdx + q.length;
+    let startChar = -1;
+    let endChar = info.length;
+    for (let i = 0; i < info.length; i++) {
+      const charStart = pinyinStartOffsets[i];
+      const charEnd = charStart + info[i].pinyin.length;
+      if (startChar === -1 && charEnd > pyIdx) {
+        startChar = i;
+      }
+      if (charEnd >= matchEnd) {
+        endChar = i + 1;
+        break;
+      }
+    }
+    if (startChar !== -1) {
+      const lastIncluded = Math.min(endChar, info.length) - 1;
+      pinyinRanges.push([info[startChar].utf16Start, info[lastIncluded].utf16End]);
+      pyFrom = pinyinStartOffsets[lastIncluded] + info[lastIncluded].pinyin.length;
+    } else {
+      // Match doesn't fully cover a character boundary — skip forward.
+      pyFrom = pyIdx + 1;
+    }
+    pyIdx = fullPinyin.indexOf(q, pyFrom);
+  }
+  if (pinyinRanges.length > 0) return pinyinRanges;
+
+  // ── 2b. First-letter match (all occurrences) ──
+  const firstLetters = info.map((item) => item.firstLetter).join('');
+  const flRanges: [number, number][] = [];
+  let flFrom = 0;
+  let flIdx = firstLetters.indexOf(q, flFrom);
+  while (flIdx !== -1) {
+    const flEnd = flIdx + q.length;
+    flRanges.push([
+      info[flIdx].utf16Start,
+      info[Math.min(flEnd, info.length) - 1].utf16End,
+    ]);
+    flFrom = flIdx + q.length;
+    flIdx = firstLetters.indexOf(q, flFrom);
+  }
+  return flRanges;
+}
+
+/**
  * Match a query against a target string using pinyin-aware matching.
  *
  * @param query  Search query — e.g. "linshi", "ls", "临时"
@@ -97,68 +193,8 @@ export function pinyinMatchRange(
   query: string,
   target: string,
 ): [number, number] | null {
-  const q = query.trim().toLowerCase();
-  if (!q) return null;
-
-  const targetLower = target.toLowerCase();
-
-  // ── 1. Direct substring match ──
-  const directIdx = targetLower.indexOf(q);
-  if (directIdx !== -1) {
-    return [directIdx, directIdx + q.length];
-  }
-
-  // ── 2. Pinyin-based matching ──
-  const info = decomposePinyin(target);
-
-  // Build full-pinyin string + position map (pinyin-str-index → char index)
-  const fullPinyinParts: string[] = [];
-  const pinyinStartOffsets: number[] = []; // start offset of each char's pinyin in fullPinyin
-  let pos = 0;
-  for (const item of info) {
-    pinyinStartOffsets.push(pos);
-    fullPinyinParts.push(item.pinyin);
-    pos += item.pinyin.length;
-  }
-  const fullPinyin = fullPinyinParts.join('');
-
-  // ── 2a. Full pinyin match (incl. partial: "lin" → "临", "linsh" → "临时") ──
-  const pinyinIdx = fullPinyin.indexOf(q);
-  if (pinyinIdx !== -1) {
-    const matchEnd = pinyinIdx + q.length;
-    let startChar = -1;
-    let endChar = info.length;
-    for (let i = 0; i < info.length; i++) {
-      const charStart = pinyinStartOffsets[i];
-      const charEnd = charStart + info[i].pinyin.length;
-      if (startChar === -1 && charEnd > pinyinIdx) {
-        startChar = i;
-      }
-      if (charEnd >= matchEnd) {
-        endChar = i + 1;
-        break;
-      }
-    }
-    if (startChar !== -1) {
-      return [
-        info[startChar].utf16Start,
-        info[Math.min(endChar, info.length) - 1].utf16End,
-      ];
-    }
-  }
-
-  // ── 2b. First-letter match (e.g. "ls" → "临时") ──
-  const firstLetters = info.map((item) => item.firstLetter).join('');
-  const flIdx = firstLetters.indexOf(q);
-  if (flIdx !== -1) {
-    const flEnd = flIdx + q.length;
-    return [
-      info[flIdx].utf16Start,
-      info[Math.min(flEnd, info.length) - 1].utf16End,
-    ];
-  }
-
-  return null;
+  const ranges = pinyinMatchAllRanges(query, target);
+  return ranges.length > 0 ? ranges[0] : null;
 }
 
 /**

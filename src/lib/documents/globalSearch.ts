@@ -2,12 +2,13 @@
  * Global search logic: search across document titles and content.
  *
  * - Title matching uses pinyin-aware fuzzy matching (same as CommandPalette).
- * - Content matching uses case-insensitive substring matching.
+ * - Content matching uses pinyin-aware fuzzy matching too — direct substring
+ *   ("hello" → "hello"), full pinyin ("linshi" → "临时"), first-letter ("ls" → "临时").
  * - Results are unified into a single list, tagged by match type.
  */
 
 import type { Document } from '../../types/document';
-import { pinyinMatchRange } from './pinyinMatch';
+import { pinyinMatchRange, pinyinMatchAllRanges } from './pinyinMatch';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -36,21 +37,22 @@ export interface GlobalSearchResult {
 const SNIPPET_RADIUS = 40;
 
 /**
- * Extract a context snippet around a match position in `text`.
+ * Extract a context snippet around a match range in `text`.
  *
  * @param text       The full plain-text content of the document.
  * @param matchStart Start index of the match (inclusive).
- * @param matchLen   Length of the matched query.
+ * @param matchEnd   End index of the match (exclusive). Pass the actual
+ *                   matched-text end, NOT `matchStart + query.length` —
+ *                   pinyin matches can be shorter than the query
+ *                   (e.g. "linshi" → "临时", 6 chars → 2 chars).
  * @returns `{ snippet, range }` where `range` is the highlight range
  *          within `snippet`.
  */
 function extractSnippet(
   text: string,
   matchStart: number,
-  matchLen: number,
+  matchEnd: number,
 ): { snippet: string; range: [number, number] } {
-  const matchEnd = matchStart + matchLen;
-
   // Try to start at a line boundary for cleaner context
   let snippetStart = matchStart - SNIPPET_RADIUS;
   if (snippetStart < 0) snippetStart = 0;
@@ -133,7 +135,6 @@ export function performGlobalSearch(
   const q = query.trim();
   if (!q) return [];
 
-  const lowerQ = q.toLowerCase();
   const results: GlobalSearchResult[] = [];
 
   for (const doc of documents) {
@@ -155,17 +156,18 @@ export function performGlobalSearch(
       continue; // Title match takes priority – don't also show as content
     }
 
-    // Content match: case-insensitive substring
+    // Content match: pinyin-aware (direct → full pinyin → first-letter).
+    // Use the first match range to build the snippet; the matched-text
+    // length may differ from the query length for pinyin matches
+    // (e.g. "linshi" → "临时", 6 chars → 2 chars), so pass the actual
+    // match endpoints to extractSnippet.
     const content = textIndex.get(doc.id) ?? '';
     if (!content) continue;
 
-    const contentIdx = content.toLowerCase().indexOf(lowerQ);
-    if (contentIdx !== -1) {
-      const { snippet, range } = extractSnippet(
-        content,
-        contentIdx,
-        q.length,
-      );
+    const contentRanges = pinyinMatchAllRanges(q, content);
+    if (contentRanges.length > 0) {
+      const [matchStart, matchEnd] = contentRanges[0];
+      const { snippet, range } = extractSnippet(content, matchStart, matchEnd);
       results.push({
         docId: doc.id,
         title,
