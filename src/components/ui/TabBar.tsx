@@ -43,11 +43,11 @@ import RippleButton from './RippleButton';
  *
  * `TAB_BAR_OVERLAY_HEIGHT` is the total vertical space the floating tab
  * bar overlay webview occupies. It must comfortably fit the outer padding
- * (pt-3/pb-3 = 12px) + the pill (py-1.5*2 + tab content + 1px border ≈
- * 42-44px) + buffer for the pill's drop shadow and sub-pixel rendering.
- * 64px gives ~8px of shadow/breathing room beyond the pill itself,
- * preventing the glass capsule's rounded corners from being clipped by
- * the overlay webview's bounds.
+ * (pt-2.5 = 10px top / pb-3.5 = 14px bottom) + the pill (py-1.5*2 + tab
+ * content + 1px border ≈ 42-44px) + buffer for the pill's drop shadow
+ * and sub-pixel rendering. 64px gives ~8px of shadow/breathing room
+ * beyond the pill itself, preventing the glass capsule's rounded corners
+ * from being clipped by the overlay webview's bounds.
  */
 const TAB_WIDTH_PX = 130;
 export const TAB_BAR_OVERLAY_HEIGHT = 64;
@@ -298,7 +298,7 @@ export default function TabBar({
       {/* Floating glassmorphism capsule tab bar */}
       <div
         ref={tabBarRef}
-        className={`absolute left-0 right-0 ${position === 'top' ? 'top-0 pt-3' : 'bottom-0 pb-3'} flex items-center justify-center z-20 ${className ?? ''}`}
+        className={`absolute left-0 right-0 ${position === 'top' ? 'top-0 pt-2.5' : 'bottom-0 pb-3.5'} flex items-center justify-center z-20 ${className ?? ''}`}
       >
         <div
           className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full border border-[var(--vscode-menu-border)]"
