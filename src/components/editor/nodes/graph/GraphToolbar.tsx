@@ -32,7 +32,7 @@ import type { MindmapScheme } from "../../../../lib/editor/extensions/diagramExt
 export interface GraphToolbarProps {
   // Shape menu
   pendingShape: GraphNodeShape | null;
-  pendingLifelineCount: number;
+  pendingBatchCount: number;
   recentShapes: GraphNodeShape[];
   shapesMenuOpen: boolean;
   shapesMenuRef: RefObject<HTMLDivElement | null>;
@@ -95,7 +95,7 @@ export interface GraphToolbarProps {
 export function GraphToolbar(props: GraphToolbarProps) {
   const {
     pendingShape,
-    pendingLifelineCount,
+    pendingBatchCount,
     recentShapes,
     shapesMenuOpen,
     shapesMenuRef,
@@ -146,7 +146,7 @@ export function GraphToolbar(props: GraphToolbarProps) {
       {/* 形状全量菜单：hover 展开，按类别分区 */}
       <GraphShapesMenu
         pendingShape={pendingShape}
-        pendingLifelineCount={pendingLifelineCount}
+        pendingBatchCount={pendingBatchCount}
         shapesMenuOpen={shapesMenuOpen}
         shapesMenuRef={shapesMenuRef}
         onShapesClick={onShapesClick}
@@ -162,21 +162,21 @@ export function GraphToolbar(props: GraphToolbarProps) {
             <button
               key={`lru-${shape}`}
               type="button"
-              className={`jgraph-tool-btn ${pendingShape === shape ? 'is-active' : ''}`}
+              className={`jgraph-tool-btn ${pendingShape === shape ? "is-active" : ""}`}
               title={`${shapeTitleMap.get(shape) ?? shape}｜点击后在画布拖拽划定大小`}
               onClick={(e) => onSelectShape(shape, e.metaKey || e.ctrlKey)}
             >
               <ShapeGlyph shape={shape} />
-              {shape === 'lifeline'
-                && pendingShape === 'lifeline'
-                && pendingLifelineCount > 1 && (
-                <span
-                  className="jgraph-shapes-badge"
-                  aria-label={`批量计数 ${pendingLifelineCount}`}
-                >
-                  ×{pendingLifelineCount}
-                </span>
-              )}
+              {shape === pendingShape &&
+                !shape.startsWith("edge-") &&
+                pendingBatchCount > 1 && (
+                  <span
+                    className="jgraph-shapes-badge"
+                    aria-label={`批量计数 ${pendingBatchCount}`}
+                  >
+                    ×{pendingBatchCount}
+                  </span>
+                )}
             </button>
           ))}
         </>
@@ -213,13 +213,13 @@ export function GraphToolbar(props: GraphToolbarProps) {
             type="button"
             className="jgraph-tool-btn"
             title={
-              selectedSeqEdge === 'return'
-                ? '切换为调用消息（实线）'
-                : '切换为返回消息（虚线）'
+              selectedSeqEdge === "return"
+                ? "切换为调用消息（实线）"
+                : "切换为返回消息（虚线）"
             }
             onClick={onToggleSeqMessage}
           >
-            {selectedSeqEdge === 'return' ? (
+            {selectedSeqEdge === "return" ? (
               <MoveRight size={16} />
             ) : (
               <Reply size={16} />
@@ -232,11 +232,11 @@ export function GraphToolbar(props: GraphToolbarProps) {
           <div className="jgraph-tool-sep" />
           <button
             type="button"
-            className={`jgraph-tool-btn ${mindmapScheme === 'neon' ? 'is-active' : ''}`}
+            className={`jgraph-tool-btn ${mindmapScheme === "neon" ? "is-active" : ""}`}
             title={
-              mindmapScheme === 'neon'
-                ? '思维导图：暗夜霓虹（M）｜点击切换为极简黑白（N）'
-                : '思维导图：极简黑白（N）｜点击切换为暗夜霓虹（M）'
+              mindmapScheme === "neon"
+                ? "思维导图：暗夜霓虹（M）｜点击切换为极简黑白（N）"
+                : "思维导图：极简黑白（N）｜点击切换为暗夜霓虹（M）"
             }
             onClick={onToggleMindmapScheme}
           >
@@ -249,25 +249,25 @@ export function GraphToolbar(props: GraphToolbarProps) {
           <div className="jgraph-tool-sep" />
           <button
             type="button"
-            className={`jgraph-tool-btn ${selectedLabelAlign === 'left' ? 'is-active' : ''}`}
+            className={`jgraph-tool-btn ${selectedLabelAlign === "left" ? "is-active" : ""}`}
             title="文字左对齐"
-            onClick={() => onSetLabelAlign('left')}
+            onClick={() => onSetLabelAlign("left")}
           >
             <AlignLeft size={16} />
           </button>
           <button
             type="button"
-            className={`jgraph-tool-btn ${selectedLabelAlign === 'center' ? 'is-active' : ''}`}
+            className={`jgraph-tool-btn ${selectedLabelAlign === "center" ? "is-active" : ""}`}
             title="文字居中对齐"
-            onClick={() => onSetLabelAlign('center')}
+            onClick={() => onSetLabelAlign("center")}
           >
             <AlignCenter size={16} />
           </button>
           <button
             type="button"
-            className={`jgraph-tool-btn ${selectedLabelAlign === 'right' ? 'is-active' : ''}`}
+            className={`jgraph-tool-btn ${selectedLabelAlign === "right" ? "is-active" : ""}`}
             title="文字右对齐"
-            onClick={() => onSetLabelAlign('right')}
+            onClick={() => onSetLabelAlign("right")}
           >
             <AlignRight size={16} />
           </button>

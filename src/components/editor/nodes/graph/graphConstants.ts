@@ -1,4 +1,4 @@
-import type { GraphNodeShape } from './graphSnapshot';
+import type { GraphNodeShape } from "./graphSnapshot";
 import {
   paletteFor,
   getFontColor,
@@ -9,7 +9,7 @@ import {
   MINDMAP_ARC_SIZE,
   DEFAULT_MINDMAP_SCHEME,
   type MindmapScheme,
-} from './graphTheme';
+} from "./graphTheme";
 
 /* ------------------------------------------------------------------ */
 /* 默认模具尺寸 —— 对齐 draw.io 出厂默认值                             */
@@ -21,38 +21,38 @@ const DEFAULT_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   ellipse: { w: 120, h: 80 },
   diamond: { w: 80, h: 80 },
   text: { w: 60, h: 30 },
-  actor: { w: 50, h: 150 },      // 小人：宽度 50，高度 150（头部 50 + 生命线 100）
-  'swimlane-v': { w: 200, h: 300 },
-  'swimlane-h': { w: 300, h: 200 },
-  lifeline: { w: 100, h: 150 },   // 生命线：宽度 100，高度 150（头部 50 + 生命线 100）
+  actor: { w: 50, h: 150 }, // 小人：宽度 50，高度 150（头部 50 + 生命线 100）
+  "swimlane-v": { w: 200, h: 300 },
+  "swimlane-h": { w: 300, h: 200 },
+  lifeline: { w: 100, h: 150 }, // 生命线：宽度 100，高度 150（头部 50 + 生命线 100）
   activation: { w: 16, h: 60 },
   note: { w: 100, h: 60 },
   database: { w: 120, h: 80 },
-  topic: { w: 100, h: 36 },       // 思维导图节点：紧凑圆角矩形
-  'edge-line': { w: 100, h: 20 },
-  'edge-ortho': { w: 100, h: 20 },
-  'edge-dashed': { w: 100, h: 20 },
-  'edge-no-arrow': { w: 100, h: 20 },
+  topic: { w: 100, h: 36 }, // 思维导图节点：紧凑圆角矩形
+  "edge-line": { w: 100, h: 20 },
+  "edge-ortho": { w: 100, h: 20 },
+  "edge-dashed": { w: 100, h: 20 },
+  "edge-no-arrow": { w: 100, h: 20 },
 };
 
 const SHAPE_LABEL: Record<GraphNodeShape, string> = {
-  rectangle: '处理',
-  rounded: '起止',
-  ellipse: '节点',
-  diamond: '判定',
-  text: '文本',
-  actor: '',
-  'swimlane-v': '泳道',
-  'swimlane-h': '泳道',
-  lifeline: '',
-  activation: '',
-  note: '注释',
-  database: '数据库',
-  topic: '主题',
-  'edge-line': '',
-  'edge-ortho': '',
-  'edge-dashed': '',
-  'edge-no-arrow': '',
+  rectangle: "处理",
+  rounded: "起止",
+  ellipse: "节点",
+  diamond: "判定",
+  text: "文本",
+  actor: "",
+  "swimlane-v": "泳道",
+  "swimlane-h": "泳道",
+  lifeline: "",
+  activation: "",
+  note: "注释",
+  database: "数据库",
+  topic: "主题",
+  "edge-line": "",
+  "edge-ortho": "",
+  "edge-dashed": "",
+  "edge-no-arrow": "",
 };
 
 /**
@@ -78,41 +78,69 @@ function styleForShape(
     pointerEvents: false,
   };
   switch (shape) {
-    case 'rounded':
-      return { ...base, shape: 'rectangle', rounded: true, absoluteArcSize: true, arcSize: SHAPE_ARC_SIZE };
-    case 'diamond':
-      return { ...base, shape: 'rhombus' };
-    case 'ellipse':
-      return { ...base, shape: 'ellipse' };
-    case 'text':
-      return { shape: 'text', fillColor: 'none', strokeColor: 'none', fontColor: getFontColor(dark), fontSize: SHAPE_FONT_SIZE };
-    case 'actor':
+    case "rounded":
+      return {
+        ...base,
+        shape: "rectangle",
+        rounded: true,
+        absoluteArcSize: true,
+        arcSize: SHAPE_ARC_SIZE,
+      };
+    case "diamond":
+      return { ...base, shape: "rhombus" };
+    case "ellipse":
+      return { ...base, shape: "ellipse" };
+    case "text":
+      return {
+        shape: "text",
+        fillColor: "none",
+        strokeColor: "none",
+        fontColor: getFontColor(dark),
+        fontSize: SHAPE_FONT_SIZE,
+      };
+    case "actor":
       // 用例图角色：使用自定义的 umlActor 形状（小人图标 + 生命线）
       // 使用 lifelinePerimeter，连接点只落在中心虚线上
-      return { ...base, shape: 'umlActor', perimeter: 'lifelinePerimeter' };
-    case 'swimlane-v':
-      return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: false };
-    case 'swimlane-h':
-      return { ...base, shape: 'swimlane', swimlaneLine: true, startSize: 30, horizontal: true };
-    case 'lifeline':
+      return { ...base, shape: "umlActor", perimeter: "lifelinePerimeter" };
+    case "swimlane-v":
+      return {
+        ...base,
+        shape: "swimlane",
+        swimlaneLine: true,
+        startSize: 30,
+        horizontal: false,
+      };
+    case "swimlane-h":
+      return {
+        ...base,
+        shape: "swimlane",
+        swimlaneLine: true,
+        startSize: 30,
+        horizontal: true,
+      };
+    case "lifeline":
       // 时序图生命线：使用自定义的 lifeline 形状（矩形头部 + 虚线延伸）
       // 使用 lifelinePerimeter，连接点只落在中心虚线上
-      return { ...base, shape: 'lifeline', perimeter: 'lifelinePerimeter' };
-    case 'activation':
+      return { ...base, shape: "lifeline", perimeter: "lifelinePerimeter" };
+    case "activation":
       // 时序图激活框：使用专用 umlActivation 形状，左右边缘优先连接消息线
-      return { ...base, shape: 'umlActivation', perimeter: 'activationPerimeter' };
-    case 'note':
+      return {
+        ...base,
+        shape: "umlActivation",
+        perimeter: "activationPerimeter",
+      };
+    case "note":
       // 注释框：使用自定义 note 形状（右上角折角的便利贴风格）
-      return { ...base, shape: 'note' };
-    case 'database':
+      return { ...base, shape: "note" };
+    case "database":
       // 数据库：使用自定义 database 形状（圆柱体）
-      return { ...base, shape: 'database' };
-    case 'topic':
+      return { ...base, shape: "database" };
+    case "topic":
       // 思维导图根节点：按 scheme 给配色 + 写入 mmScheme/mmBranch/mmDepth 标记。
       // Tab/Enter 生发子节点时由 mindmapSpawn 按 depth 重新配色并更新标记。
       // 通过 isTopic 标记区分（支持 Tab/Enter 生发子节点/兄弟节点）。
       return {
-        shape: 'rectangle',
+        shape: "rectangle",
         rounded: true,
         absoluteArcSize: true,
         arcSize: MINDMAP_ARC_SIZE,
@@ -124,17 +152,33 @@ function styleForShape(
       };
     // 连线类型：统一实线 + 圆点流动（流动由 CSS 动画驱动，见 vscode-theme.css）。
     // 箭头 marker 由 ConnectorShape.setDashed(false) 渲染为实线，不受流动影响。
-    case 'edge-line':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
-    case 'edge-ortho':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, edgeStyle: 'obstacleEdgeStyle', endArrow: 'classic', endSize: 8 };
-    case 'edge-dashed':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'classic', endSize: 8 };
-    case 'edge-no-arrow':
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: 'none' };
-    case 'rectangle':
+    case "edge-line":
+      return {
+        strokeColor: pal.stroke,
+        strokeWidth: 1.5,
+        endArrow: "classic",
+        endSize: 8,
+      };
+    case "edge-ortho":
+      return {
+        strokeColor: pal.stroke,
+        strokeWidth: 1.5,
+        edgeStyle: "obstacleEdgeStyle",
+        endArrow: "classic",
+        endSize: 8,
+      };
+    case "edge-dashed":
+      return {
+        strokeColor: pal.stroke,
+        strokeWidth: 1.5,
+        endArrow: "classic",
+        endSize: 8,
+      };
+    case "edge-no-arrow":
+      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: "none" };
+    case "rectangle":
     default:
-      return { ...base, shape: 'rectangle' };
+      return { ...base, shape: "rectangle" };
   }
 }
 
@@ -154,13 +198,13 @@ const ZOOM_MAX = 4;
 const MIN_DRAW_SIZE = 12;
 
 /**
- * 批量生命线（Cmd+click lifeline icon N 次后拖框）相关常量。
+ * 批量创建（Cmd+click 形状 icon N 次后拖框）相关常量。
  * - MAX_COUNT：单次批量上限，防止 Cmd 卡键意外产生海量节点。
  * - FALLBACK_SPACING：click-without-drag 回退间距（用户只点击不拖框时，
- *   以此间距排开 N 条）。与 sequenceConverter 的 PARTICANT_SPACING 对齐。
+ *   以此间距排开 N 个）。与 sequenceConverter 的 PARTICIPANT_SPACING 对齐。
  */
-const BATCH_LIFELINE_MAX_COUNT = 20;
-const BATCH_LIFELINE_FALLBACK_SPACING = 160;
+const BATCH_MAX_COUNT = 20;
+const BATCH_FALLBACK_SPACING = 160;
 
 /**
  * 连接点：仅保留四边中点（4 个），而非八点。
@@ -183,6 +227,6 @@ export {
   ZOOM_MAX,
   MIN_DRAW_SIZE,
   CONNECTION_POINTS,
-  BATCH_LIFELINE_MAX_COUNT,
-  BATCH_LIFELINE_FALLBACK_SPACING,
+  BATCH_MAX_COUNT,
+  BATCH_FALLBACK_SPACING,
 };

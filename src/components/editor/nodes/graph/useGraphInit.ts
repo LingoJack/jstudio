@@ -18,21 +18,21 @@
  * 各初始化阶段已拆分到 graphSetup/ 目录下的独立模块，此文件为薄编排层。
  */
 
-import { useEffect } from 'react';
-import type { RefObject } from 'react';
+import { useEffect } from "react";
+import type { RefObject } from "react";
 import {
   Graph,
   InternalEvent,
   RubberBandHandler,
   getDefaultPlugins,
   type UndoManager,
-} from '@maxgraph/core';
+} from "@maxgraph/core";
 
-import { registerCustomShapes } from './customShapes';
-import { registerObstacleEdgeStyle } from './obstacleRouting';
-import { registerMindmapEdgeStyle } from './mindmapLayout';
-import { EVENT_TOLERANCE } from './graphConstants';
-import type { GraphNodeShape } from './graphSnapshot';
+import { registerCustomShapes } from "./customShapes";
+import { registerObstacleEdgeStyle } from "./obstacleRouting";
+import { registerMindmapEdgeStyle } from "./mindmapLayout";
+import { EVENT_TOLERANCE } from "./graphConstants";
+import type { GraphNodeShape } from "./graphSnapshot";
 import {
   setupEdgeFlowAnimation,
   setupVertexHandlers,
@@ -44,8 +44,8 @@ import {
   setupSnapshotLoad,
   setupDragDraw,
   setupWheelZoom,
-} from './graphSetup';
-import type { GraphSetupContext, GraphSetupFn } from './graphSetup';
+} from "./graphSetup";
+import type { GraphSetupContext, GraphSetupFn } from "./graphSetup";
 
 export interface UseGraphInitParams {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -59,19 +59,19 @@ export interface UseGraphInitParams {
   initialSnapshotRef: RefObject<string>;
   showGridRef: RefObject<boolean>;
   pendingShapeRef: RefObject<GraphNodeShape | null>;
-  pendingLifelineCountRef: RefObject<number>;
+  pendingBatchCountRef: RefObject<number>;
   debounceRef: RefObject<ReturnType<typeof setTimeout> | null>;
   scheduleEmit: () => void;
   emitSnapshot: () => void;
   setShowGrid: (v: boolean) => void;
   setAutoActivation: (v: boolean) => void;
-  setSelectedLabelAlign: (v: 'left' | 'center' | 'right' | null) => void;
+  setSelectedLabelAlign: (v: "left" | "center" | "right" | null) => void;
   setSelectedFillColor: (v: string | null) => void;
-  setSelectedSeqEdge: (v: 'call' | 'return' | null) => void;
+  setSelectedSeqEdge: (v: "call" | "return" | null) => void;
   setSelectedMindmapTopic: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
-  setPendingLifelineCount: (n: number) => void;
+  setPendingBatchCount: (n: number) => void;
 }
 
 export function useGraphInit(params: UseGraphInitParams) {
@@ -87,7 +87,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     initialSnapshotRef,
     showGridRef,
     pendingShapeRef,
-    pendingLifelineCountRef,
+    pendingBatchCountRef,
     debounceRef,
     scheduleEmit,
     emitSnapshot,
@@ -99,7 +99,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     setSelectedMindmapTopic,
     setFillPickerOpen,
     setPending,
-    setPendingLifelineCount,
+    setPendingBatchCount,
   } = params;
 
   useEffect(() => {
@@ -150,7 +150,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       initialSnapshotRef,
       showGridRef,
       pendingShapeRef,
-      pendingLifelineCountRef,
+      pendingBatchCountRef,
       rootRef,
       containerRef,
       scheduleEmit,
@@ -162,7 +162,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       setSelectedMindmapTopic,
       setFillPickerOpen,
       setPending,
-      setPendingLifelineCount,
+      setPendingBatchCount,
     };
 
     // 按原始顺序调用各 setup 函数，收集 cleanup。

@@ -16,11 +16,11 @@
  * 这是时序图/用例图所必需的能力。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Graph, UndoManager, type CellStyle } from '@maxgraph/core';
-import '@maxgraph/core/css/common.css';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Graph, UndoManager, type CellStyle } from "@maxgraph/core";
+import "@maxgraph/core/css/common.css";
 
-import { GraphToolbar } from './GraphToolbar';
+import { GraphToolbar } from "./GraphToolbar";
 
 import {
   detectSnapshotKind,
@@ -28,16 +28,20 @@ import {
   serializeGraphSnapshot,
   type GraphNodeShape,
   type LabelAlign,
-} from './graphSnapshot';
-import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
-import { BATCH_LIFELINE_MAX_COUNT } from './graphConstants';
-import MermaidImportDialog from './MermaidImportDialog';
-import AIGraphImportDialog from './AIGraphImportDialog';
-import { fontColorFor, DEFAULT_MINDMAP_SCHEME, type MindmapScheme } from './graphTheme';
-import { useGraphExport } from './useGraphExport';
-import { useGraphKeyboard } from './useGraphKeyboard';
-import { useGraphInit } from './useGraphInit';
-import { useGraphTheme } from './useGraphTheme';
+} from "./graphSnapshot";
+import { applySnapshotToGraph, readSnapshotFromGraph } from "./graphModel";
+import { BATCH_MAX_COUNT } from "./graphConstants";
+import MermaidImportDialog from "./MermaidImportDialog";
+import AIGraphImportDialog from "./AIGraphImportDialog";
+import {
+  fontColorFor,
+  DEFAULT_MINDMAP_SCHEME,
+  type MindmapScheme,
+} from "./graphTheme";
+import { useGraphExport } from "./useGraphExport";
+import { useGraphKeyboard } from "./useGraphKeyboard";
+import { useGraphInit } from "./useGraphInit";
+import { useGraphTheme } from "./useGraphTheme";
 
 export interface GraphCanvasProps {
   /** 序列化的画板快照（JSON 字符串）。空 = 空白画板。 */
@@ -61,7 +65,6 @@ export interface GraphCanvasProps {
   onMindmapSchemeChange?: (next: MindmapScheme) => void;
 }
 
-
 /** 填充色预设面板由 graphTheme.fillPresetsFor(dark) 提供——双套色板，随主题切换。 */
 
 /* ------------------------------------------------------------------ */
@@ -72,7 +75,7 @@ export function GraphCanvas({
   initialSnapshot,
   onChange,
   darkMode = false,
-  className = '',
+  className = "",
   rootElRef,
   editing = true,
   mindmapScheme = DEFAULT_MINDMAP_SCHEME,
@@ -86,24 +89,25 @@ export function GraphCanvas({
   // 用 ref 供事件回调读取，用 state 驱动光标/高亮 UI。
   const pendingShapeRef = useRef<GraphNodeShape | null>(null);
   const [pendingShape, setPendingShape] = useState<GraphNodeShape | null>(null);
-  // 批量生命线计数：Cmd+click lifeline icon 多次累加，随后一次拖框在划定区域
-  // 内等距排开 N 条生命线。仅 pendingShape==='lifeline' 时有意义。
+  // 批量创建计数：Cmd+click 形状 icon 多次累加，随后一次拖框在划定区域
+  // 内排开 N 个该形状（lifeline 单行横排，其他形状网格排列）。
+  // 仅在 pendingShape 非 null 时有意义。
   // 同样采用 ref+state 双轨：ref 给 dragDraw 事件回调读取，state 驱动 badge UI。
   // 定义在 setPending 之前，以便 setPending(null) 时顺手清零，集中维护
-  // "pendingShape===null ⟹ pendingLifelineCount===0" 不变量。
-  const pendingLifelineCountRef = useRef(0);
-  const [pendingLifelineCount, setPendingLifelineCountState] = useState(0);
-  const setPendingLifelineCount = useCallback((n: number) => {
-    pendingLifelineCountRef.current = n;
-    setPendingLifelineCountState(n);
+  // "pendingShape===null ⟹ pendingBatchCount===0" 不变量。
+  const pendingBatchCountRef = useRef(0);
+  const [pendingBatchCount, setPendingBatchCountState] = useState(0);
+  const setPendingBatchCount = useCallback((n: number) => {
+    pendingBatchCountRef.current = n;
+    setPendingBatchCountState(n);
   }, []);
   const setPending = useCallback((shape: GraphNodeShape | null) => {
     pendingShapeRef.current = shape;
     setPendingShape(shape);
     // disarm 时同步清零批量计数，避免 lingering count 影响下次 arm。
-    if (shape === null && pendingLifelineCountRef.current !== 0) {
-      pendingLifelineCountRef.current = 0;
-      setPendingLifelineCountState(0);
+    if (shape === null && pendingBatchCountRef.current !== 0) {
+      pendingBatchCountRef.current = 0;
+      setPendingBatchCountState(0);
     }
   }, []);
   // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
@@ -115,12 +119,17 @@ export function GraphCanvas({
   // false=所见即所得（按当前视窗可见区域导出）。
   const [exportFitMode, setExportFitMode] = useState(true); // 默认自适应
   // 选中 cell 的文字对齐方式（null 表示无选中或不支持）。
-  const [selectedLabelAlign, setSelectedLabelAlign] = useState<LabelAlign | null>(null);
+  const [selectedLabelAlign, setSelectedLabelAlign] =
+    useState<LabelAlign | null>(null);
   // 选中 vertex 的填充色（null 表示无选中或边线选中）。'none' = 无填充。
-  const [selectedFillColor, setSelectedFillColor] = useState<string | null>(null);
+  const [selectedFillColor, setSelectedFillColor] = useState<string | null>(
+    null,
+  );
   // 选中边是时序图消息时：'call'（实线调用）/ 'return'（虚线返回）；否则 null。
   // 用于显示"调用/返回切换"按钮——算法判定不准时用户可手动翻转。
-  const [selectedSeqEdge, setSelectedSeqEdge] = useState<'call' | 'return' | null>(null);
+  const [selectedSeqEdge, setSelectedSeqEdge] = useState<
+    "call" | "return" | null
+  >(null);
   // 选中 vertex 是思维导图 topic 时为 true，用于显示 M/N 配色切换按钮。
   const [selectedMindmapTopic, setSelectedMindmapTopic] = useState(false);
   // 填充色弹出面板开关
@@ -185,20 +194,20 @@ export function GraphCanvas({
   useEffect(() => {
     if (!editing) return;
     const onDown = (e: KeyboardEvent) => {
-      if (e.key === 'Meta' || e.key === 'Control') setCloneHeld(true);
+      if (e.key === "Meta" || e.key === "Control") setCloneHeld(true);
     };
     const onUp = (e: KeyboardEvent) => {
-      if (e.key === 'Meta' || e.key === 'Control') setCloneHeld(false);
+      if (e.key === "Meta" || e.key === "Control") setCloneHeld(false);
     };
     // 监听 window 而非 root：拖动开始后焦点可能在画布子元素上，
     // window 级监听保证 Cmd/Ctrl 按下/抬起都能捕获到。
-    window.addEventListener('keydown', onDown);
-    window.addEventListener('keyup', onUp);
-    window.addEventListener('blur', onUp as EventListener); // 切窗时复位
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", onUp as EventListener); // 切窗时复位
     return () => {
-      window.removeEventListener('keydown', onDown);
-      window.removeEventListener('keyup', onUp);
-      window.removeEventListener('blur', onUp as EventListener);
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", onUp as EventListener);
     };
   }, [editing]);
 
@@ -246,8 +255,18 @@ export function GraphCanvas({
     const graph = graphRef.current;
     if (!graph) return;
     try {
-      const snap = readSnapshotFromGraph(graph, showGridRef.current, autoActivationRef.current);
-      const json = serializeGraphSnapshot(snap.nodes, snap.edges, snap.viewport, snap.showGrid, snap.autoActivation);
+      const snap = readSnapshotFromGraph(
+        graph,
+        showGridRef.current,
+        autoActivationRef.current,
+      );
+      const json = serializeGraphSnapshot(
+        snap.nodes,
+        snap.edges,
+        snap.viewport,
+        snap.showGrid,
+        snap.autoActivation,
+      );
       if (json === lastEmittedRef.current) return;
       lastEmittedRef.current = json;
       onChangeRef.current(json);
@@ -279,7 +298,7 @@ export function GraphCanvas({
     initialSnapshotRef,
     showGridRef,
     pendingShapeRef,
-    pendingLifelineCountRef,
+    pendingBatchCountRef,
     debounceRef,
     scheduleEmit,
     emitSnapshot,
@@ -291,7 +310,7 @@ export function GraphCanvas({
     setSelectedMindmapTopic,
     setFillPickerOpen,
     setPending,
-    setPendingLifelineCount,
+    setPendingBatchCount,
   });
 
   /* -------------------------------------------------------------- */
@@ -302,7 +321,10 @@ export function GraphCanvas({
     const graph = graphRef.current;
     if (!graph) return;
     if (initialSnapshot === lastEmittedRef.current) return; // 自己 emit 的，忽略
-    if (detectSnapshotKind(initialSnapshot) !== 'jgraph' && initialSnapshot.trim() !== '') {
+    if (
+      detectSnapshotKind(initialSnapshot) !== "jgraph" &&
+      initialSnapshot.trim() !== ""
+    ) {
       return; // 非本内核格式，交由上层路由处理，这里不动
     }
     const parsed = parseGraphSnapshot(initialSnapshot);
@@ -310,11 +332,11 @@ export function GraphCanvas({
     try {
       applySnapshotToGraph(graph, parsed, darkMode, mindmapScheme);
       // 恢复网格显隐状态（applySnapshotToGraph 已设引擎 gridEnabled，这里同步组件态）。
-      if (typeof parsed.showGrid === 'boolean') {
+      if (typeof parsed.showGrid === "boolean") {
         setShowGrid(parsed.showGrid);
       }
       // 恢复时序图自动附加块开关（缺省保持默认 true）。
-      if (typeof parsed.autoActivation === 'boolean') {
+      if (typeof parsed.autoActivation === "boolean") {
         setAutoActivation(parsed.autoActivation);
         autoActivationRef.current = parsed.autoActivation;
       }
@@ -340,7 +362,12 @@ export function GraphCanvas({
   }, [editing]);
 
   // 主题色刷新（提取到 useGraphTheme）
-  const { applyThemeColors } = useGraphTheme({ graphRef, darkModeRef, darkMode, mindmapScheme });
+  const { applyThemeColors } = useGraphTheme({
+    graphRef,
+    darkModeRef,
+    darkMode,
+    mindmapScheme,
+  });
 
   useGraphKeyboard({
     editing,
@@ -352,7 +379,7 @@ export function GraphCanvas({
     darkModeRef,
     mindmapSchemeRef,
     setPending,
-    setPendingLifelineCount,
+    setPendingBatchCount,
   });
 
   /* -------------------------------------------------------------- */
@@ -369,37 +396,39 @@ export function GraphCanvas({
 
   // 将某形状提升到 LRU 队首（去重，上限 4）。
   const recordShapeUse = useCallback((shape: GraphNodeShape) => {
-    setRecentShapes((prev) => [shape, ...prev.filter((s) => s !== shape)].slice(0, 4));
+    setRecentShapes((prev) =>
+      [shape, ...prev.filter((s) => s !== shape)].slice(0, 4),
+    );
   }, []);
 
   // 从下拉菜单 / LRU 选形状：记录 LRU + 设置 pending 态 + 关闭菜单。
-  // metaKey=true（Cmd/Ctrl+click）且 shape==='lifeline' 时进入批量累加模式：
-  //   - 首次 Cmd+click：arm lifeline, count=1
+  // metaKey=true（Cmd/Ctrl+click）且 shape 是 vertex 形状时进入批量累加模式：
+  //   - 首次 Cmd+click：arm shape, count=1
   //   - 后续 Cmd+click：count++ 直至上限
   //   - plain click：保持原有 toggle 行为，并清零 count
-  // 其他形状 Cmd+click 行为不变（按 plain click 处理），count 清零。
+  // edge-* 形状走连线样式设置流程，不参与批量（无 vertex 创建）。
   const handleSelectShape = useCallback(
     (shape: GraphNodeShape, metaKey: boolean = false) => {
       recordShapeUse(shape);
-      if (shape === 'lifeline' && metaKey) {
-        // Cmd+click lifeline 累加批量计数，保持菜单打开以便继续点击累加。
+      if (!shape.startsWith("edge-") && metaKey) {
+        // Cmd+click 累加批量计数，保持菜单打开以便继续点击累加。
         // 菜单关闭交由 hover-leave 或拖框开始后的 focus 离开自然触发。
-        if (pendingShapeRef.current === 'lifeline') {
-          setPendingLifelineCount(
-            Math.min(pendingLifelineCountRef.current + 1, BATCH_LIFELINE_MAX_COUNT),
+        if (pendingShapeRef.current === shape) {
+          setPendingBatchCount(
+            Math.min(pendingBatchCountRef.current + 1, BATCH_MAX_COUNT),
           );
         } else {
-          setPending('lifeline');
-          setPendingLifelineCount(1);
+          setPending(shape);
+          setPendingBatchCount(1);
         }
         return;
       }
-      // 非 lifeline 或 plain click：清零批量计数，走原有 toggle 流程。
-      if (pendingLifelineCountRef.current !== 0) setPendingLifelineCount(0);
+      // 非 vertex 或 plain click：清零批量计数，走原有 toggle 流程。
+      if (pendingBatchCountRef.current !== 0) setPendingBatchCount(0);
       togglePending(shape);
       setShapesMenuOpen(false);
     },
-    [recordShapeUse, setPending, setPendingLifelineCount, togglePending],
+    [recordShapeUse, setPending, setPendingBatchCount, togglePending],
   );
 
   // 形状菜单 hover 展开：鼠标进入立即打开，离开延迟 200ms 关闭
@@ -450,7 +479,7 @@ export function GraphCanvas({
     if (!graph) return;
     const cells = graph.getSelectionCells();
     if (cells.length === 0) return;
-    graph.setCellStyles('align', align, cells);
+    graph.setCellStyles("align", align, cells);
     setSelectedLabelAlign(align);
   }, []);
 
@@ -466,9 +495,9 @@ export function GraphCanvas({
     graph.getDataModel().setStyle(cell, {
       ...style,
       dashed: !isReturn,
-      endArrow: isReturn ? 'classic' : 'openThin',
+      endArrow: isReturn ? "classic" : "openThin",
     });
-    setSelectedSeqEdge(isReturn ? 'call' : 'return');
+    setSelectedSeqEdge(isReturn ? "call" : "return");
   }, []);
 
   // 切换思维导图配色方案：M（暗夜霓虹）/ N（极简黑白）。
@@ -478,7 +507,8 @@ export function GraphCanvas({
   // 同时通过 onMindmapSchemeChange 回传给父组件，更新 TipTap 节点属性，
   // 保证新窗口打开 / 重渲染时 scheme 一致。
   const handleToggleMindmapScheme = useCallback(() => {
-    const next: MindmapScheme = mindmapSchemeRef.current === 'neon' ? 'mono' : 'neon';
+    const next: MindmapScheme =
+      mindmapSchemeRef.current === "neon" ? "mono" : "neon";
     applyThemeColors(next);
     onMindmapSchemeChange?.(next);
   }, [applyThemeColors, onMindmapSchemeChange]);
@@ -489,11 +519,11 @@ export function GraphCanvas({
     if (!graph) return;
     const cells = graph.getSelectionCells().filter((c) => c.isVertex());
     if (cells.length === 0) return;
-    graph.setCellStyles('fillColor', color, cells);
+    graph.setCellStyles("fillColor", color, cells);
     // 字色随填充自适应：浅底深字、深底浅字，'none' 用主题字色。
     graph.setCellStyles(
-      'fontColor',
-      fontColorFor(color === 'none' ? undefined : color, darkModeRef.current),
+      "fontColor",
+      fontColorFor(color === "none" ? undefined : color, darkModeRef.current),
       cells,
     );
     setSelectedFillColor(color);
@@ -506,27 +536,36 @@ export function GraphCanvas({
   useEffect(() => {
     if (!fillPickerOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (fillPickerRef.current && !fillPickerRef.current.contains(e.target as Node)) {
+      if (
+        fillPickerRef.current &&
+        !fillPickerRef.current.contains(e.target as Node)
+      ) {
         setFillPickerOpen(false);
       }
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [fillPickerOpen]);
 
   // 点击外部关闭形状 / 更多下拉菜单。
   useEffect(() => {
     if (!shapesMenuOpen && !moreMenuOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (shapesMenuRef.current && !shapesMenuRef.current.contains(e.target as Node)) {
+      if (
+        shapesMenuRef.current &&
+        !shapesMenuRef.current.contains(e.target as Node)
+      ) {
         setShapesMenuOpen(false);
       }
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      ) {
         setMoreMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [shapesMenuOpen, moreMenuOpen]);
 
   // ── 导出 / 缩放 / 导入 handlers（提取到 useGraphExport） ─────────
@@ -564,24 +603,24 @@ export function GraphCanvas({
       ref={setRootRef}
       tabIndex={editing ? 0 : -1}
       className={`jgraph-canvas-root ${className} ${
-        editing ? 'is-editing' : 'is-readonly'
-      } ${darkMode ? 'is-dark' : ''} ${pendingShape ? 'is-drawing' : ''} ${
-        showGrid ? '' : 'is-grid-off'
-      } ${cloneHeld ? 'is-clone-held' : ''}`}
+        editing ? "is-editing" : "is-readonly"
+      } ${darkMode ? "is-dark" : ""} ${pendingShape ? "is-drawing" : ""} ${
+        showGrid ? "" : "is-grid-off"
+      } ${cloneHeld ? "is-clone-held" : ""}`}
       style={{
-        width: '100%',
-        height: '100%',
+        width: "100%",
+        height: "100%",
         minWidth: 0,
         minHeight: 0,
-        position: 'relative',
-        display: 'flex',
+        position: "relative",
+        display: "flex",
       }}
     >
       {/* 左侧模具 / 操作工具栏 —— 仅编辑态显示 */}
       {editing && (
         <GraphToolbar
           pendingShape={pendingShape}
-          pendingLifelineCount={pendingLifelineCount}
+          pendingBatchCount={pendingBatchCount}
           recentShapes={recentShapes}
           shapesMenuOpen={shapesMenuOpen}
           shapesMenuRef={shapesMenuRef}
@@ -619,8 +658,14 @@ export function GraphCanvas({
           onToggleAutoActivation={toggleAutoActivation}
           exportFitMode={exportFitMode}
           onToggleExportFitMode={toggleExportFitMode}
-          onOpenMermaidImport={() => { setMermaidDialogOpen(true); setMoreMenuOpen(false); }}
-          onOpenAiGraphImport={() => { setAiGraphDialogOpen(true); setMoreMenuOpen(false); }}
+          onOpenMermaidImport={() => {
+            setMermaidDialogOpen(true);
+            setMoreMenuOpen(false);
+          }}
+          onOpenAiGraphImport={() => {
+            setAiGraphDialogOpen(true);
+            setMoreMenuOpen(false);
+          }}
           onExportPng={handleExportPng}
           onExportSvg={handleExportSvg}
           onCopyImage={handleCopyImage}
@@ -651,12 +696,11 @@ export function GraphCanvas({
           flex: 1,
           minWidth: 0,
           minHeight: 0,
-          position: 'relative',
-          overflow: 'hidden',
-          outline: 'none',
+          position: "relative",
+          overflow: "hidden",
+          outline: "none",
         }}
       />
     </div>
   );
 }
-

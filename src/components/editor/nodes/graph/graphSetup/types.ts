@@ -1,6 +1,6 @@
-import type { Graph, UndoManager } from '@maxgraph/core';
-import type { RefObject } from 'react';
-import type { GraphNodeShape } from '../graphSnapshot';
+import type { Graph, UndoManager } from "@maxgraph/core";
+import type { RefObject } from "react";
+import type { GraphNodeShape } from "../graphSnapshot";
 
 export interface GraphSetupContext {
   graph: Graph;
@@ -14,19 +14,19 @@ export interface GraphSetupContext {
   initialSnapshotRef: RefObject<string>;
   showGridRef: RefObject<boolean>;
   pendingShapeRef: RefObject<GraphNodeShape | null>;
-  pendingLifelineCountRef: RefObject<number>;
+  pendingBatchCountRef: RefObject<number>;
   rootRef: RefObject<HTMLDivElement | null>;
   containerRef: RefObject<HTMLDivElement | null>;
   scheduleEmit: () => void;
   setShowGrid: (v: boolean) => void;
   setAutoActivation: (v: boolean) => void;
-  setSelectedLabelAlign: (v: 'left' | 'center' | 'right' | null) => void;
+  setSelectedLabelAlign: (v: "left" | "center" | "right" | null) => void;
   setSelectedFillColor: (v: string | null) => void;
-  setSelectedSeqEdge: (v: 'call' | 'return' | null) => void;
+  setSelectedSeqEdge: (v: "call" | "return" | null) => void;
   setSelectedMindmapTopic: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
-  setPendingLifelineCount: (n: number) => void;
+  setPendingBatchCount: (n: number) => void;
 }
 
 export type GraphSetupFn = (ctx: GraphSetupContext) => (() => void) | void;

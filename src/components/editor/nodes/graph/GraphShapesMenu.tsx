@@ -14,7 +14,7 @@ import type { GraphNodeShape } from "./graphSnapshot";
 
 export interface GraphShapesMenuProps {
   pendingShape: GraphNodeShape | null;
-  pendingLifelineCount: number;
+  pendingBatchCount: number;
   shapesMenuOpen: boolean;
   shapesMenuRef: RefObject<HTMLDivElement | null>;
   onShapesClick: () => void;
@@ -25,7 +25,7 @@ export interface GraphShapesMenuProps {
 
 export function GraphShapesMenu({
   pendingShape,
-  pendingLifelineCount,
+  pendingBatchCount,
   shapesMenuOpen,
   shapesMenuRef,
   onShapesClick,
@@ -34,8 +34,12 @@ export function GraphShapesMenu({
   onSelectShape,
 }: GraphShapesMenuProps) {
   const menuListRef = useDropdownMenuFit(shapesMenuOpen);
-  // 计数 badge 显示条件：仅当 lifeline 处于 pending 且计数 > 1。
-  const showLifelineBadge = pendingShape === 'lifeline' && pendingLifelineCount > 1;
+  // 计数 badge 显示条件：pending 形状非空（即有 shape 处于待绘制态）且计数 > 1。
+  // edge-* 形状不会进入批量模式（handleSelectShape 已过滤），所以这里无需额外判断。
+  const showBadge =
+    !!pendingShape &&
+    !pendingShape.startsWith("edge-") &&
+    pendingBatchCount > 1;
 
   return (
     <div
@@ -51,14 +55,21 @@ export function GraphShapesMenu({
         onClick={onShapesClick}
       >
         <Shapes size={16} />
-        {showLifelineBadge && (
-          <span className="jgraph-shapes-badge" aria-label={`批量计数 ${pendingLifelineCount}`}>
-            ×{pendingLifelineCount}
+        {showBadge && (
+          <span
+            className="jgraph-shapes-badge"
+            aria-label={`批量计数 ${pendingBatchCount}`}
+          >
+            ×{pendingBatchCount}
           </span>
         )}
       </button>
       {shapesMenuOpen && (
-        <div className="jgraph-dropdown-menu" ref={menuListRef} role="presentation">
+        <div
+          className="jgraph-dropdown-menu"
+          ref={menuListRef}
+          role="presentation"
+        >
           {shapeGroups.map((group, gi) => (
             <div key={group.label}>
               {gi > 0 && <div className="jgraph-dropdown-sep" />}
@@ -67,15 +78,18 @@ export function GraphShapesMenu({
                 <button
                   key={shape}
                   type="button"
-                  className={`jgraph-dropdown-item ${pendingShape === shape ? 'is-active' : ''}`}
+                  className={`jgraph-dropdown-item ${pendingShape === shape ? "is-active" : ""}`}
                   title={`${title}｜点击后在画布拖拽划定大小`}
                   onClick={(e) => onSelectShape(shape, e.metaKey || e.ctrlKey)}
                 >
                   <ShapeGlyph shape={shape} />
                   <span>{title}</span>
-                  {shape === 'lifeline' && showLifelineBadge && (
-                    <span className="jgraph-shapes-badge" aria-label={`批量计数 ${pendingLifelineCount}`}>
-                      ×{pendingLifelineCount}
+                  {shape === pendingShape && showBadge && (
+                    <span
+                      className="jgraph-shapes-badge"
+                      aria-label={`批量计数 ${pendingBatchCount}`}
+                    >
+                      ×{pendingBatchCount}
                     </span>
                   )}
                 </button>

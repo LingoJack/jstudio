@@ -14,15 +14,15 @@
  * 依赖项均为 ref 或原始值，不引入额外渲染周期。
  */
 
-import { useEffect } from 'react';
-import type { RefObject } from 'react';
-import { type Graph, type UndoManager, Clipboard } from '@maxgraph/core';
+import { useEffect } from "react";
+import type { RefObject } from "react";
+import { type Graph, type UndoManager, Clipboard } from "@maxgraph/core";
 
-import { styleToNodeShape } from './graphModel';
-import { handleShapeTabEnter } from './shapeKeyHandlers';
-import { GRID_SIZE } from './graphConstants';
-import type { GraphNodeShape } from './graphSnapshot';
-import type { MindmapScheme } from './graphTheme';
+import { styleToNodeShape } from "./graphModel";
+import { handleShapeTabEnter } from "./shapeKeyHandlers";
+import { GRID_SIZE } from "./graphConstants";
+import type { GraphNodeShape } from "./graphSnapshot";
+import type { MindmapScheme } from "./graphTheme";
 
 export interface UseGraphKeyboardParams {
   editing: boolean;
@@ -34,7 +34,7 @@ export interface UseGraphKeyboardParams {
   darkModeRef: RefObject<boolean>;
   mindmapSchemeRef: RefObject<MindmapScheme>;
   setPending: (shape: GraphNodeShape | null) => void;
-  setPendingLifelineCount: (n: number) => void;
+  setPendingBatchCount: (n: number) => void;
 }
 
 export function useGraphKeyboard({
@@ -47,7 +47,7 @@ export function useGraphKeyboard({
   darkModeRef,
   mindmapSchemeRef,
   setPending,
-  setPendingLifelineCount,
+  setPendingBatchCount,
 }: UseGraphKeyboardParams) {
   useEffect(() => {
     if (!editing) return;
@@ -68,7 +68,7 @@ export function useGraphKeyboard({
       // topic 的编辑态处理必须在 graph.isEditing() 守卫之前，否则会被跳过；
       // 普通形状的 Enter 在编辑态由 CellEditor 原生处理，handleShapeTabEnter
       // 内部会返回 false 让其穿透。topic 的编辑态 Enter 同样返回 false 穿透为换行。
-      if (e.key === 'Tab' || e.key === 'Enter') {
+      if (e.key === "Tab" || e.key === "Enter") {
         if (
           handleShapeTabEnter(
             graph,
@@ -86,38 +86,38 @@ export function useGraphKeyboard({
       // 正在内联编辑文本时，交给 CellEditor，不拦截。
       if (graph.isEditing()) return;
 
-      // ESC：退出待绘制态（含批量生命线计数）。
-      if (e.key === 'Escape') {
+      // ESC：退出待绘制态（含批量计数）。
+      if (e.key === "Escape") {
         if (pendingShapeRef.current) {
           e.preventDefault();
           setPending(null);
-          setPendingLifelineCount(0);
+          setPendingBatchCount(0);
         }
         return;
       }
 
-      if (meta && key === 'z') {
+      if (meta && key === "z") {
         e.preventDefault();
         if (e.shiftKey) undo?.redo();
         else undo?.undo();
         return;
       }
       // 复制 / 剪切 / 粘贴（引擎内置剪贴板，跨画板实例可用）。
-      if (meta && key === 'c') {
+      if (meta && key === "c") {
         if (graph.getSelectionCells().length > 0) {
           e.preventDefault();
           Clipboard.copy(graph);
         }
         return;
       }
-      if (meta && key === 'x') {
+      if (meta && key === "x") {
         if (graph.getSelectionCells().length > 0) {
           e.preventDefault();
           Clipboard.cut(graph);
         }
         return;
       }
-      if (meta && key === 'v') {
+      if (meta && key === "v") {
         if (!Clipboard.isEmpty()) {
           e.preventDefault();
           Clipboard.paste(graph);
@@ -125,30 +125,36 @@ export function useGraphKeyboard({
         return;
       }
       // Cmd/Ctrl + D：原地克隆当前选中并偏移一格。
-      if (meta && key === 'd') {
+      if (meta && key === "d") {
         const cells = graph.getSelectionCells();
         if (cells.length > 0) {
           e.preventDefault();
           graph.batchUpdate(() => {
             const clones = graph.cloneCells(cells);
-            const moved = graph.importCells(clones, GRID_SIZE, GRID_SIZE, graph.getDefaultParent());
+            const moved = graph.importCells(
+              clones,
+              GRID_SIZE,
+              GRID_SIZE,
+              graph.getDefaultParent(),
+            );
             graph.setSelectionCells(moved);
           });
         }
         return;
       }
       // 方向键微移：默认 1 格网格，Shift 一次移 1px 精调。
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         const cells = graph.getSelectionCells();
         if (cells.length === 0) return;
         e.preventDefault();
         const step = e.shiftKey ? 1 : GRID_SIZE;
-        const dx = key === 'arrowleft' ? -step : key === 'arrowright' ? step : 0;
-        const dy = key === 'arrowup' ? -step : key === 'arrowdown' ? step : 0;
+        const dx =
+          key === "arrowleft" ? -step : key === "arrowright" ? step : 0;
+        const dy = key === "arrowup" ? -step : key === "arrowdown" ? step : 0;
         graph.moveCells(cells, dx, dy);
         return;
       }
-      if (e.key === 'Backspace' || e.key === 'Delete') {
+      if (e.key === "Backspace" || e.key === "Delete") {
         const cells = graph.getSelectionCells();
         if (cells.length > 0) {
           e.preventDefault();
@@ -157,7 +163,7 @@ export function useGraphKeyboard({
       }
     };
 
-    root.addEventListener('keydown', onKeyDown);
+    root.addEventListener("keydown", onKeyDown);
 
     // window 级捕获阶段 keydown：在所有其他监听器（maxGraph、TipTap 等）之前
     // 拦截 Tab/Enter，确保 topic 节点的 Tab/Shift+Tab（生发子节点 右/左）/
@@ -175,7 +181,7 @@ export function useGraphKeyboard({
         (e.metaKey || e.ctrlKey) &&
         !e.altKey &&
         !e.shiftKey &&
-        e.key === 'Enter'
+        e.key === "Enter"
       ) {
         // IME 组合中忽略，避免中断中文/日文输入。
         if (e.isComposing || e.keyCode === 229) return;
@@ -195,7 +201,7 @@ export function useGraphKeyboard({
         }
       }
 
-      if (e.key !== 'Tab' && e.key !== 'Enter') return;
+      if (e.key !== "Tab" && e.key !== "Enter") return;
       // 只处理源自画布内部的 keydown。
       const r = rootRef.current;
       if (!r || !r.contains(e.target as Node)) return;
@@ -207,7 +213,7 @@ export function useGraphKeyboard({
       // 非 topic 的 Tab/Enter（循环选中 / 编辑文字）交给 root keydown 处理，
       // 这里早返回让事件继续传播。
       const cellStyle = g.getCurrentCellStyle(sel[0]);
-      if (styleToNodeShape(cellStyle) !== 'topic') return;
+      if (styleToNodeShape(cellStyle) !== "topic") return;
       // 命中 topic 节点：尝试分派；返回 true 表示已处理（生发节点），需拦截默认行为；
       // 返回 false 表示正在编辑文本、Enter 应穿透为换行，放行事件给 CellEditor。
       if (
@@ -223,7 +229,7 @@ export function useGraphKeyboard({
         e.stopPropagation();
       }
     };
-    window.addEventListener('keydown', onWindowKeyDown, true);
+    window.addEventListener("keydown", onWindowKeyDown, true);
 
     // 点击画布时确保 root 获得焦点，使键盘快捷键（Del/Cmd+Z 等）生效。
     const container = containerRef.current;
@@ -232,12 +238,12 @@ export function useGraphKeyboard({
       if (target && target.isContentEditable) return;
       root.focus({ preventScroll: true });
     };
-    container?.addEventListener('mousedown', onCanvasMouseDown);
+    container?.addEventListener("mousedown", onCanvasMouseDown);
 
     return () => {
-      root.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keydown', onWindowKeyDown, true);
-      container?.removeEventListener('mousedown', onCanvasMouseDown);
+      root.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onWindowKeyDown, true);
+      container?.removeEventListener("mousedown", onCanvasMouseDown);
     };
   }, [editing]);
 }
