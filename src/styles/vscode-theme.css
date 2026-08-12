@@ -2108,9 +2108,9 @@ button {
   border-bottom: none;
 }
 
-/* header 行内的"复制全部内容"按钮：默认低调，hover / 选中时加亮。
+/* header 行内的复制按钮（纯文本 / Markdown）：默认低调，hover / 选中时加亮。
    与 .code-toolbar-reveal 同样的克制风格，按钮始终常驻（避免 WKWebView
-   中 :hover 偶发不触发的问题），位置稳定在 header 行右侧。 */
+   中 :hover 偶发不触发的问题），位置稳定在 header 行左侧 chevron 之后。 */
 .collapsible-block-figure .collapsible-copy-btn {
   opacity: 0.55;
   transition:

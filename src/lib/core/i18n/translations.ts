@@ -591,6 +591,7 @@ export const translations = {
     "collapsible.expand": "展开",
     "collapsible.collapse": "收起",
     "collapsible.copy": "复制内容",
+    "collapsible.copyMarkdown": "复制为 Markdown",
 
     // ── Terminal Window ──
     "terminal.loadError": "无法加载终端会话",
@@ -1505,6 +1506,7 @@ export const translations = {
     "collapsible.expand": "Expand",
     "collapsible.collapse": "Collapse",
     "collapsible.copy": "Copy content",
+    "collapsible.copyMarkdown": "Copy as Markdown",
 
     // ── Terminal Window ──
     "terminal.loadError": "Failed to load terminal session",

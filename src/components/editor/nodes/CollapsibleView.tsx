@@ -58,12 +58,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
-import { ChevronRight, Copy, Check } from 'lucide-react';
+import { ChevronRight, Copy, Check, FileText } from 'lucide-react';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { useI18n } from '../../../lib/core/i18n';
 import { COLLAPSIBLE_HEADER_CLASS } from '../../ui/Collapsible';
 import { useNodeSelected } from '../hooks/useNodeSelected';
 import { useCursorTrailHostRef } from '../CursorTrailContext';
+import { tiptapJSONToOurBlocks } from '../../../lib/editor/tiptapAdapter';
+import { blocksToMarkdown } from '../../../lib/editor/markdownExport';
 
 /** Tags that should be shielded from ProseMirror's event interception. */
 const SHIELD_TAGS = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT']);
@@ -101,12 +103,32 @@ export default function CollapsibleView({
   // node.textContent reads from ProseMirror state, so it works even when
   // the block is collapsed (NodeViewContent is `hidden` via CSS, not unmounted).
   const [copied, setCopied] = useState(false);
+  const [copiedMd, setCopiedMd] = useState(false);
+
   const handleCopy = () => {
     const text = node.textContent;
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // ── Copy as Markdown ──
+  // Serialize the collapsible's body content (children only — the summary is
+  // an attr, not part of the body, matching handleCopy's textContent scope)
+  // to a Markdown string via the shared blocksToMarkdown pipeline.
+  // Works collapsed for the same reason as handleCopy.
+  const handleCopyMarkdown = () => {
+    const json = node.toJSON();
+    const children = json.content ?? [];
+    if (children.length === 0) return;
+    const blocks = tiptapJSONToOurBlocks(children);
+    const md = blocksToMarkdown(blocks);
+    if (!md) return;
+    navigator.clipboard.writeText(md).then(() => {
+      setCopiedMd(true);
+      setTimeout(() => setCopiedMd(false), 2000);
     });
   };
 
@@ -243,6 +265,20 @@ export default function CollapsibleView({
               aria-label={t('collapsible.copy')}
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            {/* Copy-as-Markdown button — same skin, FileText icon to
+                differentiate from the plain-text copy. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyMarkdown();
+              }}
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm collapsible-copy-btn"
+              title={t('collapsible.copyMarkdown')}
+              aria-label={t('collapsible.copyMarkdown')}
+            >
+              {copiedMd ? <Check size={14} /> : <FileText size={14} />}
             </button>
           </div>
           <input
