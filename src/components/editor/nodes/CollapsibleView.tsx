@@ -204,41 +204,47 @@ export default function CollapsibleView({
             form controls inside contentEditable={false} islands. TipTap's
             stopEvent + the native shields below handle ProseMirror isolation. */}
         <div className={`collapsible-block-header ${COLLAPSIBLE_HEADER_CLASS} !cursor-default`}>
-          {/* Collapse toggle - real <button> so the browser focuses it (no
-              stray caret in the contentEditable header) and ProseMirror ignores
-              the click via stopEvent. Styling/logic mirror CodeBlockView. */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleOpen();
-            }}
-            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
-            title={open ? t('collapsible.collapse') : t('collapsible.expand')}
-            aria-label={open ? t('collapsible.collapse') : t('collapsible.expand')}
-            aria-expanded={open}
-          >
-            <ChevronRight
-              size={14}
-              className={`code-collapse-chevron ${open ? 'is-open' : ''}`}
-            />
-          </button>
-          {/* Copy-all button — inline next to the chevron on the left,
-              consistent with CodeBlockView's left-aligned action group.
-              Subtle by default, brightens on hover/selection (see
-              .collapsible-copy-btn in vscode-theme.css). */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCopy();
-            }}
-            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm collapsible-copy-btn"
-            title={t('collapsible.copy')}
-            aria-label={t('collapsible.copy')}
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
+          {/* Action group — chevron + copy, tight 2px gap matching
+              CodeBlockView's .code-header-actions. The outer header uses
+              gap-3 (from COLLAPSIBLE_HEADER_CLASS), which would leave too
+              much air between the two buttons. */}
+          <div className="flex items-center gap-0.5">
+            {/* Collapse toggle - real <button> so the browser focuses it (no
+                stray caret in the contentEditable header) and ProseMirror
+                ignores the click via stopEvent. Styling/logic mirror
+                CodeBlockView. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleOpen();
+              }}
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
+              title={open ? t('collapsible.collapse') : t('collapsible.expand')}
+              aria-label={open ? t('collapsible.collapse') : t('collapsible.expand')}
+              aria-expanded={open}
+            >
+              <ChevronRight
+                size={14}
+                className={`code-collapse-chevron ${open ? 'is-open' : ''}`}
+              />
+            </button>
+            {/* Copy-all button — subtle by default, brightens on
+                hover/selection (see .collapsible-copy-btn in
+                vscode-theme.css). */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy();
+              }}
+              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm collapsible-copy-btn"
+              title={t('collapsible.copy')}
+              aria-label={t('collapsible.copy')}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
           <input
             ref={cursorTrailInputRef}
             type="text"
