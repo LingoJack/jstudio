@@ -3393,13 +3393,21 @@ button {
   white-space: nowrap;
 }
 
-/* 28×28 工具按钮（Shapes 入口 / LRU）：绝对定位右上角，不挤占图标 */
+/* 28×28 工具按钮（Shapes 入口 / LRU）：badge 以按钮右上角顶点为中心向外悬浮，
+   一半在按钮内一半在外，避免压住按钮里的形状图标。
+   显示 badge 的按钮额外给右邻居让出 margin，避免外溢的 badge 挤到下一个按钮。 */
 .jgraph-tool-btn .jgraph-shapes-badge {
   position: absolute;
-  top: 1px;
-  right: 1px;
+  top: 0;
+  right: 0;
+  transform: translate(50%, -50%);
   min-width: 14px;
   text-align: center;
+  z-index: 2;
+}
+
+.jgraph-tool-btn:has(> .jgraph-shapes-badge) {
+  margin-right: 10px;
 }
 
 /* 下拉项：贴右边缘，与标题文本共行 */
