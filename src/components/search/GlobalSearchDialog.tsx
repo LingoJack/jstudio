@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Search, FileText } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useDialogTransition } from '../ui/useDialogTransition';
 import { useStore } from '../../store/useStore';
 import { useI18n, type Language } from '../../lib/core/i18n';
@@ -301,11 +301,6 @@ function SearchResultRow({
       }`}
     >
       <div className="flex items-center gap-2">
-        <FileText
-          className={`w-4 h-4 shrink-0 ${
-            isSelected ? 'opacity-75' : 'opacity-40'
-          }`}
-        />
         <span className="flex-1 truncate">
           {result.title ? (
             <TitleHighlight text={result.title} match={result.titleMatch} />
@@ -331,7 +326,7 @@ function SearchResultRow({
       </div>
       {/* Second line — always rendered for uniform row height.
           Content match: highlighted snippet; title match: plain preview. */}
-      <div className={`mt-0.5 pl-6 text-[12px] truncate ${descClass}`}>
+      <div className={`mt-0.5 text-[12px] truncate ${descClass}`}>
         {result.snippetRange ? (
           <SnippetHighlight
             snippet={result.snippet ?? ''}
