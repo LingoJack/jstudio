@@ -67,9 +67,10 @@ export interface UseNodeSelectionClickOptions {
    * When true, always preventDefault the mousedown — even when the target
    * reports `isContentEditable=true`. Use this for targets that inherit
    * editability from view.dom but have no editable content of their own
-   * (e.g. ImageView's <img>): keeping the native default there lets
-   * WKWebView's Live Text kick in, turning a click on the image into a
-   * text selection *inside the rendered image* instead of a node selection.
+   * (e.g. ImageView's <img>): keeping the native default there could let
+   * WKWebView's Live Text kick in. The primary Live Text defence is now
+   * CSS `user-select: none` on the <img> (see ImageView.tsx); this flag is
+   * a belt-and-suspenders backstop for any edge cases CSS alone misses.
    */
   forcePreventDefault?: boolean;
 }

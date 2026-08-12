@@ -10,7 +10,6 @@ import CommandPaletteWindowApp from "./components/windows/CommandPaletteWindowAp
 import LinkPreviewTabsWindowApp from "./components/windows/LinkPreviewTabsWindowApp";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { logger } from "./lib/core/logger";
-import { ipc } from "./lib/core/ipc";
 import { useWindowFocusTracking } from "./lib/windows/useWindowFocusTracking";
 import "./index.css";
 import "./styles/vscode-theme.css";
@@ -35,23 +34,18 @@ import "./styles/vscode-theme.css";
 logger.setEnabled(true);
 logger.info("main", "app bootstrap");
 
-// ── Disable WKWebView "Live Text" (macOS) ───────────────────────────────
-// Otherwise clicking an image in the editor starts a text selection over
-// text recognized *inside* the rendered image instead of selecting the
-// image node. DOM-level preventDefault cannot cancel this UA-driven
-// interaction, so it is turned off natively via WKPreferences.
-// No-op on non-macOS platforms. main.tsx runs in every window, so this
-// covers the main window and all detached child windows.
+// ── WKWebView "Live Text" (macOS) ────────────────────────────────────────
+// macOS WKWebView recognizes text inside rendered images and lets the user
+// select it. Clicking an image in the editor would start a text selection
+// *inside* the image instead of producing a ProseMirror NodeSelection.
 //
-// TEMPORARILY DISABLED: setTextInteractionEnabled(false) disables ALL text
-// interaction in the webview — not just Live Text, but also contentEditable
-// focus/caret placement. This caused "click many times to focus a line" and
-// "multi-click selects all text" across the entire editor. Need a more
-// targeted approach (e.g. CSS user-select:none on images) that doesn't
-// nuke editor focus.
-// ipc.disableTextInteraction().catch((err) => {
-//   logger.warn("main", `disableTextInteraction failed: ${String(err)}`);
-// });
+// We tried disabling it globally via `prefs.setTextInteractionEnabled(false)`,
+// but that also kills contentEditable focus/caret placement across the whole
+// editor — see commit history for the regression. The targeted fix is
+// CSS `user-select: none` on the <img> element (see ImageView.tsx +
+// .image-node-figure img in vscode-theme.css), which stops Live Text from
+// starting a text selection on the image while leaving the rest of the
+// editor's text interaction untouched.
 
 // ── React 19 sandbox iframe workaround (development mode) ──────────────
 // React 19's development-mode reconciliation traverses DOM trees including

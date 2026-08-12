@@ -229,7 +229,13 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   });
 
   const effectiveAlign = align ?? 'center';
-  const imgStyle: React.CSSProperties = {};
+  // user-select:none is the primary defence against macOS WKWebView "Live
+  // Text" — it stops the user from drag-selecting text recognized *inside*
+  // the rendered image, so a click reliably produces a ProseMirror
+  // NodeSelection instead of an in-image text selection. The matching rule
+  // in vscode-theme.css (.image-node-figure img) covers this too; keeping
+  // it inline here makes the intent visible at the call site.
+  const imgStyle: React.CSSProperties = { userSelect: 'none' };
   if (displayWidth) {
     imgStyle.width = `${displayWidth}px`;
     // Derive height from heightPct for proportional scaling, otherwise auto.
