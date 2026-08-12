@@ -70,9 +70,14 @@ function extractHeadingsFromBlocks(blocks: Block[]): HeadingItem[] {
 /**
  * Extract headings from mounted section editors' ProseMirror docs.
  *
- * Each editor's doc is traversed via `descendants()` so headings nested
- * inside collapsible blocks (stored as `collapsibleChildren` in the Block
- * model, but rendered as real heading nodes in ProseMirror) are also found.
+ * Only top-level headings are collected — we do NOT traverse into
+ * `collapsible` nodes. Their children are tracked separately as
+ * `collapsibleChildren` in the Block model (not as top-level headings),
+ * and `extractHeadingsFromBlocks` (the other source) likewise skips them.
+ * Including them here would surface headings inside a collapsible as
+ * top-level outline entries (e.g. a level-1 heading inside a collapsible
+ * would render at the outline root), which does not reflect the document's
+ * real structure.
  */
 function extractHeadingsFromEditors(
   editors: Map<string, Editor> | null,
@@ -92,6 +97,9 @@ function extractHeadingsFromEditors(
           }
         }
       }
+      // Skip traversal into collapsible blocks so their inner headings
+      // don't leak into the outline as top-level entries.
+      if (node.type.name === 'collapsible') return false;
       return true;
     });
   }
