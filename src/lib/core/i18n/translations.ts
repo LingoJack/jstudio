@@ -717,7 +717,6 @@ export const translations = {
     // ── Global Search (Double Shift) ──
     "globalSearch.placeholder": "搜索文档标题或内容…",
     "globalSearch.noResults": "无匹配结果",
-    "globalSearch.footer": "↑↓ 导航 · Enter 打开 · Esc 关闭",
     "globalSearch.tagTitle": "文档",
     "globalSearch.tagContent": "内容",
     "globalSearch.emptyPreview": "空文档",
@@ -726,7 +725,6 @@ export const translations = {
     "openDoc.placeholder": "搜索文档…",
     "openDoc.noResults": "未找到匹配的文档",
     "openDoc.createNew": "新建文档",
-    "openDoc.footer": "↑↓ 导航 · Enter 打开 · Esc 关闭",
 
     // ── CodeBlockView ──
     "code.copy": "复制代码",
@@ -1636,7 +1634,6 @@ export const translations = {
     // ── Global Search (Double Shift) ──
     "globalSearch.placeholder": "Search document titles and content…",
     "globalSearch.noResults": "No matching results",
-    "globalSearch.footer": "↑↓ Navigate · Enter Open · Esc Close",
     "globalSearch.tagTitle": "Document",
     "globalSearch.tagContent": "Content",
     "globalSearch.emptyPreview": "Empty document",
@@ -1645,7 +1642,6 @@ export const translations = {
     "openDoc.placeholder": "Search documents…",
     "openDoc.noResults": "No matching documents found",
     "openDoc.createNew": "New Document",
-    "openDoc.footer": "↑↓ Navigate · Enter Open · Esc Close",
 
     // ── CodeBlockView ──
     "code.copy": "Copy code",

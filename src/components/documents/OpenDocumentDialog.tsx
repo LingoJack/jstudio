@@ -6,10 +6,9 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, FileText, X, Plus } from 'lucide-react';
+import { Search, FileText, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { IconButton } from '../ui/IconButton';
 import { useDialogTransition } from '../ui/useDialogTransition';
 import { HighlightedText, formatDateOr } from '../../lib/commandPalette/shared';
 import { pinyinMatchRange } from '../../lib/documents/pinyinMatch';
@@ -34,6 +33,7 @@ export default function OpenDocumentDialog({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
 
   // ── Reset state when opened ──
   useEffect(() => {
@@ -92,6 +92,22 @@ export default function OpenDocumentDialog({
     el?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, open]);
 
+  // ── Detect scroll position to show bottom glow ──
+  useEffect(() => {
+    const scroller = listRef.current;
+    if (!scroller) return;
+
+    const updateScrollState = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scroller;
+      const hasMoreBelow = scrollTop < scrollHeight - clientHeight - 8;
+      setCanScrollDown(hasMoreBelow);
+    };
+
+    updateScrollState();
+    scroller.addEventListener('scroll', updateScrollState);
+    return () => scroller.removeEventListener('scroll', updateScrollState);
+  }, [results]);
+
   const openDocument = useCallback(
     (docId: string) => {
       useStore.getState().openDocumentTab(docId);
@@ -131,7 +147,7 @@ export default function OpenDocumentDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh]"
+      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh]"
       onClick={onClose}
     >
       <div
@@ -143,7 +159,7 @@ export default function OpenDocumentDialog({
       />
 
       <div
-        className={`relative w-[min(600px,92vw)] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+        className={`relative w-[min(600px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
           transition === 'exit'
             ? 'animate-dialog-panel-out'
             : 'animate-dialog-panel-in'
@@ -151,7 +167,7 @@ export default function OpenDocumentDialog({
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Search input ── */}
-        <div className="flex items-center gap-2 px-4 h-12 border-b border-[var(--vscode-widget-border)]">
+        <div className="flex items-center gap-2 px-3 h-10 border-b border-[var(--vscode-widget-border)]">
           <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-50" />
           <input
             ref={inputRef}
@@ -159,29 +175,30 @@ export default function OpenDocumentDialog({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t('openDoc.placeholder')}
-            className="flex-1 bg-transparent outline-none text-sm text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+            className="flex-1 bg-transparent outline-none text-[13px] text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
             autoComplete="off"
             spellCheck={false}
           />
-          <IconButton onClick={onClose} title={t('common.cancel')}>
-            <X className="w-4 h-4" />
-          </IconButton>
         </div>
 
         {/* ── Results ── */}
         <div
           ref={listRef}
-          className="overflow-y-auto py-1"
-          style={{ maxHeight: 'min(420px, 55vh)', minHeight: '48px' }}
+          className="relative overflow-y-auto py-1"
+          style={{
+            maxHeight: 'min(360px, 50vh)',
+            minHeight: '48px',
+            scrollbarWidth: 'none',
+          }}
         >
           {results.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-3">
-              <p className="text-sm text-[var(--vscode-descriptionForeground)] opacity-60">
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <p className="text-[13px] text-[var(--vscode-descriptionForeground)] opacity-60">
                 {t('openDoc.noResults')}
               </p>
               <button
                 onClick={handleNewDocument}
-                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md text-[var(--vscode-textLink-activeForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
+                className="flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-md text-[var(--vscode-textLink-activeForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 {t('openDoc.createNew')}
@@ -194,10 +211,10 @@ export default function OpenDocumentDialog({
                 data-doc-index={index}
                 onClick={() => openDocument(item.doc.id)}
                 onMouseEnter={() => setSelectedIndex(index)}
-                className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer text-sm transition-colors duration-75 ${
+                className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-[13px] ${
                   index === selectedIndex
                     ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-                    : 'text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                    : 'text-[var(--vscode-foreground)]'
                 }`}
               >
                 <FileText
@@ -226,23 +243,15 @@ export default function OpenDocumentDialog({
               </div>
             ))
           )}
+          {/* 底部发光提示 - CSS transition 平滑过渡 */}
+          <div
+            className="absolute left-0 right-0 bottom-0 h-10 pointer-events-none transition-opacity duration-200"
+            style={{
+              background: 'linear-gradient(to top, rgba(0,0,0,0.08), transparent)',
+              opacity: canScrollDown ? 1 : 0,
+            }}
+          />
         </div>
-
-        {/* ── Footer ── */}
-        {results.length > 0 && (
-          <div className="flex items-center justify-between px-3 py-2 border-t border-[var(--vscode-widget-border)]">
-            <button
-              onClick={handleNewDocument}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-[var(--vscode-textLink-activeForeground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {t('openDoc.createNew')}
-            </button>
-            <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-50">
-              {t('openDoc.footer')}
-            </span>
-          </div>
-        )}
       </div>
     </div>,
     document.body,

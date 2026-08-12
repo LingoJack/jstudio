@@ -36,6 +36,7 @@ export default function GlobalSearchDialog() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
 
   // ── debounced query ──
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -88,6 +89,22 @@ export default function GlobalSearchDialog() {
     );
     el?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, isOpen]);
+
+  // ── Detect scroll position to show bottom glow ──
+  useEffect(() => {
+    const scroller = listRef.current;
+    if (!scroller) return;
+
+    const updateScrollState = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scroller;
+      const hasMoreBelow = scrollTop < scrollHeight - clientHeight - 8;
+      setCanScrollDown(hasMoreBelow);
+    };
+
+    updateScrollState();
+    scroller.addEventListener('scroll', updateScrollState);
+    return () => scroller.removeEventListener('scroll', updateScrollState);
+  }, [results]);
 
   // ── execute result ──
   const executeResult = useCallback(
@@ -193,7 +210,7 @@ export default function GlobalSearchDialog() {
 
       {/* Panel */}
       <div
-        className={`relative w-[min(680px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+        className={`relative w-[min(600px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
           transition === 'exit'
             ? 'animate-dialog-panel-out'
             : 'animate-dialog-panel-in'
@@ -201,7 +218,7 @@ export default function GlobalSearchDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Search input ── */}
-        <div className="flex items-center gap-2 px-3 h-11 border-b border-[var(--vscode-widget-border)]">
+        <div className="flex items-center gap-2 px-3 h-10 border-b border-[var(--vscode-widget-border)]">
           <Search className="w-4 h-4 text-[var(--vscode-descriptionForeground)] shrink-0 opacity-50" />
           <input
             ref={inputRef}
@@ -213,9 +230,6 @@ export default function GlobalSearchDialog() {
             autoComplete="off"
             spellCheck={false}
           />
-          <kbd className="text-[11px] px-1.5 py-0.5 text-[var(--vscode-descriptionForeground)] opacity-40">
-            Esc
-          </kbd>
         </div>
 
         {/* ── Results ── */}
@@ -223,7 +237,7 @@ export default function GlobalSearchDialog() {
           ref={listRef}
           className="relative overflow-y-auto py-1"
           style={{
-            maxHeight: 'min(420px, 56vh)',
+            maxHeight: 'min(360px, 50vh)',
             minHeight: '48px',
             scrollbarWidth: 'none',
           }}
@@ -248,11 +262,14 @@ export default function GlobalSearchDialog() {
               />
             ))
           )}
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="flex items-center gap-3 px-3 h-7 border-t border-[var(--vscode-widget-border)] text-[11px] text-[var(--vscode-descriptionForeground)] opacity-50">
-          <span>{t('globalSearch.footer')}</span>
+          {/* 底部发光提示 - CSS transition 平滑过渡 */}
+          <div
+            className="absolute left-0 right-0 bottom-0 h-10 pointer-events-none transition-opacity duration-200"
+            style={{
+              background: 'linear-gradient(to top, rgba(0,0,0,0.08), transparent)',
+              opacity: canScrollDown ? 1 : 0,
+            }}
+          />
         </div>
       </div>
     </div>
