@@ -115,7 +115,15 @@ export default function DocumentSidebar() {
     contextMenu || folderMenu || batchMenu || batchMoveMenu ||
     (moreMenuOpen && moreMenuPos)
   );
-  const suppressCollapse = anyFloatingMenuOpen || renamingId !== null || renamingFolderId !== null || searchFocused;
+  // Modal dialogs (trash / backup-restore) are portaled to document.body and
+  // cover the sidebar.  Without this, opening a dialog from a context menu
+  // drops `suppressCollapse` the instant the menu closes, snapping the
+  // hover-expanded sidebar shut while the dialog is still open.  Treating
+  // dialogs like floating menus keeps the sidebar steady; when the dialog
+  // closes, the useSidebarHover true->false re-evaluation kicks in and
+  // collapses based on the current pointer position.
+  const anyDialogOpen = trashDialogOpen || backupDialogDoc !== null;
+  const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null || searchFocused;
 
   // ── Hover expand/collapse (extracted to useSidebarHover hook) ──
   const { hoverExpanded, handleHoverEnter, handleHoverLeave, handleTogglePin } = useSidebarHover({
