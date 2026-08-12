@@ -83,8 +83,16 @@ export function useGraphKeyboard({
         }
       }
 
-      // 正在内联编辑文本时，交给 CellEditor，不拦截。
-      if (graph.isEditing()) return;
+      // 正在内联编辑文本时，交给 CellEditor 处理字符级编辑。
+      // 但 Backspace/Delete 在文本为空时不会被 CellEditor 消费，会冒泡到
+      // ProseMirror 触发"删除整个 NodeView"——这里阻止冒泡，确保编辑态下
+      // 删除只作用于文本。选中态（非 editing）下删除整个块仍由 ProseMirror 处理。
+      if (graph.isEditing()) {
+        if (e.key === "Backspace" || e.key === "Delete") {
+          e.stopPropagation();
+        }
+        return;
+      }
 
       // ESC：退出待绘制态（含批量计数）。
       if (e.key === "Escape") {

@@ -42,9 +42,16 @@ logger.info("main", "app bootstrap");
 // interaction, so it is turned off natively via WKPreferences.
 // No-op on non-macOS platforms. main.tsx runs in every window, so this
 // covers the main window and all detached child windows.
-ipc.disableTextInteraction().catch((err) => {
-  logger.warn("main", `disableTextInteraction failed: ${String(err)}`);
-});
+//
+// TEMPORARILY DISABLED: setTextInteractionEnabled(false) disables ALL text
+// interaction in the webview — not just Live Text, but also contentEditable
+// focus/caret placement. This caused "click many times to focus a line" and
+// "multi-click selects all text" across the entire editor. Need a more
+// targeted approach (e.g. CSS user-select:none on images) that doesn't
+// nuke editor focus.
+// ipc.disableTextInteraction().catch((err) => {
+//   logger.warn("main", `disableTextInteraction failed: ${String(err)}`);
+// });
 
 // ── React 19 sandbox iframe workaround (development mode) ──────────────
 // React 19's development-mode reconciliation traverses DOM trees including
