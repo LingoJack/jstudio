@@ -63,6 +63,15 @@ export interface UseNodeSelectionClickOptions {
   skipWhenSelected?: boolean;
   /** Current `selected` flag from NodeViewProps (required for skipWhenSelected). */
   selected?: boolean;
+  /**
+   * When true, always preventDefault the mousedown — even when the target
+   * reports `isContentEditable=true`. Use this for targets that inherit
+   * editability from view.dom but have no editable content of their own
+   * (e.g. ImageView's <img>): keeping the native default there lets
+   * WKWebView's Live Text kick in, turning a click on the image into a
+   * text selection *inside the rendered image* instead of a node selection.
+   */
+  forcePreventDefault?: boolean;
 }
 
 /**
@@ -76,7 +85,7 @@ export function useNodeSelectionClick(
   getPos: NodeViewProps['getPos'],
   options: UseNodeSelectionClickOptions = {},
 ): (e: React.MouseEvent) => void {
-  const { ignoreSelector, skipWhenSelected = false, selected = false } = options;
+  const { ignoreSelector, skipWhenSelected = false, selected = false, forcePreventDefault = false } = options;
 
   const selectorList = ignoreSelector
     ? `${DEFAULT_IGNORE_SELECTOR}, ${ignoreSelector}`
@@ -108,12 +117,14 @@ export function useNodeSelectionClick(
       // the mousedown handler (before the default focus action), which is why
       // we do it here rather than in a separate click handler.
       //
-      // For editable targets (ImageView's <img>, which inherits
-      // isContentEditable=true from view.dom) we skip preventDefault so the
-      // browser's native caret placement is preserved.
+      // Editable targets (e.g. LinkView's inner inputs) skip preventDefault
+      // so the browser's native caret placement is preserved — unless the
+      // caller passes forcePreventDefault (ImageView's <img>: it only
+      // inherits editability from view.dom, and its native default action is
+      // WKWebView Live Text selection, not caret placement).
       const isEditableTarget =
         target instanceof HTMLElement ? target.isContentEditable : false;
-      if (!isEditableTarget) {
+      if (forcePreventDefault || !isEditableTarget) {
         e.preventDefault();
       }
 
@@ -126,6 +137,6 @@ export function useNodeSelectionClick(
         editor.view.focus();
       }
     },
-    [editor, getPos, selectorList, skipWhenSelected, selected],
+    [editor, getPos, selectorList, skipWhenSelected, selected, forcePreventDefault],
   );
 }

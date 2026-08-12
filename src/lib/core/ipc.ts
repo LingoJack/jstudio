@@ -394,4 +394,12 @@ export const ipc = {
    */
   reportWindowFocus: (label: string) =>
     invoke<void>("report_window_focus", { label }),
+
+  /**
+   * Disable WKWebView "Live Text" for the calling window. Without this,
+   * clicking an image in the editor starts a text selection over text
+   * recognized *inside* the rendered image instead of selecting the node.
+   * No-op on non-macOS platforms.
+   */
+  disableTextInteraction: () => invoke<void>("disable_text_interaction"),
 };

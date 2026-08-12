@@ -10,6 +10,7 @@ import CommandPaletteWindowApp from "./components/windows/CommandPaletteWindowAp
 import LinkPreviewTabsWindowApp from "./components/windows/LinkPreviewTabsWindowApp";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { logger } from "./lib/core/logger";
+import { ipc } from "./lib/core/ipc";
 import { useWindowFocusTracking } from "./lib/windows/useWindowFocusTracking";
 import "./index.css";
 import "./styles/vscode-theme.css";
@@ -33,6 +34,17 @@ import "./styles/vscode-theme.css";
 // they're clearly tagged in the file so they're easy to filter out.
 logger.setEnabled(true);
 logger.info("main", "app bootstrap");
+
+// ── Disable WKWebView "Live Text" (macOS) ───────────────────────────────
+// Otherwise clicking an image in the editor starts a text selection over
+// text recognized *inside* the rendered image instead of selecting the
+// image node. DOM-level preventDefault cannot cancel this UA-driven
+// interaction, so it is turned off natively via WKPreferences.
+// No-op on non-macOS platforms. main.tsx runs in every window, so this
+// covers the main window and all detached child windows.
+ipc.disableTextInteraction().catch((err) => {
+  logger.warn("main", `disableTextInteraction failed: ${String(err)}`);
+});
 
 // ── React 19 sandbox iframe workaround (development mode) ──────────────
 // React 19's development-mode reconciliation traverses DOM trees including

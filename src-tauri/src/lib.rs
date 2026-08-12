@@ -226,6 +226,7 @@ pub fn run() {
             commands::window::quit_app,
             commands::window::set_native_menu_accelerator,
             commands::window::report_window_focus,
+            commands::window::disable_text_interaction,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run jstudio tauri application");

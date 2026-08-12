@@ -220,7 +220,13 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
 
   // Reliable click-to-select fallback (WKWebView occasionally fails to turn a
   // click on the <img> into a NodeSelection — see useNodeSelectionClick).
-  const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, { selected });
+  // forcePreventDefault: the <img> only inherits editability from view.dom;
+  // its native mousedown default is WKWebView Live Text selection inside the
+  // rendered image, which must be cancelled.
+  const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
+    selected,
+    forcePreventDefault: true,
+  });
 
   const effectiveAlign = align ?? 'center';
   const imgStyle: React.CSSProperties = {};

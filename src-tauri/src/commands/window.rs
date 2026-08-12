@@ -11,6 +11,35 @@ pub struct NativeMenuState {
     pub inline_code_item: tauri::menu::MenuItem<tauri::Wry>,
 }
 
+/// Disable WKWebView "Live Text" (image text recognition) for the calling
+/// window's webview.
+///
+/// Without this, clicking an image in the editor triggers Live Text: WKWebView
+/// starts a text selection over text it recognized *inside* the rendered image
+/// instead of producing a ProseMirror NodeSelection. DOM-level preventDefault
+/// cannot reliably cancel this UA-driven interaction, so we turn the feature
+/// off at the WKPreferences level. Called once from each window's JS bootstrap
+/// (main.tsx runs in every window). No-op on non-macOS platforms.
+#[tauri::command]
+pub fn disable_text_interaction(webview_window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_web_kit::WKWebView;
+        webview_window
+            .with_webview(|platform_webview| {
+                let wkwebview: &WKWebView = unsafe { &*platform_webview.inner().cast() };
+                unsafe {
+                    let prefs = wkwebview.configuration().preferences();
+                    prefs.setTextInteractionEnabled(false);
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = webview_window;
+    Ok(())
+}
+
 /// Close the window that invoked this command.
 ///
 /// Called by the frontend when a tab/window should close:

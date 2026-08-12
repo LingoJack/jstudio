@@ -65,6 +65,7 @@ objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL"
 objc2-web-kit = { version = "0.3", features = [
     "WKWebView",
     "WKWebViewConfiguration",
+    "WKPreferences",
     "WKUIDelegate",
     "WKNavigationDelegate",
     "WKNavigationAction",
