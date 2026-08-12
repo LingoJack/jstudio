@@ -378,9 +378,6 @@ export const translations = {
     "general.confirmOnExit": "退出确认",
     "general.confirmOnExitDesc":
       "关闭主窗口最后一个标签页或退出应用时弹确认框",
-    "general.doubleShiftSearch": "双击 Shift 全局搜索",
-    "general.doubleShiftSearchDesc":
-      "连续按两次 Shift 键打开全局搜索弹窗（搜索文档标题和内容）",
 
     // ── Dialog ──
     "dialog.exitConfirmTitle": "退出 JStudio",
@@ -721,8 +718,9 @@ export const translations = {
     "globalSearch.placeholder": "搜索文档标题或内容…",
     "globalSearch.noResults": "无匹配结果",
     "globalSearch.footer": "↑↓ 导航 · Enter 打开 · Esc 关闭",
-    "globalSearch.tagTitle": "标题",
+    "globalSearch.tagTitle": "文档",
     "globalSearch.tagContent": "内容",
+    "globalSearch.emptyPreview": "空文档",
 
     // ── Open Document Dialog ──
     "openDoc.placeholder": "搜索文档…",
@@ -1292,9 +1290,6 @@ export const translations = {
     "general.confirmOnExit": "Exit Confirmation",
     "general.confirmOnExitDesc":
       "Show a confirmation dialog when closing the last main-window tab or quitting the app",
-    "general.doubleShiftSearch": "Double Shift Global Search",
-    "general.doubleShiftSearchDesc":
-      "Press Shift twice quickly to open the global search dialog (searches document titles and content)",
 
     // ── Dialog ──
     "dialog.exitConfirmTitle": "Quit JStudio",
@@ -1642,8 +1637,9 @@ export const translations = {
     "globalSearch.placeholder": "Search document titles and content…",
     "globalSearch.noResults": "No matching results",
     "globalSearch.footer": "↑↓ Navigate · Enter Open · Esc Close",
-    "globalSearch.tagTitle": "Title",
+    "globalSearch.tagTitle": "Document",
     "globalSearch.tagContent": "Content",
+    "globalSearch.emptyPreview": "Empty document",
 
     // ── Open Document Dialog ──
     "openDoc.placeholder": "Search documents…",

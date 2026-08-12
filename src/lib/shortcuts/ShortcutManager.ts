@@ -75,11 +75,6 @@ class ShortcutManager {
   private listenerGeneration = 0;
   private unlistenNative: (() => void) | null = null;
 
-  /** Timestamp of the last bare Shift keydown (for double-Shift detection). */
-  private lastShiftTime = 0;
-  /** Max interval (ms) between two Shift presses to count as a double-Shift. */
-  private static readonly DOUBLE_SHIFT_INTERVAL = 300;
-
   /**
    * Compute which scopes are currently active based on store state.
    */
@@ -98,35 +93,6 @@ class ShortcutManager {
   private handleKeyDown = (e: KeyboardEvent): void => {
     // Fast path: ignore if default already prevented
     if (e.defaultPrevented) return;
-
-    // ── Double-Shift detection (global search trigger) ──
-    // Detect two consecutive bare Shift presses within 300ms.
-    // - Ignore key repeat (holding Shift down)
-    // - Only trigger when no other modifier is held
-    // - The first Shift is NOT consumed (user may be starting a Shift+X combo)
-    if (
-      e.key === 'Shift' &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      !e.altKey &&
-      !e.repeat
-    ) {
-      const now = Date.now();
-      const elapsed = now - this.lastShiftTime;
-      console.log('[ShortcutManager] Shift keydown, elapsed since last:', elapsed, 'threshold:', ShortcutManager.DOUBLE_SHIFT_INTERVAL);
-      if (elapsed < ShortcutManager.DOUBLE_SHIFT_INTERVAL) {
-        const store = useStore.getState();
-        if (store.doubleShiftSearchEnabled) {
-          store.setGlobalSearchOpen(true);
-          this.lastShiftTime = 0; // Reset to prevent triple-trigger
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-      }
-      this.lastShiftTime = now;
-      // Do NOT return – let the first Shift pass through normally
-    }
 
     const binding = eventToBinding(e);
     if (!binding) return;

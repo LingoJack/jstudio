@@ -19,7 +19,7 @@ The `jcli/` directory is a git submodule (the `j` CLI). JStudio links against `j
 | Lint (TS + Rust clippy) | `make lint` |
 | Pre-commit gate (fmt + lint + test) | `make pre-commit` |
 | Rust check only | `make check-rust` (cargo check) |
-| TypeScript type check | `npm run lint` (tsc --noEmit) |
+| TypeScript type check | `npm run lint` (tsc -b) / `npm run lint:tsc` (tsc --noEmit) |
 | Dead-code / unused-export check | `npm run knip` |
 | Frontend tests | `npm run test:shortcuts` and `npm run test:cursor` |
 | Rust tests | `cd src-tauri && cargo test` |
@@ -70,7 +70,7 @@ Two coexisting engines share the same `properties.diagramSnapshot` string channe
 
 ### State — Zustand slice pattern
 
-`src/store/useStore.ts` composes 8 slices (documents, editor, ui, terminal, toast, folders, workspace, agent) into one store. Each slice is a `createXxxSlice(set, get)` function returning a `Partial<StoreState>`. The full interface is in `src/store/storeHelpers.ts`. Selectors in `src/store/selectors.ts` are the preferred way to subscribe — always subscribe to primitives/booleans, not object references, to avoid re-rendering the editor on every debounced content update.
+`src/store/useStore.ts` composes 12 slices (documents, init, trash, importExport, editor, ui, terminal, toast, folders, workspace, agent, browser) into one store. Each slice is a `createXxxSlice(set, get)` function returning a `Partial<StoreState>`. The full interface is in `src/store/storeHelpers.ts`. Selectors in `src/store/selectors.ts` are the preferred way to subscribe — always subscribe to primitives/booleans, not object references, to avoid re-rendering the editor on every debounced content update. Slice responsibilities are documented in the comment block at the top of `useStore.ts`.
 
 Per-document save timers are keyed by doc id (`storeHelpers.ts`) so switching documents within the debounce window doesn't drop pending edits.
 
@@ -109,6 +109,9 @@ On startup, `connection.rs::open_and_init` runs: schema create → `migrate_from
 - Rust: `Result<T, String>` for all command return types. Register new commands in `src-tauri/src/lib.rs` `invoke_handler!` AND add a typed method to `src/lib/core/ipc.ts`.
 - Patches: `patches/prosemirror-view+1.41.9.patch` fixes a WKWebView caret-positioning bug inside code blocks with lowlight decorations. Applied via `patch-package` (`postinstall` hook).
 - Vite manual chunks split heavy vendors (excalidraw, mermaid, cytoscape, katex, mammoth) into separate bundles.
+- No emoji: never use emoji in code, comments, commit messages, or UI strings. UI text is user-facing and must stay plain.
+- No magic values: literals with meaning (thresholds, timeouts, sizes, IDs, keys, colors, enum-like strings) must be named constants in `src/lib/constants/` (or a co-located `constants.ts` for feature-scoped values). Inline numbers/strings that aren't self-evident are a smell — extract them. The existing `SECTION_SIZE` in `lib/editor/sectioning.ts` and the `kind: 'jgraph'` magic key in `nodes/graph/graphSnapshot.ts` are the canonical patterns.
+- File structure: respect the `lib/` vs `components/` layering above. Group by feature, not by type — co-locate a feature's logic, types, and constants together. Split files past the size red line (> 400 lines component / > 500 lines logic). Prefer barrel `index.ts` files for feature directories.
 
 ## Key Entry Points
 
@@ -117,7 +120,7 @@ On startup, `connection.rs::open_and_init` runs: schema create → `migrate_from
 | `src/main.tsx` | Root mount; multi-window dispatch on `?window=` |
 | `src/App.tsx` | Main window layout (title bar, activity bar, sidebar, tabs, editor, terminal, agent, settings) |
 | `src/lib/core/ipc.ts` | **Only** Tauri IPC surface (typed `ipc` object) |
-| `src/store/useStore.ts` | Zustand store composition (8 slices) |
+| `src/store/useStore.ts` | Zustand store composition (12 slices) |
 | `src/store/storeHelpers.ts` | `StoreState` interface, debounced save timers |
 | `src/components/editor/sectionEditor/DocumentPanel.tsx` | Editor orchestrator |
 | `src/components/editor/sectionEditor/SectionEditor.tsx` | One ProMirror instance per section |

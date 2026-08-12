@@ -20,6 +20,8 @@ export interface GlobalSearchResult {
   title: string;
   emoji: string;
   matchType: SearchMatchType;
+  /** Highlight range [start, end] within `title` for title matches (UTF-16 code units). */
+  titleMatch: [number, number] | null;
   updatedAt: string;
   /** For content matches: a short context snippet around the match. */
   snippet: string | null;
@@ -94,6 +96,24 @@ function extractSnippet(
 }
 
 // ──────────────────────────────────────────────────────────────────
+// Preview extraction (for title matches)
+// ──────────────────────────────────────────────────────────────────
+
+const PREVIEW_LEN = 120;
+
+/**
+ * Extract a single-line preview from a document's plain text.
+ * Used to give title-match results a second line so all rows share the
+ * same height/shape, regardless of match type.
+ */
+function extractPreview(text: string): string | null {
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  if (!collapsed) return null;
+  if (collapsed.length <= PREVIEW_LEN) return collapsed;
+  return collapsed.slice(0, PREVIEW_LEN) + '…';
+}
+
+// ──────────────────────────────────────────────────────────────────
 // Public API
 // ──────────────────────────────────────────────────────────────────
 
@@ -121,13 +141,15 @@ export function performGlobalSearch(
     const titleMatch = pinyinMatchRange(q, title);
 
     if (titleMatch) {
+      const content = textIndex.get(doc.id) ?? '';
       results.push({
         docId: doc.id,
         title,
         emoji: doc.emoji || '📝',
         matchType: 'title',
+        titleMatch,
         updatedAt: doc.updatedAt,
-        snippet: null,
+        snippet: extractPreview(content),
         snippetRange: null,
       });
       continue; // Title match takes priority – don't also show as content
@@ -149,6 +171,7 @@ export function performGlobalSearch(
         title,
         emoji: doc.emoji || '📝',
         matchType: 'content',
+        titleMatch: null,
         updatedAt: doc.updatedAt,
         snippet,
         snippetRange: range,

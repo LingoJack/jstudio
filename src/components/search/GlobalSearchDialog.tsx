@@ -16,7 +16,7 @@ import {
   performGlobalSearch,
   type GlobalSearchResult,
 } from '../../lib/documents/globalSearch';
-import { formatRelativeEditedTime } from '../../lib/documents/formatRelativeEditedTime';
+import { formatDateOr } from '../../lib/commandPalette/shared';
 
 // ──────────────────────────────────────────────────────────────────
 // Component
@@ -284,7 +284,10 @@ function SearchResultRow({
   const tagLabel = isTitleMatch
     ? t('globalSearch.tagTitle')
     : t('globalSearch.tagContent');
-  const timeLabel = formatRelativeEditedTime(result.updatedAt, t, language);
+  const dateLabel = formatDateOr(result.updatedAt, language);
+  const descClass = isSelected
+    ? 'opacity-55'
+    : 'text-[var(--vscode-descriptionForeground)] opacity-55';
 
   return (
     <div
@@ -298,24 +301,22 @@ function SearchResultRow({
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-[14px] leading-none">
-          {result.emoji || '📝'}
-        </span>
+        <FileText
+          className={`w-4 h-4 shrink-0 ${
+            isSelected ? 'opacity-75' : 'opacity-40'
+          }`}
+        />
         <span className="flex-1 truncate">
-          {result.title || (
+          {result.title ? (
+            <TitleHighlight text={result.title} match={result.titleMatch} />
+          ) : (
             <span className="opacity-50 italic">
               {t('doclist.untitled')}
             </span>
           )}
         </span>
-        {/* Tag + relative time */}
-        <span
-          className={`shrink-0 text-[11px] flex items-center gap-1.5 ${
-            isSelected
-              ? 'opacity-60'
-              : 'text-[var(--vscode-descriptionForeground)] opacity-55'
-          }`}
-        >
+        {/* Tag + date */}
+        <span className={`shrink-0 text-[11px] flex items-center gap-1.5 ${descClass}`}>
           <span
             className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
               isTitleMatch
@@ -325,25 +326,49 @@ function SearchResultRow({
           >
             {tagLabel}
           </span>
-          <span>{timeLabel}</span>
+          <span>{dateLabel}</span>
         </span>
       </div>
-      {/* Content match snippet */}
-      {result.snippet && result.snippetRange && (
-        <div
-          className={`mt-0.5 pl-6 text-[12px] truncate ${
-            isSelected
-              ? 'opacity-55'
-              : 'text-[var(--vscode-descriptionForeground)] opacity-50'
-          }`}
-        >
+      {/* Second line — always rendered for uniform row height.
+          Content match: highlighted snippet; title match: plain preview. */}
+      <div className={`mt-0.5 pl-6 text-[12px] truncate ${descClass}`}>
+        {result.snippetRange ? (
           <SnippetHighlight
-            snippet={result.snippet}
+            snippet={result.snippet ?? ''}
             range={result.snippetRange}
           />
-        </div>
-      )}
+        ) : result.snippet ? (
+          <span className="italic opacity-80">{result.snippet}</span>
+        ) : (
+          <span className="italic opacity-40">{t('globalSearch.emptyPreview')}</span>
+        )}
+      </div>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Title with highlighted match (stronger than CommandPalette's subtle
+// bold+link style — uses a background <mark> so the match is obvious.)
+// ──────────────────────────────────────────────────────────────────
+
+function TitleHighlight({
+  text,
+  match,
+}: {
+  text: string;
+  match: [number, number] | null;
+}) {
+  if (!match) return <>{text}</>;
+  const [start, end] = match;
+  return (
+    <>
+      {text.slice(0, start)}
+      <mark className="bg-[var(--vscode-editor-findMatchHighlightBackground)] text-[var(--vscode-foreground)] rounded-sm px-0.5 font-medium">
+        {text.slice(start, end)}
+      </mark>
+      {text.slice(end)}
+    </>
   );
 }
 

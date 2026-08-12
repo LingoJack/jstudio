@@ -93,7 +93,6 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       let docSortDirection = DEFAULT_DOC_SORT_DIRECTION;
       let runtimeLoggingEnabled: boolean | undefined;
       let confirmOnExit: boolean | undefined;
-      let doubleShiftSearchEnabled: boolean | undefined;
       try {
         const settings = await ipc.loadSettings();
         if (settings.theme === "light" || settings.theme === "system") {
@@ -213,10 +212,6 @@ export const createInitSlice: SliceCreator = (set, get) => ({
         // only flip off when the user explicitly opts out.
         if (typeof settings.confirmOnExit === "boolean") {
           confirmOnExit = settings.confirmOnExit;
-        }
-        // Load double-Shift global search toggle (General settings).
-        if (typeof settings.doubleShiftSearchEnabled === "boolean") {
-          doubleShiftSearchEnabled = settings.doubleShiftSearchEnabled;
         }
         // Load browser search engine preference
         if (
@@ -353,9 +348,6 @@ export const createInitSlice: SliceCreator = (set, get) => ({
           ? { runtimeLoggingEnabled }
           : {}),
         ...(confirmOnExit !== undefined ? { confirmOnExit } : {}),
-        ...(doubleShiftSearchEnabled !== undefined
-          ? { doubleShiftSearchEnabled }
-          : {}),
         docSortKey,
         docSortDirection,
         isLoading: false,

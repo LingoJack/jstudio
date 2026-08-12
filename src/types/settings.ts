@@ -157,12 +157,6 @@ export interface AppSettings {
    */
   confirmOnExit?: boolean;
   /**
-   * Whether double-Shift global search is enabled (default true).
-   * When enabled, pressing Shift twice within 300ms opens the global
-   * search dialog (searches document titles and content).
-   */
-  doubleShiftSearchEnabled?: boolean;
-  /**
    * Tab bar glassmorphism background opacity (0.02–0.15).
    * Controls the transparency of the floating pill-shaped tab bar container.
    * Higher = more visible/solid; lower = more transparent/glass-like.
