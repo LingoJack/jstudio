@@ -26,6 +26,7 @@ import DeferredWorkspaceContent from './components/workspace/DeferredWorkspaceCo
 import SettingsPanel from './components/settings/SettingsPanel';
 import CommandPalette from './components/editor/CommandPalette';
 import GlobalSearchDialog from './components/search/GlobalSearchDialog';
+import ExitConfirmDialog from './components/ui/ExitConfirmDialog';
 import { ToastContainer } from './components/ui/Toast';
 
 export default function App() {
@@ -184,7 +185,6 @@ export default function App() {
           // Last tab: confirm before closing the window.
           const ok = await confirmExitIfEnabled(
             t('dialog.exitConfirmTitle'),
-            t('dialog.exitConfirmMessage'),
             t('dialog.confirm'),
             t('dialog.cancel'),
           );
@@ -312,6 +312,11 @@ export default function App() {
            Global Search Dialog (double-Shift, above everything)
           ============================== */}
       <GlobalSearchDialog />
+
+      {/* ==============================
+           Exit Confirmation Dialog (Cmd+Q / last-tab close)
+          ============================== */}
+      <ExitConfirmDialog />
     </div>
   );
 }

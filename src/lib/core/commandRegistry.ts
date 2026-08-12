@@ -136,7 +136,6 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       } else {
         confirmExitIfEnabled(
           tSync("dialog.exitConfirmTitle"),
-          tSync("dialog.exitConfirmMessage"),
           tSync("dialog.confirm"),
           tSync("dialog.cancel"),
         ).then((ok) => {
@@ -158,7 +157,6 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
       // process terminates.
       confirmExitIfEnabled(
         tSync("dialog.exitConfirmTitle"),
-        tSync("dialog.exitConfirmMessage"),
         tSync("dialog.confirm"),
         tSync("dialog.cancel"),
       ).then((ok) => {

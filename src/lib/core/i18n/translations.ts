@@ -380,9 +380,8 @@ export const translations = {
       "关闭主窗口最后一个标签页或退出应用时弹确认框",
 
     // ── Dialog ──
-    "dialog.exitConfirmTitle": "退出 JStudio",
-    "dialog.exitConfirmMessage": "确定要退出 JStudio 吗？未保存的更改会丢失。",
-    "dialog.confirm": "确认",
+    "dialog.exitConfirmTitle": "退出？",
+    "dialog.confirm": "退出",
     "dialog.cancel": "取消",
 
     // ── Appearance section ──
@@ -1290,10 +1289,8 @@ export const translations = {
       "Show a confirmation dialog when closing the last main-window tab or quitting the app",
 
     // ── Dialog ──
-    "dialog.exitConfirmTitle": "Quit JStudio",
-    "dialog.exitConfirmMessage":
-      "Are you sure you want to quit JStudio? Unsaved changes will be lost.",
-    "dialog.confirm": "Confirm",
+    "dialog.exitConfirmTitle": "Quit?",
+    "dialog.confirm": "Quit",
     "dialog.cancel": "Cancel",
 
     // ── Appearance section ──
