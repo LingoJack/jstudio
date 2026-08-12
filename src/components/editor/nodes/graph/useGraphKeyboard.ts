@@ -34,6 +34,7 @@ export interface UseGraphKeyboardParams {
   darkModeRef: RefObject<boolean>;
   mindmapSchemeRef: RefObject<MindmapScheme>;
   setPending: (shape: GraphNodeShape | null) => void;
+  setPendingLifelineCount: (n: number) => void;
 }
 
 export function useGraphKeyboard({
@@ -46,6 +47,7 @@ export function useGraphKeyboard({
   darkModeRef,
   mindmapSchemeRef,
   setPending,
+  setPendingLifelineCount,
 }: UseGraphKeyboardParams) {
   useEffect(() => {
     if (!editing) return;
@@ -84,11 +86,12 @@ export function useGraphKeyboard({
       // 正在内联编辑文本时，交给 CellEditor，不拦截。
       if (graph.isEditing()) return;
 
-      // ESC：退出待绘制态。
+      // ESC：退出待绘制态（含批量生命线计数）。
       if (e.key === 'Escape') {
         if (pendingShapeRef.current) {
           e.preventDefault();
           setPending(null);
+          setPendingLifelineCount(0);
         }
         return;
       }

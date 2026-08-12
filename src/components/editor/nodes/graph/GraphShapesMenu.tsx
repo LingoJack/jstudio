@@ -14,16 +14,18 @@ import type { GraphNodeShape } from "./graphSnapshot";
 
 export interface GraphShapesMenuProps {
   pendingShape: GraphNodeShape | null;
+  pendingLifelineCount: number;
   shapesMenuOpen: boolean;
   shapesMenuRef: RefObject<HTMLDivElement | null>;
   onShapesClick: () => void;
   onShapesEnter: () => void;
   onShapesLeave: () => void;
-  onSelectShape: (shape: GraphNodeShape) => void;
+  onSelectShape: (shape: GraphNodeShape, metaKey: boolean) => void;
 }
 
 export function GraphShapesMenu({
   pendingShape,
+  pendingLifelineCount,
   shapesMenuOpen,
   shapesMenuRef,
   onShapesClick,
@@ -32,6 +34,8 @@ export function GraphShapesMenu({
   onSelectShape,
 }: GraphShapesMenuProps) {
   const menuListRef = useDropdownMenuFit(shapesMenuOpen);
+  // 计数 badge 显示条件：仅当 lifeline 处于 pending 且计数 > 1。
+  const showLifelineBadge = pendingShape === 'lifeline' && pendingLifelineCount > 1;
 
   return (
     <div
@@ -47,6 +51,11 @@ export function GraphShapesMenu({
         onClick={onShapesClick}
       >
         <Shapes size={16} />
+        {showLifelineBadge && (
+          <span className="jgraph-shapes-badge" aria-label={`批量计数 ${pendingLifelineCount}`}>
+            ×{pendingLifelineCount}
+          </span>
+        )}
       </button>
       {shapesMenuOpen && (
         <div className="jgraph-dropdown-menu" ref={menuListRef} role="presentation">
@@ -60,10 +69,15 @@ export function GraphShapesMenu({
                   type="button"
                   className={`jgraph-dropdown-item ${pendingShape === shape ? 'is-active' : ''}`}
                   title={`${title}｜点击后在画布拖拽划定大小`}
-                  onClick={() => onSelectShape(shape)}
+                  onClick={(e) => onSelectShape(shape, e.metaKey || e.ctrlKey)}
                 >
                   <ShapeGlyph shape={shape} />
                   <span>{title}</span>
+                  {shape === 'lifeline' && showLifelineBadge && (
+                    <span className="jgraph-shapes-badge" aria-label={`批量计数 ${pendingLifelineCount}`}>
+                      ×{pendingLifelineCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

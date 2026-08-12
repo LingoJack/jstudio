@@ -14,6 +14,7 @@ export interface GraphSetupContext {
   initialSnapshotRef: RefObject<string>;
   showGridRef: RefObject<boolean>;
   pendingShapeRef: RefObject<GraphNodeShape | null>;
+  pendingLifelineCountRef: RefObject<number>;
   rootRef: RefObject<HTMLDivElement | null>;
   containerRef: RefObject<HTMLDivElement | null>;
   scheduleEmit: () => void;
@@ -25,6 +26,7 @@ export interface GraphSetupContext {
   setSelectedMindmapTopic: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
+  setPendingLifelineCount: (n: number) => void;
 }
 
 export type GraphSetupFn = (ctx: GraphSetupContext) => (() => void) | void;

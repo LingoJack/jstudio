@@ -59,6 +59,7 @@ export interface UseGraphInitParams {
   initialSnapshotRef: RefObject<string>;
   showGridRef: RefObject<boolean>;
   pendingShapeRef: RefObject<GraphNodeShape | null>;
+  pendingLifelineCountRef: RefObject<number>;
   debounceRef: RefObject<ReturnType<typeof setTimeout> | null>;
   scheduleEmit: () => void;
   emitSnapshot: () => void;
@@ -70,6 +71,7 @@ export interface UseGraphInitParams {
   setSelectedMindmapTopic: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
+  setPendingLifelineCount: (n: number) => void;
 }
 
 export function useGraphInit(params: UseGraphInitParams) {
@@ -85,6 +87,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     initialSnapshotRef,
     showGridRef,
     pendingShapeRef,
+    pendingLifelineCountRef,
     debounceRef,
     scheduleEmit,
     emitSnapshot,
@@ -96,6 +99,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     setSelectedMindmapTopic,
     setFillPickerOpen,
     setPending,
+    setPendingLifelineCount,
   } = params;
 
   useEffect(() => {
@@ -146,6 +150,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       initialSnapshotRef,
       showGridRef,
       pendingShapeRef,
+      pendingLifelineCountRef,
       rootRef,
       containerRef,
       scheduleEmit,
@@ -157,6 +162,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       setSelectedMindmapTopic,
       setFillPickerOpen,
       setPending,
+      setPendingLifelineCount,
     };
 
     // 按原始顺序调用各 setup 函数，收集 cleanup。

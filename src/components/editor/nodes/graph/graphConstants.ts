@@ -154,6 +154,15 @@ const ZOOM_MAX = 4;
 const MIN_DRAW_SIZE = 12;
 
 /**
+ * 批量生命线（Cmd+click lifeline icon N 次后拖框）相关常量。
+ * - MAX_COUNT：单次批量上限，防止 Cmd 卡键意外产生海量节点。
+ * - FALLBACK_SPACING：click-without-drag 回退间距（用户只点击不拖框时，
+ *   以此间距排开 N 条）。与 sequenceConverter 的 PARTICANT_SPACING 对齐。
+ */
+const BATCH_LIFELINE_MAX_COUNT = 20;
+const BATCH_LIFELINE_FALLBACK_SPACING = 160;
+
+/**
  * 连接点：仅保留四边中点（4 个），而非八点。
  * 点位更稀疏 → 悬停时高亮范围更小、更"定点"，降低误触发拉线。
  */
@@ -174,4 +183,6 @@ export {
   ZOOM_MAX,
   MIN_DRAW_SIZE,
   CONNECTION_POINTS,
+  BATCH_LIFELINE_MAX_COUNT,
+  BATCH_LIFELINE_FALLBACK_SPACING,
 };

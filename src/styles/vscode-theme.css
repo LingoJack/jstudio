@@ -3348,6 +3348,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative; /* 给 .jgraph-shapes-badge 绝对定位提供基准 */
   width: 28px;
   height: 28px;
   padding: 0;
@@ -3375,6 +3376,35 @@ button {
   );
   color: var(--vscode-inputOption-activeForeground, #007acc);
   box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, #007acc);
+}
+
+/* 批量生命线计数 badge：Cmd+click lifeline icon 累加时显示。
+   仅 accent 色实心小徽标，不引入白底圆环（遵守 handle 风格约束）。 */
+.jgraph-shapes-badge {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--vscode-inputOption-activeForeground, #007acc);
+  background: var(--vscode-inputOption-activeBackground, rgba(0, 122, 204, 0.16));
+  border-radius: 8px;
+  padding: 1px 5px;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* 28×28 工具按钮（Shapes 入口 / LRU）：绝对定位右上角，不挤占图标 */
+.jgraph-tool-btn .jgraph-shapes-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 14px;
+  text-align: center;
+}
+
+/* 下拉项：贴右边缘，与标题文本共行 */
+.jgraph-dropdown-item .jgraph-shapes-badge {
+  margin-left: auto;
 }
 
 .jgraph-tool-sep {

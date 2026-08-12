@@ -32,13 +32,14 @@ import type { MindmapScheme } from "../../../../lib/editor/extensions/diagramExt
 export interface GraphToolbarProps {
   // Shape menu
   pendingShape: GraphNodeShape | null;
+  pendingLifelineCount: number;
   recentShapes: GraphNodeShape[];
   shapesMenuOpen: boolean;
   shapesMenuRef: RefObject<HTMLDivElement | null>;
   onShapesClick: () => void;
   onShapesEnter: () => void;
   onShapesLeave: () => void;
-  onSelectShape: (shape: GraphNodeShape) => void;
+  onSelectShape: (shape: GraphNodeShape, metaKey: boolean) => void;
 
   // Undo / Redo / Delete
   onUndo: () => void;
@@ -94,6 +95,7 @@ export interface GraphToolbarProps {
 export function GraphToolbar(props: GraphToolbarProps) {
   const {
     pendingShape,
+    pendingLifelineCount,
     recentShapes,
     shapesMenuOpen,
     shapesMenuRef,
@@ -144,6 +146,7 @@ export function GraphToolbar(props: GraphToolbarProps) {
       {/* 形状全量菜单：hover 展开，按类别分区 */}
       <GraphShapesMenu
         pendingShape={pendingShape}
+        pendingLifelineCount={pendingLifelineCount}
         shapesMenuOpen={shapesMenuOpen}
         shapesMenuRef={shapesMenuRef}
         onShapesClick={onShapesClick}
@@ -161,9 +164,19 @@ export function GraphToolbar(props: GraphToolbarProps) {
               type="button"
               className={`jgraph-tool-btn ${pendingShape === shape ? 'is-active' : ''}`}
               title={`${shapeTitleMap.get(shape) ?? shape}｜点击后在画布拖拽划定大小`}
-              onClick={() => onSelectShape(shape)}
+              onClick={(e) => onSelectShape(shape, e.metaKey || e.ctrlKey)}
             >
               <ShapeGlyph shape={shape} />
+              {shape === 'lifeline'
+                && pendingShape === 'lifeline'
+                && pendingLifelineCount > 1 && (
+                <span
+                  className="jgraph-shapes-badge"
+                  aria-label={`批量计数 ${pendingLifelineCount}`}
+                >
+                  ×{pendingLifelineCount}
+                </span>
+              )}
             </button>
           ))}
         </>

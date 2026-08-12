@@ -30,6 +30,7 @@ import {
   type LabelAlign,
 } from './graphSnapshot';
 import { applySnapshotToGraph, readSnapshotFromGraph } from './graphModel';
+import { BATCH_LIFELINE_MAX_COUNT } from './graphConstants';
 import MermaidImportDialog from './MermaidImportDialog';
 import AIGraphImportDialog from './AIGraphImportDialog';
 import { fontColorFor, DEFAULT_MINDMAP_SCHEME, type MindmapScheme } from './graphTheme';
@@ -85,9 +86,25 @@ export function GraphCanvas({
   // 用 ref 供事件回调读取，用 state 驱动光标/高亮 UI。
   const pendingShapeRef = useRef<GraphNodeShape | null>(null);
   const [pendingShape, setPendingShape] = useState<GraphNodeShape | null>(null);
+  // 批量生命线计数：Cmd+click lifeline icon 多次累加，随后一次拖框在划定区域
+  // 内等距排开 N 条生命线。仅 pendingShape==='lifeline' 时有意义。
+  // 同样采用 ref+state 双轨：ref 给 dragDraw 事件回调读取，state 驱动 badge UI。
+  // 定义在 setPending 之前，以便 setPending(null) 时顺手清零，集中维护
+  // "pendingShape===null ⟹ pendingLifelineCount===0" 不变量。
+  const pendingLifelineCountRef = useRef(0);
+  const [pendingLifelineCount, setPendingLifelineCountState] = useState(0);
+  const setPendingLifelineCount = useCallback((n: number) => {
+    pendingLifelineCountRef.current = n;
+    setPendingLifelineCountState(n);
+  }, []);
   const setPending = useCallback((shape: GraphNodeShape | null) => {
     pendingShapeRef.current = shape;
     setPendingShape(shape);
+    // disarm 时同步清零批量计数，避免 lingering count 影响下次 arm。
+    if (shape === null && pendingLifelineCountRef.current !== 0) {
+      pendingLifelineCountRef.current = 0;
+      setPendingLifelineCountState(0);
+    }
   }, []);
   // 网格显隐开关（飞书/draw.io 都有，用户可关掉网格看整洁画布）。
   const [showGrid, setShowGrid] = useState(false); // 默认不显示网格
@@ -262,6 +279,7 @@ export function GraphCanvas({
     initialSnapshotRef,
     showGridRef,
     pendingShapeRef,
+    pendingLifelineCountRef,
     debounceRef,
     scheduleEmit,
     emitSnapshot,
@@ -273,6 +291,7 @@ export function GraphCanvas({
     setSelectedMindmapTopic,
     setFillPickerOpen,
     setPending,
+    setPendingLifelineCount,
   });
 
   /* -------------------------------------------------------------- */
@@ -333,6 +352,7 @@ export function GraphCanvas({
     darkModeRef,
     mindmapSchemeRef,
     setPending,
+    setPendingLifelineCount,
   });
 
   /* -------------------------------------------------------------- */
@@ -352,14 +372,34 @@ export function GraphCanvas({
     setRecentShapes((prev) => [shape, ...prev.filter((s) => s !== shape)].slice(0, 4));
   }, []);
 
-  // 从下拉菜单选形状：记录 LRU + toggle 选中态 + 关闭菜单。
+  // 从下拉菜单 / LRU 选形状：记录 LRU + 设置 pending 态 + 关闭菜单。
+  // metaKey=true（Cmd/Ctrl+click）且 shape==='lifeline' 时进入批量累加模式：
+  //   - 首次 Cmd+click：arm lifeline, count=1
+  //   - 后续 Cmd+click：count++ 直至上限
+  //   - plain click：保持原有 toggle 行为，并清零 count
+  // 其他形状 Cmd+click 行为不变（按 plain click 处理），count 清零。
   const handleSelectShape = useCallback(
-    (shape: GraphNodeShape) => {
+    (shape: GraphNodeShape, metaKey: boolean = false) => {
       recordShapeUse(shape);
+      if (shape === 'lifeline' && metaKey) {
+        // Cmd+click lifeline 累加批量计数，保持菜单打开以便继续点击累加。
+        // 菜单关闭交由 hover-leave 或拖框开始后的 focus 离开自然触发。
+        if (pendingShapeRef.current === 'lifeline') {
+          setPendingLifelineCount(
+            Math.min(pendingLifelineCountRef.current + 1, BATCH_LIFELINE_MAX_COUNT),
+          );
+        } else {
+          setPending('lifeline');
+          setPendingLifelineCount(1);
+        }
+        return;
+      }
+      // 非 lifeline 或 plain click：清零批量计数，走原有 toggle 流程。
+      if (pendingLifelineCountRef.current !== 0) setPendingLifelineCount(0);
       togglePending(shape);
       setShapesMenuOpen(false);
     },
-    [recordShapeUse, togglePending],
+    [recordShapeUse, setPending, setPendingLifelineCount, togglePending],
   );
 
   // 形状菜单 hover 展开：鼠标进入立即打开，离开延迟 200ms 关闭
@@ -541,6 +581,7 @@ export function GraphCanvas({
       {editing && (
         <GraphToolbar
           pendingShape={pendingShape}
+          pendingLifelineCount={pendingLifelineCount}
           recentShapes={recentShapes}
           shapesMenuOpen={shapesMenuOpen}
           shapesMenuRef={shapesMenuRef}

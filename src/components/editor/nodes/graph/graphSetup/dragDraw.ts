@@ -1,11 +1,12 @@
 import { CellState } from '@maxgraph/core';
-import type { ConnectionHandler } from '@maxgraph/core';
+import type { ConnectionHandler, Cell } from '@maxgraph/core';
 import {
   styleForShape,
   DEFAULT_SIZE,
   SHAPE_LABEL,
   GRID_SIZE,
   MIN_DRAW_SIZE,
+  BATCH_LIFELINE_FALLBACK_SPACING,
 } from '../graphConstants';
 import { SHAPE_ARC_SIZE, MINDMAP_ARC_SIZE } from '../graphTheme';
 import { logger } from '../../../../../lib/core/logger';
@@ -184,6 +185,61 @@ export const setupDragDraw: GraphSetupFn = (ctx) => {
         };
       }
       ctx.setPending(null);
+      return;
+    }
+
+    // 批量生命线分支：Cmd+click lifeline icon N 次后拖框，在划定区域内
+    // 等距排开 N 条生命线。宽度固定 LIFELINE_WIDTH=100，框仅决定 X 分布范围与高度。
+    // click-without-drag 时以点击点为中心、按 BATCH_LIFELINE_FALLBACK_SPACING 排开。
+    const batchCount = ctx.pendingLifelineCountRef.current;
+    if (shape === 'lifeline' && batchCount > 1) {
+      const LIFELINE_W = DEFAULT_SIZE.lifeline.w;
+      const LIFELINE_MIN_H = DEFAULT_SIZE.lifeline.h;
+      let rectX: number;
+      let rectY: number;
+      let rectW: number;
+      let rectH: number;
+      if (rawW < MIN_DRAW_SIZE && rawH < MIN_DRAW_SIZE) {
+        // 只点不拖：以点击点为中心，N 条按回退间距排开。
+        const totalW = (batchCount - 1) * BATCH_LIFELINE_FALLBACK_SPACING + LIFELINE_W;
+        rectX = snap(startGraph.x - totalW / 2);
+        rectY = snap(startGraph.y - LIFELINE_MIN_H / 2);
+        rectW = totalW;
+        rectH = LIFELINE_MIN_H;
+      } else {
+        rectX = snap(Math.min(startGraph.x, endPoint.x));
+        rectY = snap(Math.min(startGraph.y, endPoint.y));
+        rectW = Math.max(GRID_SIZE, snap(rawW));
+        rectH = Math.max(GRID_SIZE, snap(rawH));
+      }
+      const lifelineH = Math.max(rectH, LIFELINE_MIN_H);
+      const lifelineY = rectY;
+      const parent = graph.getDefaultParent();
+      const darkMode = ctx.darkModeRef.current;
+      const createdCells: Cell[] = [];
+      graph.batchUpdate(() => {
+        for (let i = 0; i < batchCount; i++) {
+          const x = snap(
+            rectX + (batchCount === 1
+              ? (rectW - LIFELINE_W) / 2
+              : (i * (rectW - LIFELINE_W)) / (batchCount - 1)),
+          );
+          const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          const cell = graph.insertVertex({
+            parent,
+            id,
+            value: '',
+            position: [x, lifelineY],
+            size: [LIFELINE_W, lifelineH],
+            style: styleForShape('lifeline', darkMode),
+          });
+          createdCells.push(cell);
+        }
+        graph.setSelectionCells(createdCells);
+      });
+      // 完成后退出待绘制态 + 清零批量计数（单次批量，与单次绘制一致）。
+      ctx.setPending(null);
+      ctx.setPendingLifelineCount(0);
       return;
     }
 
