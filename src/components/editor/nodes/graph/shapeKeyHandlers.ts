@@ -2,8 +2,8 @@
  * Tab/Enter 在选中 shape 上的行为按类别分派。
  *
  * 两类行为本质不同，按 shape 类别路由：
- *   - topic（思维导图）：Tab 生发子节点 / Enter（非编辑态）生发兄弟节点；
- *     编辑态 Enter 穿透为换行，提交文字用 Cmd/Ctrl+Enter
+ *   - topic（思维导图）：Tab 生发子节点 / Enter 生发兄弟节点；编辑态下
+ *     先提交当前文本再生发（思维导图工具直觉，与 Tab 路径对称）
  *   - 其它 vertex：Tab 循环选中下一个 / Enter 进入文字编辑（普通画板交互）
  *
  * 纯函数模块，不依赖 React，便于独立测试。
@@ -43,11 +43,11 @@ export function handleShapeTabEnter(
 /**
  * 思维导图 topic 节点的 Tab/Enter 行为：
  *   - Tab / Shift+Tab：在右侧 / 左侧生发子节点（编辑中先提交再生发）
- *   - Enter（非编辑态）：生发同级兄弟节点
- *   - Enter（编辑态）：不拦截，交给 CellEditor 原生插入换行
+ *   - Enter：生发同级兄弟节点（编辑中先提交当前文本再生发，符合思维导图工具直觉）
  *
- * 编辑文本时提交统一用 Cmd/Ctrl+Enter（见 useGraphKeyboard 的 window 捕获逻辑）；
- * 提交后再按 Enter（非编辑态）才生发兄弟节点，符合文本编辑器直觉。
+ * 编辑态下 Enter 不会插入换行——思维导图 topic 通常单行，换行需求弱；
+ * 若确需换行可先 Cmd/Ctrl+Enter 提交，再双击进入编辑手动换行。
+ * Cmd/Ctrl+Enter 单独保留为"只提交文本不派生"（见 useGraphKeyboard 的 window 捕获逻辑）。
  */
 function handleMindmapTopic(
   graph: Graph,
@@ -57,12 +57,9 @@ function handleMindmapTopic(
   dark: boolean,
   scheme: MindmapScheme,
 ): boolean {
-  // 正在编辑文本时，Enter 不拦截，交给 CellEditor 原生插入换行。
-  // 用户需先 Cmd/Ctrl+Enter 提交文字（或点击外部 / Esc 取消），
-  // 再按 Enter（非编辑态）才生发兄弟节点。
-  if (key === 'Enter' && graph.isEditing()) {
-    return false;
-  }
+  // 编辑文本时按 Tab/Enter：先提交当前文本再生发节点，避免丢失用户输入。
+  // 这意味着派生子/兄弟后自动进入新节点的编辑态时，再次按 Enter 会继续派生兄弟，
+  // 不会变成换行——这是思维导图工具（XMind / MindNode）的标准行为。
   if (graph.isEditing()) {
     graph.stopEditing(false);
   }

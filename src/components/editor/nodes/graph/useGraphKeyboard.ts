@@ -62,12 +62,12 @@ export function useGraphKeyboard({
       const key = e.key.toLowerCase();
 
       // Tab/Enter：按选中 shape 的类别分派。
-      //   - topic（思维导图）：Tab 生发子节点 / Enter（非编辑态）生发兄弟节点；
-      //     编辑态 Enter 穿透为换行（提交用 Cmd/Ctrl+Enter）
+      //   - topic（思维导图）：Tab 生发子节点 / Enter 生发兄弟节点；
+      //     编辑态下会先提交当前文本再生发（思维导图工具直觉）
       //   - 其它 vertex：Tab 循环选中 / Enter 编辑文字
       // topic 的编辑态处理必须在 graph.isEditing() 守卫之前，否则会被跳过；
       // 普通形状的 Enter 在编辑态由 CellEditor 原生处理，handleShapeTabEnter
-      // 内部会返回 false 让其穿透。topic 的编辑态 Enter 同样返回 false 穿透为换行。
+      // 内部会返回 false 让其穿透。topic 的 Enter 不再穿透为换行，而是先提交再派生。
       if (e.key === "Tab" || e.key === "Enter") {
         if (
           handleShapeTabEnter(
@@ -167,8 +167,8 @@ export function useGraphKeyboard({
 
     // window 级捕获阶段 keydown：在所有其他监听器（maxGraph、TipTap 等）之前
     // 拦截 Tab/Enter，确保 topic 节点的 Tab/Shift+Tab（生发子节点 右/左）/
-    // Enter（非编辑态生发兄弟节点）一定生效。编辑态 Enter 穿透为换行，不在此拦截。
-    // 不依赖 root div 或 container 的焦点状态--只要事件目标在画布内就处理。
+    // Enter（生发兄弟节点）一定生效。编辑态下 Enter 会先提交文本再生发，
+    // 不再穿透为换行。不依赖 root div 或 container 的焦点状态--只要事件目标在画布内就处理。
     //
     // Cmd/Ctrl+Enter 特殊处理：当正在内联编辑某个 shape 的文本时，Cmd+Enter
     // 确认该 shape 的文本编辑（graph.stopEditing(false)），而非退出整个块的编辑模式。
@@ -215,7 +215,7 @@ export function useGraphKeyboard({
       const cellStyle = g.getCurrentCellStyle(sel[0]);
       if (styleToNodeShape(cellStyle) !== "topic") return;
       // 命中 topic 节点：尝试分派；返回 true 表示已处理（生发节点），需拦截默认行为；
-      // 返回 false 表示正在编辑文本、Enter 应穿透为换行，放行事件给 CellEditor。
+      // 编辑态下也会先提交文本再派生，不会放行换行给 CellEditor。
       if (
         handleShapeTabEnter(
           g,
