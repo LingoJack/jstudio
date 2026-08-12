@@ -590,6 +590,7 @@ export const translations = {
     "slash.formulaDesc": "插入 LaTeX 数学公式",
     "collapsible.expand": "展开",
     "collapsible.collapse": "收起",
+    "collapsible.copy": "复制内容",
 
     // ── Terminal Window ──
     "terminal.loadError": "无法加载终端会话",
@@ -1503,6 +1504,7 @@ export const translations = {
     "slash.formulaDesc": "Insert a LaTeX math formula",
     "collapsible.expand": "Expand",
     "collapsible.collapse": "Collapse",
+    "collapsible.copy": "Copy content",
 
     // ── Terminal Window ──
     "terminal.loadError": "Failed to load terminal session",

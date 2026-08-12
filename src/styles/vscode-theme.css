@@ -2108,6 +2108,22 @@ button {
   border-bottom: none;
 }
 
+/* header 行内的"复制全部内容"按钮：默认低调，hover / 选中时加亮。
+   与 .code-toolbar-reveal 同样的克制风格，按钮始终常驻（避免 WKWebView
+   中 :hover 偶发不触发的问题），位置稳定在 header 行右侧。 */
+.collapsible-block-figure .collapsible-copy-btn {
+  opacity: 0.55;
+  transition:
+    opacity 0.15s ease,
+    color 0.12s ease,
+    background 0.12s ease;
+}
+
+.collapsible-block-figure:hover .collapsible-copy-btn,
+.collapsible-block-figure.is-selected .collapsible-copy-btn {
+  opacity: 1;
+}
+
 /* 选中折叠块节点时隐藏 ProseMirror 默认的 block 级外框，
    只保留 collapsible-block-figure 自身的 focusBorder 边框即可。
    与 image / code-block / file 节点同理，用 :has() 匹配。 */

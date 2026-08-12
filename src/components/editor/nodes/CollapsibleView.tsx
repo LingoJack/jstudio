@@ -58,7 +58,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { type NodeViewProps, NodeViewWrapper, NodeViewContent, type Editor } from '@tiptap/react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Copy, Check } from 'lucide-react';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { useI18n } from '../../../lib/core/i18n';
 import { COLLAPSIBLE_HEADER_CLASS } from '../../ui/Collapsible';
@@ -96,6 +96,19 @@ export default function CollapsibleView({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const toggleOpen = () => updateAttributes({ open: !open });
+
+  // ── Copy all content inside the collapsible ──
+  // node.textContent reads from ProseMirror state, so it works even when
+  // the block is collapsed (NodeViewContent is `hidden` via CSS, not unmounted).
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    const text = node.textContent;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Commit local edits to ProseMirror on blur or Enter
   const commitSummary = () => {
@@ -210,6 +223,22 @@ export default function CollapsibleView({
               className={`code-collapse-chevron ${open ? 'is-open' : ''}`}
             />
           </button>
+          {/* Copy-all button — inline next to the chevron on the left,
+              consistent with CodeBlockView's left-aligned action group.
+              Subtle by default, brightens on hover/selection (see
+              .collapsible-copy-btn in vscode-theme.css). */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopy();
+            }}
+            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm collapsible-copy-btn"
+            title={t('collapsible.copy')}
+            aria-label={t('collapsible.copy')}
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
           <input
             ref={cursorTrailInputRef}
             type="text"
@@ -224,7 +253,7 @@ export default function CollapsibleView({
               }
             }}
             placeholder="折叠块标题..."
-            className="flex-1 bg-transparent border-none focus:outline-none text-sm font-medium text-[var(--vscode-editor-foreground)] placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-50"
+            className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-sm font-medium text-[var(--vscode-editor-foreground)] placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-50"
           />
         </div>
 
