@@ -63,11 +63,11 @@ pub struct AgentSessionHandle {
     pub cancel_token: CancellationToken,
     /// Sender for tool results (UI -> agent)
     pub tool_result_tx: Mutex<Option<mpsc::Sender<ToolResultMsg>>>,
-    /// Ask request receiver (from j-agent Ask tool).
-    /// Set once when the handle is created, taken out by `spawn_agent_loop`
-    /// and moved into the event listener thread.
-    pub ask_rx: Mutex<Option<mpsc::Receiver<j_agent::message_types::AskRequest>>>,
-    /// Ask response sender (back to j-agent)
+    /// Ask response sender (back to j-agent). Created once at session start
+    /// and held for the session lifetime; the ask listener thread owns the
+    /// paired receiver. Recreated per round would break multi-round chats
+    /// because `ask_rx` is a non-cloneable `mpsc::Receiver` that cannot be
+    /// restored once moved into the listener.
     pub ask_response_tx: Mutex<Option<mpsc::Sender<String>>>,
     /// Whether the agent loop is currently running
     pub is_running: Mutex<bool>,
@@ -451,7 +451,7 @@ pub fn agent_delete_session(session_id: String) -> Result<(), String> {
 /// Note: this was previously a `#[tauri::command]` exposed as
 /// `agent_start_session`, but the frontend never invoked it; it is now a
 /// private helper.
-fn ensure_session_started(session_id: &str) -> Result<(), String> {
+fn ensure_session_started(session_id: &str, app: &AppHandle) -> Result<(), String> {
     // Check if session already exists in registry
     {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
@@ -497,6 +497,11 @@ fn ensure_session_started(session_id: &str) -> Result<(), String> {
         todos_file_path,
     ));
 
+    // Ask response channel lives for the whole session. The sender is stored
+    // on the handle so `agent_submit_ask_answer` can reach it from any round;
+    // the receiver is moved into the ask listener thread spawned below.
+    let (ask_response_tx, ask_response_rx) = mpsc::channel::<String>();
+
     // Create shared state buffers
     let streaming_content = Arc::new(Mutex::new(String::new()));
     let streaming_reasoning_content = Arc::new(Mutex::new(String::new()));
@@ -513,8 +518,7 @@ fn ensure_session_started(session_id: &str) -> Result<(), String> {
         pending_user_messages,
         cancel_token,
         tool_result_tx: Mutex::new(None),
-        ask_rx: Mutex::new(Some(ask_rx)),
-        ask_response_tx: Mutex::new(None),
+        ask_response_tx: Mutex::new(Some(ask_response_tx)),
         is_running: Mutex::new(false),
         workspace,
         tool_registry,
@@ -531,6 +535,18 @@ fn ensure_session_started(session_id: &str) -> Result<(), String> {
         sessions.insert(session_id.to_string(), handle);
     }
 
+    // Spawn the ask listener once for the whole session. `ask_rx` is moved in
+    // and persists until the session's `ask_tx` (held by ToolRegistry) is
+    // dropped — spawning it per round would consume `ask_rx` on the first
+    // round and panic on the second.
+    {
+        let session_id_owned = session_id.to_string();
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            listen_ask_requests(session_id_owned, app_clone, ask_rx, ask_response_rx);
+        });
+    }
+
     Ok(())
 }
 
@@ -541,7 +557,7 @@ pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Re
     let session_id = params.session_id.clone();
 
     // Ensure session is started
-    ensure_session_started(&session_id)?;
+    ensure_session_started(&session_id, &app)?;
 
     // Create user message
     let user_msg = ChatMessage {
@@ -769,11 +785,12 @@ pub fn agent_submit_ask_answer(
 // Internal helpers
 // ────────────────────────────────────────────────
 
-/// Spawn a thread that listens for StreamMsg and Ask requests, emits Tauri events.
+/// Spawn a thread that listens for StreamMsg and emits Tauri events.
 ///
-/// `stream_rx` and `ask_rx` are moved in directly — they were previously
-/// stored in the session handle and re-acquired via a global-table lock inside
-/// the listener thread, but those fields have no other consumers.
+/// `stream_rx` is moved in directly. The ask listener is spawned separately
+/// at session start (see `ensure_session_started`) and persists across rounds,
+/// because `ask_rx` is a non-cloneable receiver that cannot be re-extracted
+/// from a consumed listener.
 fn spawn_event_listener(
     session_id: String,
     app: AppHandle,
@@ -783,33 +800,8 @@ fn spawn_event_listener(
     tool_registry: Arc<ToolRegistry>,
     pending_tool_calls: Arc<Mutex<HashMap<String, (String, String)>>>,
     stream_rx: mpsc::Receiver<StreamMsg>,
-    ask_rx: mpsc::Receiver<j_agent::message_types::AskRequest>,
 ) {
     std::thread::spawn(move || {
-        // Create ask_response_tx and store it in session (Ask response goes
-        // back to j-agent via this channel; the handle holds the tx so
-        // `agent_submit_ask_answer` can reach it).
-        let (ask_response_tx, ask_response_rx) = mpsc::channel::<String>();
-        {
-            if let Ok(sessions) = AGENT_SESSIONS.lock() {
-                if let Some(h) = sessions.get(&session_id) {
-                    if let Ok(mut guard) = h.ask_response_tx.lock() {
-                        *guard = Some(ask_response_tx);
-                    }
-                }
-            }
-        }
-
-        // Spawn a separate thread for Ask handling (Ask is blocking)
-        std::thread::spawn({
-            let session_id = session_id.clone();
-            let app = app.clone();
-            move || {
-                listen_ask_requests(session_id, app, ask_rx, ask_response_rx);
-            }
-        });
-
-        // Listen to stream messages
         listen_stream_only(
             session_id,
             app,
@@ -1114,7 +1106,7 @@ fn mark_not_running(session_id: &str) {
 /// Spawn the agent loop on the Tauri global async runtime.
 fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
     // Collect everything needed within one lock scope
-    let (config, provider, messages, shared_state_components, ask_rx_opt) = {
+    let (config, provider, messages, shared_state_components) = {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
         let handle = sessions.get(&session_id).ok_or("Session not found")?;
 
@@ -1138,9 +1130,6 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
             .map_err(|e| e.to_string())?
             .clone();
 
-        // Take ask_rx out of the handle — it's moved into the event listener.
-        let ask_rx_opt = handle.ask_rx.lock().map_err(|e| e.to_string())?.take();
-
         // Collect shared state components (Arc refs). Only the fields actually
         // consumed below are cloned; `_task_manager` is intentionally unused
         // (TodoManager comes from tool_registry.todo_manager).
@@ -1161,7 +1150,6 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
                 handle.invoked_skills.clone(),
                 handle.workspace.clone(),
             ),
-            ask_rx_opt,
         )
     };
 
@@ -1195,10 +1183,9 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         workspace,
     ) = shared_state_components;
 
-    let ask_rx = ask_rx_opt.expect("ask_rx must be present on first spawn_agent_loop call");
-
-    // Spawn event listener — stream_rx and ask_rx are moved in directly,
-    // no reverse lock on the global session table needed.
+    // Spawn event listener — stream_rx is moved in directly, no reverse lock
+    // on the global session table needed. The ask listener was already
+    // spawned at session start and persists across rounds.
     spawn_event_listener(
         session_id.clone(),
         app,
@@ -1208,7 +1195,6 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
         tool_registry.clone(),
         pending_tool_calls.clone(),
         stream_rx,
-        ask_rx,
     );
 
     // Create agent loop config. Reuse the hook_manager from the handle rather
