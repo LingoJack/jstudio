@@ -245,6 +245,18 @@ export function useCrossSectionSelection(
   // rAF-throttled mousemove — these fire very frequently during a drag.
   const onMove = useCallback(
     (e: MouseEvent) => {
+      // Synchronously block the browser's default drag-selection the moment
+      // the pointer leaves the origin section. Waiting for the rAF-throttled
+      // handleMove below would be a frame too late — the default action has
+      // already run by then, so the native selection extends (non-collapsed)
+      // inside the origin contenteditable for at least one frame. That
+      // transient non-collapsed native selection can make macOS WKWebView
+      // paint its native selection grabber (a hollow circle above all
+      // content) — see docs/bug-graveyard.md #002 / #004.
+      const origin = dragOriginRef.current;
+      if (origin && sectionIdFromTarget(e.target) !== origin.id) {
+        e.preventDefault();
+      }
       pendingMoveRef.current = e;
       if (moveRafRef.current != null) return;
       moveRafRef.current = requestAnimationFrame(() => {
@@ -257,16 +269,54 @@ export function useCrossSectionSelection(
     [handleMove],
   );
 
-  const onUp = useCallback(() => {
-    document.removeEventListener('mousemove', onMove, true);
-    document.removeEventListener('mouseup', onUp, true);
-    if (moveRafRef.current != null) {
-      cancelAnimationFrame(moveRafRef.current);
-      moveRafRef.current = null;
-    }
-    // selRef is intentionally left intact — the selection persists after
-    // mouseup so the user can copy/cut/delete it.
-  }, [onMove]);
+  const onUp = useCallback(
+    (e: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('mouseup', onUp, true);
+      if (moveRafRef.current != null) {
+        cancelAnimationFrame(moveRafRef.current);
+        moveRafRef.current = null;
+      }
+      // Flush the last throttled mousemove so the selection reflects the final
+      // pointer position (it may apply() — which collapses the native caret —
+      // or clear() if the drag ended back inside the origin section).
+      const pending = pendingMoveRef.current;
+      pendingMoveRef.current = null;
+      if (pending && dragOriginRef.current) handleMove(pending);
+
+      const sel = selRef.current;
+      if (sel) {
+        // A cross-section selection is active — block the mouseup's default
+        // action. WebKit's selection controller otherwise "commits" the drag
+        // gesture by re-creating a NON-collapsed native selection inside the
+        // origin contenteditable (from the mousedown point to that section's
+        // boundary), undoing the collapsed caret that apply() set — and that
+        // committed selection makes macOS WKWebView paint its native
+        // selection grabber (a hollow circle above all content). See
+        // docs/bug-graveyard.md #004.
+        e.preventDefault();
+
+        // Re-assert the collapsed caret on the anchor section once the mouse
+        // gesture has fully ended, in case any transient selection UI was
+        // painted mid-gesture (a programmatic collapse during the gesture
+        // cannot reliably tear it down; after the gesture it can).
+        const anchorRange = rangesRef.current.find((r) => r.id === sel.anchorId);
+        if (anchorRange) {
+          const anchorId = sel.anchorId;
+          const pos = anchorRange.from;
+          window.setTimeout(() => {
+            const handle = ctxRef.current.getHandle(anchorId);
+            if (!handle) return;
+            const clamped = Math.min(pos, handle.getDocSize());
+            handle.setTextSelection(clamped, clamped);
+          }, 0);
+        }
+      }
+      // selRef is intentionally left intact — the selection persists after
+      // mouseup so the user can copy/cut/delete it.
+    },
+    [handleMove, onMove],
+  );
 
   const onMouseDownCapture = useCallback(
     (e: React.MouseEvent) => {
@@ -376,6 +426,23 @@ export function useCrossSectionSelection(
       if (!sel) return;
       const { key, metaKey, ctrlKey, altKey } = e;
       const anchorId = sel.anchorId;
+
+      // Modifier-only keydowns must NOT touch the selection. The macOS menu
+      // intercepts the letter of Cmd+C/X/A via performKeyEquivalent, but the
+      // Command key's OWN keydown (key === 'Meta') still reaches the webview
+      // — letting it fall through to the catch-all clear below destroyed the
+      // cross selection the moment the user pressed Cmd to copy it, so the
+      // subsequent copy event found selRef empty and nothing was copied.
+      // (See docs/bug-graveyard.md #004.)
+      if (
+        key === 'Meta' ||
+        key === 'Control' ||
+        key === 'Shift' ||
+        key === 'Alt' ||
+        key === 'CapsLock'
+      ) {
+        return;
+      }
 
       // Cmd/Ctrl+A → re-select the entire document.
       if ((metaKey || ctrlKey) && !altKey && key.toLowerCase() === 'a') {

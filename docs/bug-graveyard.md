@@ -267,3 +267,52 @@ isDropTarget ? 'border-[var(--vscode-focusBorder)] bg-[...]' : 'border-transpare
 3. **同类隐患**：`NavTree.tsx` 的 `NavRow` `highlighted` 态仍用 `ring-1 ring-inset`（静态高亮，暂未观察到问题）；若日后出现同样症状，按本条目同款方案修。
 
 ---
+
+## #004 — 鼠标拖拽跨 section：空心圆点（#002 复发）+ 复制不到内容
+
+**状态**：已修复
+**日期**：2026-08
+**影响文件**：`src/components/editor/sectionEditor/useCrossSectionSelection.ts`
+
+### 症状
+
+鼠标从上往下拖出跨 section 选区（高亮由 `.cross-section-selected` decoration 绘制）后：1) 屏幕上残留**空心圆点**（同 #002 的原生 selection grabber），浮在锚点 caret 上方；2) 按 Cmd+C **复制不到任何内容**。
+
+### 排查过程（logger 埋点，tag `xsel`）
+
+第一轮修复假设"rAF 里的 preventDefault 晚了一帧，瞬态非折叠选区画出 grabber"，改为同步拦截 + mouseup 后再折叠。用户复测：圆点仍在、复制反而彻底坏了。加 logger 埋点后时间线一目了然：
+
+```
+onUp:   sel=true                        ← 跨段选区正常建立
+clear:  reason=other-key hadSel=true    ← 按下 Cmd 的瞬间选区被清！
+copyEvent: sel=false                    ← copy 事件照常派发，但 selRef 已空
+```
+
+同时 `onUp` 处 `nativeCollapsed=false`——尽管 `apply()` 每次都把原生选区折叠成 caret。
+
+### 根因（两个独立 bug 叠加）
+
+**Bug A — Cmd 键本身就清空跨段选区。** macOS 菜单通过 `performKeyEquivalent` 拦截 Cmd+C 的字母键（`c` 的 keydown 不到 webview，菜单经 `copy:` 转发），但 **Command 修饰键自己的 keydown（`key === 'Meta'`）会到达 webview**。`onKey` 的兜底分支（"其他键 → clear + 聚焦锚点"）把它当普通键处理，于是用户按下 Cmd（准备按 C）的那一刻选区就被销毁，随后的 copy 事件里 `selRef` 已空 → 复制为空。此 bug 一直存在，只是以前被 Bug B 的竞态掩盖：原生选区没被折叠时，原生 copy 还能复制到锚点 section 的部分内容。
+
+**Bug B — mouseup 的手势提交重建非折叠原生选区。** WebKit 的 selection controller 在 mouseup 默认动作里"提交"拖拽手势：以 mousedown 点为锚，把原生选区重建为 origin contenteditable 内的**非折叠选区**——正好抵消 `apply()` 设置的折叠 caret，并触发 WKWebView 画出原生 selection grabber（空心圆点）。这就是"跨段拖选后圆点残留"的来源。
+
+### 解决方案
+
+1. **`onKey` 忽略纯修饰键**：`Meta`/`Control`/`Shift`/`Alt`/`CapsLock` 的 keydown 直接 return，不进任何 clear 分支。
+2. **`onUp` 阻止手势提交**：跨段选区激活（`selRef` 非空）时对 mouseup `e.preventDefault()`，WebKit 不再重建非折叠选区；并在 `setTimeout(0)`（手势彻底结束后）对锚点 section 再折叠一次 caret，拆除拖拽过程中可能已画出的 grabber。
+3. （第一轮保留）`onMove` 在 capture 阶段**同步** preventDefault 跨界 mousemove，不等 rAF。
+
+### 墓志铭
+
+> 菜单拦得下字母键，拦不下 Cmd 自己的 keydown。
+> mouseup 不是手势的句号——它的默认动作会把选区重新提交一遍。
+> 竞态能掩盖 bug：修了一个，另一个才现形。
+
+### 教训
+
+1. **兜底分支要防修饰键**。任何"其余按键一律 clear/重置"的 keydown 兜底，先排除 `Meta`/`Control`/`Shift`/`Alt`——组合键的第一下keydown永远是修饰键本身。
+2. **WebKit 的拖拽选区在 mouseup 才提交**。拖拽过程中程序化改选区只是"临时状态"，mouseup 默认动作会以浏览器自己的轨迹重建选区；要保住程序化选区，必须 preventDefault mouseup。
+3. **"以前是好的"可能是竞态假象**。Bug A 存在已久，被 Bug B 留下的非折叠选区掩盖（原生 copy 兜底）；修 Bug B 时必须同步修 Bug A。
+4. **logger 埋点一轮定位，胜过纯推理三轮**。原生 UI（grabber）DOM 不可见，但选区状态、`selRef` 流转、事件派发顺序都可以落日志。
+
+---
