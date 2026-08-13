@@ -8,7 +8,7 @@
  */
 
 import type { Document } from '../../types/document';
-import { pinyinMatchRange, pinyinMatchAllRanges } from './pinyinMatch';
+import { pinyinMatchRange } from './pinyinMatch';
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -157,16 +157,18 @@ export function performGlobalSearch(
     }
 
     // Content match: pinyin-aware (direct → full pinyin → first-letter).
-    // Use the first match range to build the snippet; the matched-text
-    // length may differ from the query length for pinyin matches
-    // (e.g. "linshi" → "临时", 6 chars → 2 chars), so pass the actual
-    // match endpoints to extractSnippet.
+    // We only need the first match to build the snippet — pinyinMatchRange
+    // short-circuits at the first hit, avoiding the full all-occurrences
+    // scan that FindBar needs but global search doesn't.
+    // The matched-text length may differ from the query length for pinyin
+    // matches (e.g. "linshi" → "临时", 6 chars → 2 chars), so pass the
+    // actual match endpoints to extractSnippet.
     const content = textIndex.get(doc.id) ?? '';
     if (!content) continue;
 
-    const contentRanges = pinyinMatchAllRanges(q, content);
-    if (contentRanges.length > 0) {
-      const [matchStart, matchEnd] = contentRanges[0];
+    const contentRange = pinyinMatchRange(q, content);
+    if (contentRange) {
+      const [matchStart, matchEnd] = contentRange;
       const { snippet, range } = extractSnippet(content, matchStart, matchEnd);
       results.push({
         docId: doc.id,
