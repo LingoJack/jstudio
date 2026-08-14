@@ -100,8 +100,9 @@ export default function DocumentSidebar() {
 
   // ── Trash dialog state ────────────────────────────────────
   const [trashDialogOpen, setTrashDialogOpen] = useState(false);
-  // ── Backup & restore dialog state ──
-  const [backupDialogDoc, setBackupDialogDoc] = useState<{ id: string; title: string } | null>(null);
+  // ── Backup & restore dialog state (lifted to uiSlice so the abnormal-shrink
+  //     toast can open it from anywhere) ──
+  const backupDialogDoc = useStore((s) => s.backupRestoreDialogDoc);
 
   // ── Suppress collapse while a floating menu / inline rename is active ──
   // Floating menus (context menu, folder menu, batch menus, the "more"
@@ -560,7 +561,7 @@ export default function DocumentSidebar() {
         <BackupRestoreDialog
           docId={backupDialogDoc.id}
           docTitle={backupDialogDoc.title}
-          onClose={() => setBackupDialogDoc(null)}
+          onClose={() => useStore.getState().closeBackupRestore()}
         />
       )}
 
@@ -603,7 +604,7 @@ export default function DocumentSidebar() {
           onCopyAsMarkdown={() => handleCopyAsMarkdown(contextMenu.docId)}
           onBackupRestore={() => {
             const doc = useStore.getState().documents.find((d) => d.id === contextMenu.docId);
-            setBackupDialogDoc({ id: contextMenu.docId, title: doc?.title || '' });
+            useStore.getState().openBackupRestore(contextMenu.docId, doc?.title || '');
             setContextMenu(null);
           }}
         />

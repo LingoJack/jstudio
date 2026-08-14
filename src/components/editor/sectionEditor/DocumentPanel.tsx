@@ -59,6 +59,7 @@ import { EditorSkeleton } from './EditorSkeleton';
 import { useCursorTrail } from './useCursorTrail';
 import { useSectionLoader } from './useSectionLoader';
 import { useEditorKeyboardNav } from './useEditorKeyboardNav';
+import { useEditorSnapshotTimer } from './useEditorSnapshotTimer';
 import {
   CursorTrailProvider,
   CursorTrailRegistry,
@@ -274,6 +275,18 @@ export default function DocumentPanel({
   const focusHandlesRef = useRef<Map<string, SectionFocusHandle>>(new Map());
   const sectionOrderRef = useRef<string[]>([]);
   sectionOrderRef.current = renderSections.map((s) => s.id);
+
+  // ── Live-editor snapshot (crash-recovery side-channel) ──
+  // Dumps each section's editor.getJSON() to .snapshots/editor.{n}.json
+  // every 30s, bypassing the Block[] serialization. If a serialization bug
+  // corrupts documents.body, the raw editor state survives on disk.
+  useEditorSnapshotTimer({
+    editorDocId,
+    sectionEditorsRef,
+    sectionOrderRef,
+    showSkeleton,
+    enabled: !isStatic && !readOnly,
+  });
 
   // ── Cross-section selection ──
   // Each section is an independent contenteditable, so a native Selection

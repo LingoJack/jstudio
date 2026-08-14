@@ -214,6 +214,10 @@ export interface UISlice {
   setConfirmOnExit: (v: boolean) => void;
   setGlobalSearchOpen: (v: boolean) => void;
   toggleGlobalSearch: () => void;
+  /** Doc whose BackupRestoreDialog is open; null = closed. */
+  backupRestoreDialogDoc: { id: string; title: string } | null;
+  openBackupRestore: (docId: string, title: string) => void;
+  closeBackupRestore: () => void;
 }
 
 export const createUiSlice: SliceCreator = (set, get) => ({
@@ -496,4 +500,9 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setGlobalSearchOpen: (open: boolean) => set({ isGlobalSearchOpen: open }),
   toggleGlobalSearch: () =>
     set((s) => ({ isGlobalSearchOpen: !s.isGlobalSearchOpen })),
+
+  backupRestoreDialogDoc: null,
+  openBackupRestore: (docId, title) =>
+    set({ backupRestoreDialogDoc: { id: docId, title } }),
+  closeBackupRestore: () => set({ backupRestoreDialogDoc: null }),
 });

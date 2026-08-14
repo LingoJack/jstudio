@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import type { ToastType } from '../../store/toastSlice';
+import type { ToastType, ToastAction } from '../../store/toastSlice';
 
 /** Icon + accent colour per toast severity. */
 const TOAST_META: Record<ToastType, { Icon: LucideIcon; iconClass: string }> = {
@@ -35,13 +35,20 @@ const ToastCard = memo(function ToastCard({
   id,
   type,
   message,
+  action,
 }: {
   id: string;
   type: ToastType;
   message: string;
+  action?: ToastAction;
 }) {
   const removeToast = useStore((s) => s.removeToast);
   const { Icon, iconClass } = TOAST_META[type];
+
+  const handleAction = () => {
+    action?.onClick();
+    removeToast(id);
+  };
 
   return (
     <div
@@ -52,6 +59,15 @@ const ToastCard = memo(function ToastCard({
       <span className="flex-1 text-sm text-[var(--vscode-foreground)] leading-snug break-words">
         {message}
       </span>
+      {action && (
+        <button
+          type="button"
+          onClick={handleAction}
+          className="shrink-0 px-2 py-1 rounded-md cursor-pointer text-xs text-[var(--vscode-textLink-foreground,#3794ff)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150"
+        >
+          {action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => removeToast(id)}
@@ -79,7 +95,7 @@ export const ToastContainer = memo(function ToastContainer() {
     <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto">
-          <ToastCard id={t.id} type={t.type} message={t.message} />
+          <ToastCard id={t.id} type={t.type} message={t.message} action={t.action} />
         </div>
       ))}
     </div>

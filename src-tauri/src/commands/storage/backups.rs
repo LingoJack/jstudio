@@ -29,6 +29,12 @@ const MAX_BACKUPS: usize = 50;
 /// fraction of the old count (and old had more than `ABNORMAL_OLD_MIN` blocks).
 const ABNORMAL_FRACTION: f64 = 0.2;
 const ABNORMAL_OLD_MIN: usize = 5;
+/// A backup is ALSO flagged "abnormal" when the new text-char count drops
+/// below this fraction of the old (and old had > `ABNORMAL_CHAR_OLD_MIN`
+/// chars). Catches content-level corruption that leaves block count
+/// unchanged (e.g. lists dropped inside table cells).
+const ABNORMAL_CHAR_FRACTION: f64 = 0.5;
+const ABNORMAL_CHAR_OLD_MIN: usize = 200;
 
 /// Backup directory for a document: `documents/{doc_id}/.backups/`
 fn backups_dir(doc_id: &str) -> PathBuf {
@@ -53,6 +59,75 @@ fn count_blocks(body: &str) -> usize {
         .ok()
         .and_then(|v| v.get("blocks").and_then(|b| b.as_array()).map(|a| a.len()))
         .unwrap_or(0)
+}
+
+/// Recursively sum the char length of every `text` node's `text` value in a
+/// serialized document body. Walks into lists, table cells (including the
+/// lossless `rawContent` path), todos, collapsible children, code blocks,
+/// and blockquotes. Returns 0 on parse failure.
+///
+/// This is the "content fingerprint" — it catches content-level corruption
+/// that block-count misses (e.g. lists dropped inside table cells leave the
+/// top-level block count unchanged but slash the char count).
+fn count_text_chars(body: &str) -> usize {
+    serde_json::from_str::<Value>(body)
+        .map(|v| count_text_chars_value(&v))
+        .unwrap_or(0)
+}
+
+/// Recursive walker — operates on a parsed `Value` so `backup_before_write`
+/// can reuse it on the in-memory `new_doc` without re-serializing.
+fn count_text_chars_value(v: &Value) -> usize {
+    let mut total = 0;
+    match v {
+        Value::Object(obj) => {
+            if obj.get("type").and_then(|t| t.as_str()) == Some("text")
+                && let Some(text) = obj.get("text").and_then(|t| t.as_str())
+            {
+                total += text.chars().count();
+            }
+            for (_, child) in obj {
+                total += count_text_chars_value(child);
+            }
+        }
+        Value::Array(arr) => {
+            for item in arr {
+                total += count_text_chars_value(item);
+            }
+        }
+        _ => {}
+    }
+    total
+}
+
+/// Recursively count every ProseMirror-style node (any object with a
+/// `"type"` key). Catches content-level node drops even when text char
+/// count is similar (e.g. an empty paragraph replaces a rich one).
+fn count_nodes(body: &str) -> usize {
+    serde_json::from_str::<Value>(body)
+        .map(|v| count_nodes_value(&v))
+        .unwrap_or(0)
+}
+
+fn count_nodes_value(v: &Value) -> usize {
+    let mut total = 0;
+    match v {
+        Value::Object(obj) => {
+            if obj.contains_key("type") {
+                total += 1;
+            }
+            for (_, child) in obj {
+                total += count_nodes_value(child);
+            }
+        }
+        Value::Array(arr) => {
+            for item in arr {
+                total += count_nodes_value(item);
+            }
+        }
+        _ => {}
+    }
+    total
 }
 
 /// Snapshot the current `documents.body` into `.backups/{ms}.json`, prune old
@@ -86,6 +161,8 @@ pub fn backup_before_write(doc_id: &str, new_doc: &Value, app: &AppHandle) {
     };
 
     let old_count = count_blocks(&old_body);
+    let old_chars = count_text_chars(&old_body);
+    let old_nodes = count_nodes(&old_body);
     let ts = now_ms();
 
     // ── Write the backup envelope ──
@@ -94,6 +171,8 @@ pub fn backup_before_write(doc_id: &str, new_doc: &Value, app: &AppHandle) {
     let envelope = serde_json::json!({
         "timestampMs": ts,
         "blockCount": old_count,
+        "charCount": old_chars,
+        "nodeCount": old_nodes,
         "body": old_body,
     });
     if let Ok(s) = serde_json::to_string(&envelope) {
@@ -104,18 +183,33 @@ pub fn backup_before_write(doc_id: &str, new_doc: &Value, app: &AppHandle) {
     prune_backups(&dir);
 
     // ── Abnormal-shrink detection ──
+    // Two signals: top-level block count AND recursive text-char count.
+    // Char-count catches content-level corruption that leaves block count
+    // unchanged (e.g. lists dropped inside table cells).
     let new_count = new_doc
         .get("blocks")
         .and_then(|b| b.as_array())
         .map(|a| a.len())
         .unwrap_or(0);
-    if old_count > ABNORMAL_OLD_MIN && (new_count as f64) < (old_count as f64) * ABNORMAL_FRACTION {
+    let new_chars = count_text_chars_value(new_doc);
+    let new_nodes = count_nodes_value(new_doc);
+
+    let block_shrink =
+        old_count > ABNORMAL_OLD_MIN && (new_count as f64) < (old_count as f64) * ABNORMAL_FRACTION;
+    let char_shrink = old_chars > ABNORMAL_CHAR_OLD_MIN
+        && (new_chars as f64) < (old_chars as f64) * ABNORMAL_CHAR_FRACTION;
+
+    if block_shrink || char_shrink {
         let _ = app.emit(
             "document:abnormal-shrink",
             serde_json::json!({
                 "docId": doc_id,
                 "oldCount": old_count,
                 "newCount": new_count,
+                "oldCharCount": old_chars,
+                "newCharCount": new_chars,
+                "oldNodeCount": old_nodes,
+                "newNodeCount": new_nodes,
             }),
         );
     }
@@ -160,6 +254,12 @@ pub struct BackupMeta {
     pub timestamp_ms: u64,
     /// Block count of the snapshot.
     pub block_count: u64,
+    /// Recursive text-char count (sum of all text node values).
+    /// 0 for old backups written before this field existed.
+    pub char_count: u64,
+    /// Recursive node count (every object with a "type" key).
+    /// 0 for old backups written before this field existed.
+    pub node_count: u64,
     /// File size in bytes.
     pub size: u64,
 }
@@ -182,21 +282,25 @@ pub fn list_doc_backups(doc_id: String) -> Result<Vec<BackupMeta>, String> {
         }
         let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
 
-        // Read the envelope just for blockCount + timestampMs (body skipped).
-        let (ts, block_count) = fs::read_to_string(&path)
+        // Read the envelope just for metadata (body skipped to keep payload small).
+        let (ts, block_count, char_count, node_count) = fs::read_to_string(&path)
             .ok()
             .and_then(|s| serde_json::from_str::<Value>(&s).ok())
             .map(|v| {
                 let ts = v.get("timestampMs").and_then(|t| t.as_u64()).unwrap_or(0);
                 let bc = v.get("blockCount").and_then(|c| c.as_u64()).unwrap_or(0);
-                (ts, bc)
+                let cc = v.get("charCount").and_then(|c| c.as_u64()).unwrap_or(0);
+                let nc = v.get("nodeCount").and_then(|c| c.as_u64()).unwrap_or(0);
+                (ts, bc, cc, nc)
             })
-            .unwrap_or((0, 0));
+            .unwrap_or((0, 0, 0, 0));
 
         out.push(BackupMeta {
             id: name.trim_end_matches(".json").to_string(),
             timestamp_ms: ts,
             block_count,
+            char_count,
+            node_count,
             size,
         });
     }

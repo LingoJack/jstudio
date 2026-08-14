@@ -3,6 +3,14 @@ import type { SliceCreator } from './storeHelpers';
 /** Toast severity — controls icon and accent colour. */
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
+/** Optional action button rendered inside a toast. */
+export interface ToastAction {
+  /** Plain-text button label (no emoji per project convention). */
+  label: string;
+  /** Called when the action button is clicked. Toast auto-dismisses after. */
+  onClick: () => void;
+}
+
 /** A single toast notification entry. */
 export interface ToastItem {
   id: string;
@@ -10,6 +18,8 @@ export interface ToastItem {
   message: string;
   /** Auto-dismiss delay in ms. `0` means persistent (manual close only). */
   duration: number;
+  /** Optional action button (e.g. "Restore backup" on an abnormal-shrink alert). */
+  action?: ToastAction;
 }
 
 /** Default auto-dismiss duration per type (ms). */
@@ -34,7 +44,7 @@ const timers = new Map<string, ReturnType<typeof setTimeout>>();
 /** State + methods provided by the toast slice. */
 export interface ToastSlice {
   toasts: ToastItem[];
-  addToast: (type: ToastType, message: string, duration?: number) => void;
+  addToast: (type: ToastType, message: string, duration?: number, action?: ToastAction) => void;
   removeToast: (id: string) => void;
   clearToasts: () => void;
 }
@@ -42,13 +52,13 @@ export interface ToastSlice {
 export const createToastSlice: SliceCreator = (set, get) => ({
   toasts: [],
 
-  addToast: (type, message, duration) => {
+  addToast: (type, message, duration, action) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const ms = duration ?? DEFAULT_DURATION[type];
 
     // Enqueue, then trim to MAX_TOASTS (drop oldest).
     set((s) => {
-      const next = [...s.toasts, { id, type, message, duration: ms }];
+      const next = [...s.toasts, { id, type, message, duration: ms, action }];
       if (next.length > MAX_TOASTS) next.shift();
       return { toasts: next };
     });

@@ -12,8 +12,36 @@
  */
 
 import { Table } from '@tiptap/extension-table';
-import type { Command } from '@tiptap/core';
+import type { Command, Editor } from '@tiptap/core';
 import { ResizableTableView } from './ResizableTableView';
+
+/**
+ * List node types that own Tab semantics within a table cell. When the cursor
+ * sits inside one of these, Tab/Shift+Tab should indent/outdent the list item
+ * (delegated to the list extension's own keymap) rather than jump cells.
+ *
+ * Without this deferral, lists nested in cells can never be indented: the
+ * stock Table handler's `goToNextCell` runs before TaskItem's `sinkListItem`
+ * (registered later) and, for the first `listItem`, `sinkListItem` fails so
+ * `goToNextCell` wins unconditionally.
+ */
+const LIST_TAB_OWNED_TYPES = new Set(['listItem', 'taskItem']);
+
+/**
+ * Returns true when the selection is a caret (or text range) inside a
+ * `listItem` / `taskItem` that itself lives inside a table cell. CellSelection
+ * (multi-cell range, exposed via `$anchorCell`) is excluded so cell-range
+ * navigation still jumps cells.
+ */
+function isEditingListInCell(editor: Editor): boolean {
+  const { selection } = editor.state;
+  if ((selection as { $anchorCell?: unknown }).$anchorCell) return false;
+  const $head = selection.$head;
+  for (let d = $head.depth; d > 0; d--) {
+    if (LIST_TAB_OWNED_TYPES.has($head.node(d).type.name)) return true;
+  }
+  return false;
+}
 
 // Register the custom command on TipTap's Commands interface so that
 // `editor.commands.toggleTableCollapsed` / `editor.chain().toggleTableCollapsed()`
@@ -76,6 +104,28 @@ export const CollapsibleTable = Table.extend({
           }
           return true;
         },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    // Stock Table Tab/Shift-Tab handlers jump cells whenever the cursor is
+    // anywhere inside a table — including inside a list nested in a cell,
+    // which makes list indentation impossible (see LIST_TAB_OWNED_TYPES).
+    // When editing a list inside a cell, return false so the list extension's
+    // own sink/lift keymap handles the indent (or no-op if it can't). Keep the
+    // stock cell-jump behavior everywhere else.
+    return {
+      ...this.parent?.(),
+      Tab: () => {
+        if (isEditingListInCell(this.editor)) return false;
+        if (this.editor.commands.goToNextCell()) return true;
+        if (!this.editor.can().addRowAfter()) return false;
+        return this.editor.chain().addRowAfter().goToNextCell().run();
+      },
+      'Shift-Tab': () => {
+        if (isEditingListInCell(this.editor)) return false;
+        return this.editor.commands.goToPreviousCell();
+      },
     };
   },
 

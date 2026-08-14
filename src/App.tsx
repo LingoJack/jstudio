@@ -89,19 +89,31 @@ export default function App() {
 
   // ── Document abnormal-shrink detection ──
   // Backend emits this when `write_document` detects the new content is
-  // suspiciously smaller than the old (e.g. a bug overwrote the doc with a
-  // blank block). Warn the user so they can restore from backup.
+  // suspiciously smaller than the old — either top-level block count dropped
+  // below 20%, or recursive text-char count dropped below 50% (catches
+  // content-level corruption that leaves block count unchanged, e.g. lists
+  // dropped inside table cells). Warn + offer a one-click restore action.
   useEffect(() => {
     let unlisten: (() => void) | null = null;
-    listen<{ docId: string; oldCount: number; newCount: number }>(
-      'document:abnormal-shrink',
-      (event) => {
-        const { docId, oldCount, newCount } = event.payload;
-        const doc = useStore.getState().documents.find((d) => d.id === docId);
-        const title = doc?.title || docId;
-        toast.warning(t('backup.abnormalShrink', { title, oldCount, newCount }), 8000);
-      },
-    ).then((fn) => {
+    listen<{
+      docId: string;
+      oldCount: number;
+      newCount: number;
+      oldCharCount: number;
+      newCharCount: number;
+      oldNodeCount: number;
+      newNodeCount: number;
+    }>('document:abnormal-shrink', (event) => {
+      const { docId, oldCount, newCount, oldCharCount, newCharCount } = event.payload;
+      const doc = useStore.getState().documents.find((d) => d.id === docId);
+      const title = doc?.title || docId;
+      const open = useStore.getState().openBackupRestore;
+      toast.warning(
+        t('backup.abnormalShrink', { title, oldCount, newCount, oldCharCount, newCharCount }),
+        8000,
+        { label: t('backup.restoreAction'), onClick: () => open(docId, title) },
+      );
+    }).then((fn) => {
       unlisten = fn;
     });
     return () => {

@@ -1,5 +1,6 @@
 /** Storage-layer types - document metadata, assets, backups, and agent config IPC types. */
 
+import type { JSONContent } from '@tiptap/react';
 import type { Document } from './document';
 
 /**
@@ -79,8 +80,25 @@ export interface DocBackup {
   timestampMs: number;
   /** Block count of the snapshot. */
   blockCount: number;
+  /** Recursive text-char count (sum of all text node values). 0 for old backups. */
+  charCount: number;
+  /** Recursive node count (every object with a "type" key). 0 for old backups. */
+  nodeCount: number;
   /** File size in bytes. */
   size: number;
+}
+
+/**
+ * Live-editor snapshot — raw TipTap JSON dumped periodically, bypassing
+ * Block[] serialization. Side-channel for crash recovery.
+ *
+ * Mirrors the Rust `save_doc_snapshot` envelope shape.
+ */
+export interface DocSnapshot {
+  timestampMs: number;
+  docId: string;
+  /** Per-section `editor.getJSON()` objects (TipTap doc JSON), stored verbatim. */
+  sections: JSONContent[];
 }
 
 /**

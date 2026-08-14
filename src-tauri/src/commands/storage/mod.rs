@@ -4,6 +4,7 @@
 //! - [`paths`]     — directory path helpers + file-manager open
 //! - [`documents`] — document metadata + body (SQLite)
 //! - [`backups`]   — write-before-overwrite body backups (filesystem)
+//! - [`snapshots`] — live-editor JSON snapshots, crash-recovery side-channel
 //! - [`folders`]   — folder tree (SQLite)
 //! - [`settings`]  — app settings + agent config (SQLite / filesystem)
 //! - [`assets`]    — document-private binary assets (filesystem)
@@ -18,3 +19,4 @@ pub mod folders;
 pub mod markdown;
 pub mod paths;
 pub mod settings;
+pub mod snapshots;

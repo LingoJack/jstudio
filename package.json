@@ -18,6 +18,8 @@
     "lint:struct": "npm run lint:tsc && npm run knip",
     "test:shortcuts": "tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts src/lib/core/commandRegistry.test.ts",
     "test:cursor": "tsx --test src/components/editor/CursorTrailContext.test.ts",
+    "test:adapter": "tsx --test src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts",
+    "test": "tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts src/lib/core/commandRegistry.test.ts src/components/editor/CursorTrailContext.test.ts src/lib/editor/mermaid/flowchartConverter.test.ts src/components/editor/nodes/graph/sequenceInteraction.test.ts src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts",
     "postinstall": "patch-package"
   },
   "dependencies": {

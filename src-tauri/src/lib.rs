@@ -130,6 +130,9 @@ pub fn run() {
             commands::storage::backups::list_doc_backups,
             commands::storage::backups::read_doc_backup,
             commands::storage::backups::restore_doc_backup,
+            // ── storage: editor snapshots (crash-recovery side-channel) ──
+            commands::storage::snapshots::save_doc_snapshot,
+            commands::storage::snapshots::read_doc_snapshot,
             // ── storage: folders ──
             commands::storage::folders::read_folders,
             commands::storage::folders::write_folders,

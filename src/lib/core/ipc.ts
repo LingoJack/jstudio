@@ -7,6 +7,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import type { JSONContent } from "@tiptap/react";
 import type { Document } from "../../types";
 import type {
   ChatMessage,
@@ -19,6 +20,7 @@ import type {
   AssetInfo,
   TrashedAsset,
   DocBackup,
+  DocSnapshot,
   ModelProvider,
   AgentConfigFile,
 } from "../../types/storage";
@@ -65,6 +67,15 @@ export const ipc = {
    *  pre-restore state is snapshotted first). */
   restoreDocBackup: (docId: string, backupId: string) =>
     invoke<void>("restore_doc_backup", { docId, backupId }),
+
+  // ---- editor snapshots (crash-recovery side-channel) ----
+
+  /** Write a rotated live-editor JSON snapshot (bypasses Block[] serialization). */
+  saveDocSnapshot: (docId: string, sections: JSONContent[]) =>
+    invoke<void>("save_doc_snapshot", { docId, sections }),
+  /** Read the newest live-editor snapshot, or null if none exists. */
+  readDocSnapshot: (docId: string) =>
+    invoke<DocSnapshot | null>("read_doc_snapshot", { docId }),
 
   // ---- document-scoped assets (per-doc folder) ----
 
