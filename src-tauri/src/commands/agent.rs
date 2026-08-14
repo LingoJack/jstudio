@@ -28,8 +28,7 @@ use j_agent::storage::types::{
 };
 use j_agent::storage::{
     SessionEvent, agent_data_dir, append_session_event, delete_session, generate_session_id,
-    list_sessions, load_agent_config, load_display_session, load_system_prompt,
-    save_session_meta_file,
+    list_sessions, load_agent_config, load_session, load_system_prompt, save_session_meta_file,
 };
 use j_agent::tools::background::BackgroundManager;
 use j_agent::tools::definition::{ImageData as ToolsImageData, ToolRegistry};
@@ -418,7 +417,9 @@ pub fn agent_create_session(
 /// Load an existing session's messages.
 #[tauri::command]
 pub fn agent_load_session(session_id: String) -> Result<Vec<MessagePayload>, String> {
-    let messages = load_display_session(&session_id);
+    // Read from transcript.jsonl — JStudio persists messages via
+    // `append_session_event` which writes transcript, not display.jsonl.
+    let messages = load_session(&session_id);
     Ok(messages.iter().map(MessagePayload::from).collect())
 }
 
@@ -460,8 +461,9 @@ fn ensure_session_started(session_id: &str, app: &AppHandle) -> Result<(), Strin
         }
     }
 
-    // Load existing messages
-    let messages = load_display_session(session_id);
+    // Load existing messages from transcript.jsonl (the file JStudio
+    // actually writes via `append_session_event`).
+    let messages = load_session(session_id);
 
     // Load session meta to get workspace
     let paths = SessionPaths::new(session_id);
