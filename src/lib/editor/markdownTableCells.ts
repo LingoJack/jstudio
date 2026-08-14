@@ -105,7 +105,7 @@ function inlineToMarkdownString(nodes: JSONContent[]): string {
 
 /** True if `json` contains any block-upgrade node type at any depth. */
 function containsBlockNode(json: JSONContent): boolean {
-  if (BLOCK_UPGRADE_TYPES.has(json.type)) return true;
+  if (json.type && BLOCK_UPGRADE_TYPES.has(json.type)) return true;
   if (Array.isArray(json.content)) {
     for (const child of json.content) {
       if (containsBlockNode(child)) return true;
@@ -143,7 +143,7 @@ function walkAndUpgrade(node: JSONContent, parseMarkdown: (md: string) => JSONCo
   for (const row of node.content ?? []) {
     if (row.type !== 'tableRow' || !Array.isArray(row.content)) continue;
     for (const cell of row.content) {
-      if (!TABLE_CELL_TYPES.has(cell.type)) continue;
+      if (!cell.type || !TABLE_CELL_TYPES.has(cell.type)) continue;
       upgradeCell(cell, parseMarkdown);
     }
   }
