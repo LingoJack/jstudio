@@ -11,14 +11,36 @@ import type { RichText } from '../../../types/richText';
 import { richTextToTiptapInline, tiptapInlineToRichText } from './richText';
 
 /**
+ * Walk a cell's children and collect every paragraph (including those nested
+ * inside lists / blockquotes / other containers) as `RichText[][]`.
+ *
+ * Used to populate `TableCellData.content` for text-search and char-count
+ * consumers when the cell holds non-paragraph block content stored
+ * losslessly in `rawContent`.
+ */
+function collectCellParagraphs(nodes: JSONContent[]): RichText[][] {
+  const paragraphs: RichText[][] = [];
+  const walk = (node: JSONContent) => {
+    if (node.type === 'paragraph') {
+      paragraphs.push(tiptapInlineToRichText(node.content ?? []));
+      return;
+    }
+    // Recurse into containers (bulletList, orderedList, taskList, listItem,
+    // blockquote, etc.) so list-item text is still searchable / counted.
+    if (node.content) {
+      for (const child of node.content) walk(child);
+    }
+  };
+  for (const n of nodes) walk(n);
+  return paragraphs;
+}
+
+/**
  * Convert our `TableData` structure to TipTap nested table JSON.
  *
- * TableData.rows → tableNode.content: [
- *   { type: 'tableRow', content: [
- *     { type: 'tableHeader'|'tableCell', attrs: { colspan, rowspan },
- *       content: [ { type: 'paragraph', content: RichText→inline } ] }
- *   ]}
- * ]
+ * Cells with `rawContent` (non-paragraph block content like lists) are
+ * restored verbatim; plain cells fall back to the `RichText[][]` paragraph
+ * path.
  */
 export function tableDataToTiptap(data: TableData): JSONContent[] {
   return data.rows.map((row) => ({
@@ -27,7 +49,14 @@ export function tableDataToTiptap(data: TableData): JSONContent[] {
       const cellType = row.isHeader ? 'tableHeader' : 'tableCell';
       const cellNode: JSONContent = {
         type: cellType,
-        content: cell.content.map((paragraph) => {
+      };
+
+      if (cell.rawContent) {
+        // Lossless path: preserve lists / headings / blockquotes in cells.
+        cellNode.content = cell.rawContent;
+      } else {
+        // Plain paragraph path (backward compatible with old docs).
+        cellNode.content = cell.content.map((paragraph) => {
           const paraNode: JSONContent = {
             type: 'paragraph',
             content: richTextToTiptapInline(paragraph),
@@ -36,8 +65,9 @@ export function tableDataToTiptap(data: TableData): JSONContent[] {
             paraNode.attrs = { textAlign: cell.align };
           }
           return paraNode;
-        }),
-      };
+        });
+      }
+
       const attrs: Record<string, number | number[] | string> = {};
       if (cell.colspan && cell.colspan > 1) attrs.colspan = cell.colspan;
       if (cell.rowspan && cell.rowspan > 1) attrs.rowspan = cell.rowspan;
@@ -51,6 +81,12 @@ export function tableDataToTiptap(data: TableData): JSONContent[] {
 
 /**
  * Convert TipTap nested table JSON back to our `TableData` structure.
+ *
+ * Cells with non-paragraph block content (lists, blockquotes, headings, etc.)
+ * are stored losslessly in `rawContent`; their `content` is a best-effort
+ * paragraph projection so text-search / char-count consumers keep working.
+ * Plain paragraph cells use the original `RichText[][]` path (compact and
+ * backward compatible with old docs).
  */
 export function tiptapToTableData(node: JSONContent): TableData {
   const rows: TableRowData[] = [];
@@ -65,30 +101,40 @@ export function tiptapToTableData(node: JSONContent): TableData {
       if (cellNode.type === 'tableHeader') isHeader = true;
       if (cellNode.type !== 'tableHeader' && cellNode.type !== 'tableCell') continue;
 
-      const paragraphs: RichText[][] = [];
-      let cellAlign: 'left' | 'center' | 'right' | undefined;
-      for (const child of cellNode.content ?? []) {
-        if (child.type === 'paragraph') {
-          paragraphs.push(tiptapInlineToRichText(child.content ?? []));
-          // Capture textAlign from the first paragraph that has it.
-          const ta = child.attrs?.textAlign;
-          if (
-            !cellAlign &&
-            (ta === 'left' || ta === 'center' || ta === 'right')
-          ) {
-            cellAlign = ta;
+      const children = cellNode.content ?? [];
+      const hasNonParagraph = children.some((c) => c.type !== 'paragraph');
+
+      const cell: TableCellData = { content: [] };
+
+      if (hasNonParagraph) {
+        // Lossless path: store full children, project paragraphs for search.
+        cell.content = collectCellParagraphs(children);
+        if (cell.content.length === 0) cell.content.push([]);
+        cell.rawContent = children;
+      } else {
+        // Plain paragraph path (backward compatible, compact).
+        let cellAlign: 'left' | 'center' | 'right' | undefined;
+        for (const child of children) {
+          if (child.type === 'paragraph') {
+            cell.content.push(tiptapInlineToRichText(child.content ?? []));
+            // Capture textAlign from the first paragraph that has it.
+            const ta = child.attrs?.textAlign;
+            if (
+              !cellAlign &&
+              (ta === 'left' || ta === 'center' || ta === 'right')
+            ) {
+              cellAlign = ta;
+            }
           }
         }
+        if (cell.content.length === 0) cell.content.push([]);
+        if (cellAlign) cell.align = cellAlign;
       }
-      // Ensure at least one paragraph so empty cells stay editable.
-      if (paragraphs.length === 0) paragraphs.push([]);
 
-      const cell: TableCellData = { content: paragraphs };
       const colspan = cellNode.attrs?.colspan;
       const rowspan = cellNode.attrs?.rowspan;
       if (typeof colspan === 'number' && colspan > 1) cell.colspan = colspan;
       if (typeof rowspan === 'number' && rowspan > 1) cell.rowspan = rowspan;
-      if (cellAlign) cell.align = cellAlign;
       // Preserve vertical alignment (cell-level attribute).
       const vAlign = cellNode.attrs?.vAlign;
       if (vAlign === 'top' || vAlign === 'middle' || vAlign === 'bottom') {

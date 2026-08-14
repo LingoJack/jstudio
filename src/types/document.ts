@@ -1,5 +1,6 @@
 /** Block and document domain types */
 
+import type { JSONContent } from '@tiptap/react';
 import type { RichText } from './richText';
 
 export type BlockType =
@@ -238,6 +239,17 @@ export interface Document {
 export interface TableCellData {
   /** Paragraphs inside the cell (each paragraph is a `RichText[]`). */
   content: RichText[][];
+  /**
+   * Lossless TipTap JSON for cells containing block-level content beyond
+   * plain paragraphs (e.g. lists, blockquotes, headings typed via markdown
+   * auto-format rules inside a cell).
+   *
+   * When present, `tableDataToTiptap` uses this verbatim and `content` is a
+   * best-effort paragraph projection (walking nested list items etc.) so
+   * text-search / char-count consumers keep working without changes.
+   * Undefined for plain paragraph cells — backward compatible with old docs.
+   */
+  rawContent?: JSONContent[];
   /** Horizontal span (default 1). */
   colspan?: number;
   /** Vertical span (default 1). */
