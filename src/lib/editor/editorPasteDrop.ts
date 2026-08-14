@@ -11,6 +11,7 @@ import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './upload';
 import { getClipboardImageAsFile } from './clipboardImage';
 import { looksLikeMarkdown, dedupeMarks, decodeMarkdownEntities } from './pasteMarkdown';
+import { upgradeTableCells } from './markdownTableCells';
 import { consumePlainTextPaste } from './plainTextPaste';
 
 /**
@@ -329,6 +330,7 @@ export function createPasteHandler(
         const json = editor.markdown.parse(plainText);
         dedupeMarks(json);
         decodeMarkdownEntities(json);
+        upgradeTableCells(json, (md) => editor.markdown!.parse(md));
         insertClipboardContent(editor, view, json);
         return true;
       }

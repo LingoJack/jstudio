@@ -25,6 +25,7 @@ import { Markdown } from '@tiptap/markdown';
 import { MathBlockExtension } from './extensions/mathBlockExtension';
 import { tiptapJSONToOurBlocks } from './tiptapAdapter';
 import { dedupeMarks, decodeMarkdownEntities } from './pasteMarkdown';
+import { upgradeTableCells } from './markdownTableCells';
 import type { Block } from '../../types';
 import type { JSONContent } from '@tiptap/core';
 
@@ -90,6 +91,7 @@ export function markdownToBlocks(md: string): Block[] {
   const parsed = editor.markdown!.parse(md);
   dedupeMarks(parsed);
   decodeMarkdownEntities(parsed);
+  upgradeTableCells(parsed, (m) => editor.markdown!.parse(m));
   editor.commands.setContent(parsed);
   const json = editor.getJSON();
 

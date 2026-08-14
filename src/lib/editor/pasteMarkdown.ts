@@ -29,6 +29,7 @@ import { Extension } from '@tiptap/core';
 import type { JSONContent } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { isPlainTextPaste } from './plainTextPaste';
+import { upgradeTableCells } from './markdownTableCells';
 
 /**
  * Remove duplicate marks from text nodes in Tiptap JSON (in-place).
@@ -225,6 +226,7 @@ export const PasteMarkdown = Extension.create<PasteMarkdownOptions>({
             event.preventDefault();
             const json = editor.markdown.parse(plainText);
             dedupeMarks(json);
+            upgradeTableCells(json, (md) => editor.markdown!.parse(md));
             editor.commands.insertContent(json);
             return true;
           },
