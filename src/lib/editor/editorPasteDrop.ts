@@ -10,7 +10,7 @@ import type { Editor, JSONContent } from '@tiptap/react';
 import type { EditorView } from '@tiptap/pm/view';
 import { uploadImage, uploadAttachment } from './upload';
 import { getClipboardImageAsFile } from './clipboardImage';
-import { looksLikeMarkdown, dedupeMarks } from './pasteMarkdown';
+import { looksLikeMarkdown, dedupeMarks, decodeMarkdownEntities } from './pasteMarkdown';
 import { consumePlainTextPaste } from './plainTextPaste';
 
 /**
@@ -138,6 +138,35 @@ function tsvToTableJSON(text: string): JSONContent {
     type: 'table',
     content: rows,
   };
+}
+
+/**
+ * Insert parsed clipboard content, avoiding table-in-table corruption.
+ *
+ * Tables cannot nest in the schema. When the selection sits inside a table
+ * cell, `insertContent` of another table lets ProseMirror's ReplaceAroundStep
+ * splice the new table's rows INTO the current cell, producing invalid
+ * nested tableRow nodes that render as a mangled "ghost" table. Insert the
+ * content after the enclosing table instead.
+ */
+function insertClipboardContent(
+  editor: Editor,
+  view: EditorView,
+  content: JSONContent,
+): void {
+  const insertsTable =
+    content.type === 'table' ||
+    (content.content ?? []).some((n) => n.type === 'table');
+  if (insertsTable) {
+    const { $head } = view.state.selection;
+    for (let d = $head.depth; d > 0; d--) {
+      if ($head.node(d).type.name === 'table') {
+        editor.commands.insertContentAt($head.after(d), content);
+        return;
+      }
+    }
+  }
+  editor.commands.insertContent(content);
 }
 
 /**
@@ -281,7 +310,7 @@ export function createPasteHandler(
       if (isTSV && !hasHtmlTable && editor) {
         event.preventDefault();
         const tableJSON = tsvToTableJSON(plainText);
-        editor.commands.insertContent(tableJSON);
+        insertClipboardContent(editor, view, tableJSON);
         return true;
       }
 
@@ -299,7 +328,8 @@ export function createPasteHandler(
         event.preventDefault();
         const json = editor.markdown.parse(plainText);
         dedupeMarks(json);
-        editor.commands.insertContent(json);
+        decodeMarkdownEntities(json);
+        insertClipboardContent(editor, view, json);
         return true;
       }
 

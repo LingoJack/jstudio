@@ -57,6 +57,101 @@ export function dedupeMarks(json: JSONContent): JSONContent {
   return json;
 }
 
+/**
+ * Named HTML entities that `@tiptap/markdown` leaves undecoded, mapped to
+ * Unicode code points.
+ *
+ * `marked` keeps entity references raw in text tokens, and `@tiptap/core`'s
+ * `decodeHtmlEntities` only handles `&lt;` `&gt;` `&quot;` `&amp;` — so a
+ * table cell copied from the web with `&nbsp;&nbsp;&nbsp;&nbsp;a. …` would
+ * land in the document as the literal 6 characters "&nbsp;".
+ *
+ * The four entities already decoded upstream are deliberately EXCLUDED:
+ * decoding them again here would double-decode sequences like `&amp;lt;`
+ * (which upstream correctly turned into the literal text "&lt;").
+ */
+const MARKDOWN_ENTITY_CODE_POINTS: Record<string, number> = {
+  apos: 0x0027,
+  nbsp: 0x00a0,
+  ensp: 0x2002,
+  emsp: 0x2003,
+  thinsp: 0x2009,
+  ndash: 0x2013,
+  mdash: 0x2014,
+  lsquo: 0x2018,
+  rsquo: 0x2019,
+  ldquo: 0x201c,
+  rdquo: 0x201d,
+  hellip: 0x2026,
+  middot: 0x00b7,
+  bull: 0x2022,
+  dagger: 0x2020,
+  Dagger: 0x2021,
+  permil: 0x2030,
+  laquo: 0x00ab,
+  raquo: 0x00bb,
+  copy: 0x00a9,
+  reg: 0x00ae,
+  trade: 0x2122,
+  deg: 0x00b0,
+  plusmn: 0x00b1,
+  times: 0x00d7,
+  divide: 0x00f7,
+  sect: 0x00a7,
+  para: 0x00b6,
+  micro: 0x00b5,
+  iexcl: 0x00a1,
+  iquest: 0x00bf,
+  cent: 0x00a2,
+  pound: 0x00a3,
+  yen: 0x00a5,
+  euro: 0x20ac,
+};
+
+const MAX_UNICODE_CODE_POINT = 0x10ffff;
+
+// Matches numeric (&#160; &#xA0;) and named (&nbsp;) entity references.
+const ENTITY_REFERENCE_PATTERN = /&(#(?:x[0-9a-fA-F]+|\d+)|[a-zA-Z][a-zA-Z0-9]+);/g;
+
+function decodeEntityReferences(text: string): string {
+  if (!text.includes('&')) return text;
+  return text.replace(ENTITY_REFERENCE_PATTERN, (match, body: string) => {
+    if (body.startsWith('#')) {
+      const isHex = body[1] === 'x';
+      const codePoint = parseInt(body.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+      if (Number.isNaN(codePoint) || codePoint > MAX_UNICODE_CODE_POINT) {
+        return match;
+      }
+      return String.fromCodePoint(codePoint);
+    }
+    const codePoint = MARKDOWN_ENTITY_CODE_POINTS[body];
+    return codePoint === undefined ? match : String.fromCodePoint(codePoint);
+  });
+}
+
+/**
+ * Decode leftover HTML entities in parsed-Markdown JSON text nodes (in-place).
+ *
+ * Companion to `dedupeMarks`: run on the output of `editor.markdown.parse()`
+ * before inserting/importing. Skips codeBlock nodes and inline-code text,
+ * where entity references must stay literal (CommonMark: no entity decoding
+ * inside code).
+ */
+export function decodeMarkdownEntities(json: JSONContent): JSONContent {
+  if (json.type === 'codeBlock') return json;
+  if (json.type === 'text') {
+    const inInlineCode = json.marks?.some((m) => m.type === 'code') ?? false;
+    if (!inInlineCode && typeof json.text === 'string') {
+      json.text = decodeEntityReferences(json.text);
+    }
+    return json;
+  }
+  if (Array.isArray(json.content)) {
+    json.content.forEach(decodeMarkdownEntities);
+  }
+  return json;
+}
+
 export interface PasteMarkdownOptions {
   /** Enable / disable the extension. @default true */
   enabled: boolean;
