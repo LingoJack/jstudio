@@ -31,6 +31,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Code from '@tiptap/extension-code';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
+import { TextStyle } from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
 import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
@@ -86,6 +88,12 @@ function getHeadlessEditor(): Editor {
       Code.extend({ excludes: '' }),
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({ openOnClick: false, autolink: true }),
+      // 与主编辑器对齐（sectionEditor/extensions.ts）：正文可能带文字颜色
+      // (textStyle mark)。缺了它们，含彩色文字的内容在 setContent 时会被
+      // schema 校验拒绝（"There is no mark type textStyle in this schema"），
+      // 导出静默失败。Markdown 序列化会忽略颜色，只保留文本。
+      TextStyle,
+      Color,
       Table.configure({ resizable: true, cellMinWidth: 100 }),
       TableRow,
       TableHeader,
