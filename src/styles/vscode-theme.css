@@ -3237,7 +3237,7 @@ button {
 
 .diagram-block-figure {
   position: relative;
-  border-radius: 8px;
+  border-radius: 16px;
   border: 2px solid var(--vscode-widget-border);
   transition: border-color 0.15s;
 }
@@ -3261,7 +3261,7 @@ button {
   width: 100%;
   min-width: 300px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 16px;
   background: var(--vscode-editor-background, #ffffff);
 }
 
