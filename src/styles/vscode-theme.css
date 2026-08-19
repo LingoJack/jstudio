@@ -3235,10 +3235,11 @@ button {
 
 /* ─── Figure (canvas container) ─── */
 
+/* 常态边框对齐 code-block-figure：1px block-line-strong + 16px 圆角 */
 .diagram-block-figure {
   position: relative;
   border-radius: 16px;
-  border: 2px solid var(--vscode-widget-border);
+  border: 1px solid var(--jstudio-block-line-strong);
   transition: border-color 0.15s;
 }
 
@@ -3248,8 +3249,8 @@ button {
 
 /* Edit mode: the inner widget owns the keyboard — show a prominent
    border + glow so it is visually unmistakable from the plain "selected" state.
-   - Selected: 2px solid focusBorder (blue/green, flat)
-   - Editing:  2px solid violet(pink) border + thick matching halo */
+   - Selected: 1px solid focusBorder (blue/green, flat)
+   - Editing:  1px solid violet(pink) border + thick matching halo */
 .diagram-block-figure.is-editing {
   border-color: rgb(var(--jstudio-editGlow));
   box-shadow:
