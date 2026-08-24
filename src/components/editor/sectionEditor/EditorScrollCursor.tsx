@@ -82,9 +82,10 @@ export default function EditorScrollCursor({
         className="absolute top-0 right-[5.5px] w-px bg-[var(--vscode-sideBar-border)]"
         style={{ height: pos.viewportH }}
       />
-      {/* "<-" cursor straddling the track line, pointing at the document. */}
+      {/* "<-" cursor straddling the track line, pointing at the document.
+          Accent-colored, mirroring the outline rail's "->" cursor. */}
       <span
-        className="absolute right-0 -translate-y-1/2 py-[3px] bg-[var(--vscode-editor-background)] text-[var(--vscode-scrollbarSlider-activeBackground)]"
+        className="absolute right-0 -translate-y-1/2 py-[3px] bg-[var(--vscode-editor-background)] text-[var(--vscode-focusBorder)]"
         style={{ top: pos.y }}
       >
         <ArrowLeft className="w-3 h-3" strokeWidth={2.5} />
