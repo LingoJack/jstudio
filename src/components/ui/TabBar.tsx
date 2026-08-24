@@ -38,8 +38,9 @@ import RippleButton from './RippleButton';
 /**
  * Tab geometry — single source of truth for tab sizing.
  *
- * `TAB_WIDTH_PX` must match the `w-[Npx]` class on each tab and the
- * sliding indicator's width.
+ * All tabs share a fixed width so the capsule stays uniform regardless of
+ * title length. `TAB_WIDTH_PX` must match the `w-[Npx]` class on each tab
+ * and the sliding indicator's width.
  *
  * `TAB_BAR_OVERLAY_HEIGHT` is the total vertical space the floating tab
  * bar overlay webview occupies. It must comfortably fit the outer padding
@@ -86,7 +87,7 @@ export interface TabBarProps {
   rippleColor?: string; // CSS color for ripple (default: 20% foreground, theme-adaptive)
   className?: string; // optional wrapper class
   textColor?: string; // CSS color for inactive tab text (default: var(--vscode-descriptionForeground))
-  accentColor?: string; // CSS color for active tab / focus (default: var(--vscode-list-activeSelectionBackground))
+  accentColor?: string; // CSS color for active tab indicator / rename border fallback (default: var(--vscode-list-activeSelectionBackground))
   renameBorderColor?: string; // CSS color for rename input border (optional)
   /**
    * Glassmorphism background opacity (0.02–0.15).
@@ -307,7 +308,9 @@ export default function TabBar({
             /* 边框对齐编辑器块级容器（diagram/code/table figure）：
                1px block-line-strong，随主题自动降透明度 */
             border: '1px solid var(--jstudio-block-line-strong)',
-            background: `rgba(255,255,255,${glassOpacity})`,
+            /* 玻璃底色跟随主题 editor-background（ink-light 下呈米色而非白色），
+               与文档底色融合；opacity 由设置驱动 */
+            background: `color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 100}%, transparent)`,
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
@@ -317,7 +320,7 @@ export default function TabBar({
           <div
             className="absolute left-0 top-0 bottom-0 w-10 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-250 ease-out"
             style={{
-              background: `linear-gradient(to right, rgba(255,255,255,${glassOpacity * 1.5}), transparent)`,
+              background: `linear-gradient(to right, color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 150}%, transparent), transparent)`,
             }}
             data-scroll-left-fade
           />
@@ -325,7 +328,7 @@ export default function TabBar({
           <div
             className="absolute right-0 top-0 bottom-0 w-10 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-250 ease-out"
             style={{
-              background: `linear-gradient(to left, rgba(255,255,255,${glassOpacity * 1.5}), transparent)`,
+              background: `linear-gradient(to left, color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 150}%, transparent), transparent)`,
             }}
             data-scroll-right-fade
           />
@@ -367,6 +370,13 @@ export default function TabBar({
                   onDrag={handleDrag}
                   onDragEnd={handleDragEnd}
                   onClick={() => onTabClick(tab.id)}
+                  onAuxClick={(e) => {
+                    // Middle-click closes the tab (browser convention)
+                    if (e.button === 1 && canClose && onTabClose) {
+                      e.preventDefault();
+                      onTabClose(tab.id);
+                    }
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
