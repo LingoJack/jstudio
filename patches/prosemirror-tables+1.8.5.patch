@@ -1,0 +1,32 @@
+diff --git a/node_modules/prosemirror-tables/dist/index.cjs b/node_modules/prosemirror-tables/dist/index.cjs
+index 6c65eb7..fdff0dd 100644
+--- a/node_modules/prosemirror-tables/dist/index.cjs
++++ b/node_modules/prosemirror-tables/dist/index.cjs
+@@ -2233,6 +2233,11 @@ function handleMouseDown$1(view, startEvent) {
+ 	}
+ 	function move(_event) {
+ 		const event = _event;
++		// PATCH(jstudio): if the primary button is no longer pressed, the
++		// concluding mouseup was lost (swallowed by WKWebView, released over
++		// an iframe / outside the window, ...). Tear the gesture down instead
++		// of treating plain pointer motion as a cell drag-selection.
++		if ((event.buttons & 1) === 0) return stop();
+ 		const anchor = tableEditingKey.getState(view.state);
+ 		let $anchor$1;
+ 		if (anchor != null) $anchor$1 = view.state.doc.resolve(anchor);
+diff --git a/node_modules/prosemirror-tables/dist/index.js b/node_modules/prosemirror-tables/dist/index.js
+index 5b4ac25..51e015b 100644
+--- a/node_modules/prosemirror-tables/dist/index.js
++++ b/node_modules/prosemirror-tables/dist/index.js
+@@ -2233,6 +2233,11 @@ function handleMouseDown$1(view, startEvent) {
+ 	}
+ 	function move(_event) {
+ 		const event = _event;
++		// PATCH(jstudio): if the primary button is no longer pressed, the
++		// concluding mouseup was lost (swallowed by WKWebView, released over
++		// an iframe / outside the window, ...). Tear the gesture down instead
++		// of treating plain pointer motion as a cell drag-selection.
++		if ((event.buttons & 1) === 0) return stop();
+ 		const anchor = tableEditingKey.getState(view.state);
+ 		let $anchor$1;
+ 		if (anchor != null) $anchor$1 = view.state.doc.resolve(anchor);
