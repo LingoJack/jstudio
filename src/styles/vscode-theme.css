@@ -1022,6 +1022,23 @@ button {
    TipTap / ProseMirror 编辑器样式适配
    ============================================ */
 
+/* 内容块线条统一降透明度：部分主题（ink-light）的 block-border 接近
+   纯黑，直接描边会得到满屏重网格。弱线用于行分隔/header 分割线，
+   强线用于块级容器外框。定义在 :root 供编辑器外的浮层（TabBar 胶囊等）
+   复用同一线条语言。 */
+:root {
+  --jstudio-block-line: color-mix(
+    in srgb,
+    var(--vscode-block-border, var(--vscode-widget-border, #e5e5e5)) 35%,
+    transparent
+  );
+  --jstudio-block-line-strong: color-mix(
+    in srgb,
+    var(--vscode-block-border, var(--vscode-widget-border, #e5e5e5)) 55%,
+    transparent
+  );
+}
+
 /* 编辑器主体：字体大小由设置驱动（var(--jstudio-font-size)），
    字体通过 body 继承 var(--jstudio-font-family)，
    行高/行间距由设置驱动（var(--jstudio-line-height)） */
@@ -1032,19 +1049,6 @@ button {
   caret-color: var(
     --vscode-editorCursor-foreground,
     var(--vscode-focusBorder, #007fd4)
-  );
-  /* 内容块线条统一降透明度：部分主题（ink-light）的 block-border 接近
-     纯黑，直接描边会得到满屏重网格。弱线用于行分隔/header 分割线，
-     强线用于块级容器外框。 */
-  --jstudio-block-line: color-mix(
-    in srgb,
-    var(--vscode-block-border, var(--vscode-widget-border, #e5e5e5)) 35%,
-    transparent
-  );
-  --jstudio-block-line-strong: color-mix(
-    in srgb,
-    var(--vscode-block-border, var(--vscode-widget-border, #e5e5e5)) 55%,
-    transparent
   );
 }
 

@@ -99,7 +99,6 @@ export default function DocumentTabs() {
         onNew={() => setOpenDocDialogOpen(true)}
         onDetach={handleDetach}
         renderContextMenu={renderContextMenu}
-        rippleColor="rgba(255,255,255,0.25)"
         glassOpacity={tabBarGlassOpacity}
         position={tabBarPosition}
       />

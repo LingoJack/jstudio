@@ -83,7 +83,7 @@ export interface TabBarProps {
   onRenameCancel?: () => void;
   renderContextMenu?: (id: string, x: number, y: number, close: () => void) => React.ReactNode;
   extraActions?: React.ReactNode; // additional buttons after + (e.g. history clock)
-  rippleColor?: string; // CSS color for ripple (default: rgba(255,255,255,0.25))
+  rippleColor?: string; // CSS color for ripple (default: 20% foreground, theme-adaptive)
   className?: string; // optional wrapper class
   textColor?: string; // CSS color for inactive tab text (default: var(--vscode-descriptionForeground))
   accentColor?: string; // CSS color for active tab / focus (default: var(--vscode-list-activeSelectionBackground))
@@ -117,7 +117,7 @@ export default function TabBar({
   onRenameCancel,
   renderContextMenu,
   extraActions,
-  rippleColor = 'rgba(255,255,255,0.25)',
+  rippleColor = 'color-mix(in srgb, var(--vscode-foreground) 20%, transparent)',
   className,
   textColor = 'var(--vscode-descriptionForeground)',
   accentColor = 'var(--vscode-list-activeSelectionBackground)',
@@ -301,9 +301,12 @@ export default function TabBar({
         className={`absolute left-0 right-0 ${position === 'top' ? 'top-0 pt-2.5' : 'bottom-0 pb-3.5'} flex items-center justify-center z-20 ${className ?? ''}`}
       >
         <div
-          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full border border-[var(--vscode-menu-border)]"
+          className="relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full"
           style={{
             scrollbarWidth: 'thin',
+            /* 边框对齐编辑器块级容器（diagram/code/table figure）：
+               1px block-line-strong，随主题自动降透明度 */
+            border: '1px solid var(--jstudio-block-line-strong)',
             background: `rgba(255,255,255,${glassOpacity})`,
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
@@ -372,7 +375,7 @@ export default function TabBar({
                   className={`group relative flex items-center gap-1.5 w-[130px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
-                      : `text-[${textColor}] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--vscode-foreground)]`
+                      : `text-[${textColor}] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] hover:text-[var(--vscode-foreground)]`
                   }`}
                 >
                   {tab.isRenaming ? (
@@ -417,7 +420,7 @@ export default function TabBar({
                             e.stopPropagation();
                             onTabClose(tab.id);
                           }}
-                          className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-150 hover:bg-[rgba(255,255,255,0.15)] hover:scale-110 ${
+                          className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_15%,transparent)] hover:scale-110 ${
                             tab.isActive
                               ? 'opacity-70'
                               : 'opacity-0 group-hover:opacity-70'
@@ -438,7 +441,7 @@ export default function TabBar({
           {/* `+` button — outside scroll container, always visible */}
           <RippleButton
             onClick={onNew}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] transition-colors duration-75 cursor-pointer"
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--vscode-descriptionForeground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_10%,transparent)] hover:text-[var(--vscode-foreground)] transition-colors duration-75 cursor-pointer"
             rippleColor={rippleColor}
             rippleDuration={500}
           >

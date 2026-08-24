@@ -224,7 +224,6 @@ export default function TerminalTabs() {
         onNew={() => createSession()}
         renderContextMenu={renderContextMenu}
         extraActions={extraActions}
-        rippleColor="rgba(255,255,255,0.25)"
         glassOpacity={tabBarGlassOpacity}
         position={tabBarPosition}
       />
