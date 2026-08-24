@@ -48,6 +48,10 @@ const COLLAPSE_DELAY = 180;
 /** Distance (px) below the scroll container's top within which a heading
  *  counts as "current" for the scroll-spy (drives the progress cursor). */
 const SCROLL_SPY_TOP_OFFSET = 64;
+/** Tolerance (px) for detecting "scrolled to the bottom" — at the bottom
+ *  the LAST heading becomes active, since trailing headings of a short
+ *  document can never cross the top offset line. */
+const SCROLL_SPY_BOTTOM_EPSILON = 4;
 
 interface HeadingItem {
   id: string; // block id
@@ -237,15 +241,28 @@ export default function SectionOutline({
     const spy = () => {
       const containerTop = container.getBoundingClientRect().top;
       let current = headings[0].id;
-      for (const h of headings) {
-        const el = container.querySelector(
-          `[data-block-id="${CSS.escape(h.id)}"]`,
-        ) as HTMLElement | null;
-        if (!el) continue;
-        if (el.getBoundingClientRect().top - containerTop <= SCROLL_SPY_TOP_OFFSET) {
-          current = h.id;
-        } else {
-          break;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      // Bottom fallback: trailing headings of a short document can never
+      // cross the top offset line, so force the last one at the bottom.
+      // (Skipped when the doc doesn't scroll at all — then the offset
+      // logic below keeps the first visible heading active.)
+      const scrollable = scrollHeight > clientHeight + 1;
+      const atBottom =
+        scrollable &&
+        scrollTop + clientHeight >= scrollHeight - SCROLL_SPY_BOTTOM_EPSILON;
+      if (atBottom) {
+        current = headings[headings.length - 1].id;
+      } else {
+        for (const h of headings) {
+          const el = container.querySelector(
+            `[data-block-id="${CSS.escape(h.id)}"]`,
+          ) as HTMLElement | null;
+          if (!el) continue;
+          if (el.getBoundingClientRect().top - containerTop <= SCROLL_SPY_TOP_OFFSET) {
+            current = h.id;
+          } else {
+            break;
+          }
         }
       }
       setActiveId(current);
@@ -543,8 +560,10 @@ function OutlineRow({
       }`}
       style={{ paddingLeft: ROW_BASE_INDENT + depth * ROW_DEPTH_INDENT }}
     >
-      {/* "->" cursor straddling the rail at the current heading. The bg
-          patch masks the rail underneath so the arrow reads as embedded. */}
+      {/* "->" cursor straddling the rail at the current heading, pointing
+          at the outline item; the editor scrollbar carries a mirrored
+          "<-" cursor (EditorScrollCursor). The bg patch masks the rail
+          underneath so the arrow reads as embedded. */}
       {active && (
         <span className="absolute left-[-7px] top-1/2 -translate-y-1/2 py-[3px] bg-[var(--vscode-editor-background)] text-[var(--vscode-focusBorder)]">
           <ArrowRight className="w-3 h-3" strokeWidth={2.5} />

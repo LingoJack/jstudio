@@ -792,36 +792,24 @@ pre[class*="language-"] {
   background-clip: content-box;
 }
 
-/* Editor scroll container: the scrollbar adopts the outline rail's design
-   language — a 1px track line with a slim segment thumb riding on it,
-   echoing the rail + progress cursor in the outline panel beside it.
-   Hover uses the stronger slider color for drag affordance. */
+/* Editor scroll container: the native scrollbar visuals are fully
+   transparent — the 1px track line and the "<-" cursor are drawn by the
+   EditorScrollCursor React overlay instead (the outline rail's mirrored
+   instrument). The transparent native thumb still handles drag scrolling
+   in the 8px gutter. */
 .editor-scroll-container {
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 .editor-scroll-container::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .editor-scroll-container::-webkit-scrollbar-track:vertical {
-  background: linear-gradient(
-    to right,
-    transparent calc(50% - 0.5px),
-    var(--vscode-sideBar-border) calc(50% - 0.5px),
-    var(--vscode-sideBar-border) calc(50% + 0.5px),
-    transparent calc(50% + 0.5px)
-  );
+  background: transparent;
 }
 .editor-scroll-container::-webkit-scrollbar-thumb:vertical {
-  background: var(--vscode-scrollbarSlider-hoverBackground);
-  border-radius: 2px;
-  border: 2.5px solid transparent;
-  background-clip: content-box;
-}
-.editor-scroll-container::-webkit-scrollbar-thumb:vertical:hover {
-  background: var(--vscode-scrollbarSlider-activeBackground);
-  border: 2.5px solid transparent;
-  background-clip: content-box;
+  background: transparent;
 }
 
 /* ============================================

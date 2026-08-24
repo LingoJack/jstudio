@@ -52,6 +52,7 @@ import TableControls from '../nodes/TableControls';
 import type { Block } from '../../../types';
 import SectionEditor, { type SectionFocusHandle } from './SectionEditor';
 import SectionOutline from './SectionOutline';
+import EditorScrollCursor from './EditorScrollCursor';
 import { useCrossSectionSelection, type CrossSelectionContext } from './useCrossSectionSelection';
 import { useCrossSectionFind } from './useCrossSectionFind';
 import FindBar from './FindBar';
@@ -531,6 +532,9 @@ export default function DocumentPanel({
           ref={scrollContainerRef}
           className="editor-scroll-container flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
         >
+          {/* Custom scrollbar visual: 1px track + "<-" cursor (must be
+              the first child so its sticky box pins to the scrollport). */}
+          <EditorScrollCursor scrollContainerRef={scrollContainerRef} />
           {/* Document Title (static text, not editable) */}
           <div className="px-4 md:px-12 lg:px-20 pb-4">
             <h1 className="text-4xl font-bold text-[var(--vscode-editor-foreground)] pb-1">
@@ -605,6 +609,9 @@ export default function DocumentPanel({
         onMouseDownCapture={crossSel.onMouseDownCapture}
         onClick={handleBlankAreaClick}
       >
+        {/* Custom scrollbar visual: 1px track + "<-" cursor (must be the
+            first child so its sticky box pins to the scrollport top). */}
+        <EditorScrollCursor scrollContainerRef={scrollContainerRef} />
         {/* Document Title */}
         <div className="px-4 md:px-12 lg:px-20 pt-12 pb-4">
           <input
