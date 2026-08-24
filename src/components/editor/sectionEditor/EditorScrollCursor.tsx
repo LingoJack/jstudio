@@ -3,10 +3,10 @@
  *
  * The native scrollbar thumb/track are rendered transparent (see
  * `.editor-scroll-container` in vscode-theme.css); in their place this
- * component draws a 1px track line with a "<-" cursor riding it, tracking
- * the native thumb's center. The overlay is purely visual
- * (pointer-events: none) — the transparent native thumb underneath still
- * handles drag scrolling.
+ * component draws a 1px track line with a "<-" cursor riding it. The
+ * cursor maps scroll progress onto the full track height (0% = top,
+ * 100% = bottom). The overlay is purely visual (pointer-events: none) —
+ * the transparent native thumb underneath still handles drag scrolling.
  *
  * Together with the outline rail's "->" cursor it forms the app's
  * line-instrument language: two thin tracks with mirrored arrows, each
@@ -26,9 +26,13 @@ import { ArrowLeft } from 'lucide-react';
 /** Re-measure delays (ms) to catch progressive section mounting, which
  *  changes scrollHeight without firing scroll events. */
 const REMOUNT_PROBES = [100, 300, 800, 2000];
+/** Rendered height (px) of the cursor glyph incl. its bg patch — the
+ *  cursor travels the full track so it reaches both ends (0% = track
+ *  top, 100% = track bottom), unlike a thumb-centered indicator. */
+const CURSOR_HEIGHT = 18;
 
 interface CursorPos {
-  /** Thumb center, in scrollport px (0..clientHeight). */
+  /** Cursor center, in scrollport px (CURSOR_HEIGHT/2 .. clientHeight-CURSOR_HEIGHT/2). */
   y: number;
   /** clientHeight at measure time — height of the track line. */
   viewportH: number;
@@ -50,10 +54,14 @@ export default function EditorScrollCursor({
     const update = () => {
       const { scrollTop, scrollHeight, clientHeight } = container;
       const scrollable = scrollHeight > clientHeight + 1;
-      // Mirror the native thumb's geometry: its center in scrollport px.
-      const thumbH = (clientHeight * clientHeight) / scrollHeight;
-      const thumbCenter = (scrollTop * clientHeight) / scrollHeight + thumbH / 2;
-      setPos({ y: thumbCenter, viewportH: clientHeight, visible: scrollable });
+      // Map scroll progress (0..1) onto the FULL track: the cursor rests
+      // at the track's top at 0% and at its bottom at 100%. (Deliberately
+      // not thumb-centered — a thumb-centered cursor never reaches the
+      // extremes, which reads as broken on short documents.)
+      const maxScroll = scrollHeight - clientHeight;
+      const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
+      const y = CURSOR_HEIGHT / 2 + progress * (clientHeight - CURSOR_HEIGHT);
+      setPos({ y, viewportH: clientHeight, visible: scrollable });
     };
     const onScroll = () => {
       cancelAnimationFrame(raf);
