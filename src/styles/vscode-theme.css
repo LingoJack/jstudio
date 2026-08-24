@@ -792,21 +792,35 @@ pre[class*="language-"] {
   background-clip: content-box;
 }
 
-/* Editor scroll container: slimmer, fainter scrollbar so it reads as the
-   same visual family as the thin outline rail beside it (the rail's "->"
-   cursor stays the single accent element). Hover keeps the stronger
-   global color for affordance. */
+/* Editor scroll container: the scrollbar adopts the outline rail's design
+   language — a 1px track line with a slim segment thumb riding on it,
+   echoing the rail + progress cursor in the outline panel beside it.
+   Hover uses the stronger slider color for drag affordance. */
 .editor-scroll-container {
   scrollbar-width: thin;
 }
 .editor-scroll-container::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
-.editor-scroll-container::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--vscode-scrollbarSlider-background) 60%, transparent);
-  border-radius: 3px;
-  border: 1.5px solid transparent;
+.editor-scroll-container::-webkit-scrollbar-track:vertical {
+  background: linear-gradient(
+    to right,
+    transparent calc(50% - 0.5px),
+    var(--vscode-sideBar-border) calc(50% - 0.5px),
+    var(--vscode-sideBar-border) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+}
+.editor-scroll-container::-webkit-scrollbar-thumb:vertical {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  border-radius: 2px;
+  border: 2.5px solid transparent;
+  background-clip: content-box;
+}
+.editor-scroll-container::-webkit-scrollbar-thumb:vertical:hover {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+  border: 2.5px solid transparent;
   background-clip: content-box;
 }
 
