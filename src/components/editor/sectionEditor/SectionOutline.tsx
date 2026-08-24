@@ -36,9 +36,8 @@ import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
 import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
-import { NavBranch, NavRow } from '../../ui/NavTree';
 import type { Block } from '../../../types';
-import { Pin, ListTree } from 'lucide-react';
+import { Pin, ListTree, ChevronRight, ArrowRight } from 'lucide-react';
 
 /** Width of the outline panel when fully expanded. */
 const OUTLINE_WIDTH = 240;
@@ -46,6 +45,9 @@ const OUTLINE_WIDTH = 240;
 const COLLAPSED_WIDTH = 48;
 /** Delay (ms) before collapsing after the pointer leaves the panel. */
 const COLLAPSE_DELAY = 180;
+/** Distance (px) below the scroll container's top within which a heading
+ *  counts as "current" for the scroll-spy (drives the progress cursor). */
+const SCROLL_SPY_TOP_OFFSET = 64;
 
 interface HeadingItem {
   id: string; // block id
@@ -226,6 +228,40 @@ export default function SectionOutline({
     }
   }, [headings]);
 
+  // ── Scroll-spy: the active heading (and thus the progress cursor)
+  // follows the reading position in the editor scroll container.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || headings.length === 0) return;
+    let raf = 0;
+    const spy = () => {
+      const containerTop = container.getBoundingClientRect().top;
+      let current = headings[0].id;
+      for (const h of headings) {
+        const el = container.querySelector(
+          `[data-block-id="${CSS.escape(h.id)}"]`,
+        ) as HTMLElement | null;
+        if (!el) continue;
+        if (el.getBoundingClientRect().top - containerTop <= SCROLL_SPY_TOP_OFFSET) {
+          current = h.id;
+        } else {
+          break;
+        }
+      }
+      setActiveId(current);
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(spy);
+    };
+    spy();
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [scrollContainerRef, headings, activeDocId]);
+
   const handleClick = useCallback(
     (item: HeadingItem) => {
       const container = scrollContainerRef.current;
@@ -329,7 +365,7 @@ export default function SectionOutline({
   return (
     <div
       data-outline-root
-      className="shrink-0 h-full border-l border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] flex flex-col select-none z-30 relative overflow-hidden"
+      className="shrink-0 h-full bg-[var(--vscode-editor-background)] flex flex-col select-none z-30 relative overflow-hidden"
       style={{
         width: effectiveWidth,
         marginLeft: -overlayShift,
@@ -354,10 +390,7 @@ export default function SectionOutline({
         </div>
       ) : (
         <>
-          <div className="h-9 shrink-0 flex items-center px-3 gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] flex-1">
-              {t('outline.title')}
-            </h2>
+          <div className="h-8 shrink-0 flex items-center justify-end px-2 gap-1">
             <button
               onClick={handleTogglePin}
               className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
@@ -377,13 +410,20 @@ export default function SectionOutline({
               <ListTree className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto rounded-md px-3 pb-3 space-y-0.5">
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
             {headings.length === 0 ? (
-              <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
+              <p className="text-xs text-[var(--vscode-descriptionForeground)] py-2">
                 {t('outline.empty')}
               </p>
             ) : (
-              renderTree(headings, 1, activeId, handleClick, collapsed, toggle)
+              // Rows carry the rail as their left border — stacked gapless,
+              // the borders form one continuous vertical line that doubles
+              // as a page progress bar (consumed portion is tinted, the
+              // current heading gets the "->" cursor).
+              renderRows(headings, collapsed, activeId, (row) => {
+                if (row.hasChildren) toggle(row.item);
+                handleClick(row.item);
+              })
             )}
           </div>
         </>
@@ -392,72 +432,142 @@ export default function SectionOutline({
   );
 }
 
-// Renders the heading tree (kept local to avoid coupling).
-function renderTree(
-  headings: HeadingItem[],
-  level: number,
-  activeId: string | null,
-  onClick: (item: HeadingItem) => void,
-  collapsed: Set<string>,
-  onToggle: (item: HeadingItem) => void,
-  depth = 0,
-): React.ReactNode[] {
-  const result: React.ReactNode[] = [];
-  const isTopLevel = depth === 0;
-  let i = 0;
+// ── Outline list: rail + progress + cursor ──────────────────────────────
+// Every row carries a left border; stacked gapless, the borders form ONE
+// continuous vertical rail (embedded in the panel, no panel separator).
+// The rail doubles as a vertical page-progress bar: rows at/above the
+// current heading are tinted accent ("consumed"), and the current heading
+// is marked by a "->" cursor straddling the rail. Hierarchy is expressed
+// by indentation plus weight (top-level rows are medium-weight).
 
-  while (i < headings.length) {
-    const item = headings[i];
-    if (item.level === level) {
+interface OutlineRowData {
+  item: HeadingItem;
+  depth: number;
+  hasChildren: boolean;
+  expanded: boolean;
+}
+
+/** Text distance (px) from the rail (row's left border) at depth 0. */
+const ROW_BASE_INDENT = 12;
+/** Extra indent (px) per hierarchy depth. */
+const ROW_DEPTH_INDENT = 14;
+
+/** Flatten the heading hierarchy into rows, skipping collapsed subtrees. */
+function flattenOutline(
+  headings: HeadingItem[],
+  collapsed: Set<string>,
+): OutlineRowData[] {
+  if (headings.length === 0) return [];
+  const rows: OutlineRowData[] = [];
+
+  const walk = (items: HeadingItem[], level: number, depth: number) => {
+    let i = 0;
+    while (i < items.length) {
+      const item = items[i];
+      if (item.level !== level) {
+        i++;
+        continue;
+      }
       const childLevel =
-        i + 1 < headings.length && headings[i + 1].level > item.level
-          ? headings[i + 1].level
+        i + 1 < items.length && items[i + 1].level > item.level
+          ? items[i + 1].level
           : 0;
       const children: HeadingItem[] = [];
       if (childLevel > 0) {
         let j = i + 1;
         while (
-          j < headings.length &&
-          headings[j].level >= childLevel &&
-          headings[j].level > item.level
+          j < items.length &&
+          items[j].level >= childLevel &&
+          items[j].level > item.level
         ) {
-          children.push(headings[j]);
+          children.push(items[j]);
           j++;
         }
       }
       const hasChildren = children.length > 0;
       const isCollapsed = collapsed.has(item.id);
-
-      result.push(
-        <NavRow
-          key={item.id}
-          level={isTopLevel ? 'primary' : 'secondary'}
-          active={item.id === activeId}
-          noHover
-          expandable={hasChildren}
-          expanded={!isCollapsed}
-          onClick={() => {
-            if (hasChildren) onToggle(item);
-            onClick(item);
-          }}
-          title={item.text}
-        >
-          {item.text}
-        </NavRow>,
-      );
-
+      rows.push({ item, depth, hasChildren, expanded: hasChildren && !isCollapsed });
       if (hasChildren && !isCollapsed) {
-        const childMin = Math.min(...children.map((c) => c.level));
-        result.push(
-          <NavBranch key={`branch-${item.id}`} plain className="mt-0.5 mb-1 ml-[18px]">
-            {renderTree(children, childMin, activeId, onClick, collapsed, onToggle, depth + 1)}
-          </NavBranch>,
-        );
+        walk(children, Math.min(...children.map((c) => c.level)), depth + 1);
       }
       i += 1 + children.length;
-    } else {
-      i++;
     }
-  }
-  return result;
+  };
+
+  walk(headings, Math.min(...headings.map((h) => h.level)), 0);
+  return rows;
+}
+
+/** Render the flattened rows; rows up to the active one are "consumed"
+ *  (their rail segment is tinted), forming a vertical page-progress bar. */
+function renderRows(
+  headings: HeadingItem[],
+  collapsed: Set<string>,
+  activeId: string | null,
+  onRowClick: (row: OutlineRowData) => void,
+): React.ReactNode {
+  const rows = flattenOutline(headings, collapsed);
+  const activeIndex = rows.findIndex((r) => r.item.id === activeId);
+  return rows.map((row, idx) => (
+    <OutlineRow
+      key={row.item.id}
+      row={row}
+      active={idx === activeIndex}
+      consumed={activeIndex >= 0 && idx <= activeIndex}
+      onClick={() => onRowClick(row)}
+    />
+  ));
+}
+
+function OutlineRow({
+  row,
+  active,
+  consumed,
+  onClick,
+}: {
+  row: OutlineRowData;
+  active: boolean;
+  consumed: boolean;
+  onClick: () => void;
+}) {
+  const { item, depth, hasChildren, expanded } = row;
+  const isTop = depth === 0;
+  return (
+    <div
+      onClick={onClick}
+      title={item.text}
+      className={`group relative flex items-center gap-1 pr-1 py-[6px] cursor-pointer text-[13px] leading-5 border-l transition-colors duration-150 ${
+        consumed
+          ? 'border-[color-mix(in_srgb,var(--vscode-focusBorder)_45%,transparent)]'
+          : 'border-[var(--vscode-sideBar-border)]'
+      }`}
+      style={{ paddingLeft: ROW_BASE_INDENT + depth * ROW_DEPTH_INDENT }}
+    >
+      {/* "->" cursor straddling the rail at the current heading. The bg
+          patch masks the rail underneath so the arrow reads as embedded. */}
+      {active && (
+        <span className="absolute left-[-7px] top-1/2 -translate-y-1/2 py-[3px] bg-[var(--vscode-editor-background)] text-[var(--vscode-focusBorder)]">
+          <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
+        </span>
+      )}
+      <span
+        className={`flex-1 truncate transition-colors duration-150 ${
+          active
+            ? 'text-[var(--vscode-focusBorder)] font-medium'
+            : isTop
+              ? 'font-medium text-[var(--vscode-sideBar-foreground)] group-hover:text-[var(--vscode-foreground)]'
+              : 'text-[var(--vscode-descriptionForeground)] group-hover:text-[var(--vscode-foreground)]'
+        }`}
+      >
+        {item.text}
+      </span>
+      {hasChildren && (
+        <ChevronRight
+          className={`w-3.5 h-3.5 shrink-0 opacity-0 group-hover:opacity-50 transition-all duration-150 ${
+            expanded ? 'rotate-90' : ''
+          }`}
+        />
+      )}
+    </div>
+  );
 }

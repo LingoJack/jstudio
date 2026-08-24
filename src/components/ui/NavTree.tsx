@@ -7,7 +7,6 @@ import { ChevronRight } from 'lucide-react';
 // Shared navigation tree primitives used across the app:
 // - `Settings.tsx` — sidebar settings nav (primary + secondary)
 // - `DocumentSidebar.tsx` — folder/document tree (primary + secondary)
-// - `SectionOutline.tsx` — heading outline (primary + secondary)
 //
 // NavRow supports two visual modes:
 //  - classic (default): hover bg + indicator bar
@@ -61,7 +60,7 @@ interface NavRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'classN
  * Navigation row used across the app.
  *
  * Two visual modes controlled by `noHover`:
- *  - Classic (default, Settings / SectionOutline): hover background,
+ *  - Classic (default, Settings): hover background,
  *    left-border indicator on secondary, active-indicator bar.
  *  - Clean (`noHover`, DocumentSidebar): no hover background (subtle
  *    text brightening), rounded backgrounds on both levels, no
@@ -82,8 +81,8 @@ export function NavRow({
   ...rest
 }: NavRowProps) {
   const isPrimary = level === 'primary';
-  // The indicator bar is only shown in the "classic" mode (Settings /
-  // SectionOutline).  In the clean `noHover` mode used by DocumentSidebar
+  // The indicator bar is only shown in the "classic" mode (Settings).
+  // In the clean `noHover` mode used by DocumentSidebar
   // the background highlight alone signals the active row.
   const showIndicator = !noHover && (active || highlighted);
 
