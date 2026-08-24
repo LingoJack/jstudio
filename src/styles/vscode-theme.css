@@ -792,6 +792,24 @@ pre[class*="language-"] {
   background-clip: content-box;
 }
 
+/* Editor scroll container: slimmer, fainter scrollbar so it reads as the
+   same visual family as the thin outline rail beside it (the rail's "->"
+   cursor stays the single accent element). Hover keeps the stronger
+   global color for affordance. */
+.editor-scroll-container {
+  scrollbar-width: thin;
+}
+.editor-scroll-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.editor-scroll-container::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--vscode-scrollbarSlider-background) 60%, transparent);
+  border-radius: 3px;
+  border: 1.5px solid transparent;
+  background-clip: content-box;
+}
+
 /* ============================================
    Focus & Selection Styles
    ============================================ */
