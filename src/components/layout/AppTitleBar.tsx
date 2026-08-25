@@ -65,14 +65,6 @@ export default function AppTitleBar() {
         className="absolute inset-x-0 top-0 bottom-0 flex items-end justify-center pointer-events-none"
       />
 
-      {/* Right slot: the sidebar toolbar (search / pin / more), portaled by
-          DocumentSidebar — kept well clear of the traffic lights on the left. */}
-      <div
-        id={TITLEBAR_LEFT_SLOT_ID}
-        ref={(el) => setTitlebarSlot('left', el)}
-        className="flex items-center"
-      />
-
       {/* Right: spacer (sidebar toggle moved into DocumentSidebar as a pin) */}
       <div className="w-4" data-tauri-drag-region />
     </div>

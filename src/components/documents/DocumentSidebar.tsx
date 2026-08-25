@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
@@ -10,7 +9,6 @@ import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
 import { buildFolderTree } from '../../lib/documents/folderTree';
 import { pinyinIncludes } from '../../lib/documents/pinyinMatch';
-import { useTitlebarLeftSlot } from '../layout/titlebarSlot';
 import { MoreHorizontal, X, Pin, Search, ArrowRight } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
@@ -401,15 +399,13 @@ export default function DocumentSidebar() {
 
   // ── Main render ───────────────────────────────────────────
   const isRootDropTarget = dragOverTarget === ROOT_DROP_ID;
-  const leftSlot = useTitlebarLeftSlot();
 
-  // The sidebar toolbar (search / pin / more) lives in the title bar's left
-  // slot — making the title bar the app's single top row and freeing the
-  // sidebar body to start directly with the tree. All state/handlers stay
-  // here; only the UI is portaled. Rendered in both collapsed and expanded
-  // modes, so search also works on the 48px strip.
-  const sidebarToolbar = (
-    <div className="flex items-center gap-1.5 w-48" data-tauri-drag-region={false}>
+  // The sidebar header row (search / pin / more). Lives back in the sidebar
+  // after the title-bar experiments (left = traffic-light conflict, right =
+  // outline crowding); it sits at y=36, flush under the transparent title
+  // bar, because the sidebar root punches up to the window top (-mt-9).
+  const sidebarHeader = (
+    <div className="h-9 shrink-0 flex items-center gap-1.5 px-3 mt-9">
       {/* Search — Aliyun-style soft always-on fill; focus gets the accent ring */}
       <div
         className="flex-1 min-w-0 flex items-center gap-1.5 h-6 px-1.5 rounded-md transition-colors duration-150 bg-[color-mix(in_srgb,var(--vscode-foreground)_5%,transparent)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]"
@@ -495,7 +491,10 @@ export default function DocumentSidebar() {
   return (
     <div
       data-sidebar-root
-      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] flex flex-col select-none z-30 relative overflow-hidden"
+      // -mt-9 + height compensation: the sidebar surface punches up to the
+      // window top (filling the former dead strip under the transparent
+      // title bar); the header row / pin row carry mt-9 to stay BELOW it.
+      className="shrink-0 flex flex-col select-none z-30 relative overflow-hidden -mt-9 h-[calc(100%+2.25rem)] bg-[var(--vscode-sideBar-background)]"
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
@@ -504,11 +503,10 @@ export default function DocumentSidebar() {
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
     >
-      {leftSlot && createPortal(sidebarToolbar, leftSlot)}
       {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
         <>
-          <div className="h-9 shrink-0 flex items-center justify-center">
+          <div className="h-9 shrink-0 flex items-center justify-center mt-9">
             <button
               onClick={handleTogglePin}
               className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
@@ -525,6 +523,7 @@ export default function DocumentSidebar() {
         </>
       ) : (
         <>
+      {sidebarHeader}
       {/* Documents + folders list (root drop zone). pl-2 insets rows so the
           rail (each root row's / folder wrapper's left border) forms one
           continuous vertical line; rows are gapless (no space-y) so the rail
