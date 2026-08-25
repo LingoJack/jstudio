@@ -69,6 +69,15 @@ export function useCodeBlockSelectionOverlay(
     const contentEl = container?.querySelector('.hljs') as HTMLElement | null;
     if (!container || !overlay || !contentEl) return;
 
+    // A `.cross-section-selected` decoration is already painting this
+    // selection (within-section mirror or cross-section selection — see
+    // sectionHighlightSelection.ts); painting our rects on top would double
+    // the highlight.
+    if (container.closest('.cross-section-anchor-hide-selection')) {
+      overlay.replaceChildren();
+      return;
+    }
+
     // Whole-block NodeSelection → border-only chrome, no text-fill overlay.
     if (isNodeSelectedRef.current?.()) {
       overlay.replaceChildren();
