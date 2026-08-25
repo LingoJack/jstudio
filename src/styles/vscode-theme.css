@@ -1416,7 +1416,11 @@ button {
 .image-node-figure img {
   display: block;
   border-radius: 6px;
+  /* Live Text 双保险（详见 ImageView.tsx）：user-select 阻止选区绘制；
+     pointer-events 断开命中测试，防止新版 WKWebView 上 Live Text
+     无视 user-select 启动图片内文字选择。 */
   user-select: none;
+  pointer-events: none;
 }
 
 /* ============================================

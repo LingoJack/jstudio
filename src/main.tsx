@@ -42,10 +42,12 @@ logger.info("main", "app bootstrap");
 // We tried disabling it globally via `prefs.setTextInteractionEnabled(false)`,
 // but that also kills contentEditable focus/caret placement across the whole
 // editor — see commit history for the regression. The targeted fix is
-// CSS `user-select: none` on the <img> element (see ImageView.tsx +
-// .image-node-figure img in vscode-theme.css), which stops Live Text from
-// starting a text selection on the image while leaving the rest of the
-// editor's text interaction untouched.
+// CSS `user-select: none` + `pointer-events: none` on the <img> element
+// (see ImageView.tsx + .image-node-figure img in vscode-theme.css): user-select
+// stops the selection painting, and pointer-events disconnects the hit-testing
+// Live Text needs to engage — the latter keeps working even on WKWebView
+// builds where Live Text ignores `user-select` (regression seen after a
+// macOS update). The rest of the editor's text interaction is untouched.
 
 // ── React 19 sandbox iframe workaround (development mode) ──────────────
 // React 19's development-mode reconciliation traverses DOM trees including

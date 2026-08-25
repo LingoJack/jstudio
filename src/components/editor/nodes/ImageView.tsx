@@ -229,13 +229,19 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   });
 
   const effectiveAlign = align ?? 'center';
-  // user-select:none is the primary defence against macOS WKWebView "Live
-  // Text" — it stops the user from drag-selecting text recognized *inside*
-  // the rendered image, so a click reliably produces a ProseMirror
-  // NodeSelection instead of an in-image text selection. The matching rule
-  // in vscode-theme.css (.image-node-figure img) covers this too; keeping
-  // it inline here makes the intent visible at the call site.
-  const imgStyle: React.CSSProperties = { userSelect: 'none' };
+  // Live Text defence (macOS WKWebView recognizes text *inside* the rendered
+  // image and lets the user select it, turning a click into an in-image text
+  // selection instead of a node selection):
+  //   1. `userSelect: 'none'` — stops selection painting / drag-select.
+  //   2. `pointerEvents: 'none'` — hard stop: Live Text starts from hit-testing
+  //      the <img>; with pointer events off, the image is never hit, so Live
+  //      Text cannot engage even on WKWebView builds where it ignores
+  //      `user-select` (observed after a macOS update — the user-select-only
+  //      fix regressed). Clicks land on the parent .image-node-figure, where
+  //      useNodeSelectionClick still produces the NodeSelection.
+  // The matching rules in vscode-theme.css (.image-node-figure img) cover this
+  // too; keeping it inline here makes the intent visible at the call site.
+  const imgStyle: React.CSSProperties = { userSelect: 'none', pointerEvents: 'none' };
   if (displayWidth) {
     imgStyle.width = `${displayWidth}px`;
     // Derive height from heightPct for proportional scaling, otherwise auto.
