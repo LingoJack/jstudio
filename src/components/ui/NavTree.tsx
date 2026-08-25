@@ -52,6 +52,10 @@ interface NavRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'classN
   /** Disable the default hover background – uses a subtle text-color
    *  brightening instead, giving a cleaner / flatter list look. */
   noHover?: boolean;
+  /** Full-bleed row (DocumentSidebar): square corners + tighter vertical
+   *  padding so the active/selected background spans the full sidebar
+   *  width edge-to-edge instead of an inset rounded pill. */
+  bleed?: boolean;
   className?: string;
   children: React.ReactNode;
 }
@@ -76,6 +80,7 @@ export function NavRow({
   expandable = false,
   expanded = false,
   noHover = false,
+  bleed = false,
   className = '',
   children,
   ...rest
@@ -88,15 +93,17 @@ export function NavRow({
 
   // ── Base layout ───────────────────────────────────────────
   // `relative` is needed for the active-indicator bar (absolute positioned).
+  const radius = bleed ? 'rounded-none' : 'rounded-md';
 
-  const primaryBase =
-    'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer rounded-md relative';
+  const primaryBase = `w-full flex items-center gap-3 px-3 ${
+    bleed ? 'py-2' : 'py-2.5'
+  } text-sm transition-colors duration-150 cursor-pointer ${radius} relative`;
 
   // In `noHover` (clean) mode the secondary row drops the left-border
   // indicator in favour of the same rounded background used by primary
   // rows, giving a unified look.
   const secondaryBase = noHover
-    ? 'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 text-sm transition-colors duration-150 cursor-pointer rounded-md relative'
+    ? `w-full flex items-center gap-2 pl-4 pr-3 py-1.5 text-sm transition-colors duration-150 cursor-pointer ${radius} relative`
     : 'w-full flex items-center gap-2 pl-4 pr-3 py-1.5 -ml-px text-sm transition-colors duration-150 cursor-pointer border-l-2 relative';
 
   // Primary active/inactive

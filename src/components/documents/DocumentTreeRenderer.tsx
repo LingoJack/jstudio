@@ -11,7 +11,6 @@
  */
 
 import type React from 'react';
-import { FileText, Folder, FolderOpen } from 'lucide-react';
 import { NavRow, NavBranch } from '../ui/NavTree';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { FolderTreeNode } from '../../lib/documents/folderTree';
@@ -118,7 +117,7 @@ export function DocumentTreeRenderer({
         active={isActive}
         selected={isSelected}
         noHover
-        icon={<FileText className="w-4 h-4 opacity-50 shrink-0" />}
+        bleed
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => handleDocClick(e, doc.id)}
         onContextMenu={(e) => handleContextMenu(e, doc.id)}
@@ -179,12 +178,15 @@ export function DocumentTreeRenderer({
             : 'border-transparent'
         }`}
       >
-        {/* Folder row */}
+        {/* Folder row — bold group-header style (Aliyun docs nav), right
+            chevron for expand/collapse, no icon */}
         <NavRow
           level="primary"
           highlighted={false}
           selected={selectedIds.has(f.id)}
           noHover
+          bleed
+          className="font-medium"
           onClick={(e) => {
             if (e.metaKey || e.ctrlKey) {
               // Toggle selection
@@ -219,10 +221,6 @@ export function DocumentTreeRenderer({
             e.stopPropagation();
             startFolderRename(f.id, f.name);
           }}
-          icon={open
-            ? <FolderOpen className="w-5 h-5 opacity-70 shrink-0" />
-            : <Folder className="w-5 h-5 opacity-70 shrink-0" />
-          }
           expandable={!isRenaming}
           expanded={open}
         >
@@ -247,9 +245,10 @@ export function DocumentTreeRenderer({
           )}
         </NavRow>
 
-        {/* Children – indentation only, no guide line */}
+        {/* Children – indentation only, no guide line. Aligns child text a
+            modest step in from the (now icon-less) folder label. */}
         {open && (
-          <NavBranch plain className="mt-0.5 mb-1 ml-[18px]">
+          <NavBranch plain className="mt-0.5 mb-1 ml-[12px]">
             {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
             {node.documents.map((doc) => renderDoc(doc))}
           </NavBranch>
@@ -276,7 +275,7 @@ export function DocumentTreeRenderer({
             active={doc.id === activeDocId}
             selected={selectedIds.has(doc.id)}
             noHover
-            icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
+            bleed
             onPointerDown={(e) => onDocPointerDown(e, doc.id)}
             onClick={(e) => handleDocClick(e, doc.id)}
             onContextMenu={(e) => handleContextMenu(e, doc.id)}
@@ -334,7 +333,7 @@ export function SearchResultsList({
       active={doc.id === activeDocId}
       selected={selectedIds.has(doc.id)}
       noHover
-      icon={<FileText className="w-5 h-5 opacity-70 shrink-0" />}
+      bleed
       onPointerDown={(e) => onDocPointerDown(e, doc.id)}
       onClick={(e) => handleDocClick(e, doc.id)}
       onContextMenu={(e) => handleContextMenu(e, doc.id)}
