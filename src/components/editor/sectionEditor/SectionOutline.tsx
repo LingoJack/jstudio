@@ -37,7 +37,7 @@ import { useI18n } from '../../../lib/core/i18n';
 import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import type { Block } from '../../../types';
-import { Pin, ListTree, ChevronRight, ArrowRight } from 'lucide-react';
+import { Pin, ChevronRight, ArrowRight } from 'lucide-react';
 
 /** Width of the outline panel when fully expanded. */
 const OUTLINE_WIDTH = 240;
@@ -337,7 +337,6 @@ export default function SectionOutline({
   // ── Pin / hover-expand state ──
   const outlinePinned = useStore((s) => s.outlinePinned);
   const toggleOutlinePinned = useStore((s) => s.toggleOutlinePinned);
-  const toggleOutline = useStore((s) => s.toggleOutline);
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const hoverCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -418,13 +417,6 @@ export default function SectionOutline({
               title={outlinePinned ? t('outline.unpin') : t('outline.pin')}
             >
               <Pin className="w-4 h-4" />
-            </button>
-            <button
-              onClick={toggleOutline}
-              className="p-1 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
-              title={t('outline.hide')}
-            >
-              <ListTree className="w-4 h-4" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
