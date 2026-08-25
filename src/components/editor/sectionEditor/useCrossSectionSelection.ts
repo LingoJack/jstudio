@@ -116,7 +116,6 @@ export function useCrossSectionSelection(
       const editor = ctxRef.current.getEditor(id);
       if (!editor) continue;
       setSectionHighlight(editor, null, null);
-      editor.view.dom.classList.remove('cross-section-anchor-hide-selection');
     }
   }, []);
 

@@ -828,22 +828,27 @@ pre[class*="language-"] {
   background: var(--vscode-editor-selectionBackground);
 }
 
-/* Cross-section selection highlight — painted by the section coordinator
-   (useCrossSectionSelection) on every section that is part of a cross-section
-   selection. The anchor section also holds the native Selection (for copy/cut
-   keyboard events), but its native highlight is hidden via
-   `.cross-section-anchor-hide-selection ::selection` so the visual selection
-   is uniform across section boundaries. */
-.cross-section-selected {
+/* 编辑器内永久隐藏原生选区绘制：所有文本选区（段内拖动/键盘、跨段、
+   Cmd+A）统一由 sectionHighlightSelection 插件的 .cross-section-selected
+   decoration 绘制（原生 ::selection 在行尾会延伸到整行宽度，样式不一致；
+   且 WebKit 在选区坍塌时切换 ::selection 规则会残留陈旧高亮块）。
+   注意不能用类开关切换此规则——必须恒定生效。 */
+.ProseMirror ::selection {
+  background: transparent;
+}
+
+/* 编辑器内嵌的原生控件（链接/代码块标题等 <input>、<textarea>）恢复原生选区 */
+.ProseMirror input::selection,
+.ProseMirror textarea::selection {
   background: var(--vscode-editor-selectionBackground);
 }
 
-/* When a cross-section selection is active, the anchor section still holds the
-   native Selection (needed for copy/cut/keyboard events). Hide that native
-   highlight so the selection visually matches the other sections, which only
-   show the custom `.cross-section-selected` decoration. */
-.cross-section-anchor-hide-selection ::selection {
-  background: transparent !important;
+/* Cross-section selection highlight — painted by the section coordinator
+   (useCrossSectionSelection) on every section that is part of a cross-section
+   selection, and by the mirror mode of sectionHighlightSelection for
+   within-section native selections. */
+.cross-section-selected {
+  background: var(--vscode-editor-selectionBackground);
 }
 
 /* ============================================
@@ -1677,9 +1682,6 @@ button {
 
 /* 代码内容区 */
 .code-block-wrapper .code-block-body {
-  /* position + z-index:0 establishes a local stacking context so the
-     selection overlay's z-index:-1 (below) stays scoped here instead of
-     escaping to an ancestor context. */
   position: relative;
   z-index: 0;
   margin: 0;
@@ -1690,31 +1692,9 @@ button {
   overflow-x: auto;
 }
 
-/* Selection highlight fix: native ::selection under white-space:pre-wrap
-   over-extends to the full container width on wrapped lines (Chromium/WebKit
-   quirk). We disable the native paint here and render a custom overlay
-   (populated by useCodeBlockSelectionOverlay.ts) with glyph-accurate rects
-   computed from Range.getClientRects(). */
-.code-block-wrapper .code-block-body ::selection {
-  background: transparent;
-}
-
-.code-block-selection-overlay {
-  /* z-index:-1 (paired with the stacking context above) keeps this behind
-     the non-positioned code text — a plain positioned sibling with
-     z-index:auto would otherwise paint ON TOP of non-positioned content
-     regardless of DOM order (CSS2.1 Appendix E stacking order), which would
-     obscure the text under the opaque light-theme selection color. */
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  pointer-events: none;
-}
-
-.code-block-selection-overlay .code-block-selection-rect {
-  position: absolute;
-  background: var(--vscode-editor-selectionBackground);
-}
+/* Selection highlight in code blocks is painted by the sectionHighlightSelection
+   mirror decoration (glyph-hugging spans), which also avoids the native
+   ::selection over-extension quirk for white-space:pre-wrap text. */
 
 /* Resize handle — reuses the shared bottom-right circular `block-resize-handle`
    at the corner edge (identical position & look to File / Image / Diagram).

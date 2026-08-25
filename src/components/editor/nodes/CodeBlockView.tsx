@@ -34,7 +34,6 @@ import {
   NodeViewContent,
   type Editor,
 } from "@tiptap/react";
-import { NodeSelection } from "@tiptap/pm/state";
 import {
   ChevronDown,
   Search,
@@ -44,7 +43,6 @@ import { ResizeHandle } from "../../ui/ResizeHandle";
 import { useNodeResize } from "../hooks/useNodeResize";
 import { useEditorWidth } from "../hooks/useEditorWidth";
 import { useNodeSelected } from "../hooks/useNodeSelected";
-import { useCodeBlockSelectionOverlay } from "../hooks/useCodeBlockSelectionOverlay";
 import { openHtmlPreviewWindow } from "../../../lib/windows/previewWindow";
 import { useI18n } from "../../../lib/core/i18n";
 import { handleNativeSelectAll } from "../../../lib/shortcuts/nativeSelectAll";
@@ -102,29 +100,6 @@ export default function CodeBlockView({
   // the caret is INSIDE the block (editing) is provided by CSS :focus-within,
   // so swapping the prop here does NOT lose the "active block" border.
   const selected = useNodeSelected((editor as Editor | null) ?? null, getPos);
-
-  // Custom selection-highlight overlay: native ::selection under
-  // white-space:pre-wrap over-extends to the full container width on
-  // wrapped lines (a Chromium/WebKit quirk). This hook computes tight,
-  // glyph-accurate rects via Range.getClientRects() instead. See
-  // useCodeBlockSelectionOverlay.ts for the full root-cause writeup.
-  //
-  // A real NodeSelection (e.g. triple-click, see `handleTripleClickOn` in
-  // codeBlockExtension.tsx) should show only the border-only NodeSelection
-  // chrome — otherwise the native DOM Range ProseMirror syncs for a
-  // NodeSelection gets painted here as a full-block highlight too. Checked
-  // live against `editor.state.selection` (NOT the `selected` React state
-  // above) so it's always in sync at the moment `selectionchange` fires,
-  // regardless of React's render/commit timing.
-  const isNodeSelected = useCallback(() => {
-    const pos = typeof getPos === "function" ? getPos() : null;
-    const sel = editor.state.selection;
-    return pos != null && sel instanceof NodeSelection && sel.from === pos;
-  }, [editor, getPos]);
-  const selectionOverlayRef = useCodeBlockSelectionOverlay(
-    codeRef,
-    isNodeSelected,
-  );
 
   // Whether the code block has non-empty content (controls copy-button visibility)
   const hasContent = node.textContent.trim().length > 0;
@@ -410,11 +385,6 @@ export default function CodeBlockView({
             contenteditable=false → true island makes WKWebView focus the inner
             host, which breaks ProseMirror's DOM selection synchronization. */}
         <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
-          <div
-            ref={selectionOverlayRef}
-            className="code-block-selection-overlay"
-            aria-hidden="true"
-          />
           <NodeViewContent
             as="div"
             className={`hljs language-${language || "plaintext"}`}

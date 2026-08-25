@@ -13,14 +13,16 @@
  *
  * 2. MIRROR (within-section selections): any non-collapsed native
  *    TextSelection (mouse drag, shift+keys, double/triple click) is mirrored
- *    into the same `.cross-section-selected` decoration, and the native
- *    ::selection paint is suppressed via the
- *    `cross-section-anchor-hide-selection` class on view.dom (toggled by the
- *    plugin view). Without this, drag selections show the native WebKit
- *    highlight — which over-extends to full block width at line ends and
- *    looks different from the custom style used for cross-section selections
- *    and Cmd+A. NodeSelections / CellSelections are NOT mirrored (they have
- *    their own chrome).
+ *    into the same `.cross-section-selected` decoration. The native
+ *    ::selection paint is suppressed PERMANENTLY for the whole editor via
+ *    `.ProseMirror ::selection { background: transparent }` (vscode-theme.css)
+ *    — NOT by toggling a class, because WebKit's selection invalidation
+ *    repaints stale full-width highlight bands when the ::selection rule
+ *    flips mid-collapse. Without the mirror, drag selections show the native
+ *    WebKit highlight — which over-extends to full block width at line ends
+ *    and looks different from the custom style used for cross-section
+ *    selections and Cmd+A. NodeSelections / CellSelections are NOT mirrored
+ *    (they have their own chrome).
  *
  * The explicit mode wins: while the coordinator owns the decoration (during
  * a cross-section selection), native-selection changes are ignored until it
@@ -40,9 +42,6 @@ interface HighlightState {
 const highlightKey = new PluginKey<HighlightState>(
   'sectionCrossSelectionHighlight',
 );
-
-/** view.dom class that suppresses the native ::selection paint (CSS). */
-const HIDE_NATIVE_CLASS = 'cross-section-anchor-hide-selection';
 
 export const SectionHighlightSelection = Extension.create({
   name: 'sectionHighlightSelection',
@@ -97,13 +96,6 @@ export const SectionHighlightSelection = Extension.create({
           },
         },
         view(view) {
-          const syncClass = () => {
-            const s = highlightKey.getState(view.state);
-            view.dom.classList.toggle(
-              HIDE_NATIVE_CLASS,
-              !!s && s.deco.find().length > 0,
-            );
-          };
           // On blur a mirrored highlight must not linger in an unfocused
           // section (focus changes don't dispatch transactions). Explicit
           // (coordinator-owned) paint is left alone — the coordinator
@@ -118,10 +110,9 @@ export const SectionHighlightSelection = Extension.create({
               tr.setMeta('addToHistory', false);
               view.dispatch(tr);
             }
-            view.dom.classList.remove(HIDE_NATIVE_CLASS);
           };
           // On (re)focus the PM selection is restored to the DOM — dispatch
-          // an empty tr so apply() re-mirrors it and the hide-class returns.
+          // an empty tr so apply() re-mirrors it.
           const onFocus = () => {
             const s = highlightKey.getState(view.state);
             if (s && s.explicit) return;
@@ -130,13 +121,10 @@ export const SectionHighlightSelection = Extension.create({
           };
           view.dom.addEventListener('blur', onBlur);
           view.dom.addEventListener('focus', onFocus);
-          syncClass();
           return {
-            update: syncClass,
             destroy() {
               view.dom.removeEventListener('blur', onBlur);
               view.dom.removeEventListener('focus', onFocus);
-              view.dom.classList.remove(HIDE_NATIVE_CLASS);
             },
           };
         },
