@@ -14,7 +14,6 @@ import DocumentContextMenu from './DocumentContextMenu';
 import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
 import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSidebarMenus';
 import { DocumentTreeRenderer, SearchResultsList } from './DocumentTreeRenderer';
-import EditorScrollCursor from '../editor/sectionEditor/EditorScrollCursor';
 import TrashDialog from './TrashDialog';
 import BackupRestoreDialog from './BackupRestoreDialog';
 
@@ -90,8 +89,6 @@ export default function DocumentSidebar() {
   const [moreMenuPos, setMoreMenuPos] = useState<{ x: number; y: number } | null>(null);
   /** Keeps the hover-expanded sidebar open while the search input is focused. */
   const [searchFocused, setSearchFocused] = useState(false);
-  /** Scroll container of the doc/folder tree — hosts the scroll cursor. */
-  const listContainerRef = useRef<HTMLDivElement>(null);
 
   const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
@@ -397,13 +394,7 @@ export default function DocumentSidebar() {
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
-        // Right-edge depth cue (层级感): negative spread confines the shadow
-        // strictly to the right edge — otherwise the blur bleeds onto the
-        // top/left edges and reads as stray frame lines.
-        boxShadow: isOverlay
-          ? '12px 0 12px -12px rgba(0,0,0,0.14)'
-          : '8px 0 8px -8px rgba(0,0,0,0.08)',
-        transition: 'width 180ms ease-out, margin-right 180ms ease-out, box-shadow 180ms ease-out',
+        transition: 'width 180ms ease-out, margin-right 180ms ease-out',
       }}
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
@@ -511,17 +502,13 @@ export default function DocumentSidebar() {
           never breaks. The ACTIVE document is marked by a rail-tint + "->"
           cursor instead of a background highlight (SectionOutline language).
           border-transparent reserved: avoids WKWebView inset box-shadow
-          paint glitches that ring-inset exhibits (see bug-graveyard #003).
-          The scrollbar gets the editor's instrument decoration: 1px track +
-          "<-" cursor (EditorScrollCursor), native thumb stays transparent. */}
+          paint glitches that ring-inset exhibits (see bug-graveyard #003). */}
       <div
-        ref={listContainerRef}
         data-drop-target={ROOT_DROP_ID}
-        className={`editor-scroll-container flex-1 overflow-y-auto rounded-md border pl-2 transition-colors duration-150 ${
+        className={`flex-1 overflow-y-auto rounded-md border pl-2 transition-colors duration-150 ${
           isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >
-        <EditorScrollCursor scrollContainerRef={listContainerRef} />
         {isSearching ? (
           <SearchResultsList
             filteredDocs={filteredDocs}
