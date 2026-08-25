@@ -243,17 +243,27 @@ export default function App() {
 
   // hasTerminalTab is computed above via useStore, before the early return.
 
+  // Document view: the content column punches 36px up beneath the glass
+  // title bar so document text scrolls under it (soft translucent reveal
+  // instead of a hard cutoff). Other views keep the pt-9 offset below the bar.
+  const showDocView =
+    !isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView;
+
   return (
     <div className="h-screen w-full flex flex-col bg-[var(--vscode-activityBar-background)] text-[var(--vscode-editor-foreground)] font-sans tracking-tight overflow-hidden">
       {/* ==============================
           Title Bar (full width, macOS traffic lights + global search)
+          Absolute + translucent glass — overlays the main row below.
          ============================== */}
       <AppTitleBar />
 
       {/* ==============================
           Main row: Activity Bar + Sidebar + Content
+          pt-9 clears the absolute title bar for all panels; in doc view the
+          content column punches back up (-mt-9) so the editor scrolls under
+          the glass bar.
          ============================== */}
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex-1 min-h-0 flex pt-9">
         {/* Activity Bar (left-most) */}
         <ActivityBar />
 
@@ -266,8 +276,15 @@ export default function App() {
         {/* Agent sidebar: shown when in agent view */}
         {isAgentView && <AgentSidebar />}
 
-        {/* Main content area (right) */}
-        <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative">
+        {/* Main content area (right). In doc view it punches up 36px beneath
+            the glass title bar (row's pt-9 keeps every other panel below it;
+            the calc() restores the height so the bottom still reaches the
+            window edge). */}
+        <div
+          className={`flex-1 min-w-0 flex flex-col overflow-hidden relative ${
+            showDocView ? '-mt-9 h-[calc(100%+2.25rem)]' : 'h-full'
+          }`}
+        >
           {/* Document Tab Bar */}
           {!isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView && <DocumentTabs />}
 

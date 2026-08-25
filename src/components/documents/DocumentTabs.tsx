@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
@@ -7,7 +7,7 @@ import TabBar, { type TabItem } from '../ui/TabBar';
 import type { UnifiedTab } from '../../store/workspaceSlice';
 import OpenDocumentDialog from './OpenDocumentDialog';
 import { DocumentTabContextMenu } from './DocumentTabContextMenu';
-import { TITLEBAR_CENTER_SLOT_ID } from '../layout/AppTitleBar';
+import { getTitlebarSlot, subscribeTitlebarSlot } from '../layout/titlebarSlot';
 
 /**
  * DocumentTabs — tab bar for document tabs only.
@@ -41,11 +41,12 @@ export default function DocumentTabs() {
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
 
-  // Title-bar center slot for the 'top' position (portal target).
-  const [titlebarSlot, setTitlebarSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setTitlebarSlot(document.getElementById(TITLEBAR_CENTER_SLOT_ID));
-  }, []);
+  // Title-bar center slot (live element from the registry — survives
+  // AppTitleBar remounts / HMR, unlike a state-cached reference).
+  const titlebarSlot = useSyncExternalStore(
+    subscribeTitlebarSlot,
+    getTitlebarSlot,
+  );
 
   // ── Resolve document title ───────────────────────────────────────
   const getDocTitle = useCallback(

@@ -1,5 +1,6 @@
 import { useStore } from '../../store/useStore';
 import BrowserDynamicIsland from './BrowserDynamicIsland';
+import { setTitlebarSlot } from './titlebarSlot';
 
 /** DOM id of the title-bar center slot. DocumentTabs portals the floating
  *  tab capsule here when the tab bar position is 'top' — the capsule then
@@ -28,7 +29,11 @@ export default function AppTitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="h-9 shrink-0 flex items-center justify-between bg-[var(--vscode-activityBar-background)] px-3 select-none relative z-toolbar"
+      className="absolute top-0 inset-x-0 h-9 flex items-center justify-between px-3 select-none z-toolbar"
+      // Fully transparent, no blur/tint: the document scroll area extends
+      // beneath this bar (App.tsx punches the content column through in doc
+      // view) and the text stays crisp under it.
+      style={{ background: 'transparent' }}
     >
       {/* Left: placeholder for traffic lights space */}
       <div className="w-[72px]" data-tauri-drag-region />
@@ -50,6 +55,7 @@ export default function AppTitleBar() {
           so it never blocks window dragging. */}
       <div
         id={TITLEBAR_CENTER_SLOT_ID}
+        ref={setTitlebarSlot}
         data-tauri-drag-region
         className="absolute inset-x-0 top-0 bottom-0 flex items-end justify-center pointer-events-none"
       />
