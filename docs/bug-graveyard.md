@@ -316,3 +316,47 @@ copyEvent: sel=false                    ← copy 事件照常派发，但 selRef
 4. **logger 埋点一轮定位，胜过纯推理三轮**。原生 UI（grabber）DOM 不可见，但选区状态、`selRef` 流转、事件派发顺序都可以落日志。
 
 ---
+
+## #005 — 引用块里原生光标忽大忽小（WebKit 续行 caret 按行距绘制）
+
+**状态**：已修复
+**日期**：2026-08-25
+**影响文件**：`src/lib/editor/tiptapAdapter/richText.ts`、`blocks.ts`、`list.ts`、`todo.ts`
+
+### 症状
+
+关闭光标动画（使用原生 caret）时，引用块（以及列表项、待办项等多行容器）里的光标**有时候正常、有时候异常高大**（约 1.5 倍字高）。
+
+### 排查过程
+
+用 Playwright WebKit + 红色 `caret-color` + 截图像素分析，在真实 WebKit 里逐位置测量**实际绘制的** caret 高度（`page.screenshot` 默认 `caret:'hide'` 会隐藏 caret，必须传 `caret:'initial'`；headless 下折叠 Range 的 `getClientRects()` 高度与绘制高度并不一致，不能当依据）。
+
+测量矩阵（16px 字号、line-height 1.7）：
+
+| 位置 | 绘制高度 |
+|---|---|
+| 单行段落任意位置 | 18px（字身） |
+| 多行 textblock 的**第一行**任意位置 | 18px |
+| 多行 textblock 的**第二行及以后**任意位置 | **27px（完整行距）** |
+| 两个 `<br>` 之间的空行 | **27px** |
+
+逐位置二分还排除了：嵌套容器（blockquote/div/li/td 无关）、padding/background/border、`br { line-height }`、line-height 写在 p 还是根上——全部无影响。**JS 重新设置同一个 DOM 选区位置也无法改变绘制高度**（与 affinity 无关）。
+
+### 根因
+
+**WebKit 把续行（非第一行）上的 caret 按完整 line-stride（行距）高度绘制，而第一行按字身（ascent+descent）绘制。** 这是引擎的 caret 绘制行为，无 CSS 开关；多行 textblock 里 line-height 越大越明显。
+
+多行 textblock 的来源：quote / 列表项 / 待办项此前在适配器里被转换成**单段落 + hardBreak**（`<br>`），因此它们的第 2 行起光标全是 27px。而用户在会话内按 Enter 产生的多行内容（TipTap 默认 splitBlock 成多段落）是正常的 18px——这就是"有时候对、有时候异常大"的体感来源（重载后被拍平成 hardBreak 形式才触发）。
+
+### 修复
+
+`richText.ts` 新增 `splitRichTextByLines`，quote / listItem / taskItem 的正向适配改为**每行一个 `<p>`**（多段落），不再使用单段落 + hardBreak。反向适配本来就把多段落按 `\n` 拍平回 RichText[]，round-trip 无损。实测多段落后所有行尾 caret 回到 18px。
+
+未覆盖：顶层正文段落里 Shift+Enter 产生的 hardBreak（模型上一个 block 就是一段，无法拆段）——续行 caret 仍会偏高，属 WebKit 限制。
+
+### 教训
+
+1. **原生 caret 的绘制高度≠折叠 Range 的 `getClientRects()` 高度**，且 headless 截图默认隐藏 caret（`caret:'initial'` 才可见）——测量原生绘制行为必须截图 + 像素分析。
+2. **`src/**/*.js` 旧编译产物会遮蔽同名 `.ts`**：Vite `resolve.extensions` 默认 `.js` 先于 `.ts`，扩展名省略的导入会命中残留的 `.js`（`.gitignore` 里的 `src/**/*.js`）。改这些目录的 `.ts` 后必须用 esbuild 同步重新生成 `.js`，否则改动在 app 里静默不生效（tsx 测试则相反，优先 `.ts`，测试骗不了人但 Vite 会）。
+
+---

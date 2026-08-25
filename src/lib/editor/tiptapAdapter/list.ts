@@ -13,7 +13,7 @@
 import type { JSONContent } from '@tiptap/react';
 import type { ListItemData } from '../../../types/document';
 import type { RichText } from '../../../types/richText';
-import { richTextToTiptapInline, tiptapInlineToRichText } from './richText';
+import { richTextToTiptapInline, tiptapInlineToRichText, splitRichTextByLines } from './richText';
 
 /**
  * Convert one `ListItemData` (and its descendants) to a TipTap `listItem`.
@@ -22,13 +22,17 @@ export function listItemToTiptap(
   item: ListItemData,
   listType: 'bulletList' | 'orderedList',
 ): JSONContent {
-  const inline = richTextToTiptapInline(item.content ?? []);
-  const content: JSONContent[] = [
-    {
+  // One paragraph per line (not a single paragraph with hardBreaks) — on
+  // WebKit the native caret on continuation lines of a multi-line textblock
+  // is painted at the full line-stride height (see splitRichTextByLines).
+  // tiptapToListItems merges multi-paragraph items back with '\n'.
+  const content: JSONContent[] = splitRichTextByLines(item.content ?? []).map((line) => {
+    const inline = richTextToTiptapInline(line);
+    return {
       type: 'paragraph',
       ...(inline.length > 0 ? { content: inline } : {}),
-    },
-  ];
+    };
+  });
   if (item.children && item.children.length > 0) {
     content.push({
       type: listType,

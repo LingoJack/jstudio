@@ -16,7 +16,7 @@ import type { JSONContent } from '@tiptap/react';
 import type { Block, BlockType } from '../../../types/document';
 import type { RichText } from '../../../types/richText';
 import { isAssetPath } from '../content/assetUrl';
-import { richTextToTiptapInline, tiptapInlineToRichText } from './richText';
+import { richTextToTiptapInline, tiptapInlineToRichText, splitRichTextByLines } from './richText';
 import { tableDataToTiptap, tiptapToTableData } from './table';
 import { listItemToTiptap, tiptapToListItems, legacyFlatListToItems, listItemsToFlat } from './list';
 import { todoItemToTiptap, tiptapToTodoItems } from './todo';
@@ -178,15 +178,20 @@ export function ourBlockToTiptapJSON(block: Block): JSONContent {
     }
     case 'quote': {
       // TipTap blockquote is a container whose content is one or more
-      // paragraph nodes. We store our content as RichText[] (single
-      // paragraph) and wrap it in a paragraph inside the blockquote.
-      const inline = richTextToTiptapInline(block.content as RichText[]);
-      json.content = [
-        {
+      // paragraph nodes. We emit ONE PARAGRAPH PER LINE (splitting our
+      // RichText[] on '\n') instead of a single paragraph with hardBreaks:
+      // on WebKit the native caret on continuation lines of a multi-line
+      // textblock is painted at the full line-stride height (see
+      // splitRichTextByLines). The reverse adapter flattens multi-paragraph
+      // blockquotes back into '\n'-joined RichText[], so this round-trips.
+      const lines = splitRichTextByLines(block.content as RichText[]);
+      json.content = lines.map((line) => {
+        const inline = richTextToTiptapInline(line);
+        return {
           type: 'paragraph',
           ...(inline.length > 0 ? { content: inline } : {}),
-        },
-      ];
+        };
+      });
       break;
     }
     case 'code': {

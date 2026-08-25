@@ -12,7 +12,7 @@
 import type { JSONContent } from '@tiptap/react';
 import type { TodoItemData } from '../../../types/document';
 import type { RichText } from '../../../types/richText';
-import { richTextToTiptapInline, tiptapInlineToRichText } from './richText';
+import { richTextToTiptapInline, tiptapInlineToRichText, splitRichTextByLines } from './richText';
 
 /**
  * Convert one `TodoItemData` (and descendants) to a TipTap `taskItem`.
@@ -23,13 +23,17 @@ export function todoItemToTiptap(item: TodoItemData): JSONContent {
   const rich =
     item.richText ??
     (legacyText ? [{ text: legacyText, annotations: {} }] : []);
-  const inline = richTextToTiptapInline(rich);
-  const content: JSONContent[] = [
-    {
+  // One paragraph per line (not a single paragraph with hardBreaks) — on
+  // WebKit the native caret on continuation lines of a multi-line textblock
+  // is painted at the full line-stride height (see splitRichTextByLines).
+  // tiptapToTodoItems merges multi-paragraph items back with '\n'.
+  const content: JSONContent[] = splitRichTextByLines(rich).map((line) => {
+    const inline = richTextToTiptapInline(line);
+    return {
       type: 'paragraph',
       ...(inline.length > 0 ? { content: inline } : {}),
-    },
-  ];
+    };
+  });
   if (item.children && item.children.length > 0) {
     content.push({
       type: 'taskList',

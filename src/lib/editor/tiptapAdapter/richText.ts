@@ -52,6 +52,31 @@ function annotationsToMarks(ann: RichTextAnnotations): TiptapMark[] {
 }
 
 /**
+ * Split a `RichText[]` into per-line groups on `\n` (both standalone `\n`
+ * segments and `\n` inside a segment's text). Annotations are preserved on
+ * each piece. Always returns at least one group (possibly empty).
+ *
+ * Used by container blocks (quote, list items, todo items) to emit ONE
+ * PARAGRAPH PER LINE instead of a single paragraph with hardBreaks: on
+ * WebKit/WKWebView the native caret on continuation lines of a multi-line
+ * textblock is painted with the full line-stride height (line-height, e.g.
+ * 1.7em) instead of the typographic height (~1.2em), so hardBreak-separated
+ * lines show an oversized caret. Separate paragraphs don't trigger it.
+ */
+export function splitRichTextByLines(rich: RichText[]): RichText[][] {
+  const lines: RichText[][] = [[]];
+  for (const seg of rich ?? []) {
+    if (!seg.text) continue;
+    const parts = seg.text.split('\n');
+    parts.forEach((part, i) => {
+      if (i > 0) lines.push([]);
+      if (part) lines[lines.length - 1].push({ ...seg, text: part });
+    });
+  }
+  return lines;
+}
+
+/**
  * Convert our `RichText[]` to an array of TipTap inline `JSONContent` nodes.
  *
  * Each `RichText` segment becomes a text node with the appropriate marks.

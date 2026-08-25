@@ -132,6 +132,77 @@ test('forward: quote round-trips', () => {
   assert.deepEqual(normalizeBlock(result), normalizeBlock(block));
 });
 
+test('forward: multi-line quote emits one paragraph per line and round-trips', () => {
+  // On WebKit the native caret on continuation lines of a multi-line
+  // textblock (hardBreak-separated) is painted at the full line-stride
+  // height, so containers emit one paragraph per line instead.
+  const content: RichText[] = [
+    { text: 'line one', annotations: {} },
+    { text: '\n', annotations: {} },
+    { text: 'line two', annotations: { bold: true } },
+  ];
+  const block = mkBlock('quote', content);
+  const json = ourBlockToTiptapJSON(block);
+  // Structure: blockquote with exactly 2 paragraphs, no hardBreaks.
+  assert.equal(json.content?.length, 2);
+  assert.ok(json.content!.every((p) => p.type === 'paragraph'));
+  assert.equal(json.content?.[1]?.content?.[0]?.text, 'line two');
+  assert.ok(!JSON.stringify(json).includes('hardBreak'));
+  // Round-trip: reverse flattens paragraphs back with '\n'.
+  const result = tiptapJSONToOurBlock(json);
+  assert.deepEqual(normalizeBlock(result), normalizeBlock(block));
+});
+
+test('forward: multi-line quote preserves empty lines', () => {
+  const content: RichText[] = [{ text: 'a\n\nb', annotations: {} }];
+  const json = ourBlockToTiptapJSON(mkBlock('quote', content));
+  // 'a', '', 'b' → three paragraphs, middle one empty.
+  assert.equal(json.content?.length, 3);
+  assert.equal(json.content?.[1]?.content, undefined);
+  const result = tiptapJSONToOurBlock(json);
+  assert.deepEqual(result.content, [
+    { text: 'a', annotations: {} },
+    { text: '\n', annotations: {} },
+    { text: '\n', annotations: {} },
+    { text: 'b', annotations: {} },
+  ]);
+});
+
+test('forward: multi-line list item emits one paragraph per line and round-trips', () => {
+  const item = {
+    content: [
+      { text: 'first', annotations: {} },
+      { text: '\n', annotations: {} },
+      { text: 'second', annotations: {} },
+    ],
+    children: [],
+  };
+  const json = listItemToTiptap(item, 'bulletList');
+  assert.equal(json.content?.length, 2);
+  assert.ok(json.content!.every((p) => p.type === 'paragraph'));
+  assert.ok(!JSON.stringify(json).includes('hardBreak'));
+  const back = tiptapToListItems({ type: 'bulletList', content: [json] });
+  assert.deepEqual(back, [item]);
+});
+
+test('forward: multi-line todo item emits one paragraph per line and round-trips', () => {
+  const item = {
+    checked: true,
+    richText: [
+      { text: 'first', annotations: {} },
+      { text: '\n', annotations: {} },
+      { text: 'second', annotations: {} },
+    ],
+    children: [],
+  };
+  const json = todoItemToTiptap(item);
+  assert.equal(json.content?.length, 2);
+  assert.ok(json.content!.every((p) => p.type === 'paragraph'));
+  assert.ok(!JSON.stringify(json).includes('hardBreak'));
+  const back = tiptapToTodoItems({ type: 'taskList', content: [json] });
+  assert.deepEqual(back, [item]);
+});
+
 test('forward: code block round-trips with language', () => {
   const block = mkBlock('code', [{ text: 'const x = 1;', annotations: {} }], {
     language: 'typescript',
