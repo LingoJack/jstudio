@@ -130,7 +130,7 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
         <div
           ref={ref}
           data-sidebar-root
-          className="shrink-0 h-full flex flex-col border-r border-[var(--vscode-sideBar-border)] bg-[var(--vscode-sideBar-background)] overflow-hidden select-none z-30 relative"
+          className="shrink-0 h-full flex flex-col bg-[var(--vscode-sideBar-background)] overflow-hidden select-none z-30 relative"
           style={{
             width,
             marginRight: expanded ? -overlayShift : 0,

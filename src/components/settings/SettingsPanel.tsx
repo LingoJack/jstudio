@@ -273,7 +273,7 @@ export default function SettingsPanel() {
   return (
     <div className="w-full h-full flex bg-[var(--vscode-editor-background)]">
       {/* ── Left navigation ── */}
-      <nav className="w-60 shrink-0 bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col py-5 select-none">
+      <nav className="w-60 shrink-0 bg-[var(--vscode-sideBar-background)] flex flex-col py-5 select-none">
         {/* Title */}
         <div className="px-5 mb-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">

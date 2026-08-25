@@ -8,10 +8,10 @@ export const PAPER_LIGHT: AppTheme = {
   id: 'paper-light',
   isDark: false,
   colors: {
-    // ── Core backgrounds (3-layer hierarchy) ──
+    // ── Core backgrounds (栏背景与内容区统一) ──
     'editor-background': '#ffffff',
-    'sideBar-background': '#fafafa',
-    'activityBar-background': '#f6f8fa',
+    'sideBar-background': '#ffffff',
+    'activityBar-background': '#ffffff',
 
     // ── Borders (teal, document-style) ──
     'sideBar-border': '#05838B',

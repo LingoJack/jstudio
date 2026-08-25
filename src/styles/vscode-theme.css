@@ -17,7 +17,9 @@
   /* Light Modern Theme (default) */
   --vscode-editor-background: #f8f8f8;
   --vscode-editor-foreground: #3b3b3b;
-  --vscode-sideBar-background: #ffffff;
+  /* 栏背景与内容区统一：sideBar / activityBar 与 editor 同色，
+     面板靠结构而非底色区分（见 2026-08 去框线改动）。 */
+  --vscode-sideBar-background: #f8f8f8;
   --vscode-sideBar-border: #e5e5e5;
   --vscode-sideBar-foreground: #3b3b3b;
   --vscode-titleBar-background: #f8f8f8;
@@ -26,7 +28,7 @@
   --vscode-statusBar-background: #f8f8f8;
   --vscode-statusBar-border: #e5e5e5;
   --vscode-statusBar-foreground: #3b3b3b;
-  --vscode-activityBar-background: #ffffff;
+  --vscode-activityBar-background: #f8f8f8;
   --vscode-activityBar-border: #e5e5e5;
   --vscode-activityBar-foreground: #1f1f1f;
   --vscode-tab-activeBackground: #f8f8f8;
@@ -144,16 +146,16 @@
   /* Dark Modern Theme */
   --vscode-editor-background: #181818;
   --vscode-editor-foreground: #cccccc;
-  --vscode-sideBar-background: #1f1f1f;
+  --vscode-sideBar-background: #181818;
   --vscode-sideBar-border: #2b2b2b;
   --vscode-sideBar-foreground: #cccccc;
-  --vscode-titleBar-background: #1f1f1f;
+  --vscode-titleBar-background: #181818;
   --vscode-titleBar-border: #2b2b2b;
   --vscode-titleBar-foreground: #cccccc;
   --vscode-statusBar-background: #1f1f1f;
   --vscode-statusBar-border: #2b2b2b;
   --vscode-statusBar-foreground: #cccccc;
-  --vscode-activityBar-background: #1f1f1f;
+  --vscode-activityBar-background: #181818;
   --vscode-activityBar-border: #2b2b2b;
   --vscode-activityBar-foreground: #d7d7d7;
   --vscode-tab-activeBackground: #181818;

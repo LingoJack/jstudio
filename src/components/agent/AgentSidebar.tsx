@@ -215,7 +215,7 @@ export default function AgentSidebar() {
   return (
     <div
       data-sidebar-root
-      className="shrink-0 h-full flex flex-col select-none z-30 relative overflow-hidden bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)]"
+      className="shrink-0 h-full flex flex-col select-none z-30 relative overflow-hidden bg-[var(--vscode-sideBar-background)]"
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,

@@ -390,7 +390,7 @@ export default function DocumentSidebar() {
   return (
     <div
       data-sidebar-root
-      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] border-r border-[var(--vscode-sideBar-border)] flex flex-col select-none z-30 relative overflow-hidden"
+      className="shrink-0 h-full bg-[var(--vscode-sideBar-background)] flex flex-col select-none z-30 relative overflow-hidden"
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,

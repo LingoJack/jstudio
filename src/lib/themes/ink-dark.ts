@@ -9,8 +9,8 @@ export const INK_DARK: AppTheme = {
   isDark: true,
   colors: {
     'editor-background': '#222436',
-    'sideBar-background': '#1e2030',
-    'activityBar-background': '#1e2030',
+    'sideBar-background': '#222436',
+    'activityBar-background': '#222436',
     'sideBar-border': '#5a6590',
     'activityBar-border': '#5a6590',
     'widget-border': '#5a6590',

@@ -9,9 +9,10 @@ export const INK_LIGHT: AppTheme = {
   isDark: false,
   colors: {
     // Core backgrounds — warm cream hierarchy
+    // (栏背景与内容区统一为 editor-background，面板靠结构而非底色区分)
     'editor-background': '#faf6f1',
-    'sideBar-background': '#f5f0e8',
-    'activityBar-background': '#f0ebe3',
+    'sideBar-background': '#faf6f1',
+    'activityBar-background': '#faf6f1',
     'sideBar-border': '#1a1612',
     'activityBar-border': '#1a1612',
     'widget-border': '#1a1612',

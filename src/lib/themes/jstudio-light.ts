@@ -8,10 +8,10 @@ export const JSTUDIO_LIGHT: AppTheme = {
   id: 'jstudio-light',
   isDark: false,
   colors: {
-    // ── Core backgrounds (3-layer hierarchy) ──
+    // ── Core backgrounds (栏背景与内容区统一) ──
     'editor-background': '#F8F8F8',
-    'sideBar-background': '#FFFFFF',
-    'activityBar-background': '#FFFFFF',
+    'sideBar-background': '#F8F8F8',
+    'activityBar-background': '#F8F8F8',
 
     // ── Borders ──
     'sideBar-border': '#C0C0C0',

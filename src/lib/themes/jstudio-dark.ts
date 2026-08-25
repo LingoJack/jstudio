@@ -9,8 +9,8 @@ export const JSTUDIO_DARK: AppTheme = {
   isDark: true,
   colors: {
     'editor-background': '#181818',
-    'sideBar-background': '#1F1F1F',
-    'activityBar-background': '#1F1F1F',
+    'sideBar-background': '#181818',
+    'activityBar-background': '#181818',
     'sideBar-border': '#5A5A5A',
     'activityBar-border': '#5A5A5A',
     'widget-border': '#5A5A5A',

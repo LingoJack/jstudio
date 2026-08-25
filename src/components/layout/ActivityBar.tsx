@@ -127,7 +127,7 @@ export default function ActivityBar() {
 
   return (
     <div
-      className="w-11 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] border-r border-[var(--vscode-activityBar-border)] py-2 select-none"
+      className="w-11 shrink-0 flex flex-col items-center justify-between bg-[var(--vscode-activityBar-background)] py-2 select-none"
       onMouseEnter={() => setLeftPanelHovered(true)}
       onMouseLeave={() => setLeftPanelHovered(false)}
     >
