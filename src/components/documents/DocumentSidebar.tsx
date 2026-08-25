@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
@@ -9,7 +10,8 @@ import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
 import { buildFolderTree } from '../../lib/documents/folderTree';
 import { pinyinIncludes } from '../../lib/documents/pinyinMatch';
-import { MoreHorizontal, X, Pin, Search } from 'lucide-react';
+import { useTitlebarLeftSlot } from '../layout/titlebarSlot';
+import { MoreHorizontal, X, Pin, Search, ArrowRight } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
 import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSidebarMenus';
@@ -170,6 +172,19 @@ export default function DocumentSidebar() {
     () => buildFolderTree(folders, filteredDocs, { sortKey: docSortKey, direction: docSortDirection }),
     [folders, filteredDocs, docSortKey, docSortDirection],
   );
+
+  // ── Derived: mini-rail items for the collapsed strip (top-level entries,
+  //    folders first then root docs — same order as the expanded tree) ──
+  const railItems = useMemo(() => {
+    const items: { id: string; kind: 'folder' | 'doc'; title: string }[] = [];
+    for (const n of tree.subFolders) {
+      if (n.folder) items.push({ id: n.folder.id, kind: 'folder', title: n.folder.name });
+    }
+    for (const d of tree.documents) {
+      items.push({ id: d.id, kind: 'doc', title: d.title || t('doclist.untitled') });
+    }
+    return items;
+  }, [tree, t]);
 
   // ── Effects: auto-close menus ─────────────────────────────
   useEffect(() => {
@@ -386,6 +401,96 @@ export default function DocumentSidebar() {
 
   // ── Main render ───────────────────────────────────────────
   const isRootDropTarget = dragOverTarget === ROOT_DROP_ID;
+  const leftSlot = useTitlebarLeftSlot();
+
+  // The sidebar toolbar (search / pin / more) lives in the title bar's left
+  // slot — making the title bar the app's single top row and freeing the
+  // sidebar body to start directly with the tree. All state/handlers stay
+  // here; only the UI is portaled. Rendered in both collapsed and expanded
+  // modes, so search also works on the 48px strip.
+  const sidebarToolbar = (
+    <div className="flex items-center gap-1.5 w-48" data-tauri-drag-region={false}>
+      {/* Search — Aliyun-style soft always-on fill; focus gets the accent ring */}
+      <div
+        className="flex-1 min-w-0 flex items-center gap-1.5 h-6 px-1.5 rounded-md transition-colors duration-150 bg-[color-mix(in_srgb,var(--vscode-foreground)_5%,transparent)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]"
+      >
+        <Search className="w-3.5 h-3.5 opacity-50 shrink-0" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          onKeyDown={(e) => {
+            if (handleNativeSelectAll(e)) return;
+            if (e.key === 'Escape') {
+              if (searchQuery) setSearchQuery('');
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          placeholder={t('search.placeholder')}
+          className="w-full min-w-0 bg-transparent text-body text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] focus:outline-none"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="shrink-0 p-0.5 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] transition-colors duration-150 cursor-pointer"
+            title={t('doclist.clearSearch')}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">
+        {/* Pin toggle */}
+        <button
+          onClick={handleTogglePin}
+          className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
+            sidebarPinned
+              ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+              : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+          }`}
+          title={sidebarPinned ? t('doclist.unpin') : t('doclist.pin')}
+        >
+          <Pin className="w-4 h-4" />
+        </button>
+
+        <div
+          ref={moreMenuRef}
+          onMouseEnter={openMoreMenu}
+          onMouseLeave={scheduleCloseMoreMenu}
+        >
+          <button
+            onClick={() => {
+              captureMoreMenuPos();
+              setMoreMenuOpen((v) => !v);
+            }}
+            className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
+            title={t('doclist.moreActions')}
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+          {moreMenuOpen && moreMenuPos && (
+            <DocumentSidebarMoreMenu
+              x={moreMenuPos.x}
+              y={moreMenuPos.y}
+              docSortKey={docSortKey}
+              docSortDirection={docSortDirection}
+              onClose={() => setMoreMenuOpen(false)}
+              onNewDocument={() => createDocument()}
+              onNewFolder={() => handleCreateFolder()}
+              onImportMarkdown={() => handleImportMarkdown()}
+              onImportMarkdownDirectory={() => handleImportMarkdownDirectory()}
+              onImportBundle={() => handleImportBundle()}
+              onSetSortKey={(key) => setDocSortKey(key)}
+              onSetSortDirection={(dir) => setDocSortDirection(dir)}
+              onOpenTrash={() => setTrashDialogOpen(true)}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -399,103 +504,27 @@ export default function DocumentSidebar() {
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
     >
-      {/* ── Collapsed mode: just a pin button ── */}
+      {leftSlot && createPortal(sidebarToolbar, leftSlot)}
+      {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
-        <div className="h-9 shrink-0 flex items-center justify-center">
-          <button
-            onClick={handleTogglePin}
-            className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
-            title={t('doclist.pin')}
-          >
-            <Pin className="w-4 h-4" />
-          </button>
-        </div>
+        <>
+          <div className="h-9 shrink-0 flex items-center justify-center">
+            <button
+              onClick={handleTogglePin}
+              className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
+              title={t('doclist.pin')}
+            >
+              <Pin className="w-4 h-4" />
+            </button>
+          </div>
+          <CollapsedRail
+            items={railItems}
+            activeDocId={activeDocId}
+            onOpenDoc={(id) => openDocumentTab(id)}
+          />
+        </>
       ) : (
         <>
-      {/* Header - aligned with the tab bar height (h-9); search is inline here.
-          Aliyun-style soft always-on fill (5% foreground tint, theme-agnostic)
-          instead of the hover-reveal treatment; focus gets the accent ring. */}
-      <div className="h-9 shrink-0 flex items-center gap-1.5 px-3">
-        <div
-          className="flex-1 min-w-0 flex items-center gap-1.5 h-6 px-1.5 rounded-md transition-colors duration-150 bg-[color-mix(in_srgb,var(--vscode-foreground)_5%,transparent)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]"
-        >
-          <Search className="w-3.5 h-3.5 opacity-50 shrink-0" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            onKeyDown={(e) => {
-              if (handleNativeSelectAll(e)) return;
-              if (e.key === 'Escape') {
-                if (searchQuery) setSearchQuery('');
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            placeholder={t('search.placeholder')}
-            className="w-full min-w-0 bg-transparent text-body text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] focus:outline-none"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="shrink-0 p-0.5 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] transition-colors duration-150 cursor-pointer"
-              title={t('doclist.clearSearch')}
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          {/* Pin toggle */}
-          <button
-            onClick={handleTogglePin}
-            className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
-              sidebarPinned
-                ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-                : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-            }`}
-            title={sidebarPinned ? t('doclist.unpin') : t('doclist.pin')}
-          >
-            <Pin className="w-4 h-4" />
-          </button>
-
-          <div
-            ref={moreMenuRef}
-            onMouseEnter={openMoreMenu}
-            onMouseLeave={scheduleCloseMoreMenu}
-          >
-            <button
-              onClick={() => {
-                captureMoreMenuPos();
-                setMoreMenuOpen((v) => !v);
-              }}
-              className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
-              title={t('doclist.moreActions')}
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            {moreMenuOpen && moreMenuPos && (
-              <DocumentSidebarMoreMenu
-                x={moreMenuPos.x}
-                y={moreMenuPos.y}
-                docSortKey={docSortKey}
-                docSortDirection={docSortDirection}
-                onClose={() => setMoreMenuOpen(false)}
-                onNewDocument={() => createDocument()}
-                onNewFolder={() => handleCreateFolder()}
-                onImportMarkdown={() => handleImportMarkdown()}
-                onImportMarkdownDirectory={() => handleImportMarkdownDirectory()}
-                onImportBundle={() => handleImportBundle()}
-                onSetSortKey={(key) => setDocSortKey(key)}
-                onSetSortDirection={(dir) => setDocSortDirection(dir)}
-                onOpenTrash={() => setTrashDialogOpen(true)}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Documents + folders list (root drop zone). pl-2 insets rows so the
           rail (each root row's / folder wrapper's left border) forms one
           continuous vertical line; rows are gapless (no space-y) so the rail
@@ -641,6 +670,72 @@ export default function DocumentSidebar() {
           style={{ marginRight: '-1px' }}
         />
       )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// CollapsedRail — mini instrument for the 48px collapsed strip.
+//
+// A single 1px rail hangs directly below the pin icon, at x=8 — the SAME
+// x as the expanded tree's row rail, so the line visually continues
+// across the collapse/expand transition. No per-item ticks: the rail only
+// carries (a) a progress segment from the top to the ACTIVE document's
+// proportional position, tinted accent 45% like the outline's consumed
+// rail, and (b) the active document's "->" cursor straddling the rail
+// (clickable — opens that document).
+// ──────────────────────────────────────────────────────────────────
+
+interface RailItem {
+  id: string;
+  kind: 'folder' | 'doc';
+  title: string;
+}
+
+function CollapsedRail({
+  items,
+  activeDocId,
+  onOpenDoc,
+}: {
+  items: RailItem[];
+  activeDocId: string;
+  onOpenDoc: (id: string) => void;
+}) {
+  const activeIndex = items.findIndex((i) => i.kind === 'doc' && i.id === activeDocId);
+  const activePct =
+    activeIndex >= 0
+      ? items.length <= 1
+        ? 50
+        : (activeIndex / (items.length - 1)) * 100
+      : null;
+  const activeItem = activeIndex >= 0 ? items[activeIndex] : null;
+
+  return (
+    <div className="relative flex-1 w-full">
+      {/* The rail itself, hanging flush below the pin icon */}
+      <span className="absolute left-[8px] top-0 bottom-2 w-px bg-[var(--vscode-sideBar-border)]" />
+
+      {activePct !== null && activeItem && (
+        <>
+          {/* Progress segment: top → active position, tinted accent 45% */}
+          <span
+            className="absolute left-[8px] top-0 w-px bg-[color-mix(in_srgb,var(--vscode-focusBorder)_45%,transparent)]"
+            style={{ height: `${activePct}%` }}
+          />
+          {/* "->" cursor straddling the rail at the active position; the bg
+              patch masks the rail underneath so the arrow reads embedded. */}
+          <button
+            title={activeItem.title}
+            onClick={() => onOpenDoc(activeItem.id)}
+            className="group absolute flex items-center h-3 w-5 cursor-pointer"
+            style={{ left: 0, top: `${activePct}%`, transform: 'translateY(-50%)' }}
+          >
+            <span className="py-[3px] ml-[1px] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-focusBorder)]">
+              <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
+            </span>
+          </button>
         </>
       )}
     </div>

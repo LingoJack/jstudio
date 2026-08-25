@@ -6,6 +6,10 @@ import { setTitlebarSlot } from './titlebarSlot';
  *  tab capsule here when the tab bar position is 'top' — the capsule then
  *  sits inside the title bar row instead of floating over the content. */
 export const TITLEBAR_CENTER_SLOT_ID = 'app-titlebar-center-slot';
+/** DOM id of the title-bar LEFT slot (after the traffic-light spacer).
+ *  DocumentSidebar portals its toolbar (search / pin / more) here, making
+ *  the title bar the app's single unified top row. */
+export const TITLEBAR_LEFT_SLOT_ID = 'app-titlebar-left-slot';
 
 /**
  * macOS-style title bar spanning the full window width.
@@ -35,7 +39,8 @@ export default function AppTitleBar() {
       // view) and the text stays crisp under it.
       style={{ background: 'transparent' }}
     >
-      {/* Left: placeholder for traffic lights space */}
+      {/* Left: placeholder for traffic lights space — the whole left zone is
+          surrendered to the native traffic lights; no app UI lives here. */}
       <div className="w-[72px]" data-tauri-drag-region />
 
       {/* Center: Dynamic Island (browser address bar) or empty drag region.
@@ -55,9 +60,17 @@ export default function AppTitleBar() {
           so it never blocks window dragging. */}
       <div
         id={TITLEBAR_CENTER_SLOT_ID}
-        ref={setTitlebarSlot}
+        ref={(el) => setTitlebarSlot('center', el)}
         data-tauri-drag-region
         className="absolute inset-x-0 top-0 bottom-0 flex items-end justify-center pointer-events-none"
+      />
+
+      {/* Right slot: the sidebar toolbar (search / pin / more), portaled by
+          DocumentSidebar — kept well clear of the traffic lights on the left. */}
+      <div
+        id={TITLEBAR_LEFT_SLOT_ID}
+        ref={(el) => setTitlebarSlot('left', el)}
+        className="flex items-center"
       />
 
       {/* Right: spacer (sidebar toggle moved into DocumentSidebar as a pin) */}
