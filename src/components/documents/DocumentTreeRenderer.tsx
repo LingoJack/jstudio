@@ -245,10 +245,10 @@ export function DocumentTreeRenderer({
           )}
         </NavRow>
 
-        {/* Children – indentation only, no guide line. Aligns child text a
-            modest step in from the (now icon-less) folder label. */}
+        {/* Children – thin vertical guide line (Aliyun-style tree rail)
+            hanging from the parent row, plus indentation. */}
         {open && (
-          <NavBranch plain className="mt-0.5 mb-1 ml-[12px]">
+          <NavBranch className="mt-0.5 mb-1 ml-[12px]">
             {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
             {node.documents.map((doc) => renderDoc(doc))}
           </NavBranch>

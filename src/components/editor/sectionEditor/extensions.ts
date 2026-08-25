@@ -16,6 +16,7 @@ import { FileExtension } from '../../../lib/editor/extensions/fileExtension';
 import { LinkExtension } from '../../../lib/editor/extensions/linkExtension';
 import { CollapsibleExtension } from '../../../lib/editor/extensions/collapsibleExtension';
 import { GapCursorClickFix } from '../../../lib/editor/extensions/gapCursorClickFix';
+import { ModClickCaretFix } from '../../../lib/editor/extensions/modClickCaretFix';
 import { DiagramExtension } from '../../../lib/editor/extensions/diagramExtension';
 import { MathBlockExtension } from '../../../lib/editor/extensions/mathBlockExtension';
 import Link from '@tiptap/extension-link';
@@ -123,6 +124,7 @@ export function createSectionExtensions(
     LinkExtension,
     CollapsibleExtension,
     GapCursorClickFix,
+    ModClickCaretFix,
     DiagramExtension,
     MathBlockExtension,
     Link.extend({
