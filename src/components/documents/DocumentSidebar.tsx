@@ -397,7 +397,13 @@ export default function DocumentSidebar() {
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
-        transition: 'width 180ms ease-out, margin-right 180ms ease-out',
+        // Right-edge depth cue (层级感): negative spread confines the shadow
+        // strictly to the right edge — otherwise the blur bleeds onto the
+        // top/left edges and reads as stray frame lines.
+        boxShadow: isOverlay
+          ? '12px 0 12px -12px rgba(0,0,0,0.14)'
+          : '8px 0 8px -8px rgba(0,0,0,0.08)',
+        transition: 'width 180ms ease-out, margin-right 180ms ease-out, box-shadow 180ms ease-out',
       }}
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
