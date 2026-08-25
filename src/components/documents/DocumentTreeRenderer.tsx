@@ -11,13 +11,41 @@
  */
 
 import type React from 'react';
+import { ArrowRight } from 'lucide-react';
 import { NavRow, NavBranch } from '../ui/NavTree';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { FolderTreeNode } from '../../lib/documents/folderTree';
 import type { DocumentMeta, FolderMeta } from '../../types/storage';
 import { useI18n } from '../../lib/core/i18n';
 
-// ── DocumentTreeRenderer ─────────────────────────────────
+// ── Active-document marker: branch guide line + "->" cursor ──
+// The ONLY vertical line in the tree is the tree-guide that hangs from an
+// expanded folder down its children (the NavBranch's left border, aligned
+// with the parent's text indent — Aliyun docs-nav style). Root rows carry
+// no line. The ACTIVE document gets NO background highlight — instead an
+// accent "->" cursor straddles the guide line (root rows: at the row's
+// left edge) plus an accent title, mirroring SectionOutline's marker.
+
+/** "->" cursor straddling the guide line; `left` tunes how far it reaches back. */
+function RailArrow({ left = -7 }: { left?: number }) {
+  return (
+    <span
+      className="absolute top-1/2 -translate-y-1/2 py-[3px] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-focusBorder)]"
+      style={{ left }}
+    >
+      <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
+    </span>
+  );
+}
+
+/** Active doc title: accent text (no background highlight). */
+function ActiveTitle({ text }: { text: string }) {
+  return (
+    <span className="truncate text-[var(--vscode-focusBorder)] font-medium">
+      {text}
+    </span>
+  );
+}
 
 export interface DocumentTreeRendererProps {
   tree: FolderTreeNode;
@@ -103,6 +131,7 @@ export function DocumentTreeRenderer({
   /**
    * Render a single document row inside the folder tree.
    * Uses NavRow (secondary level) so it matches Settings sub-items.
+   * The active document gets the rail-arrow marker (no background).
    */
   const renderDoc = (doc: DocumentMeta) => {
     const isActive = doc.id === activeDocId;
@@ -114,7 +143,6 @@ export function DocumentTreeRenderer({
       <NavRow
         key={doc.id}
         level="secondary"
-        active={isActive}
         selected={isSelected}
         noHover
         bleed
@@ -144,6 +172,11 @@ export function DocumentTreeRenderer({
             className="w-full h-6 text-body bg-[var(--vscode-input-background)] border border-[var(--vscode-focusBorder)] text-[var(--vscode-input-foreground)] rounded px-1.5 focus:outline-none"
             placeholder={t('doclist.renamePlaceholder')}
           />
+        ) : isActive ? (
+          <>
+            <RailArrow />
+            <ActiveTitle text={doc.title || t('doclist.untitled')} />
+          </>
         ) : (
           doc.title || t('doclist.untitled')
         )}
@@ -169,9 +202,9 @@ export function DocumentTreeRenderer({
       <div
         key={f.id}
         data-drop-target={f.id}
-        // Reserved transparent border instead of ring-inset: WKWebView
-        // intermittently fails to paint the full inset box-shadow (missing
-        // bottom/right edges). A real border always paints atomically.
+        // Reserved transparent border for drop feedback instead of
+        // ring-inset: WKWebView intermittently fails to paint the full
+        // inset box-shadow (missing edges, bug-graveyard #003).
         className={`rounded-md border transition-colors duration-150 ${
           isDropTarget || isFlashing
             ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
@@ -245,8 +278,9 @@ export function DocumentTreeRenderer({
           )}
         </NavRow>
 
-        {/* Children – thin vertical guide line (Aliyun-style tree rail)
-            hanging from the parent row, plus indentation. */}
+        {/* Children – the tree-guide line (NavBranch's left border) hangs
+            from the parent's text indent down this whole subtree, exactly
+            like the Aliyun docs nav. The active child's arrow straddles it. */}
         {open && (
           <NavBranch className="mt-0.5 mb-1 ml-[12px]">
             {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
@@ -267,12 +301,13 @@ export function DocumentTreeRenderer({
           {t('doclist.noMatch')}
         </p>
       ) : (
-        tree.documents.map((doc) => (
+        tree.documents.map((doc) => {
+          const isActive = doc.id === activeDocId;
+          return (
           <NavRow
             key={doc.id}
             level="primary"
             plainActive
-            active={doc.id === activeDocId}
             selected={selectedIds.has(doc.id)}
             noHover
             bleed
@@ -283,11 +318,21 @@ export function DocumentTreeRenderer({
               e.stopPropagation();
               startRename(doc.id, doc.title || '');
             }}
-            className={draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''}
+            className={
+              draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''
+            }
           >
-            {doc.title || t('doclist.untitled')}
+            {isActive ? (
+              <>
+                <RailArrow />
+                <ActiveTitle text={doc.title || t('doclist.untitled')} />
+              </>
+            ) : (
+              doc.title || t('doclist.untitled')
+            )}
           </NavRow>
-        ))
+          );
+        })
       )}
     </>
   );
@@ -325,12 +370,13 @@ export function SearchResultsList({
       </p>
     );
   }
-  return filteredDocs.map((doc) => (
+  return filteredDocs.map((doc) => {
+    const isActive = doc.id === activeDocId;
+    return (
     <NavRow
       key={doc.id}
       level="primary"
       plainActive
-      active={doc.id === activeDocId}
       selected={selectedIds.has(doc.id)}
       noHover
       bleed
@@ -341,9 +387,19 @@ export function SearchResultsList({
         e.stopPropagation();
         startRename(doc.id, doc.title || '');
       }}
-      className={draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''}
+      className={
+        draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''
+      }
     >
-      {doc.title || t('doclist.untitled')}
+      {isActive ? (
+        <>
+          <RailArrow />
+          <ActiveTitle text={doc.title || t('doclist.untitled')} />
+        </>
+      ) : (
+        doc.title || t('doclist.untitled')
+      )}
     </NavRow>
-  ));
+    );
+  });
 }

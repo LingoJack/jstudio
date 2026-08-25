@@ -499,14 +499,16 @@ export default function DocumentSidebar() {
         </div>
       </div>
 
-      {/* Documents + folders list (root drop zone). px-0 so the active /
-          selected row background spans the full sidebar width (Aliyun-style
-          full-bleed rows; rows themselves provide the horizontal inset).
+      {/* Documents + folders list (root drop zone). pl-2 insets rows so the
+          rail (each root row's / folder wrapper's left border) forms one
+          continuous vertical line; rows are gapless (no space-y) so the rail
+          never breaks. The ACTIVE document is marked by a rail-tint + "->"
+          cursor instead of a background highlight (SectionOutline language).
           border-transparent reserved: avoids WKWebView inset box-shadow
           paint glitches that ring-inset exhibits (see bug-graveyard #003) */}
       <div
         data-drop-target={ROOT_DROP_ID}
-        className={`flex-1 overflow-y-auto rounded-md border px-0 space-y-0.5 transition-colors duration-150 ${
+        className={`flex-1 overflow-y-auto rounded-md border pl-2 transition-colors duration-150 ${
           isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >
