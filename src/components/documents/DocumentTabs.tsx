@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { createDocumentWindow } from '../../lib/windows/documentDetach';
@@ -6,6 +7,7 @@ import TabBar, { type TabItem } from '../ui/TabBar';
 import type { UnifiedTab } from '../../store/workspaceSlice';
 import OpenDocumentDialog from './OpenDocumentDialog';
 import { DocumentTabContextMenu } from './DocumentTabContextMenu';
+import { TITLEBAR_CENTER_SLOT_ID } from '../layout/AppTitleBar';
 
 /**
  * DocumentTabs — tab bar for document tabs only.
@@ -38,6 +40,12 @@ export default function DocumentTabs() {
 
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
+
+  // Title-bar center slot for the 'top' position (portal target).
+  const [titlebarSlot, setTitlebarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setTitlebarSlot(document.getElementById(TITLEBAR_CENTER_SLOT_ID));
+  }, []);
 
   // ── Resolve document title ───────────────────────────────────────
   const getDocTitle = useCallback(
@@ -89,19 +97,29 @@ export default function DocumentTabs() {
   // Don't render if there are no document tabs.
   if (docTabs.length === 0) return null;
 
+  const tabBar = (
+    <TabBar
+      tabs={tabItems}
+      activeTabId={activeTabId}
+      onTabClick={selectTab}
+      onTabClose={closeTab}
+      onNew={() => setOpenDocDialogOpen(true)}
+      onDetach={handleDetach}
+      renderContextMenu={renderContextMenu}
+      glassOpacity={tabBarGlassOpacity}
+      position={tabBarPosition === 'top' ? 'titlebar' : 'bottom'}
+    />
+  );
+
   return (
     <>
-      <TabBar
-        tabs={tabItems}
-        activeTabId={activeTabId}
-        onTabClick={selectTab}
-        onTabClose={closeTab}
-        onNew={() => setOpenDocDialogOpen(true)}
-        onDetach={handleDetach}
-        renderContextMenu={renderContextMenu}
-        glassOpacity={tabBarGlassOpacity}
-        position={tabBarPosition}
-      />
+      {/* position 'top' = dock the capsule into the app title bar's center
+          slot (portal) instead of floating over the content area. */}
+      {tabBarPosition === 'top'
+        ? titlebarSlot
+          ? createPortal(tabBar, titlebarSlot)
+          : null
+        : tabBar}
       <OpenDocumentDialog
         open={isOpenDocDialogOpen}
         onClose={() => setOpenDocDialogOpen(false)}
