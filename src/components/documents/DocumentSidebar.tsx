@@ -394,8 +394,7 @@ export default function DocumentSidebar() {
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
-        transition: 'width 180ms ease-out, margin-right 180ms ease-out, box-shadow 180ms ease-out',
-        boxShadow: isOverlay ? '4px 0 12px rgba(0,0,0,0.3)' : '4px 0 12px rgba(0,0,0,0)',
+        transition: 'width 180ms ease-out, margin-right 180ms ease-out',
       }}
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
@@ -413,14 +412,12 @@ export default function DocumentSidebar() {
         </div>
       ) : (
         <>
-      {/* Header - aligned with the tab bar height (h-9); search is inline here */}
+      {/* Header - aligned with the tab bar height (h-9); search is inline here.
+          Aliyun-style soft always-on fill (5% foreground tint, theme-agnostic)
+          instead of the hover-reveal treatment; focus gets the accent ring. */}
       <div className="h-9 shrink-0 flex items-center gap-1.5 px-3">
         <div
-          className={`flex-1 min-w-0 flex items-center gap-1.5 h-6 px-1.5 rounded-md transition-colors duration-150 ${
-            searchQuery || searchFocused
-              ? 'bg-[var(--vscode-input-background)] ring-1 ring-[var(--vscode-input-border)]'
-              : 'hover:bg-[var(--vscode-list-hoverBackground)]'
-          } focus-within:bg-[var(--vscode-input-background)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]`}
+          className="flex-1 min-w-0 flex items-center gap-1.5 h-6 px-1.5 rounded-md transition-colors duration-150 bg-[color-mix(in_srgb,var(--vscode-foreground)_5%,transparent)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]"
         >
           <Search className="w-3.5 h-3.5 opacity-50 shrink-0" />
           <input

@@ -385,11 +385,7 @@ export default function SectionOutline({
       style={{
         width: effectiveWidth,
         marginLeft: -overlayShift,
-        transition:
-          'width 180ms ease-out, margin-left 180ms ease-out, box-shadow 180ms ease-out',
-        boxShadow: isOverlay
-          ? '-4px 0 12px rgba(0,0,0,0.3)'
-          : '-4px 0 12px rgba(0,0,0,0)',
+        transition: 'width 180ms ease-out, margin-left 180ms ease-out',
       }}
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
