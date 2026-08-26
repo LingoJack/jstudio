@@ -27,7 +27,10 @@ export default function ActivityBar() {
   const tabs = useStore((s) => s.tabs);
   const selectTab = useStore((s) => s.selectTab);
 
-  const activeClass = "text-[var(--vscode-foreground)]";
+  // Active = accent (--vscode-focusBorder): the same accent as the
+  // sidebar "->" cursor, the tab slider and the collapsed-rail progress
+  // segment — one color story for "this is where you are" app-wide.
+  const activeClass = "text-[var(--vscode-focusBorder)]";
   const inactiveClass =
     "text-[var(--vscode-activityBar-foreground)] opacity-40 hover:opacity-80 hover:bg-[var(--vscode-list-hoverBackground)]";
 
