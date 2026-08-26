@@ -40,7 +40,7 @@ import type { Block } from '../../../types';
 import { ChevronRight, ArrowRight } from 'lucide-react';
 
 /** Width of the outline panel. */
-const OUTLINE_WIDTH = 240;
+export const OUTLINE_WIDTH = 240;
 /** Distance (px) below the scroll container's top within which a heading
  *  counts as "current" for the scroll-spy (drives the progress cursor). */
 const SCROLL_SPY_TOP_OFFSET = 64;

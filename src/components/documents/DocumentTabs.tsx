@@ -8,6 +8,7 @@ import type { UnifiedTab } from '../../store/workspaceSlice';
 import OpenDocumentDialog from './OpenDocumentDialog';
 import { DocumentTabContextMenu } from './DocumentTabContextMenu';
 import { useTitlebarCenterSlot } from '../layout/titlebarSlot';
+import { OUTLINE_WIDTH } from '../editor/sectionEditor/SectionOutline';
 
 /**
  * DocumentTabs — tab bar for document tabs only.
@@ -37,6 +38,7 @@ export default function DocumentTabs() {
   const tabBarPosition = useStore((s) => s.tabBarPosition);
   const isOpenDocDialogOpen = useStore((s) => s.isOpenDocDialogOpen);
   const setOpenDocDialogOpen = useStore((s) => s.setOpenDocDialogOpen);
+  const isOutlineOpen = useStore((s) => s.isOutlineOpen);
 
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
@@ -106,6 +108,10 @@ export default function DocumentTabs() {
       renderContextMenu={renderContextMenu}
       glassOpacity={tabBarGlassOpacity}
       position={tabBarPosition === 'top' ? 'titlebar' : 'bottom'}
+      // Keep the capsule clear of the outline panel: when it's open, shave
+      // the panel's width off the max width (centered capsule, right edge
+      // then stops short of the panel's left edge on normal window sizes).
+      maxWidth={isOutlineOpen ? `calc(80% - ${OUTLINE_WIDTH}px)` : undefined}
     />
   );
 

@@ -96,6 +96,12 @@ export interface TabBarProps {
    */
   glassOpacity?: number;
   /**
+   * Max width of the capsule (any CSS length). Default '80%'.
+   * DocumentTabs narrows it when the outline panel is open so the capsule
+   * never reaches into the panel's zone.
+   */
+  maxWidth?: string;
+  /**
    * Tab bar position relative to the content area.
    * 'top' = above content, 'bottom' = below content (default).
    * 'titlebar' = docked inline inside the app title bar (portaled by the
@@ -127,6 +133,7 @@ export default function TabBar({
   renameBorderColor,
   glassOpacity = 0.06,
   position = 'bottom',
+  maxWidth = '80%',
 }: TabBarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
@@ -316,13 +323,14 @@ export default function TabBar({
           // excluded from the window drag region so grabbing it doesn't move
           // the window (and its own drag-to-detach keeps working).
           {...(position === 'titlebar' ? { 'data-tauri-drag-region': false } : {})}
-          className={`relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full ${
+          className={`relative flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full ${
             // Docked mode: straddle the title bar's bottom edge — the capsule
             // (~46px) is taller than the 36px bar, so it hangs below it
             // instead of being clipped by the window frame.
             position === 'titlebar' ? 'translate-y-1/2 pointer-events-auto' : ''
           }`}
           style={{
+            maxWidth,
             scrollbarWidth: 'thin',
             /* 边框对齐编辑器块级容器（diagram/code/table figure）：
                1px block-line-strong，随主题自动降透明度 */
