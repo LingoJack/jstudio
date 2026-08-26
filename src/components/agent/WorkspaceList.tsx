@@ -15,7 +15,7 @@ import {
   Ban,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { NavRow, NavBranch } from '../ui/NavTree';
+import { NavRow, NavBranch, RailArrow } from '../ui/NavTree';
 import { WorkspaceGroupMenu } from './WorkspaceGroupMenu';
 import type { AgentSession, AgentRunState } from '../../types/agent';
 
@@ -282,7 +282,6 @@ function WorkspaceGroupItem({
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const hasActiveSession = group.sessions.some((s) => s.id === activeId);
   const visibleSessions = group.sessions.slice(0, maxSessions);
   const hasMore = group.sessions.length > maxSessions;
   const runningCount = group.sessions.filter(isSessionRunning).length;
@@ -298,7 +297,6 @@ function WorkspaceGroupItem({
       {/* Group header */}
       <NavRow
         level="primary"
-        active={hasActiveSession}
         noHover
         expandable
         expanded={expanded}
@@ -316,13 +314,7 @@ function WorkspaceGroupItem({
             style={{ background: '#3794ff' }}
           />
         )}
-        <span
-          className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
-            hasActiveSession
-              ? 'bg-[rgba(255,255,255,0.15)] text-[var(--vscode-list-activeSelectionForeground)]'
-              : 'bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)]'
-          }`}
-        >
+        <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)]">
           {group.sessions.length}
         </span>
       </NavRow>
@@ -421,17 +413,22 @@ export function SessionItem({ session, active, onSelect, onDelete }: SessionItem
         e.stopPropagation();
         triggerConfirm();
       }}
+      // Rail language (DocumentSidebar): the active session gets NO
+      // background pill — an accent "->" cursor straddles the row's left
+      // edge plus an accent title; inactive rows only brighten on hover.
       className={`group relative flex items-center gap-3 px-3 py-1.5 rounded-md cursor-pointer transition-colors duration-150 ${
         active
-          ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)] font-medium'
-          : 'text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+          ? 'text-[var(--vscode-foreground)] font-medium'
+          : 'text-[var(--vscode-sideBar-foreground)] hover:text-[var(--vscode-foreground)]'
       }`}
     >
+      {active && <RailArrow />}
+
       {/* Status icon */}
       <span className="shrink-0 relative w-4 h-4 flex items-center justify-center">
         <StateIcon
           className={`w-4 h-4 ${stateVisual.spin ? 'animate-spin' : ''}`}
-          style={{ color: active ? 'var(--vscode-list-activeSelectionForeground)' : stateVisual.color }}
+          style={{ color: stateVisual.color }}
         />
         {stateVisual.pulse && (
           <span
@@ -446,7 +443,7 @@ export function SessionItem({ session, active, onSelect, onDelete }: SessionItem
         <span
           className={`truncate text-xs font-medium leading-tight ${
             active
-              ? 'text-[var(--vscode-list-activeSelectionForeground)]'
+              ? 'text-[var(--vscode-focusBorder)]'
               : 'text-[var(--vscode-foreground)]'
           }`}
         >
@@ -459,13 +456,7 @@ export function SessionItem({ session, active, onSelect, onDelete }: SessionItem
               style={{ background: stateVisual.color }}
             />
           )}
-          <span
-            className={`text-[10px] truncate ${
-              active
-                ? 'text-[var(--vscode-list-activeSelectionForeground)] opacity-80'
-                : 'text-[var(--vscode-descriptionForeground)] opacity-60'
-            }`}
-          >
+          <span className="text-[10px] truncate text-[var(--vscode-descriptionForeground)] opacity-60">
             {stateLabelKey ? t(stateLabelKey) : relTime}
           </span>
         </div>
@@ -487,7 +478,7 @@ export function SessionItem({ session, active, onSelect, onDelete }: SessionItem
         ) : (
           <Trash2
             className="w-3.5 h-3.5"
-            style={{ color: active ? 'var(--vscode-list-activeSelectionForeground)' : 'var(--vscode-foreground)' }}
+            style={{ color: 'var(--vscode-foreground)' }}
           />
         )}
       </button>

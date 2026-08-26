@@ -34,6 +34,7 @@ import {
 import { AgentWorkspaceMenu, workspaceDisplayName } from './AgentWorkspaceMenu';
 import { WorkspaceSelectModal } from './WorkspaceSelectModal';
 import { WorkspaceExpandModal } from './WorkspaceExpandModal';
+import { CollapsedRail, type RailItem } from '../ui/CollapsedRail';
 
 // ────────────────────────────────────────────────
 // Constants
@@ -97,6 +98,31 @@ export default function AgentSidebar() {
 
   const groups = groupSessionsByWorkspace(sessions);
   const existingWorkspaces = useMemo(() => groups.map((g) => g.workspace), [groups]);
+
+  // ── Derived: mini-rail items for the collapsed strip (sessions in the
+  //    same display order as WorkspaceList: current workspace first, then
+  //    other groups; capped like the expanded list) ──
+  const railItems = useMemo<RailItem[]>(() => {
+    const items: RailItem[] = [];
+    const current = activeAgentWorkspace
+      ? groups.find((g) => g.workspace === activeAgentWorkspace)
+      : null;
+    const others = activeAgentWorkspace
+      ? groups.filter((g) => g.workspace !== activeAgentWorkspace)
+      : groups;
+    const pushSessions = (list: typeof sessions) => {
+      for (const s of list.slice(0, MAX_SESSIONS_PER_GROUP)) {
+        items.push({
+          id: s.id,
+          kind: 'doc',
+          title: s.title || s.messages[0]?.content.slice(0, 30) || '...',
+        });
+      }
+    };
+    if (current) pushSessions(current.sessions);
+    for (const g of others) pushSessions(g.sessions);
+    return items;
+  }, [groups, activeAgentWorkspace]);
 
   // ── Hover expand / collapse (shared hook) ──
   const {
@@ -215,31 +241,41 @@ export default function AgentSidebar() {
   return (
     <div
       data-sidebar-root
-      className="shrink-0 h-full flex flex-col select-none z-30 relative overflow-hidden bg-[var(--vscode-sideBar-background)]"
+      // -mt-9 + height compensation: the sidebar surface punches up to the
+      // window top (filling the former dead strip under the transparent
+      // title bar); the header row / pin row carry mt-9 to stay BELOW it.
+      className="shrink-0 flex flex-col select-none z-30 relative overflow-hidden -mt-9 h-[calc(100%+2.25rem)] bg-[var(--vscode-sideBar-background)]"
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
-        transition: 'width 180ms ease-out, margin-right 180ms ease-out, box-shadow 180ms ease-out',
-        boxShadow: isOverlay ? '4px 0 12px rgba(0,0,0,0.3)' : '4px 0 12px rgba(0,0,0,0)',
+        transition: 'width 180ms ease-out, margin-right 180ms ease-out',
       }}
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
     >
-      {/* ── Collapsed mode: just a pin button ── */}
+      {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
-        <div className="h-9 shrink-0 flex items-center justify-center">
-          <button
-            onClick={handleTogglePin}
-            className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
-            title={t('doclist.pin')}
-          >
-            <Pin className="w-4 h-4" />
-          </button>
-        </div>
+        <>
+          <div className="h-9 shrink-0 flex items-center justify-center mt-9">
+            <button
+              onClick={handleTogglePin}
+              className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
+              title={t('doclist.pin')}
+            >
+              <Pin className="w-4 h-4" />
+            </button>
+          </div>
+          <CollapsedRail
+            items={railItems}
+            activeDocId={activeAgentSessionId ?? ''}
+            onOpenDoc={handleSelectSession}
+          />
+        </>
       ) : (
         <>
-      {/* Header - aligned with the tab bar height (h-9) */}
-      <div className="h-9 shrink-0 flex items-center justify-end px-3">
+      {/* Header - aligned with the tab bar height (h-9); mt-9 keeps it
+          below the transparent title bar (root punches up with -mt-9) */}
+      <div className="h-9 shrink-0 flex items-center justify-end px-3 mt-9">
         <button
           onClick={handleTogglePin}
           className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
