@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
-import { Clock, ListTree } from 'lucide-react';
+import { Clock, Pin } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
 import { useI18n, type Language, type TranslationKey } from '../../../lib/core/i18n';
@@ -579,16 +579,19 @@ export default function DocumentPanel({
           />
         )}
 
-        {/* Outline toggle icon - only when outline is closed (toggle is in outline header when open) */}
-        {!isOutlineOpen && (
-          <button
-            onClick={toggleOutline}
-            title={t('outline.show')}
-            className="absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-          >
-            <ListTree className="w-4 h-4" />
-          </button>
-        )}
+        {/* The single outline pin — always visible, toggles the panel
+            open/closed (no collapsed-strip state anymore). */}
+        <button
+          onClick={toggleOutline}
+          title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
+          className={`absolute top-3 right-3 z-popover p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+            isOutlineOpen
+              ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+              : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+          }`}
+        >
+          <Pin className="w-4 h-4" />
+        </button>
 
         {/* Floating find-in-document bar (toggled by Cmd/Ctrl+F) */}
         <FindBar find={find} />
@@ -706,16 +709,19 @@ export default function DocumentPanel({
         />
       )}
 
-      {/* Outline toggle icon - only when outline is closed (toggle is in outline header when open) */}
-      {!isOutlineOpen && (
-        <button
-          onClick={toggleOutline}
-          title={t('outline.show')}
-          className="absolute top-3 right-3 z-30 p-1.5 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-        >
-          <ListTree className="w-4 h-4" />
-        </button>
-      )}
+      {/* The single outline pin — always visible, toggles the panel
+          open/closed (no collapsed-strip state anymore). */}
+      <button
+        onClick={toggleOutline}
+        title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
+        className={`absolute top-3 right-3 z-popover p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+          isOutlineOpen
+            ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+            : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+        }`}
+      >
+        <Pin className="w-4 h-4" />
+      </button>
 
       {/* Floating find-in-document bar (toggled by Cmd/Ctrl+F) */}
       <FindBar find={find} />

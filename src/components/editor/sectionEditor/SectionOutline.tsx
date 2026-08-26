@@ -37,14 +37,10 @@ import { useI18n } from '../../../lib/core/i18n';
 import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import type { Block } from '../../../types';
-import { Pin, ChevronRight, ArrowRight } from 'lucide-react';
+import { ChevronRight, ArrowRight } from 'lucide-react';
 
-/** Width of the outline panel when fully expanded. */
+/** Width of the outline panel. */
 const OUTLINE_WIDTH = 240;
-/** Width of the collapsed strip (unpinned, not hovered). */
-const COLLAPSED_WIDTH = 48;
-/** Delay (ms) before collapsing after the pointer leaves the panel. */
-const COLLAPSE_DELAY = 180;
 /** Distance (px) below the scroll container's top within which a heading
  *  counts as "current" for the scroll-spy (drives the progress cursor). */
 const SCROLL_SPY_TOP_OFFSET = 64;
@@ -334,105 +330,32 @@ export default function SectionOutline({
     });
   }, []);
 
-  // ── Pin / hover-expand state ──
-  const outlinePinned = useStore((s) => s.outlinePinned);
-  const toggleOutlinePinned = useStore((s) => s.toggleOutlinePinned);
-  const [hoverExpanded, setHoverExpanded] = useState(false);
-  const hoverCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const scheduleCollapse = useCallback(() => {
-    if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
-    hoverCollapseTimer.current = setTimeout(() => {
-      setHoverExpanded(false);
-    }, COLLAPSE_DELAY);
-  }, []);
-
-  const handleHoverEnter = useCallback(() => {
-    if (outlinePinned) return;
-    if (hoverCollapseTimer.current) {
-      clearTimeout(hoverCollapseTimer.current);
-      hoverCollapseTimer.current = null;
-    }
-    setHoverExpanded(true);
-  }, [outlinePinned]);
-
-  const handleHoverLeave = useCallback(() => {
-    if (outlinePinned) return;
-    scheduleCollapse();
-  }, [outlinePinned, scheduleCollapse]);
-
-  const handleTogglePin = useCallback(() => {
-    toggleOutlinePinned();
-    setHoverExpanded(false);
-  }, [toggleOutlinePinned]);
-
-  // Cleanup hover timer on unmount.
-  useEffect(() => {
-    return () => {
-      if (hoverCollapseTimer.current) clearTimeout(hoverCollapseTimer.current);
-    };
-  }, []);
-
-  const isCollapsed = !outlinePinned && !hoverExpanded;
-  const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : OUTLINE_WIDTH;
-  const isOverlay = !outlinePinned && !isCollapsed;
-  const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
-
   return (
     <div
       data-outline-root
+      // No collapsed strip / hover-expand / pinned state machine — the
+      // panel is simply open or closed, toggled by the single corner pin in
+      // DocumentPanel. pt-9 pushes content below the absolute title bar's
+      // 36px overlay (which would otherwise swallow clicks up there).
       className="shrink-0 h-full bg-[var(--vscode-editor-background)] flex flex-col select-none z-30 relative overflow-hidden"
-      style={{
-        width: effectiveWidth,
-        marginLeft: -overlayShift,
-        transition: 'width 180ms ease-out, margin-left 180ms ease-out',
-      }}
-      onMouseEnter={handleHoverEnter}
-      onMouseLeave={handleHoverLeave}
+      style={{ width: OUTLINE_WIDTH }}
     >
-      {isCollapsed ? (
-        <div className="h-9 shrink-0 flex items-center justify-center">
-          <button
-            onClick={handleTogglePin}
-            className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
-            title={t('outline.pin')}
-          >
-            <Pin className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="h-8 shrink-0 flex items-center justify-end px-2 gap-1">
-            <button
-              onClick={handleTogglePin}
-              className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
-                outlinePinned
-                  ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-                  : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-              }`}
-              title={outlinePinned ? t('outline.unpin') : t('outline.pin')}
-            >
-              <Pin className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
-            {headings.length === 0 ? (
-              <p className="text-xs text-[var(--vscode-descriptionForeground)] py-2">
-                {t('outline.empty')}
-              </p>
-            ) : (
-              // Rows carry the rail as their left border — stacked gapless,
-              // the borders form one continuous vertical line that doubles
-              // as a page progress bar (consumed portion is tinted, the
-              // current heading gets the "->" cursor).
-              renderRows(headings, collapsed, activeId, (row) => {
-                if (row.hasChildren) toggle(row.item);
-                handleClick(row.item);
-              })
-            )}
-          </div>
-        </>
-      )}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-9">
+        {headings.length === 0 ? (
+          <p className="text-xs text-[var(--vscode-descriptionForeground)] py-2">
+            {t('outline.empty')}
+          </p>
+        ) : (
+          // Rows carry the rail as their left border — stacked gapless,
+          // the borders form one continuous vertical line that doubles
+          // as a page progress bar (consumed portion is tinted, the
+          // current heading gets the "->" cursor).
+          renderRows(headings, collapsed, activeId, (row) => {
+            if (row.hasChildren) toggle(row.item);
+            handleClick(row.item);
+          })
+        )}
+      </div>
     </div>
   );
 }

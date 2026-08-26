@@ -301,28 +301,26 @@ export default function TabBar({
       {/* Floating glassmorphism capsule tab bar */}
       <div
         ref={tabBarRef}
-        {...(position === 'titlebar'
-          ? {
-              // Docked inside the app title bar: interactive, and excluded
-              // from the window drag region so tab clicks don't move the window.
-              'data-tauri-drag-region': false,
-            }
-          : {})}
         className={
           position === 'titlebar'
-            ? // w-full is REQUIRED: the capsule's max-w-[80%] resolves against
-              // this wrapper — an inline (shrink-to-fit) wrapper would make it
-              // 80% of the capsule's own content width and crush the tabs.
-              `w-full flex items-center justify-center pointer-events-auto ${className ?? ''}`
+            ? // pointer-events-NONE is required: this wrapper is a FULL-WIDTH
+              // strip across the title bar — with `auto` it swallows every
+              // mousedown there, killing window dragging and double-click
+              // maximize (the bar's own drag region lives underneath).
+              `w-full flex items-center justify-center pointer-events-none ${className ?? ''}`
             : `absolute left-0 right-0 ${position === 'top' ? 'top-0 pt-1' : 'bottom-0 pb-3.5'} flex items-center justify-center z-20 ${className ?? ''}`
         }
       >
         <div
+          // Only the capsule itself is interactive in titlebar mode; it is
+          // excluded from the window drag region so grabbing it doesn't move
+          // the window (and its own drag-to-detach keeps working).
+          {...(position === 'titlebar' ? { 'data-tauri-drag-region': false } : {})}
           className={`relative flex items-center overflow-x-auto min-w-0 max-w-[80%] gap-0.5 px-2 py-1.5 rounded-full ${
             // Docked mode: straddle the title bar's bottom edge — the capsule
             // (~46px) is taller than the 36px bar, so it hangs below it
             // instead of being clipped by the window frame.
-            position === 'titlebar' ? 'translate-y-1/2' : ''
+            position === 'titlebar' ? 'translate-y-1/2 pointer-events-auto' : ''
           }`}
           style={{
             scrollbarWidth: 'thin',
