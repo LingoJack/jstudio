@@ -48,6 +48,9 @@ export type GraphNodeShape =
 /** 文字水平对齐方式。 */
 export type LabelAlign = 'left' | 'center' | 'right';
 
+/** 花括号朝向：up=⏞ 内容上方 / down=⏟ 下方 / left={ 左侧 / right=} 右侧。 */
+export type BraceDirection = 'up' | 'down' | 'left' | 'right';
+
 /** 一个节点。 */
 export interface GraphNode {
   /** 稳定 id（自研内核内唯一）。 */
@@ -87,6 +90,11 @@ export interface GraphNodeStyle {
   mmDepth?: number;
   /** 思维导图分支索引（neon 方案下分支循环色用，叶子继承父分支）。 */
   mmBranch?: number;
+  /**
+   * 花括号朝向（仅 brace 形状）。缺省时按宽高比推导（w>=h → down，否则 right），
+   * 见 graphConstants.defaultBraceDirection。
+   */
+  braceDir?: BraceDirection;
 }
 
 /** 一条连线。 */

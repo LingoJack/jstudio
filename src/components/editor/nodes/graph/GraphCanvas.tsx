@@ -26,6 +26,7 @@ import {
   detectSnapshotKind,
   parseGraphSnapshot,
   serializeGraphSnapshot,
+  type BraceDirection,
   type GraphNodeShape,
   type LabelAlign,
 } from "./graphSnapshot";
@@ -34,9 +35,17 @@ import {
   BATCH_MAX_COUNT,
   SHAPE_LABEL,
   braceLabelStyleFor,
+  defaultBraceDirection,
   styleForShape,
 } from "./graphConstants";
-import { computeBracePlacement, nextCellId } from "./graphHelpers";
+import {
+  OPPOSITE_BRACE_DIRECTION,
+  chooseBraceDirection,
+  computeBracePlacement,
+  nextCellId,
+  rectsOverlap,
+  type BracePlacement,
+} from "./graphHelpers";
 import MermaidImportDialog from "./MermaidImportDialog";
 import AIGraphImportDialog from "./AIGraphImportDialog";
 import {
@@ -140,6 +149,8 @@ export function GraphCanvas({
   const [selectedMindmapTopic, setSelectedMindmapTopic] = useState(false);
   // 选中 vertex 计数（≥2 时显示"花括号分组"条件按钮）。
   const [selectedVertexCount, setSelectedVertexCount] = useState(0);
+  // 选中 vertex 是花括号时为 true，用于显示"翻转朝向"按钮。
+  const [selectedBrace, setSelectedBrace] = useState(false);
   // 填充色弹出面板开关
   const [fillPickerOpen, setFillPickerOpen] = useState(false);
   const fillPickerRef = useRef<HTMLDivElement>(null);
@@ -317,6 +328,7 @@ export function GraphCanvas({
     setSelectedSeqEdge,
     setSelectedMindmapTopic,
     setSelectedVertexCount,
+    setSelectedBrace,
     setFillPickerOpen,
     setPending,
     setPendingBatchCount,
@@ -482,17 +494,40 @@ export function GraphCanvas({
     if (cells.length > 0) graph.removeCells(cells);
   }, []);
 
-  // 智能花括号：按选区包围盒方向在下方（横向选区）/ 右侧（纵向选区）
-  // 插入一个 BraceShape 注释形状，单步 undo。插入后选中新 cell，
-  // 选中计数变为 1，条件按钮自动消失。
+  // 智能花括号：按选区包围盒方向插入 BraceShape 注释形状（宽选区默认下方
+  // ⏟，高选区默认右侧 }；默认侧被已有图形占用时自动翻到对侧）。
+  // 单个图形也可，单步 undo。插入后选中新 cell。
   const handleAddBrace = useCallback(() => {
     const graph = graphRef.current;
     if (!graph) return;
     const cells = graph.getSelectionCells().filter((c) => c.isVertex());
-    if (cells.length < 2) return;
+    if (cells.length < 1) return;
     const bbox = graph.getBoundingBoxFromGeometry(cells, true);
     if (!bbox) return;
-    const { x, y, w, h } = computeBracePlacement(bbox);
+    // 避让检测：候选落位与"非选中"的已有 vertex 相交则视为被占。
+    const others = graph
+      .getChildVertices(graph.getDefaultParent())
+      .filter((c) => !cells.includes(c));
+    const isOccupied = (rect: BracePlacement) =>
+      others.some((c) => {
+        const g = c.getGeometry();
+        return (
+          g != null &&
+          rectsOverlap(
+            { x: rect.x, y: rect.y, width: rect.w, height: rect.h },
+            g,
+          )
+        );
+      });
+    const dir = chooseBraceDirection(bbox, isOccupied);
+    const { x, y, w, h } = computeBracePlacement(bbox, dir);
+    // braceDir 是项目自定义样式键（不在 maxGraph CellStyle 标准字段内），
+    // 用 Record 装配以绕开对象字面量过量属性检查（同 dragDraw 的 styleForShape 范式）。
+    const braceStyle: Record<string, unknown> = {
+      ...styleForShape("brace", darkModeRef.current),
+      braceDir: dir,
+      ...braceLabelStyleFor(dir),
+    };
     graph.batchUpdate(() => {
       const cell = graph.insertVertex({
         parent: graph.getDefaultParent(),
@@ -500,13 +535,31 @@ export function GraphCanvas({
         value: SHAPE_LABEL["brace"],
         position: [x, y],
         size: [w, h],
-        style: {
-          ...styleForShape("brace", darkModeRef.current),
-          ...braceLabelStyleFor(w, h),
-        },
+        style: braceStyle,
       });
       graph.setSelectionCell(cell);
     });
+  }, []);
+
+  // 翻转选中花括号的朝向（⏟↔⏞ / }↔{），标签同步换到外侧。
+  // 只改朝向不移动位置——由用户拖到你想要的一侧。
+  const handleFlipBrace = useCallback(() => {
+    const graph = graphRef.current;
+    const cell = graph?.getSelectionCell();
+    if (!graph || !cell?.isVertex()) return;
+    const style = (cell.getStyle() as CellStyle | null) ?? {};
+    if (style.shape !== "brace") return;
+    const geo = cell.getGeometry();
+    const cur: BraceDirection =
+      ((style as Record<string, unknown>).braceDir as BraceDirection | undefined) ??
+      defaultBraceDirection(geo?.width ?? 0, geo?.height ?? 0);
+    const next = OPPOSITE_BRACE_DIRECTION[cur];
+    const nextStyle: Record<string, unknown> = {
+      ...style,
+      braceDir: next,
+      ...braceLabelStyleFor(next),
+    };
+    graph.getDataModel().setStyle(cell, nextStyle as CellStyle);
   }, []);
 
   // 设置选中 cell 的文字水平对齐方式。
@@ -667,8 +720,10 @@ export function GraphCanvas({
           onUndo={handleUndo}
           onRedo={handleRedo}
           onDelete={handleDelete}
-          canAddBrace={selectedVertexCount >= 2}
+          canAddBrace={selectedVertexCount >= 1}
           onAddBrace={handleAddBrace}
+          braceSelected={selectedBrace}
+          onFlipBrace={handleFlipBrace}
           selectedSeqEdge={selectedSeqEdge}
           onToggleSeqMessage={handleToggleSeqMessage}
           selectedMindmapTopic={selectedMindmapTopic}

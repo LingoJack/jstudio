@@ -25,6 +25,7 @@ export interface GraphSetupContext {
   setSelectedSeqEdge: (v: "call" | "return" | null) => void;
   setSelectedMindmapTopic: (v: boolean) => void;
   setSelectedVertexCount: (n: number) => void;
+  setSelectedBrace: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
   setPendingBatchCount: (n: number) => void;

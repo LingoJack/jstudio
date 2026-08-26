@@ -345,52 +345,77 @@ class DatabaseShape extends Shape {
 /**
  * 花括号分组注释形状（智能花括号）。
  *
- * 按宽高比自适应方向：
- *   - w >= h：画 ⏟ 水平下括号（开口朝上，括住上方内容，底部中央尖角朝下）
- *   - w <  h：画 } 竖直右括号（开口朝左，括住左侧内容，右侧中央尖角朝右）
+ * 朝向由 style.braceDir 决定（'up'⏞ / 'down'⏟ / 'left'{ / 'right'}），
+ * 缺省时按宽高比推导（w>=h → down，否则 right），与 defaultBraceDirection 一致。
+ * 用户 resize 翻转宽高比时，未显式设置朝向的花括号绘制方向跟随翻转，
+ * 属预期"智能"行为；标签位置由 braceLabelStyleFor(dir) 配套推导。
  *
- * 描边 only，无填充。用户 resize 翻转宽高比时绘制方向跟随翻转，
- * 属预期"智能"行为；标签位置由 braceLabelStyleFor 按同规则推导。
+ * 描边 only，无填充。臂部直线 + 中央尖齿（尖角）+ 两端圆滑钩子。
  */
 class BraceShape extends Shape {
   paintBackground(c: AbstractCanvas2D, x: number, y: number, w: number, h: number): void {
+    const rawDir = (this.style as Record<string, unknown> | null)?.braceDir;
+    const dir =
+      rawDir === 'up' || rawDir === 'down' || rawDir === 'left' || rawDir === 'right'
+        ? rawDir
+        : w >= h
+          ? 'down'
+          : 'right';
+
     c.setLineCap('round');
     c.begin();
-    if (w >= h) {
-      // ⏟ 水平下括号：两端圆滑钩子上扬，臂部水平直线，中央尖齿朝下（尖角）。
-      // 钩子/尖齿尺寸取 h 比例并封顶，避免超宽选区下钩子被拉得过长。
+    if (dir === 'down' || dir === 'up') {
+      // 水平括号：两端圆滑钩子，臂部水平直线，中央尖齿。
+      // down=⏟（钩子上扬、尖齿朝下）；up=⏞（钩子下垂、尖齿朝上）。
       const hookH = Math.min(h * 0.45, 18);
       const hookW = Math.min(w * 0.08, hookH * 1.8);
       const toothW = Math.min(w * 0.06, h * 0.8);
-      const armY = y + hookH;
       const cx = x + w / 2;
-      c.moveTo(x, y);
-      // 左钩：弯到臂高度
-      c.curveTo(x, armY, x + hookW * 0.6, armY, x + hookW, armY);
-      // 左臂直线 → 中央尖齿（直下直上成尖角）→ 右臂直线
-      c.lineTo(cx - toothW, armY);
-      c.lineTo(cx, y + h);
-      c.lineTo(cx + toothW, armY);
-      c.lineTo(x + w - hookW, armY);
-      // 右钩：弯回右上角
-      c.curveTo(x + w - hookW * 0.6, armY, x + w, armY, x + w, y);
+      if (dir === 'down') {
+        const armY = y + hookH;
+        c.moveTo(x, y);
+        c.curveTo(x, armY, x + hookW * 0.6, armY, x + hookW, armY);
+        c.lineTo(cx - toothW, armY);
+        c.lineTo(cx, y + h);
+        c.lineTo(cx + toothW, armY);
+        c.lineTo(x + w - hookW, armY);
+        c.curveTo(x + w - hookW * 0.6, armY, x + w, armY, x + w, y);
+      } else {
+        const armY = y + h - hookH;
+        c.moveTo(x, y + h);
+        c.curveTo(x, armY, x + hookW * 0.6, armY, x + hookW, armY);
+        c.lineTo(cx - toothW, armY);
+        c.lineTo(cx, y);
+        c.lineTo(cx + toothW, armY);
+        c.lineTo(x + w - hookW, armY);
+        c.curveTo(x + w - hookW * 0.6, armY, x + w, armY, x + w, y + h);
+      }
     } else {
-      // } 竖直右括号：上下圆滑钩子朝左，脊柱垂直直线，中央尖齿朝右（尖角）。
+      // 竖直括号：两端圆滑钩子，脊柱垂直直线，中央尖齿。
+      // right=}（钩子朝左、尖齿朝右）；left={（钩子朝右、尖齿朝左）。
       const hookW = Math.min(w * 0.45, 18);
       const hookH = Math.min(h * 0.08, hookW * 1.8);
       const toothH = Math.min(h * 0.06, w * 0.8);
-      const spineX = x + hookW;
       const cy = y + h / 2;
-      c.moveTo(x, y);
-      // 上钩：弯到脊柱
-      c.curveTo(spineX, y, spineX, y + hookH * 0.6, spineX, y + hookH);
-      // 上脊柱直线 → 中央尖齿（朝右尖角）→ 下脊柱直线
-      c.lineTo(spineX, cy - toothH);
-      c.lineTo(x + w, cy);
-      c.lineTo(spineX, cy + toothH);
-      c.lineTo(spineX, y + h - hookH);
-      // 下钩：弯回左下角
-      c.curveTo(spineX, y + h - hookH * 0.6, spineX, y + h, x, y + h);
+      if (dir === 'right') {
+        const spineX = x + hookW;
+        c.moveTo(x, y);
+        c.curveTo(spineX, y, spineX, y + hookH * 0.6, spineX, y + hookH);
+        c.lineTo(spineX, cy - toothH);
+        c.lineTo(x + w, cy);
+        c.lineTo(spineX, cy + toothH);
+        c.lineTo(spineX, y + h - hookH);
+        c.curveTo(spineX, y + h - hookH * 0.6, spineX, y + h, x, y + h);
+      } else {
+        const spineX = x + w - hookW;
+        c.moveTo(x + w, y);
+        c.curveTo(spineX, y, spineX, y + hookH * 0.6, spineX, y + hookH);
+        c.lineTo(spineX, cy - toothH);
+        c.lineTo(x, cy);
+        c.lineTo(spineX, cy + toothH);
+        c.lineTo(spineX, y + h - hookH);
+        c.curveTo(spineX, y + h - hookH * 0.6, spineX, y + h, x + w, y + h);
+      }
     }
     c.stroke();
     c.setLineCap('flat');

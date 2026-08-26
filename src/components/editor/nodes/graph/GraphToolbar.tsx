@@ -21,6 +21,7 @@ import {
   Maximize,
   Contrast,
   Braces,
+  FlipVertical2,
 } from "lucide-react";
 import { ShapeGlyph } from "./ShapeGlyph";
 import { shapeTitleMap } from "./shapeMenuData";
@@ -47,9 +48,12 @@ export interface GraphToolbarProps {
   onRedo: () => void;
   onDelete: () => void;
 
-  // 花括号分组（选中 >=2 个 vertex 时显示）
+  // 花括号分组（选中 >=1 个 vertex 时显示）
   canAddBrace: boolean;
   onAddBrace: () => void;
+  // 花括号翻转朝向（选中花括号时显示）
+  braceSelected: boolean;
+  onFlipBrace: () => void;
 
   // Sequence diagram
   selectedSeqEdge: "call" | "return" | null;
@@ -113,6 +117,8 @@ export function GraphToolbar(props: GraphToolbarProps) {
     onDelete,
     canAddBrace,
     onAddBrace,
+    braceSelected,
+    onFlipBrace,
     selectedSeqEdge,
     onToggleSeqMessage,
     selectedMindmapTopic,
@@ -219,10 +225,23 @@ export function GraphToolbar(props: GraphToolbarProps) {
           <button
             type="button"
             className="jgraph-tool-btn"
-            title="为选中图形添加花括号分组（自动按选区方向放置）"
+            title="为选中图形添加花括号分组（自动按选区方向放置，被占时自动换侧）"
             onClick={onAddBrace}
           >
             <Braces size={16} />
+          </button>
+        </>
+      )}
+      {braceSelected && (
+        <>
+          <div className="jgraph-tool-sep" />
+          <button
+            type="button"
+            className="jgraph-tool-btn"
+            title="翻转花括号朝向（上/下、左/右互换；位置不变，可拖动归位）"
+            onClick={onFlipBrace}
+          >
+            <FlipVertical2 size={16} />
           </button>
         </>
       )}

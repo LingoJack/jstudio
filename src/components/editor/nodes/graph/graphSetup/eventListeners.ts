@@ -69,11 +69,16 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
       ctx.setSelectedMindmapTopic(
         cell.isVertex() && styleToNodeShape(style) === 'topic',
       );
+      // 花括号选中时显示"翻转朝向"按钮。
+      ctx.setSelectedBrace(
+        cell.isVertex() && styleToNodeShape(style) === 'brace',
+      );
     } else {
       ctx.setSelectedLabelAlign(null);
       ctx.setSelectedFillColor(null);
       ctx.setSelectedSeqEdge(null);
       ctx.setSelectedMindmapTopic(false);
+      ctx.setSelectedBrace(false);
     }
     ctx.setFillPickerOpen(false);
   });

@@ -16,7 +16,12 @@ import {
   type MindmapScheme,
 } from './graphTheme';
 import { MINDMAP_EDGE_STYLE } from './mindmapLayout';
-import { BRACE_GAP, BRACE_THICKNESS } from './graphConstants';
+import {
+  BRACE_GAP,
+  BRACE_THICKNESS,
+  defaultBraceDirection,
+} from './graphConstants';
+import type { BraceDirection } from './graphSnapshot';
 
 /** 边数超过此阈值时自动关闭连线流动动画，保证大图流畅。 */
 export const FLOW_ANIMATION_THRESHOLD = 20;
@@ -95,38 +100,92 @@ export function nextCellId(prefix: string): string {
 
 /** 花括号放置结果。 */
 export interface BracePlacement {
-  orientation: 'horizontal' | 'vertical';
+  dir: BraceDirection;
   x: number;
   y: number;
   w: number;
   h: number;
 }
 
-/**
- * 由选区包围盒计算花括号位置：
- * 宽选区（width >= height）→ 选区下方放水平括号（⏟ 开口朝上）；
- * 高选区 → 选区右侧放竖直括号（} 开口朝左）。
- */
-export function computeBracePlacement(bounds: {
+interface RectLike {
   x: number;
   y: number;
   width: number;
   height: number;
-}): BracePlacement {
-  if (bounds.width >= bounds.height) {
-    return {
-      orientation: 'horizontal',
-      x: bounds.x,
-      y: bounds.y + bounds.height + BRACE_GAP,
-      w: bounds.width,
-      h: BRACE_THICKNESS,
-    };
+}
+
+/** 由选区包围盒 + 朝向计算花括号位置（括号在选区对应侧，间隔 BRACE_GAP）。 */
+export function computeBracePlacement(
+  bounds: RectLike,
+  dir: BraceDirection,
+): BracePlacement {
+  switch (dir) {
+    case 'up':
+      return {
+        dir,
+        x: bounds.x,
+        y: bounds.y - BRACE_GAP - BRACE_THICKNESS,
+        w: bounds.width,
+        h: BRACE_THICKNESS,
+      };
+    case 'left':
+      return {
+        dir,
+        x: bounds.x - BRACE_GAP - BRACE_THICKNESS,
+        y: bounds.y,
+        w: BRACE_THICKNESS,
+        h: bounds.height,
+      };
+    case 'right':
+      return {
+        dir,
+        x: bounds.x + bounds.width + BRACE_GAP,
+        y: bounds.y,
+        w: BRACE_THICKNESS,
+        h: bounds.height,
+      };
+    default: // down
+      return {
+        dir: 'down',
+        x: bounds.x,
+        y: bounds.y + bounds.height + BRACE_GAP,
+        w: bounds.width,
+        h: BRACE_THICKNESS,
+      };
   }
-  return {
-    orientation: 'vertical',
-    x: bounds.x + bounds.width + BRACE_GAP,
-    y: bounds.y,
-    w: BRACE_THICKNESS,
-    h: bounds.height,
-  };
+}
+
+/** 两个矩形是否重叠（含边界相接视为不重叠）。 */
+export function rectsOverlap(a: RectLike, b: RectLike): boolean {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+/** 对侧朝向映射（翻转花括号朝向用）。 */
+export const OPPOSITE_BRACE_DIRECTION: Record<BraceDirection, BraceDirection> = {
+  up: 'down',
+  down: 'up',
+  left: 'right',
+  right: 'left',
+};
+
+/**
+ * 选择花括号朝向：优先默认侧（宽选区 → down，高选区 → right）；
+ * 默认侧落位与现有图形重叠时翻到对侧（避免多个花括号堆在同一侧）。
+ * 对侧也被占则保持默认侧（重叠总可手动拖开）。
+ */
+export function chooseBraceDirection(
+  bounds: RectLike,
+  isOccupied: (rect: BracePlacement) => boolean,
+): BraceDirection {
+  const primary = defaultBraceDirection(bounds.width, bounds.height);
+  const opposite = OPPOSITE_BRACE_DIRECTION[primary];
+  if (isOccupied(computeBracePlacement(bounds, primary))) {
+    if (!isOccupied(computeBracePlacement(bounds, opposite))) return opposite;
+  }
+  return primary;
 }

@@ -32,7 +32,7 @@ import {
   DEFAULT_MINDMAP_SCHEME,
   type MindmapScheme,
 } from './graphTheme';
-import { braceLabelStyleFor } from './graphConstants';
+import { braceLabelStyleFor, defaultBraceDirection } from './graphConstants';
 
 /* ------------------------------------------------------------------ */
 /* 形状 ↔ CellStyle 映射                                               */
@@ -89,6 +89,10 @@ export function nodeShapeToStyle(
     case 'database':
       // 数据库：使用自定义的 database 形状（圆柱体，见 customShapes.ts）。
       return { ...base, shape: 'database' };
+    case 'brace':
+      // 花括号：使用自定义的 brace 形状（BraceShape，见 customShapes.ts）。
+      // pointerEvents:true 给细描边命中带宽。朝向键 braceDir 由 buildNodeStyle 补写。
+      return { ...base, shape: 'brace', pointerEvents: true };
     case 'topic':
       // 思维导图根节点默认样式（depth=0）：按 scheme 给配色。
       // 子节点 / 兄弟节点在生发时由 mindmapSpawn 按 depth 覆盖配色，
@@ -176,8 +180,13 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
 /** 合并节点的可选样式覆盖到基础 CellStyle 上。 */
 function buildNodeStyle(node: GraphNode, dark: boolean, scheme: MindmapScheme): CellStyle {
   const base = nodeShapeToStyle(node.shape, dark, scheme);
-  // 花括号外侧标签位置不在快照 style 透传通道内，按节点宽高比重推导（与插入时一致）。
-  if (node.shape === 'brace') Object.assign(base, braceLabelStyleFor(node.w, node.h));
+  // 花括号：朝向优先取快照持久化的 braceDir，缺省按宽高比推导；
+  // 外侧标签位置不在快照 style 透传通道内，按朝向重推导（与插入/翻转时一致）。
+  if (node.shape === 'brace') {
+    const dir = node.style?.braceDir ?? defaultBraceDirection(node.w, node.h);
+    Object.assign(base, braceLabelStyleFor(dir));
+    (base as Record<string, unknown>).braceDir = dir;
+  }
   const s = node.style;
   if (s) {
     if (s.fill !== undefined) base.fillColor = s.fill;
@@ -420,6 +429,11 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
     }
     if (typeof nodeStyleRecord.mmBranch === 'number') nStyle.mmBranch = nodeStyleRecord.mmBranch;
     if (typeof nodeStyleRecord.mmDepth === 'number') nStyle.mmDepth = nodeStyleRecord.mmDepth;
+    // 读回花括号朝向（braceDir 为自定义键，见 buildNodeStyle）。
+    const bd = nodeStyleRecord.braceDir;
+    if (bd === 'up' || bd === 'down' || bd === 'left' || bd === 'right') {
+      nStyle.braceDir = bd;
+    }
     if (Object.keys(nStyle).length > 0) node.style = nStyle;
     const la = readLabelAlign(style);
     if (la) node.labelAlign = la;

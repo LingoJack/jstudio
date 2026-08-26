@@ -1,4 +1,4 @@
-import type { GraphNodeShape } from "./graphSnapshot";
+import type { BraceDirection, GraphNodeShape } from "./graphSnapshot";
 import {
   paletteFor,
   getFontColor,
@@ -199,15 +199,30 @@ function styleForShape(
 const GRID_SIZE = 10;
 
 /**
- * 花括号外侧标签样式：水平括号（w>=h）标签放下方居中；
- * 竖直括号标签放右侧左对齐。
- * 插入时（GraphCanvas）与快照重建时（graphModel.buildNodeStyle）共用，
- * 保证保存重开后标签位置一致（这些键不在快照 style 透传通道内）。
+ * 花括号缺省朝向推导：宽（w>=h）→ down（⏟ 在下方）；高 → right（} 在右侧）。
+ * 用户显式翻转后（GraphNodeStyle.braceDir）以显式值为准。
  */
-function braceLabelStyleFor(w: number, h: number): Record<string, unknown> {
-  return w >= h
-    ? { verticalLabelPosition: "bottom", verticalAlign: "top" }
-    : { labelPosition: "right", align: "left" };
+function defaultBraceDirection(w: number, h: number): BraceDirection {
+  return w >= h ? "down" : "right";
+}
+
+/**
+ * 花括号朝向 → 外侧标签样式（标签放在花括号凹侧的反方向，即外侧）。
+ * 插入时（GraphCanvas）、翻转时（GraphCanvas.handleFlipBrace）与快照重建时
+ * （graphModel.buildNodeStyle）共用，保证各路径标签位置一致
+ * （这些键不在快照 style 透传通道内）。
+ */
+function braceLabelStyleFor(dir: BraceDirection): Record<string, unknown> {
+  switch (dir) {
+    case "up":
+      return { verticalLabelPosition: "top", verticalAlign: "bottom" };
+    case "left":
+      return { labelPosition: "left", align: "right" };
+    case "right":
+      return { labelPosition: "right", align: "left" };
+    default: // down
+      return { verticalLabelPosition: "bottom", verticalAlign: "top" };
+  }
 }
 
 /** 事件容差：鼠标按下后移动超过该值才算"拖动"（拉线/拖节点）。
@@ -247,6 +262,7 @@ export {
   SHAPE_LABEL,
   styleForShape,
   braceLabelStyleFor,
+  defaultBraceDirection,
   BRACE_GAP,
   BRACE_THICKNESS,
   GRID_SIZE,

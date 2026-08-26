@@ -70,6 +70,7 @@ export interface UseGraphInitParams {
   setSelectedSeqEdge: (v: "call" | "return" | null) => void;
   setSelectedMindmapTopic: (v: boolean) => void;
   setSelectedVertexCount: (n: number) => void;
+  setSelectedBrace: (v: boolean) => void;
   setFillPickerOpen: (v: boolean) => void;
   setPending: (shape: GraphNodeShape | null) => void;
   setPendingBatchCount: (n: number) => void;
@@ -99,6 +100,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     setSelectedSeqEdge,
     setSelectedMindmapTopic,
     setSelectedVertexCount,
+    setSelectedBrace,
     setFillPickerOpen,
     setPending,
     setPendingBatchCount,
@@ -163,6 +165,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       setSelectedSeqEdge,
       setSelectedMindmapTopic,
       setSelectedVertexCount,
+      setSelectedBrace,
       setFillPickerOpen,
       setPending,
       setPendingBatchCount,
