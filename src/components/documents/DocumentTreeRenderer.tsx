@@ -11,8 +11,7 @@
  */
 
 import type React from 'react';
-import { ArrowRight } from 'lucide-react';
-import { NavRow, NavBranch } from '../ui/NavTree';
+import { NavRow, NavBranch, RailArrow, ActiveTitle } from '../ui/NavTree';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { FolderTreeNode } from '../../lib/documents/folderTree';
 import type { DocumentMeta, FolderMeta } from '../../types/storage';
@@ -24,28 +23,8 @@ import { useI18n } from '../../lib/core/i18n';
 // with the parent's text indent — Aliyun docs-nav style). Root rows carry
 // no line. The ACTIVE document gets NO background highlight — instead an
 // accent "->" cursor straddles the guide line (root rows: at the row's
-// left edge) plus an accent title, mirroring SectionOutline's marker.
-
-/** "->" cursor straddling the guide line; `left` tunes how far it reaches back. */
-function RailArrow({ left = -7 }: { left?: number }) {
-  return (
-    <span
-      className="absolute top-1/2 -translate-y-1/2 py-[3px] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-focusBorder)]"
-      style={{ left }}
-    >
-      <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
-    </span>
-  );
-}
-
-/** Active doc title: accent text (no background highlight). */
-function ActiveTitle({ text }: { text: string }) {
-  return (
-    <span className="truncate text-[var(--vscode-focusBorder)] font-medium">
-      {text}
-    </span>
-  );
-}
+// left edge) plus an accent title (RailArrow / ActiveTitle from NavTree),
+// mirroring SectionOutline's marker.
 
 export interface DocumentTreeRendererProps {
   tree: FolderTreeNode;

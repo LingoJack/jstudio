@@ -1,5 +1,5 @@
 import type React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ArrowRight } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────
 // NavBranch / NavRow
@@ -11,6 +11,39 @@ import { ChevronRight } from 'lucide-react';
 // NavRow supports two visual modes:
 //  - classic (default): hover bg + indicator bar
 //  - clean (`noHover` + `plain` NavBranch): flat, rounded, no guides
+// ──────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────────
+// RailArrow / ActiveTitle — the shared ACTIVE-row marker language
+// (DocumentSidebar tree, Settings nav, SectionOutline).
+//
+// The active row gets NO background pill — instead an accent "->" cursor
+// straddles the branch guide line (root rows: the row's left edge) plus an
+// accent title. The bg patch masks the guide line so the arrow reads
+// embedded.
+// ──────────────────────────────────────────────────────────────────
+
+/** "->" cursor straddling the guide line; `left` tunes how far it reaches back. */
+export function RailArrow({ left = -7 }: { left?: number }) {
+  return (
+    <span
+      className="absolute top-1/2 -translate-y-1/2 py-[3px] bg-[var(--vscode-sideBar-background)] text-[var(--vscode-focusBorder)]"
+      style={{ left }}
+    >
+      <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
+    </span>
+  );
+}
+
+/** Active row title: accent text (no background highlight). */
+export function ActiveTitle({ text }: { text: string }) {
+  return (
+    <span className="truncate text-[var(--vscode-focusBorder)] font-medium">
+      {text}
+    </span>
+  );
+}
+
 // ──────────────────────────────────────────────────────────────────
 
 interface NavBranchProps extends React.HTMLAttributes<HTMLDivElement> {

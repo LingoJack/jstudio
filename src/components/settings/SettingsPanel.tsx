@@ -5,7 +5,7 @@ import type { TranslationKey } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
 import type { SettingsSectionId } from '../../store/uiSlice';
 import { useCollapsibleTree } from '../ui/useCollapsibleTree';
-import { NavBranch, NavRow } from '../ui/NavTree';
+import { NavBranch, NavRow, RailArrow, ActiveTitle } from '../ui/NavTree';
 import GeneralSection from './GeneralSection';
 import AgentModelSection from './AgentModelSection';
 import EditorSection from './EditorSection';
@@ -162,12 +162,13 @@ function SubNode({
           expandable
           expanded={open}
           noHover
+          bleed
           onClick={() => toggle(groupId)}
         >
           {t(node.labelKey)}
         </NavRow>
         {open && (
-          <NavBranch plain className="ml-4">
+          <NavBranch className="ml-[12px]">
             {node.children.map((child) => (
               <SubNode
                 key={child.labelKey}
@@ -189,14 +190,22 @@ function SubNode({
 
   // ── Leaf node (clickable anchor) ──
   const subActive = active && activeAnchor === node.anchorId;
+  const label = t(node.labelKey);
   return (
     <NavRow
       level="secondary"
-      active={subActive}
       noHover
+      bleed
       onClick={() => node.anchorId && onLeafClick(sectionId, node.anchorId)}
     >
-      {t(node.labelKey)}
+      {subActive ? (
+        <>
+          <RailArrow />
+          <ActiveTitle text={label} />
+        </>
+      ) : (
+        label
+      )}
     </NavRow>
   );
 }
@@ -281,33 +290,39 @@ export default function SettingsPanel() {
           </h2>
         </div>
 
-        {/* Nav items */}
-        <div className="flex-1 overflow-y-auto px-3 space-y-0.5">
+        {/* Nav items — DocumentSidebar language: gapless bleed rows, a
+            guide-line branch under expanded groups, and the active row
+            marked by a rail arrow + accent text (no background pill). */}
+        <div className="flex-1 overflow-y-auto pl-2">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = activeSection === item.id;
             const open = isExpanded(item.id);
             const hasSubs = !!item.subItems;
+            const label = t(item.labelKey);
 
             return (
               <div key={item.id}>
                 {/* Main header */}
                 <NavRow
                   level="primary"
-                  plainActive={hasSubs}
-                  active={active}
                   noHover
+                  bleed
+                  className="font-medium"
                   icon={<Icon className="w-5 h-5 opacity-70 shrink-0" />}
                   expandable={hasSubs}
                   expanded={open}
                   onClick={() => handleMainClick(item)}
                 >
-                  {t(item.labelKey)}
+                  {/* Active main row: accent text only — the rail arrow is
+                      redundant next to the section icon. */}
+                  {active ? <ActiveTitle text={label} /> : label}
                 </NavRow>
 
-                {/* Sub-items (recursive — supports nested groups) */}
+                {/* Sub-items (recursive — supports nested groups). The
+                    guide line hangs at the parent row's icon center. */}
                 {hasSubs && open && (
-                  <NavBranch plain className="mt-0.5 mb-1 ml-[18px]">
+                  <NavBranch className="mt-0.5 mb-1 ml-[18px]">
                     {item.subItems!.map((sub) => (
                       <SubNode
                         key={sub.labelKey}
