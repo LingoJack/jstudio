@@ -280,7 +280,7 @@ export default function AgentSidebar() {
           onClick={handleTogglePin}
           className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
             sidebarPinned
-              ? 'text-[var(--vscode-foreground)] bg-[var(--vscode-list-activeSelectionBackground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+              ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
               : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
           }`}
           title={sidebarPinned ? t('doclist.unpin') : t('doclist.pin')}
