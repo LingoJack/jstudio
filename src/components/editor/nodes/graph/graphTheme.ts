@@ -29,6 +29,7 @@ export const SHAPE_PALETTE_LIGHT: Record<GraphNodeShape, ShapePalette> = {
   activation: { fill: '#F3F4F6', stroke: '#374151' },
   note: { fill: 'none', stroke: '#374151' },
   database: { fill: 'none', stroke: '#374151' },
+  brace: { fill: 'none', stroke: '#374151' },
   topic: { fill: '#E0E7FF', stroke: '#6366F1' }, // 思维导图根节点默认：浅靛蓝填充
   'edge-line': { fill: 'none', stroke: '#0052D9' },
   'edge-ortho': { fill: 'none', stroke: '#0052D9' },
@@ -50,6 +51,7 @@ export const SHAPE_PALETTE_DARK: Record<GraphNodeShape, ShapePalette> = {
   activation: { fill: '#374151', stroke: '#9CA3AF' },
   note: { fill: 'none', stroke: '#9CA3AF' },
   database: { fill: 'none', stroke: '#9CA3AF' },
+  brace: { fill: 'none', stroke: '#9CA3AF' },
   topic: { fill: '#3730A3', stroke: '#818CF8' }, // 思维导图根节点默认：暗色靛蓝填充
   'edge-line': { fill: 'none', stroke: '#07C160' },
   'edge-ortho': { fill: 'none', stroke: '#07C160' },

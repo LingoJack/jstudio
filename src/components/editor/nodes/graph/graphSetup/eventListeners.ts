@@ -38,6 +38,10 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
   // 选中变化 -> 更新对齐按钮高亮状态 + 填充色状态 + 时序消息切换按钮
   // + 思维导图配色切换按钮。
   graph.getSelectionModel().addListener(InternalEvent.CHANGE, () => {
+    // 选中 vertex 计数无条件更新（驱动"花括号分组"条件按钮显隐）。
+    ctx.setSelectedVertexCount(
+      graph.getSelectionCells().filter((c) => c.isVertex()).length,
+    );
     const cell = graph.getSelectionCell();
     if (cell) {
       const style = graph.getCurrentCellStyle(cell);

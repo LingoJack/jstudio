@@ -16,6 +16,7 @@ import {
   type MindmapScheme,
 } from './graphTheme';
 import { MINDMAP_EDGE_STYLE } from './mindmapLayout';
+import { BRACE_GAP, BRACE_THICKNESS } from './graphConstants';
 
 /** 边数超过此阈值时自动关闭连线流动动画，保证大图流畅。 */
 export const FLOW_ANIMATION_THRESHOLD = 20;
@@ -90,4 +91,42 @@ export function mindmapEdgeStyle(
 /** 生成唯一 cell id。 */
 export function nextCellId(prefix: string): string {
   return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+/** 花括号放置结果。 */
+export interface BracePlacement {
+  orientation: 'horizontal' | 'vertical';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * 由选区包围盒计算花括号位置：
+ * 宽选区（width >= height）→ 选区下方放水平括号（⏟ 开口朝上）；
+ * 高选区 → 选区右侧放竖直括号（} 开口朝左）。
+ */
+export function computeBracePlacement(bounds: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}): BracePlacement {
+  if (bounds.width >= bounds.height) {
+    return {
+      orientation: 'horizontal',
+      x: bounds.x,
+      y: bounds.y + bounds.height + BRACE_GAP,
+      w: bounds.width,
+      h: BRACE_THICKNESS,
+    };
+  }
+  return {
+    orientation: 'vertical',
+    x: bounds.x + bounds.width + BRACE_GAP,
+    y: bounds.y,
+    w: BRACE_THICKNESS,
+    h: bounds.height,
+  };
 }

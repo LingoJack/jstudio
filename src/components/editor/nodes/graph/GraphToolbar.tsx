@@ -20,6 +20,7 @@ import {
   ZoomOut,
   Maximize,
   Contrast,
+  Braces,
 } from "lucide-react";
 import { ShapeGlyph } from "./ShapeGlyph";
 import { shapeTitleMap } from "./shapeMenuData";
@@ -45,6 +46,10 @@ export interface GraphToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onDelete: () => void;
+
+  // 花括号分组（选中 >=2 个 vertex 时显示）
+  canAddBrace: boolean;
+  onAddBrace: () => void;
 
   // Sequence diagram
   selectedSeqEdge: "call" | "return" | null;
@@ -106,6 +111,8 @@ export function GraphToolbar(props: GraphToolbarProps) {
     onUndo,
     onRedo,
     onDelete,
+    canAddBrace,
+    onAddBrace,
     selectedSeqEdge,
     onToggleSeqMessage,
     selectedMindmapTopic,
@@ -206,6 +213,19 @@ export function GraphToolbar(props: GraphToolbarProps) {
       >
         <Trash2 size={16} />
       </button>
+      {canAddBrace && (
+        <>
+          <div className="jgraph-tool-sep" />
+          <button
+            type="button"
+            className="jgraph-tool-btn"
+            title="为选中图形添加花括号分组（自动按选区方向放置）"
+            onClick={onAddBrace}
+          >
+            <Braces size={16} />
+          </button>
+        </>
+      )}
       {selectedSeqEdge && (
         <>
           <div className="jgraph-tool-sep" />

@@ -70,6 +70,7 @@ const DEFAULT_NODE_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   activation: { w: 16, h: 60 },
   note: { w: 100, h: 60 },
   database: { w: 120, h: 80 },
+  brace: { w: 160, h: 40 }, // mermaid 不会生成 brace，纯兜底
   topic: { w: 100, h: 36 },
   'edge-line': { w: 100, h: 20 },
   'edge-ortho': { w: 100, h: 20 },

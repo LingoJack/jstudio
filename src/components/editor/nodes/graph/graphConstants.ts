@@ -15,6 +15,12 @@ import {
 /* 默认模具尺寸 —— 对齐 draw.io 出厂默认值                             */
 /* ------------------------------------------------------------------ */
 
+/** 花括号与选区包围盒的间距（px）。 */
+const BRACE_GAP = 20;
+
+/** 花括号厚度（px）：水平括号为高度、竖直括号为宽度。 */
+const BRACE_THICKNESS = 40;
+
 const DEFAULT_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   rectangle: { w: 120, h: 60 },
   rounded: { w: 120, h: 60 },
@@ -28,6 +34,8 @@ const DEFAULT_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   activation: { w: 16, h: 60 },
   note: { w: 100, h: 60 },
   database: { w: 120, h: 80 },
+  // 花括号：仅兜底；实际尺寸由 computeBracePlacement 按选区包围盒计算
+  brace: { w: 160, h: BRACE_THICKNESS },
   topic: { w: 100, h: 36 }, // 思维导图节点：紧凑圆角矩形
   "edge-line": { w: 100, h: 20 },
   "edge-ortho": { w: 100, h: 20 },
@@ -48,6 +56,7 @@ const SHAPE_LABEL: Record<GraphNodeShape, string> = {
   activation: "",
   note: "注释",
   database: "数据库",
+  brace: "分组",
   topic: "主题",
   "edge-line": "",
   "edge-ortho": "",
@@ -135,6 +144,10 @@ function styleForShape(
     case "database":
       // 数据库：使用自定义 database 形状（圆柱体）
       return { ...base, shape: "database" };
+    case "brace":
+      // 花括号：自定义 BraceShape，描边 only。pointerEvents:true 让细曲线
+      // 获得 svgStrokeTolerance(8) 的命中带宽（覆盖 base 的 false）。
+      return { ...base, shape: "brace", pointerEvents: true };
     case "topic":
       // 思维导图根节点：按 scheme 给配色 + 写入 mmScheme/mmBranch/mmDepth 标记。
       // Tab/Enter 生发子节点时由 mindmapSpawn 按 depth 重新配色并更新标记。
@@ -185,6 +198,18 @@ function styleForShape(
 /** 网格步长（draw.io 同款 10px）。 */
 const GRID_SIZE = 10;
 
+/**
+ * 花括号外侧标签样式：水平括号（w>=h）标签放下方居中；
+ * 竖直括号标签放右侧左对齐。
+ * 插入时（GraphCanvas）与快照重建时（graphModel.buildNodeStyle）共用，
+ * 保证保存重开后标签位置一致（这些键不在快照 style 透传通道内）。
+ */
+function braceLabelStyleFor(w: number, h: number): Record<string, unknown> {
+  return w >= h
+    ? { verticalLabelPosition: "bottom", verticalAlign: "top" }
+    : { labelPosition: "right", align: "left" };
+}
+
 /** 事件容差：鼠标按下后移动超过该值才算"拖动"（拉线/拖节点）。
  *  maxGraph 默认很小导致一碰就触发拉线，调大让按下后小幅抖动不误触。
  *  值越大，越不容易误触发连线；建议 15-20 像素。 */
@@ -221,6 +246,9 @@ export {
   DEFAULT_SIZE,
   SHAPE_LABEL,
   styleForShape,
+  braceLabelStyleFor,
+  BRACE_GAP,
+  BRACE_THICKNESS,
   GRID_SIZE,
   EVENT_TOLERANCE,
   ZOOM_MIN,

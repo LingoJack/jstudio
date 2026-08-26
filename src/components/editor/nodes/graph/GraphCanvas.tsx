@@ -30,7 +30,13 @@ import {
   type LabelAlign,
 } from "./graphSnapshot";
 import { applySnapshotToGraph, readSnapshotFromGraph } from "./graphModel";
-import { BATCH_MAX_COUNT } from "./graphConstants";
+import {
+  BATCH_MAX_COUNT,
+  SHAPE_LABEL,
+  braceLabelStyleFor,
+  styleForShape,
+} from "./graphConstants";
+import { computeBracePlacement, nextCellId } from "./graphHelpers";
 import MermaidImportDialog from "./MermaidImportDialog";
 import AIGraphImportDialog from "./AIGraphImportDialog";
 import {
@@ -132,6 +138,8 @@ export function GraphCanvas({
   >(null);
   // 选中 vertex 是思维导图 topic 时为 true，用于显示 M/N 配色切换按钮。
   const [selectedMindmapTopic, setSelectedMindmapTopic] = useState(false);
+  // 选中 vertex 计数（≥2 时显示"花括号分组"条件按钮）。
+  const [selectedVertexCount, setSelectedVertexCount] = useState(0);
   // 填充色弹出面板开关
   const [fillPickerOpen, setFillPickerOpen] = useState(false);
   const fillPickerRef = useRef<HTMLDivElement>(null);
@@ -308,6 +316,7 @@ export function GraphCanvas({
     setSelectedFillColor,
     setSelectedSeqEdge,
     setSelectedMindmapTopic,
+    setSelectedVertexCount,
     setFillPickerOpen,
     setPending,
     setPendingBatchCount,
@@ -473,6 +482,33 @@ export function GraphCanvas({
     if (cells.length > 0) graph.removeCells(cells);
   }, []);
 
+  // 智能花括号：按选区包围盒方向在下方（横向选区）/ 右侧（纵向选区）
+  // 插入一个 BraceShape 注释形状，单步 undo。插入后选中新 cell，
+  // 选中计数变为 1，条件按钮自动消失。
+  const handleAddBrace = useCallback(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const cells = graph.getSelectionCells().filter((c) => c.isVertex());
+    if (cells.length < 2) return;
+    const bbox = graph.getBoundingBoxFromGeometry(cells, true);
+    if (!bbox) return;
+    const { x, y, w, h } = computeBracePlacement(bbox);
+    graph.batchUpdate(() => {
+      const cell = graph.insertVertex({
+        parent: graph.getDefaultParent(),
+        id: nextCellId("n"),
+        value: SHAPE_LABEL["brace"],
+        position: [x, y],
+        size: [w, h],
+        style: {
+          ...styleForShape("brace", darkModeRef.current),
+          ...braceLabelStyleFor(w, h),
+        },
+      });
+      graph.setSelectionCell(cell);
+    });
+  }, []);
+
   // 设置选中 cell 的文字水平对齐方式。
   const handleSetLabelAlign = useCallback((align: LabelAlign) => {
     const graph = graphRef.current;
@@ -631,6 +667,8 @@ export function GraphCanvas({
           onUndo={handleUndo}
           onRedo={handleRedo}
           onDelete={handleDelete}
+          canAddBrace={selectedVertexCount >= 2}
+          onAddBrace={handleAddBrace}
           selectedSeqEdge={selectedSeqEdge}
           onToggleSeqMessage={handleToggleSeqMessage}
           selectedMindmapTopic={selectedMindmapTopic}

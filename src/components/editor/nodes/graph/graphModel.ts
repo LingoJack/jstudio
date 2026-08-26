@@ -32,6 +32,7 @@ import {
   DEFAULT_MINDMAP_SCHEME,
   type MindmapScheme,
 } from './graphTheme';
+import { braceLabelStyleFor } from './graphConstants';
 
 /* ------------------------------------------------------------------ */
 /* 形状 ↔ CellStyle 映射                                               */
@@ -155,6 +156,7 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
   if (shape === 'umlActivation') return 'activation'; // 时序图激活框（自定义形状）
   if (shape === 'note') return 'note'; // 注释框（自定义 NoteShape）
   if (shape === 'database') return 'database'; // 数据库（自定义 DatabaseShape）
+  if (shape === 'brace') return 'brace'; // 花括号（自定义 BraceShape）
   if (shape === 'swimlane') {
     return style.horizontal === false ? 'swimlane-v' : 'swimlane-h';
   }
@@ -174,6 +176,8 @@ export function styleToNodeShape(style: CellStyle | undefined): GraphNodeShape {
 /** 合并节点的可选样式覆盖到基础 CellStyle 上。 */
 function buildNodeStyle(node: GraphNode, dark: boolean, scheme: MindmapScheme): CellStyle {
   const base = nodeShapeToStyle(node.shape, dark, scheme);
+  // 花括号外侧标签位置不在快照 style 透传通道内，按节点宽高比重推导（与插入时一致）。
+  if (node.shape === 'brace') Object.assign(base, braceLabelStyleFor(node.w, node.h));
   const s = node.style;
   if (s) {
     if (s.fill !== undefined) base.fillColor = s.fill;
