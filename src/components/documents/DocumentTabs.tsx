@@ -39,6 +39,22 @@ export default function DocumentTabs() {
   const isOpenDocDialogOpen = useStore((s) => s.isOpenDocDialogOpen);
   const setOpenDocDialogOpen = useStore((s) => s.setOpenDocDialogOpen);
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
+  const isSidebarOpen = useStore((s) => s.isSidebarOpen);
+  const sidebarPinned = useStore((s) => s.sidebarPinned);
+  const leftPanelHovered = useStore((s) => s.leftPanelHovered);
+  const sidebarWidth = useStore((s) => s.sidebarWidth);
+
+  // ── Capsule max width: keep clear of BOTH side panels ──
+  // The capsule centers on the window, so its cap is 80% minus the space
+  // occupied by the sidebar (left; 48px collapsed / sidebarWidth expanded)
+  // and the outline panel (right; OUTLINE_WIDTH when open).
+  const sidebarEffective = !isSidebarOpen
+    ? 0
+    : !sidebarPinned && !leftPanelHovered
+      ? 48
+      : sidebarWidth;
+  const outlineOffset = isOutlineOpen ? OUTLINE_WIDTH : 0;
+  const capsuleMaxWidth = `calc(80% - ${sidebarEffective + outlineOffset}px)`;
 
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
@@ -108,10 +124,7 @@ export default function DocumentTabs() {
       renderContextMenu={renderContextMenu}
       glassOpacity={tabBarGlassOpacity}
       position={tabBarPosition === 'top' ? 'titlebar' : 'bottom'}
-      // Keep the capsule clear of the outline panel: when it's open, shave
-      // the panel's width off the max width (centered capsule, right edge
-      // then stops short of the panel's left edge on normal window sizes).
-      maxWidth={isOutlineOpen ? `calc(80% - ${OUTLINE_WIDTH}px)` : undefined}
+      maxWidth={capsuleMaxWidth}
     />
   );
 
