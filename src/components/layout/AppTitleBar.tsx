@@ -6,10 +6,6 @@ import { setTitlebarSlot } from './titlebarSlot';
  *  tab capsule here when the tab bar position is 'top' — the capsule then
  *  sits inside the title bar row instead of floating over the content. */
 export const TITLEBAR_CENTER_SLOT_ID = 'app-titlebar-center-slot';
-/** DOM id of the title-bar LEFT slot (after the traffic-light spacer).
- *  DocumentSidebar portals its toolbar (search / pin / more) here, making
- *  the title bar the app's single unified top row. */
-export const TITLEBAR_LEFT_SLOT_ID = 'app-titlebar-left-slot';
 
 /**
  * macOS-style title bar spanning the full window width.
@@ -60,7 +56,7 @@ export default function AppTitleBar() {
           so it never blocks window dragging. */}
       <div
         id={TITLEBAR_CENTER_SLOT_ID}
-        ref={(el) => setTitlebarSlot('center', el)}
+        ref={setTitlebarSlot}
         data-tauri-drag-region
         className="absolute inset-x-0 top-0 bottom-0 flex items-end justify-center pointer-events-none"
       />
