@@ -9,7 +9,7 @@ import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
 import { buildFolderTree } from '../../lib/documents/folderTree';
 import { pinyinIncludes } from '../../lib/documents/pinyinMatch';
-import { MoreHorizontal, X, Pin, Search, ArrowRight } from 'lucide-react';
+import { MoreHorizontal, X, Pin, ListFilter, ArrowRight } from 'lucide-react';
 import DocumentContextMenu from './DocumentContextMenu';
 import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
 import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSidebarMenus';
@@ -406,11 +406,13 @@ export default function DocumentSidebar() {
   // bar, because the sidebar root punches up to the window top (-mt-9).
   const sidebarHeader = (
     <div className="h-9 shrink-0 flex items-center gap-1.5 px-3 mt-9">
-      {/* Search — Aliyun-style soft always-on fill; focus gets the accent ring */}
+      {/* Search — Aliyun "在目录中筛选" style: list-filter icon, slightly
+          taller soft-fill box with a faint input-border edge, no visible
+          border until focus (accent ring) */}
       <div
-        className="flex-1 min-w-0 flex items-center gap-1.5 h-6 px-1.5 rounded-md transition-colors duration-150 bg-[color-mix(in_srgb,var(--vscode-foreground)_5%,transparent)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]"
+        className="flex-1 min-w-0 flex items-center gap-1.5 h-7 px-2 rounded-sm transition-colors duration-150 border border-[var(--vscode-input-border)] bg-[color-mix(in_srgb,var(--vscode-foreground)_5%,transparent)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]"
       >
-        <Search className="w-3.5 h-3.5 opacity-50 shrink-0" />
+        <ListFilter className="w-3.5 h-3.5 opacity-50 shrink-0" />
         <input
           type="text"
           value={searchQuery}
