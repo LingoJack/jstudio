@@ -107,7 +107,9 @@ try {
   );
 
   // 5. PTY cycle with events
-  const session = await call('pty_create', { cwd: '~', cols: 80, rows: 24 });
+  // NOTE: struct-param commands arrive wrapped ({ params: {...} }) — same
+  // shape the real frontend sends (Tauri named-struct-arg convention).
+  const session = await call('pty_create', { params: { cwd: '~', cols: 80, rows: 24 } });
   if (!session?.id) fail('pty_create returned no id');
   await call('pty_write', { sessionId: session.id, data: 'echo __smoke_pty__\n' });
   await sleep(1200);

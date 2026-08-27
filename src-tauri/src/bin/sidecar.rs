@@ -43,11 +43,6 @@ fn take<T: DeserializeOwned>(params: &Value, key: &str) -> Result<T, String> {
         .map_err(|e| format!("bad param '{key}': {e}"))
 }
 
-/// Deserialize the whole params object into a struct (struct-param commands).
-fn take_struct<T: DeserializeOwned>(params: Value) -> Result<T, String> {
-    serde_json::from_value(params).map_err(|e| format!("bad params: {e}"))
-}
-
 /// Run a sync command on the blocking pool and serialize its result.
 async fn blocking<T, F>(f: F) -> Result<Value, String>
 where
@@ -231,8 +226,10 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
         }
 
         // ── terminal (PTY) ──
+        // NOTE: struct-param commands arrive WRAPPED by their arg name
+        // ({ params: {...} }) — Tauri's convention for named struct args.
         "pty_create" => {
-            let p: terminal::CreateParams = take_struct(params)?;
+            let p: terminal::CreateParams = take(&params, "params")?;
             blocking(move || terminal::pty_create_impl(events, p)).await
         }
         "pty_write" => {
@@ -283,11 +280,11 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
             blocking(move || agent::agent_delete_session(id)).await
         }
         "agent_send_message" => {
-            let p: agent::SendMessageParams = take_struct(params)?;
+            let p: agent::SendMessageParams = take(&params, "params")?;
             blocking(move || agent::agent_send_message_impl(p, events)).await
         }
         "agent_tool_result" => {
-            let p: agent::ToolResultParams = take_struct(params)?;
+            let p: agent::ToolResultParams = take(&params, "params")?;
             blocking(move || agent::agent_tool_result_impl(p)).await
         }
         "agent_cancel" => {
@@ -319,7 +316,7 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
 
         // ── AI graph HTTP proxy (async) ──
         "ai_graph_fetch" => {
-            let req: ai_graph::AiGraphFetchRequest = take_struct(params)?;
+            let req: ai_graph::AiGraphFetchRequest = take(&params, "request")?;
             let r = ai_graph::ai_graph_fetch(req).await?;
             serde_json::to_value(r).map_err(|e| e.to_string())
         }

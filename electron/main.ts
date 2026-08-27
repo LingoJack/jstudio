@@ -21,7 +21,9 @@ import { registerAssetProtocol, handleAssetRequests } from './protocol';
 import { registerOne, unregisterOne, unregisterAll, SHORTCUT_EVENT } from './globalShortcuts';
 import { TabsManager, type PanelRect } from './browserTabs';
 
-const DEV_URL = 'http://127.0.0.1:1420';
+// Vite dev server; overridable so a second dev instance can coexist with
+// the Tauri shell's `make dev` (which owns 1420 with strictPort).
+const DEV_URL = process.env.JSTUDIO_DEV_URL ?? 'http://127.0.0.1:1420';
 
 // ── Window registry (label → BrowserWindow) ─────────────────────────────────
 const windows = new Map<string, BrowserWindow>();
