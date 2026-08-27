@@ -34,7 +34,6 @@ export default function App() {
   const init = useStore((s) => s.init);
   const isLoading = useStore((s) => s.isLoading);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
-  const isSettingsOpen = useStore((s) => s.isSettingsOpen);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
   const keyboardShortcuts = useStore((s) => s.keyboardShortcuts);
 
@@ -228,26 +227,24 @@ export default function App() {
 
   // Determine if we're in terminal view (terminal mode hides the sidebar
   // entirely — the terminal panel takes over the full editor area).
-  const isTerminalView =
-    !isSettingsOpen && activeSidebarView === 'terminal';
+  // Settings is now a modal overlay (SettingsPanel) — it no longer
+  // suppresses the underlying workspace layout.
+  const isTerminalView = activeSidebarView === 'terminal';
 
   // Agent view: agent panel takes over the full editor area (like terminal).
-  const isAgentView =
-    !isSettingsOpen && activeSidebarView === 'agent';
+  const isAgentView = activeSidebarView === 'agent';
 
   // Browser view: inline browser panel takes over the full editor area
   // (like terminal/agent). Native child webviews are positioned on top of
   // the React UI via the ResizeObserver rect reported by BrowserPanel.
-  const isBrowserView =
-    !isSettingsOpen && activeSidebarView === 'browser';
+  const isBrowserView = activeSidebarView === 'browser';
 
   // hasTerminalTab is computed above via useStore, before the early return.
 
   // Document view: the content column punches 36px up beneath the glass
   // title bar so document text scrolls under it (soft translucent reveal
   // instead of a hard cutoff). Other views keep the pt-9 offset below the bar.
-  const showDocView =
-    !isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView;
+  const showDocView = !isTerminalView && !isAgentView && !isBrowserView;
 
   return (
     <div className="h-screen w-full flex flex-col bg-[var(--vscode-activityBar-background)] text-[var(--vscode-editor-foreground)] font-sans tracking-tight overflow-hidden">
@@ -267,9 +264,8 @@ export default function App() {
         {/* Activity Bar (left-most) */}
         <ActivityBar />
 
-        {/* Secondary sidebar: hidden in terminal view and settings */}
-        {/* Document sidebar: shown when sidebar is open and not in terminal/agent/browser/settings view */}
-        {isSidebarOpen && !isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView && (
+        {/* Document sidebar: shown when sidebar is open and not in terminal/agent/browser view */}
+        {isSidebarOpen && !isTerminalView && !isAgentView && !isBrowserView && (
           <DocumentSidebar />
         )}
 
@@ -286,7 +282,7 @@ export default function App() {
           }`}
         >
           {/* Document Tab Bar */}
-          {!isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView && <DocumentTabs />}
+          {!isTerminalView && !isAgentView && !isBrowserView && <DocumentTabs />}
 
           {/* Terminal panel: mount-once, CSS-hide */}
           {(hasTerminalTab || isTerminalView) && (
@@ -319,11 +315,8 @@ export default function App() {
 
           {/* Keep workspace content mounted so concurrent tab transitions can finish safely. */}
           <DeferredWorkspaceContent
-            visible={!isSettingsOpen && !isTerminalView && !isAgentView && !isBrowserView}
+            visible={!isTerminalView && !isAgentView && !isBrowserView}
           />
-
-          {/* Settings take priority over workspace content. */}
-          {isSettingsOpen && <SettingsPanel />}
         </div>
       </div>
 
@@ -331,6 +324,12 @@ export default function App() {
           Global Toast Notifications (top-right, above everything)
          ============================== */}
       <ToastContainer />
+
+      {/* ==============================
+           Settings Dialog (modal overlay; placed BEFORE palette/search in
+           DOM order so those stack above it at the same z-index)
+          ============================== */}
+      <SettingsPanel />
 
       {/* ==============================
           Command Palette (global overlay, above everything)

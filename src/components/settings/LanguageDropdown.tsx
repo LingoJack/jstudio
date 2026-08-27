@@ -53,7 +53,12 @@ export function LanguageDropdown() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      // Consume the Esc so it doesn't also close a surrounding dialog
+      // (e.g. the settings modal this dropdown lives in).
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        close();
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);

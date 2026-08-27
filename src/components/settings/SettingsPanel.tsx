@@ -5,6 +5,7 @@ import type { TranslationKey } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
 import type { SettingsSectionId } from '../../store/uiSlice';
 import { useCollapsibleTree } from '../ui/useCollapsibleTree';
+import { useDialogTransition } from '../ui/useDialogTransition';
 import { NavBranch, NavRow, RailArrow, ActiveTitle } from '../ui/NavTree';
 import GeneralSection from './GeneralSection';
 import AgentModelSection from './AgentModelSection';
@@ -204,9 +205,30 @@ function SubNode({
 
 export default function SettingsPanel() {
   const { t } = useI18n();
+  const isOpen = useStore((s) => s.isSettingsOpen);
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const activeSection = useStore((s) => s.settingsActiveSection);
   const setActiveSection = useStore((s) => s.setSettingsActiveSection);
   const ActiveSection = SECTIONS[activeSection];
+
+  // Enter/exit animation — same dialog language as GlobalSearchDialog.
+  const transition = useDialogTransition(isOpen);
+
+  // Esc closes the dialog. BUBBLE phase on purpose: the shortcut recorders
+  // (ShortcutsSection / GlobalShortcutsSection) listen in the CAPTURE phase
+  // and stopPropagation(), which shields this handler — Esc still cancels a
+  // recording instead of closing the whole dialog.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSettingsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, setSettingsOpen]);
 
   // Collapsible nav state — shared hook also used by DocumentSidebar folders.
   const { toggle, expand, isExpanded } = useCollapsibleTree(
@@ -291,8 +313,28 @@ export default function SettingsPanel() {
     scrollToAnchor(anchorId);
   };
 
+  if (transition === 'closed') return null;
+  const exiting = transition === 'exit';
+
+  // Modal dialog (GlobalSearchDialog language: backdrop + centered panel).
+  // The internal layout is unchanged — left nav + right content column.
   return (
-    <div className="w-full h-full flex bg-[var(--vscode-editor-background)]">
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      onClick={() => setSettingsOpen(false)}
+    >
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 bg-black/30 backdrop-blur-[1px] ${
+          exiting ? 'animate-dialog-backdrop-out' : 'animate-dialog-backdrop-in'
+        }`}
+      />
+      <div
+        className={`relative w-[min(1024px,94vw)] h-[min(680px,88vh)] overflow-hidden flex rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-editor-background)] shadow-2xl ${
+          exiting ? 'animate-dialog-panel-out' : 'animate-dialog-panel-in'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
       {/* ── Left navigation ── */}
       <nav className="w-60 shrink-0 bg-[var(--vscode-sideBar-background)] flex flex-col py-5 select-none">
         {/* Title */}
@@ -376,6 +418,7 @@ export default function SettingsPanel() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
