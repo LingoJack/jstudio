@@ -301,11 +301,10 @@ export function DocumentTreeRenderer({
               draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''
             }
           >
+            {/* Root-level docs have no guide line to straddle — active state
+                is the accent title alone, no "->" cursor. */}
             {isActive ? (
-              <>
-                <RailArrow />
-                <ActiveTitle text={doc.title || t('doclist.untitled')} />
-              </>
+              <ActiveTitle text={doc.title || t('doclist.untitled')} />
             ) : (
               doc.title || t('doclist.untitled')
             )}
