@@ -24,6 +24,8 @@ extraResources:
     to: bin/j
 mac:
   category: public.app-category.productivity
+  # Reuse the Tauri bundle's icon (src-tauri/icons/icon.icns).
+  icon: src-tauri/icons/icon.icns
   target:
     - dmg
     - zip

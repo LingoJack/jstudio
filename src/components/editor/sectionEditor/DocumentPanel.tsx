@@ -585,7 +585,7 @@ export default function DocumentPanel({
         <button
           onClick={toggleOutline}
           title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
-          className={`absolute top-3 right-3 z-popover p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+          className={`absolute top-3 right-3 z-popover no-drag p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
             isOutlineOpen
               ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
               : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
@@ -716,7 +716,7 @@ export default function DocumentPanel({
       <button
         onClick={toggleOutline}
         title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
-        className={`absolute top-3 right-3 z-popover p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+        className={`absolute top-3 right-3 z-popover no-drag p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
           isOutlineOpen
             ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
             : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'

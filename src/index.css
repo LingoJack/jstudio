@@ -54,6 +54,12 @@
 .z-modal { z-index: var(--z-modal); }
 .z-toast { z-index: var(--z-toast); }
 
+/* Interactive overlays that sit INSIDE a window drag region (the top
+   title-bar strip) must opt out explicitly — Electron's app-region hit
+   test otherwise swallows their clicks for window dragging. WKWebView
+   ignores the property. */
+.no-drag { -webkit-app-region: no-drag; }
+
 /* width utilities */
 .w-sidebar-list { width: var(--w-sidebar-list); }
 .w-tab-document { width: var(--w-tab-document); }
