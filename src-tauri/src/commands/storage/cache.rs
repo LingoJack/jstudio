@@ -24,7 +24,6 @@ static DIAGRAM_UPDATES: std::sync::LazyLock<Mutex<HashMap<String, Value>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Store preview data in memory, keyed by window label.
-#[tauri::command]
 pub fn set_preview_data(label: String, data: Value) -> Result<(), String> {
     let mut cache = PREVIEW_CACHE.lock().map_err(|e| e.to_string())?;
     cache.insert(label, data);
@@ -32,14 +31,12 @@ pub fn set_preview_data(label: String, data: Value) -> Result<(), String> {
 }
 
 /// Retrieve and remove preview data for the given label.
-#[tauri::command]
 pub fn get_preview_data(label: String) -> Result<Option<Value>, String> {
     let mut cache = PREVIEW_CACHE.lock().map_err(|e| e.to_string())?;
     Ok(cache.remove(&label))
 }
 
 /// Store an updated diagram snapshot from the diagram window.
-#[tauri::command]
 pub fn set_diagram_update(label: String, data: Value) -> Result<(), String> {
     let mut updates = DIAGRAM_UPDATES.lock().map_err(|e| e.to_string())?;
     updates.insert(label, data);
@@ -49,14 +46,12 @@ pub fn set_diagram_update(label: String, data: Value) -> Result<(), String> {
 /// Retrieve (non-destructively) the latest diagram snapshot for a label.
 /// The main window polls this periodically; once it has consumed the data
 /// it calls `clear_diagram_update`.
-#[tauri::command]
 pub fn get_diagram_update(label: String) -> Result<Option<Value>, String> {
     let updates = DIAGRAM_UPDATES.lock().map_err(|e| e.to_string())?;
     Ok(updates.get(&label).cloned())
 }
 
 /// Remove a diagram update entry after the main window has consumed it.
-#[tauri::command]
 pub fn clear_diagram_update(label: String) -> Result<(), String> {
     let mut updates = DIAGRAM_UPDATES.lock().map_err(|e| e.to_string())?;
     updates.remove(&label);

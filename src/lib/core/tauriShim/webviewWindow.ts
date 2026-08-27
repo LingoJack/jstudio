@@ -9,6 +9,7 @@
  */
 
 import { native } from './native';
+import { subscribeFocusChanged } from './window';
 import type { TauriEvent, UnlistenFn } from './event';
 
 export interface WebviewWindowOptions {
@@ -66,6 +67,10 @@ export class WebviewWindow {
     await native().windowOp(this.label, 'close');
   }
 
+  async destroy(): Promise<void> {
+    await native().windowOp(this.label, 'destroy');
+  }
+
   async show(): Promise<void> {
     await native().windowOp(this.label, 'show');
   }
@@ -80,6 +85,14 @@ export class WebviewWindow {
 
   async isFocused(): Promise<boolean> {
     return (await native().windowOp(this.label, 'isFocused')) as boolean;
+  }
+
+  async isVisible(): Promise<boolean> {
+    return (await native().windowOp(this.label, 'isVisible')) as boolean;
+  }
+
+  async onFocusChanged(cb: (e: { payload: boolean }) => void): Promise<UnlistenFn> {
+    return subscribeFocusChanged(this.label, (focused) => cb({ payload: focused }));
   }
 
   static async getByLabel(label: string): Promise<WebviewWindow | null> {

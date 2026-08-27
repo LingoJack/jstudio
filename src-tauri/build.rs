@@ -4,9 +4,8 @@ use std::path::PathBuf;
 const CARGO_MANIFEST_DIR: &str = "CARGO_MANIFEST_DIR";
 
 fn main() {
-    // Best-effort: stage the bundled `j` binary into resources/bin/ BEFORE
-    // tauri_build::build(), because tauri_build validates the `resources` glob
-    // pattern in tauri.conf.json and will fail if the directory is empty/missing.
+    // Best-effort: stage the bundled `j` binary into resources/bin/ so the
+    // Electron packaging (electron-builder extraResources) can ship it.
     if let Err(e) = stage_bundled_j() {
         println!("cargo:warning=[jcli-bundle] Skipping bundled j: {}", e);
     }
@@ -15,9 +14,6 @@ fn main() {
     // (About page + Debug section). `cargo:rustc-env` makes it available as an
     // env var at compile time via `env!("JSTUDIO_BUILD_COMMIT")`.
     inject_build_commit();
-
-    // Run the standard Tauri build steps (validates resources, config, etc.)
-    tauri_build::build();
 
     // Tell Cargo to re-run this script when the staged binary changes.
     println!(

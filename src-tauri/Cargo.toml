@@ -1,12 +1,9 @@
 [package]
 name = "jstudio"
 version = "0.1.0"
-description = "JStudio local knowledge graph desktop app"
+description = "JStudio backend (Electron sidecar: storage/PTY/agent/link)"
 authors = ["Jack Lingo"]
 edition = "2024"
-# Two bins exist (Tauri shell + Electron sidecar); `cargo run` (tauri dev)
-# must default to the Tauri shell.
-default-run = "jstudio"
 
 [workspace]
 
@@ -15,29 +12,15 @@ name = "jstudio_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 # Headless backend for the Electron shell (stdio JSON-RPC).
-# The Tauri app binary (src/main.rs) stays as the WKWebView shell until P6.
 [[bin]]
 name = "jstudio-sidecar"
 path = "src/bin/sidecar.rs"
 
-[build-dependencies]
-tauri-build = { version = "2", features = [] }
-
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api", "protocol-asset", "devtools", "unstable", "image-png"] }
-# Explicit format features so `tauri::image::Image::from_bytes` (used to decode
-# assets before writing them to the OS clipboard) can handle every format the
-# image-picker accepts, not just PNG. Cargo unifies features for a given crate
-# version across the whole dependency graph, so this also affects the `image`
-# crate instance that `tauri`/`arboard` pull in transitively.
+# Image decode formats for the clipboard commands (and any future asset ops).
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
-# Direct clipboard access for the Electron sidecar (the clipboard-manager
-# plugin wraps this same crate; sidecar has no Tauri runtime to reach it).
+# OS clipboard access (image paste/copy commands).
 arboard = "3"
-tauri-plugin-dialog = "2"
-tauri-plugin-opener = "2"
-tauri-plugin-clipboard-manager = "2"
-tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dirs = "6"
@@ -67,30 +50,3 @@ cipher = { version = "0.4", features = ["block-padding"] }
 urlencoding = "2"
 url = "2"
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
-
-# ── macOS native menu cleanup (remove system-injected Edit items) ──
-# ── macOS native WKUIDelegate for browser tab creation ──
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem", "NSWindow", "NSView", "NSOpenPanel", "NSPanel"] }
-objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL", "NSNotification", "NSGeometry", "NSValue"] }
-objc2-web-kit = { version = "0.3", features = [
-    "WKWebView",
-    "WKWebViewConfiguration",
-    "WKPreferences",
-    "WKUIDelegate",
-    "WKNavigationDelegate",
-    "WKNavigationAction",
-    "WKNavigation",
-    "WKWindowFeatures",
-    "WKFrameInfo",
-    "WKOpenPanelParameters",
-    "WKSecurityOrigin",
-    "WKUserContentController",
-    "WKUserScript",
-    "WKWebsiteDataStore",
-    "WKContentWorld",
-    "block2",
-    "objc2-app-kit",
-] }
-block2 = "0.6"

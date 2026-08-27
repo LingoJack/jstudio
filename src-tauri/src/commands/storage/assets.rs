@@ -16,7 +16,6 @@ use super::paths::{doc_assets_dir, doc_trash_dir, studio_dir};
 /// If a file with the same name already exists, a numeric suffix is appended
 /// (e.g. `photo.png` → `photo-1.png` → `photo-2.png`) until a free name is found.
 /// Returns the **final** file name used.
-#[tauri::command]
 pub fn save_doc_asset(doc_id: String, file_name: String, data: Vec<u8>) -> Result<String, String> {
     let dir = doc_assets_dir(&doc_id);
     fs::create_dir_all(&dir).map_err(|e| format!("failed to create assets dir: {e}"))?;
@@ -28,7 +27,6 @@ pub fn save_doc_asset(doc_id: String, file_name: String, data: Vec<u8>) -> Resul
 }
 
 /// Delete a single asset from a document's assets folder.
-#[tauri::command]
 pub fn delete_doc_asset(doc_id: String, file_name: String) -> Result<(), String> {
     let path = doc_assets_dir(&doc_id).join(&file_name);
     if path.exists() {
@@ -39,7 +37,6 @@ pub fn delete_doc_asset(doc_id: String, file_name: String) -> Result<(), String>
 }
 
 /// List all assets in a document's assets folder with metadata.
-#[tauri::command]
 pub fn list_doc_assets(doc_id: String) -> Result<Vec<Value>, String> {
     let dir = doc_assets_dir(&doc_id);
     if !dir.exists() {
@@ -91,7 +88,6 @@ pub fn list_doc_assets(doc_id: String) -> Result<Vec<Value>, String> {
 }
 
 /// One-time cleanup: remove the legacy global `~/.jdata/studio/assets/` directory.
-#[tauri::command]
 pub fn clean_global_assets() -> Result<(), String> {
     let dir = studio_dir().join("assets");
     if dir.exists() {
@@ -112,7 +108,6 @@ pub fn clean_global_assets() -> Result<(), String> {
 /// in the recycle bin so the user can restore or permanently delete it later.
 ///
 /// No-op success when the source file doesn't exist (already gone).
-#[tauri::command]
 pub fn trash_doc_asset(doc_id: String, file_name: String) -> Result<(), String> {
     let src = doc_assets_dir(&doc_id).join(&file_name);
     if !src.exists() {
@@ -148,7 +143,6 @@ pub fn trash_doc_asset(doc_id: String, file_name: String) -> Result<(), String> 
 }
 
 /// List every trashed asset across all documents, newest first.
-#[tauri::command]
 pub fn list_trashed_assets() -> Result<Value, String> {
     let conn = crate::db::db()?;
     let mut stmt = conn
@@ -190,7 +184,6 @@ pub fn list_trashed_assets() -> Result<Value, String> {
 ///
 /// The file is moved out of `.trash/` and the recycle-bin record is removed.
 /// If the original name now collides in `assets/`, a numeric suffix is added.
-#[tauri::command]
 pub fn restore_trashed_asset(id: i64) -> Result<(), String> {
     let conn = crate::db::db()?;
     let row: Option<(String, String, String)> = conn
@@ -225,7 +218,6 @@ pub fn restore_trashed_asset(id: i64) -> Result<(), String> {
 }
 
 /// Permanently delete a trashed asset (removes the `.trash/` file + record).
-#[tauri::command]
 pub fn delete_trashed_asset(id: i64) -> Result<(), String> {
     let conn = crate::db::db()?;
     let row: Option<(String, String)> = conn

@@ -7,7 +7,6 @@ use std::fs;
 use super::paths::{doc_dir, doc_path, documents_dir};
 
 /// Read all document metadata from the database, ordered by `updated_at` DESC.
-#[tauri::command]
 pub fn read_index() -> Result<Value, String> {
     let conn = crate::db::db()?;
     let mut stmt = conn
@@ -73,7 +72,6 @@ pub fn read_index() -> Result<Value, String> {
 ///      document list (trashed docs excluded), so deleting "missing" rows
 ///      would destroy trashed documents. Deletion is the sole responsibility
 ///      of `delete_document`.
-#[tauri::command]
 pub fn write_index(entries: Value) -> Result<(), String> {
     let arr = entries
         .as_array()
@@ -136,7 +134,6 @@ pub fn write_index(entries: Value) -> Result<(), String> {
 ///      `documents/{doc_id}.json` — for content not yet migrated. When found
 ///      this way, the body is backfilled into the database so subsequent
 ///      reads hit the fast path.
-#[tauri::command]
 pub fn read_document(doc_id: String) -> Result<Value, String> {
     // ── 1. Database body ──
     {
@@ -203,13 +200,7 @@ pub fn read_document(doc_id: String) -> Result<Value, String> {
 /// to `.backups/` (see [`super::backups::backup_before_write`]). The
 /// `AppHandle` is auto-injected by Tauri and used to emit an abnormal-shrink
 /// event when the new content is suspiciously smaller than the old.
-#[tauri::command]
-pub fn write_document(doc_id: String, doc: Value, app: tauri::AppHandle) -> Result<(), String> {
-    write_document_impl(doc_id, doc, &*crate::events::tauri_sink(app))
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
-pub fn write_document_impl(
+pub fn write_document(
     doc_id: String,
     doc: Value,
     events: &dyn crate::events::EventSink,
@@ -243,7 +234,6 @@ pub fn write_document_impl(
 /// Delete a document: its metadata + body row, its on-disk folder (assets),
 /// any legacy flat file, and record a tombstone so orphan-recovery never
 /// resurrects it.
-#[tauri::command]
 pub fn delete_document(doc_id: String) -> Result<(), String> {
     let dir = doc_dir(&doc_id);
     if dir.exists() {

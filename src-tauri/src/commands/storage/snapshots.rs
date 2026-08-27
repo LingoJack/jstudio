@@ -17,7 +17,6 @@ use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::AppHandle;
 
 use super::paths::doc_dir;
 
@@ -42,13 +41,7 @@ fn now_ms() -> u64 {
 /// Payload shape: `{ "timestampMs": u64, "docId": String, "sections": [<JSONContent>] }`
 /// where each section is a per-section `editor.getJSON()` result stored
 /// verbatim (no Block[] conversion).
-#[tauri::command]
-pub fn save_doc_snapshot(doc_id: String, sections: Value, _app: AppHandle) -> Result<(), String> {
-    save_doc_snapshot_impl(doc_id, sections)
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
-pub fn save_doc_snapshot_impl(doc_id: String, sections: Value) -> Result<(), String> {
+pub fn save_doc_snapshot(doc_id: String, sections: Value) -> Result<(), String> {
     let dir = snapshots_dir(&doc_id);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
@@ -79,7 +72,6 @@ pub fn save_doc_snapshot_impl(doc_id: String, sections: Value) -> Result<(), Str
 ///
 /// The frontend converts the raw TipTap JSON back to Block[] via the CURRENT
 /// (fixed) adapter for preview + restore. See `BackupRestoreDialog`.
-#[tauri::command]
 pub fn read_doc_snapshot(doc_id: String) -> Result<Value, String> {
     let path = snapshots_dir(&doc_id).join("editor.0.json");
     if !path.exists() {

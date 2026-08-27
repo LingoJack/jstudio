@@ -12,14 +12,14 @@ else
 endif
 
 REPO := LingoJack/jstudio
-TAURI_DIR := src-tauri
-MACOS_APP := $(TAURI_DIR)/target/release/bundle/macos/JStudio.app
-BIN := $(TAURI_DIR)/target/release/jstudio
+RUST_DIR := src-tauri
+MACOS_APP := dist-electron-builder/mac-arm64/JStudio.app
+BIN := $(RUST_DIR)/target/release/jstudio-sidecar
 INSTALL_APP_DIR ?= /Applications
 
-# 版本号：优先从 tauri.conf.json 读取（Tauri 应用真实版本）
-VERSION := $(shell grep '"version"' $(TAURI_DIR)/tauri.conf.json | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
-RUST_VERSION := $(shell grep '^version' $(TAURI_DIR)/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+# 版本号：从 package.json 读取（Electron 应用真实版本）
+VERSION := $(shell grep '"version"' package.json | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+RUST_VERSION := $(shell grep '^version' $(RUST_DIR)/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
 # ============================================
@@ -27,16 +27,15 @@ GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 # ============================================
 .PHONY: help \
         current_dir push push-non-ai commit pull status \
-        deps deps-fe deps-tauri \
+        deps deps-fe \
         dev build release build-jcli \
-        dev-electron build-electron install-electron \
-        install install-jstudio-only uninstall reinstall \
+        install uninstall reinstall \
         bump-version set-version \
         fmt lint check clippy pre-commit \
         fmt-fe lint-fe check-fe \
         fmt-rust lint-rust check-rust \
         test test-fe test-rust \
-        clean clean-fe clean-tauri clean-all \
+        clean clean-fe clean-rust clean-all \
         run run-release \
         watch watch-test \
         gui-dev gui-build gui-install gui-clean
@@ -53,8 +52,8 @@ help: ## 显示此帮助信息
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "📋 常用命令:"
-	@echo "  make dev        # 启动 Tauri 开发模式"
-	@echo "  make build      # 构建 Tauri 应用"
+	@echo "  make dev        # 启动 Electron 开发模式"
+	@echo "  make build      # 构建 Electron 应用"
 	@echo "  make install    # 安装到系统（macOS → /Applications）"
 	@echo "  make fmt        # 格式化代码（前端 + Rust）"
 	@echo "  make lint       # 检查代码质量"
@@ -110,72 +109,29 @@ status: current_dir ## 查看 Git 状态
 # ============================================
 # 依赖安装
 # ============================================
-deps: deps-fe deps-tauri ## 安装所有依赖（前端 + Tauri）
+deps: deps-fe ## 安装所有依赖
 
 deps-fe: ## 安装前端依赖
 	@echo "📦 安装前端依赖..."
 	@npm install --silent
 	@echo "☑️ 前端依赖已就绪"
 
-deps-tauri: ## 安装 Tauri CLI（如果未安装）
-	@echo "📦 检查 Tauri CLI..."
-	@if ! command -v cargo-tauri >/dev/null 2>&1; then \
-		echo "  安装 tauri-cli..."; \
-		cargo install tauri-cli --locked; \
-	else \
-		echo "  ✓ tauri-cli 已安装"; \
-	fi
-	@echo "☑️ Tauri CLI 已就绪"
-
 # ============================================
 # 构建相关
 # ============================================
-dev: deps ## 启动 Tauri 开发模式
-	@echo "🚀 启动 Tauri 开发模式..."
-	@npm run tauri:dev
+dev: deps ## 启动 Electron 开发模式（vite + sidecar + electron）
+	@echo "🚀 启动 Electron 开发模式..."
+	@npm run electron:dev
 
-build: deps build-jcli ## 构建 Tauri 应用（release）
-	@echo "🏗️  构建 Tauri 应用..."
-	@npm run tauri:build -- --bundles app
-	@echo "☑️ Tauri 应用构建完成"
-	@if [ -d "$(MACOS_APP)" ]; then \
-		echo "   macOS App: $(MACOS_APP)"; \
-	elif [ -x "$(BIN)" ]; then \
-		echo "   Binary: $(BIN)"; \
-	fi
+build: deps build-jcli ## 构建 Electron 应用（.app/.dmg，产物在 dist-electron-builder/）
+	@echo "🏗️  构建 Electron 应用..."
+	@npm run electron:build
+	@echo "☑️ Electron 应用构建完成: $(MACOS_APP)"
 
 build-jcli: ## 构建 jcli 二进制（在 submodule 中）
 	@echo "🏗️  构建 jcli..."
 	@cd jcli && cargo build --release
 	@echo "☑️ jcli 构建完成"
-
-# ============================================
-# Electron 壳（P5 打包；与 Tauri 壳并存至 P6）
-# ============================================
-ELECTRON_APP := dist-electron-builder/mac-arm64/JStudio.app
-
-dev-electron: ## 启动 Electron 开发模式（vite + sidecar + electron）
-	@echo "🚀 启动 Electron 开发模式..."
-	@npm run electron:dev
-
-build-electron: build-jcli ## 构建 Electron 应用（.app/.dmg，产物在 dist-electron-builder/）
-	@echo "🏗️  构建 Electron 应用..."
-	@npm run electron:build
-	@echo "☑️ Electron 应用构建完成: $(ELECTRON_APP)"
-
-install-electron: build-electron ## 安装 Electron 版到 /Applications（覆盖同名 app）
-	@echo "📦 安装 Electron 版 JStudio..."
-	@if [ "$$(uname -s)" = "Darwin" ]; then \
-		if [ ! -d "$(ELECTRON_APP)" ]; then \
-			echo "✖️ 未找到 $(ELECTRON_APP)"; exit 1; \
-		fi; \
-		if [ ! -w "$(INSTALL_APP_DIR)" ]; then SUDO="sudo"; else SUDO=""; fi; \
-		$$SUDO rm -rf "$(INSTALL_APP_DIR)/JStudio.app"; \
-		$$SUDO cp -R "$(ELECTRON_APP)" "$(INSTALL_APP_DIR)/JStudio.app"; \
-		echo "☑️ 已安装: $(INSTALL_APP_DIR)/JStudio.app"; \
-	else \
-		echo "ℹ️ 非 macOS 平台暂不支持"; exit 1; \
-	fi
 
 release: build ## 别名：构建发布版本
 
@@ -213,12 +169,7 @@ install-jstudio-only: build ## 仅安装 JStudio app（不检查 j cli）
 		$$SUDO cp -R "$(MACOS_APP)" "$(INSTALL_APP_DIR)/JStudio.app"; \
 		echo "☑️ JStudio 已安装: $(INSTALL_APP_DIR)/JStudio.app"; \
 	else \
-		if [ -x "$(BIN)" ]; then \
-			echo "☑️ JStudio 已构建: $(BIN)"; \
-			echo "   请手动添加到 PATH 或设置环境变量"; \
-		else \
-			echo "✖️ 未找到 JStudio 二进制: $(BIN)"; exit 1; \
-		fi; \
+		echo "✖️ 非 macOS 平台暂不支持"; exit 1; \
 	fi
 
 uninstall: ## 卸载 JStudio app（macOS）
@@ -237,9 +188,9 @@ reinstall: uninstall install ## 重新安装
 # ============================================
 # 版本管理
 # ============================================
-bump-version: ## 递增版本号（最后一位 patch，同步 tauri.conf.json 和 Cargo.toml）
+bump-version: ## 递增版本号（最后一位 patch，同步 package.json 和 Cargo.toml）
 	@echo "📌 递增版本号..."
-	@current_ver=$$(grep '"version"' $(TAURI_DIR)/tauri.conf.json | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
+	@current_ver=$$(grep '"version"' package.json | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/'); \
 	major=$$(echo $$current_ver | cut -d. -f1); \
 	minor=$$(echo $$current_ver | cut -d. -f2); \
 	patch=$$(echo $$current_ver | cut -d. -f3); \
@@ -247,15 +198,13 @@ bump-version: ## 递增版本号（最后一位 patch，同步 tauri.conf.json �
 	new_version="$$major.$$minor.$$new_patch"; \
 	echo "  版本: $$current_ver → $$new_version"; \
 	if [[ "$$OSTYPE" == "darwin"* ]]; then \
-		sed -i '' "s/\"version\": \"$$current_ver\"/\"version\": \"$$new_version\"/" $(TAURI_DIR)/tauri.conf.json; \
-		sed -i '' "s/^version = \"$$current_ver\"/version = \"$$new_version\"/" $(TAURI_DIR)/Cargo.toml; \
+		sed -i '' "s/^version = \"$$current_ver\"/version = \"$$new_version\"/" $(RUST_DIR)/Cargo.toml; \
 		sed -i '' "s/\"version\": \"$$current_ver\"/\"version\": \"$$new_version\"/" package.json; \
 	else \
-		sed -i "s/\"version\": \"$$current_ver\"/\"version\": \"$$new_version\"/" $(TAURI_DIR)/tauri.conf.json; \
-		sed -i "s/^version = \"$$current_ver\"/version = \"$$new_version\"/" $(TAURI_DIR)/Cargo.toml; \
+		sed -i "s/^version = \"$$current_ver\"/version = \"$$new_version\"/" $(RUST_DIR)/Cargo.toml; \
 		sed -i "s/\"version\": \"$$current_ver\"/\"version\": \"$$new_version\"/" package.json; \
 	fi; \
-	echo "☑️ tauri.conf.json、Cargo.toml 和 package.json 版本号已更新为 $$new_version"
+	echo "☑️ Cargo.toml 和 package.json 版本号已更新为 $$new_version"
 
 set-version: ## 设置指定版本号（用法：make set-version V=1.2.3）
 ifndef V
@@ -263,18 +212,16 @@ ifndef V
 	@exit 1
 endif
 	@echo "📌 设置版本号为 $(V)..."
-	@current_ver=$$(grep '"version"' $(TAURI_DIR)/tauri.conf.json | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
+	@current_ver=$$(grep '"version"' package.json | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/'); \
 	echo "  版本: $$current_ver → $(V)"; \
 	if [[ "$$OSTYPE" == "darwin"* ]]; then \
-		sed -i '' "s/\"version\": \"$$current_ver\"/\"version\": \"$(V)\"/" $(TAURI_DIR)/tauri.conf.json; \
-		sed -i '' "s/^version = \"$$current_ver\"/version = \"$(V)\"/" $(TAURI_DIR)/Cargo.toml; \
+		sed -i '' "s/^version = \"$$current_ver\"/version = \"$(V)\"/" $(RUST_DIR)/Cargo.toml; \
 		sed -i '' "s/\"version\": \"$$current_ver\"/\"version\": \"$(V)\"/" package.json; \
 	else \
-		sed -i "s/\"version\": \"$$current_ver\"/\"version\": \"$(V)\"/" $(TAURI_DIR)/tauri.conf.json; \
-		sed -i "s/^version = \"$$current_ver\"/version = \"$(V)\"/" $(TAURI_DIR)/Cargo.toml; \
+		sed -i "s/^version = \"$$current_ver\"/version = \"$(V)\"/" $(RUST_DIR)/Cargo.toml; \
 		sed -i "s/\"version\": \"$$current_ver\"/\"version\": \"$(V)\"/" package.json; \
 	fi; \
-	echo "☑️ tauri.conf.json、Cargo.toml 和 package.json 版本号已更新为 $(V)"
+	echo "☑️ Cargo.toml 和 package.json 版本号已更新为 $(V)"
 
 # ============================================
 # 代码质量（统一）
@@ -315,17 +262,17 @@ check-fe: lint-fe ## 前端检查别名
 # ============================================
 fmt-rust: ## 格式化 Rust 代码
 	@echo "🧹 格式化 Rust 代码..."
-	@cd $(TAURI_DIR) && cargo fmt
+	@cd $(RUST_DIR) && cargo fmt
 	@echo "☑️ Rust 代码格式化完成"
 
 lint-rust: ## 运行 Rust clippy 检查
 	@echo "🔍 运行 clippy 检查..."
-	@cd $(TAURI_DIR) && cargo clippy -- -D warnings
+	@cd $(RUST_DIR) && cargo clippy -- -D warnings
 	@echo "☑️ clippy 检查完成"
 
 check-rust: ## 检查 Rust 代码（不构建）
 	@echo "🔍 检查 Rust 代码..."
-	@cd $(TAURI_DIR) && cargo check
+	@cd $(RUST_DIR) && cargo check
 	@echo "☑️ Rust 代码检查完成"
 
 # ============================================
@@ -344,13 +291,13 @@ test-fe: ## 运行前端测试（如有）
 
 test-rust: ## 运行 Rust 测试
 	@echo "🧪 运行 Rust 测试..."
-	@cd $(TAURI_DIR) && cargo test
+	@cd $(RUST_DIR) && cargo test
 	@echo "☑️ Rust 测试完成"
 
 # ============================================
 # 清理相关
 # ============================================
-clean: clean-fe clean-tauri ## 清理构建产物
+clean: clean-fe clean-rust ## 清理构建产物
 	@echo "🧹 清理 jcli 构建产物..."
 	@cd jcli && cargo clean 2>/dev/null || true
 	@echo "☑️ 构建产物已清理"
@@ -360,10 +307,10 @@ clean-fe: ## 清理前端构建产物
 	@npm run clean 2>/dev/null || rm -rf dist
 	@echo "☑️ 前端构建产物已清理"
 
-clean-tauri: ## 清理 Tauri 构建产物
-	@echo "🧹 清理 Tauri 构建产物..."
-	@rm -rf $(TAURI_DIR)/target
-	@echo "☑️ Tauri 构建产物已清理"
+clean-rust: ## 清理 Rust 构建产物
+	@echo "🧹 清理 Rust 构建产物..."
+	@rm -rf $(RUST_DIR)/target
+	@echo "☑️ Rust 构建产物已清理"
 
 clean-all: clean ## 清理所有（别名）
 
@@ -386,7 +333,7 @@ run-release: build install ## 构建并安装后运行
 watch: ## 监视文件变化并重新构建
 	@echo "👀 监视文件变化..."
 	@if command -v cargo-watch >/dev/null 2>&1; then \
-		cd $(TAURI_DIR) && cargo watch -x 'clippy -- -D warnings'; \
+		cd $(RUST_DIR) && cargo watch -x 'clippy -- -D warnings'; \
 	else \
 		echo "ℹ️ 建议安装 cargo-watch: cargo install cargo-watch"; \
 		npm run dev; \
@@ -395,7 +342,7 @@ watch: ## 监视文件变化并重新构建
 watch-test: ## 监视文件变化并运行测试
 	@echo "👀 监视文件变化并运行测试..."
 	@if command -v cargo-watch >/dev/null 2>&1; then \
-		cd $(TAURI_DIR) && cargo watch -x test; \
+		cd $(RUST_DIR) && cargo watch -x test; \
 	else \
 		echo "ℹ️ 建议安装 cargo-watch: cargo install cargo-watch"; \
 	fi

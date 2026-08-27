@@ -3,9 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
-use tauri::AppHandle;
 
-use crate::events::{EventSink, EventSinkExt, tauri_sink};
+use crate::events::{EventSink, EventSinkExt};
 
 // ────────────────────────────────────────────────
 // Session state
@@ -58,17 +57,7 @@ static SESSIONS: std::sync::LazyLock<Mutex<HashMap<String, PtySession>>> =
 /// Returns the session id. A background thread continuously reads shell
 /// output and emits `pty-data-{id}` events; when the shell exits, a
 /// `pty-exit-{id}` event is emitted.
-#[tauri::command]
-pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, String> {
-    pty_create_impl(tauri_sink(app), params)
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
-/// `events` receives `pty-data-{id}` / `pty-exit-{id}` notifications.
-pub fn pty_create_impl(
-    events: Arc<dyn EventSink>,
-    params: CreateParams,
-) -> Result<SessionInfo, String> {
+pub fn pty_create(events: Arc<dyn EventSink>, params: CreateParams) -> Result<SessionInfo, String> {
     let pty_system = native_pty_system();
 
     let pair = pty_system
@@ -224,7 +213,6 @@ pub fn pty_create_impl(
 }
 
 /// Write user input to the PTY (keyboard → shell).
-#[tauri::command]
 pub fn pty_write(session_id: String, data: String) -> Result<(), String> {
     let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     let session = sessions
@@ -239,7 +227,6 @@ pub fn pty_write(session_id: String, data: String) -> Result<(), String> {
 }
 
 /// Resize the PTY (e.g. when the terminal panel is resized).
-#[tauri::command]
 pub fn pty_resize(session_id: String, cols: u16, rows: u16) -> Result<(), String> {
     let sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     let session = sessions
@@ -258,7 +245,6 @@ pub fn pty_resize(session_id: String, cols: u16, rows: u16) -> Result<(), String
 }
 
 /// Kill a session and remove it from the registry.
-#[tauri::command]
 pub fn pty_kill(session_id: String) -> Result<(), String> {
     let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     if let Some(mut session) = sessions.remove(&session_id) {
@@ -269,7 +255,6 @@ pub fn pty_kill(session_id: String) -> Result<(), String> {
 }
 
 /// Return a list of all active sessions (id + title).
-#[tauri::command]
 pub fn pty_list() -> Result<Vec<SessionInfo>, String> {
     let sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     Ok(sessions
@@ -282,7 +267,6 @@ pub fn pty_list() -> Result<Vec<SessionInfo>, String> {
 }
 
 /// Rename a session.
-#[tauri::command]
 pub fn pty_set_title(session_id: String, title: String) -> Result<(), String> {
     let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     let session = sessions
@@ -300,7 +284,6 @@ pub fn pty_set_title(session_id: String, title: String) -> Result<(), String> {
 ///
 /// Inspired by kitty's `schedule_write_to_child` which batches writes
 /// into a single flush to reduce syscall overhead and latency.
-#[tauri::command]
 pub fn pty_write_batch(session_id: String, chunks: Vec<String>) -> Result<(), String> {
     let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     let session = sessions
@@ -320,7 +303,6 @@ pub fn pty_write_batch(session_id: String, chunks: Vec<String>) -> Result<(), St
 ///
 /// Returns `true` if the session is registered. This is useful before
 /// attempting write operations to avoid "session not found" errors.
-#[tauri::command]
 pub fn pty_is_alive(session_id: String) -> Result<bool, String> {
     let sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     Ok(sessions.contains_key(&session_id))
@@ -329,7 +311,6 @@ pub fn pty_is_alive(session_id: String) -> Result<bool, String> {
 /// Kill all PTY sessions.
 ///
 /// Used during app shutdown to cleanly terminate all shell processes.
-#[tauri::command]
 pub fn pty_kill_all() -> Result<(), String> {
     let mut sessions = SESSIONS.lock().map_err(|e| e.to_string())?;
     for (_, mut session) in sessions.drain() {

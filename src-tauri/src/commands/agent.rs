@@ -38,10 +38,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::events::{EventSink, EventSinkExt, tauri_sink};
+use crate::events::{EventSink, EventSinkExt};
 
 // ────────────────────────────────────────────────
 // Session state
@@ -364,7 +363,6 @@ static AGENT_SESSIONS: std::sync::LazyLock<Mutex<HashMap<String, AgentSessionHan
 // ────────────────────────────────────────────────
 
 /// List all agent sessions from j-agent storage.
-#[tauri::command]
 pub fn agent_list_sessions() -> Result<Vec<AgentSessionInfo>, String> {
     let _ = agent_data_dir();
 
@@ -383,7 +381,6 @@ pub fn agent_list_sessions() -> Result<Vec<AgentSessionInfo>, String> {
 
 /// Create a new agent session.
 /// Returns the session id.
-#[tauri::command]
 pub fn agent_create_session(
     title: Option<String>,
     workspace: Option<String>,
@@ -417,7 +414,6 @@ pub fn agent_create_session(
 }
 
 /// Load an existing session's messages.
-#[tauri::command]
 pub fn agent_load_session(session_id: String) -> Result<Vec<MessagePayload>, String> {
     // Read from transcript.jsonl — JStudio persists messages via
     // `append_session_event` which writes transcript, not display.jsonl.
@@ -426,7 +422,6 @@ pub fn agent_load_session(session_id: String) -> Result<Vec<MessagePayload>, Str
 }
 
 /// Delete a session (both from registry and storage).
-#[tauri::command]
 pub fn agent_delete_session(session_id: String) -> Result<(), String> {
     // Remove from registry if present
     {
@@ -556,15 +551,9 @@ fn ensure_session_started(session_id: &str, events: &Arc<dyn EventSink>) -> Resu
 
 /// Send a user message to the agent session.
 /// Spawns the agent loop if not already running.
-#[tauri::command]
-pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Result<(), String> {
-    agent_send_message_impl(params, tauri_sink(app))
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
 /// Sync: the body never awaits — it only queues the message and spawns the
 /// loop thread.
-pub fn agent_send_message_impl(
+pub fn agent_send_message(
     params: SendMessageParams,
     events: Arc<dyn EventSink>,
 ) -> Result<(), String> {
@@ -629,13 +618,7 @@ pub fn agent_send_message_impl(
 
 /// Submit a tool result back to the agent.
 /// If the user approved a dangerous tool, this function executes it and sends the real result.
-#[tauri::command]
-pub fn agent_tool_result(params: ToolResultParams, _app: AppHandle) -> Result<(), String> {
-    agent_tool_result_impl(params)
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
-pub fn agent_tool_result_impl(params: ToolResultParams) -> Result<(), String> {
+pub fn agent_tool_result(params: ToolResultParams) -> Result<(), String> {
     // Check if this is an approval. The frontend sets `approved: true` on the
     // approve path; the old `result.contains("\"approved\":true")` string match
     // was fragile (broke on any JSON formatting variance).
@@ -743,7 +726,6 @@ pub fn agent_tool_result_impl(params: ToolResultParams) -> Result<(), String> {
 }
 
 /// Cancel the current agent response.
-#[tauri::command]
 pub fn agent_cancel(session_id: String) -> Result<(), String> {
     let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
     let handle = sessions.get(&session_id).ok_or("Session not found")?;
@@ -761,7 +743,6 @@ pub fn agent_cancel(session_id: String) -> Result<(), String> {
 
 /// Set auto-approve mode for a session.
 /// When enabled, all tools execute without confirmation.
-#[tauri::command]
 pub fn agent_set_auto_approve(session_id: String, enabled: bool) -> Result<(), String> {
     // Update session meta file
     let paths = SessionPaths::new(&session_id);
@@ -783,7 +764,6 @@ pub fn agent_set_auto_approve(session_id: String, enabled: bool) -> Result<(), S
 }
 
 /// Submit answer for an Ask request.
-#[tauri::command]
 pub fn agent_submit_ask_answer(
     session_id: String,
     answer: String, // JSON string containing the answer

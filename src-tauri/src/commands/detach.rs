@@ -14,7 +14,6 @@ static DETACH_PAYLOADS: std::sync::LazyLock<Mutex<HashMap<String, Value>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Store a terminal detach payload in memory, keyed by the child window label.
-#[tauri::command]
 pub fn set_terminal_detach_payload(label: String, payload: Value) -> Result<(), String> {
     let mut cache = DETACH_PAYLOADS.lock().map_err(|e| e.to_string())?;
     cache.insert(label, payload);
@@ -23,7 +22,6 @@ pub fn set_terminal_detach_payload(label: String, payload: Value) -> Result<(), 
 
 /// Retrieve and remove the detach payload for the given label.
 /// Destructive read — the child window consumes the payload once on startup.
-#[tauri::command]
 pub fn get_terminal_detach_payload(label: String) -> Result<Option<Value>, String> {
     let mut cache = DETACH_PAYLOADS.lock().map_err(|e| e.to_string())?;
     Ok(cache.remove(&label))
@@ -31,7 +29,6 @@ pub fn get_terminal_detach_payload(label: String) -> Result<Option<Value>, Strin
 
 /// Remove a detach payload entry without reading it.
 /// Used for cleanup if the child window fails to start.
-#[tauri::command]
 pub fn clear_terminal_detach_payload(label: String) -> Result<(), String> {
     let mut cache = DETACH_PAYLOADS.lock().map_err(|e| e.to_string())?;
     cache.remove(&label);

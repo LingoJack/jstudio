@@ -1,12 +1,24 @@
 /**
  * Shim for `@tauri-apps/api/window` (Electron shell, via vite alias).
  *
- * Only the surface the frontend actually uses: `.label` plus
- * close/show/hide/setFocus/isFocused. Operations target THIS window's label
- * (injected by the preload from the `?label=` URL param).
+ * The surface the frontend actually uses: `.label` plus
+ * close/destroy/show/hide/setFocus/isFocused/isVisible/onFocusChanged.
+ * Operations target THIS window's label (injected by the preload from the
+ * `?label=` URL param).
  */
 
 import { native } from './native';
+import { listen, type UnlistenFn } from './event';
+
+/** Shared focus subscription (also used by webviewWindow.ts). */
+export async function subscribeFocusChanged(
+  label: string,
+  cb: (focused: boolean) => void,
+): Promise<UnlistenFn> {
+  return listen<{ label: string; focused: boolean }>('window-focus-changed', (e) => {
+    if (e.payload?.label === label) cb(e.payload.focused);
+  });
+}
 
 export class Window {
   readonly label: string;
@@ -17,6 +29,10 @@ export class Window {
 
   async close(): Promise<void> {
     await native().windowOp(this.label, 'close');
+  }
+
+  async destroy(): Promise<void> {
+    await native().windowOp(this.label, 'destroy');
   }
 
   async show(): Promise<void> {
@@ -33,6 +49,14 @@ export class Window {
 
   async isFocused(): Promise<boolean> {
     return (await native().windowOp(this.label, 'isFocused')) as boolean;
+  }
+
+  async isVisible(): Promise<boolean> {
+    return (await native().windowOp(this.label, 'isVisible')) as boolean;
+  }
+
+  async onFocusChanged(cb: (e: { payload: boolean }) => void): Promise<UnlistenFn> {
+    return subscribeFocusChanged(this.label, (focused) => cb({ payload: focused }));
   }
 }
 

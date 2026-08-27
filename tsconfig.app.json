@@ -17,7 +17,17 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@tauri-apps/api/core": ["./src/lib/core/tauriShim/core.ts"],
+      "@tauri-apps/api/event": ["./src/lib/core/tauriShim/event.ts"],
+      "@tauri-apps/api/window": ["./src/lib/core/tauriShim/window.ts"],
+      "@tauri-apps/api/webviewWindow": ["./src/lib/core/tauriShim/webviewWindow.ts"],
+      "@tauri-apps/plugin-dialog": ["./src/lib/core/tauriShim/plugin-dialog.ts"],
+      "@tauri-apps/plugin-clipboard-manager": ["./src/lib/core/tauriShim/plugin-clipboard-manager.ts"],
+      "@tauri-apps/plugin-opener": ["./src/lib/core/tauriShim/plugin-opener.ts"]
+    }
   },
   "include": ["src", "vite.config.ts"],
   "exclude": ["node_modules", "dist", "src-tauri", "src/components/_blocks_legacy"]

@@ -3,7 +3,6 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::Manager;
 
 /// Build info exposed to the frontend (About page, Debug settings).
 #[derive(Serialize)]
@@ -15,7 +14,6 @@ pub struct BuildInfo {
 }
 
 /// Return build metadata: git commit hash + whether this is a debug build.
-#[tauri::command]
 pub fn get_build_info() -> BuildInfo {
     BuildInfo {
         commit: env!("JSTUDIO_BUILD_COMMIT"),
@@ -23,14 +21,7 @@ pub fn get_build_info() -> BuildInfo {
     }
 }
 
-/// Open the WebView inspector (devtools). In release builds this is a no-op
-/// unless the app was compiled with the `devtools` feature.
-#[tauri::command]
-pub fn open_devtools(app: tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        window.open_devtools();
-    }
-}
+// (open_devtools lives in the Electron shell — main intercepts the method.)
 
 // ── Runtime log file ───────────────────────────────────────────────────────
 //
@@ -96,7 +87,6 @@ static LOG_WRITE_LOCK: Mutex<()> = Mutex::new(());
 /// level / source prefix) to today's log file. Creates the logs directory
 /// and the file if they don't exist. Never returns an error for missing
 /// directory — that's handled by `create_dir_all`.
-#[tauri::command]
 pub fn append_log_line(line: String) -> Result<(), String> {
     let _guard = LOG_WRITE_LOCK.lock().map_err(|e| e.to_string())?;
     let path = today_log_path();
@@ -116,7 +106,6 @@ pub fn append_log_line(line: String) -> Result<(), String> {
 /// Return the absolute path of today's log file (for display in the Debug
 /// settings UI). Does NOT create the file — the path is shown even before
 /// any log line has been written.
-#[tauri::command]
 pub fn get_log_file_path() -> Result<String, String> {
     Ok(today_log_path().to_string_lossy().into_owned())
 }
@@ -124,7 +113,6 @@ pub fn get_log_file_path() -> Result<String, String> {
 /// Reveal the logs directory (`~/.jdata/studio/logs/`) in the system file
 /// manager. Creates the directory first so Finder/Explorer doesn't open to
 /// a non-existent path.
-#[tauri::command]
 pub fn open_logs_dir() -> Result<(), String> {
     fs::create_dir_all(logs_dir()).map_err(|e| format!("create logs dir: {e}"))?;
     super::storage::paths::open_path_in_file_manager(&logs_dir())
@@ -133,7 +121,6 @@ pub fn open_logs_dir() -> Result<(), String> {
 /// Delete every file in the logs directory. Used by the "Clear logs" button
 /// in Debug settings. Keeps the directory itself. Returns the number of
 /// files removed so the UI can show a confirmation.
-#[tauri::command]
 pub fn clear_logs() -> Result<usize, String> {
     let dir = logs_dir();
     if !dir.exists() {

@@ -2,7 +2,6 @@ use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use tauri::{AppHandle, Manager};
 
 // ────────────────────────────────────────────────
 // Types
@@ -138,7 +137,7 @@ fn get_version(binary: &PathBuf) -> Option<String> {
 /// Extract the kernel version from `j version` table output.
 ///
 /// The output format is a Unicode table like:
-/// ```
+/// ```text
 /// │ kernel   │ 12.11.5                            │
 /// ```
 /// The raw output may contain ANSI escape codes which must be stripped
@@ -286,12 +285,13 @@ fn which_j() -> Option<String> {
 // ────────────────────────────────────────────────
 
 /// Check the current installation status of jcli.
-#[tauri::command]
-pub fn check_jcli(app: AppHandle) -> Result<JcliStatus, String> {
-    check_jcli_impl(app.path().resource_dir().ok())
+pub fn check_jcli() -> Result<JcliStatus, String> {
+    check_jcli_impl(None)
 }
 
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+/// Implementation: the caller supplies the resource dir (Electron sidecar:
+/// `JSTUDIO_RESOURCE_DIR` env, set by Electron main from
+/// `process.resourcesPath`; dev: manifest-dir fallback).
 pub fn check_jcli_impl(resource_dir: Option<PathBuf>) -> Result<JcliStatus, String> {
     let (installed, version, path) = check_system_j();
 
@@ -316,12 +316,11 @@ pub fn check_jcli_impl(resource_dir: Option<PathBuf>) -> Result<JcliStatus, Stri
 /// On macOS/Linux the symlink may require administrator privileges. We first
 /// try a direct `ln -sf`; if that fails we fall back to `osascript` to prompt
 /// the user for their password.
-#[tauri::command]
-pub fn install_jcli(app: AppHandle) -> Result<String, String> {
-    install_jcli_impl(app.path().resource_dir().ok())
+pub fn install_jcli() -> Result<String, String> {
+    install_jcli_impl(None)
 }
 
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+/// Implementation: the caller supplies the resource dir (see `check_jcli`).
 pub fn install_jcli_impl(resource_dir: Option<PathBuf>) -> Result<String, String> {
     // 1. Locate bundled binary
     let bundled = bundled_j_path_impl(resource_dir).ok_or_else(|| {
@@ -400,7 +399,6 @@ pub fn install_jcli_impl(resource_dir: Option<PathBuf>) -> Result<String, String
 }
 
 /// Uninstall jcli: remove the symlink and the binary from `~/.jdata/bin/`.
-#[tauri::command]
 pub fn uninstall_jcli() -> Result<(), String> {
     // Remove global symlink
     let link = global_link_path();

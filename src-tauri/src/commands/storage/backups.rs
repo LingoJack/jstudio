@@ -19,9 +19,8 @@ use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::AppHandle;
 
-use crate::events::{EventSink, tauri_sink};
+use crate::events::EventSink;
 
 use super::paths::doc_dir;
 
@@ -267,7 +266,6 @@ pub struct BackupMeta {
 }
 
 /// List all backups for a document, newest first (metadata only).
-#[tauri::command]
 pub fn list_doc_backups(doc_id: String) -> Result<Vec<BackupMeta>, String> {
     let dir = backups_dir(&doc_id);
     if !dir.exists() {
@@ -313,7 +311,6 @@ pub fn list_doc_backups(doc_id: String) -> Result<Vec<BackupMeta>, String> {
 }
 
 /// Read a specific backup's full document body (parsed JSON).
-#[tauri::command]
 pub fn read_doc_backup(doc_id: String, backup_id: String) -> Result<Value, String> {
     let path = backups_dir(&doc_id).join(format!("{backup_id}.json"));
     if !path.exists() {
@@ -333,13 +330,7 @@ pub fn read_doc_backup(doc_id: String, backup_id: String) -> Result<Value, Strin
 ///
 /// The current body is snapshotted first (so the restore itself is
 /// reversible — the pre-restore state shows up as the newest backup).
-#[tauri::command]
-pub fn restore_doc_backup(doc_id: String, backup_id: String, app: AppHandle) -> Result<(), String> {
-    restore_doc_backup_impl(doc_id, backup_id, &*tauri_sink(app))
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
-pub fn restore_doc_backup_impl(
+pub fn restore_doc_backup(
     doc_id: String,
     backup_id: String,
     events: &dyn EventSink,

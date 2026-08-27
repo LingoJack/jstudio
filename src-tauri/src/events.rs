@@ -1,13 +1,9 @@
-//! Event sink abstraction — decouples command modules from the Tauri runtime.
+//! Event sink abstraction — the sidecar's notification channel.
 //!
-//! Commands emit events through `&dyn EventSink` instead of `tauri::AppHandle`,
-//! so the same command code runs in both shells:
-//! - **Tauri shell** (`TauriSink`): forwards to `AppHandle::emit` (broadcast to
-//!   all webviews, same as the legacy behavior — every legacy emit site used
-//!   the broadcast `emit`, not `emit_to`).
-//! - **Electron sidecar** (`StdioSink`): writes a protocol notification line
-//!   `{"event":...,"payload":...}` to stdout; Electron main routes it to the
-//!   right window (see electron/sidecar.ts).
+//! Commands emit events through `Arc<dyn EventSink>`; the sidecar's
+//! `StdioSink` writes a protocol notification line
+//! `{"event":...,"payload":...}` to stdout, and Electron main routes it to
+//! the right window (see electron/sidecar.ts).
 //!
 //! HARD CONSTRAINT for `StdioSink`: the writer it holds MUST be the same
 //! mutex-guarded stdout the sidecar's response writer uses — interleaved
@@ -39,24 +35,6 @@ impl<S: EventSink + ?Sized> EventSinkExt for S {
         }
     }
 }
-
-// ── Tauri shell ─────────────────────────────────────────────────────────────
-
-pub struct TauriSink(pub tauri::AppHandle);
-
-impl EventSink for TauriSink {
-    fn emit_json(&self, event: &str, payload: Value) {
-        use tauri::Emitter;
-        let _ = self.0.emit(event, payload);
-    }
-}
-
-/// Wrap an `AppHandle` into the shared sink type used by command impls.
-pub fn tauri_sink(app: tauri::AppHandle) -> Arc<dyn EventSink> {
-    Arc::new(TauriSink(app))
-}
-
-// ── Electron sidecar ────────────────────────────────────────────────────────
 
 /// Writes notification lines to the shared protocol stdout.
 pub struct StdioSink {

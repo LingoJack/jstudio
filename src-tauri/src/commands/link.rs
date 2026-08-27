@@ -3,7 +3,6 @@
  *
  * Two Tauri commands:
  *   1. `fetch_link_metadata` — async, fetches OG/title/description for card mode.
- *   2. `open_link_preview`   — creates a native WebviewWindow loading the real URL,
  *      with Chrome cookies injected via `initialization_script` as `document.cookie`.
  *
  * Cookie extraction chain (macOS):
@@ -19,10 +18,8 @@ use rusqlite::Connection;
 use serde::Serialize;
 use sha1::Sha1;
 use std::process::Command;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::webview::NewWindowResponse;
-use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -269,7 +266,6 @@ fn async_http_client() -> &'static reqwest::Client {
     })
 }
 
-#[tauri::command]
 pub async fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     let cookies = read_chrome_cookies_cached(&url);
     let cookie_header = build_cookie_header(&cookies);
@@ -318,182 +314,6 @@ fn build_cookie_header(cookies: &[(String, String)]) -> String {
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join("; ")
-}
-
-// ---------------------------------------------------------------------------
-// Tauri command: open_link_preview — native WebviewWindow
-// ---------------------------------------------------------------------------
-
-/// Create a native WebviewWindow that loads the real URL, with Chrome cookies
-/// injected via `initialization_script`.
-///
-/// The WKWebView (macOS) / WebView2 (Windows) engine handles all rendering,
-/// JS execution, AJAX, etc. natively — no proxy or URL rewriting needed.
-///
-/// ## window.open() support
-///
-/// Uses `on_new_window` to intercept `window.open()` and `target="_blank"` requests.
-/// Each such request creates a new independent preview window, allowing pages
-/// that rely on popup flows (OAuth, external links) to work correctly.
-#[tauri::command]
-pub async fn open_link_preview(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    let cookies = read_chrome_cookies_cached(&url);
-    let host = extract_domain(&url).unwrap_or_else(|_| "site".to_string());
-
-    // Build a JS initialization script that sets document.cookie for each
-    // Chrome cookie. This runs before the page's own scripts, ensuring
-    // the login state is present when the page loads.
-    let cookie_script = if cookies.is_empty() {
-        String::new()
-    } else {
-        let mut lines = Vec::new();
-        for (name, value) in &cookies {
-            // Escape single quotes in values to avoid breaking the JS string.
-            let safe_value = value.replace('\\', "\\\\").replace('\'', "\\'");
-            let safe_name = name.replace('\\', "\\\\").replace('\'', "\\'");
-            // Only inject if the cookie doesn't already exist in the webview's
-            // persistent cookie store. This prevents Chrome's (potentially stale)
-            // cookies from overwriting cookies set during a previous session.
-            lines.push(format!(
-                "if(document.cookie.indexOf('{}=')===-1){{document.cookie='{}={}; path=/; domain=.{}; SameSite=None; Secure';}}",
-                safe_name, safe_name, safe_value, host
-            ));
-        }
-        lines.join("\n")
-    };
-
-    let label = format!(
-        "link-preview-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis()
-    );
-
-    let title = url::Url::parse(&url)
-        .ok()
-        .and_then(|u| u.host_str().map(|s| s.to_string()))
-        .unwrap_or_else(|| "Link Preview".to_string());
-
-    let url_parsed = url::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
-
-    // Wrap AppHandle in Arc for sharing across 'static closures in on_new_window.
-    let app_handle = Arc::new(app);
-
-    let mut builder =
-        WebviewWindowBuilder::new(&*app_handle, &label, WebviewUrl::External(url_parsed))
-            .title(&title)
-            .inner_size(1100.0, 800.0)
-            .min_inner_size(400.0, 300.0)
-            .resizable(true)
-            .user_agent(BROWSER_UA)
-            .data_store_identifier([
-                0x4a, 0x53, 0x74, 0x75, 0x64, 0x69, 0x6f, 0x42, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72,
-                0x00, 0x01,
-            ])
-            .on_new_window({
-                let app_handle = app_handle.clone();
-                move |new_url, features| {
-                    // Generate unique label for the new window
-                    let new_label = format!(
-                        "link-preview-{}",
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_millis()
-                    );
-
-                    // Parse the requested URL
-                    let url_parsed: url::Url = match new_url.as_str().parse() {
-                        Ok(u) => u,
-                        Err(_) => return NewWindowResponse::Deny,
-                    };
-
-                    // Extract hostname for window title
-                    let new_title = url_parsed
-                        .host_str()
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| "Link Preview".to_string());
-
-                    // Create a new preview window for the window.open() request
-                    // The new window also supports on_new_window (recursive)
-                    let app_for_nested = app_handle.clone();
-                    let builder = WebviewWindowBuilder::new(
-                        &*app_handle,
-                        &new_label,
-                        WebviewUrl::External(url_parsed),
-                    )
-                    .title(&new_title)
-                    .inner_size(900.0, 600.0)
-                    .min_inner_size(400.0, 300.0)
-                    .resizable(true)
-                    .user_agent(BROWSER_UA)
-                    .data_store_identifier([
-                        0x4a, 0x53, 0x74, 0x75, 0x64, 0x69, 0x6f, 0x42, 0x72, 0x6f, 0x77, 0x73,
-                        0x65, 0x72, 0x00, 0x01,
-                    ])
-                    .window_features(features)
-                    .on_new_window({
-                        let app_handle = app_for_nested.clone();
-                        move |nested_url, nested_features| {
-                            // Recursively handle nested window.open()
-                            let nested_label = format!(
-                                "link-preview-{}",
-                                std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_millis()
-                            );
-
-                            let nested_url_parsed: url::Url = match nested_url.as_str().parse() {
-                                Ok(u) => u,
-                                Err(_) => return NewWindowResponse::Deny,
-                            };
-
-                            let nested_title = nested_url_parsed
-                                .host_str()
-                                .map(|s| s.to_string())
-                                .unwrap_or_else(|| "Link Preview".to_string());
-
-                            let builder = WebviewWindowBuilder::new(
-                                &*app_handle,
-                                &nested_label,
-                                WebviewUrl::External(nested_url_parsed),
-                            )
-                            .title(&nested_title)
-                            .inner_size(900.0, 600.0)
-                            .min_inner_size(400.0, 300.0)
-                            .resizable(true)
-                            .user_agent(BROWSER_UA)
-                            .data_store_identifier([
-                                0x4a, 0x53, 0x74, 0x75, 0x64, 0x69, 0x6f, 0x42, 0x72, 0x6f, 0x77,
-                                0x73, 0x65, 0x72, 0x00, 0x01,
-                            ])
-                            .window_features(nested_features);
-
-                            match builder.build() {
-                                Ok(window) => NewWindowResponse::Create { window },
-                                Err(_) => NewWindowResponse::Deny,
-                            }
-                        }
-                    });
-
-                    match builder.build() {
-                        Ok(window) => NewWindowResponse::Create { window },
-                        Err(_) => NewWindowResponse::Deny,
-                    }
-                }
-            });
-
-    if !cookie_script.is_empty() {
-        builder = builder.initialization_script(&cookie_script);
-    }
-
-    builder
-        .build()
-        .map_err(|e| format!("failed to create webview window: {e}"))?;
-
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------

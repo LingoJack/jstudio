@@ -96,7 +96,6 @@ fn ai_graph_client() -> &'static reqwest::Client {
 ///
 /// 仅用于 AI 生成图表场景（调用 OpenAI-compatible chat completions）。
 /// TS 端通过 `storage.aiGraphFetch()` 调用，无需直接 fetch。
-#[tauri::command]
 pub async fn ai_graph_fetch(request: AiGraphFetchRequest) -> Result<AiGraphFetchResponse, String> {
     let client = ai_graph_client();
 
@@ -154,7 +153,6 @@ pub async fn ai_graph_fetch(request: AiGraphFetchRequest) -> Result<AiGraphFetch
 /// 用于调试时序图等图表的手绘交互（hover / drag / connect 等）。
 /// TS 端通过 `invoke('write_graph_log', { msg })` 调用。
 /// 日志追加到 `<app_data_dir>/jstudio/ai_graph.log`（与 ai_graph_fetch 共用文件）。
-#[tauri::command]
 pub fn write_graph_log(msg: String) -> Result<(), String> {
     log_to_file(&format!("[graph-ui] {msg}"));
     Ok(())

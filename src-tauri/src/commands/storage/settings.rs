@@ -8,7 +8,6 @@ use std::path::PathBuf;
 ///
 /// Each row in the `settings` table stores one key with a JSON-encoded value;
 /// this function rehydrates them into `{ key1: value1, key2: value2, ... }`.
-#[tauri::command]
 pub fn read_settings() -> Result<Value, String> {
     let conn = crate::db::db()?;
     let mut stmt = conn
@@ -38,7 +37,6 @@ pub fn read_settings() -> Result<Value, String> {
 /// Each key in the incoming object is upserted into the `settings` table;
 /// keys not present in the incoming object are left untouched — this
 /// preserves the existing shallow-merge semantics.
-#[tauri::command]
 pub fn write_settings(settings: Value) -> Result<(), String> {
     let obj = settings
         .as_object()
@@ -77,7 +75,6 @@ fn agent_config_path() -> PathBuf {
 /// Read the jcli agent configuration file.
 /// Returns `{}` if the file does not exist yet — JStudio can create it
 /// on first save, so no external initialisation step is required.
-#[tauri::command]
 pub fn read_agent_config() -> Result<Value, String> {
     let path = agent_config_path();
     if !path.exists() {
@@ -89,7 +86,6 @@ pub fn read_agent_config() -> Result<Value, String> {
 
 /// Write the full jcli agent configuration file.
 /// Creates the parent directory tree if it does not exist.
-#[tauri::command]
 pub fn write_agent_config(config: Value) -> Result<(), String> {
     let path = agent_config_path();
     if let Some(parent) = path.parent() {

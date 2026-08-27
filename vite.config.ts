@@ -4,34 +4,29 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json' with { type: 'json' }
 
-// JStudio Tauri 应用构建配置。
+// JStudio 应用构建配置（Electron 壳）。
 //
 // 要点：
-// - `base: './'`     —— Tauri production asset 使用相对路径
-// - `outDir: 'dist'` —— 与 src-tauri/tauri.conf.json 的 frontendDist 对齐
-// - 入口 HTML 使用 `index.html`
-//
-// Electron 迁移（P2）：`JSTUDIO_SHELL=electron` 时把 `@tauri-apps/*` 全部
-// alias 到 src/lib/core/tauriShim/ —— 调用点零改动；Tauri 壳（默认）不受影响。
-const isElectronShell = process.env.JSTUDIO_SHELL === 'electron'
+// - `base: './'`     —— production asset 使用相对路径
+// - `outDir: 'dist'` —— 与 electron-builder.yml 的 files 对齐
+// - `@tauri-apps/*` 全部 alias 到 src/lib/core/tauriShim/（Electron 桥），
+//   前端调用点零改动 —— 历史遗留的导入名，仅此而已。
 const shim = (name: string) =>
   fileURLToPath(new URL(`./src/lib/core/tauriShim/${name}`, import.meta.url))
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  resolve: isElectronShell
-    ? {
-        alias: {
-          '@tauri-apps/api/core': shim('core.ts'),
-          '@tauri-apps/api/event': shim('event.ts'),
-          '@tauri-apps/api/window': shim('window.ts'),
-          '@tauri-apps/api/webviewWindow': shim('webviewWindow.ts'),
-          '@tauri-apps/plugin-dialog': shim('plugin-dialog.ts'),
-          '@tauri-apps/plugin-clipboard-manager': shim('plugin-clipboard-manager.ts'),
-          '@tauri-apps/plugin-opener': shim('plugin-opener.ts'),
-        },
-      }
-    : undefined,
+  resolve: {
+    alias: {
+      '@tauri-apps/api/core': shim('core.ts'),
+      '@tauri-apps/api/event': shim('event.ts'),
+      '@tauri-apps/api/window': shim('window.ts'),
+      '@tauri-apps/api/webviewWindow': shim('webviewWindow.ts'),
+      '@tauri-apps/plugin-dialog': shim('plugin-dialog.ts'),
+      '@tauri-apps/plugin-clipboard-manager': shim('plugin-clipboard-manager.ts'),
+      '@tauri-apps/plugin-opener': shim('plugin-opener.ts'),
+    },
+  },
   base: './',
   publicDir: false,
   define: {

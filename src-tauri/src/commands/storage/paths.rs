@@ -54,7 +54,6 @@ pub fn doc_trash_dir(doc_id: &str) -> PathBuf {
 
 /// Create the studio directory structure and initialise the SQLite database.
 /// Returns the root path.
-#[tauri::command]
 pub fn ensure_studio_dir() -> Result<String, String> {
     let base = studio_dir();
     fs::create_dir_all(documents_dir()).map_err(|e| e.to_string())?;
@@ -66,19 +65,16 @@ pub fn ensure_studio_dir() -> Result<String, String> {
 }
 
 /// Open the studio data directory in the system file manager.
-#[tauri::command]
 pub fn open_studio_dir() -> Result<(), String> {
     open_path_in_file_manager(&studio_dir())
 }
 
 /// Open a specific document's folder in the system file manager.
-#[tauri::command]
 pub fn open_doc_dir(doc_id: String) -> Result<(), String> {
     open_path_in_file_manager(&doc_dir(&doc_id))
 }
 
 /// Return the full filesystem path of a document's `document.json`.
-#[tauri::command]
 pub fn get_doc_path(doc_id: String) -> Result<String, String> {
     let path = doc_path(&doc_id);
     if !path.exists() {
@@ -93,13 +89,11 @@ pub fn get_doc_path(doc_id: String) -> Result<String, String> {
 
 /// Read raw bytes from an arbitrary file path (returned by the file dialog).
 /// Returns the data as a byte array (serialized as a Vec<u8>).
-#[tauri::command]
 pub fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))
 }
 
 /// Write raw bytes to an arbitrary file path (e.g. returned by the save dialog).
-#[tauri::command]
 pub fn write_file_bytes(path: String, data: Vec<u8>) -> Result<(), String> {
     fs::write(&path, &data).map_err(|e| format!("failed to write file {path}: {e}"))
 }
@@ -112,25 +106,9 @@ pub fn write_file_bytes(path: String, data: Vec<u8>) -> Result<(), String> {
 /// made the earlier JS-side `writeImage(bytes)` approach slow for large
 /// images.
 ///
-/// Two more perf traps this specifically avoids:
-/// - `tauri::image::Image::from_bytes()` decodes via `DynamicImage::pixels()`,
-///   a per-pixel iterator that is extremely slow on large images. We instead
-///   use `to_rgba8()`, which uses a dedicated bulk conversion.
-/// - This is an `async fn`, so Tauri runs it on a background runtime thread
-///   instead of the main/UI thread. A sync `#[tauri::command]` here would
-///   run the decode on the main thread and freeze the whole app (the
-///   spinning-cursor "beachball") while a large image is being decoded.
-#[tauri::command]
-pub async fn copy_image_to_clipboard(_app: tauri::AppHandle, path: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || copy_image_to_clipboard_impl(path))
-        .await
-        .map_err(|e| format!("clipboard task panicked: {e}"))?
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
-/// Uses arboard directly (the same crate tauri-plugin-clipboard-manager
-/// wraps), so no Tauri runtime is needed.
-pub fn copy_image_to_clipboard_impl(path: String) -> Result<(), String> {
+/// Uses arboard directly. Blocking (decode + clipboard write) — the sidecar
+/// dispatch runs it on the blocking pool.
+pub fn copy_image_to_clipboard(path: String) -> Result<(), String> {
     let bytes = fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))?;
     write_image_bytes_to_clipboard_impl(bytes)
 }
@@ -140,18 +118,7 @@ pub fn copy_image_to_clipboard_impl(path: String) -> Result<(), String> {
 /// This is the byte-array variant of `copy_image_to_clipboard` for use when
 /// the image is generated in the frontend (e.g. canvas export) and no file
 /// path exists yet.
-#[tauri::command]
-pub async fn copy_image_bytes_to_clipboard(
-    _app: tauri::AppHandle,
-    data: Vec<u8>,
-) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || write_image_bytes_to_clipboard_impl(data))
-        .await
-        .map_err(|e| format!("clipboard task panicked: {e}"))?
-}
-
-/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
-pub fn copy_image_bytes_to_clipboard_impl(data: Vec<u8>) -> Result<(), String> {
+pub fn copy_image_bytes_to_clipboard(data: Vec<u8>) -> Result<(), String> {
     write_image_bytes_to_clipboard_impl(data)
 }
 

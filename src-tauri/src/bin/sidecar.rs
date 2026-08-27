@@ -82,11 +82,11 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
         }
         "copy_image_to_clipboard" => {
             let p: String = take(&params, "path")?;
-            blocking(move || paths::copy_image_to_clipboard_impl(p)).await
+            blocking(move || paths::copy_image_to_clipboard(p)).await
         }
         "copy_image_bytes_to_clipboard" => {
             let d: Vec<u8> = take(&params, "data")?;
-            blocking(move || paths::copy_image_bytes_to_clipboard_impl(d)).await
+            blocking(move || paths::copy_image_bytes_to_clipboard(d)).await
         }
 
         // ── storage: documents / index ──
@@ -103,7 +103,7 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
             let id: String = take(&params, "docId")?;
             let doc: Value = take(&params, "doc")?;
             let ev = Arc::clone(&events);
-            blocking(move || documents::write_document_impl(id, doc, &*ev)).await
+            blocking(move || documents::write_document(id, doc, &*ev)).await
         }
         "delete_document" => {
             let id: String = take(&params, "docId")?;
@@ -124,12 +124,12 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
             let id: String = take(&params, "docId")?;
             let bid: String = take(&params, "backupId")?;
             let ev = Arc::clone(&events);
-            blocking(move || backups::restore_doc_backup_impl(id, bid, &*ev)).await
+            blocking(move || backups::restore_doc_backup(id, bid, &*ev)).await
         }
         "save_doc_snapshot" => {
             let id: String = take(&params, "docId")?;
             let s: Value = take(&params, "sections")?;
-            blocking(move || snapshots::save_doc_snapshot_impl(id, s)).await
+            blocking(move || snapshots::save_doc_snapshot(id, s)).await
         }
         "read_doc_snapshot" => {
             let id: String = take(&params, "docId")?;
@@ -230,7 +230,7 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
         // ({ params: {...} }) — Tauri's convention for named struct args.
         "pty_create" => {
             let p: terminal::CreateParams = take(&params, "params")?;
-            blocking(move || terminal::pty_create_impl(events, p)).await
+            blocking(move || terminal::pty_create(events, p)).await
         }
         "pty_write" => {
             let id: String = take(&params, "sessionId")?;
@@ -281,11 +281,11 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
         }
         "agent_send_message" => {
             let p: agent::SendMessageParams = take(&params, "params")?;
-            blocking(move || agent::agent_send_message_impl(p, events)).await
+            blocking(move || agent::agent_send_message(p, events)).await
         }
         "agent_tool_result" => {
             let p: agent::ToolResultParams = take(&params, "params")?;
-            blocking(move || agent::agent_tool_result_impl(p)).await
+            blocking(move || agent::agent_tool_result(p)).await
         }
         "agent_cancel" => {
             let id: String = take(&params, "sessionId")?;
@@ -303,8 +303,8 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
         }
 
         // ── jcli ──
-        "check_jcli" => blocking(|| jcli::check_jcli_impl(None)).await,
-        "install_jcli" => blocking(|| jcli::install_jcli_impl(None)).await,
+        "check_jcli" => blocking(jcli::check_jcli).await,
+        "install_jcli" => blocking(jcli::install_jcli).await,
         "uninstall_jcli" => blocking(jcli::uninstall_jcli).await,
 
         // ── link metadata (HTTP, async) ──

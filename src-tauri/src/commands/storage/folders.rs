@@ -3,7 +3,6 @@
 use serde_json::Value;
 
 /// Read all folders from the database, ordered by `sort_order`.
-#[tauri::command]
 pub fn read_folders() -> Result<Value, String> {
     let conn = crate::db::db()?;
     let mut stmt = conn
@@ -53,7 +52,6 @@ pub fn read_folders() -> Result<Value, String> {
 }
 
 /// Replace the entire folder tree in a single transaction.
-#[tauri::command]
 pub fn write_folders(entries: Value) -> Result<(), String> {
     let arr = entries
         .as_array()

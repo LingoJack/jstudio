@@ -4,7 +4,7 @@
 
 **离线优先的 Notion 风格本地笔记应用**
 
-基于 Tauri v2 + React 19 的桌面应用，所有数据存储在本地（SQLite + 文件系统），无云端依赖。
+基于 Electron（Chromium）+ Rust sidecar + React 19 的桌面应用，所有数据存储在本地（SQLite + 文件系统），无云端依赖。
 
 </div>
 
@@ -17,13 +17,13 @@
 - **内置终端** — 基于 xterm.js + portable-pty，可在应用内直接执行命令
 - **Markdown 快捷输入** — `# ` 自动转标题、`/` 唤出 Slash 命令菜单
 - **暗色 / 亮色主题** — VSCode 风格 CSS 变量体系
-- **跨平台** — macOS / Windows / Linux（基于 Tauri v2）
+- **跨平台** — macOS / Windows / Linux（基于 Electron）
 
 ## 技术栈
 
 | 层 | 技术 |
 |----|------|
-| 桌面框架 | Tauri v2 (Rust + WebView) |
+| 桌面框架 | Electron (Chromium) + Rust sidecar (stdio JSON-RPC) |
 | 前端 | React 19 + TypeScript (strict) |
 | 构建 | Vite 6 |
 | 状态管理 | Zustand (slice 模式) |
@@ -51,13 +51,13 @@
 # 1. 安装前端依赖
 npm install
 
-# 2. 开发模式（启动 Tauri 桌面应用 + 热重载）
-npm run tauri:dev
+# 2. 开发模式（vite + Rust sidecar + Electron，热重载）
+npm run electron:dev
 # 或
 make dev
 
-# 3. 构建生产版本
-npm run tauri:build
+# 3. 构建生产版本（.app/.dmg）
+npm run electron:build
 # 或
 make build
 ```

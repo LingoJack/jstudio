@@ -11,7 +11,6 @@ use std::path::Path;
 ///
 /// # Arguments
 /// * `dir` — absolute path to the directory to scan.
-#[tauri::command]
 pub fn list_markdown_files(dir: String) -> Result<Vec<MarkdownEntry>, String> {
     let root = Path::new(&dir);
     if !root.is_dir() {

@@ -148,6 +148,10 @@ function trackWindow(label: string, win: BrowserWindow): void {
   windows.set(label, win);
   win.on('focus', () => {
     focusedLabel = label;
+    broadcast('window-focus-changed', label, { label, focused: true });
+  });
+  win.on('blur', () => {
+    broadcast('window-focus-changed', label, { label, focused: false });
   });
   win.on('closed', () => {
     windows.delete(label);
@@ -459,6 +463,11 @@ function wireIpc(): void {
         return null;
       case 'isFocused':
         return win.isFocused();
+      case 'isVisible':
+        return win.isVisible();
+      case 'destroy':
+        win.destroy();
+        return null;
       default:
         return null;
     }

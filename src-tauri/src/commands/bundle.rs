@@ -40,7 +40,6 @@ const BUNDLE_VERSION: u32 = 1;
 ///
 /// Packages `document.json`, a `manifest.json`, and the whole `assets/`
 /// folder. The caller (frontend) chooses `dest_path` via a save dialog.
-#[tauri::command]
 pub fn export_document_bundle(doc_id: String, dest_path: String) -> Result<(), String> {
     let dir = doc_dir(&doc_id);
 
@@ -144,7 +143,6 @@ pub fn export_document_bundle(doc_id: String, dest_path: String) -> Result<(), S
 /// Returns the parsed `Document` JSON (with its `id` rewritten to
 /// `new_doc_id`) so the frontend can register it in the index and load it
 /// into memory.
-#[tauri::command]
 pub fn import_document_bundle(src_path: String, new_doc_id: String) -> Result<Value, String> {
     let file =
         File::open(&src_path).map_err(|e| format!("failed to open bundle {src_path}: {e}"))?;

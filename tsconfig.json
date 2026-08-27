@@ -3,5 +3,20 @@
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
-  ]
+  ],
+  // Paths live here (not only in tsconfig.app.json) so tsx --test can resolve
+  // the legacy `@tauri-apps/*` specifiers to the Electron shim — tsx reads the
+  // ROOT tsconfig and does not follow project references.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@tauri-apps/api/core": ["./src/lib/core/tauriShim/core.ts"],
+      "@tauri-apps/api/event": ["./src/lib/core/tauriShim/event.ts"],
+      "@tauri-apps/api/window": ["./src/lib/core/tauriShim/window.ts"],
+      "@tauri-apps/api/webviewWindow": ["./src/lib/core/tauriShim/webviewWindow.ts"],
+      "@tauri-apps/plugin-dialog": ["./src/lib/core/tauriShim/plugin-dialog.ts"],
+      "@tauri-apps/plugin-clipboard-manager": ["./src/lib/core/tauriShim/plugin-clipboard-manager.ts"],
+      "@tauri-apps/plugin-opener": ["./src/lib/core/tauriShim/plugin-opener.ts"]
+    }
+  }
 }
