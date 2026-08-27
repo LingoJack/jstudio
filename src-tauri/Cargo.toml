@@ -4,12 +4,21 @@ version = "0.1.0"
 description = "JStudio local knowledge graph desktop app"
 authors = ["Jack Lingo"]
 edition = "2024"
+# Two bins exist (Tauri shell + Electron sidecar); `cargo run` (tauri dev)
+# must default to the Tauri shell.
+default-run = "jstudio"
 
 [workspace]
 
 [lib]
 name = "jstudio_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Headless backend for the Electron shell (stdio JSON-RPC).
+# The Tauri app binary (src/main.rs) stays as the WKWebView shell until P6.
+[[bin]]
+name = "jstudio-sidecar"
+path = "src/bin/sidecar.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -22,6 +31,9 @@ tauri = { version = "2", features = ["macos-private-api", "protocol-asset", "dev
 # version across the whole dependency graph, so this also affects the `image`
 # crate instance that `tauri`/`arboard` pull in transitively.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
+# Direct clipboard access for the Electron sidecar (the clipboard-manager
+# plugin wraps this same crate; sidecar has no Tauri runtime to reach it).
+arboard = "3"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-clipboard-manager = "2"

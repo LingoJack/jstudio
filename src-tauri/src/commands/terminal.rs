@@ -2,8 +2,10 @@ use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
+use std::sync::{Arc, Mutex};
+use tauri::AppHandle;
+
+use crate::events::{EventSink, EventSinkExt, tauri_sink};
 
 // ────────────────────────────────────────────────
 // Session state
@@ -58,6 +60,15 @@ static SESSIONS: std::sync::LazyLock<Mutex<HashMap<String, PtySession>>> =
 /// `pty-exit-{id}` event is emitted.
 #[tauri::command]
 pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, String> {
+    pty_create_impl(tauri_sink(app), params)
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+/// `events` receives `pty-data-{id}` / `pty-exit-{id}` notifications.
+pub fn pty_create_impl(
+    events: Arc<dyn EventSink>,
+    params: CreateParams,
+) -> Result<SessionInfo, String> {
     let pty_system = native_pty_system();
 
     let pair = pty_system
@@ -147,7 +158,7 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
 
     let sid = session_id.clone();
-    let app_clone = app.clone();
+    let events_clone = Arc::clone(&events);
     std::thread::spawn(move || {
         let mut buf = [0u8; 8192];
         let mut leftover: Vec<u8> = Vec::new();
@@ -173,7 +184,7 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
                     if valid_len > 0 {
                         let data =
                             unsafe { String::from_utf8_unchecked(buf[..valid_len].to_vec()) };
-                        let _ = app_clone.emit(&format!("pty-data-{sid}"), PtyDataPayload { data });
+                        events_clone.emit(&format!("pty-data-{sid}"), PtyDataPayload { data });
                     }
 
                     // Save incomplete trailing bytes for next iteration.
@@ -188,7 +199,7 @@ pub fn pty_create(app: AppHandle, params: CreateParams) -> Result<SessionInfo, S
             }
         }
         // Notify frontend that the session has ended.
-        let _ = app_clone.emit(&format!("pty-exit-{sid}"), ());
+        events_clone.emit(&format!("pty-exit-{sid}"), ());
     });
 
     // Keep the master alive (needed for resize).

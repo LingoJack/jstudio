@@ -3016,6 +3016,7 @@ name = "jstudio"
 version = "0.1.0"
 dependencies = [
  "aes",
+ "arboard",
  "block2",
  "cbc",
  "chrono",

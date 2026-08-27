@@ -205,9 +205,18 @@ pub fn read_document(doc_id: String) -> Result<Value, String> {
 /// event when the new content is suspiciously smaller than the old.
 #[tauri::command]
 pub fn write_document(doc_id: String, doc: Value, app: tauri::AppHandle) -> Result<(), String> {
+    write_document_impl(doc_id, doc, &*crate::events::tauri_sink(app))
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+pub fn write_document_impl(
+    doc_id: String,
+    doc: Value,
+    events: &dyn crate::events::EventSink,
+) -> Result<(), String> {
     // Snapshot the current body before overwriting (write-before-overwrite
     // safety net). Also detects abnormal shrink and emits an event.
-    super::backups::backup_before_write(&doc_id, &doc, &app);
+    super::backups::backup_before_write(&doc_id, &doc, events);
 
     let body = serde_json::to_string(&doc).map_err(|e| e.to_string())?;
     let title = doc["title"].as_str().unwrap_or("");

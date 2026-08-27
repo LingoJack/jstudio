@@ -44,6 +44,11 @@ fn now_ms() -> u64 {
 /// verbatim (no Block[] conversion).
 #[tauri::command]
 pub fn save_doc_snapshot(doc_id: String, sections: Value, _app: AppHandle) -> Result<(), String> {
+    save_doc_snapshot_impl(doc_id, sections)
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+pub fn save_doc_snapshot_impl(doc_id: String, sections: Value) -> Result<(), String> {
     let dir = snapshots_dir(&doc_id);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 

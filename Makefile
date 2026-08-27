@@ -29,6 +29,7 @@ GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
         current_dir push push-non-ai commit pull status \
         deps deps-fe deps-tauri \
         dev build release build-jcli \
+        dev-electron build-electron install-electron \
         install install-jstudio-only uninstall reinstall \
         bump-version set-version \
         fmt lint check clippy pre-commit \
@@ -147,6 +148,34 @@ build-jcli: ## 构建 jcli 二进制（在 submodule 中）
 	@echo "🏗️  构建 jcli..."
 	@cd jcli && cargo build --release
 	@echo "☑️ jcli 构建完成"
+
+# ============================================
+# Electron 壳（P5 打包；与 Tauri 壳并存至 P6）
+# ============================================
+ELECTRON_APP := dist-electron-builder/mac-arm64/JStudio.app
+
+dev-electron: ## 启动 Electron 开发模式（vite + sidecar + electron）
+	@echo "🚀 启动 Electron 开发模式..."
+	@npm run electron:dev
+
+build-electron: build-jcli ## 构建 Electron 应用（.app/.dmg，产物在 dist-electron-builder/）
+	@echo "🏗️  构建 Electron 应用..."
+	@npm run electron:build
+	@echo "☑️ Electron 应用构建完成: $(ELECTRON_APP)"
+
+install-electron: build-electron ## 安装 Electron 版到 /Applications（覆盖同名 app）
+	@echo "📦 安装 Electron 版 JStudio..."
+	@if [ "$$(uname -s)" = "Darwin" ]; then \
+		if [ ! -d "$(ELECTRON_APP)" ]; then \
+			echo "✖️ 未找到 $(ELECTRON_APP)"; exit 1; \
+		fi; \
+		if [ ! -w "$(INSTALL_APP_DIR)" ]; then SUDO="sudo"; else SUDO=""; fi; \
+		$$SUDO rm -rf "$(INSTALL_APP_DIR)/JStudio.app"; \
+		$$SUDO cp -R "$(ELECTRON_APP)" "$(INSTALL_APP_DIR)/JStudio.app"; \
+		echo "☑️ 已安装: $(INSTALL_APP_DIR)/JStudio.app"; \
+	else \
+		echo "ℹ️ 非 macOS 平台暂不支持"; exit 1; \
+	fi
 
 release: build ## 别名：构建发布版本
 

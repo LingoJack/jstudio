@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "JStudio local knowledge graph Tauri desktop app.",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
     "build": "tsc -b && vite build",
@@ -13,6 +14,12 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "electron:build:main": "esbuild electron/main.ts electron/preload.ts electron/sidecar.ts --bundle --platform=node --format=cjs --external:electron --out-extension:.js=.cjs --outdir=dist-electron",
+    "electron:build:sidecar": "cargo build --manifest-path src-tauri/Cargo.toml --bin jstudio-sidecar",
+    "electron:build:sidecar:release": "cargo build --release --manifest-path src-tauri/Cargo.toml --bin jstudio-sidecar",
+    "electron:build": "env JSTUDIO_SHELL=electron npm run build && npm run electron:build:main && npm run electron:build:sidecar:release && electron-builder",
+    "test:sidecar": "node scripts/sidecar-smoke.mjs",
+    "electron:dev": "npm run electron:build:main && npm run electron:build:sidecar && concurrently -k \"env JSTUDIO_SHELL=electron npm run dev\" \"wait-on http://127.0.0.1:1420 && electron .\"",
     "knip": "knip",
     "lint:tsc": "tsc --noEmit",
     "lint:struct": "npm run lint:tsc && npm run knip",
@@ -79,11 +86,15 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^10.0.5",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.25.0",
     "knip": "^6.26.0",
     "patch-package": "^8.0.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
-    "typescript": "~5.8.2"
+    "typescript": "~5.8.2",
+    "wait-on": "^9.1.0"
   }
 }

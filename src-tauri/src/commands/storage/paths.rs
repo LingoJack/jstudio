@@ -121,24 +121,18 @@ pub fn write_file_bytes(path: String, data: Vec<u8>) -> Result<(), String> {
 ///   run the decode on the main thread and freeze the whole app (the
 ///   spinning-cursor "beachball") while a large image is being decoded.
 #[tauri::command]
-pub async fn copy_image_to_clipboard(app: tauri::AppHandle, path: String) -> Result<(), String> {
-    use tauri_plugin_clipboard_manager::ClipboardExt;
+pub async fn copy_image_to_clipboard(_app: tauri::AppHandle, path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || copy_image_to_clipboard_impl(path))
+        .await
+        .map_err(|e| format!("clipboard task panicked: {e}"))?
+}
 
-    let (rgba, width, height) = tauri::async_runtime::spawn_blocking(move || {
-        let bytes = fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))?;
-        let img = image::load_from_memory(&bytes)
-            .map_err(|e| format!("failed to decode image {path}: {e}"))?
-            .to_rgba8();
-        let (width, height) = (img.width(), img.height());
-        Ok::<_, String>((img.into_raw(), width, height))
-    })
-    .await
-    .map_err(|e| format!("decode task panicked: {e}"))??;
-
-    let image = tauri::image::Image::new_owned(rgba, width, height);
-    app.clipboard()
-        .write_image(&image)
-        .map_err(|e| format!("failed to write image to clipboard: {e}"))
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+/// Uses arboard directly (the same crate tauri-plugin-clipboard-manager
+/// wraps), so no Tauri runtime is needed.
+pub fn copy_image_to_clipboard_impl(path: String) -> Result<(), String> {
+    let bytes = fs::read(&path).map_err(|e| format!("failed to read file {path}: {e}"))?;
+    write_image_bytes_to_clipboard_impl(bytes)
 }
 
 /// Copy an in-memory image (raw bytes: PNG/JPEG/etc.) to the system clipboard.
@@ -148,24 +142,35 @@ pub async fn copy_image_to_clipboard(app: tauri::AppHandle, path: String) -> Res
 /// path exists yet.
 #[tauri::command]
 pub async fn copy_image_bytes_to_clipboard(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     data: Vec<u8>,
 ) -> Result<(), String> {
-    use tauri_plugin_clipboard_manager::ClipboardExt;
+    tauri::async_runtime::spawn_blocking(move || write_image_bytes_to_clipboard_impl(data))
+        .await
+        .map_err(|e| format!("clipboard task panicked: {e}"))?
+}
 
-    let (rgba, width, height) = tauri::async_runtime::spawn_blocking(move || {
-        let img = image::load_from_memory(&data)
-            .map_err(|e| format!("failed to decode image: {e}"))?
-            .to_rgba8();
-        let (width, height) = (img.width(), img.height());
-        Ok::<_, String>((img.into_raw(), width, height))
-    })
-    .await
-    .map_err(|e| format!("decode task panicked: {e}"))??;
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+pub fn copy_image_bytes_to_clipboard_impl(data: Vec<u8>) -> Result<(), String> {
+    write_image_bytes_to_clipboard_impl(data)
+}
 
-    let image = tauri::image::Image::new_owned(rgba, width, height);
-    app.clipboard()
-        .write_image(&image)
+/// Decode image bytes (PNG/JPEG/…) and put them on the OS clipboard.
+/// Shared by both clipboard commands; blocking — call off the UI thread.
+fn write_image_bytes_to_clipboard_impl(data: Vec<u8>) -> Result<(), String> {
+    let img = image::load_from_memory(&data)
+        .map_err(|e| format!("failed to decode image: {e}"))?
+        .to_rgba8();
+    let (width, height) = (img.width() as usize, img.height() as usize);
+
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| format!("failed to open clipboard: {e}"))?;
+    clipboard
+        .set_image(arboard::ImageData {
+            width,
+            height,
+            bytes: std::borrow::Cow::Owned(img.into_raw()),
+        })
         .map_err(|e| format!("failed to write image to clipboard: {e}"))
 }
 

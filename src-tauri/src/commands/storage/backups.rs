@@ -19,7 +19,9 @@ use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
+
+use crate::events::{EventSink, tauri_sink};
 
 use super::paths::doc_dir;
 
@@ -137,7 +139,7 @@ fn count_nodes_value(v: &Value) -> usize {
 /// current body is empty / missing / unparseable, no backup is created (there
 /// is nothing to save). Emits `document:abnormal-shrink` when the new content
 /// is suspiciously smaller than the old.
-pub fn backup_before_write(doc_id: &str, new_doc: &Value, app: &AppHandle) {
+pub fn backup_before_write(doc_id: &str, new_doc: &Value, events: &dyn EventSink) {
     // ── Read the current body from the DB ──
     let old_body: Option<String> = {
         let conn = match crate::db::db() {
@@ -200,7 +202,7 @@ pub fn backup_before_write(doc_id: &str, new_doc: &Value, app: &AppHandle) {
         && (new_chars as f64) < (old_chars as f64) * ABNORMAL_CHAR_FRACTION;
 
     if block_shrink || char_shrink {
-        let _ = app.emit(
+        events.emit_json(
             "document:abnormal-shrink",
             serde_json::json!({
                 "docId": doc_id,
@@ -333,9 +335,18 @@ pub fn read_doc_backup(doc_id: String, backup_id: String) -> Result<Value, Strin
 /// reversible — the pre-restore state shows up as the newest backup).
 #[tauri::command]
 pub fn restore_doc_backup(doc_id: String, backup_id: String, app: AppHandle) -> Result<(), String> {
+    restore_doc_backup_impl(doc_id, backup_id, &*tauri_sink(app))
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+pub fn restore_doc_backup_impl(
+    doc_id: String,
+    backup_id: String,
+    events: &dyn EventSink,
+) -> Result<(), String> {
     // Snapshot current body before overwriting (reversible restore).
     // We pass a dummy new_doc so the shrink detector won't fire on restore.
-    backup_before_write(&doc_id, &serde_json::json!({ "blocks": [] }), &app);
+    backup_before_write(&doc_id, &serde_json::json!({ "blocks": [] }), events);
 
     // Read the backup body.
     let path = backups_dir(&doc_id).join(format!("{backup_id}.json"));

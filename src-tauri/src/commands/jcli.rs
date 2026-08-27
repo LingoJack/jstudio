@@ -56,15 +56,23 @@ fn global_link_path() -> PathBuf {
 
 /// Locate the `j` binary bundled inside the app resources.
 ///
-/// In production (bundled app), the binary is at `<resource_dir>/bin/j`.
-/// In dev mode (`tauri dev`), resources are unpacked to various locations
-/// depending on the platform, so we check multiple candidates.
-fn bundled_j_path(app: &AppHandle) -> Option<PathBuf> {
+/// The caller supplies the resource dir (Tauri:
+/// `app.path().resource_dir()`; Electron sidecar: `JSTUDIO_RESOURCE_DIR`
+/// env, set by Electron main from `process.resourcesPath`).
+pub fn bundled_j_path_impl(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
     let bin_name = if cfg!(windows) { "j.exe" } else { "j" };
 
+    // Candidate 0: JSTUDIO_RESOURCE_DIR env (Electron sidecar in production).
+    if let Ok(dir) = std::env::var("JSTUDIO_RESOURCE_DIR") {
+        let candidate = PathBuf::from(dir).join("bin").join(bin_name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
     // Candidate 1: <resource_dir>/bin/j  (production)
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        let candidate = resource_dir.join("bin").join(bin_name);
+    if let Some(dir) = resource_dir {
+        let candidate = dir.join("bin").join(bin_name);
         if candidate.exists() {
             return Some(candidate);
         }
@@ -280,9 +288,14 @@ fn which_j() -> Option<String> {
 /// Check the current installation status of jcli.
 #[tauri::command]
 pub fn check_jcli(app: AppHandle) -> Result<JcliStatus, String> {
+    check_jcli_impl(app.path().resource_dir().ok())
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+pub fn check_jcli_impl(resource_dir: Option<PathBuf>) -> Result<JcliStatus, String> {
     let (installed, version, path) = check_system_j();
 
-    let bundled_j = bundled_j_path(&app);
+    let bundled_j = bundled_j_path_impl(resource_dir);
     let (bundled, bundled_version) = match &bundled_j {
         Some(p) => (true, get_version(p)),
         None => (false, None),
@@ -305,8 +318,13 @@ pub fn check_jcli(app: AppHandle) -> Result<JcliStatus, String> {
 /// the user for their password.
 #[tauri::command]
 pub fn install_jcli(app: AppHandle) -> Result<String, String> {
+    install_jcli_impl(app.path().resource_dir().ok())
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+pub fn install_jcli_impl(resource_dir: Option<PathBuf>) -> Result<String, String> {
     // 1. Locate bundled binary
-    let bundled = bundled_j_path(&app).ok_or_else(|| {
+    let bundled = bundled_j_path_impl(resource_dir).ok_or_else(|| {
         "Bundled jcli binary not found. The app may have been built without \
          embedding it."
             .to_string()

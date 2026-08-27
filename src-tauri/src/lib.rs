@@ -1,5 +1,6 @@
-mod commands;
-mod db;
+pub mod commands;
+pub mod db;
+pub mod events;
 mod menu;
 
 use std::sync::Mutex;

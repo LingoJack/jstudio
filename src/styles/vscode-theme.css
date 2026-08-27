@@ -3939,6 +3939,20 @@ button {
    Link Preview Tabs (Multi-webview browser)
    ============================================ */
 
+/* ── Window drag regions (Electron) ─────────────────────────────────────
+ * Tauri 的窗口拖拽读 `data-tauri-drag-region` 属性；Electron 只认 CSS
+ * `-webkit-app-region`。这里把既有属性语义映射成 CSS —— 双壳共用，
+ * WKWebView 忽略未知属性，Electron 忽略 data 属性。
+ * 只作用于显式标注的元素（标题栏）；link-preview 窗等交互区未标注，
+ * 不受影响。Electron 下 drag 区域双击自动触发 macOS 最大化。
+ */
+[data-tauri-drag-region]:not([data-tauri-drag-region="false"]) {
+  -webkit-app-region: drag;
+}
+[data-tauri-drag-region="false"] {
+  -webkit-app-region: no-drag;
+}
+
 /* ── Link Preview Window ────────────────────────────────────────────────
  * 浮动 glassmorphism TabBar 在顶部，地址栏在底部。
  * UI webview 高度 90px（由 Rust 端 link_tabs.rs UI_HEIGHT 控制）。

@@ -38,8 +38,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
+
+use crate::events::{EventSink, EventSinkExt, tauri_sink};
 
 // ────────────────────────────────────────────────
 // Session state
@@ -452,7 +454,7 @@ pub fn agent_delete_session(session_id: String) -> Result<(), String> {
 /// Note: this was previously a `#[tauri::command]` exposed as
 /// `agent_start_session`, but the frontend never invoked it; it is now a
 /// private helper.
-fn ensure_session_started(session_id: &str, app: &AppHandle) -> Result<(), String> {
+fn ensure_session_started(session_id: &str, events: &Arc<dyn EventSink>) -> Result<(), String> {
     // Check if session already exists in registry
     {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
@@ -543,9 +545,9 @@ fn ensure_session_started(session_id: &str, app: &AppHandle) -> Result<(), Strin
     // round and panic on the second.
     {
         let session_id_owned = session_id.to_string();
-        let app_clone = app.clone();
+        let events_clone = Arc::clone(events);
         std::thread::spawn(move || {
-            listen_ask_requests(session_id_owned, app_clone, ask_rx, ask_response_rx);
+            listen_ask_requests(session_id_owned, events_clone, ask_rx, ask_response_rx);
         });
     }
 
@@ -556,10 +558,20 @@ fn ensure_session_started(session_id: &str, app: &AppHandle) -> Result<(), Strin
 /// Spawns the agent loop if not already running.
 #[tauri::command]
 pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Result<(), String> {
+    agent_send_message_impl(params, tauri_sink(app))
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+/// Sync: the body never awaits — it only queues the message and spawns the
+/// loop thread.
+pub fn agent_send_message_impl(
+    params: SendMessageParams,
+    events: Arc<dyn EventSink>,
+) -> Result<(), String> {
     let session_id = params.session_id.clone();
 
     // Ensure session is started
-    ensure_session_started(&session_id, &app)?;
+    ensure_session_started(&session_id, &events)?;
 
     // Create user message
     let user_msg = ChatMessage {
@@ -609,7 +621,7 @@ pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Re
 
     // Spawn agent loop if not running
     if !is_running {
-        spawn_agent_loop(session_id, app)?;
+        spawn_agent_loop(session_id, events)?;
     }
 
     Ok(())
@@ -619,6 +631,11 @@ pub async fn agent_send_message(params: SendMessageParams, app: AppHandle) -> Re
 /// If the user approved a dangerous tool, this function executes it and sends the real result.
 #[tauri::command]
 pub fn agent_tool_result(params: ToolResultParams, _app: AppHandle) -> Result<(), String> {
+    agent_tool_result_impl(params)
+}
+
+/// Shell-agnostic implementation (Tauri shell + Electron sidecar).
+pub fn agent_tool_result_impl(params: ToolResultParams) -> Result<(), String> {
     // Check if this is an approval. The frontend sets `approved: true` on the
     // approve path; the old `result.contains("\"approved\":true")` string match
     // was fragile (broke on any JSON formatting variance).
@@ -795,7 +812,7 @@ pub fn agent_submit_ask_answer(
 /// from a consumed listener.
 fn spawn_event_listener(
     session_id: String,
-    app: AppHandle,
+    events: Arc<dyn EventSink>,
     streaming_content: Arc<Mutex<String>>,
     streaming_reasoning_content: Arc<Mutex<String>>,
     cancel_token: CancellationToken,
@@ -806,7 +823,7 @@ fn spawn_event_listener(
     std::thread::spawn(move || {
         listen_stream_only(
             session_id,
-            app,
+            events,
             streaming_content,
             streaming_reasoning_content,
             cancel_token,
@@ -817,10 +834,10 @@ fn spawn_event_listener(
     });
 }
 
-/// Listen to Ask requests from j-agent and emit Tauri events.
+/// Listen to Ask requests from j-agent and emit events.
 fn listen_ask_requests(
     session_id: String,
-    app: AppHandle,
+    events: Arc<dyn EventSink>,
     ask_rx: mpsc::Receiver<j_agent::message_types::AskRequest>,
     ask_response_rx: mpsc::Receiver<String>,
 ) {
@@ -847,7 +864,7 @@ fn listen_ask_requests(
                     })
                     .collect();
 
-                let _ = app.emit(
+                let _ = events.emit(
                     "agent:ask-request",
                     AskRequestPayload {
                         session_id: session_id.clone(),
@@ -878,7 +895,7 @@ fn listen_ask_requests(
 /// Listen to StreamMsg only (for sessions without Ask or after Ask thread spawned).
 fn listen_stream_only(
     session_id: String,
-    app: AppHandle,
+    events: Arc<dyn EventSink>,
     streaming_content: Arc<Mutex<String>>,
     streaming_reasoning_content: Arc<Mutex<String>>,
     cancel_token: CancellationToken,
@@ -888,7 +905,7 @@ fn listen_stream_only(
 ) {
     loop {
         if cancel_token.is_cancelled() {
-            let _ = app.emit(
+            let _ = events.emit(
                 "agent:cancelled",
                 CancelledPayload {
                     session_id: session_id.clone(),
@@ -905,7 +922,7 @@ fn listen_stream_only(
                         .lock()
                         .map(|s| s.clone())
                         .unwrap_or_default();
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:chunk",
                         ChunkPayload {
                             session_id: session_id.clone(),
@@ -918,7 +935,7 @@ fn listen_stream_only(
                         .map(|s| s.clone())
                         .unwrap_or_default();
                     if !reasoning.is_empty() {
-                        let _ = app.emit(
+                        let _ = events.emit(
                             "agent:reasoning",
                             ReasoningPayload {
                                 session_id: session_id.clone(),
@@ -959,7 +976,7 @@ fn listen_stream_only(
                             .iter()
                             .find(|c| c.name == "ExitPlanMode");
                         if let Some(plan) = plan_call {
-                            let _ = app.emit(
+                            let _ = events.emit(
                                 "agent:plan-request",
                                 PlanRequestPayload {
                                     session_id: session_id.clone(),
@@ -968,7 +985,7 @@ fn listen_stream_only(
                             );
                         }
                     } else {
-                        let _ = app.emit(
+                        let _ = events.emit(
                             "agent:tool-request",
                             ToolRequestPayload {
                                 session_id: session_id.clone(),
@@ -999,7 +1016,7 @@ fn listen_stream_only(
                                 .collect(),
                         )
                     };
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:tool-result",
                         ToolResultPayload {
                             session_id: session_id.clone(),
@@ -1013,7 +1030,7 @@ fn listen_stream_only(
                     );
                 }
                 StreamMsg::Done => {
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:done",
                         DonePayload {
                             session_id: session_id.clone(),
@@ -1023,7 +1040,7 @@ fn listen_stream_only(
                     break;
                 }
                 StreamMsg::Error(e) => {
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:error",
                         ErrorPayload {
                             session_id: session_id.clone(),
@@ -1034,7 +1051,7 @@ fn listen_stream_only(
                     break;
                 }
                 StreamMsg::Cancelled => {
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:cancelled",
                         CancelledPayload {
                             session_id: session_id.clone(),
@@ -1049,7 +1066,7 @@ fn listen_stream_only(
                     delay_ms,
                     error,
                 } => {
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:retrying",
                         RetryingPayload {
                             session_id: session_id.clone(),
@@ -1061,7 +1078,7 @@ fn listen_stream_only(
                     );
                 }
                 StreamMsg::Compacting => {
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:compacting",
                         CompactingPayload {
                             session_id: session_id.clone(),
@@ -1069,7 +1086,7 @@ fn listen_stream_only(
                     );
                 }
                 StreamMsg::Compacted { messages_before } => {
-                    let _ = app.emit(
+                    let _ = events.emit(
                         "agent:compacted",
                         CompactedPayload {
                             session_id: session_id.clone(),
@@ -1105,8 +1122,8 @@ fn mark_not_running(session_id: &str) {
     }
 }
 
-/// Spawn the agent loop on the Tauri global async runtime.
-fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
+/// Spawn the agent loop on a dedicated thread.
+fn spawn_agent_loop(session_id: String, events: Arc<dyn EventSink>) -> Result<(), String> {
     // Collect everything needed within one lock scope
     let (config, provider, messages, shared_state_components) = {
         let sessions = AGENT_SESSIONS.lock().map_err(|e| e.to_string())?;
@@ -1190,7 +1207,7 @@ fn spawn_agent_loop(session_id: String, app: AppHandle) -> Result<(), String> {
     // spawned at session start and persists across rounds.
     spawn_event_listener(
         session_id.clone(),
-        app,
+        events,
         streaming_content.clone(),
         streaming_reasoning_content.clone(),
         cancel_token.clone(),
