@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, Bug, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../../lib/core/i18n';
 import type { TranslationKey } from '../../lib/core/i18n';
@@ -132,7 +132,6 @@ function SubNode({
   onLeafClick,
   isExpanded,
   toggle,
-  expand,
 }: {
   node: NavSubNode;
   sectionId: SectionId;
@@ -141,7 +140,6 @@ function SubNode({
   onLeafClick: (sectionId: SectionId, anchorId: string) => void;
   isExpanded: (id: string) => boolean;
   toggle: (id: string) => void;
-  expand: (id: string) => void;
 }) {
   const { t } = useI18n();
 
@@ -149,11 +147,6 @@ function SubNode({
   if (node.children && node.children.length > 0) {
     const groupId = `${sectionId}-${node.labelKey}`;
     const open = isExpanded(groupId);
-    // Auto-expand when a descendant is the active anchor
-    const descendantActive = node.children.some(
-      (child) => active && activeAnchor === child.anchorId,
-    );
-    if (descendantActive && !open) expand(groupId);
 
     return (
       <div>
@@ -179,7 +172,6 @@ function SubNode({
                 onLeafClick={onLeafClick}
                 isExpanded={isExpanded}
                 toggle={toggle}
-                expand={expand}
               />
             ))}
           </NavBranch>
@@ -225,6 +217,26 @@ export default function SettingsPanel() {
     ]),
   );
   const [activeAnchor, setActiveAnchor] = useState<string | undefined>(undefined);
+
+  // Auto-expand groups containing the active anchor. Runs ONLY when the
+  // anchor changes — doing this during SubNode render (per-render) made
+  // manual collapse impossible: toggle() collapsed the group, then the
+  // render-phase expand() immediately re-opened it.
+  useEffect(() => {
+    if (!activeAnchor) return;
+    const item = NAV_ITEMS.find((i) => i.id === activeSection);
+    if (!item?.subItems) return;
+    const containsAnchor = (n: NavSubNode): boolean =>
+      n.anchorId === activeAnchor || (n.children?.some(containsAnchor) ?? false);
+    const walk = (nodes: NavSubNode[]) => {
+      for (const n of nodes) {
+        if (!n.children) continue;
+        if (n.children.some(containsAnchor)) expand(`${activeSection}-${n.labelKey}`);
+        walk(n.children);
+      }
+    };
+    walk(item.subItems);
+  }, [activeAnchor, activeSection, expand]);
 
   /** Scroll a setting block into view within the content scroll area. */
   const scrollToAnchor = useCallback((anchorId: string) => {
@@ -333,7 +345,6 @@ export default function SettingsPanel() {
                         onLeafClick={handleSubClick}
                         isExpanded={isExpanded}
                         toggle={toggle}
-                        expand={expand}
                       />
                     ))}
                   </NavBranch>
