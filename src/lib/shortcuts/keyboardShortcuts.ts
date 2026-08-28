@@ -587,6 +587,21 @@ export function detectConflicts(
 }
 
 /**
+ * Returns the other shortcuts that share `def`'s binding within the same
+ * scope, based on a map produced by detectConflicts().
+ */
+export function conflictingDefs(
+  def: ShortcutDef,
+  binding: ShortcutBinding,
+  conflictMap: Map<ShortcutBinding, ShortcutDef[]>,
+): ShortcutDef[] {
+  if (!binding) return [];
+  return (conflictMap.get(binding) ?? []).filter(
+    (d) => d.id !== def.id && d.scope === def.scope,
+  );
+}
+
+/**
  * Checks whether a specific binding would conflict with other shortcuts
  * in the same scope (excluding the shortcut with `excludeId`).
  *

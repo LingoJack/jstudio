@@ -4,14 +4,15 @@ import { useI18n } from '../../lib/core/i18n';
 // Shared building blocks for the shortcuts settings pages
 // (ShortcutsSection + GlobalShortcutsSection).
 //
-// Layout language: shortcut TILES in a 2-column grid — the key caps
-// are the hero (top of tile), label + status live at the bottom.
+// Layout language: shortcut ROWS in a bordered panel — the row reads
+// left → right as "what it does" → "how to trigger it".
 //   - Key caps: per-key <kbd> with hairline border, bottom edge
 //     shadow + top inner highlight (color-mix theme vars, adapts to
 //     light/dark without hardcoded colors)
-//   - Tiles: rounded-[10px] elevated surface, hairline border that
-//     brightens on hover
-//   - Section titles: 13px semibold with optional muted description
+//   - Panels: rounded-[10px] hairline border, hairline row dividers,
+//     and a barely-there elevated surface
+//   - Group headings: muted 12px semibold with a hairline rule and the
+//     row count on the right
 // ──────────────────────────────────────────────────────────────────
 
 const CAP_BASE =
@@ -67,31 +68,43 @@ export function KbdKeycap({
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// Tile primitives
-// ──────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// List primitives — used by the shortcuts list editor
+// ──────────────────────────────────────────────────────────────
 
-/** Tile shell: relative/group so hover actions can anchor inside. */
-export const tileBase =
-  'relative group flex flex-col gap-1 p-3 rounded-[10px] border transition-colors';
+/** Hairline border around a list panel. */
+export const PANEL_BORDER =
+  'border border-[color-mix(in_srgb,var(--vscode-foreground)_10%,transparent)]';
 
-/** Elevated tile surface + hover border brighten. */
-export const tileSurface =
-  'border-[color-mix(in_srgb,var(--vscode-foreground)_9%,transparent)] bg-[color-mix(in_srgb,var(--vscode-foreground)_3%,var(--vscode-editor-background))] hover:border-[color-mix(in_srgb,var(--vscode-foreground)_18%,transparent)]';
+/** Hairline dividers between rows inside a list panel. */
+export const PANEL_DIVIDER =
+  'divide-y divide-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)]';
 
-/** Section title above a tile grid. */
-export function SectionTitle({
+/** Elevated panel surface used by list panels. */
+export const PANEL_SURFACE =
+  'bg-[color-mix(in_srgb,var(--vscode-foreground)_2%,var(--vscode-editor-background))]';
+
+/** Group heading above a list panel: muted title, hairline rule, row count. */
+export function GroupHeading({
   title,
-  description,
+  count,
 }: {
   title: React.ReactNode;
-  description?: React.ReactNode;
+  count?: number;
 }) {
   return (
-    <div className="px-1 space-y-0.5">
-      <div className="text-[13px] font-semibold text-[var(--vscode-foreground)]">{title}</div>
-      {description && (
-        <div className="text-xs text-[var(--vscode-descriptionForeground)]">{description}</div>
+    <div className="flex items-center gap-2.5 px-1">
+      <h4 className="shrink-0 text-[12px] font-semibold text-[var(--vscode-descriptionForeground)]">
+        {title}
+      </h4>
+      <span
+        aria-hidden
+        className="h-px flex-1 bg-[color-mix(in_srgb,var(--vscode-foreground)_10%,transparent)]"
+      />
+      {count !== undefined && (
+        <span className="text-[11px] tabular-nums text-[var(--vscode-descriptionForeground)] opacity-70">
+          {count}
+        </span>
       )}
     </div>
   );

@@ -1,5 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { RotateCcw, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+/**
+ * ShortcutsSection — in-app keyboard shortcut editor.
+ *
+ * List editor (VS Code style) instead of a tile grid: each row reads
+ * left → right as "what it does" → "how to trigger it", so a 30-entry
+ * list stays scannable. Rows are grouped by category, filterable by a
+ * search box and an all / modified / conflicts segmented control.
+ *
+ * Clicking anywhere on a row starts recording; Escape cancels,
+ * Backspace clears the binding. Conflicts are surfaced inline on every
+ * involved row (both sides get a red rail + the conflicting command).
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { Search, X } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
 import {
@@ -12,156 +25,48 @@ import {
   bindingToDisplay,
   eventToBinding,
   detectConflicts,
+  conflictingDefs,
   checkBindingConflict,
-  type ShortcutDef,
   type ShortcutCategory,
-  type ShortcutOverrides,
-  type ReferenceShortcut,
+  type ShortcutDef,
 } from '../../lib/shortcuts/keyboardShortcuts';
-import { KbdKeycap, SectionTitle, tileBase, tileSurface } from './KbdKeycap';
+import { toast } from '../../lib/core/toast';
+import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
+import {
+  GroupHeading,
+  PANEL_BORDER,
+  PANEL_DIVIDER,
+  PANEL_SURFACE,
+} from './KbdKeycap';
+import { ShortcutRow, ReferenceShortcuts } from './ShortcutRow';
 import { GlobalShortcutsContent } from './GlobalShortcutsSection';
 
-// ─────────────────────────────────────────────────────────────
-// ShortcutTile — one customizable shortcut as a compact tile:
-// key caps as the hero on top, label + status at the bottom.
-// ─────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
+// Filters
+// ────────────────────────────────────────────────────────────────────────────
 
-function ShortcutTile({
-  def,
-  overrides,
-  conflictMap,
-  recordingId,
-  onRecord,
-  onReset,
-}: {
-  def: ShortcutDef;
-  overrides: ShortcutOverrides;
-  conflictMap: Map<string, ShortcutDef[]>;
-  recordingId: string | null;
-  onRecord: (id: string | null) => void;
-  onReset: (id: string) => void;
-}) {
-  const { t } = useI18n();
-  const isRecording = recordingId === def.id;
-  const currentBinding = resolveBinding(def.id, overrides);
-  const isOverridden = def.id in overrides;
-  const display = currentBinding ? bindingToDisplay(currentBinding) : '';
+type ShortcutFilter = 'all' | 'modified' | 'conflicts';
 
-  // Check if this shortcut is in a conflict (skip if unbound)
-  const conflictingDefs = currentBinding ? conflictMap.get(currentBinding) : undefined;
-  const isConflicted =
-    conflictingDefs && conflictingDefs.some((d) => d.id !== def.id && d.scope === def.scope);
+const FILTER_MODES: ShortcutFilter[] = ['all', 'modified', 'conflicts'];
 
-  const conflictName = isConflicted
-    ? conflictingDefs
-        ?.filter((d) => d.id !== def.id && d.scope === def.scope)
-        .map((d) => t(d.labelKey as TranslationKey))
-        .join(', ')
-    : null;
+const FILTER_LABEL_KEYS: Record<ShortcutFilter, TranslationKey> = {
+  all: 'shortcut.filterAll',
+  modified: 'shortcut.customized',
+  conflicts: 'shortcut.filterConflicts',
+};
 
-  return (
-    <div
-      className={`${tileBase} ${tileSurface} min-h-[84px] ${
-        isConflicted
-          ? 'bg-[var(--vscode-inputValidation-errorBackground)] border-[color-mix(in_srgb,var(--vscode-errorForeground)_40%,transparent)]'
-          : ''
-      } ${isRecording ? 'border-[var(--vscode-focusBorder)]' : ''}`}
-    >
-      {/* Key caps (click to re-record) + reset (hover) */}
-      <div className="flex items-start justify-between gap-2">
-        <button
-          onClick={() => onRecord(isRecording ? null : def.id)}
-          className="cursor-pointer"
-          title={t('shortcut.pressKeys')}
-        >
-          <KbdKeycap display={display} recording={isRecording} conflicted={!!isConflicted} />
-        </button>
-        {isOverridden && !isRecording && (
-          <button
-            onClick={() => onReset(def.id)}
-            className="inline-flex items-center justify-center w-6 h-6 rounded text-[var(--vscode-descriptionForeground)] opacity-0 group-hover:opacity-100 hover:text-[var(--vscode-foreground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] transition-all cursor-pointer"
-            title={t('shortcut.resetToDefault')}
-          >
-            <RotateCcw className="w-3 h-3" />
-          </button>
-        )}
-      </div>
+const REFERENCE_COUNT = REFERENCE_SHORTCUTS.reduce((n, g) => n + g.items.length, 0);
 
-      {/* Label + status */}
-      <div className="mt-auto min-w-0">
-        <div className="text-[13px] text-[var(--vscode-foreground)] truncate">
-          {t(def.labelKey as TranslationKey)}
-        </div>
-        {isConflicted && conflictName ? (
-          <div className="flex items-center gap-1 mt-0.5 text-[11px] text-[var(--vscode-errorForeground)] truncate">
-            <AlertTriangle className="w-3 h-3 shrink-0" />
-            <span className="truncate">{t('shortcut.conflictWith', { name: conflictName })}</span>
-          </div>
-        ) : (
-          isOverridden && (
-            <div className="mt-0.5 text-[11px] text-[var(--vscode-descriptionForeground)]">
-              {t('shortcut.customized')}
-            </div>
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// ReferenceBlock — collapsible group of read-only mini tiles
-// ─────────────────────────────────────────────────────────────
-
-function ReferenceBlock({ category, items }: {
-  category: string;
-  items: ReferenceShortcut[];
-}) {
-  const { t } = useI18n();
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] transition-colors cursor-pointer"
-      >
-        <span className="shrink-0">
-          {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-        </span>
-        {t(category as TranslationKey)}
-      </button>
-      {expanded && (
-        <div className="mt-1.5 ml-5 grid grid-cols-2 gap-1.5">
-          {items.map((item) => {
-            const text = item.binding ? bindingToDisplay(item.binding) : (item.display ?? '');
-            return (
-              <div
-                key={item.labelKey}
-                className="flex flex-col gap-1 p-2.5 rounded-[8px] border border-[color-mix(in_srgb,var(--vscode-foreground)_6%,transparent)]"
-              >
-                {text ? (
-                  <KbdKeycap display={text} />
-                ) : (
-                  <span className="h-[22px]" aria-hidden />
-                )}
-                <div className="text-xs text-[var(--vscode-descriptionForeground)] truncate">
-                  {t(item.labelKey as TranslationKey)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 // Main component
-// ─────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 
-export default function ShortcutsSection() {
+export default function ShortcutsSection({
+  anchorJumpSignal,
+}: {
+  /** Bumped by SettingsPanel on every left-nav jump; see SettingsPanel. */
+  anchorJumpSignal?: number;
+}) {
   const { t } = useI18n();
   const overrides = useStore((s) => s.keyboardShortcuts);
   const setKeyboardShortcut = useStore((s) => s.setKeyboardShortcut);
@@ -169,32 +74,75 @@ export default function ShortcutsSection() {
   const resetAllKeyboardShortcuts = useStore((s) => s.resetAllKeyboardShortcuts);
 
   const [recordingId, setRecordingId] = useState<string | null>(null);
-  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
-  const recordRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<ShortcutFilter>('all');
+
+  // A left-nav jump targets a category anchor that an active search/filter may
+  // have filtered out — and an unmounted anchor cannot be scrolled to. Clear
+  // the filter on every jump. Adjusted during render (not in an effect) so the
+  // anchor exists in the same commit the double-rAF scroll runs against.
+  const [seenJumpSignal, setSeenJumpSignal] = useState(anchorJumpSignal);
+  if (anchorJumpSignal !== seenJumpSignal) {
+    setSeenJumpSignal(anchorJumpSignal);
+    setQuery('');
+    setFilter('all');
+  }
 
   const conflictMap = detectConflicts(overrides);
   const shortcutsByCategory = getShortcutsByCategory();
-  const hasOverrides = Object.keys(overrides).length > 0;
+  const modifiedCount = Object.keys(overrides).length;
+  const hasOverrides = modifiedCount > 0;
+  const conflictCount = SHORTCUTS.filter(
+    (def) => conflictingDefs(def, resolveBinding(def.id, overrides), conflictMap).length > 0,
+  ).length;
+
+  // ── Filtering ──
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const visibleIn = (defs: ShortcutDef[]): ShortcutDef[] => {
+    if (filter === 'all' && !normalizedQuery) return defs;
+    return defs.filter((def) => {
+      const binding = resolveBinding(def.id, overrides);
+      if (filter === 'modified' && !(def.id in overrides)) return false;
+      if (
+        filter === 'conflicts' &&
+        conflictingDefs(def, binding, conflictMap).length === 0
+      ) {
+        return false;
+      }
+      if (!normalizedQuery) return true;
+      const haystack = [
+        def.id,
+        t(def.labelKey as TranslationKey),
+        def.descKey ? t(def.descKey as TranslationKey) : '',
+        def.defaultBinding,
+        binding,
+        bindingToDisplay(binding),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  };
+
+  const groups = CATEGORY_ORDER.map((cat) => ({
+    category: cat,
+    defs: visibleIn(shortcutsByCategory.get(cat) ?? []),
+  })).filter((g) => g.defs.length > 0);
+
+  const totalVisible = groups.reduce((n, g) => n + g.defs.length, 0);
 
   // ── Recording keydown handler ──
   const handleRecordKeydown = useCallback(
     (e: KeyboardEvent) => {
-      // Escape cancels recording
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        setRecordingId(null);
-        setConflictWarning(null);
-        return;
-      }
+      if (!recordingId) return;
 
-      // Backspace or Delete clears the binding (sets to unbound)
-      if (e.key === 'Backspace' || e.key === 'Delete') {
+      // Escape cancels, Backspace/Delete clears the binding
+      if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
         e.stopPropagation();
-        setKeyboardShortcut(recordingId!, '');
+        if (e.key !== 'Escape') setKeyboardShortcut(recordingId, '');
         setRecordingId(null);
-        setConflictWarning(null);
         return;
       }
 
@@ -204,68 +152,130 @@ export default function ShortcutsSection() {
       e.preventDefault();
       e.stopPropagation();
 
-      // Find the def for the shortcut being recorded
       const def = SHORTCUTS.find((s) => s.id === recordingId);
-      if (!def) {
-        setRecordingId(null);
-        return;
-      }
+      setKeyboardShortcut(recordingId, binding);
+      setRecordingId(null);
 
-      // Check for conflict with other shortcuts in same scope
-      const conflict = checkBindingConflict(binding, def.scope, def.id, overrides);
+      // The conflicting rows light up on both sides, but the other side may
+      // sit in a different (scrolled-away) group — surface it once here.
+      const conflict =
+        def && checkBindingConflict(binding, def.scope, def.id, overrides);
       if (conflict) {
-        setConflictWarning(
+        toast.warning(
           t('shortcut.conflictWarning', {
             name: t(conflict.labelKey as TranslationKey),
           }),
         );
-      } else {
-        setConflictWarning(null);
       }
-
-      // Apply the binding (even if there's a conflict — user can resolve later)
-      setKeyboardShortcut(def.id, binding);
-      setRecordingId(null);
     },
     [recordingId, overrides, setKeyboardShortcut, t],
   );
 
-  // Capture-phase listener while recording
+  // Capture-phase listener while recording — shields the dialog's own
+  // bubble-phase Escape handler so Esc cancels the recording only.
   useEffect(() => {
     if (!recordingId) return;
-
     window.addEventListener('keydown', handleRecordKeydown, { capture: true });
-    return () => {
-      window.removeEventListener('keydown', handleRecordKeydown, { capture: true } as unknown as EventListenerOptions);
-    };
+    return () => window.removeEventListener('keydown', handleRecordKeydown, { capture: true });
   }, [recordingId, handleRecordKeydown]);
 
   return (
-    <div ref={recordRef} className="max-w-2xl space-y-7">
-      {/* ── One-line hint (the nav already names the section) ── */}
-      <p className="px-1 text-xs text-[var(--vscode-descriptionForeground)]">
+    <div className="max-w-3xl space-y-7">
+      {/* ── Intro ── */}
+      <p className="px-1 text-[13px] text-[var(--vscode-descriptionForeground)]">
         {t('shortcut.description')}
       </p>
 
-      {/* ── Conflict warning banner ── */}
-      {conflictWarning && recordingId && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-[10px] bg-[var(--vscode-inputValidation-errorBackground)] border border-[color-mix(in_srgb,var(--vscode-errorForeground)_40%,transparent)] text-xs text-[var(--vscode-errorForeground)]">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          {conflictWarning}
+      {/* ── Toolbar: search + filters + status ── */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--vscode-descriptionForeground)] pointer-events-none" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (handleNativeSelectAll(e)) return;
+              }}
+              placeholder={t('shortcut.searchPlaceholder')}
+              className="w-full h-8 pl-8 pr-8 text-[13px] rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                title={t('shortcut.clearSearch')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-5 h-5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-0.5 p-0.5 shrink-0 rounded-md bg-[color-mix(in_srgb,var(--vscode-foreground)_6%,transparent)]">
+            {FILTER_MODES.map((mode) => {
+              const active = filter === mode;
+              const count =
+                mode === 'all'
+                  ? SHORTCUTS.length
+                  : mode === 'modified'
+                    ? modifiedCount
+                    : conflictCount;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setFilter(mode)}
+                  className={`flex items-center gap-1 h-7 px-2.5 rounded-[5px] text-[12px] transition-colors cursor-pointer ${
+                    active
+                      ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)]'
+                      : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]'
+                  }`}
+                >
+                  {t(FILTER_LABEL_KEYS[mode])}
+                  <span className="text-[11px] tabular-nums opacity-60">{count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      )}
 
-      {/* ── Customizable shortcut tiles by category ── */}
-      {CATEGORY_ORDER.map((cat: ShortcutCategory) => {
-        const defs = shortcutsByCategory.get(cat);
-        if (!defs || defs.length === 0) return null;
+        {/* Status row — recording hint wins over the customized summary */}
+        <div className="flex items-center justify-between gap-3 min-h-5 px-1">
+          {recordingId ? (
+            <span className="text-[11px] text-[var(--vscode-focusBorder)]">
+              {t('shortcut.recordingHint')}
+            </span>
+          ) : (
+            <>
+              <span className="text-[11px] text-[var(--vscode-descriptionForeground)]">
+                {hasOverrides ? t('shortcut.customizedCount', { count: modifiedCount }) : ''}
+              </span>
+              {hasOverrides && (
+                <button
+                  onClick={() => resetAllKeyboardShortcuts()}
+                  className="px-2 h-6 rounded-md text-[11px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] border border-transparent hover:border-[color-mix(in_srgb,var(--vscode-foreground)_9%,transparent)] transition-colors cursor-pointer"
+                >
+                  {t('shortcut.resetAll')}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
 
-        return (
-          <section key={cat} id={`settings-shortcuts-${cat}`} className="space-y-2">
-            <SectionTitle title={t(CATEGORY_LABEL_KEYS[cat] as TranslationKey)} />
-            <div className="grid grid-cols-2 gap-2">
+      {/* ── Customizable shortcuts, grouped by category ── */}
+      <div className="space-y-6">
+        {groups.map(({ category, defs }: { category: ShortcutCategory; defs: ShortcutDef[] }) => (
+          <section key={category} id={`settings-shortcuts-${category}`} className="space-y-2">
+            <GroupHeading
+              title={t(CATEGORY_LABEL_KEYS[category] as TranslationKey)}
+              count={defs.length}
+            />
+            <div
+              className={`rounded-[10px] ${PANEL_BORDER} ${PANEL_DIVIDER} ${PANEL_SURFACE} overflow-hidden`}
+            >
               {defs.map((def) => (
-                <ShortcutTile
+                <ShortcutRow
                   key={def.id}
                   def={def}
                   overrides={overrides}
@@ -277,36 +287,23 @@ export default function ShortcutsSection() {
               ))}
             </div>
           </section>
-        );
-      })}
+        ))}
 
-      {/* ── Global shortcuts (inline sub-section) ── */}
+        {totalVisible === 0 && (
+          <div className="py-10 text-center text-[13px] text-[var(--vscode-descriptionForeground)]">
+            {t('shortcut.noResults')}
+          </div>
+        )}
+      </div>
+
+      {/* ── Global (OS-level) shortcuts ── */}
       <GlobalShortcutsContent />
 
       {/* ── Reference shortcuts (read-only) ── */}
       <section id="settings-shortcuts-reference" className="space-y-2">
-        <SectionTitle title={t('shortcut.reference')} />
-        <div className="space-y-2">
-          {REFERENCE_SHORTCUTS.map((group) => (
-            <ReferenceBlock key={group.category} category={group.category} items={group.items} />
-          ))}
-        </div>
+        <GroupHeading title={t('shortcut.reference')} count={REFERENCE_COUNT} />
+        <ReferenceShortcuts />
       </section>
-
-      {/* ── Reset all ── */}
-      {hasOverrides && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              resetAllKeyboardShortcuts();
-              setConflictWarning(null);
-            }}
-            className="px-3 h-8 rounded-md text-xs text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_6%,transparent)] border border-transparent hover:border-[color-mix(in_srgb,var(--vscode-foreground)_9%,transparent)] transition-colors cursor-pointer"
-          >
-            {t('shortcut.resetAll')}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -17,6 +17,11 @@ const shim = (name: string) =>
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
+    // Prefer TypeScript sources over stale compiled artefacts: `src/` may
+    // contain leftover `*.js` emitted by an older tsc run (they are
+    // gitignored), and Vite's default order resolves `.js` before `.ts` —
+    // so the app would silently run the stale copy instead of the source.
+    extensions: ['.mjs', '.mts', '.ts', '.tsx', '.jsx', '.js', '.json'],
     alias: {
       '@tauri-apps/api/core': shim('core.ts'),
       '@tauri-apps/api/event': shim('event.ts'),

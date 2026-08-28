@@ -773,7 +773,7 @@ export const translations = {
 
     // ── Keyboard Shortcuts ──
     "shortcut.description":
-      "自定义应用内的键盘快捷键。点击按键组合即可重新绑定。",
+      "自定义应用内的键盘快捷键。点击任意一行即可重新绑定。",
     "shortcut.pressKeys": "按下快捷键…",
     "shortcut.clickToRecord": "点击录制",
     "shortcut.resetToDefault": "重置为默认值",
@@ -781,6 +781,13 @@ export const translations = {
     "shortcut.reference": "参考快捷键（只读）",
     "shortcut.conflictWith": "与「{name}」冲突",
     "shortcut.conflictWarning": "此快捷键已绑定到「{name}」，保存后存在冲突。",
+    "shortcut.searchPlaceholder": "搜索快捷键或功能名称…",
+    "shortcut.clearSearch": "清除搜索",
+    "shortcut.filterAll": "全部",
+    "shortcut.filterConflicts": "冲突",
+    "shortcut.customizedCount": "{count} 项已自定义",
+    "shortcut.noResults": "没有匹配的快捷键",
+    "shortcut.recordingHint": "按下新的按键组合 · Esc 取消 · Backspace 清除绑定",
 
     // ── Global shortcuts (OS-level) ──
     "settings.globalShortcuts": "全局快捷键",
@@ -788,13 +795,12 @@ export const translations = {
     "globalShortcut.description":
       "配置系统级全局快捷键，在应用外也能触发操作（如打开命令面板、在指定目录启动终端）。",
     "globalShortcut.add": "添加全局快捷键",
-    "globalShortcut.empty": "尚未配置全局快捷键，点击上方按钮添加。",
+    "globalShortcut.empty": "尚未配置全局快捷键，点击下方按钮添加。",
     "globalShortcut.shortcutKey": "快捷键",
     "globalShortcut.action": "动作",
     "globalShortcut.conflict": "快捷键冲突",
     "globalShortcut.test": "测试",
     "globalShortcut.edit": "编辑",
-    "globalShortcut.editBtn": "编辑",
     "globalShortcut.delete": "删除",
     "globalShortcut.cancel": "取消",
     "globalShortcut.save": "保存",
@@ -813,11 +819,8 @@ export const translations = {
     "globalShortcut.param.workingDirectoryPlaceholder": "~ 或绝对路径",
     "globalShortcut.param.command": "命令",
     "globalShortcut.param.commandPlaceholder": "可选：要执行的命令",
-    "globalShortcut.badgeGlobal": "全局",
-    "globalShortcut.enabled": "启用",
     "globalShortcut.enabledDesc": "启用此快捷键（注册到系统）",
     "globalShortcut.testFailed": "测试执行失败",
-    "globalShortcut.noShortcut": "请先录制快捷键",
 
     // Shortcut categories
     "shortcut.category.general": "通用",
@@ -1697,7 +1700,7 @@ export const translations = {
 
     // ── Keyboard Shortcuts ──
     "shortcut.description":
-      "Customize keyboard shortcuts for the app. Click a key binding to rebind it.",
+      "Customize keyboard shortcuts for the app. Click any row to rebind it.",
     "shortcut.pressKeys": "Press keys…",
     "shortcut.clickToRecord": "Click to record",
     "shortcut.resetToDefault": "Reset to default",
@@ -1706,6 +1709,14 @@ export const translations = {
     "shortcut.conflictWith": 'Conflicts with "{name}"',
     "shortcut.conflictWarning":
       'This shortcut is already bound to "{name}". Saving will create a conflict.',
+    "shortcut.searchPlaceholder": "Search shortcuts or command names…",
+    "shortcut.clearSearch": "Clear search",
+    "shortcut.filterAll": "All",
+    "shortcut.filterConflicts": "Conflicts",
+    "shortcut.customizedCount": "{count} customized",
+    "shortcut.noResults": "No matching shortcuts",
+    "shortcut.recordingHint":
+      "Press the new key combination · Esc to cancel · Backspace to clear",
 
     // ── Global shortcuts (OS-level) ──
     "settings.globalShortcuts": "Global Shortcuts",
@@ -1714,13 +1725,12 @@ export const translations = {
       "Configure system-wide global shortcuts that work even when the app is not focused (e.g. open command palette, launch terminal in a specific directory).",
     "globalShortcut.add": "Add Global Shortcut",
     "globalShortcut.empty":
-      "No global shortcuts configured yet. Click the button above to add one.",
+      "No global shortcuts configured yet. Click the button below to add one.",
     "globalShortcut.shortcutKey": "Shortcut Key",
     "globalShortcut.action": "Action",
     "globalShortcut.conflict": "Shortcut conflict",
     "globalShortcut.test": "Test",
     "globalShortcut.edit": "Edit",
-    "globalShortcut.editBtn": "Edit",
     "globalShortcut.delete": "Delete",
     "globalShortcut.cancel": "Cancel",
     "globalShortcut.save": "Save",
@@ -1742,11 +1752,8 @@ export const translations = {
     "globalShortcut.param.workingDirectoryPlaceholder": "~ or absolute path",
     "globalShortcut.param.command": "Command",
     "globalShortcut.param.commandPlaceholder": "Optional: command to execute",
-    "globalShortcut.badgeGlobal": "Global",
-    "globalShortcut.enabled": "Enabled",
     "globalShortcut.enabledDesc": "Register this shortcut with the OS",
     "globalShortcut.testFailed": "Test execution failed",
-    "globalShortcut.noShortcut": "Please record a shortcut key first",
 
     // Shortcut categories
     "shortcut.category.general": "General",
