@@ -11,7 +11,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Globe,
   Plus,
   Trash2,
   AlertTriangle,
@@ -27,6 +26,7 @@ import { useStore } from '../../store/useStore';
 import { eventToBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 import { toast } from '../../lib/core/toast';
 import { SelectDropdown } from '../ui/SelectDropdown';
+import { KbdKeycap, SectionTitle, tileBase, tileSurface } from './KbdKeycap';
 import {
   getAllActionDefs,
   getActionDef,
@@ -53,50 +53,6 @@ function getActionDisplayLabel(
   const def = getActionDef(config.actionType);
   if (def) return t(def.labelKey as TranslationKey);
   return config.actionLabel || config.actionType;
-}
-
-// ════════════════════════════════════════════════════════════════════
-// KbdPill — styled key caps
-// ════════════════════════════════════════════════════════════════════
-
-function KbdPill({
-  binding,
-  recording,
-  conflicted,
-}: {
-  binding: string;
-  recording: boolean;
-  conflicted: boolean;
-}) {
-  const { t } = useI18n();
-
-  if (recording) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-foreground)] text-xs font-mono animate-pulse">
-        {t('shortcut.pressKeys')}
-      </span>
-    );
-  }
-
-  if (!binding) {
-    return (
-      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md border border-dashed border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] bg-transparent text-xs italic transition-colors hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] cursor-pointer">
-        {t('shortcut.clickToRecord')}
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-md border text-xs font-mono transition-colors cursor-pointer ${
-        conflicted
-          ? 'border-[var(--vscode-errorForeground)] text-[var(--vscode-errorForeground)] bg-[var(--vscode-inputValidation-errorBackground)]'
-          : 'border-[var(--vscode-widget-border)] text-[var(--vscode-foreground)] bg-[var(--vscode-list-hoverBackground)]'
-      }`}
-    >
-      {binding}
-    </span>
-  );
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -256,7 +212,6 @@ function ShortcutCard({
   const { t } = useI18n();
   const conflict = findShortcutConflict(config.shortcut, configs, config.id);
   const def = getActionDef(config.actionType);
-  const Icon = def?.icon ?? Globe;
   const display = config.shortcut ? bindingToDisplay(config.shortcut) : '';
 
   const handleTest = async () => {
@@ -274,25 +229,22 @@ function ShortcutCard({
 
   return (
     <div
-      className={`relative flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
+      className={`${tileBase} ${tileSurface} min-h-[88px] ${
         conflict
-          ? 'border-[var(--vscode-errorForeground)] bg-[var(--vscode-inputValidation-errorBackground)]'
-          : config.enabled
-            ? 'border-[var(--vscode-widget-border)] bg-[var(--vscode-list-hoverBackground)]'
-            : 'border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] opacity-60'
-      }`}
+          ? 'bg-[var(--vscode-inputValidation-errorBackground)] border-[color-mix(in_srgb,var(--vscode-errorForeground)_40%,transparent)]'
+          : ''
+      } ${config.enabled ? '' : 'opacity-55'}`}
     >
-      {/* Icon */}
-      <div className="w-9 h-9 rounded-lg bg-[var(--vscode-badge-background)] flex items-center justify-center flex-shrink-0">
-        <Icon className="w-4 h-4 text-[var(--vscode-badge-foreground)]" />
+      {/* Key caps + enabled toggle */}
+      <div className="flex items-start justify-between gap-2">
+        <KbdKeycap display={display} conflicted={!!conflict} />
+        <ToggleRow label="" checked={config.enabled} onChange={onToggle} />
       </div>
 
-      {/* Content */}
-      <div className="min-w-0 flex-1">
-        {/* Row 1: kbd pill + name + badges */}
-        <div className="flex items-center gap-2">
-          <KbdPill binding={display} recording={false} conflicted={!!conflict} />
-          <span className="text-sm font-medium text-[var(--vscode-foreground)] truncate">
+      {/* Label + description / conflict */}
+      <div className="mt-auto min-w-0 w-full">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[13px] font-medium text-[var(--vscode-foreground)] truncate">
             {getActionDisplayLabel(config, t)}
           </span>
           {config.enabled && (
@@ -301,65 +253,57 @@ function ShortcutCard({
             </span>
           )}
         </div>
-        {/* Row 2: description / conflict */}
         {conflict ? (
-          <div className="flex items-center gap-1 mt-0.5 text-xs text-[var(--vscode-errorForeground)]">
+          <div className="flex items-center gap-1 mt-0.5 text-[11px] text-[var(--vscode-errorForeground)] truncate">
             <AlertTriangle className="w-3 h-3 shrink-0" />
-            <span>{t('globalShortcut.conflict')}</span>
+            <span className="truncate">{t('globalShortcut.conflict')}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--vscode-descriptionForeground)]">
-            {def?.descriptionKey && <span className="truncate">{t(def.descriptionKey as TranslationKey)}</span>}
-          </div>
+          def?.descriptionKey && (
+            <div className="mt-0.5 text-[11px] text-[var(--vscode-descriptionForeground)] truncate">
+              {t(def.descriptionKey as TranslationKey)}
+            </div>
+          )
         )}
       </div>
 
-      {/* Enable toggle */}
-      <div className="flex-shrink-0">
-        <ToggleRow
-          label={t('globalShortcut.enabled')}
-          checked={config.enabled}
-          onChange={onToggle}
-        />
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-0.5 flex-shrink-0">
+      {/* Actions — bottom-right chip, revealed on hover */}
+      <div className="absolute bottom-2 right-2 flex items-center gap-0.5 px-1 py-0.5 rounded-md bg-[color-mix(in_srgb,var(--vscode-editor-background)_80%,transparent)] opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         {isConfirmingDelete ? (
-          <div className="flex items-center gap-1 px-1">
+          <>
             <button
               onClick={onConfirmDelete}
-              className="p-1.5 rounded text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              className="p-1.5 rounded text-[var(--vscode-errorForeground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] cursor-pointer transition-colors"
               title={t('globalShortcut.delete')}
             >
               <Check className="w-4 h-4" />
             </button>
             <button
               onClick={onCancelDelete}
-              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] cursor-pointer transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
+          </>
         ) : (
           <>
             <button
               onClick={handleTest}
-              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] cursor-pointer transition-colors"
               title={t('globalShortcut.test')}
             >
               <Play className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onEdit}
-              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] cursor-pointer transition-colors"
               title={t('globalShortcut.edit')}
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onDelete}
-              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer transition-colors"
+              className="p-1.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-errorForeground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] cursor-pointer transition-colors"
               title={t('globalShortcut.delete')}
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -469,7 +413,7 @@ function ShortcutEditForm({
     'w-full px-3 py-2 text-sm rounded-md bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] text-[var(--vscode-input-foreground)] placeholder-[var(--vscode-input-placeholderForeground)] focus:border-[var(--vscode-focusBorder)] outline-none transition-colors';
 
   return (
-    <div className="p-5 rounded-lg border border-[var(--vscode-focusBorder)] bg-[var(--vscode-editor-background)] space-y-4">
+    <div className={`col-span-2 ${tileSurface} border rounded-[10px] p-4 space-y-4`}>
       {/* Shortcut recording */}
       <FormField label={t('globalShortcut.shortcutKey')}>
         <div className="flex items-center gap-2">
@@ -478,7 +422,12 @@ function ShortcutEditForm({
             onClick={() => setRecording(true)}
             className="cursor-pointer"
           >
-            <KbdPill binding={display} recording={recording} conflicted={!!conflict} />
+            <KbdKeycap
+              display={display}
+              recording={recording}
+              unboundLabel={t('shortcut.clickToRecord')}
+              conflicted={!!conflict}
+            />
           </button>
           {conflict && (
             <span className="text-small text-[var(--vscode-errorForeground)] flex items-center gap-1">
@@ -592,19 +541,15 @@ export function GlobalShortcutsContent() {
   };
 
   return (
-    <div id="settings-shortcuts-global" className="space-y-4">
+    <section id="settings-shortcuts-global" className="space-y-2">
       {/* Header */}
-      <div>
-        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
-          {t('globalShortcut.title')}
-        </label>
-        <p className="text-sm text-[var(--vscode-descriptionForeground)]">
-          {t('globalShortcut.description')}
-        </p>
-      </div>
+      <SectionTitle
+        title={t('globalShortcut.title')}
+        description={t('globalShortcut.description')}
+      />
 
-      {/* Shortcut cards */}
-      <div className="space-y-2">
+      {/* Shortcut tiles grid */}
+      <div className="grid grid-cols-2 gap-2">
         {configs.map((config) => {
           const isEditing = editingId === config.id;
 
@@ -635,7 +580,7 @@ export function GlobalShortcutsContent() {
           );
         })}
 
-        {/* Add form */}
+        {/* Add form — expands as a wide tile */}
         {isAdding && (
           <ShortcutEditForm
             initial={null}
@@ -644,18 +589,18 @@ export function GlobalShortcutsContent() {
             onCancel={() => setIsAdding(false)}
           />
         )}
-      </div>
 
-      {/* Add button — dashed full-width row */}
-      {!isAdding && editingId === null && (
-        <button
-          onClick={() => setIsAdding(true)}
-          className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm rounded-lg border border-dashed border-[var(--vscode-widget-border)] text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t('globalShortcut.add')}</span>
-        </button>
-      )}
-    </div>
+        {/* Add tile — dashed placeholder at the end of the grid */}
+        {!isAdding && editingId === null && (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center justify-center gap-1.5 min-h-[84px] rounded-[10px] border border-dashed border-[color-mix(in_srgb,var(--vscode-foreground)_15%,transparent)] text-[13px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:border-[var(--vscode-focusBorder)] transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('globalShortcut.add')}</span>
+          </button>
+        )}
+      </div>
+    </section>
   );
 }

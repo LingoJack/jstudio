@@ -314,6 +314,7 @@ export const translations = {
 
     // ── Settings nav ──
     "settings.title": "设置",
+    "shortcut.customized": "已自定义",
     "settings.general": "通用",
     "settings.agent": "智能体",
     "settings.editor": "编辑器",
@@ -1227,6 +1228,7 @@ export const translations = {
 
     // ── Settings nav ──
     "settings.title": "Settings",
+    "shortcut.customized": "Customized",
     "settings.general": "General",
     "settings.agent": "Agent",
     "settings.editor": "Editor",
