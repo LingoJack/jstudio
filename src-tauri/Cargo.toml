@@ -9,7 +9,7 @@ edition = "2024"
 
 [lib]
 name = "jstudio_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 # Headless backend for the Electron shell (stdio JSON-RPC).
 [[bin]]

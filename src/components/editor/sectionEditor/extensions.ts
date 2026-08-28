@@ -21,6 +21,7 @@ import { DiagramExtension } from '../../../lib/editor/extensions/diagramExtensio
 import { MathBlockExtension } from '../../../lib/editor/extensions/mathBlockExtension';
 import Link from '@tiptap/extension-link';
 import { customLinkAutolink } from '../../../lib/editor/extensions/customLinkAutolink';
+import { LinkClickOpen } from '../../../lib/editor/extensions/linkClickOpen';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { CollapsibleTable } from './tableExtension';
 import TableRow from '@tiptap/extension-table-row';
@@ -157,6 +158,7 @@ export function createSectionExtensions(
     }),
     SectionHighlightSelection,
     SectionSearchHighlight,
+    LinkClickOpen,
     Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
   ];
 }
