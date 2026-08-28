@@ -330,7 +330,7 @@ export default function SettingsPanel() {
         }`}
       />
       <div
-        className={`relative w-[min(1024px,94vw)] h-[min(680px,88vh)] overflow-hidden flex rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-editor-background)] shadow-2xl ${
+        className={`relative w-[min(1120px,95vw)] h-[min(720px,90vh)] overflow-hidden flex rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-editor-background)] shadow-2xl ${
           exiting ? 'animate-dialog-panel-out' : 'animate-dialog-panel-in'
         }`}
         onClick={(e) => e.stopPropagation()}
