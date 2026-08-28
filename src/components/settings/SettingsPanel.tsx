@@ -325,7 +325,7 @@ export default function SettingsPanel() {
     >
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/30 backdrop-blur-[1px] ${
+        className={`absolute inset-0 bg-black/30 ${
           exiting ? 'animate-dialog-backdrop-out' : 'animate-dialog-backdrop-in'
         }`}
       />
@@ -346,8 +346,10 @@ export default function SettingsPanel() {
 
         {/* Nav items — DocumentSidebar language: gapless bleed rows, a
             guide-line branch under expanded groups, and the active row
-            marked by a rail arrow + accent text (no background pill). */}
-        <div className="flex-1 overflow-y-auto pl-2">
+            marked by a rail arrow + accent text (no background pill).
+            The list container mirrors the doc list's framed scroller
+            (rounded-md border pl-2) so the scrollbar reads the same. */}
+        <div className="flex-1 overflow-y-auto rounded-md border border-transparent pl-2">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = activeSection === item.id;
