@@ -27,10 +27,18 @@
  * The explicit mode wins: while the coordinator owns the decoration (during
  * a cross-section selection), native-selection changes are ignored until it
  * clears via `setSectionHighlight(editor, null, null)`.
+ *
+ * Block nodes (images, files, diagrams, math, links) are additionally tagged
+ * with `Decoration.node` → `.node-in-selection`. They need it because an
+ * `inline` decoration cannot paint a block-level atom: the native
+ * `::selection` paint is suppressed app-wide, so before this existed a block
+ * dragged across by a text selection was part of the selection (copy/delete
+ * included it) but rendered with no highlight at all.
  */
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { Editor } from '@tiptap/react';
 
 interface HighlightState {
@@ -42,6 +50,39 @@ interface HighlightState {
 const highlightKey = new PluginKey<HighlightState>(
   'sectionCrossSelectionHighlight',
 );
+
+/**
+ * Build the highlight decorations for [from, to]:
+ *   - one `inline` decoration for the text range,
+ *   - one `node` decoration per selectable block atom inside it, so blocks
+ *     covered by a drag/selection are visibly selected too.
+ */
+function buildDecorations(
+  doc: ProseMirrorNode,
+  from: number,
+  to: number,
+): DecorationSet {
+  const decorations = [
+    Decoration.inline(from, to, { class: 'cross-section-selected' }),
+  ];
+  doc.descendants((node, pos) => {
+    // Only leaf-ish block nodes: an inline decoration already covers text and
+    // inline content, and non-selectable nodes must not look selectable.
+    if (!node.isAtom || !node.isBlock || node.type.spec.selectable === false) {
+      return true;
+    }
+    const covered = pos + node.nodeSize > from && pos < to;
+    if (covered) {
+      decorations.push(
+        Decoration.node(pos, pos + node.nodeSize, {
+          class: 'node-in-selection',
+        }),
+      );
+    }
+    return true;
+  });
+  return DecorationSet.create(doc, decorations);
+}
 
 export const SectionHighlightSelection = Extension.create({
   name: 'sectionHighlightSelection',
@@ -60,11 +101,7 @@ export const SectionHighlightSelection = Extension.create({
                 return { deco: DecorationSet.empty, explicit: false };
               }
               return {
-                deco: DecorationSet.create(tr.doc, [
-                  Decoration.inline(meta.from, meta.to, {
-                    class: 'cross-section-selected',
-                  }),
-                ]),
+                deco: buildDecorations(tr.doc, meta.from, meta.to),
                 explicit: true,
               };
             }
@@ -79,11 +116,7 @@ export const SectionHighlightSelection = Extension.create({
             const sel = tr.selection;
             if (sel instanceof TextSelection && !sel.empty) {
               return {
-                deco: DecorationSet.create(tr.doc, [
-                  Decoration.inline(sel.from, sel.to, {
-                    class: 'cross-section-selected',
-                  }),
-                ]),
+                deco: buildDecorations(tr.doc, sel.from, sel.to),
                 explicit: false,
               };
             }

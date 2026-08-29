@@ -1,5 +1,5 @@
 /**
- * useNodeSelectionClick — reliable "click-to-select" for NodeView blocks.
+ * useNodeSelectionClick — click-to-select + drag-to-select for NodeView blocks.
  *
  * Why this exists
  * ---------------
@@ -16,8 +16,8 @@
  * next to the node instead of selecting it. The result is the well-known
  * "sometimes a click doesn't select the block" glitch.
  *
- * The fix
- * -------
+ * The fix (click)
+ * ---------------
  * Attach the returned handler to the block's root `onMouseDown`. React's
  * synthetic mousedown is delegated at the React root, which sits *above*
  * `view.dom`, so it fires *after* ProseMirror has already handled the native
@@ -25,27 +25,40 @@
  *   - if ProseMirror already selected the node, this is a no-op on the same node;
  *   - if ProseMirror missed (the glitch), this reliably selects it.
  *
- * We deliberately do NOT call `preventDefault()` *globally* — that would
- * cancel the browser's native caret placement and can break inner inputs
- * (see LinkView).  However, for `contentEditable={false}` targets (e.g.
- * FileView's card) we DO preventDefault, because such elements steal DOM
- * focus on mousedown: the browser moves `document.activeElement` onto the
- * card, so subsequent keydown events target the card instead of `view.dom`,
- * and PM's `eventBelongsToView` rejects them (the NodeView's `stopEvent`
- * returns `true` for non-editable targets) — Backspace / Delete then can't
- * delete the selected node.  preventDefault stops this focus theft; we then
- * focus `view.dom` explicitly so keyboard events reach PM.
+ * The fix (drag)
+ * --------------
+ * Chromium never starts a native selection drag from a `contentEditable=false`
+ * element, so pressing on a block and sliding used to select nothing at all.
+ * This handler therefore *drives* the drag itself: once the pointer travels
+ * past {@link DRAG_THRESHOLD_PX} it converts the press into a `TextSelection`
+ * running from the block's edge to `view.posAtCoords()` and updates it on every
+ * mousemove. Dragging down selects from the block's start; dragging up selects
+ * to the block's end — either way the block itself is part of the selection.
+ *
+ * Because the selection is driven manually we must NOT `preventDefault()` the
+ * mousedown (that would cancel the gesture) — but without it Chromium turns the
+ * drag into a native drag-and-drop of the block, which *moves* the node when
+ * released (silently mutating the document). So while a press is active we also
+ * swallow `dragstart`. See docs/bug-graveyard.md.
  *
  * Clicks on interactive chrome (buttons, inputs, the resize handle, …) are
  * ignored via `ignoreSelector` so they keep their own behavior.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { TextSelection } from '@tiptap/pm/state';
 import type { NodeViewProps } from '@tiptap/react';
 
 /** Controls that must keep their own click behavior, never trigger a select. */
 const DEFAULT_IGNORE_SELECTOR =
-  'button, input, textarea, select, a, .block-resize-handle';
+  'button, input, textarea, select, a, .block-resize-handle, [data-drag-handle]';
+
+/**
+ * Pointer travel (px) after which a press is treated as a drag rather than a
+ * click. Mirrors ProseMirror's own threshold in
+ * `LeftMouseDown.updateAllowDefault` so both agree on what a "click" is.
+ */
+const DRAG_THRESHOLD_PX = 4;
 
 export interface UseNodeSelectionClickOptions {
   /**
@@ -56,23 +69,30 @@ export interface UseNodeSelectionClickOptions {
    */
   ignoreSelector?: string;
   /**
-   * When true, do nothing if the node is already selected. Useful for blocks
-   * whose selected state enables inner interaction (e.g. a file preview's
-   * iframe / video / PDF controls) that a re-select would steal focus from.
+   * When true, a *click* on an already-selected node does nothing. Useful for
+   * blocks whose selected state enables inner interaction (e.g. a file
+   * preview's iframe / video / PDF controls) that a re-select would steal
+   * focus from. Only the click path is skipped — dragging out of an
+   * already-selected block still selects.
    */
   skipWhenSelected?: boolean;
   /** Current `selected` flag from NodeViewProps (required for skipWhenSelected). */
   selected?: boolean;
-  /**
-   * When true, always preventDefault the mousedown — even when the target
-   * reports `isContentEditable=true`. Use this for targets that inherit
-   * editability from view.dom but have no editable content of their own
-   * (e.g. ImageView's <img>): keeping the native default there could let
-   * WKWebView's Live Text kick in. The primary Live Text defence is now
-   * CSS `user-select: none` on the <img> (see ImageView.tsx); this flag is
-   * a belt-and-suspenders backstop for any edge cases CSS alone misses.
-   */
-  forcePreventDefault?: boolean;
+}
+
+/** State of the press currently being tracked (mousedown → mouseup). */
+interface PressState {
+  /** Pointer position at mousedown — the drag threshold is measured from here. */
+  x: number;
+  y: number;
+  /** Document range of the pressed block node. */
+  from: number;
+  to: number;
+  /** True once the pointer travelled far enough to count as a drag. */
+  dragging: boolean;
+  /** Last selection we wrote — re-asserted on mouseup (see below). */
+  lastFrom: number;
+  lastTo: number;
 }
 
 /**
@@ -86,58 +106,171 @@ export function useNodeSelectionClick(
   getPos: NodeViewProps['getPos'],
   options: UseNodeSelectionClickOptions = {},
 ): (e: React.MouseEvent) => void {
-  const { ignoreSelector, skipWhenSelected = false, selected = false, forcePreventDefault = false } = options;
+  const { ignoreSelector, skipWhenSelected = false, selected = false } = options;
 
   const selectorList = ignoreSelector
     ? `${DEFAULT_IGNORE_SELECTOR}, ${ignoreSelector}`
     : DEFAULT_IGNORE_SELECTOR;
 
+  const pressRef = useRef<PressState | null>(null);
+  const detachRef = useRef<(() => void) | null>(null);
+
+  const detach = useCallback(() => {
+    detachRef.current?.();
+    detachRef.current = null;
+  }, []);
+
+  // A press can outlive the component (section unmount mid-drag) — make sure
+  // the document-level listeners never leak.
+  useEffect(() => detach, [detach]);
+
   return useCallback(
     (e: React.MouseEvent) => {
-      if (!editor) return;
-      // Only react to a plain primary-button click — never on right-click,
+      if (!editor || editor.isDestroyed) return;
+      // Only react to a plain primary-button press — never on right-click,
       // middle-click, or modifier-extended selections.
       if (e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) {
         return;
       }
-      if (skipWhenSelected && selected) return;
-
       const target = e.target as HTMLElement | null;
       if (target && target.closest(selectorList)) return;
 
       const pos = typeof getPos === 'function' ? getPos() : null;
       if (pos == null) return;
+      const node = editor.state.doc.nodeAt(pos);
+      if (!node) return;
 
-      // For contentEditable={false} targets (e.g. FileView's card,
-      // DiagramBlockView's overlay) preventDefault the mousedown to stop the
-      // browser from moving DOM focus onto the clicked element.  Without this,
-      // clicking the card leaves `document.activeElement` on the card, so
-      // subsequent keydown events target the card and PM's eventBelongsToView
-      // rejects them — Backspace / Delete never reaches PM and the selected
-      // node can't be deleted via keyboard.  preventDefault must run inside
-      // the mousedown handler (before the default focus action), which is why
-      // we do it here rather than in a separate click handler.
-      //
-      // Editable targets (e.g. LinkView's inner inputs) skip preventDefault
-      // so the browser's native caret placement is preserved — unless the
-      // caller passes forcePreventDefault (ImageView's <img>: it only
-      // inherits editability from view.dom, and its native default action is
-      // WKWebView Live Text selection, not caret placement).
-      const isEditableTarget =
-        target instanceof HTMLElement ? target.isContentEditable : false;
-      if (forcePreventDefault || !isEditableTarget) {
-        e.preventDefault();
-      }
+      // NOTE: deliberately no `preventDefault()` here. Cancelling the
+      // mousedown would stop the browser from ever turning this gesture into a
+      // selection, which is exactly the drag-to-select support we want.
+      // Focus theft (the browser moving `document.activeElement` onto the
+      // block) is handled on mouseup instead, by focusing `view.dom` — by then
+      // we also know whether the gesture was a click or a drag. Without that
+      // re-focus, keydown events would target the block and PM's
+      // `eventBelongsToView` would reject them, so Backspace/Delete could not
+      // delete the selected node.
 
-      editor.commands.setNodeSelection(pos);
+      const press: PressState = {
+        x: e.clientX,
+        y: e.clientY,
+        from: pos,
+        to: pos + node.nodeSize,
+        dragging: false,
+        lastFrom: pos,
+        lastTo: pos + node.nodeSize,
+      };
+      pressRef.current = press;
 
-      // Ensure view.dom (not the clicked element) holds focus.  The
-      // preventDefault above stopped the browser from stealing focus, so
-      // this call actually takes effect.
-      if (!editor.view.hasFocus()) {
-        editor.view.focus();
-      }
+      const onMove = (ev: MouseEvent) => {
+        const current = pressRef.current;
+        if (!current || editor.isDestroyed) return;
+        if (!current.dragging) {
+          if (
+            Math.abs(ev.clientX - current.x) < DRAG_THRESHOLD_PX &&
+            Math.abs(ev.clientY - current.y) < DRAG_THRESHOLD_PX
+          ) {
+            return;
+          }
+          current.dragging = true;
+        }
+        // `posAtCoords` returns null as soon as the pointer leaves this
+        // section's contenteditable — a cross-section drag is owned by
+        // `useCrossSectionSelection`, so we simply stand down.
+        const coords = editor.view.posAtCoords({
+          left: ev.clientX,
+          top: ev.clientY,
+        });
+        if (!coords) return;
+
+        let from: number;
+        let to: number;
+        if (coords.pos >= current.to) {
+          // Dragged below the block — select from the block's start.
+          from = current.from;
+          to = coords.pos;
+        } else if (coords.pos <= current.from) {
+          // Dragged above the block — select to the block's end.
+          from = coords.pos;
+          to = current.to;
+        } else {
+          // Still within the block's own range — nothing to extend yet.
+          return;
+        }
+        if (from === to) return;
+        if (
+          editor.state.selection.from === from &&
+          editor.state.selection.to === to
+        ) {
+          return;
+        }
+        const selection = TextSelection.create(editor.state.doc, from, to);
+        current.lastFrom = selection.from;
+        current.lastTo = selection.to;
+        editor.view.dispatch(editor.state.tr.setSelection(selection));
+      };
+
+      const onUp = (ev: MouseEvent) => {
+        const current = pressRef.current;
+        pressRef.current = null;
+        detach();
+        if (!current || editor.isDestroyed) return;
+
+        // A drag that ends outside this section's contenteditable is owned by
+        // `useCrossSectionSelection` — touching the selection here would
+        // clobber the cross-section range it just painted.
+        const releasedInside =
+          current.dragging &&
+          editor.view.posAtCoords({ left: ev.clientX, top: ev.clientY }) != null;
+        if (current.dragging && !releasedInside) return;
+
+        if (!current.dragging) {
+          // Only the click path honours `skipWhenSelected`: an already-selected
+          // block may hold focus inside its own live preview, and re-selecting
+          // (or re-focusing the editor) would yank it away. A drag is still
+          // driven, otherwise drag-to-select would be dead on any block the
+          // user had just clicked.
+          if (skipWhenSelected && selected) return;
+          // A genuine click → select the whole block. Re-read the position:
+          // `getPos()` is live, whereas `current.from` may be stale.
+          const livePos = typeof getPos === 'function' ? getPos() : null;
+          if (livePos != null) {
+            editor.commands.setNodeSelection(livePos);
+          }
+        } else {
+          // Re-assert the final range: Chromium re-normalises a selection that
+          // ends on a block boundary when the mouse gesture is released, which
+          // would collapse an upward drag (pointer → block end).
+          const max = editor.state.doc.content.size;
+          const selection = TextSelection.create(
+            editor.state.doc,
+            Math.min(current.lastFrom, max),
+            Math.min(current.lastTo, max),
+          );
+          editor.view.dispatch(editor.state.tr.setSelection(selection));
+        }
+
+        // Keep keyboard focus on the editor so Backspace/Delete reaches PM.
+        if (!editor.view.hasFocus()) {
+          editor.view.focus();
+        }
+      };
+
+      // While the press is active, block native drag-and-drop: Chromium
+      // otherwise drags the block (or the selection covering it) and drops a
+      // copy elsewhere, mutating the document on a plain click-and-slide.
+      const onDragStart = (ev: DragEvent) => {
+        ev.preventDefault();
+      };
+
+      document.addEventListener('mousemove', onMove, true);
+      document.addEventListener('mouseup', onUp, true);
+      document.addEventListener('dragstart', onDragStart, true);
+      detachRef.current = () => {
+        document.removeEventListener('mousemove', onMove, true);
+        document.removeEventListener('mouseup', onUp, true);
+        document.removeEventListener('dragstart', onDragStart, true);
+      };
     },
-    [editor, getPos, selectorList, skipWhenSelected, selected, forcePreventDefault],
+    [editor, getPos, selectorList, skipWhenSelected, selected, detach],
   );
 }

@@ -220,25 +220,28 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
 
   // Reliable click-to-select fallback (WKWebView occasionally fails to turn a
   // click on the <img> into a NodeSelection — see useNodeSelectionClick).
-  // forcePreventDefault: the <img> only inherits editability from view.dom;
-  // its native mousedown default is WKWebView Live Text selection inside the
-  // rendered image, which must be cancelled.
+  // The same handler now also drives drag-to-select: pressing on the image and
+  // sliding produces a TextSelection that starts at (or ends with) the image,
+  // which Chromium cannot do natively from a contentEditable=false element.
   const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
     selected,
-    forcePreventDefault: true,
   });
 
   const effectiveAlign = align ?? 'center';
   // Live Text defence (macOS WKWebView recognizes text *inside* the rendered
   // image and lets the user select it, turning a click into an in-image text
   // selection instead of a node selection):
-  //   1. `userSelect: 'none'` — stops selection painting / drag-select.
+  //   1. `userSelect: 'none'` — stops the image's own pixels from being
+  //      painted as selected (the block-level `.node-in-selection` decoration
+  //      does that instead, see sectionHighlightSelection.ts).
   //   2. `pointerEvents: 'none'` — hard stop: Live Text starts from hit-testing
   //      the <img>; with pointer events off, the image is never hit, so Live
   //      Text cannot engage even on WKWebView builds where it ignores
   //      `user-select` (observed after a macOS update — the user-select-only
   //      fix regressed). Clicks land on the parent .image-node-figure, where
   //      useNodeSelectionClick still produces the NodeSelection.
+  // Neither rule blocks the image from being *part of* a selection: a drag
+  // across it still yields a TextSelection covering the node.
   // The matching rules in vscode-theme.css (.image-node-figure img) cover this
   // too; keeping it inline here makes the intent visible at the call site.
   const imgStyle: React.CSSProperties = { userSelect: 'none', pointerEvents: 'none' };

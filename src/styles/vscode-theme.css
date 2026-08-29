@@ -1430,6 +1430,33 @@ button {
   pointer-events: none;
 }
 
+/* Block nodes (image / file / diagram / math / link) covered by a text
+   selection. Applied by sectionHighlightSelection.ts as a Decoration.node on
+   the NodeView wrapper — the .cross-section-selected inline decoration cannot
+   reach a block-level atom, and the native ::selection paint is suppressed
+   app-wide, so without this a dragged-over block had no highlight at all.
+   The overlay lives in ::after so it never disturbs the block's own layout. */
+.node-in-selection {
+  position: relative;
+}
+
+.node-in-selection::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  /* Translucent — unlike .cross-section-selected (which paints behind text)
+     this sits on top of the block's own content, so an opaque fill would
+     simply hide the image. */
+  background: color-mix(
+    in srgb,
+    var(--vscode-editor-selectionBackground, #264f78) 55%,
+    transparent
+  );
+  /* Must not swallow clicks/drags aimed at the block underneath. */
+  pointer-events: none;
+}
+
 /* ============================================
    Unified block floating toolbar & resize handle
    Shared by Image / File / Diagram / Link blocks.

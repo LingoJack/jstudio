@@ -67,6 +67,13 @@ import { openPreviewWindow } from '../../../lib/windows/previewWindow';
 import { useI18n } from '../../../lib/core/i18n';
 import PdfPreview from './PdfPreview';
 
+/**
+ * The inline preview surface. Once the block is selected, presses starting
+ * here belong to the preview (PDF text layer / scroll, media seek bar), so
+ * the click-to-select handler must ignore them.
+ */
+const LIVE_PREVIEW_SELECTOR = '.file-block-preview';
+
 /* ------------------------------------------------------------------ */
 /* Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -387,12 +394,20 @@ export default function FileView({
 
   // Reliable click-to-select fallback. When NOT selected, a click anywhere on
   // the figure (card body, or the transparent overlay above an iframe preview)
-  // selects the node — covering WKWebView's flaky native node-selection. When
-  // already selected we skip it so the user can interact with the live preview
-  // (PDF/media controls) without re-selecting and stealing focus.
+  // selects the node — covering WKWebView's flaky native node-selection.
   const handleSelectMouseDown = useNodeSelectionClick(editor, getPos, {
     selected,
+    // Once selected, a *click* is skipped so the user can operate the live
+    // preview (PDF toolbar, media controls) without re-selecting. Dragging out
+    // of the block is still driven by the hook — see skipWhenSelected.
     skipWhenSelected: true,
+    // Once the block is selected the preview overlay is gone and the preview's
+    // own content is hit-testable (PDF text layer, scroll container, seek
+    // bar). A press that starts there belongs to the preview, not to us —
+    // driving a drag from it would fight with those gestures. While NOT
+    // selected the overlay covers the preview instead, so presses reach us and
+    // click/drag-to-select keep working exactly as on any other block.
+    ignoreSelector: selected ? LIVE_PREVIEW_SELECTOR : undefined,
   });
 
   /* -------------------------------------------------------------- */

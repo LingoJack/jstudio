@@ -357,6 +357,64 @@ copyEvent: sel=false                    ← copy 事件照常派发，但 selRef
 ### 教训
 
 1. **原生 caret 的绘制高度≠折叠 Range 的 `getClientRects()` 高度**，且 headless 截图默认隐藏 caret（`caret:'initial'` 才可见）——测量原生绘制行为必须截图 + 像素分析。
-2. **`src/**/*.js` 旧编译产物会遮蔽同名 `.ts`**：Vite `resolve.extensions` 默认 `.js` 先于 `.ts`，扩展名省略的导入会命中残留的 `.js`（`.gitignore` 里的 `src/**/*.js`）。改这些目录的 `.ts` 后必须用 esbuild 同步重新生成 `.js`，否则改动在 app 里静默不生效（tsx 测试则相反，优先 `.ts`，测试骗不了人但 Vite 会）。
+2. **`src/**/*.js` 旧编译产物会遮蔽同名 `.ts`**：Vite `resolve.extensions` 默认 `.js` 先于 `.ts`，扩展名省略的导入会命中残留的 `.js`（`.gitignore` 里的 `src/**/*.js`）。改这些目录的 `.ts` 后必须用 esbuild 同步重新生成 `.js`，否则改动在 app 里静默不生效（tsx 测试则相反，优先 `.ts`，测试骗不了人但 Vite 会）。**注（2026-08 更新）**：`vite.config.ts` 已把 `resolve.extensions` 调成 `.ts` 优先，这一条不再是必做动作，验证方式改为在构建产物里 grep 新增代码。
+
+---
+
+## #006 — 鼠标拖动选不中图片（点击可以，滑动不行）
+
+**状态**：已修复
+**日期**：2026-08-29
+**影响文件**：`src/components/editor/hooks/useNodeSelectionClick.ts`、`src/lib/editor/extensions/sectionHighlightSelection.ts`、`src/styles/vscode-theme.css`、`src/components/editor/nodes/ImageView.tsx`
+
+### 症状
+
+单击图片能选中（出现选中框 + 浮动工具条），但在图片上按下并滑动，选区完全不动——既选不中图片，也选不中图片周围的文字。用户明确确认「现在是可以点击选中图片 但是无法通过滑动拖动选中」。
+
+### 排查过程
+
+先按用户指定的 `DocumentPanel.tsx` 排查，结论是**它不是元凶**：它只在滚动容器上挂 `crossSel.onMouseDownCapture`，负责跨 section 的拖拽，同 section 内的选区不归它管。
+
+真正的嫌疑是挂在所有块 NodeView 根节点上的 `useNodeSelectionClick`。该 hook 在 mousedown 里无条件调用 `preventDefault()` 再 `setNodeSelection(getPos())`。
+
+为验证，搭了一个与真实 DOM 同构的 headless 用例（NodeView wrapper div + `contenteditable="false"` + `<img user-select:none; pointer-events:none; draggable:false>` + 应用的高亮插件 + 被全局禁用的 `::selection`），用 CDP `Input.dispatchMouseEvent` 发真实鼠标事件，跑了 13 组对照：
+
+| 用例 | 条件 | 结果 |
+|------|------|------|
+| T1 / T9 | 从**文字**起拖，跨过图片 | `TextSelection`，覆盖 2 / 4 张图，正常 |
+| T2 / T4 / T6 | 从**图片**起拖，无 hook | 得到 `NodeSelection`，且**文档被改写**（`ReplaceStep`） |
+| T3 | 复现现状（mousedown `preventDefault` + `setNodeSelection`） | `TextSelection from == to == 107`，`pmImageCount: 0` |
+| T10 / T12 / T13 | 开启修复 | `107..209`、`303..403`、向上 `2..108`，`mutations: []` |
+| T7 / T11 | 纯单击（修复前 / 后） | 均为 `NodeSelection`，点击行为保持 |
+
+关键事实（每一条都是实测，不是推断）：
+
+1. **T1/T9 证伪了「CSS 挡住了选中」这个假设**。图片的 `user-select: none` / `pointer-events: none` 只影响绘制与命中测试，**不会**把它从选区范围里剔除——从文字起拖照样能覆盖整张图。所以症状不是「图片不可选」，而是「**从图片上起手**拖不动」。
+2. **Chromium 不会从 `contentEditable=false` 的原子节点上发起原生选区拖拽**。在这类元素上按下再移动，浏览器给出的是 `NodeSelection`，或者干脆把它变成一次原生 drag-and-drop——后者会**把节点搬到别处**，静默改写文档（T2/T4/T6 的 `ReplaceStep`）。
+3. 原先的 `preventDefault()` 把第二条路也堵死了：浏览器干脆不生成任何选区，于是 T3 里选区退化成一个光标（`from == to`），图片数为 0。这跟用户描述逐字吻合。
+
+### 修复
+
+`useNodeSelectionClick.ts` 重写为「自己驱动拖拽」的状态机：
+
+- mousedown **不再 `preventDefault()`**（否则手势被取消），改为记录 `PressState`（按下坐标 + 块的 `from/to`），并在 `document` 上挂 capture 阶段的 `mousemove` / `mouseup` / `dragstart`。
+- 指针位移超过 `DRAG_THRESHOLD_PX`（4px，与 PM 自己的点击阈值对齐）即判定为拖拽：用 `view.posAtCoords()` 求落点，往下拖则 `from = 块首, to = 落点`，往上拖则 `from = 落点, to = 块尾`，每次 move 写回 `TextSelection`。落点仍落在块内时不动。
+- 按下期间吞掉 `dragstart`，阻止 Chromium 把这次手势变成拖放（否则文档被改写）。
+- mouseup 分两条路：没拖动 → 走原逻辑 `setNodeSelection(livePos())`（**点击行为完全保留**）；拖动过 → 重新断言最后一次的 `lastFrom..lastTo`（Chromium 在选区末端落在块边界时会重新归一化，不补这一下，向上拖会被拍平成光标）。最后 `view.focus()` 保证 Backspace/Delete 能进来。
+- `posAtCoords` 返回 `null`（指针已离开本 section）时直接让位，跨 section 拖拽仍归 `useCrossSectionSelection` 所有。
+- 忽略选择器补上 `[data-drag-handle]`；删除已废弃的 `forcePreventDefault` 选项及 `ImageView.tsx` 里的调用。
+
+补充：`FileView` 传了 `skipWhenSelected: true`，原先这个开关在 mousedown 入口就 `return`，于是**已选中的文件块上也拖不动**——刚点过一张卡片，再从它起手拖拽就失效，与图片行为不一致。该开关的本意只是"已选中时别在点击时抢走 live preview 的焦点"，与拖拽无关，因此把它从入口挪到 mouseup 的**点击分支**，拖拽照常驱动。
+
+但挪走之后引出一个新风险：`FileView` 在**选中后**会移除覆盖在预览区上的透明 overlay，让 PDF 工具栏 / 媒体控件 / pdf.js 的 text layer 变得可命中——此时在预览区内拖动（选 PDF 文字、拖滚动条、拖进度条）会冒泡到 document，被我们的拖拽逻辑接管。所以 `FileView` 额外传了 `ignoreSelector: selected ? LIVE_PREVIEW_SELECTOR : undefined`：选中后预览区整体让给预览自身；未选中时 overlay 仍在，按压落在 overlay 上，点击/拖选行为与图片完全一致。卡片模式（非 preview）不受影响。
+
+再顺带修掉一个连带问题：图片虽然被选进去了，却**没有任何高亮**。因为 `.cross-section-selected` 是 `Decoration.inline`，画不到块级原子节点上，而原生 `::selection` 又被全局置为透明。于是 `sectionHighlightSelection.ts` 新增 `buildDecorations()`：在 inline 装饰之外，为被选区覆盖的每个块级原子补一个 `Decoration.node(..., { class: 'node-in-selection' })`，explicit 模式与 mirror 模式共用；`vscode-theme.css` 里用 `.node-in-selection::after` 铺一层半透明覆盖层（`color-mix` 55%——它盖在内容之上，不透明会挡住图片本身），并加 `pointer-events: none` 免得吃掉点击。
+
+### 教训
+
+1. **「CSS `user-select: none` 挡住了选中」是个诱人但错误的直觉**——它只挡绘制，不挡归属。判断一个节点能否进入选区，要看它是否在 Range 的 `[from, to)` 内，而不是看它有没有被高亮。
+2. **`contentEditable=false` 的块不参与原生选区拖拽**，这是 Chromium 的既有行为，无法用 CSS 打开。要在块上支持拖动选中，只能自己用 `posAtCoords` 驱动。
+3. **不 `preventDefault()` 就必须自己处理 `dragstart`**，否则浏览器会把「按下 + 移动」解释成拖放并改写文档——这类静默 mutation 在手动点击测试里几乎发现不了，必须挂 `dispatchTransaction` 日志去抓。
+4. `Decoration.inline` 画不出块级节点的高亮，**块级高亮必须用 `Decoration.node`**。
 
 ---
