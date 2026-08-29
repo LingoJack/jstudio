@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  bindingToAria,
   conflictingDefs,
   detectConflicts,
   resolveBinding,
@@ -72,6 +73,26 @@ test('conflictingDefs is symmetric and scoped', () => {
 
   // A shortcut never conflicts with itself.
   assert.equal(conflicts.get('mod+f')?.length, 2);
+});
+
+test('bindingToAria spells bindings out as words, never glyphs', () => {
+  assert.equal(bindingToAria(''), '');
+
+  // Platform-independent tokens.
+  assert.equal(bindingToAria('arrowleft'), 'Left arrow');
+  assert.equal(bindingToAria('b'), 'B');
+
+  // Multi-token bindings join with " + " and keep modifier order.
+  const parts = bindingToAria('mod+shift+p').split(' + ');
+  assert.equal(parts.length, 3);
+  assert.equal(parts[1], 'Shift');
+  assert.equal(parts[2], 'P');
+  // mod resolves to a word (Command on macOS, Control elsewhere) — the point
+  // of this helper is that it is never the ⌘ glyph.
+  assert.match(parts[0], /^(Command|Control)$/);
+
+  // Nothing a screen reader would skip may survive into the output.
+  assert.doesNotMatch(bindingToAria('mod+alt+shift+enter+arrowup'), /[⌘⌥⇧↵↑]/);
 });
 
 test('conflictingDefs ignores unbound and cross-scope bindings', () => {

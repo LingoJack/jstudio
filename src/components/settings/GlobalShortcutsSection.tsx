@@ -237,7 +237,7 @@ export function GlobalShortcutsContent() {
 
   return (
     <section id="settings-shortcuts-global" className="space-y-2">
-      <GroupHeading title={t('globalShortcut.title')} count={configs.length} />
+      <GroupHeading title={t('globalShortcut.title')} />
       <p className="px-1 text-[11px] text-[var(--vscode-descriptionForeground)]">
         {t('globalShortcut.description')}
       </p>

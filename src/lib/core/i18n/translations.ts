@@ -772,21 +772,12 @@ export const translations = {
     "error.unknown": "未知错误",
 
     // ── Keyboard Shortcuts ──
-    "shortcut.description":
-      "自定义应用内的键盘快捷键。点击任意一行即可重新绑定。",
     "shortcut.pressKeys": "按下快捷键…",
     "shortcut.clickToRecord": "点击录制",
     "shortcut.resetToDefault": "重置为默认值",
     "shortcut.resetAll": "重置全部为默认值",
-    "shortcut.reference": "参考快捷键（只读）",
     "shortcut.conflictWith": "与「{name}」冲突",
     "shortcut.conflictWarning": "此快捷键已绑定到「{name}」，保存后存在冲突。",
-    "shortcut.searchPlaceholder": "搜索快捷键或功能名称…",
-    "shortcut.clearSearch": "清除搜索",
-    "shortcut.filterAll": "全部",
-    "shortcut.filterConflicts": "冲突",
-    "shortcut.customizedCount": "{count} 项已自定义",
-    "shortcut.noResults": "没有匹配的快捷键",
     "shortcut.recordingHint": "按下新的按键组合 · Esc 取消 · Backspace 清除绑定",
 
     // ── Global shortcuts (OS-level) ──
@@ -873,9 +864,6 @@ export const translations = {
 
     // Terminal shortcuts
     "shortcut.terminal.newTab": "新建标签页",
-    "shortcut.terminal.closeTab": "关闭标签页",
-    "shortcut.terminal.cycleTabLeft": "切换到左标签页",
-    "shortcut.terminal.cycleTabRight": "切换到右标签页",
     "shortcut.terminal.detachTab": "分离标签页到新窗口",
     "shortcut.terminal.splitPane": "分屏",
     "shortcut.terminal.closePane": "仅关闭当前面板",
@@ -889,25 +877,6 @@ export const translations = {
     "shortcut.editor.insertBlockAbove": "上方插入空行",
     "shortcut.editor.inlineCode": "行内代码",
 
-    // Reference shortcuts (read-only)
-    "shortcut.ref.editorFormatting": "编辑器格式化",
-    "shortcut.ref.markdown": "Markdown 输入",
-    "shortcut.ref.bold": "粗体",
-    "shortcut.ref.italic": "斜体",
-    "shortcut.ref.underline": "下划线",
-    "shortcut.ref.strikethrough": "删除线",
-    "shortcut.ref.inlineCode": "行内代码",
-    "shortcut.ref.undo": "撤销",
-    "shortcut.ref.redo": "重做",
-    "shortcut.ref.selectAll": "全选",
-    "shortcut.ref.heading1": "一级标题",
-    "shortcut.ref.heading2": "二级标题",
-    "shortcut.ref.heading3": "三级标题",
-    "shortcut.ref.quote": "引用",
-    "shortcut.ref.bulletList": "无序列表",
-    "shortcut.ref.orderedList": "有序列表",
-    "shortcut.ref.codeBlock": "代码块",
-    "shortcut.ref.divider": "分隔线",
   },
 
   en: {
@@ -1699,22 +1668,13 @@ export const translations = {
     "error.unknown": "Unknown error",
 
     // ── Keyboard Shortcuts ──
-    "shortcut.description":
-      "Customize keyboard shortcuts for the app. Click any row to rebind it.",
     "shortcut.pressKeys": "Press keys…",
     "shortcut.clickToRecord": "Click to record",
     "shortcut.resetToDefault": "Reset to default",
     "shortcut.resetAll": "Reset all to defaults",
-    "shortcut.reference": "Reference shortcuts (read-only)",
     "shortcut.conflictWith": 'Conflicts with "{name}"',
     "shortcut.conflictWarning":
       'This shortcut is already bound to "{name}". Saving will create a conflict.',
-    "shortcut.searchPlaceholder": "Search shortcuts or command names…",
-    "shortcut.clearSearch": "Clear search",
-    "shortcut.filterAll": "All",
-    "shortcut.filterConflicts": "Conflicts",
-    "shortcut.customizedCount": "{count} customized",
-    "shortcut.noResults": "No matching shortcuts",
     "shortcut.recordingHint":
       "Press the new key combination · Esc to cancel · Backspace to clear",
 
@@ -1808,9 +1768,6 @@ export const translations = {
 
     // Terminal shortcuts
     "shortcut.terminal.newTab": "New tab",
-    "shortcut.terminal.closeTab": "Close tab",
-    "shortcut.terminal.cycleTabLeft": "Switch to left tab",
-    "shortcut.terminal.cycleTabRight": "Switch to right tab",
     "shortcut.terminal.detachTab": "Detach tab to new window",
     "shortcut.terminal.splitPane": "Split pane",
     "shortcut.terminal.closePane": "Close active pane only",
@@ -1824,25 +1781,6 @@ export const translations = {
     "shortcut.editor.insertBlockAbove": "Insert block above",
     "shortcut.editor.inlineCode": "Inline code",
 
-    // Reference shortcuts (read-only)
-    "shortcut.ref.editorFormatting": "Editor formatting",
-    "shortcut.ref.markdown": "Markdown input",
-    "shortcut.ref.bold": "Bold",
-    "shortcut.ref.italic": "Italic",
-    "shortcut.ref.underline": "Underline",
-    "shortcut.ref.strikethrough": "Strikethrough",
-    "shortcut.ref.inlineCode": "Inline code",
-    "shortcut.ref.undo": "Undo",
-    "shortcut.ref.redo": "Redo",
-    "shortcut.ref.selectAll": "Select all",
-    "shortcut.ref.heading1": "Heading 1",
-    "shortcut.ref.heading2": "Heading 2",
-    "shortcut.ref.heading3": "Heading 3",
-    "shortcut.ref.quote": "Quote",
-    "shortcut.ref.bulletList": "Bullet list",
-    "shortcut.ref.orderedList": "Ordered list",
-    "shortcut.ref.codeBlock": "Code block",
-    "shortcut.ref.divider": "Divider",
   },
 } as const;
 

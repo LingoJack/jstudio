@@ -95,7 +95,6 @@ const NAV_ITEMS: NavItem[] = [
       },
       { anchorId: 'settings-shortcuts-editor-blocks', labelKey: 'shortcut.category.editorBlocks' },
       { anchorId: 'settings-shortcuts-global', labelKey: 'settings.globalShortcuts' },
-      { anchorId: 'settings-shortcuts-reference', labelKey: 'shortcut.reference' },
     ],
   },
   {
@@ -107,13 +106,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'debug', labelKey: 'settings.debug', icon: Bug },
 ];
 
-/**
- * Sections may take an `anchorJumpSignal` counter that increments on every
- * left-nav anchor jump. Only ShortcutsSection reads it — it clears its
- * search/filter so the jumped-to category is guaranteed to be mounted
- * (a filtered-out category renders no anchor element to scroll to).
- */
-type SectionComponent = (props: { anchorJumpSignal?: number }) => React.ReactElement;
+/** Every section renders without props. */
+type SectionComponent = () => React.ReactElement;
 
 const SECTIONS: Record<SectionId, SectionComponent> = {
   general: GeneralSection,
@@ -247,7 +241,6 @@ export default function SettingsPanel() {
     ]),
   );
   const [activeAnchor, setActiveAnchor] = useState<string | undefined>(undefined);
-  const [anchorJumpSignal, setAnchorJumpSignal] = useState(0);
 
   // Auto-expand groups containing the active anchor. Runs ONLY when the
   // anchor changes — doing this during SubNode render (per-render) made
@@ -319,7 +312,6 @@ export default function SettingsPanel() {
       expand(sectionId);
     }
     setActiveAnchor(anchorId);
-    setAnchorJumpSignal((n) => n + 1);
     scrollToAnchor(anchorId);
   };
 
@@ -426,7 +418,7 @@ export default function SettingsPanel() {
             {/* Scroll sentinel — lets us jump to top when switching sections */}
             <div id="settings-content-top" className="h-0 w-full" aria-hidden />
             <div className="max-w-4xl mx-auto px-10 py-8">
-              <ActiveSection anchorJumpSignal={anchorJumpSignal} />
+              <ActiveSection />
             </div>
           </div>
         )}

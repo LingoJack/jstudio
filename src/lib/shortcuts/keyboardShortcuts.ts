@@ -346,47 +346,6 @@ export const SHORTCUTS: ShortcutDef[] = [
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
-// Read-only reference shortcuts (not customizable)
-// ────────────────────────────────────────────────────────────────────────────
-
-export interface ReferenceShortcut {
-  /** i18n key for the label */
-  labelKey: string;
-  /** Display string (for markdown triggers like "# ") */
-  display?: string;
-  /** Normalized binding (for keyboard shortcuts like "mod+b"), rendered via bindingToDisplay */
-  binding?: ShortcutBinding;
-}
-
-export const REFERENCE_SHORTCUTS: { category: string; items: ReferenceShortcut[] }[] = [
-  {
-    category: 'shortcut.ref.editorFormatting',
-    items: [
-      { labelKey: 'shortcut.ref.bold', binding: 'mod+b' },
-      { labelKey: 'shortcut.ref.italic', binding: 'mod+i' },
-      { labelKey: 'shortcut.ref.underline', binding: 'mod+u' },
-      { labelKey: 'shortcut.ref.strikethrough', binding: 'mod+shift+s' },
-      { labelKey: 'shortcut.ref.undo', binding: 'mod+z' },
-      { labelKey: 'shortcut.ref.redo', binding: 'mod+shift+z' },
-      { labelKey: 'shortcut.ref.selectAll', binding: 'mod+a' },
-    ],
-  },
-  {
-    category: 'shortcut.ref.markdown',
-    items: [
-      { labelKey: 'shortcut.ref.heading1', display: '# ' },
-      { labelKey: 'shortcut.ref.heading2', display: '## ' },
-      { labelKey: 'shortcut.ref.heading3', display: '### ' },
-      { labelKey: 'shortcut.ref.quote', display: '> ' },
-      { labelKey: 'shortcut.ref.bulletList', display: '- ' },
-      { labelKey: 'shortcut.ref.orderedList', display: '1. ' },
-      { labelKey: 'shortcut.ref.codeBlock', display: '``` ' },
-      { labelKey: 'shortcut.ref.divider', display: '---' },
-    ],
-  },
-];
-
-// ────────────────────────────────────────────────────────────────────────────
 // Key normalization
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -516,6 +475,42 @@ export function bindingToDisplay(binding: ShortcutBinding): string {
       return part.charAt(0).toUpperCase() + part.slice(1);
     })
     .join(' ');
+}
+
+/** Spoken form of each binding token, for screen readers. */
+const ARIA_MAP: Record<string, string> = {
+  mod: isMac ? 'Command' : 'Control',
+  alt: isMac ? 'Option' : 'Alt',
+  shift: 'Shift',
+  enter: isMac ? 'Return' : 'Enter',
+  backspace: 'Backspace',
+  tab: 'Tab',
+  escape: 'Escape',
+  delete: 'Delete',
+  space: 'Space',
+  arrowup: 'Up arrow',
+  arrowdown: 'Down arrow',
+  arrowleft: 'Left arrow',
+  arrowright: 'Right arrow',
+  home: 'Home',
+  end: 'End',
+  pageup: 'Page up',
+  pagedown: 'Page down',
+};
+
+/**
+ * Screen-reader friendly form of a binding. bindingToDisplay() returns
+ * glyphs (⌘ ⇧ ↵) that assistive tech either reads as punctuation or
+ * skips entirely, so rows need this for their accessible name.
+ */
+export function bindingToAria(binding: ShortcutBinding): string {
+  if (!binding) return '';
+  return binding
+    .split('+')
+    .map((part) =>
+      ARIA_MAP[part] ?? (part.length === 1 ? part.toUpperCase() : part),
+    )
+    .join(' + ');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
