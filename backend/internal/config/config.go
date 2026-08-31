@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	gomysql "github.com/go-sql-driver/mysql"
 	"github.com/spf13/viper"
 )
 
@@ -16,7 +17,11 @@ import (
 // setting without a default would silently ignore its env variable.
 const (
 	defaultServerAddr       = "127.0.0.1:8080"
-	defaultDatabasePath     = "data/jstudio-backend.db"
+	defaultDBHost           = "127.0.0.1"
+	defaultDBPort           = 3306
+	defaultDBUser           = "root"
+	defaultDBPassword       = ""
+	defaultDBName           = "jstudio"
 	defaultJWTSecret        = ""
 	defaultTokenTTL         = 720 * time.Hour
 	defaultStorageEndpoint  = "127.0.0.1:9000"
@@ -51,9 +56,26 @@ type ServerConfig struct {
 	Addr string `mapstructure:"addr"`
 }
 
-// DatabaseConfig holds the SQLite database file path.
+// DatabaseConfig describes the MySQL metadata database. The schema is NOT
+// managed by the backend: the operator applies schema.sql manually.
 type DatabaseConfig struct {
-	Path string `mapstructure:"path"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	DBName   string `mapstructure:"dbname"`
+}
+
+// DSN renders the go-sql-driver connection string.
+func (d DatabaseConfig) DSN() string {
+	c := gomysql.NewConfig()
+	c.Net = "tcp"
+	c.Addr = fmt.Sprintf("%s:%d", d.Host, d.Port)
+	c.User = d.User
+	c.Passwd = d.Password
+	c.DBName = d.DBName
+	c.Params = map[string]string{"charset": "utf8mb4"}
+	return c.FormatDSN()
 }
 
 // AuthConfig holds JWT signing parameters.
@@ -115,7 +137,11 @@ func (c Config) Validate() error {
 
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.addr", defaultServerAddr)
-	v.SetDefault("database.path", defaultDatabasePath)
+	v.SetDefault("database.host", defaultDBHost)
+	v.SetDefault("database.port", defaultDBPort)
+	v.SetDefault("database.user", defaultDBUser)
+	v.SetDefault("database.password", defaultDBPassword)
+	v.SetDefault("database.dbname", defaultDBName)
 	v.SetDefault("auth.jwt_secret", defaultJWTSecret)
 	v.SetDefault("auth.token_ttl", defaultTokenTTL.String())
 	v.SetDefault("storage.endpoint", defaultStorageEndpoint)

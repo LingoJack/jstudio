@@ -51,7 +51,7 @@ func (h *documentsHandler) put(c *gin.Context) {
 	}
 	snap, err := h.store.AppendSnapshot(c.Request.Context(), userIDFrom(c), c.Param("docId"), req.Title, string(req.Body))
 	if err != nil {
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -69,7 +69,7 @@ func (h *documentsHandler) getLatest(c *gin.Context) {
 			fail(c, http.StatusNotFound, codeNotFound, "document not found")
 			return
 		}
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	writeSnapshot(c, snap)
@@ -87,7 +87,7 @@ func (h *documentsHandler) getSnapshot(c *gin.Context) {
 			fail(c, http.StatusNotFound, codeNotFound, "snapshot not found")
 			return
 		}
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	writeSnapshot(c, snap)
@@ -112,7 +112,7 @@ func (h *documentsHandler) listSnapshots(c *gin.Context) {
 			fail(c, http.StatusNotFound, codeNotFound, "document not found")
 			return
 		}
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	out := make([]gin.H, 0, len(metas))
@@ -130,7 +130,7 @@ func (h *documentsHandler) listSnapshots(c *gin.Context) {
 func (h *documentsHandler) list(c *gin.Context) {
 	docs, err := h.store.ListDocuments(c.Request.Context(), userIDFrom(c))
 	if err != nil {
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	out := make([]gin.H, 0, len(docs))
@@ -152,7 +152,7 @@ func (h *documentsHandler) remove(c *gin.Context) {
 			fail(c, http.StatusNotFound, codeNotFound, "document not found")
 			return
 		}
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)

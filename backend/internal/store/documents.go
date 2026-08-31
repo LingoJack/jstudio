@@ -40,25 +40,32 @@ type SnapshotMeta struct {
 // counter continues where it left off. The documents row is created on
 // first save.
 func (s *Store) AppendSnapshot(ctx context.Context, userID, docID, title, body string) (Snapshot, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	// Ensure the documents row exists OUTSIDE the transaction. Doing the
+	// INSERT IGNORE inside would give concurrent first-saves a shared gap
+	// lock which then needs to upgrade to an exclusive row lock for
+	// SELECT ... FOR UPDATE — the textbook MySQL deadlock (error 1213).
+	// In autocommit the lock is released immediately, so at most one
+	// statement briefly waits.
+	if _, err := s.db.ExecContext(ctx, `
+		INSERT IGNORE INTO documents (user_id, doc_id, latest_revision, deleted_at, created_at, updated_at)
+		VALUES (?, ?, 0, NULL, ?, ?)`,
+		userID, docID, now, now); err != nil {
+		return Snapshot{}, fmt.Errorf("ensure document: %w", err)
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("begin append snapshot: %w", err)
 	}
 	defer tx.Rollback()
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	// Lock the row so concurrent appenders serialize on the revision bump
+	// (SELECT ... FOR UPDATE inside the transaction).
 	var latest int64
-	err = tx.QueryRowContext(ctx, `
-		SELECT latest_revision FROM documents WHERE user_id = ? AND doc_id = ?`,
-		userID, docID).Scan(&latest)
-	if errors.Is(err, sql.ErrNoRows) {
-		if _, err = tx.ExecContext(ctx, `
-			INSERT INTO documents (user_id, doc_id, latest_revision, deleted_at, created_at, updated_at)
-			VALUES (?, ?, 0, NULL, ?, ?)`,
-			userID, docID, now, now); err != nil {
-			return Snapshot{}, fmt.Errorf("insert document: %w", err)
-		}
-	} else if err != nil {
+	if err = tx.QueryRowContext(ctx, `
+		SELECT latest_revision FROM documents WHERE user_id = ? AND doc_id = ? FOR UPDATE`,
+		userID, docID).Scan(&latest); err != nil {
 		return Snapshot{}, fmt.Errorf("select document: %w", err)
 	}
 

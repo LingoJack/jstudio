@@ -48,7 +48,7 @@ func (h *authHandler) register(c *gin.Context) {
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	u, err := h.store.CreateUser(c.Request.Context(), uuid.NewString(), req.Username, hash)
@@ -57,7 +57,7 @@ func (h *authHandler) register(c *gin.Context) {
 			fail(c, http.StatusConflict, codeConflict, "username already taken")
 			return
 		}
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -81,7 +81,7 @@ func (h *authHandler) login(c *gin.Context) {
 			fail(c, http.StatusUnauthorized, codeUnauthorized, "invalid credentials")
 			return
 		}
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	if !auth.CheckPassword(u.PasswordHash, req.Password) {
@@ -90,7 +90,7 @@ func (h *authHandler) login(c *gin.Context) {
 	}
 	token, expiresAt, err := auth.NewToken(h.jwtSecret, u.ID, u.Username, h.tokenTTL)
 	if err != nil {
-		failInternal(c)
+		failInternal(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

@@ -1,36 +1,41 @@
-package store
+package store_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
+
+	"github.com/LingoJack/jstudio/backend/internal/store"
+	"github.com/LingoJack/jstudio/backend/internal/testsupport"
 )
 
-func openTestStore(t *testing.T) *Store {
-	t.Helper()
-	st, err := Open(filepath.Join(t.TempDir(), "test.db"))
+// TestSchemaIdempotent re-applies schema.sql to an initialized database: all
+// statements use IF NOT EXISTS, so the operator can safely re-run the file.
+func TestSchemaIdempotent(t *testing.T) {
+	st := testsupport.NewStore(t)
+	ddl, err := testsupport.SchemaDDL()
 	if err != nil {
-		t.Fatalf("open store: %v", err)
+		t.Fatalf("read schema: %v", err)
 	}
-	t.Cleanup(func() { st.Close() })
-	if err := st.Migrate(context.Background()); err != nil {
-		t.Fatalf("migrate store: %v", err)
+	if err := st.ApplySchemaDDL(context.Background(), ddl); err != nil {
+		t.Fatalf("re-apply schema: %v", err)
 	}
-	return st
+	if err := st.CheckSchema(context.Background()); err != nil {
+		t.Fatalf("check schema: %v", err)
+	}
 }
 
-// TestMigrateIdempotent asserts that running Migrate on an already migrated
-// database is a no-op (the version runner must not re-apply DDL, which would
-// fail loudly since the statements lack IF NOT EXISTS).
-func TestMigrateIdempotent(t *testing.T) {
-	st := openTestStore(t)
-	if err := st.Migrate(context.Background()); err != nil {
-		t.Fatalf("re-migrate: %v", err)
+// TestCheckSchemaDetectsMissingTables connects to an empty database and
+// expects CheckSchema to fail with the operator-facing message.
+func TestCheckSchemaDetectsMissingTables(t *testing.T) {
+	st, cleanup := testsupport.NewEmptyStore(t)
+	defer cleanup()
+	if err := st.CheckSchema(context.Background()); err == nil {
+		t.Fatal("check schema on empty database: expected error")
 	}
 }
 
 func TestCreateAndGetUser(t *testing.T) {
-	st := openTestStore(t)
+	st := testsupport.NewStore(t)
 	ctx := context.Background()
 
 	created, err := st.CreateUser(ctx, "user-1", "Jack", "hash")
@@ -41,7 +46,7 @@ func TestCreateAndGetUser(t *testing.T) {
 		t.Fatalf("timestamps not set: %+v", created)
 	}
 
-	// Case-insensitive lookup (username column is COLLATE NOCASE).
+	// Case-insensitive lookup (utf8mb4_0900_ai_ci collation).
 	got, err := st.GetUserByUsername(ctx, "jack")
 	if err != nil {
 		t.Fatalf("get user: %v", err)
@@ -50,11 +55,11 @@ func TestCreateAndGetUser(t *testing.T) {
 		t.Fatalf("unexpected user: %+v", got)
 	}
 
-	if _, err := st.CreateUser(ctx, "user-2", "JACK", "hash2"); err != ErrUsernameTaken {
+	if _, err := st.CreateUser(ctx, "user-2", "JACK", "hash2"); err != store.ErrUsernameTaken {
 		t.Fatalf("duplicate username: got %v, want ErrUsernameTaken", err)
 	}
 
-	if _, err := st.GetUserByUsername(ctx, "ghost"); err != ErrNotFound {
+	if _, err := st.GetUserByUsername(ctx, "ghost"); err != store.ErrNotFound {
 		t.Fatalf("unknown user: got %v, want ErrNotFound", err)
 	}
 }

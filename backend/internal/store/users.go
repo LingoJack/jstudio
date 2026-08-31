@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
+
+	gomysql "github.com/go-sql-driver/mysql"
 )
 
 // ErrNotFound is returned when a requested row does not exist.
@@ -15,8 +16,13 @@ var ErrNotFound = errors.New("not found")
 // ErrUsernameTaken is returned when registering an already used username.
 var ErrUsernameTaken = errors.New("username already taken")
 
-// uniqueConstraintMarker appears in SQLite UNIQUE constraint violation errors.
-const uniqueConstraintMarker = "UNIQUE constraint failed"
+// errDupEntry is MySQL error 1062 (duplicate key violation).
+const errDupEntry = 1062
+
+func isDuplicateEntry(err error) bool {
+	var myErr *gomysql.MySQLError
+	return errors.As(err, &myErr) && myErr.Number == errDupEntry
+}
 
 // User is a registered account row.
 type User struct {
@@ -36,7 +42,7 @@ func (s *Store) CreateUser(ctx context.Context, id, username, passwordHash strin
 		VALUES (?, ?, ?, ?, ?)`,
 		u.ID, u.Username, u.PasswordHash, u.CreatedAt, u.UpdatedAt)
 	if err != nil {
-		if strings.Contains(err.Error(), uniqueConstraintMarker) {
+		if isDuplicateEntry(err) {
 			return User{}, ErrUsernameTaken
 		}
 		return User{}, fmt.Errorf("insert user: %w", err)

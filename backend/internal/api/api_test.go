@@ -2,19 +2,18 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/LingoJack/jstudio/backend/internal/auth"
 	"github.com/LingoJack/jstudio/backend/internal/config"
-	"github.com/LingoJack/jstudio/backend/internal/store"
+	"github.com/LingoJack/jstudio/backend/internal/storage"
+	"github.com/LingoJack/jstudio/backend/internal/testsupport"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,19 +32,17 @@ type errorEnvelope struct {
 
 func newTestServer(t *testing.T) *gin.Engine {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
-	if err := st.Migrate(context.Background()); err != nil {
-		t.Fatalf("migrate store: %v", err)
-	}
+	st := testsupport.NewStore(t)
 	cfg := config.Config{}
 	cfg.Auth.JWTSecret = testJWTSecret
 	cfg.Auth.TokenTTL = testTokenTTL
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return NewRouter(Deps{Logger: logger, Config: cfg, Store: st})
+	return NewRouter(Deps{
+		Logger: logger,
+		Config: cfg,
+		Store:  st,
+		Storage: storage.NewMemStorage(),
+	})
 }
 
 func doJSON(t *testing.T, r *gin.Engine, method, path, token string, body any) *httptest.ResponseRecorder {

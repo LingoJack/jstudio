@@ -1,7 +1,11 @@
 server:
   addr: "127.0.0.1:8080"        # 部署到服务器时改为 0.0.0.0:8080 或置于反代后
 database:
-  path: "data/jstudio-backend.db"
+  host: "127.0.0.1"             # MySQL 地址；schema 由运维执行 schema.sql 初始化
+  port: 3306
+  user: "root"
+  password: ""
+  dbname: "jstudio"
 auth:
   jwt_secret: ""                # 必填，至少 32 字节；生成：openssl rand -base64 48
   token_ttl: "720h"             # 30 天，桌面端免频繁重登

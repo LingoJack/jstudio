@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/LingoJack/jstudio/backend/internal/config"
+	"github.com/LingoJack/jstudio/backend/internal/storage"
 	"github.com/LingoJack/jstudio/backend/internal/store"
 	"github.com/gin-gonic/gin"
 )
@@ -19,9 +20,10 @@ const apiV1Prefix = "/api/v1"
 
 // Deps bundles everything the HTTP layer needs.
 type Deps struct {
-	Logger *slog.Logger
-	Config config.Config
-	Store  *store.Store
+	Logger  *slog.Logger
+	Config  config.Config
+	Store   *store.Store
+	Storage storage.ObjectStorage
 }
 
 // NewRouter builds the gin engine with global middleware and routes.
@@ -30,6 +32,7 @@ func NewRouter(deps Deps) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(requestLog(deps.Logger))
+	r.MaxMultipartMemory = multipartMemoryLimit
 	r.GET("/healthz", healthz)
 
 	authH := &authHandler{
@@ -51,6 +54,12 @@ func NewRouter(deps Deps) *gin.Engine {
 	authed.DELETE("/documents/:docId", docsH.remove)
 	authed.GET("/documents/:docId/snapshots", docsH.listSnapshots)
 	authed.GET("/documents/:docId/snapshots/:revision", docsH.getSnapshot)
+
+	assetsH := &assetsHandler{store: deps.Store, storage: deps.Storage}
+	authed.POST("/documents/:docId/assets", assetsH.upload)
+	authed.GET("/documents/:docId/assets", assetsH.list)
+	authed.GET("/documents/:docId/assets/:fileName", assetsH.download)
+	authed.DELETE("/documents/:docId/assets/:fileName", assetsH.remove)
 
 	return r
 }
