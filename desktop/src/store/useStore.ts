@@ -12,6 +12,7 @@ import { createFoldersSlice } from './foldersSlice';
 import { createWorkspaceSlice } from './workspaceSlice';
 import { createAgentSlice } from './agentSlice';
 import { createBrowserSlice } from './browserSlice';
+import { createAuthSlice } from './authSlice';
 
 /**
  * Composed store - merges all slices into a single Zustand store.
@@ -28,6 +29,7 @@ import { createBrowserSlice } from './browserSlice';
  * - workspaceSlice:     unified tab management (document + terminal tabs)
  * - agentSlice:         agent session lifecycle (j-agent integration)
  * - browserSlice:       inline browser panel state (tabs, address bar, search engine)
+ * - authSlice:          remote account session (login/logout/verify)
  */
 export const useStore = create<StoreState>((set, get) => ({
   ...(createDocumentsSlice(set, get) as StoreState),
@@ -42,6 +44,7 @@ export const useStore = create<StoreState>((set, get) => ({
   ...(createWorkspaceSlice(set, get) as StoreState),
   ...(createAgentSlice(set, get) as StoreState),
   ...(createBrowserSlice(set, get) as StoreState),
+  ...(createAuthSlice(set, get) as StoreState),
 }));
 
 /**

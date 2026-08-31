@@ -26,6 +26,7 @@ import type { WorkspaceSlice } from "./workspaceSlice";
 import type { AgentSlice } from "./agentSlice";
 import type { BrowserSlice } from "./browserSlice";
 import type { EditorSlice } from "./editorSlice";
+import type { AuthSlice } from "./authSlice";
 
 /**
  * The full store state - composed from individual slice interfaces.
@@ -43,7 +44,8 @@ export type StoreState = DocumentsSlice &
   WorkspaceSlice &
   AgentSlice &
   BrowserSlice &
-  EditorSlice;
+  EditorSlice &
+  AuthSlice;
 
 /**
  * Zustand's `create` calls each slice creator with `(set, get, store)`.

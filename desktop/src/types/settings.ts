@@ -177,5 +177,16 @@ export interface AppSettings {
   /** Agent active workspace path (persisted across sessions). */
   agentActiveWorkspace?: string;
 
+  /** Remote account: backend base URL (normalized, no trailing slash). */
+  remoteServerUrl?: string;
+  /** Remote account: session token (null = logged out / cleared). */
+  remoteAuthToken?: string | null;
+  /** Remote account: token expiry, RFC3339 from the login response. */
+  remoteTokenExpiresAt?: string | null;
+  /** Remote account: authenticated user id. */
+  remoteUserId?: string | null;
+  /** Remote account: authenticated username. */
+  remoteUsername?: string | null;
+
   [key: string]: unknown;
 }
