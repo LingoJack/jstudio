@@ -179,5 +179,6 @@ fn inject_build_commit() {
 
     println!("cargo:rustc-env=JSTUDIO_BUILD_COMMIT={}", commit);
     // Re-run if HEAD changes (best-effort: just re-run on any change in the repo).
-    println!("cargo:rerun-if-changed=../.git/HEAD");
+    // The repo root (and its .git) sits one level above the desktop/ directory.
+    println!("cargo:rerun-if-changed=../../.git/HEAD");
 }

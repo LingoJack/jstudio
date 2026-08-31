@@ -1,0 +1,31 @@
+node_modules/
+build/
+dist/
+dist-electron/
+dist-electron-builder/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+target/
+temp/
+src-tauri/resources/bin/
+/example/
+.workbuddy/
+.codebuddy/
+.codex/
+.claude/
+.opencode/
+.vscode/*
+!.vscode/settings.json
+.idea/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Do not commit TypeScript compiled output — Vite resolves .js before .ts,
+# so stale .js shadows the .ts source. Keep .config.js (vite/tailwind/etc).
+src/**/*.js
+src/**/*.js.map
+!src/**/*.config.js

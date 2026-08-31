@@ -1,3 +1,3 @@
 [submodule "jcli"]
-	path = jcli
+	path = desktop/jcli
 	url = https://github.com/LingoJack/jcli.git
