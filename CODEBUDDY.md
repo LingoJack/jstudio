@@ -5,7 +5,7 @@
 | 目录 | 内容 | 详细指引 |
 |------|------|---------|
 | `desktop/` | JStudio 桌面应用（Electron + React + Rust sidecar，本地笔记） | `desktop/CODEBUDDY.md` |
-| `backend/` | 远程保存后台服务（Go + Gin + Viper + SQLite + MinIO SDK） | `backend/README.md` |
+| `backend/` | 远程保存后台服务（Go + Gin + Viper + MySQL + MinIO SDK） | `backend/README.md` |
 | `minio/` | MinIO 对象存储部署物（docker/podman compose） | `minio/README.md` |
 
 ## 常用命令
@@ -24,8 +24,10 @@
 | 任务 | 命令 |
 |------|------|
 | 本地运行（读 config.yaml） | `cd backend && make run` |
-| 测试 | `cd backend && make test` |
+| 测试（需 MySQL） | `JS_TEST_MYSQL_DSN='user:pass@tcp(host:3306)/' make test`（未设时 MySQL 用例自动跳过） |
 | 构建 | `cd backend && make build` |
+
+要点：后端**不做自动迁移**——schema 由运维手动执行 `backend/schema.sql`（建库 `jstudio` + 建表，幂等），启动时仅 CheckSchema 校验；配置一律可被 `JS_` 前缀环境变量覆盖。
 
 ### MinIO（在 minio/ 下执行）
 

@@ -175,7 +175,10 @@ func TestDocumentUserIsolation(t *testing.T) {
 	}
 
 	// Each list shows exactly one document.
-	for _, tc := range []struct{ token string; name string }{{tokenA, "alice"}, {tokenB, "bob"}} {
+	for _, tc := range []struct {
+		token string
+		name  string
+	}{{tokenA, "alice"}, {tokenB, "bob"}} {
 		w := doJSON(t, r, http.MethodGet, apiV1Prefix+"/documents", tc.token, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("%s list: status %d", tc.name, w.Code)

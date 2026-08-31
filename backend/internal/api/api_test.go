@@ -38,9 +38,9 @@ func newTestServer(t *testing.T) *gin.Engine {
 	cfg.Auth.TokenTTL = testTokenTTL
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return NewRouter(Deps{
-		Logger: logger,
-		Config: cfg,
-		Store:  st,
+		Logger:  logger,
+		Config:  cfg,
+		Store:   st,
 		Storage: storage.NewMemStorage(),
 	})
 }
