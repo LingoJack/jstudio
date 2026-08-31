@@ -19,6 +19,33 @@ var migrations = []string{
 		created_at    TEXT NOT NULL,
 		updated_at    TEXT NOT NULL
 	);`,
+	// v2: documents and their snapshot history. All document data is scoped
+	// by (user_id, doc_id): doc ids come from clients and only have to be
+	// unique per user. latest_revision = 0 means assets were uploaded but no
+	// snapshot was saved yet. deleted_at is the tombstone (NULL = alive);
+	// a tombstoned document is revived by appending a new snapshot.
+	`CREATE TABLE documents (
+		user_id         TEXT NOT NULL REFERENCES users(id),
+		doc_id          TEXT NOT NULL,
+		latest_revision INTEGER NOT NULL DEFAULT 0,
+		deleted_at      TEXT,
+		created_at      TEXT NOT NULL,
+		updated_at      TEXT NOT NULL,
+		PRIMARY KEY (user_id, doc_id)
+	);
+	CREATE INDEX idx_documents_user_updated ON documents(user_id, updated_at DESC);
+	CREATE TABLE document_snapshots (
+		user_id    TEXT NOT NULL,
+		doc_id     TEXT NOT NULL,
+		revision   INTEGER NOT NULL CHECK (revision > 0),
+		title      TEXT NOT NULL DEFAULT '',
+		body       TEXT NOT NULL,
+		size_bytes INTEGER NOT NULL,
+		created_at TEXT NOT NULL,
+		PRIMARY KEY (user_id, doc_id, revision),
+		FOREIGN KEY (user_id, doc_id) REFERENCES documents(user_id, doc_id)
+	);
+	CREATE INDEX idx_snapshots_doc_created ON document_snapshots(user_id, doc_id, created_at DESC);`,
 }
 
 // Migrate applies all pending migrations sequentially, each in a single

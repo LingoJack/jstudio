@@ -44,6 +44,14 @@ func NewRouter(deps Deps) *gin.Engine {
 	authed := v1.Group("", requireAuth(authH.jwtSecret))
 	authed.GET("/auth/me", authH.me)
 
+	docsH := &documentsHandler{store: deps.Store}
+	authed.GET("/documents", docsH.list)
+	authed.PUT("/documents/:docId", docsH.put)
+	authed.GET("/documents/:docId", docsH.getLatest)
+	authed.DELETE("/documents/:docId", docsH.remove)
+	authed.GET("/documents/:docId/snapshots", docsH.listSnapshots)
+	authed.GET("/documents/:docId/snapshots/:revision", docsH.getSnapshot)
+
 	return r
 }
 
