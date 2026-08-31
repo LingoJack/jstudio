@@ -31,6 +31,19 @@ const (
 	defaultStorageUseSSL    = false
 )
 
+// originWildcard is the CORS wildcard entry (see defaultAllowedOrigins).
+const originWildcard = "*"
+
+// defaultAllowedOrigins accepts any origin. Safe here because the API is
+// token-authenticated and cookieless (no CSRF surface); it also covers the
+// Electron production renderer whose Origin header is "null" under
+// file/custom protocols. Restrictive deployments can list explicit origins
+// instead (see config.example.yaml).
+//
+// Note: viper's AutomaticEnv cannot parse slices, so this key is only
+// settable through the config file.
+var defaultAllowedOrigins = []string{originWildcard}
+
 // minJWTSecretLen is the minimum acceptable JWT signing secret length.
 const minJWTSecretLen = 32
 
@@ -51,9 +64,10 @@ type Config struct {
 	Storage  StorageConfig  `mapstructure:"storage"`
 }
 
-// ServerConfig holds the HTTP listen address.
+// ServerConfig holds the HTTP listen address and CORS policy.
 type ServerConfig struct {
-	Addr string `mapstructure:"addr"`
+	Addr           string   `mapstructure:"addr"`
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
 // DatabaseConfig describes the MySQL metadata database. The schema is NOT
@@ -137,6 +151,7 @@ func (c Config) Validate() error {
 
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.addr", defaultServerAddr)
+	v.SetDefault("server.allowed_origins", defaultAllowedOrigins)
 	v.SetDefault("database.host", defaultDBHost)
 	v.SetDefault("database.port", defaultDBPort)
 	v.SetDefault("database.user", defaultDBUser)

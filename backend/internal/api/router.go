@@ -32,6 +32,7 @@ func NewRouter(deps Deps) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(requestLog(deps.Logger))
+	r.Use(corsMiddleware(deps.Config.Server.AllowedOrigins))
 	r.MaxMultipartMemory = multipartMemoryLimit
 	r.GET("/healthz", healthz)
 

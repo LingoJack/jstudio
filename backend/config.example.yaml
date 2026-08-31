@@ -1,5 +1,10 @@
 server:
   addr: "127.0.0.1:8080"        # 部署到服务器时改为 0.0.0.0:8080 或置于反代后
+  # 跨域来源列表。"*" = 任意来源（默认；token 鉴权 + 无 cookie，无 CSRF 面，
+  # 且天然覆盖生产 Electron 页面的 "null" Origin）。
+  # 收紧示例: ["http://127.0.0.1:1420", "null"]（显式白名单需包含字面量 "null"）。
+  # 注意：环境变量不支持列表，此项仅配置文件生效。
+  allowed_origins: ["*"]
 database:
   host: "127.0.0.1"             # MySQL 地址；schema 由运维执行 schema.sql 初始化
   port: 3306
