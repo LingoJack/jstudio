@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, Bug, type LucideIcon } from 'lucide-react';
+import { Info, Settings2, Terminal, PenLine, BookOpen, Keyboard, Bot, Bug, UserCircle, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../../lib/core/i18n';
 import type { TranslationKey } from '../../lib/core/i18n';
 import { useStore } from '../../store/useStore';
@@ -8,6 +8,7 @@ import { useCollapsibleTree } from '../ui/useCollapsibleTree';
 import { useDialogTransition } from '../ui/useDialogTransition';
 import { NavBranch, NavRow, RailArrow, ActiveTitle } from '../ui/NavTree';
 import GeneralSection from './GeneralSection';
+import AccountSection from './AccountSection';
 import AgentModelSection from './AgentModelSection';
 import EditorSection from './EditorSection';
 import TerminalSection from './TerminalSection';
@@ -50,6 +51,11 @@ const NAV_ITEMS: NavItem[] = [
       { anchorId: 'settings-general-dataLocation', labelKey: 'general.dataLocation' },
       { anchorId: 'settings-general-jcli', labelKey: 'jcli.title' },
     ],
+  },
+  {
+    id: 'account',
+    labelKey: 'settings.account',
+    icon: UserCircle,
   },
   {
     id: 'agent',
@@ -111,6 +117,7 @@ type SectionComponent = () => React.ReactElement;
 
 const SECTIONS: Record<SectionId, SectionComponent> = {
   general: GeneralSection,
+  account: AccountSection,
   agent: AgentModelSection,
   editor: EditorSection,
   terminal: TerminalSection,

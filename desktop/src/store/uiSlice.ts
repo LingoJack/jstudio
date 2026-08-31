@@ -117,6 +117,7 @@ export type SidebarView = "documents" | "terminal" | "agent" | "browser";
 /** Which settings section is currently displayed. Driven by store so palette can navigate. */
 export type SettingsSectionId =
   | "general"
+  | "account"
   | "agent"
   | "editor"
   | "terminal"
