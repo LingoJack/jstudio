@@ -15,6 +15,7 @@ import (
 
 	"github.com/LingoJack/jstudio/backend/internal/api"
 	"github.com/LingoJack/jstudio/backend/internal/config"
+	"github.com/LingoJack/jstudio/backend/internal/store"
 )
 
 // shutdownTimeout bounds graceful shutdown.
@@ -39,12 +40,25 @@ func run() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	st, err := store.Open(cfg.Database.Path)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer st.Close()
+	if err := st.Migrate(context.Background()); err != nil {
+		return fmt.Errorf("migrate store: %w", err)
+	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	srv := &http.Server{
-		Addr:              cfg.Server.Addr,
-		Handler:           api.NewRouter(logger),
+		Addr: cfg.Server.Addr,
+		Handler: api.NewRouter(api.Deps{
+			Logger: logger,
+			Config: cfg,
+			Store:  st,
+		}),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
