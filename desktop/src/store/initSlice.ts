@@ -427,6 +427,12 @@ export const createInitSlice: SliceCreator = (set, get) => ({
           }
         }
       })();
+
+      // Remote account session recovery: verify the persisted token against
+      // the backend in the background. Non-blocking — verifyRemoteSession
+      // loads its own settings, optimistically restores the session, and
+      // downgrades to expired/offline based on the /auth/me result.
+      void get().verifyRemoteSession();
     } catch (e) {
       console.error("Store init failed:", e);
       toast.error("应用初始化失败");
