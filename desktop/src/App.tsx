@@ -246,8 +246,11 @@ export default function App() {
   // instead of a hard cutoff). Other views keep the pt-9 offset below the bar.
   const showDocView = !isTerminalView && !isAgentView && !isBrowserView;
 
+  // 不带 font-sans：根节点必须从 body 继承 var(--jstudio-font-family)，
+  // 让设置页的字体配置对整个界面生效（曾因根节点 font-sans 导致文档标题
+  // 等元素回落系统字体）。
   return (
-    <div className="h-screen w-full flex flex-col bg-[var(--vscode-activityBar-background)] text-[var(--vscode-editor-foreground)] font-sans tracking-tight overflow-hidden">
+    <div className="h-screen w-full flex flex-col bg-[var(--vscode-activityBar-background)] text-[var(--vscode-editor-foreground)] tracking-tight overflow-hidden">
       {/* ==============================
           Title Bar (full width, macOS traffic lights + global search)
           Absolute + translucent glass — overlays the main row below.
