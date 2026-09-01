@@ -67,6 +67,7 @@ export default function DocumentSidebar() {
   const createFolder = useStore((s) => s.createFolder);
   const renameFolder = useStore((s) => s.renameFolder);
   const trashFolder = useStore((s) => s.trashFolder);
+  const moveFolder = useStore((s) => s.moveFolder);
   const toggleFolderCollapsed = useStore((s) => s.toggleFolderCollapsed);
   const moveDocumentToFolder = useStore((s) => s.moveDocumentToFolder);
   const moveDocumentsToFolder = useStore((s) => s.moveDocumentsToFolder);
@@ -384,17 +385,22 @@ export default function DocumentSidebar() {
   // ── Drag-and-drop (extracted to useDocDragDrop hook) ──
   const {
     draggingDocId,
+    draggingFolderId,
     dragOverTarget,
     flashFolderId,
     dragArmed,
     onDocPointerDown,
+    onFolderPointerDown,
   } = useDocDragDrop({
     docList,
+    folders,
     selectedIds,
     setSelectedIds,
     moveDocumentToFolder,
     moveDocumentsToFolder,
+    moveFolder,
     renamingId,
+    renamingFolderId,
     suppressClick,
   });
 
@@ -562,6 +568,8 @@ export default function DocumentSidebar() {
             dragOverTarget={dragOverTarget}
             flashFolderId={flashFolderId}
             draggingDocId={draggingDocId}
+            draggingFolderId={draggingFolderId}
+            suppressClick={suppressClick}
             selectedIds={selectedIds}
             setSelectedIds={setSelectedIds}
             lastClickedId={lastClickedId}
@@ -569,6 +577,7 @@ export default function DocumentSidebar() {
             visibleItemIds={visibleItemIds}
             activeDocId={activeDocId}
             onDocPointerDown={onDocPointerDown}
+            onFolderPointerDown={onFolderPointerDown}
             handleDocClick={handleDocClick}
             handleContextMenu={handleContextMenu}
             renamingId={renamingId}

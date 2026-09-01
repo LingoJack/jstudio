@@ -11,6 +11,7 @@
  */
 
 import type React from 'react';
+import type { MutableRefObject } from 'react';
 import { NavRow, NavBranch, RailArrow, ActiveTitle } from '../ui/NavTree';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { FolderTreeNode } from '../../lib/documents/folderTree';
@@ -38,6 +39,10 @@ export interface DocumentTreeRendererProps {
   dragOverTarget: string | null;
   flashFolderId: string | null;
   draggingDocId: string | null;
+  draggingFolderId: string | null;
+
+  /** Swallows the synthetic click after a drag (shared ref with drag hook). */
+  suppressClick: MutableRefObject<boolean>;
 
   // Selection
   selectedIds: Set<string>;
@@ -49,6 +54,7 @@ export interface DocumentTreeRendererProps {
   // Doc interactions
   activeDocId: string;
   onDocPointerDown: (e: React.PointerEvent, docId: string) => void;
+  onFolderPointerDown: (e: React.PointerEvent, folderId: string) => void;
   handleDocClick: (e: React.MouseEvent, docId: string) => void;
   handleContextMenu: (e: React.MouseEvent, id: string, kind?: 'doc' | 'folder') => void;
 
@@ -79,6 +85,8 @@ export function DocumentTreeRenderer({
   dragOverTarget,
   flashFolderId,
   draggingDocId,
+  draggingFolderId,
+  suppressClick,
   selectedIds,
   setSelectedIds,
   lastClickedId,
@@ -86,6 +94,7 @@ export function DocumentTreeRenderer({
   visibleItemIds,
   activeDocId,
   onDocPointerDown,
+  onFolderPointerDown,
   handleDocClick,
   handleContextMenu,
   renamingId,
@@ -176,6 +185,7 @@ export function DocumentTreeRenderer({
     const isDropTarget = dragOverTarget === f.id;
     const isFlashing = flashFolderId === f.id;
     const isRenaming = renamingFolderId === f.id;
+    const isDragging = draggingFolderId === f.id;
 
     return (
       <div
@@ -188,7 +198,7 @@ export function DocumentTreeRenderer({
           isDropTarget || isFlashing
             ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
             : 'border-transparent'
-        }`}
+        } ${isDragging ? 'opacity-40' : ''}`}
       >
         {/* Folder row — bold group-header style (Aliyun docs nav), right
             chevron for expand/collapse, no icon */}
@@ -198,8 +208,16 @@ export function DocumentTreeRenderer({
           selected={selectedIds.has(f.id)}
           noHover
           bleed
-          className="font-medium"
+          className={`font-medium ${isDragging ? 'cursor-grabbing' : ''}`}
+          onPointerDown={(e) => onFolderPointerDown(e, f.id)}
           onClick={(e) => {
+            // Swallow the synthetic click that follows a folder drag —
+            // otherwise every drop would also toggle the folder's
+            // expand state.
+            if (suppressClick.current) {
+              suppressClick.current = false;
+              return;
+            }
             if (e.metaKey || e.ctrlKey) {
               // Toggle selection
               setSelectedIds((prev) => {

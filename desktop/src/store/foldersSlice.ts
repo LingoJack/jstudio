@@ -16,6 +16,8 @@ export interface FoldersSlice {
   restoreFolder: (id: string) => void;
   emptyTrashFolders: () => void;
   toggleFolderCollapsed: (id: string) => void;
+  /** Move a folder under a new parent (null = top level). Rejects cycles. */
+  moveFolder: (id: string, parentId: string | null) => void;
   moveDocumentToFolder: (docId: string, folderId: string | null) => void;
   moveDocumentsToFolder: (docIds: string[], folderId: string | null) => void;
 }
@@ -265,6 +267,33 @@ export function createFoldersSlice(set: SetState, get: GetState) {
       );
       set({ folders: next });
       // Persist immediately — collapse state feels janky if debounced
+      scheduleFoldersSave(next);
+    },
+
+    // ── move folder ───────────────────────────────────────
+    /**
+     * Move a folder under a new parent (null = top level).
+     *
+     * Cycle-guarded: moving into the folder itself or any of its
+     * descendants is rejected (would create a loop and orphan the
+     * subtree in buildFolderTree). Moving under its current parent is
+     * a no-op.
+     */
+    moveFolder: (id: string, parentId: string | null) => {
+      const { folders } = get();
+      const folder = folders.find((f) => f.id === id);
+      if (!folder) return;
+      if (folder.parentId === parentId) return;
+      if (parentId !== null) {
+        const subtree = new Set(collectDescendantFolderIds(folders, id));
+        if (subtree.has(parentId)) return;
+        // Dangling parentId would orphan the folder — treat as top-level move.
+        if (!folders.some((f) => f.id === parentId)) return;
+      }
+      const next = folders.map((f) =>
+        f.id === id ? { ...f, parentId } : f,
+      );
+      set({ folders: next });
       scheduleFoldersSave(next);
     },
 

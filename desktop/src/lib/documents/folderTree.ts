@@ -90,7 +90,7 @@ export function buildFolderTree(
  * Used when deleting a folder to cascade-delete its sub-folders.
  */
 export function collectDescendantFolderIds(
-  folders: FolderMeta[],
+  folders: Array<Pick<FolderMeta, 'id' | 'parentId'>>,
   folderId: string,
 ): string[] {
   const result: string[] = [folderId];
