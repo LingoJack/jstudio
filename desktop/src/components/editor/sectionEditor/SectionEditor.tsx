@@ -34,6 +34,7 @@ import {
   setPlainTextPaste,
   consumePlainTextPaste,
 } from "../../../lib/editor/plainTextPaste";
+import { serializeSliceToMarkdown } from "../../../lib/editor/serializeSliceToMarkdown";
 import { createSectionExtensions } from "./extensions";
 import type { Block } from "../../../types";
 
@@ -62,7 +63,7 @@ export interface SectionFocusHandle {
   focus: () => void;
   /** Remove focus from this section's editor. */
   blur: () => void;
-  /** Plain text between [from, to]. Block boundaries become '\n'. */
+  /** Markdown text between [from, to] (list markers/nesting preserved). */
   getText: (from: number, to: number) => string;
   /** Serialized HTML for the content between [from, to]. */
   getHTML: (from: number, to: number) => string;
@@ -198,15 +199,6 @@ export default function SectionEditor({
   );
 
   const editor = useEditor({
-    // Configure clipboard text serializer to use single newline as block
-    // separator instead of the default '\n\n' (double newline). This fixes
-    // the issue where copying content from the editor to external apps
-    // produces extra blank lines between paragraphs.
-    coreExtensionOptions: {
-      clipboardTextSerializer: {
-        blockSeparator: "\n",
-      },
-    },
     editable: !readOnly,
     extensions: createSectionExtensions({
       placeholder: t("editor.placeholder"),
@@ -230,6 +222,17 @@ export default function SectionEditor({
       },
       handlePaste: readOnly ? undefined : createPasteHandler(editorRef),
       handleDrop: readOnly ? undefined : createDropHandler(editorRef),
+      // Copy: serialize the selected slice as markdown for text/plain, so
+      // list markers/nesting/inline-code backticks survive into external
+      // apps (the default textBetween serializer flattens all of that).
+      // editorProps wins over the core clipboardTextSerializer extension in
+      // ProseMirror's someProp lookup. editorRef is populated by the effect
+      // below (after mount) and copies can only happen afterwards.
+      clipboardTextSerializer: (slice) => {
+        const ed = editorRef.current;
+        if (!ed) return slice.content.textBetween(0, slice.content.size, "\n");
+        return serializeSliceToMarkdown(ed, slice);
+      },
       // Cross-section caret navigation: when the caret is at the very top of
       // this section and ArrowUp/Left is pressed, hand focus to the previous
       // section's end; at the very bottom with ArrowDown/Right, hand to the
@@ -380,7 +383,11 @@ export default function SectionEditor({
       },
       focus: () => editor.chain().focus().run(),
       blur: () => editor.chain().blur().run(),
-      getText: (from, to) => editor.state.doc.textBetween(from, to, "\n"),
+      getText: (from, to) =>
+        // Markdown (not textBetween) so the cross-section copy path in
+        // useCrossSectionSelection also preserves list markers / nesting /
+        // inline-code backticks.
+        serializeSliceToMarkdown(editor, editor.state.doc.slice(from, to)),
       getHTML: (from, to) => {
         const slice = editor.state.doc.slice(from, to);
         const serializer = DOMSerializer.fromSchema(editor.schema);
