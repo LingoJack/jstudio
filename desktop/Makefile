@@ -26,7 +26,6 @@ GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 # 伪目标声明
 # ============================================
 .PHONY: help \
-        current_dir push push-non-ai commit pull status \
         deps deps-fe \
         dev build release build-jcli \
         install uninstall reinstall \
@@ -58,53 +57,10 @@ help: ## 显示此帮助信息
 	@echo "  make fmt        # 格式化代码（前端 + Rust）"
 	@echo "  make lint       # 检查代码质量"
 	@echo "  make clean      # 清理构建产物"
-
-# ============================================
-# 目录和 Git 操作
-# ============================================
-current_dir: ## 显示当前目录信息
-	@echo "🔍 当前目录信息:"
-	@echo "======================================"
-	@echo "目录: $$(pwd)"
-	@echo "版本: $(VERSION)"
-	@echo "分支: $(GIT_BRANCH)"
-	@echo "======================================"
-
-push: current_dir fmt ## 提交并推送代码（手动 commit message）
-	@echo "📤 推送代码到远程仓库..."
-	@git add . \
-	&& (git commit -m "更新: $(shell date +'%Y-%m-%d %H:%M:%S')" || exit 0) \
-	&& git push origin $(GIT_BRANCH)
-	@echo "☑️ 代码已推送"
-
-push-non-ai: current_dir fmt ## 快速提交并推送（同 push，别名）
-	@$(MAKE) push
-
-commit: current_dir fmt ## 自动提交（基于变更生成 message）
-	@echo "📝 自动生成 commit message..."
-	@git add .; \
-	staged_files=$$(git diff --cached --name-only 2>/dev/null); \
-	if [ -z "$$staged_files" ]; then \
-		echo "ℹ️ 没有检测到变更，无需提交"; \
-		exit 0; \
-	fi; \
-	file_count=$$(echo "$$staged_files" | wc -l | tr -d ' '); \
-	if [ "$$file_count" -eq 1 ]; then \
-		msg="update: $$(echo "$$staged_files" | head -1)"; \
-	else \
-		first=$$(echo "$$staged_files" | head -1); \
-		msg="update: $$first and $$((file_count - 1)) other file(s)"; \
-	fi; \
-	git commit -m "$$msg"; \
-	echo "✅ 已提交: $$msg"
-
-pull: current_dir ## 拉取最新代码
-	@echo "📥 拉取最新代码..."
-	@git pull origin $(GIT_BRANCH)
-	@echo "☑️ 代码已更新"
-
-status: current_dir ## 查看 Git 状态
-	@git status
+	@echo ""
+	@echo "仓库级 git 命令在根目录:"
+	@echo "  cd .. && make push    # 提交并推送整个 monorepo"
+	@echo "  cd .. && make pull    # 拉取最新代码"
 
 # ============================================
 # 依赖安装

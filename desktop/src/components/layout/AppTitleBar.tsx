@@ -49,16 +49,15 @@ export default function AppTitleBar() {
       </div>
 
       {/* Center slot for the document tab capsule (portaled by DocumentTabs
-          when position is 'top'). items-end + the capsule's own
-          translate-y-1/2 make the capsule straddle the title bar's bottom
-          edge (chrome-tab style): taller than the 36px bar without getting
-          its top clipped by the window frame. Empty + pointer-events-none
-          so it never blocks window dragging. */}
+          when position is 'top'). The capsule is slimmed to 34px so it sits
+          fully inside the 36px bar (vertically centered) instead of hanging
+          below it and overlapping the document title. Empty +
+          pointer-events-none so it never blocks window dragging. */}
       <div
         id={TITLEBAR_CENTER_SLOT_ID}
         ref={setTitlebarSlot}
         data-tauri-drag-region
-        className="absolute inset-x-0 top-0 bottom-0 flex items-end justify-center pointer-events-none"
+        className="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none"
       />
 
       {/* Right: spacer (sidebar toggle moved into DocumentSidebar as a pin) */}

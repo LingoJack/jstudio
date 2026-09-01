@@ -10,6 +10,17 @@
 
 ## 常用命令
 
+### 仓库级（在根目录执行）
+
+| 任务 | 命令 |
+|------|------|
+| 提交并推送整个 monorepo | `make push` |
+| 自动生成 commit（不推送） | `make commit` |
+| 拉取最新代码 | `make pull` |
+| 查看 git 状态 | `make status` |
+| 格式化所有子项目 | `make fmt` |
+| 检查所有子项目 | `make lint` |
+
 ### 桌面应用（在 desktop/ 下执行）
 
 | 任务 | 命令 |

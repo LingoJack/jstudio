@@ -302,6 +302,10 @@ export default function TabBar({
   if (tabs.length === 0) return null;
 
   const isLastTab = tabs.length <= 1;
+  // Docked into the 36px title bar: slim the capsule (~34px) so it sits
+  // fully inside the bar instead of straddling its bottom edge and
+  // overlapping the document title below.
+  const docked = position === 'titlebar';
 
   return (
     <>
@@ -323,11 +327,8 @@ export default function TabBar({
           // excluded from the window drag region so grabbing it doesn't move
           // the window (and its own drag-to-detach keeps working).
           {...(position === 'titlebar' ? { 'data-tauri-drag-region': false } : {})}
-          className={`relative flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full ${
-            // Docked mode: straddle the title bar's bottom edge — the capsule
-            // (~46px) is taller than the 36px bar, so it hangs below it
-            // instead of being clipped by the window frame.
-            position === 'titlebar' ? 'translate-y-1/2 pointer-events-auto' : ''
+          className={`relative flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 rounded-full ${
+            docked ? 'h-[34px] py-[3px] pointer-events-auto' : 'py-1.5'
           }`}
           style={{
             maxWidth,
@@ -369,7 +370,9 @@ export default function TabBar({
                 Uses transform (compositor-thread) so the slide animation
                 stays smooth even when the main thread is blocked. */}
             <div
-              className="absolute top-1.5 bottom-1.5 rounded-full pointer-events-none"
+              className={`absolute rounded-full pointer-events-none ${
+                docked ? 'top-[3px] bottom-[3px]' : 'top-1.5 bottom-1.5'
+              }`}
               style={{
                 left: `${PILL_PAD_X_PX}px`,
                 width: `${TAB_WIDTH_PX}px`,
@@ -409,7 +412,7 @@ export default function TabBar({
                     e.stopPropagation();
                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                   }}
-                  className={`group relative flex items-center gap-1.5 w-[130px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
+                  className={`group relative flex items-center gap-1.5 w-[130px] px-3 ${docked ? 'py-1' : 'py-1.5'} rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
                       : `text-[${textColor}] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] hover:text-[var(--vscode-foreground)]`
@@ -478,7 +481,7 @@ export default function TabBar({
           {/* `+` button — outside scroll container, always visible */}
           <RippleButton
             onClick={onNew}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[var(--vscode-descriptionForeground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_10%,transparent)] hover:text-[var(--vscode-foreground)] transition-colors duration-75 cursor-pointer"
+            className={`shrink-0 ${docked ? 'w-6 h-6' : 'w-7 h-7'} flex items-center justify-center rounded-full text-[var(--vscode-descriptionForeground)] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_10%,transparent)] hover:text-[var(--vscode-foreground)] transition-colors duration-75 cursor-pointer`}
             rippleColor={rippleColor}
             rippleDuration={500}
           >
