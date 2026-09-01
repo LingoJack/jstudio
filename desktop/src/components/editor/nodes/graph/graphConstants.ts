@@ -21,6 +21,13 @@ const BRACE_GAP = 20;
 /** 花括号厚度（px）：水平括号为高度、竖直括号为宽度。 */
 const BRACE_THICKNESS = 40;
 
+/**
+ * 画板文本字体：引用全局 CSS 变量，跟随设置页的字体配置。
+ * maxGraph 标签是 HTML div，fontFamily 会被写成内联样式，var() 在 DOM 中
+ * 实时解析——设置变更无需刷新画板即生效（不走画布测量，无 var() 解析风险）。
+ */
+const GRAPH_FONT_FAMILY = 'var(--jstudio-font-family)';
+
 const DEFAULT_SIZE: Record<GraphNodeShape, { w: number; h: number }> = {
   rectangle: { w: 120, h: 60 },
   rounded: { w: 120, h: 60 },
@@ -259,6 +266,7 @@ const CONNECTION_POINTS: Array<[number, number]> = [
 
 export {
   DEFAULT_SIZE,
+  GRAPH_FONT_FAMILY,
   SHAPE_LABEL,
   styleForShape,
   braceLabelStyleFor,

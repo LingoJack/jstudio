@@ -8,7 +8,7 @@ import {
   SHAPE_FONT_SIZE,
   ARROW_END_SIZE,
 } from '../graphTheme';
-import { CONNECTION_POINTS } from '../graphConstants';
+import { CONNECTION_POINTS, GRAPH_FONT_FAMILY } from '../graphConstants';
 import { HEAD_HEIGHT } from '../customShapes';
 import type { GraphSetupFn } from './types';
 
@@ -23,6 +23,9 @@ export const setupDefaultStyles: GraphSetupFn = (ctx) => {
   vertexDefault.fontColor = getFontColor(dark);
   vertexDefault.strokeWidth = SHAPE_STROKE_WIDTH;
   vertexDefault.fontSize = SHAPE_FONT_SIZE;
+  // 字体跟随设置页配置（CSS var，内联到 label div 实时解析；cell 样式从不
+  // 显式写 fontFamily，因此所有已有/新建图形都走默认 stylesheet 的这一项）。
+  vertexDefault.fontFamily = GRAPH_FONT_FAMILY;
 
   // 全局默认走正交连线（飞书手感：圆角折线 + 小箭头），蓝色细线 + 圆点流动。
   const edgeDefault = graph.getStylesheet().getDefaultEdgeStyle();
@@ -36,6 +39,7 @@ export const setupDefaultStyles: GraphSetupFn = (ctx) => {
   // 解决双击边写文字时文字与线重叠、不明显的问题）。
   edgeDefault.fontSize = SHAPE_FONT_SIZE;
   edgeDefault.fontColor = getFontColor(dark);
+  edgeDefault.fontFamily = GRAPH_FONT_FAMILY;
   edgeDefault.labelBackgroundColor = getLabelBackgroundColor(dark);
 
   // 为每个节点提供固定连接点：悬停边缘时高亮圆点锚点，
