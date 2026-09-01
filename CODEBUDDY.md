@@ -52,3 +52,19 @@
 - 禁止魔法值：带语义的字面量（阈值、超时、端口、bucket 名等）一律命名常量。
 - 本仓库有自动提交守护进程（提交信息格式「更新: 时间戳」，会自动 commit 并 push）；不要 rebase/reset 清理这些自动提交。
 - `desktop/jcli/` 是 git submodule（`j` CLI）；Cargo workspace 通过 `path = "../jcli/j-agent"` 引用。
+
+创建 commit 之前必须取得用户的明确同意
+commit 格式规范：
+```text
+{category}/{change_concise_description}
+{description} 改动文件、改动点、影响面、预期行为
+1. ...
+2. ...
+```
+
+被允许的 category 有
+- feat 新增功能
+- bugfix bug 修复
+- chore 日常事务/杂活
+
+

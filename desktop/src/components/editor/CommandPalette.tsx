@@ -349,7 +349,7 @@ export default function CommandPalette() {
 
       {/* Panel - VSCode 风格边框 + 实色背景 */}
       <div
-        className={`relative w-[min(600px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+        className={`relative w-[min(720px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
           transition === 'exit'
             ? 'animate-dialog-panel-out'
             : 'animate-dialog-panel-in'
@@ -398,7 +398,7 @@ export default function CommandPalette() {
           ref={listRef}
           className="relative overflow-y-auto py-1"
           style={{
-            maxHeight: 'min(360px, 50vh)',
+            maxHeight: 'min(480px, 50vh)',
             minHeight: '48px', // 最小高度，避免空结果时面板塌陷
             scrollbarWidth: 'none',
           }}

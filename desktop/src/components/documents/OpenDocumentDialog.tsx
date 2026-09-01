@@ -159,7 +159,7 @@ export default function OpenDocumentDialog({
       />
 
       <div
-        className={`relative w-[min(600px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+        className={`relative w-[min(720px,92vw)] overflow-hidden flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
           transition === 'exit'
             ? 'animate-dialog-panel-out'
             : 'animate-dialog-panel-in'
