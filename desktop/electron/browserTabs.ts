@@ -104,6 +104,8 @@ export class TabsManager {
   }
 
   layout(): void {
+    // 'closed' fires after the host is destroyed; contentView access would throw.
+    if (this.host.isDestroyed()) return;
     const rect = this.contentRect();
     const active = this.tabs.find((t) => t.id === this.activeTabId);
     for (const tab of this.tabs) {
@@ -196,10 +198,15 @@ export class TabsManager {
     const idx = this.tabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return;
     const [tab] = this.tabs.splice(idx, 1);
-    if (this.host.contentView.children.includes(tab.view)) {
-      this.host.contentView.removeChildView(tab.view);
+    // Host window may already be destroyed (TabsManager.destroy runs on the
+    // 'closed' event, which fires post-destruction) — every native accessor
+    // below would throw "Object has been destroyed".
+    if (!this.host.isDestroyed()) {
+      if (this.host.contentView.children.includes(tab.view)) {
+        this.host.contentView.removeChildView(tab.view);
+      }
     }
-    tab.view.webContents.close();
+    if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
     if (this.activeTabId === tabId) {
       this.activeTabId = this.tabs[Math.min(idx, this.tabs.length - 1)]?.id ?? null;
     }
