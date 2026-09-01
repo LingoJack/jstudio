@@ -186,7 +186,7 @@ export default function OpenDocumentDialog({
           ref={listRef}
           className="relative overflow-y-auto py-1"
           style={{
-            maxHeight: 'min(360px, 50vh)',
+            maxHeight: 'min(480px, 50vh)',
             minHeight: '48px',
             scrollbarWidth: 'none',
           }}
