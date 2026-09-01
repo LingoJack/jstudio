@@ -625,6 +625,9 @@ export default function DocumentPanel({
             onChange={(e) => updateDocumentMeta({ title: e.target.value })}
             onKeyDown={handleTitleKeyDown}
             placeholder={t('editor.titlePlaceholder')}
+            // 原生 input 不继承 body 字体（UA 样式表给表单控件用系统字体），
+            // 必须显式跟随设置页的字体配置，与 .ProseMirror 保持一致。
+            style={{ fontFamily: 'var(--jstudio-font-family)' }}
             className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1 caret-[var(--vscode-editorCursor-foreground,var(--vscode-focusBorder,#007fd4))]"
           />
           {activeDocUpdatedAt && (
