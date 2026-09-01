@@ -38,6 +38,7 @@ import { lowlight } from '../../../lib/editor/extensions/lowlight';
 import { SelectAllText } from '../../../lib/editor/extensions/selectAllText';
 import { ImeCapsLockFix } from '../../../lib/editor/extensions/imeCapsLockFix';
 import { TaskListMarkdown } from '../../../lib/editor/extensions/taskListMarkdown';
+import { ListMarkerSelection } from '../../../lib/editor/extensions/listMarkerSelection';
 import { SlashMenuExtension } from '../../../lib/editor/slashMenu';
 import { BlockNavigation } from '../../../lib/editor/blockNavigation';
 import { SectionHighlightSelection } from '../../../lib/editor/extensions/sectionHighlightSelection';
@@ -148,6 +149,7 @@ export function createSectionExtensions(
     TaskList,
     TaskItem.configure({ nested: true }),
     TaskListMarkdown,
+    ListMarkerSelection,
     TextAlign.configure({ types: ['paragraph', 'heading', 'blockquote'] }),
     BlockIdExtension,
     SelectAllText,

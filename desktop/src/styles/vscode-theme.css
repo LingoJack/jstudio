@@ -1191,10 +1191,32 @@ button {
 
 .ProseMirror li {
   margin: 0.15em 0;
+  /* 作为 .list-marker-hitbox 的定位参照（热区绝对定位到 marker 区域）。 */
+  position: relative;
 }
 
 .ProseMirror li > p {
   margin: 0;
+}
+
+/* 列表标记点击热区 — 覆盖在原生 marker 上方的透明区域。点击圆点即选中
+   整个列表项（NodeSelection），此时复制才携带 '- ' 前缀；普通文本选区
+   复制不带标记。见 lib/editor/extensions/listMarkerSelection.ts。 */
+.list-marker-hitbox {
+  position: absolute;
+  left: -1.7em;
+  top: -0.15em;
+  width: 1.5em;
+  height: 1.7em;
+  cursor: pointer;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.list-marker-hitbox:hover {
+  background: var(--vscode-list-hoverBackground);
+  opacity: 0.55;
 }
 
 /* 嵌套列表 — 缩进递进 */

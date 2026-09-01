@@ -16,7 +16,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
-import { DOMSerializer } from "@tiptap/pm/model";
+import { DOMSerializer, Fragment, Slice } from "@tiptap/pm/model";
 
 import { useI18n } from "../../../lib/core/i18n";
 import { logger } from "../../../lib/core/logger";
@@ -34,7 +34,7 @@ import {
   setPlainTextPaste,
   consumePlainTextPaste,
 } from "../../../lib/editor/plainTextPaste";
-import { serializeSliceToMarkdown } from "../../../lib/editor/serializeSliceToMarkdown";
+import { serializeSelectionToMarkdown, serializeRangeToMarkdown } from "../../../lib/editor/serializeSliceToMarkdown";
 import { createSectionExtensions } from "./extensions";
 import type { Block } from "../../../types";
 
@@ -222,16 +222,44 @@ export default function SectionEditor({
       },
       handlePaste: readOnly ? undefined : createPasteHandler(editorRef),
       handleDrop: readOnly ? undefined : createDropHandler(editorRef),
-      // Copy: serialize the selected slice as markdown for text/plain, so
-      // list markers/nesting/inline-code backticks survive into external
-      // apps (the default textBetween serializer flattens all of that).
-      // editorProps wins over the core clipboardTextSerializer extension in
-      // ProseMirror's someProp lookup. editorRef is populated by the effect
-      // below (after mount) and copies can only happen afterwards.
+      // Copy: markdown for text/plain. Coverage is computed from doc
+      // positions (see serializeSliceToMarkdown.ts): fully-covered blocks
+      // keep structure, cut-open blocks contribute plain inline text —
+      // so selecting text inside a list item never carries '- ', while a
+      // whole-item node selection (marker click) does.
       clipboardTextSerializer: (slice) => {
         const ed = editorRef.current;
         if (!ed) return slice.content.textBetween(0, slice.content.size, "\n");
-        return serializeSliceToMarkdown(ed, slice);
+        return serializeSelectionToMarkdown(ed);
+      },
+      // Whole list items selected via their marker (ListMarkerSelection)
+      // reach the clipboard as bare <li> fragments — the slice holds the
+      // listItem nodes without their parent list. Wrap them back so
+      // text/html is a valid list for internal paste and external editors.
+      transformCopied: (slice) => {
+        const ed = editorRef.current;
+        if (!ed) return slice;
+        let allItems = slice.content.childCount > 0;
+        slice.content.forEach((node) => {
+          if (node.type.name !== "listItem") allItems = false;
+        });
+        if (!allItems) return slice;
+        let listType = "bulletList";
+        const { $from } = ed.state.selection;
+        for (let depth = $from.depth; depth >= 0; depth--) {
+          const name = $from.node(depth).type.name;
+          if (name === "bulletList" || name === "orderedList") {
+            listType = name;
+            break;
+          }
+        }
+        const listNodeType = ed.schema.nodes[listType];
+        if (!listNodeType) return slice;
+        return new Slice(
+          Fragment.from(listNodeType.create(null, slice.content)),
+          slice.openStart,
+          slice.openEnd,
+        );
       },
       // Cross-section caret navigation: when the caret is at the very top of
       // this section and ArrowUp/Left is pressed, hand focus to the previous
@@ -385,9 +413,10 @@ export default function SectionEditor({
       blur: () => editor.chain().blur().run(),
       getText: (from, to) =>
         // Markdown (not textBetween) so the cross-section copy path in
-        // useCrossSectionSelection also preserves list markers / nesting /
-        // inline-code backticks.
-        serializeSliceToMarkdown(editor, editor.state.doc.slice(from, to)),
+        // useCrossSectionSelection also preserves structure for fully
+        // covered blocks (list markers/nesting/inline-code backticks),
+        // while cut-open edge blocks contribute plain inline text.
+        serializeRangeToMarkdown(editor, from, to),
       getHTML: (from, to) => {
         const slice = editor.state.doc.slice(from, to);
         const serializer = DOMSerializer.fromSchema(editor.schema);
