@@ -1,0 +1,36 @@
+/**
+ * bundled-fonts — fonts shipped with the app.
+ *
+ * Maple Mono CN (OFL-1.1) is bundled so it works without installing
+ * anything: monospace Latin + monospace CJK, with CJK glyphs exactly
+ * twice the Latin advance width — so mixed Chinese/Latin text stays
+ * column-aligned (Monaco + PingFang cannot do that).
+ *
+ * Upstream ships TTF only (17.7MB per weight); these are woff2
+ * conversions (~5.5MB per weight) with the full 23275-glyph coverage.
+ * License: src/assets/fonts/MapleMono-CN-LICENSE.txt
+ */
+
+@font-face {
+  font-family: 'Maple Mono CN';
+  src: url('../assets/fonts/MapleMono-CN-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono CN';
+  src: url('../assets/fonts/MapleMono-CN-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono CN';
+  src: url('../assets/fonts/MapleMono-CN-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}

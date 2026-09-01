@@ -13,6 +13,8 @@ import { logger } from "./lib/core/logger";
 import { useWindowFocusTracking } from "./lib/windows/useWindowFocusTracking";
 import "./index.css";
 import "./styles/vscode-theme.css";
+import "./styles/bundled-fonts.css";
+import "./styles/bundled-fonts.css";
 
 // ── Runtime logger early bootstrap ──────────────────────────────────────
 //

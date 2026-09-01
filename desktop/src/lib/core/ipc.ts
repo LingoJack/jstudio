@@ -158,6 +158,13 @@ export const ipc = {
   saveSettings: (settings: AppSettings) =>
     invoke<void>("write_settings", { settings }),
 
+  /**
+   * Family names of every font installed on this machine (sorted).
+   * Backs the "system fonts" group of the settings font pickers; returns
+   * an empty list on platforms without enumeration support.
+   */
+  listSystemFonts: () => invoke<string[]>("list_system_fonts"),
+
   // ---- agent config (jcli agent model providers) ----
 
   /**

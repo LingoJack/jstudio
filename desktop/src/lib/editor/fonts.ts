@@ -33,6 +33,12 @@ export const LATIN_FONTS: FontPreset[] = [
     preview: 'AaBbCc 123',
   },
   {
+    id: 'maple-mono-cn',
+    label: 'Maple Mono CN（内置）',
+    fontFamily: "'Maple Mono CN'",
+    preview: 'AaBbCc 123',
+  },
+  {
     id: 'sf-mono',
     label: 'SF Mono',
     fontFamily: "'SF Mono'",
@@ -97,6 +103,12 @@ export const CJK_FONTS: FontPreset[] = [
     preview: '你好世界 汉字',
   },
   {
+    id: 'maple-mono-cn',
+    label: 'Maple Mono CN（内置等宽中文）',
+    fontFamily: "'Maple Mono CN'",
+    preview: '你好世界 汉字',
+  },
+  {
     id: 'songti',
     label: '宋体 (Songti SC)',
     fontFamily: "'Songti SC'",
@@ -138,7 +150,67 @@ export const CJK_FONTS: FontPreset[] = [
     fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif",
     preview: '你好世界 汉字',
   },
+  {
+    id: 'sarasa-mono',
+    label: '更纱黑体等宽 (Sarasa Mono SC)',
+    fontFamily:
+      "'Sarasa Mono SC', 'Sarasa Mono CL', 'Sarasa Mono J', 'Noto Sans Mono CJK SC', 'Source Han Mono SC', 'Osaka-Mono', 'PingFang SC'",
+    preview: '你好世界 汉字',
+  },
+  {
+    id: 'noto-mono-cjk',
+    label: '思源等宽黑体 (Noto Sans Mono CJK SC)',
+    fontFamily:
+      "'Noto Sans Mono CJK SC', 'Source Han Mono SC', 'Source Han Mono', 'Sarasa Mono SC', 'Osaka-Mono', 'PingFang SC'",
+    preview: '你好世界 汉字',
+  },
+  {
+    id: 'osaka-mono',
+    label: '大阪等宽 (Osaka-Mono)',
+    fontFamily: "'Osaka-Mono', 'Osaka', 'PingFang SC'",
+    preview: '你好世界 汉字',
+  },
 ];
+
+// ---- system fonts ----
+
+/**
+ * Id prefix for a font picked from the machine's installed fonts rather
+ * than from the built-in presets. The remainder is the raw family name,
+ * e.g. `system:Maple Mono`.
+ */
+export const SYSTEM_FONT_PREFIX = 'system:';
+
+/** Wrap a font family name in quotes so it is safe inside a CSS stack. */
+function quoteFamily(family: string): string {
+  return `'${family.replace(/'/g, "\\'")}'`;
+}
+
+/** Build a `FontPreset` for one of the machine's installed font families. */
+export function toSystemFontPreset(family: string): FontPreset {
+  return {
+    id: `${SYSTEM_FONT_PREFIX}${family}`,
+    label: family,
+    fontFamily: quoteFamily(family),
+    preview: 'AaBbCc 你好',
+  };
+}
+
+/**
+ * Resolve one half of the font stack: either a built-in preset id or a
+ * `system:<family>` id produced by the settings font picker.
+ */
+function resolveFontId(
+  id: string | undefined,
+  presets: FontPreset[],
+  fallback: FontPreset = presets[0],
+): string {
+  if (!id) return fallback.fontFamily;
+  if (id.startsWith(SYSTEM_FONT_PREFIX)) {
+    return quoteFamily(id.slice(SYSTEM_FONT_PREFIX.length));
+  }
+  return (presets.find((f) => f.id === id) ?? fallback).fontFamily;
+}
 
 /** Default Latin font preset id. */
 export const DEFAULT_LATIN_FONT_ID = 'monaco';
@@ -151,16 +223,15 @@ export const DEFAULT_CJK_FONT_ID = 'pingfang';
  * and CJK preset ids. The Latin font is placed first so it takes
  * priority for Latin glyphs; the CJK font follows for Chinese
  * characters; a generic family is appended as the final fallback.
+ *
+ * Both ids accept `system:<family>` ids from the settings font picker.
  */
 export function resolveFontFamily(
   latinId: string | undefined,
   cjkId: string | undefined,
 ): string {
-  const latin = LATIN_FONTS.find((f) => f.id === latinId);
-  const cjk = CJK_FONTS.find((f) => f.id === cjkId);
-
-  const latinFamily = latin?.fontFamily ?? LATIN_FONTS[0].fontFamily;
-  const cjkFamily = cjk?.fontFamily ?? CJK_FONTS[0].fontFamily;
+  const latinFamily = resolveFontId(latinId, LATIN_FONTS);
+  const cjkFamily = resolveFontId(cjkId, CJK_FONTS);
 
   // Determine generic family based on whether either font is serif.
   const isSerif =
@@ -233,8 +304,10 @@ export const MONOSPACE_FONTS: FontPreset[] = [
 /** Default terminal monospace font id. */
 export const DEFAULT_MONOSPACE_FONT_ID = 'monaco';
 
-/** Resolve a monospace font id to its CSS font-family string. */
+/**
+ * Resolve a monospace font id to its CSS font-family string. Accepts
+ * system font ids (`system:<family>`) as well.
+ */
 export function resolveMonospaceFont(id: string | undefined): string {
-  const font = MONOSPACE_FONTS.find((f) => f.id === id);
-  return font?.fontFamily ?? MONOSPACE_FONTS[0].fontFamily;
+  return resolveFontId(id, MONOSPACE_FONTS) ?? MONOSPACE_FONTS[0].fontFamily;
 }

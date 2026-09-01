@@ -50,3 +50,7 @@ cipher = { version = "0.4", features = ["block-padding"] }
 urlencoding = "2"
 url = "2"
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+
+# ── system font enumeration (settings font pickers) ──
+[target.'cfg(target_os = "macos")'.dependencies]
+core-text = "20"

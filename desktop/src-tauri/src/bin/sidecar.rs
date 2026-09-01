@@ -14,7 +14,7 @@
 //! Params arrive as the same camelCase object Tauri would have received.
 
 use jstudio_lib::commands::{
-    agent, ai_graph, bundle, debug, detach, jcli, link,
+    agent, ai_graph, bundle, debug, detach, fonts, jcli, link,
     storage::{assets, backups, cache, documents, folders, markdown, paths, settings, snapshots},
     terminal,
 };
@@ -349,6 +349,9 @@ async fn handle(method: &str, params: Value, events: Arc<dyn EventSink>) -> Resu
         "get_log_file_path" => blocking(debug::get_log_file_path).await,
         "open_logs_dir" => blocking(debug::open_logs_dir).await,
         "clear_logs" => blocking(debug::clear_logs).await,
+
+        // ── system fonts (settings font pickers) ──
+        "list_system_fonts" => blocking(fonts::list_system_fonts).await,
 
         _ => Err(format!("unknown method: {method}")),
     }

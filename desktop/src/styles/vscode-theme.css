@@ -2910,6 +2910,19 @@ button {
   text-align: center;
 }
 
+/* Group label — separates built-in presets from installed system fonts */
+.font-dropdown-group-label {
+  position: sticky;
+  top: -4px;
+  z-index: 1;
+  margin-top: 4px;
+  padding: 5px 12px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-menu-background);
+  border-top: 1px solid var(--vscode-widget-border);
+}
+
 /* ============================================
    Table Styles (TipTap Table extension)
    — Lightweight grid: thin lines, no hover flicker.

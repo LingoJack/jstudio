@@ -11,6 +11,7 @@ import {
   MAX_LINE_HEIGHT,
 } from '../../lib/editor/fonts';
 import FontDropdown from '../ui/FontDropdown';
+import { useSystemFonts } from '../../lib/editor/useSystemFonts';
 import type { EditorCursorStyle } from '../../types/settings';
 
 /** Cursor style options shown in the settings picker. */
@@ -45,6 +46,9 @@ export default function EditorSection() {
   const setEditorCursorStyle = useStore((s) => s.setEditorCursorStyle);
   const setEditorCursorAnimationEnabled = useStore((s) => s.setEditorCursorAnimationEnabled);
 
+  // Installed system fonts, appended as a second group in both pickers.
+  const systemFonts = useSystemFonts();
+
   const previewFontFamily = resolveFontFamily(fontId, cjkFontId);
 
   return (
@@ -62,6 +66,7 @@ export default function EditorSection() {
           value={fontId}
           onChange={setFontId}
           searchPlaceholder={t('font.searchPlaceholder')}
+          systemOptions={systemFonts}
         />
       </div>
 
@@ -77,6 +82,7 @@ export default function EditorSection() {
           options={CJK_FONTS}
           value={cjkFontId}
           onChange={setCjkFontId}
+          systemOptions={systemFonts}
           searchPlaceholder={t('font.searchPlaceholder')}
         />
       </div>

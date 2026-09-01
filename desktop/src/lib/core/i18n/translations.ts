@@ -578,6 +578,7 @@ export const translations = {
     // ── FontDropdown ──
     "font.searchPlaceholder": "搜索字体…",
     "font.noMatch": "无匹配字体",
+    "font.systemFonts": "本机已安装字体",
 
     // ── FormatBubbleMenu ──
     "bubble.bold": "加粗",
@@ -1506,6 +1507,7 @@ export const translations = {
     // ── FontDropdown ──
     "font.searchPlaceholder": "Search fonts…",
     "font.noMatch": "No matching fonts",
+    "font.systemFonts": "Installed Fonts",
 
     // ── FormatBubbleMenu ──
     "bubble.bold": "Bold",

@@ -3,6 +3,7 @@ pub mod ai_graph;
 pub mod bundle;
 pub mod debug;
 pub mod detach;
+pub mod fonts;
 pub mod jcli;
 pub mod link;
 pub mod storage;

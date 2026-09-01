@@ -6,7 +6,7 @@
  * user can see what the font looks like before selecting it.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { useI18n } from '../../lib/core/i18n';
 import type { FontPreset } from '../../lib/editor/fonts';
@@ -23,6 +23,11 @@ export interface FontDropdownProps {
   searchPlaceholder?: string;
   /** Whether the dropdown is disabled. */
   disabled?: boolean;
+  /**
+   * Fonts installed on this machine, rendered in a second group below
+   * the built-in presets. Empty until `useSystemFonts()` resolves.
+   */
+  systemOptions?: FontPreset[];
 }
 
 export default function FontDropdown({
@@ -31,6 +36,7 @@ export default function FontDropdown({
   onChange,
   searchPlaceholder,
   disabled = false,
+  systemOptions = [],
 }: FontDropdownProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -42,7 +48,10 @@ export default function FontDropdown({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const selected = options.find((o) => o.id === value) ?? options[0];
+  const selected =
+    options.find((o) => o.id === value) ??
+    systemOptions.find((o) => o.id === value) ??
+    options[0];
 
   const close = useCallback(() => {
     setOpen(false);
@@ -58,18 +67,17 @@ export default function FontDropdown({
     [onChange, close],
   );
 
-  const filtered = query
-    ? options.filter(
-        (o) =>
-          o.label.toLowerCase().includes(query.toLowerCase()) ||
-          o.id.toLowerCase().includes(query.toLowerCase()),
-      )
-    : options;
+  const matchesQuery = (o: FontPreset) =>
+    o.label.toLowerCase().includes(query.toLowerCase()) ||
+    o.id.toLowerCase().includes(query.toLowerCase());
+  const presetItems = query ? options.filter(matchesQuery) : options;
+  const systemItems = query ? systemOptions.filter(matchesQuery) : systemOptions;
+  const items = [...presetItems, ...systemItems];
 
   // Reset highlight when the filtered list changes
   useEffect(() => {
     if (!open) return;
-    const idx = filtered.findIndex((o) => o.id === value);
+    const idx = items.findIndex((o) => o.id === value);
     setHighlighted(idx >= 0 ? idx : 0);
   }, [query, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -78,7 +86,9 @@ export default function FontDropdown({
     if (!open) return;
     const list = listRef.current;
     if (!list) return;
-    const item = list.children[highlighted] as HTMLElement | undefined;
+    const item = list.querySelector<HTMLElement>(
+      `[data-index="${highlighted}"]`,
+    );
     item?.scrollIntoView({ block: 'nearest' });
   }, [highlighted, open]);
 
@@ -151,15 +161,15 @@ export default function FontDropdown({
                 if (handleNativeSelectAll(e)) return;
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
-                  if (filtered.length === 0) return;
-                  setHighlighted((p) => (p >= filtered.length - 1 ? 0 : p + 1));
+                  if (items.length === 0) return;
+                  setHighlighted((p) => (p >= items.length - 1 ? 0 : p + 1));
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault();
-                  if (filtered.length === 0) return;
-                  setHighlighted((p) => (p <= 0 ? filtered.length - 1 : p - 1));
+                  if (items.length === 0) return;
+                  setHighlighted((p) => (p <= 0 ? items.length - 1 : p - 1));
                 } else if (e.key === 'Enter') {
                   e.preventDefault();
-                  const item = filtered[highlighted] ?? filtered[0];
+                  const item = items[highlighted] ?? items[0];
                   if (item) handleSelect(item.id);
                 }
               }}
@@ -168,28 +178,35 @@ export default function FontDropdown({
             />
           </div>
           <div ref={listRef} className="font-dropdown-list">
-            {filtered.length === 0 ? (
+            {items.length === 0 ? (
               <div className="font-dropdown-empty">{t('font.noMatch')}</div>
             ) : (
-              filtered.map((opt, index) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => handleSelect(opt.id)}
-                  onMouseEnter={() => setHighlighted(index)}
-                  className={`font-dropdown-option ${opt.id === value ? 'is-active' : ''} ${index === highlighted ? 'is-highlighted' : ''}`}
-                >
-                  <span className="font-dropdown-option-label">{opt.label}</span>
-                  {opt.preview && (
-                    <span
-                      className="font-dropdown-option-preview"
-                      style={{ fontFamily: opt.fontFamily }}
-                    >
-                      {opt.preview}
-                    </span>
+              items.map((opt, index) => (
+                <Fragment key={opt.id}>
+                  {index === presetItems.length && systemItems.length > 0 && (
+                    <div className="font-dropdown-group-label">
+                      {t('font.systemFonts')}
+                    </div>
                   )}
-                  {opt.id === value && <Check size={13} className="font-dropdown-check" />}
-                </button>
+                  <button
+                    type="button"
+                    data-index={index}
+                    onClick={() => handleSelect(opt.id)}
+                    onMouseEnter={() => setHighlighted(index)}
+                    className={`font-dropdown-option ${opt.id === value ? 'is-active' : ''} ${index === highlighted ? 'is-highlighted' : ''}`}
+                  >
+                    <span className="font-dropdown-option-label">{opt.label}</span>
+                    {opt.preview && (
+                      <span
+                        className="font-dropdown-option-preview"
+                        style={{ fontFamily: opt.fontFamily }}
+                      >
+                        {opt.preview}
+                      </span>
+                    )}
+                    {opt.id === value && <Check size={13} className="font-dropdown-check" />}
+                  </button>
+                </Fragment>
               ))
             )}
           </div>
