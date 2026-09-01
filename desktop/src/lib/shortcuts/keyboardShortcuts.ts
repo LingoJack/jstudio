@@ -122,6 +122,21 @@ export const SHORTCUTS: ShortcutDef[] = [
     descKey: 'shortcut.app.find.desc',
   },
   {
+    // Cmd+A 主路径是 macOS 菜单自定义项（native-command → app.selectAll →
+    // 跨段全选）。本条目是 DOM 兜底：菜单未拦截时（实测发生过）按键会落入
+    // 编辑器，被 ProseMirror 段内 Mod-a 接住而退化为"只选当前段"；捕获阶段
+    // 的 DOM 绑定抢在段内 keymap 之前，同样路由到跨段全选。菜单正常拦截时
+    // DOM 收不到此键，不会双重触发。不可自定义：菜单加速器固定 Cmd+A，
+    // 改绑会造成"两个键都能全选"的误导。
+    id: 'app.selectAll',
+    category: 'general',
+    scope: 'global',
+    defaultBinding: 'mod+a',
+    customizable: false,
+    labelKey: 'shortcut.app.selectAll',
+    descKey: 'shortcut.app.selectAll.desc',
+  },
+  {
     id: 'app.globalSearch',
     category: 'general',
     scope: 'global',

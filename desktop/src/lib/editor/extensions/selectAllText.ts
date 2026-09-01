@@ -1,18 +1,21 @@
 /**
- * SelectAllText — overrides ProseMirror's default Mod-a keymap.
+ * SelectAllText — the editor's Mod-a keymap.
  *
- * The built-in "selectAll" command creates an AllSelection, whose DOM Range
- * extends to the very end of the editor DOM (.ProseMirror).  When the last
- * block is a <pre><code>…</code></pre>, WebKit paints the ::selection
- * background across the full width of the <pre> element's bottom padding,
- * producing a thick blue bar below the code.  By re-creating the selection as
- * a TextSelection (from doc start to the last text position inside the last
- * block), the DOM range stays within text nodes and the highlight renders
- * correctly.
+ * Behavior:
+ *   1. Caret/selection inside a code block → select ONLY that block's content.
+ *   2. Otherwise → delegate to the cross-section select-all handler
+ *      registered by DocumentPanel (selectAllRegistry) so the whole document
+ *      is selected, identical to the macOS menu's "Select All" dispatch.
+ *   3. No handler registered (static preview etc.) → section-local
+ *      TextSelection from doc start to the last text position, which keeps
+ *      the DOM Range inside text nodes and avoids the WebKit bug where an
+ *      AllSelection paints a full-width ::selection bar across a trailing
+ *      <pre>'s bottom padding.
  */
 
 import { Extension } from '@tiptap/core';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
+import { getSelectAllHandler } from '../selectAllRegistry';
 
 export const SelectAllText = Extension.create({
   name: 'select-all-text',
@@ -58,7 +61,19 @@ export const SelectAllText = Extension.create({
           return true;
         }
 
-        // Walk the document to find the end position of the very last text
+        // Not in a code block → select the ENTIRE document across all
+        // sections via the handler registered by DocumentPanel (the same
+        // entry the macOS menu's "Select All" dispatches to). This fires when
+        // Cmd+A reaches the editor as a DOM keydown — i.e. whenever the
+        // native menu did NOT intercept it — so both paths behave identically.
+        const crossHandler = getSelectAllHandler();
+        if (crossHandler) {
+          crossHandler();
+          return true;
+        }
+
+        // Fallback (no DocumentPanel registered, e.g. static preview): walk
+        // the document to find the end position of the very last text
         // node.  This keeps the DOM selection range inside text nodes,
         // avoiding the AllSelection bug where WebKit paints a full-width
         // ::selection bar across <pre> bottom padding.
