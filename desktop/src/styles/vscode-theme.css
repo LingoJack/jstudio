@@ -3093,25 +3093,93 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   content: "\200b"; /* zero-width space */
 }
 
+/* ── Column edge guides ──────────────────────────────────────────────
+   The vertical grid lines are intentionally gone (line-only table style),
+   which leaves the column edges with no visual reference at all — and the
+   resize handle below is fully transparent until hovered, so there is
+   nothing to aim at when adjusting a column width.
+
+   These guides exist ONLY while the pointer is over the table: they restore
+   the "where is the edge" cue for the duration of an interaction without
+   bringing back permanent grid lines. One segment per cell, stacked into a
+   continuous column line. */
+.ProseMirror .tableWrapper:hover td::before,
+.ProseMirror .tableWrapper:hover th::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: var(--jstudio-block-line);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* The last cell in a row: its right edge is the table border, so drawing a
+   guide there would just double it. */
+.ProseMirror .tableWrapper:hover td:last-child::before,
+.ProseMirror .tableWrapper:hover th:last-child::before {
+  content: none;
+}
+
 /* Column resize handle - appears on the right edge of each cell when
    `resizable: true` is enabled on the Table extension. */
 .ProseMirror .tableWrapper .column-resize-handle {
   position: absolute;
-  right: -2px;
+  /* An 8px band straddling the edge. Kept in sync with
+     COLUMN_RESIZE_HANDLE_WIDTH (extensions.ts), which is the plugin's own
+     hit-test width; staying under the cell's 12px horizontal padding means
+     it can never cover text or swallow a caret-placing click. */
+  right: -4px;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 8px;
   z-index: 5;
   cursor: col-resize;
   background-color: transparent;
-  transition: background-color 0.15s;
   pointer-events: auto;
 }
 
-.ProseMirror .tableWrapper .column-resize-handle:hover,
-.ProseMirror .tableWrapper td:hover .column-resize-handle,
-.ProseMirror .tableWrapper th:hover .column-resize-handle {
+/* The visible part of the handle: the hit band is 8px wide but only a
+   centred 2px sliver is ever coloured, so an idle handle stays invisible. */
+.ProseMirror .tableWrapper .column-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background-color: transparent;
+  transition: background-color 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+
+/* Hovering a cell: fade in that cell's own edge, answering "where is it". */
+.ProseMirror .tableWrapper td:hover .column-resize-handle::after,
+.ProseMirror .tableWrapper th:hover .column-resize-handle::after {
+  background-color: color-mix(
+    in srgb,
+    var(--vscode-focusBorder, #007fd4) 35%,
+    transparent
+  );
+}
+
+/* Inside the hit band / mid-drag: full highlight — "press now to resize". */
+.ProseMirror .tableWrapper .column-resize-handle:hover::after,
+.ProseMirror .tableWrapper .column-resize-dragging .column-resize-handle::after {
   background-color: var(--vscode-focusBorder, #007fd4);
+  box-shadow: 0 0 6px
+    color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 45%, transparent);
+}
+
+/* Mid-drag: light up the full height of the column edge being resized.
+   The handle itself is only one row tall, so without this the highlight
+   breaks up row by row and is hard to follow on tall tables. */
+.ProseMirror .tableWrapper td.column-resize-dragging::before,
+.ProseMirror .tableWrapper th.column-resize-dragging::before {
+  background: var(--vscode-focusBorder, #007fd4);
 }
 
 /* While dragging: highlight the handle being resized */

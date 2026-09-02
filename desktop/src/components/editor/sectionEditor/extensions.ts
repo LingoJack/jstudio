@@ -44,6 +44,19 @@ import { BlockNavigation } from '../../../lib/editor/blockNavigation';
 import { SectionHighlightSelection } from '../../../lib/editor/extensions/sectionHighlightSelection';
 import { SectionSearchHighlight } from '../../../lib/editor/extensions/sectionSearchHighlight';
 
+/**
+ * Half-width (px) of the column-resize hit band on each side of a table
+ * column edge. Default is 5; 8 gives a forgiving target now that the
+ * vertical grid lines are gone (there is no visual cue to aim at).
+ *
+ * Must stay in sync with `.column-resize-handle`'s width in
+ * `styles/vscode-theme.css` — that element is the *visual* handle, while
+ * this value is the *hit area* the plugin tests (`|x - edge| <= handleWidth`).
+ * Keep it below the cell's horizontal padding (12px) so it can never cover
+ * text and steal a caret-placing click.
+ */
+const COLUMN_RESIZE_HANDLE_WIDTH = 8;
+
 export interface SectionExtensionOptions {
   placeholder: string;
   /** Whole-document emptiness check (JStudio Block[] perspective), provided
@@ -142,7 +155,11 @@ export function createSectionExtensions(
     // NOTE: `Underline` comes from StarterKit v3 — do not re-add it.
     TextStyle,
     Color,
-    CollapsibleTable.configure({ resizable: true, cellMinWidth: 100 }),
+    CollapsibleTable.configure({
+      resizable: true,
+      cellMinWidth: 100,
+      handleWidth: COLUMN_RESIZE_HANDLE_WIDTH,
+    }),
     TableRow,
     TableHeader,
     TableCell,
