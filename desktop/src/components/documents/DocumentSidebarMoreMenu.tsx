@@ -15,6 +15,7 @@ import {
   Check,
   ArrowUpNarrowWide,
   ArrowDownWideNarrow,
+  RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider, SubMenu } from '../ui/MenuList';
@@ -39,6 +40,8 @@ export interface DocumentSidebarMoreMenuProps {
   onImportMarkdown: () => void;
   /** Import a directory of Markdown files */
   onImportMarkdownDirectory: () => void;
+  /** Sync a directory of Markdown files (skip already-imported names) */
+  onSyncMarkdownDirectory: () => void;
   /** Import a .jnote backup bundle */
   onImportBundle: () => void;
   /** Change the sort key (does NOT close the menu) */
@@ -59,6 +62,7 @@ export default function DocumentSidebarMoreMenu({
   onNewFolder,
   onImportMarkdown,
   onImportMarkdownDirectory,
+  onSyncMarkdownDirectory,
   onImportBundle,
   onSetSortKey,
   onSetSortDirection,
@@ -106,6 +110,15 @@ export default function DocumentSidebarMoreMenu({
           }}
         >
           {t('doclist.importDirectory')}
+        </MenuItem>
+        <MenuItem
+          icon={<RefreshCw />}
+          onClick={() => {
+            onClose();
+            onSyncMarkdownDirectory();
+          }}
+        >
+          {t('doclist.syncDirectory')}
         </MenuItem>
         <MenuItem
           icon={<PackageOpen />}

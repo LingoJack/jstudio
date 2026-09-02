@@ -4,6 +4,7 @@
  * 职责：
  *   - handleOpenInFinder / handleCopyPath / handleCopyRelativePath
  *   - handleImportMarkdown / handleImportMarkdownDirectory
+ *   - handleSyncMarkdownDirectory
  *   - handleExportBundle / handleImportBundle
  *   - handleCopyAsMarkdown
  *
@@ -28,6 +29,10 @@ export interface UseDocSidebarActionsParams {
     dirPath: string,
     targetFolderId?: string,
   ) => Promise<number>;
+  syncMarkdownDirectory: (
+    dirPath: string,
+    targetFolderId?: string,
+  ) => Promise<number>;
   exportDocumentBundle: (docId: string) => Promise<boolean>;
   importDocumentBundle: (folderId?: string) => Promise<string | null>;
   addToast: (type: ToastType, message: string, duration?: number) => void;
@@ -38,6 +43,7 @@ export interface UseDocSidebarActionsParams {
 export function useDocSidebarActions({
   importDocumentFromMarkdown,
   importMarkdownDirectory,
+  syncMarkdownDirectory,
   exportDocumentBundle,
   importDocumentBundle,
   addToast,
@@ -118,6 +124,29 @@ export function useDocSidebarActions({
     }
   }, [importMarkdownDirectory, addToast]);
 
+  /**
+   * "Sync Directory": same directory walk as the import, but a file is
+   * skipped when its name (without the Markdown extension) already matches
+   * an existing document title — so re-running it only pulls in new files.
+   */
+  const handleSyncMarkdownDirectory = useCallback(async (folderId?: string) => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const dirPath = await open({ directory: true, multiple: false });
+      if (!dirPath || typeof dirPath !== 'string') return;
+      const count = await syncMarkdownDirectory(dirPath, folderId);
+      const tt = tRef.current;
+      if (count === 0) {
+        addToast('info', tt('doclist.syncDirEmpty'));
+      } else {
+        addToast('success', tt('doclist.syncDirSuccess', { count }));
+      }
+    } catch (e) {
+      console.error('Failed to sync Markdown directory:', e);
+      addToast('error', tRef.current('doclist.syncDirFailed'));
+    }
+  }, [syncMarkdownDirectory, addToast]);
+
   // ── Handlers: lossless backup bundle (.jnote) ─────────────
   const handleExportBundle = useCallback(async (docId: string) => {
     setContextMenu(null);
@@ -167,6 +196,7 @@ export function useDocSidebarActions({
     handleCopyRelativePath,
     handleImportMarkdown,
     handleImportMarkdownDirectory,
+    handleSyncMarkdownDirectory,
     handleExportBundle,
     handleImportBundle,
     handleCopyAsMarkdown,

@@ -14,6 +14,7 @@ import {
   SunMoon,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
   X,
   SquareTerminal,
 } from "lucide-react";
@@ -354,6 +355,15 @@ async function importMarkdownDirectory(store: StoreState) {
   await store.importMarkdownDirectory(dirPath);
 }
 
+/** Triggers the directory picker and imports only the Markdown files whose
+ *  name (minus extension) is not already used by an existing document. */
+async function syncMarkdownDirectory(store: StoreState) {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const dirPath = await open({ directory: true, multiple: false });
+  if (!dirPath || typeof dirPath !== "string") return;
+  await store.syncMarkdownDirectory(dirPath);
+}
+
 /** Export the active document to a lossless `.jnote` backup bundle. */
 async function exportBundle(store: StoreState) {
   const docId = store.activeDocId;
@@ -539,6 +549,17 @@ export function buildCommands(): PaletteCommand[] {
       keywordsZh: ["导入", "目录", "文件夹", "批量"],
       keywordsEn: ["import", "directory", "folder", "batch"],
       perform: importMarkdownDirectory,
+    },
+    {
+      id: "doc.syncDirectory",
+      icon: RefreshCw,
+      titleZh: "同步目录",
+      titleEn: "Sync Directory",
+      categoryZh: "文档",
+      categoryEn: "Document",
+      keywordsZh: ["同步", "目录", "文件夹", "增量", "导入"],
+      keywordsEn: ["sync", "directory", "folder", "incremental", "import"],
+      perform: syncMarkdownDirectory,
     },
     {
       id: "doc.exportBundle",

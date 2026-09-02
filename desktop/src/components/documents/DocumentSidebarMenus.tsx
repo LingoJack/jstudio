@@ -14,6 +14,7 @@ import {
   FolderInput,
   FileDown,
   FolderDown,
+  RefreshCw,
   Trash2,
   Folder,
 } from 'lucide-react';
@@ -39,6 +40,8 @@ export interface FolderContextMenuProps {
   onImportMarkdown: (folderId: string) => void;
   /** Import a directory of Markdown into this folder */
   onImportMarkdownDirectory: (folderId: string) => void;
+  /** Sync a directory of Markdown into this folder (skip existing names) */
+  onSyncMarkdownDirectory: (folderId: string) => void;
   /** Move this folder to trash */
   onDeleteFolder: (folderId: string) => void;
   /** Close the menu */
@@ -54,6 +57,7 @@ export function FolderContextMenu({
   onRenameFolder,
   onImportMarkdown,
   onImportMarkdownDirectory,
+  onSyncMarkdownDirectory,
   onDeleteFolder,
   onClose,
 }: FolderContextMenuProps) {
@@ -101,6 +105,15 @@ export function FolderContextMenu({
         }}
       >
         {t('doclist.importDirectory')}
+      </MenuItem>
+      <MenuItem
+        icon={<RefreshCw />}
+        onClick={() => {
+          onSyncMarkdownDirectory(folderId);
+          onClose();
+        }}
+      >
+        {t('doclist.syncDirectory')}
       </MenuItem>
       <MenuDivider />
       <MenuItem

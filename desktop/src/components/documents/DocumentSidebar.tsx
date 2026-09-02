@@ -51,6 +51,7 @@ export default function DocumentSidebar() {
   const trashDocuments = useStore((s) => s.trashDocuments);
   const importDocumentFromMarkdown = useStore((s) => s.importDocumentFromMarkdown);
   const importMarkdownDirectory = useStore((s) => s.importMarkdownDirectory);
+  const syncMarkdownDirectory = useStore((s) => s.syncMarkdownDirectory);
   const exportDocumentBundle = useStore((s) => s.exportDocumentBundle);
   const importDocumentBundle = useStore((s) => s.importDocumentBundle);
   const addToast = useStore((s) => s.addToast);
@@ -334,12 +335,14 @@ export default function DocumentSidebar() {
     handleCopyRelativePath,
     handleImportMarkdown,
     handleImportMarkdownDirectory,
+    handleSyncMarkdownDirectory,
     handleExportBundle,
     handleImportBundle,
     handleCopyAsMarkdown,
   } = useDocSidebarActions({
     importDocumentFromMarkdown,
     importMarkdownDirectory,
+    syncMarkdownDirectory,
     exportDocumentBundle,
     importDocumentBundle,
     addToast,
@@ -488,6 +491,7 @@ export default function DocumentSidebar() {
               onNewFolder={() => handleCreateFolder()}
               onImportMarkdown={() => handleImportMarkdown()}
               onImportMarkdownDirectory={() => handleImportMarkdownDirectory()}
+              onSyncMarkdownDirectory={() => handleSyncMarkdownDirectory()}
               onImportBundle={() => handleImportBundle()}
               onSetSortKey={(key) => setDocSortKey(key)}
               onSetSortDirection={(dir) => setDocSortDirection(dir)}
@@ -622,6 +626,7 @@ export default function DocumentSidebar() {
           }}
           onImportMarkdown={(folderId) => handleImportMarkdown(folderId)}
           onImportMarkdownDirectory={(folderId) => handleImportMarkdownDirectory(folderId)}
+          onSyncMarkdownDirectory={(folderId) => handleSyncMarkdownDirectory(folderId)}
           onDeleteFolder={handleDeleteFolder}
           onClose={() => setFolderMenu(null)}
         />
