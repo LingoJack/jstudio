@@ -530,7 +530,7 @@ export default function DocumentPanel({
       <div ref={rootRef} className="flex h-full bg-transparent overflow-hidden relative">
         <div
           ref={scrollContainerRef}
-          className="editor-scroll-container flex-1 overflow-y-auto pt-8 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
+          className="editor-scroll-container flex-1 overflow-y-auto pt-16 pb-8 md:pb-12 bg-[var(--vscode-editor-background)] select-text"
         >
           {/* Custom scrollbar visual: 1px track + "<-" cursor (must be
               the first child so its sticky box pins to the scrollport). */}
@@ -616,8 +616,11 @@ export default function DocumentPanel({
         {/* Custom scrollbar visual: 1px track + "<-" cursor (must be the
             first child so its sticky box pins to the scrollport top). */}
         <EditorScrollCursor scrollContainerRef={scrollContainerRef} />
-        {/* Document Title */}
-        <div className="px-4 md:px-12 lg:px-20 pt-12 pb-4">
+        {/* Document Title. pt-16 (64px) clears the floating tab capsule,
+            which straddles the title bar's bottom edge and reaches ~59px
+            into the content area — with the old pt-12 the title's ascenders
+            scrolled underneath the capsule and got clipped at scrollTop=0. */}
+        <div className="px-4 md:px-12 lg:px-20 pt-16 pb-4">
           <input
             ref={setTitleInputRef}
             type="text"

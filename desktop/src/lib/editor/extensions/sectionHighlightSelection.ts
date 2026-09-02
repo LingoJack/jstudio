@@ -66,6 +66,24 @@ function buildDecorations(
     Decoration.inline(from, to, { class: 'cross-section-selected' }),
   ];
   doc.descendants((node, pos) => {
+    // List items whose text is covered from its very start also get their
+    // marker gutter lit (li.list-item-lead-selected) — without it the text
+    // highlight visually "breaks" at every bullet/number, because the
+    // native ::selection paint is suppressed app-wide and the inline
+    // decoration only covers the text itself. Visual extension only:
+    // copy semantics stay with the serializer (a text selection still
+    // copies without the '- ' marker).
+    if (node.type.name === 'listItem') {
+      const contentStart = pos + 1;
+      if (from <= contentStart && to > contentStart) {
+        decorations.push(
+          Decoration.node(pos, pos + node.nodeSize, {
+            class: 'list-item-lead-selected',
+          }),
+        );
+      }
+      return true;
+    }
     // Only leaf-ish block nodes: an inline decoration already covers text and
     // inline content, and non-selectable nodes must not look selectable.
     if (!node.isAtom || !node.isBlock || node.type.spec.selectable === false) {

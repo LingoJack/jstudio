@@ -1199,24 +1199,53 @@ button {
   margin: 0;
 }
 
-/* 列表标记点击热区 — 覆盖在原生 marker 上方的透明区域。点击圆点即选中
-   整个列表项（NodeSelection），此时复制才携带 '- ' 前缀；普通文本选区
-   复制不带标记。见 lib/editor/extensions/listMarkerSelection.ts。 */
+/* 列表标记点击热区 — 覆盖在原生 marker 上方的透明区域。点击圆点/序号
+   即选中整个列表项（NodeSelection），此时复制才携带 '- ' 前缀；普通文本
+   选区复制不带标记。见 lib/editor/extensions/listMarkerSelection.ts。
+   几何：整条左侧排水沟（-2em..0），与下方 lead/选中色带完全同区。 */
 .list-marker-hitbox {
   position: absolute;
-  left: -1.7em;
-  top: -0.15em;
-  width: 1.5em;
-  height: 1.7em;
-  cursor: pointer;
-  border-radius: 4px;
+  left: -2em;
+  top: 0;
+  bottom: 0;
+  width: 2em;
+  cursor: default;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .list-marker-hitbox:hover {
-  background: var(--vscode-list-hoverBackground);
-  opacity: 0.55;
+  background: var(--vscode-editor-selectionBackground);
+}
+
+/* 拖选/跨段选区覆盖到列表项正文起点时，marker 排水沟一并点亮 ——
+   高亮穿过圆点/序号连续不断层（原生 ::selection 已全局禁用，
+   行内 decoration 只覆盖文本本身）。纯视觉延伸：复制语义仍由
+   serializeSliceToMarkdown 决定，文本选区不带 '- ' 前缀。 */
+li.list-item-lead-selected::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -2em;
+  width: 2em;
+  background: var(--vscode-editor-selectionBackground);
+}
+
+/* 点击 marker 选中整个列表项（NodeSelection）时：不用默认的块级外框
+   （.ProseMirror-selectednode 的 2px outline），改用与文本选区同色的
+   连续色带。li 自身背景覆盖正文区；向左平移 2em 的 box-shadow 覆盖
+   marker 区——box-shadow 与元素背景同层绘制，序号字形仍画在色带之上，
+   两区颜色天然一致，与 lead 高亮/悬停预览几何重合，全程无断层。 */
+li.ProseMirror-selectednode {
+  outline: none;
+  background: var(--vscode-editor-selectionBackground);
+  box-shadow: -2em 0 0 0 var(--vscode-editor-selectionBackground);
+}
+
+/* 选中态下 marker 区已由色带覆盖，hover 不再叠色。 */
+li.ProseMirror-selectednode .list-marker-hitbox:hover {
+  background: transparent;
 }
 
 /* 嵌套列表 — 缩进递进 */

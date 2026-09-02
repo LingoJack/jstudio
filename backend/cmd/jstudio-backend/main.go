@@ -51,7 +51,7 @@ func run() error {
 		return fmt.Errorf("open store: %w", err)
 	}
 	defer st.Close()
-	if err := st.CheckSchema(context.Background()); err != nil {
+	if err = st.CheckSchema(context.Background()); err != nil {
 		return fmt.Errorf("check store schema: %w", err)
 	}
 
@@ -65,7 +65,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("create object storage: %w", err)
 	}
-	if err := objStore.EnsureBucket(context.Background()); err != nil {
+	if err = objStore.EnsureBucket(context.Background()); err != nil {
 		return fmt.Errorf("ensure object storage bucket: %w", err)
 	}
 
@@ -90,7 +90,7 @@ func run() error {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
-	case err := <-errCh:
+	case err = <-errCh:
 		if !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("listen: %w", err)
 		}
@@ -98,7 +98,7 @@ func run() error {
 		logger.Info("shutting down", "signal", sig.String())
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
+		if err = srv.Shutdown(ctx); err != nil {
 			return fmt.Errorf("shutdown: %w", err)
 		}
 		logger.Info("server stopped")
