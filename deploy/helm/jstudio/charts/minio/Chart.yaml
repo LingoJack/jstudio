@@ -1,0 +1,6 @@
+apiVersion: v2
+name: minio
+description: 极简 MinIO（S3 兼容对象存储），供 JStudio backend 在集群内访问
+type: application
+version: 0.1.0
+appVersion: "RELEASE.2025-04-22T22-12-26Z"

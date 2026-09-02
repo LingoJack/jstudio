@@ -1,0 +1,27 @@
+# 可选：给 LoadBalancer 分配独立 IP 段。
+#
+# 默认不必装 MetalLB —— k3s 自带 klipper-lb 就能给 Service 分配 LB IP（单节点下就是节点 IP）。
+# 只有在需要独立 IP 段（比如不想和节点 IP 混用、或多节点场景）时才装：
+#   make -C deploy metallb-up LB_IP_RANGE=192.168.1.200-192.168.1.220
+#
+# 装 MetalLB 前必须关掉 k3s 自带的 servicelb，否则两者会抢同一个 LoadBalancer Service：
+#   /etc/rancher/k3s/config.yaml 里加 `disable: [servicelb]`，然后 sudo systemctl restart k3s
+#
+# IP 段要求：与节点同二层、且排除在 DHCP 池之外。下面的地址由 Makefile 用 LB_IP_RANGE 替换。
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  addresses:
+    - __LB_IP_RANGE__
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - default

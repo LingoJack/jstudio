@@ -1,0 +1,36 @@
+# JStudio backend 镜像：多阶段构建，产物为静态二进制 + alpine 运行层。
+#
+# 跨架构构建说明：
+#   builder 固定在 BUILDPLATFORM（本机架构）上跑，编译靠 Go 原生交叉编译完成，
+#   不需要 QEMU 模拟；final 阶段刻意零 RUN，避免异架构下 apk 被模拟执行。
+#   CA 证书直接从 builder 镜像拷贝（连外部 MySQL 的 TLS 需要）。
+ARG GO_IMAGE=golang:1.26-alpine
+ARG RUN_IMAGE=alpine:3.22
+
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS builder
+WORKDIR /src
+
+# 依赖层单独缓存：只有 go.mod / go.sum 变了才重新下载。
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags "-s -w" -o /out/jstudio-backend ./cmd/jstudio-backend
+
+FROM ${RUN_IMAGE}
+
+# 运行层不做任何 RUN：静态二进制 + CA 证书即可，用户用数值 UID 无需 /etc/passwd 条目。
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /out/jstudio-backend /app/jstudio-backend
+# schema.sql 随镜像带上，方便运维在节点上直接对照/补表（后端不自动迁移）。
+COPY --from=builder /src/schema.sql /app/schema.sql
+
+WORKDIR /app
+USER 10001:10001
+EXPOSE 8080
+
+ENTRYPOINT ["/app/jstudio-backend"]
+CMD ["-config", "/etc/jstudio/config.yaml"]

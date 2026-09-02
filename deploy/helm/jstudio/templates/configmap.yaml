@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "jstudio.fullname" . }}
+  labels:
+    {{- include "jstudio.labels" . | nindent 4 }}
+data:
+  # allowed_origins 是切片，viper 无法从 env 解析，只能整份挂在文件里。
+  config.yaml: |
+{{ include "jstudio.configYaml" . | indent 4 }}

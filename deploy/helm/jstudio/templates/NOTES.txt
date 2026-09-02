@@ -1,0 +1,28 @@
+JStudio backend 已部署到命名空间 {{ .Release.Namespace }}。
+
+1. 拿到对外地址：
+
+   kubectl -n {{ .Release.Namespace }} get svc {{ include "jstudio.fullname" . }} -w
+   make -C deploy ip
+
+   k3s 自带 klipper-lb，单节点下 EXTERNAL-IP 会直接是节点 IP；
+   装了 MetalLB 则是 IPAddressPool 里的地址。
+
+2. 冒烟验证（应返回 {"status":"ok"}）：
+
+   curl http://<EXTERNAL-IP>:{{ .Values.service.port }}/healthz
+
+3. 数据库 schema 不会自动迁移，外部 MySQL 需先手动执行 backend/schema.sql：
+
+   make -C deploy schema-apply   # 只打印命令，确认后再自己跑
+
+4. {{ if .Values.minio.enabled -}}
+MinIO 已在集群内运行（Service {{ .Release.Name }}-minio:{{ .Values.minio.service.port }}）。
+backend 启动时会自动建桶，看控制台用：
+
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-minio 9001:9001
+{{- else -}}
+MinIO 子 chart 已关闭，backend 连接外部 S3 兼容服务：{{ include "jstudio.storageEndpoint" . }}
+{{- end }}
+
+注意：LoadBalancer 是明文 HTTP，公网暴露请自行加 TLS 反代或后续接 Ingress + cert-manager。

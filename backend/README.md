@@ -64,6 +64,27 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/jstudio-backend-linux ./cm
 
 无 CGO 依赖，产物为静态二进制。
 
+## 容器化部署
+
+镜像构建与 k3s 部署都在仓库最外层：
+
+```bash
+make -C ../build image-push REGISTRY_HOST=<k3s 节点IP>          # 构建并推送镜像
+make -C ../deploy install REGISTRY_HOST=... DB_HOST=... DB_PASSWORD=...
+```
+
+完整步骤、变量说明与排障见 `../deploy/README.md`。
+
+容器内的配置注入方式（与本地跑 `config.yaml` 的区别）：
+
+- 配置文件路径由 `-config /etc/jstudio/config.yaml` 显式指定（helm 的 ConfigMap 挂载），
+  不再依赖工作目录下有没有 config.yaml。
+- `server.allowed_origins` 是切片，viper 的 AutomaticEnv 解析不了列表，**只能写在 config.yaml 里**。
+- 其余敏感项走 Secret 的 env 注入：`JS_AUTH_JWT_SECRET`、`JS_DATABASE_PASSWORD`、
+  `JS_STORAGE_ACCESS_KEY`、`JS_STORAGE_SECRET_KEY`。config.yaml 里 `jwt_secret` 留空串是安全的——
+  env 优先级高于文件，且 viper 默认 `AllowEmptyEnv=false`，空串 env 不会被误判为已设置。
+- 容器里 `server.addr` 必须是 `0.0.0.0:8080`（默认 127.0.0.1 只能本机访问，探针会失败）。
+
 ## 测试
 
 store/api 层测试需要一台 MySQL 管理员连接（测试会自建 `jstudio_test_<纳秒>` 一次性数据库并应用 schema.sql，测试结束即 DROP）：

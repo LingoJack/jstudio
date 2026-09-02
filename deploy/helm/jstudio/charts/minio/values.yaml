@@ -1,0 +1,33 @@
+image:
+  repository: "minio/minio"
+  tag: "RELEASE.2025-04-22T22-12-26Z"
+  pullPolicy: IfNotPresent
+
+# 与 backend 用的 storage 凭据是同一份，由 deploy/Makefile 统一传入。
+auth:
+  rootUser: "minioadmin"
+  rootPassword: "minioadmin"
+
+service:
+  port: 9000
+  consolePort: 9001
+
+persistence:
+  enabled: true
+  # 置空用集群默认 StorageClass（k3s 自带 local-path）。
+  # 多节点扩展时 local-path 不行：PVC 漂到别的节点就起不来，
+  # 需换共享 storageClass 或 hostPath + nodeSelector 钉死节点。
+  storageClass: ""
+  size: 20Gi
+
+# 只设 fsGroup：它作为补充组加到进程上，让镜像自带用户对 /data 可写。
+# 不强设 runAsUser，避免和镜像自带用户冲突。
+podSecurityContext:
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+resources: {}

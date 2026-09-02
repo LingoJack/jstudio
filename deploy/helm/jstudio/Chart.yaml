@@ -1,0 +1,13 @@
+apiVersion: v2
+name: jstudio
+description: JStudio 远程保存后台服务（backend + 可选 MinIO 对象存储）
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+# MinIO 子 chart 已 vendor 在 charts/ 下，无需 helm dependency update。
+# 接外部 S3 兼容服务时用 --set minio.enabled=false 关掉。
+dependencies:
+  - name: minio
+    version: 0.1.0
+    condition: minio.enabled

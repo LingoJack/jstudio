@@ -1,0 +1,15 @@
+# k3s 的 containerd 默认只认 https 仓库，自建的 http registry 必须显式登记。
+# 本文件是模板，用 `make -C deploy registries-print` 渲染出实际内容。
+#
+# 每个 k3s 节点都要放一份到 /etc/rancher/k3s/registries.yaml，然后：
+#   sudo systemctl restart k3s
+#
+# 注意：镜像名必须与这里的 key 逐字相同，否则 mirror 匹配不上。
+mirrors:
+  "__REGISTRY_HOST__:__REGISTRY_NODEPORT__":
+    endpoint:
+      - "http://__REGISTRY_HOST__:__REGISTRY_NODEPORT__"
+configs:
+  "__REGISTRY_HOST__:__REGISTRY_NODEPORT__":
+    tls:
+      insecure_skip_verify: true

@@ -1,0 +1,10 @@
+# 构建上下文是 backend/，这里裁剪掉与镜像无关的文件。
+# 注意 config.yaml 含明文 jwt_secret 与生产密码，绝不能进镜像；
+# 运行时配置由 helm 的 ConfigMap 挂载、敏感值由 Secret 以 JS_ 前缀 env 注入。
+bin/
+config.yaml
+.git/
+.gitignore
+.idea/
+**/*_test.go
+**/.DS_Store

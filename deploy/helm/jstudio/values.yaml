@@ -1,0 +1,107 @@
+replicaCount: 1
+
+image:
+  # 集群内自建 registry（registry:2 的 NodePort 入口）的占位值，
+  # 部署时由 deploy/Makefile 用 --set image.repository 覆盖成真实地址。
+  repository: "REGISTRY_HOST_PLACEHOLDER:30500/jstudio-backend"
+  # 置空则回落到 Chart.appVersion；正常部署由 deploy/Makefile 传入 git short sha。
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+# 敏感值走 Secret：默认复用 deploy/Makefile 的 secret-ensure 建出来的 Secret，
+# 这样重复 upgrade 不会轮换 jwt_secret（一换就把所有登录态踢下线）。
+# 把 existingSecret 置空则由本 chart 渲染 Secret，此时下面四个值必须填。
+secret:
+  existingSecret: jstudio
+  jwtSecret: ""
+  databasePassword: ""
+  storageAccessKey: ""
+  storageSecretKey: ""
+
+# 非敏感配置，直接渲染成 config.yaml 挂到 /etc/jstudio/。
+# 对照 backend/internal/config/config.go：键名必须与 setDefaults 里注册的一致，
+# 否则 JS_ 前缀的 env 覆盖会静默失效。
+config:
+  server:
+    # 容器内必须监听 0.0.0.0；端口改动需与下面的 service.port 保持一致。
+    addr: "0.0.0.0:8080"
+    # 切片类型，viper 的 AutomaticEnv 解析不了，只能在这里配。
+    # "*" 对本项目是安全的：token 鉴权、无 cookie，无 CSRF 面。
+    allowed_origins: ["*"]
+  auth:
+    token_ttl: "720h"
+  database:
+    # 外部 MySQL 实例（本项目不把 MySQL 放进 k8s）。
+    host: ""
+    port: 3306
+    user: "root"
+    dbname: "jstudio"
+  storage:
+    # 置空且 minio.enabled=true 时，自动指向集群内的 MinIO Service。
+    endpoint: ""
+    bucket: "jstudio"
+    use_ssl: false
+
+minio:
+  # 关掉后必须在 config.storage.endpoint 指向外部 S3 兼容服务。
+  enabled: true
+  image:
+    repository: "minio/minio"
+    tag: "RELEASE.2025-04-22T22-12-26Z"
+    pullPolicy: IfNotPresent
+  # 与 backend 用的 storage 凭据是同一份，由 deploy/Makefile 统一传入。
+  auth:
+    rootUser: "minioadmin"
+    rootPassword: "minioadmin"
+  service:
+    port: 9000
+  persistence:
+    enabled: true
+    # 置空用集群默认 StorageClass（k3s 自带 local-path）。
+    storageClass: ""
+    size: 20Gi
+  resources: {}
+
+service:
+  # k3s 自带 klipper-lb 即可分配 LB IP；需要独立 IP 段时先装 MetalLB（make metallb-up）。
+  type: LoadBalancer
+  port: 8080
+  # 置空由集群分配；装了 MetalLB 后可指定 IPAddressPool 内的固定地址。
+  loadBalancerIP: ""
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
