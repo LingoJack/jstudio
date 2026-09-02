@@ -11,6 +11,18 @@ import { useTitlebarCenterSlot } from '../layout/titlebarSlot';
 import { OUTLINE_WIDTH } from '../editor/sectionEditor/SectionOutline';
 
 /**
+ * Max document tabs rendered at once.
+ *
+ * Every tab is 130px wide, so beyond a handful the capsule exceeds its
+ * `maxWidth` and starts scrolling horizontally — which defeats the
+ * floating pill design. Tabs beyond this limit stay OPEN but are not
+ * rendered: the visible window always contains the active tab, and hidden
+ * ones remain reachable via Cmd+Option+←/→ (cycleTab walks all tabs) or by
+ * clicking the document in the sidebar.
+ */
+const MAX_VISIBLE_DOC_TABS = 6;
+
+/**
  * DocumentTabs — tab bar for document tabs only.
  *
  * Terminal tabs have their own tab bar inside TerminalPanel/TerminalTabs.
@@ -59,6 +71,24 @@ export default function DocumentTabs() {
   // Filter to document tabs only.
   const docTabs = allTabs.filter((tab) => tab.kind === 'document');
 
+  // ── Visible window (cap the rendered tab count) ──────────────────
+  // A `MAX_VISIBLE_DOC_TABS`-wide slice centred on the active tab, so the
+  // capsule never overflows. `activeDocTabIndex` is -1 while a terminal tab
+  // is active — the window then just stays anchored at the first tab.
+  const activeDocTabIndex = docTabs.findIndex((tab) => tab.id === activeTabId);
+  const windowStart = Math.max(
+    0,
+    Math.min(
+      activeDocTabIndex - Math.floor((MAX_VISIBLE_DOC_TABS - 1) / 2),
+      docTabs.length - MAX_VISIBLE_DOC_TABS,
+    ),
+  );
+  const visibleDocTabs = docTabs.slice(
+    windowStart,
+    windowStart + MAX_VISIBLE_DOC_TABS,
+  );
+  const hiddenTabCount = docTabs.length - visibleDocTabs.length;
+
   // Title-bar center slot (live element from the registry — survives
   // AppTitleBar remounts / HMR, unlike a state-cached reference).
   const titlebarSlot = useTitlebarCenterSlot();
@@ -73,7 +103,7 @@ export default function DocumentTabs() {
   );
 
   // ── Map UnifiedTab → TabItem ─────────────────────────────────────
-  const tabItems: TabItem[] = docTabs.map((tab) => ({
+  const tabItems: TabItem[] = visibleDocTabs.map((tab) => ({
     id: tab.id,
     title: getDocTitle(tab),
     isActive: tab.id === activeTabId,
@@ -125,6 +155,16 @@ export default function DocumentTabs() {
       glassOpacity={tabBarGlassOpacity}
       position={tabBarPosition === 'top' ? 'titlebar' : 'bottom'}
       maxWidth={capsuleMaxWidth}
+      extraActions={
+        hiddenTabCount > 0 ? (
+          <span
+            className="shrink-0 px-1 text-[11px] font-medium text-[var(--vscode-descriptionForeground)] opacity-70"
+            title={t('workspace.hiddenTabs', { count: hiddenTabCount })}
+          >
+            +{hiddenTabCount}
+          </span>
+        ) : null
+      }
     />
   );
 

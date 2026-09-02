@@ -144,6 +144,7 @@ export const translations = {
     "workspace.closeOthers": "关闭其他标签页",
     "workspace.detachToWindow": "分离到新窗口",
     "workspace.releaseToDetach": "松开以分离到新窗口",
+    "workspace.hiddenTabs": "还有 {count} 个标签页未显示（可用 Cmd+Option+←/→ 切换）",
 
     // ── Terminal ──
     "terminal.sessions": "终端会话",
@@ -1068,6 +1069,8 @@ export const translations = {
     "workspace.closeOthers": "Close Others",
     "workspace.detachToWindow": "Detach to New Window",
     "workspace.releaseToDetach": "Release to detach to new window",
+    "workspace.hiddenTabs":
+      "{count} more tabs hidden (cycle with Cmd+Option+←/→)",
 
     // ── Terminal ──
     "terminal.sessions": "Terminal Sessions",

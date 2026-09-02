@@ -147,7 +147,10 @@ export default function TabBar({
   // position measurement BEFORE passive effects (where SectionEditor
   // creates its ProseMirror instances), so the indicator is positioned
   // and its transition starts before the blocking work begins.
-  const [indicatorLeft, setIndicatorLeft] = useState(0);
+  /** `null` = no tab to highlight (e.g. the active tab is a terminal one, or
+   *  the caller hides it) — the indicator is then hidden instead of being
+   *  left stranded at a stale offset, which reads as a stray light pill. */
+  const [indicatorLeft, setIndicatorLeft] = useState<number | null>(null);
   // Stable signature of tab order/identity — avoids re-running the layout
   // effect on every parent render (tabs is a fresh array each render).
   const tabSignature = tabs.map((t) => t.id).join('|');
@@ -155,7 +158,10 @@ export default function TabBar({
   useLayoutEffect(() => {
     const activeEl = tabRefsRef.current.get(activeTabId ?? '');
     const scroller = scrollRef.current;
-    if (!activeEl || !scroller) return;
+    if (!activeEl || !scroller) {
+      setIndicatorLeft(null);
+      return;
+    }
 
     const updatePos = () => {
       const tabRect = activeEl.getBoundingClientRect();
@@ -186,10 +192,27 @@ export default function TabBar({
   }, [activeTabId, tabSignature]);
 
   // ── Scroll active tab into view ──────────────────────────────────
+  // Manual horizontal scrolling on the INNER scroller only. Deliberately not
+  // `scrollIntoView()`: that walks up every scrollable ancestor, and the
+  // capsule itself is one — `overflow-x: auto` forces `overflow-y` to
+  // compute to `auto`, so it is scrollable on BOTH axes. Any sub-pixel
+  // height difference (a closing tab changing the content height, the
+  // capsule's own horizontal scrollbar eating clientHeight) made it nudge
+  // the capsule vertically for one frame, which flashed a scrollbar strip
+  // along the capsule's bottom edge.
   useEffect(() => {
     const activeEl = tabRefsRef.current.get(activeTabId ?? '');
-    activeEl?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [activeTabId]);
+    const scroller = scrollRef.current;
+    if (!activeEl || !scroller) return;
+
+    const tabRect = activeEl.getBoundingClientRect();
+    const viewRect = scroller.getBoundingClientRect();
+    if (tabRect.left < viewRect.left) {
+      scroller.scrollLeft += tabRect.left - viewRect.left;
+    } else if (tabRect.right > viewRect.right) {
+      scroller.scrollLeft += tabRect.right - viewRect.right;
+    }
+  }, [activeTabId, tabSignature]);
 
   // ── Gradient fade masks ───────────────────────────────────────────
   useEffect(() => {
@@ -215,7 +238,11 @@ export default function TabBar({
       scroller.removeEventListener('scroll', updateFades);
       window.removeEventListener('resize', updateFades);
     };
-  }, []);
+    // `tabSignature` (not `[]`): closing a tab changes whether the strip
+    // still overflows, and the fades would otherwise keep their stale
+    // opacity until the next scroll/resize — a gradient band left hanging
+    // over one end of the capsule.
+  }, [tabSignature]);
 
   // ── Drag ghost state (tear-off) ───────────────────────────────────
   const dragTabRef = useRef<{ id: string; title: string } | null>(null);
@@ -323,7 +350,14 @@ export default function TabBar({
           // excluded from the window drag region so grabbing it doesn't move
           // the window (and its own drag-to-detach keeps working).
           {...(position === 'titlebar' ? { 'data-tauri-drag-region': false } : {})}
-          className={`relative flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full ${
+          // `scrollbar-none`: hide the native scrollbar WITHOUT disabling
+          // scrolling — both this capsule and the inner strip below are
+          // horizontal scroll containers, and the global
+          // `::-webkit-scrollbar { height: 10px }` rule painted a 10px strip
+          // along the bottom edge of whichever one overflowed. It appeared
+          // for a single frame whenever the tab count changed (e.g. closing
+          // a tab), reading as a white flash under the tabs.
+          className={`scrollbar-none relative flex items-center overflow-x-auto min-w-0 gap-0.5 px-2 py-1.5 rounded-full ${
             // Docked mode: straddle the title bar's bottom edge — the capsule
             // (~46px) is taller than the 36px bar, so it hangs below it
             // instead of being clipped by the window frame.
@@ -331,7 +365,6 @@ export default function TabBar({
           }`}
           style={{
             maxWidth,
-            scrollbarWidth: 'thin',
             /* 边框对齐编辑器块级容器（diagram/code/table figure）：
                1px block-line-strong，随主题自动降透明度 */
             border: '1px solid var(--jstudio-block-line-strong)',
@@ -362,8 +395,7 @@ export default function TabBar({
 
           <div
             ref={scrollRef}
-            className="flex items-center overflow-x-auto min-w-0 gap-0.5"
-            style={{ scrollbarWidth: 'none' }}
+            className="scrollbar-none flex items-center overflow-x-auto min-w-0 gap-0.5"
           >
             {/* Apple-style sliding selection indicator with glass glow.
                 Uses transform (compositor-thread) so the slide animation
@@ -375,8 +407,13 @@ export default function TabBar({
                 width: `${TAB_WIDTH_PX}px`,
                 background: accentColor,
                 boxShadow: `0 0 12px 2px color-mix(in srgb, ${accentColor} 40%, transparent), 0 1px 2px rgba(0,0,0,0.08)`,
-                transform: `translateX(${indicatorLeft}px)`,
-                transition: 'transform 220ms cubic-bezier(0.33, 1.15, 0.5, 1), box-shadow 180ms ease-out',
+                transform: `translateX(${indicatorLeft ?? 0}px)`,
+                // Hidden (not merely parked) when there is no active tab to
+                // highlight — otherwise it keeps tinting whatever tab slid
+                // into its old offset after a close.
+                opacity: indicatorLeft === null ? 0 : 1,
+                transition:
+                  'transform 220ms cubic-bezier(0.33, 1.15, 0.5, 1), opacity 120ms linear, box-shadow 180ms ease-out',
                 willChange: 'transform',
               }}
             />

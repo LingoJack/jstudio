@@ -794,6 +794,22 @@ pre[class*="language-"] {
   background-clip: content-box;
 }
 
+/* Hide the native scrollbar while KEEPING the box scrollable (wheel /
+   trackpad / programmatic scrollLeft). Used by the TabBar capsule and its
+   inner tab strip, where a visible 10px horizontal scrollbar would sit
+   right under the tabs.
+   `scrollbar-width: none` alone is NOT enough: it is unsupported on
+   WKWebView before Safari 18.2, and there the global
+   `::-webkit-scrollbar { height: 10px }` rule above still paints the strip
+   (its track is transparent, so it reads as a light/white bar). Both
+   engines must be covered. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Editor scroll container: the native scrollbar visuals are fully
    transparent — the 1px track line and the "<-" cursor are drawn by the
    EditorScrollCursor React overlay instead (the outline rail's mirrored
