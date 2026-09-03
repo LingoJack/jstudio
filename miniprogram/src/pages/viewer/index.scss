@@ -1,0 +1,91 @@
+// viewer 页：元信息栏 + 只读渲染区。
+// 块渲染样式（bv-*）随本页打进 wxss；渲染区水平内边距对齐桌面端 px-4（16px）。
+@use '../../components/blockView/blockView';
+.viewer-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.viewer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--jstudio-block-line);
+}
+
+.viewer-meta-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viewer-meta-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-meta-sub {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.viewer-history-link {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--vscode-textLink-foreground);
+  padding: 4px 8px;
+}
+
+.viewer-error {
+  margin: 12px 16px;
+  padding: 10px 12px;
+  border: 1px dashed var(--jstudio-block-line);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.viewer-loading {
+  display: flex;
+  justify-content: center;
+  padding: 96px 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.viewer-body {
+  flex: 1;
+  height: calc(100vh - 62px);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.viewer-more {
+  margin: 16px 0;
+  background: var(--vscode-textBlockQuote-background);
+  color: var(--vscode-editor-foreground);
+  font-size: 13px;
+  border: 1px solid var(--jstudio-block-line);
+  border-radius: 6px;
+}
+
+.viewer-raw {
+  padding: 4px 0;
+}
+
+.viewer-raw-text {
+  font-family: var(--jstudio-code-font-family);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--vscode-editor-foreground);
+}

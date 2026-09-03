@@ -1,0 +1,68 @@
+// 登录页：暗色表单，输入控件底色对齐主题的 textCodeBlock-background。
+.login-page {
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.login-brand-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--vscode-editor-foreground);
+}
+
+.login-brand-sub {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-label {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.login-input {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--jstudio-block-line);
+  border-radius: 6px;
+  background: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-editor-foreground);
+  font-size: 15px;
+}
+
+.login-placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.login-submit {
+  margin-top: 4px;
+}
+
+.login-mode-switch {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--vscode-textLink-foreground);
+}

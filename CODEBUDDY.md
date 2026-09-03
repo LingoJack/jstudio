@@ -1,10 +1,11 @@
 # CODEBUDDY.md
 
-本仓库是 monorepo，包含五个顶层目录：
+本仓库是 monorepo，包含六个顶层目录：
 
 | 目录 | 内容 | 详细指引 |
 |------|------|---------|
 | `desktop/` | JStudio 桌面应用（Electron + React + Rust sidecar，本地笔记） | `desktop/CODEBUDDY.md` |
+| `miniprogram/` | 微信小程序伴读端（Taro + React 18，只读渲染远程快照） | `miniprogram/CODEBUDDY.md` |
 | `backend/` | 远程保存后台服务（Go + Gin + Viper + MySQL + MinIO SDK） | `backend/README.md` |
 | `build/` | 容器镜像构建（podman，不用 docker） | `build/Makefile` |
 | `deploy/` | k3s 部署物（helm chart + registry/MetalLB 引导） | `deploy/README.md` |
@@ -40,6 +41,17 @@
 | 测试（需 MySQL） | `JS_TEST_MYSQL_DSN='user:pass@tcp(host:3306)/' make test`（未设时 MySQL 用例自动跳过） |
 | 构建 | `cd backend && make build` |
 
+### 小程序（在 miniprogram/ 下执行）
+
+| 任务 | 命令 |
+|------|------|
+| 开发模式（watch 构建 weapp） | `cd miniprogram && make dev` |
+| 生产构建 | `cd miniprogram && make build` |
+| 类型检查 + eslint | `cd miniprogram && make lint` |
+| 测试 | `cd miniprogram && make test` |
+
+产物在 `miniprogram/dist/`，微信开发者工具导入 `miniprogram/` 目录；详见 `miniprogram/README.md`。
+
 ### 构建与部署（在仓库根目录或对应子目录下执行）
 
 | 任务 | 命令 |
@@ -63,6 +75,7 @@
 - 禁止魔法值：带语义的字面量（阈值、超时、端口、bucket 名等）一律命名常量。
 - 本仓库有自动提交守护进程（提交信息格式「更新: 时间戳」，会自动 commit 并 push）；不要 rebase/reset 清理这些自动提交。
 - `desktop/jcli/` 是 git submodule（`j` CLI）；Cargo workspace 通过 `path = "../jcli/j-agent"` 引用。
+- `miniprogram/` 与 `desktop/` 存在同源代码（remote client、Block 类型）：backend API 或块类型变更时两端必须一起改，契约细节见 `miniprogram/CODEBUDDY.md`。
 - 容器一律用 podman，不用 docker（`docker` 在本机只是 podman 的 alias）；部署面用 helm + k3s。
 
 创建 commit 之前必须取得用户的明确同意

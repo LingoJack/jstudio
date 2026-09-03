@@ -25,6 +25,7 @@ help: ## 显示此帮助信息
 	@echo "  cd desktop && make build     # 构建桌面应用"
 	@echo "  cd backend && make run       # 后端本地运行"
 	@echo "  cd minio && podman-compose up -d  # 启动 MinIO"
+	@echo "  cd miniprogram && make dev   # 小程序开发模式（微信开发者工具导入 miniprogram/）"
 	@echo "  cd build  && make image-push REGISTRY_HOST=<节点IP>  # 构建并推送镜像"
 	@echo "  cd deploy && make install REGISTRY_HOST=<节点IP> DB_HOST=... DB_PASSWORD=...  # 部署到 k3s"
 
@@ -74,9 +75,10 @@ fmt: ## 格式化所有子项目代码（desktop + backend）
 	@$(MAKE) -C backend fmt
 	@echo "所有子项目格式化完成"
 
-lint: ## 检查所有子项目代码（desktop + backend）
+lint: ## 检查所有子项目代码（desktop + backend + miniprogram）
 	@$(MAKE) -C desktop lint
 	@$(MAKE) -C backend lint
+	@$(MAKE) -C miniprogram lint
 	@echo "所有子项目检查完成"
 
 # ============================================

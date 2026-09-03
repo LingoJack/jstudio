@@ -1,0 +1,65 @@
+// JStudio 小程序主题：逐值移植自桌面端暗色主题（desktop/src/styles/vscode-theme.css
+// 与 desktop/src/lib/themes/jstudio-dark.ts 的运行时注入值）。
+// 桌面端默认主题即暗色（initSlice themeMode = "dark"），本端保持一致；仅做暗色。
+//
+// 说明：
+// - CSS 自定义属性作用于 page 选择器，WXSS（基础库 >= 2.x）支持。
+// - px 直接使用桌面端的逻辑像素值（config/index.ts 已关闭 pxtransform）。
+// - 字体栈照抄桌面端；设备上 Monaco 等缺失时由系统回退（iOS: Menlo/PingFang SC）。
+
+page {
+  // —— 编辑器配色（dark）——
+  --vscode-editor-background: #181818;
+  --vscode-editor-foreground: #cccccc;
+  --vscode-descriptionForeground: #9d9d9d;
+  --vscode-widget-border: #5a5a5a;
+  --vscode-block-border: #5a5a5a;
+  --vscode-menu-border: #5a5a5a;
+  --vscode-focusBorder: #07c160;
+  --vscode-textLink-foreground: #3ddc84;
+  --vscode-textBlockQuote-background: #2b2b2b;
+  --vscode-textBlockQuote-border: #5a5a5a;
+  --vscode-textCodeBlock-background: #2b2b2b;
+  --vscode-textPreformat-foreground: #d0d0d0;
+  --vscode-textPreformat-background: #3c3c3c;
+  --vscode-input-placeholderForeground: #6e6e6e;
+  --vscode-button-background: #07c160;
+  --vscode-button-foreground: #ffffff;
+  --vscode-list-hoverBackground: rgba(241, 241, 241, 0.2);
+
+  // —— JStudio 派生线（桌面端为 block-border 的 35%/55% 透明度）——
+  --jstudio-block-line: rgba(90, 90, 90, 0.35);
+  --jstudio-block-line-strong: rgba(90, 90, 90, 0.55);
+
+  // —— 排版（桌面端默认值：fonts.ts DEFAULT_FONT_SIZE=16 / line-height 1.7）——
+  --jstudio-font-size: 16px;
+  --jstudio-line-height: 1.7;
+  --jstudio-font-family: 'Monaco', 'PingFang SC', sans-serif;
+  --jstudio-code-font-family: 'Monaco', 'SF Mono', 'Cascadia Code', 'Fira Code',
+    Consolas, 'Courier New', monospace;
+
+  background: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--jstudio-font-family);
+  font-size: var(--jstudio-font-size);
+  line-height: var(--jstudio-line-height);
+}
+
+// 主按钮：对齐桌面端 .jstudio-btn-primary（vscode-theme.css:978-992）。
+.jstudio-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  white-space: nowrap;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.jstudio-btn-primary[disabled] {
+  opacity: 0.5;
+}

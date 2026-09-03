@@ -4,5 +4,6 @@
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/desktop/example/kitty" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/desktop/jcli" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/miniprogram" vcs="Git" />
   </component>
 </project>

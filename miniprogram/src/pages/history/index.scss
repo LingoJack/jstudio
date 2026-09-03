@@ -1,0 +1,53 @@
+.history-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.history-error {
+  margin: 12px 16px;
+  padding: 10px 12px;
+  border: 1px dashed var(--jstudio-block-line);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.history-empty {
+  display: flex;
+  justify-content: center;
+  padding: 96px 0;
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.history-list {
+  flex: 1;
+}
+
+.history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--jstudio-block-line);
+}
+
+.history-item-title {
+  font-size: 15px;
+  color: var(--vscode-editor-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item-meta {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.history-item-dot {
+  opacity: 0.5;
+}
