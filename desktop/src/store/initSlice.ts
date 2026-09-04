@@ -12,6 +12,7 @@ import {
   type TerminalCursorStyle,
   type EditorCursorStyle,
   type ActivityBarItemConfig,
+  type SidebarPinMode,
 } from "../types/settings";
 import { migrateFromLocalStorage } from "../lib/documents/migrateLegacyStore";
 import { resolveDark, applyFont, applyLineHeight } from "./uiSlice";
@@ -69,7 +70,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       let fontSize = DEFAULT_FONT_SIZE;
       let editorLineHeight = DEFAULT_LINE_HEIGHT;
       let sidebarWidth: number | undefined;
-      let sidebarPinned: boolean | undefined;
+      let sidebarPinMode: SidebarPinMode | undefined;
       let outlinePinned: boolean | undefined;
       let language: Language = "zh";
       let activityBarItems: ActivityBarItemConfig[] =
@@ -119,8 +120,15 @@ export const createInitSlice: SliceCreator = (set, get) => ({
         if (typeof settings.sidebarWidth === "number") {
           sidebarWidth = settings.sidebarWidth;
         }
-        if (typeof settings.sidebarPinned === "boolean") {
-          sidebarPinned = settings.sidebarPinned;
+        // `sidebarPinMode` supersedes the legacy `sidebarPinned` boolean.
+        if (
+          settings.sidebarPinMode === "hover" ||
+          settings.sidebarPinMode === "open" ||
+          settings.sidebarPinMode === "collapsed"
+        ) {
+          sidebarPinMode = settings.sidebarPinMode;
+        } else if (typeof settings.sidebarPinned === "boolean") {
+          sidebarPinMode = settings.sidebarPinned ? "open" : "hover";
         }
         if (typeof settings.outlinePinned === "boolean") {
           outlinePinned = settings.outlinePinned;
@@ -327,7 +335,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
         fontSize,
         editorLineHeight,
         ...(sidebarWidth !== undefined ? { sidebarWidth } : {}),
-        ...(sidebarPinned !== undefined ? { sidebarPinned } : {}),
+        ...(sidebarPinMode !== undefined ? { sidebarPinMode } : {}),
         ...(outlinePinned !== undefined ? { outlinePinned } : {}),
         ...(appThemeIdDark !== undefined ? { appThemeIdDark } : {}),
         ...(appThemeIdLight !== undefined ? { appThemeIdLight } : {}),

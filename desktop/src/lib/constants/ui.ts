@@ -35,6 +35,8 @@ export const Z_INDEX = {
 export const SIDEBAR = {
   /** Activity bar width (leftmost icon strip) */
   ACTIVITY_BAR: 48,
+  /** Collapsed rail width (hover mode with the pointer away) */
+  COLLAPSED: 48,
   /** Document list / terminal sidebar default width */
   LIST: 240,
   /** Tab width in sidebar */

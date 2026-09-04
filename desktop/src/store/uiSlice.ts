@@ -6,6 +6,7 @@ import {
   type EditorCursorStyle,
   type ActivityBarItemConfig,
   type ActivityItemId,
+  type SidebarPinMode,
   DEFAULT_ACTIVITY_BAR_ITEMS,
   normalizeActivityBarItems,
 } from "../types/settings";
@@ -136,7 +137,11 @@ export interface UISlice {
   language: Language;
   activityBarItems: ActivityBarItemConfig[];
   isSidebarOpen: boolean;
-  sidebarPinned: boolean;
+  /**
+   * How the sidebar holds its state: 'hover' = expand on hover only,
+   * 'open' = locked expanded, 'collapsed' = locked collapsed.
+   */
+  sidebarPinMode: SidebarPinMode;
   leftPanelHovered: boolean;
   isOutlineOpen: boolean;
   outlinePinned: boolean;
@@ -172,7 +177,7 @@ export interface UISlice {
   setThemeMode: (mode: ThemeMode) => void;
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
-  toggleSidebarPinned: () => void;
+  setSidebarPinMode: (mode: SidebarPinMode) => void;
   setLeftPanelHovered: (v: boolean) => void;
   toggleOutline: () => void;
   setOutlineOpen: (v: boolean) => void;
@@ -229,7 +234,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   language: "zh",
   activityBarItems: DEFAULT_ACTIVITY_BAR_ITEMS,
   isSidebarOpen: true,
-  sidebarPinned: true,
+  sidebarPinMode: "open",
   /** Transient flag: true while the pointer is over the ActivityBar. Sidebars
    *  watch this to stay expanded when the user overshoots from the sidebar
    *  into the ActivityBar (they are visually one "left panel" zone). */
@@ -291,10 +296,9 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   },
 
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
-  toggleSidebarPinned: () => {
-    const next = !get().sidebarPinned;
-    set({ sidebarPinned: next });
-    ipc.saveSettings({ sidebarPinned: next }).catch(onSaveError("设置"));
+  setSidebarPinMode: (mode) => {
+    set({ sidebarPinMode: mode });
+    ipc.saveSettings({ sidebarPinMode: mode }).catch(onSaveError("设置"));
   },
   setLeftPanelHovered: (hovered) => set({ leftPanelHovered: hovered }),
   toggleOutline: () => set((s) => ({ isOutlineOpen: !s.isOutlineOpen })),

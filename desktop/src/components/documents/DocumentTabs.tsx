@@ -9,6 +9,7 @@ import OpenDocumentDialog from './OpenDocumentDialog';
 import { DocumentTabContextMenu } from './DocumentTabContextMenu';
 import { useTitlebarCenterSlot } from '../layout/titlebarSlot';
 import { OUTLINE_WIDTH } from '../editor/sectionEditor/SectionOutline';
+import { SIDEBAR } from '../../lib/constants';
 
 /**
  * Max document tabs rendered at once.
@@ -52,7 +53,7 @@ export default function DocumentTabs() {
   const setOpenDocDialogOpen = useStore((s) => s.setOpenDocDialogOpen);
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
-  const sidebarPinned = useStore((s) => s.sidebarPinned);
+  const sidebarPinMode = useStore((s) => s.sidebarPinMode);
   const leftPanelHovered = useStore((s) => s.leftPanelHovered);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
 
@@ -60,11 +61,15 @@ export default function DocumentTabs() {
   // The capsule centers on the window, so its cap is 80% minus the space
   // occupied by the sidebar (left; 48px collapsed / sidebarWidth expanded)
   // and the outline panel (right; OUTLINE_WIDTH when open).
+  // The sidebar is expanded when locked open, or in hover mode while the
+  // pointer is over the left panel; locked-collapsed always counts as 48px.
   const sidebarEffective = !isSidebarOpen
     ? 0
-    : !sidebarPinned && !leftPanelHovered
-      ? 48
-      : sidebarWidth;
+    : sidebarPinMode === 'collapsed'
+      ? SIDEBAR.COLLAPSED
+      : sidebarPinMode === 'open' || leftPanelHovered
+        ? sidebarWidth
+        : SIDEBAR.COLLAPSED;
   const outlineOffset = isOutlineOpen ? OUTLINE_WIDTH : 0;
   const capsuleMaxWidth = `calc(80% - ${sidebarEffective + outlineOffset}px)`;
 

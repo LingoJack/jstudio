@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
+import { SIDEBAR } from '../../lib/constants';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { useSidebarHover } from '../hooks/useSidebarHover';
 import { useBatchSelection } from './hooks/useBatchSelection';
@@ -17,13 +18,6 @@ import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSi
 import { DocumentTreeRenderer, SearchResultsList } from './DocumentTreeRenderer';
 import TrashDialog from './TrashDialog';
 import BackupRestoreDialog from './BackupRestoreDialog';
-
-// ──────────────────────────────────────────────────────────────────
-// Constants
-// ──────────────────────────────────────────────────────────────────
-
-/** Width of the sidebar when collapsed (unpinned, not hovered). */
-const COLLAPSED_WIDTH = 48;
 
 interface ContextMenuState {
   x: number;
@@ -59,8 +53,8 @@ export default function DocumentSidebar() {
   const searchQuery = useStore((s) => s.searchQuery);
   const setSearchQuery = useStore((s) => s.setSearchQuery);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
-  const sidebarPinned = useStore((s) => s.sidebarPinned);
-  const toggleSidebarPinned = useStore((s) => s.toggleSidebarPinned);
+  const sidebarPinMode = useStore((s) => s.sidebarPinMode);
+  const setSidebarPinMode = useStore((s) => s.setSidebarPinMode);
   const leftPanelHovered = useStore((s) => s.leftPanelHovered);
 
   // Folder store
@@ -130,26 +124,35 @@ export default function DocumentSidebar() {
   const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null || searchFocused;
 
   // ── Hover expand/collapse (extracted to useSidebarHover hook) ──
-  const { hoverExpanded, handleHoverEnter, handleHoverLeave, handleTogglePin } = useSidebarHover({
-    sidebarPinned,
+  const {
+    isExpanded,
+    handleHoverEnter,
+    handleHoverLeave,
+    handlePinZoneEnter,
+    handlePinZoneLeave,
+    handleTogglePin,
+  } = useSidebarHover({
+    pinMode: sidebarPinMode,
     leftPanelHovered,
-    toggleSidebarPinned,
+    setSidebarPinMode,
     suppressCollapse,
   });
 
-  const isCollapsed = !sidebarPinned && !hoverExpanded;
-  const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
+  const isCollapsed = !isExpanded;
+  const effectiveWidth = isCollapsed ? SIDEBAR.COLLAPSED : sidebarWidth;
+  /** Locked = pin holds the current state; hover neither expands nor collapses. */
+  const isPinLocked = sidebarPinMode !== 'hover';
 
   // ── Overlay mode (hover-expand without pinning) ────────────
   // When the sidebar expands on hover (unpinned), it overlays the content
   // area instead of pushing it.  A negative `margin-right` cancels out
   // the extra width so the flex layout still reserves only
-  // `COLLAPSED_WIDTH` – the editor's width never changes and ProseMirror
+  // `SIDEBAR.COLLAPSED` – the editor's width never changes and ProseMirror
   // never reflows.  This mirrors BrowserPanel's constant-width webview
   // approach.  When pinned, `margin-right` is 0 and the sidebar takes its
   // full width in the flex layout as before.
-  const isOverlay = !sidebarPinned && !isCollapsed;
-  const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
+  const isOverlay = sidebarPinMode === 'hover' && isExpanded;
+  const overlayShift = isOverlay ? effectiveWidth - SIDEBAR.COLLAPSED : 0;
 
   // ── Derived: folder expand state ──────────────────────────
   const isFolderExpanded = useCallback(
@@ -456,11 +459,11 @@ export default function DocumentSidebar() {
           // Pinned = accent icon, no background pill (ActivityBar color
           // story: accent = "this is where you are / this is on").
           className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
-            sidebarPinned
+            isPinLocked
               ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
               : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
           }`}
-          title={sidebarPinned ? t('doclist.unpin') : t('doclist.pin')}
+          title={isPinLocked ? t('doclist.unpin') : t('doclist.pin')}
         >
           <Pin className="w-4 h-4" />
         </button>
@@ -521,13 +524,28 @@ export default function DocumentSidebar() {
       {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
         <>
-          <div className="h-9 shrink-0 flex items-center justify-center mt-9">
+          {/* Hit area = the whole top row of the rail (48x36): the pointer
+              lands in the no-expand zone the moment it enters the sidebar at
+              this height, instead of triggering the expand that would move
+              the pin to the far right of the expanded header. The visible
+              pill stays small — only the clickable box is row-wide. */}
+          <div className="h-9 shrink-0 flex items-center mt-9">
             <button
               onClick={handleTogglePin}
-              className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
-              title={t('doclist.pin')}
+              onMouseEnter={handlePinZoneEnter}
+              onMouseLeave={handlePinZoneLeave}
+              className="group w-full h-full flex items-center justify-center cursor-pointer"
+              title={isPinLocked ? t('doclist.unpin') : t('doclist.pinCollapsed')}
             >
-              <Pin className="w-4 h-4" />
+              <span
+                className={`p-1.5 rounded-md transition-colors duration-150 ${
+                  isPinLocked
+                    ? 'text-[var(--vscode-focusBorder)] group-hover:bg-[var(--vscode-list-hoverBackground)]'
+                    : 'text-[var(--vscode-icon-foreground)] group-hover:text-[var(--vscode-foreground)] group-hover:bg-[var(--vscode-list-hoverBackground)]'
+                }`}
+              >
+                <Pin className="w-4 h-4" />
+              </span>
             </button>
           </div>
           <CollapsedRail
@@ -680,8 +698,8 @@ export default function DocumentSidebar() {
         />
       )}
 
-      {/* Resize handle - only when pinned */}
-      {sidebarPinned && (
+      {/* Resize handle - only when locked open */}
+      {sidebarPinMode === 'open' && (
         <div
           onMouseDown={onResizeStart}
           className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-20 hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] transition-colors"

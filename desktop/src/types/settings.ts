@@ -29,6 +29,14 @@ export type TerminalCursorStyle = 'block' | 'underline' | 'bar';
 export type EditorCursorStyle = 'bar' | 'block' | 'underline';
 
 /**
+ * How the left sidebar holds its expanded / collapsed state.
+ * - 'hover'     - collapsed to the rail, expands while the pointer is over it
+ * - 'open'      - locked expanded: mouse-out does not collapse it
+ * - 'collapsed' - locked collapsed: hover does not expand it
+ */
+export type SidebarPinMode = 'hover' | 'open' | 'collapsed';
+
+/**
  * Identifiers for items that can appear in the left Activity Bar.
  * The array order in `ActivityBarItemConfig[]` determines display order.
  */
@@ -117,7 +125,15 @@ export interface AppSettings {
   editorCursorAnimationEnabled?: boolean;
   /** Sidebar width in pixels (180–480) */
   sidebarWidth?: number;
-  /** Whether the document sidebar is pinned (true) or hover-to-expand (false). */
+  /**
+   * How the document sidebar holds its expanded/collapsed state:
+   *  - 'hover':     collapsed to the rail, expands on hover (auto-expand)
+   *  - 'open':      locked expanded — never collapses on mouse-out
+   *  - 'collapsed': locked collapsed — never expands on hover
+   */
+  sidebarPinMode?: SidebarPinMode;
+  /** Legacy boolean (true -> 'open', false -> 'hover'). Read only when
+   *  `sidebarPinMode` is absent; superseded by it. */
   sidebarPinned?: boolean;
   /** Whether the section outline is pinned (true) or hover-to-expand (false). */
   outlinePinned?: boolean;

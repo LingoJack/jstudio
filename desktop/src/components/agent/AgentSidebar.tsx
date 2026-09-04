@@ -35,15 +35,13 @@ import { AgentWorkspaceMenu, workspaceDisplayName } from './AgentWorkspaceMenu';
 import { WorkspaceSelectModal } from './WorkspaceSelectModal';
 import { WorkspaceExpandModal } from './WorkspaceExpandModal';
 import { CollapsedRail, type RailItem } from '../ui/CollapsedRail';
+import { SIDEBAR } from '../../lib/constants';
 
 // ────────────────────────────────────────────────
 // Constants
 // ────────────────────────────────────────────────
 
 const MAX_SESSIONS_PER_GROUP = 5;
-
-/** Width of the sidebar when collapsed (unpinned, not hovered). */
-const COLLAPSED_WIDTH = 48;
 
 // ────────────────────────────────────────────────
 // Agent Sidebar
@@ -75,8 +73,8 @@ export default function AgentSidebar() {
 
   // ── Sidebar UI store state (shared with DocumentSidebar) ──
   const sidebarWidth = useStore((s) => s.sidebarWidth);
-  const sidebarPinned = useStore((s) => s.sidebarPinned);
-  const toggleSidebarPinned = useStore((s) => s.toggleSidebarPinned);
+  const sidebarPinMode = useStore((s) => s.sidebarPinMode);
+  const setSidebarPinMode = useStore((s) => s.setSidebarPinMode);
   const leftPanelHovered = useStore((s) => s.leftPanelHovered);
 
   const { onResizeStart } = useSidebarResize();
@@ -126,23 +124,27 @@ export default function AgentSidebar() {
 
   // ── Hover expand / collapse (shared hook) ──
   const {
-    hoverExpanded,
+    isExpanded,
     handleHoverEnter,
     handleHoverLeave,
+    handlePinZoneEnter,
+    handlePinZoneLeave,
     handleTogglePin,
   } = useSidebarHover({
-    sidebarPinned,
+    pinMode: sidebarPinMode,
     leftPanelHovered,
-    toggleSidebarPinned,
+    setSidebarPinMode,
     suppressCollapse,
   });
 
-  const isCollapsed = !sidebarPinned && !hoverExpanded;
-  const effectiveWidth = isCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
+  const isCollapsed = !isExpanded;
+  const effectiveWidth = isCollapsed ? SIDEBAR.COLLAPSED : sidebarWidth;
+  /** Locked = pin holds the current state; hover neither expands nor collapses. */
+  const isPinLocked = sidebarPinMode !== 'hover';
 
   // ── Overlay mode (hover-expand without pinning) ──
-  const isOverlay = !sidebarPinned && !isCollapsed;
-  const overlayShift = isOverlay ? effectiveWidth - COLLAPSED_WIDTH : 0;
+  const isOverlay = sidebarPinMode === 'hover' && isExpanded;
+  const overlayShift = isOverlay ? effectiveWidth - SIDEBAR.COLLAPSED : 0;
 
   // ── Handlers ──
 
@@ -256,13 +258,28 @@ export default function AgentSidebar() {
       {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
         <>
-          <div className="h-9 shrink-0 flex items-center justify-center mt-9">
+          {/* Hit area = the whole top row of the rail (48x36): the pointer
+              lands in the no-expand zone the moment it enters the sidebar at
+              this height, instead of triggering the expand that would move
+              the pin to the far right of the expanded header. The visible
+              pill stays small — only the clickable box is row-wide. */}
+          <div className="h-9 shrink-0 flex items-center mt-9">
             <button
               onClick={handleTogglePin}
-              className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
-              title={t('doclist.pin')}
+              onMouseEnter={handlePinZoneEnter}
+              onMouseLeave={handlePinZoneLeave}
+              className="group w-full h-full flex items-center justify-center cursor-pointer"
+              title={isPinLocked ? t('doclist.unpin') : t('doclist.pinCollapsed')}
             >
-              <Pin className="w-4 h-4" />
+              <span
+                className={`p-1.5 rounded-md transition-colors duration-150 ${
+                  isPinLocked
+                    ? 'text-[var(--vscode-focusBorder)] group-hover:bg-[var(--vscode-list-hoverBackground)]'
+                    : 'text-[var(--vscode-icon-foreground)] group-hover:text-[var(--vscode-foreground)] group-hover:bg-[var(--vscode-list-hoverBackground)]'
+                }`}
+              >
+                <Pin className="w-4 h-4" />
+              </span>
             </button>
           </div>
           <CollapsedRail
@@ -279,11 +296,11 @@ export default function AgentSidebar() {
         <button
           onClick={handleTogglePin}
           className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
-            sidebarPinned
+            isPinLocked
               ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
               : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
           }`}
-          title={sidebarPinned ? t('doclist.unpin') : t('doclist.pin')}
+          title={isPinLocked ? t('doclist.unpin') : t('doclist.pin')}
         >
           <Pin className="w-4 h-4" />
         </button>
@@ -377,8 +394,8 @@ export default function AgentSidebar() {
         />
       </div>
 
-      {/* Resize handle - only when pinned */}
-      {sidebarPinned && (
+      {/* Resize handle - only when locked open */}
+      {sidebarPinMode === 'open' && (
         <div
           onMouseDown={onResizeStart}
           className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-20 hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] transition-colors"
