@@ -54,13 +54,14 @@ export default function TerminalPanel({
         className="w-full h-full flex flex-col relative overflow-hidden"
         style={{ background: theme.ui.panelBg }}
       >
-        {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置 */}
+        {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置；
+            'top' 时由 TerminalTabs 自行 portal 进标题栏槽位 */}
         <div
           className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}
           style={tabBarPosition === 'top' ? { paddingLeft: tabStripLeftInsetPx } : undefined}
         >
           <div className="pointer-events-auto">
-            <TerminalTabs />
+            <TerminalTabs hidden={hidden} />
           </div>
         </div>
         <div className="flex-1" />
@@ -78,13 +79,14 @@ export default function TerminalPanel({
       className="w-full h-full flex flex-col relative overflow-hidden"
       style={{ background: theme.ui.panelBg }}
     >
-      {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置 */}
+      {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置；
+          'top' 时由 TerminalTabs 自行 portal 进标题栏槽位 */}
       <div
         className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}
         style={tabBarPosition === 'top' ? { paddingLeft: tabStripLeftInsetPx } : undefined}
       >
         <div className="pointer-events-auto">
-          <TerminalTabs />
+          <TerminalTabs hidden={hidden} />
         </div>
       </div>
       {/* 内容区域：TabBar 悬浮覆盖在内容上方，无需 padding */}

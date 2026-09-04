@@ -243,8 +243,11 @@ export default function App() {
 
   // Document view: the content column punches 36px up beneath the glass
   // title bar so document text scrolls under it (soft translucent reveal
-  // instead of a hard cutoff). Other views keep the pt-9 offset below the bar.
+  // instead of a hard cutoff). Terminal view does the same so the terminal
+  // area gets the identical treatment (tab capsule docked in the bar).
+  // Agent/browser views keep the pt-9 offset below the bar.
   const showDocView = !isTerminalView && !isAgentView && !isBrowserView;
+  const contentPunchesUp = showDocView || isTerminalView;
 
   // 不带 font-sans：根节点必须从 body 继承 var(--jstudio-font-family)，
   // 让设置页的字体配置对整个界面生效（曾因根节点 font-sans 导致文档标题
@@ -275,13 +278,13 @@ export default function App() {
         {/* Agent sidebar: shown when in agent view */}
         {isAgentView && <AgentSidebar />}
 
-        {/* Main content area (right). In doc view it punches up 36px beneath
-            the glass title bar (row's pt-9 keeps every other panel below it;
-            the calc() restores the height so the bottom still reaches the
-            window edge). */}
+        {/* Main content area (right). In doc/terminal view it punches up
+            36px beneath the glass title bar (row's pt-9 keeps every other
+            panel below it; the calc() restores the height so the bottom
+            still reaches the window edge). */}
         <div
           className={`flex-1 min-w-0 flex flex-col overflow-hidden relative ${
-            showDocView ? '-mt-9 h-[calc(100%+2.25rem)]' : 'h-full'
+            contentPunchesUp ? '-mt-9 h-[calc(100%+2.25rem)]' : 'h-full'
           }`}
         >
           {/* Document Tab Bar */}

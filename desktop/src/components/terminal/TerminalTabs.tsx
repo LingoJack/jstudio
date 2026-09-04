@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { createTerminalWindow } from '../../lib/windows/terminalDetach';
 import { getTerminalThemeFromAppTheme } from '../../lib/terminal/themes';
 import TabBar, { type TabItem } from '../ui/TabBar';
 import TerminalRecentDirsDropdown from './TerminalRecentDirsDropdown';
 import { TerminalTabContextMenu } from './TerminalTabContextMenu';
+import { useTitlebarCenterSlot } from '../layout/titlebarSlot';
 import type { TerminalSession } from '../../store/terminalSlice';
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -78,12 +80,18 @@ function formatAutoTitle(raw: string): string {
  *   - `+` button → new tab
  *   - Clock button → dropdown of recent working directories (max 10)
  *
+ * Tab bar position follows the shared `tabBarPosition` setting with the
+ * same treatment as DocumentTabs: 'top' docks the capsule into the app
+ * title bar's center slot (main window only — detached terminal windows
+ * have no slot and fall back to the floating overlay strip), 'bottom'
+ * floats it below the content.
+ *
  * Keyboard shortcuts (resolved from lib/shortcuts.ts — user-customizable):
  *   Cmd/Ctrl + T                 — new tab
  *   Cmd/Ctrl + Shift + ← / →     — cycle tabs
  *   Cmd/Ctrl + Opt/Alt + ← / →   — cycle tabs (secondary)
  */
-export default function TerminalTabs() {
+export default function TerminalTabs({ hidden }: { hidden?: boolean }) {
   const groups = useStore((s) => s.groups);
   const sessions = useStore((s) => s.sessions);
   const activeGroupId = useStore((s) => s.activeGroupId);
@@ -95,6 +103,11 @@ export default function TerminalTabs() {
   const selectTab = useStore((s) => s.selectTab);
   const tabBarGlassOpacity = useStore((s) => s.tabBarGlassOpacity);
   const tabBarPosition = useStore((s) => s.tabBarPosition);
+
+  // Title-bar center slot (live element, main window only) — portal target
+  // for the capsule when the tab bar position is 'top'. Detached terminal
+  // windows have no AppTitleBar, so the slot stays null there.
+  const titlebarSlot = useTitlebarCenterSlot();
 
   // ── Terminal theme: follows app theme (same IDs: jstudio-dark, jstudio-light, etc.)
   const appThemeIdDark = useStore((s) => s.appThemeIdDark);
@@ -205,28 +218,36 @@ export default function TerminalTabs() {
     />
   );
 
-  if (groups.length === 0) return null;
+  // `hidden`: the panel is CSS-hidden while terminal tabs stay mounted in
+  // the main window (documents are being viewed). A portaled capsule would
+  // escape the hidden subtree and pile onto the title-bar slot alongside
+  // DocumentTabs — so render nothing while hidden.
+  if (groups.length === 0 || hidden) return null;
 
-  return (
-    <>
-      <TabBar
-        tabs={tabItems}
-        activeTabId={activeGroupId}
-        onTabClick={switchGroup}
-        onTabClose={(groupId) => {
-          const group = groups.find((g) => g.id === groupId);
-          if (group) closeSession(group.activeSessionId);
-        }}
-        onDetach={handleDetach}
-        onRenameChange={setRenameValue}
-        onRenameConfirm={() => confirmRename(renamingGroupId ?? '')}
-        onRenameCancel={cancelRename}
-        onNew={() => createSession()}
-        renderContextMenu={renderContextMenu}
-        extraActions={extraActions}
-        glassOpacity={tabBarGlassOpacity}
-        position={tabBarPosition}
-      />
-    </>
+  // 'top' + slot available → dock into the title bar, exactly like
+  // DocumentTabs; otherwise keep the floating overlay strip.
+  const dockedInTitlebar = tabBarPosition === 'top' && titlebarSlot !== null;
+
+  const tabBar = (
+    <TabBar
+      tabs={tabItems}
+      activeTabId={activeGroupId}
+      onTabClick={switchGroup}
+      onTabClose={(groupId) => {
+        const group = groups.find((g) => g.id === groupId);
+        if (group) closeSession(group.activeSessionId);
+      }}
+      onDetach={handleDetach}
+      onRenameChange={setRenameValue}
+      onRenameConfirm={() => confirmRename(renamingGroupId ?? '')}
+      onRenameCancel={cancelRename}
+      onNew={() => createSession()}
+      renderContextMenu={renderContextMenu}
+      extraActions={extraActions}
+      glassOpacity={tabBarGlassOpacity}
+      position={dockedInTitlebar ? 'titlebar' : tabBarPosition}
+    />
   );
+
+  return dockedInTitlebar ? createPortal(tabBar, titlebarSlot) : tabBar;
 }
