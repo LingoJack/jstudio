@@ -13,6 +13,7 @@ import {
   withSemanticTerminalCursor,
 } from '../../lib/terminal/themes';
 import { useTerminalManager } from './useTerminalManager';
+import { resolveMonospaceFont } from '../../lib/editor/fonts';
 import TerminalCursorTrail from './TerminalCursorTrail';
 import type { PaneLayoutType, PaneResizeState } from './types';
 
@@ -634,7 +635,7 @@ export default function PaneLayoutView({
   // ── Live font update ─────────────────────────────────────────────
   useEffect(() => {
     terminalsRef.current.forEach(({ term, fit }) => {
-      term.options.fontFamily = `'${terminalFontId}', 'monaco', monospace`;
+      term.options.fontFamily = resolveMonospaceFont(terminalFontId);
       term.options.fontSize = terminalFontSize;
       requestAnimationFrame(() => {
         try {

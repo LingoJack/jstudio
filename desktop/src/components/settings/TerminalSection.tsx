@@ -1,7 +1,9 @@
 import { Minus, Plus } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { useI18n, type TranslationKey } from '../../lib/core/i18n';
-import { MONOSPACE_FONTS } from '../../lib/editor/fonts';
+import { useI18n } from '../../lib/core/i18n';
+import { TERMINAL_FONTS } from '../../lib/editor/fonts';
+import FontDropdown from '../ui/FontDropdown';
+import { useSystemFonts } from '../../lib/editor/useSystemFonts';
 import type { TerminalCursorStyle } from '../../types/settings';
 
 /** Cursor style options shown in the settings picker. */
@@ -34,6 +36,9 @@ export default function TerminalSection() {
   const terminalCursorStyle = useStore((s) => s.terminalCursorStyle);
   const setTerminalCursorStyle = useStore((s) => s.setTerminalCursorStyle);
 
+  // Installed system fonts, appended as a second group in the picker.
+  const systemFonts = useSystemFonts();
+
   return (
     <div className="max-w-2xl space-y-8">
       {/* ── Monospace Font ── */}
@@ -45,35 +50,13 @@ export default function TerminalSection() {
           {t('terminal.fontFamilyDesc')}
         </p>
 
-        <div className="flex flex-wrap gap-2">
-          {MONOSPACE_FONTS.map((font) => {
-            const selected = terminalFontId === font.id;
-            return (
-              <button
-                key={font.id}
-                onClick={() => setTerminalFontId(font.id)}
-                className={`px-4 py-2.5 rounded-lg border-2 transition-all duration-150 cursor-pointer ${
-                  selected
-                    ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
-                    : 'border-[var(--vscode-widget-border)] hover:border-[var(--vscode-focusBorder)]'
-                }`}
-              >
-                <div
-                  className="text-sm text-[var(--vscode-foreground)]"
-                  style={{ fontFamily: font.fontFamily }}
-                >
-                  {font.label}
-                </div>
-                <div
-                  className="text-xs text-[var(--vscode-descriptionForeground)] mt-0.5"
-                  style={{ fontFamily: font.fontFamily }}
-                >
-                  {font.preview}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        <FontDropdown
+          options={TERMINAL_FONTS}
+          value={terminalFontId}
+          onChange={setTerminalFontId}
+          searchPlaceholder={t('font.searchPlaceholder')}
+          systemOptions={systemFonts}
+        />
       </div>
 
       <div className="border-t border-[var(--vscode-widget-border)]" />

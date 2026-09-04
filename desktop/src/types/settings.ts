@@ -149,7 +149,7 @@ export interface AppSettings {
   appThemeIdLight?: string;
   /** Terminal font size in pixels (independent from editor font size) */
   terminalFontSize?: number;
-  /** Terminal monospace font id - see MONOSPACE_FONTS in lib/fonts.ts */
+  /** Terminal font id - see TERMINAL_FONTS in lib/editor/fonts.ts */
   terminalFontId?: string;
   /** Terminal cursor shape - also drives the cursor trail shape */
   terminalCursorStyle?: TerminalCursorStyle;

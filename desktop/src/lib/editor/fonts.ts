@@ -305,9 +305,26 @@ export const MONOSPACE_FONTS: FontPreset[] = [
 export const DEFAULT_MONOSPACE_FONT_ID = 'monaco';
 
 /**
- * Resolve a monospace font id to its CSS font-family string. Accepts
- * system font ids (`system:<family>`) as well.
+ * All fonts selectable for the terminal: the curated monospace presets
+ * first, then every editor (Latin + CJK) preset not already present.
+ * Deduped by id, keeping the first occurrence (the monospace label).
+ */
+export const TERMINAL_FONTS: FontPreset[] = (() => {
+  const seen = new Set<string>();
+  const out: FontPreset[] = [];
+  for (const font of [...MONOSPACE_FONTS, ...LATIN_FONTS, ...CJK_FONTS]) {
+    if (seen.has(font.id)) continue;
+    seen.add(font.id);
+    out.push(font);
+  }
+  return out;
+})();
+
+/**
+ * Resolve a terminal font id to its CSS font-family string. Accepts any
+ * editor preset id, monospace preset id, or system font id
+ * (`system:<family>`).
  */
 export function resolveMonospaceFont(id: string | undefined): string {
-  return resolveFontId(id, MONOSPACE_FONTS) ?? MONOSPACE_FONTS[0].fontFamily;
+  return resolveFontId(id, TERMINAL_FONTS) ?? MONOSPACE_FONTS[0].fontFamily;
 }
