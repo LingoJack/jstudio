@@ -20,6 +20,7 @@ import { dividerCommand } from "./divider";
 import { diagramCommand } from "./diagram";
 import { collapsibleCommand } from "./collapsible";
 import { mathCommand } from "./math";
+import { inlineMathCommand } from "./inlineMath";
 
 /**
  * Ordered list of every slash-menu command.
@@ -48,6 +49,7 @@ export const slashCommands: SlashCommandItem[] = [
   diagramCommand,
   collapsibleCommand,
   mathCommand,
+  inlineMathCommand,
 ];
 
 /**

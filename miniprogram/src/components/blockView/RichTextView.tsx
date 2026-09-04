@@ -13,6 +13,7 @@ import type { RichText, RichTextAnnotations } from '../../lib/blocks/types'
  * - color 只透传 #hex / rgb / hsl 字面值；'default' 或 CSS var 引用退回继承。
  *   （桌面端 color 本来就存 CSS 颜色串，richText.ts:155。）
  * - href 不可点开外部浏览器，点击复制链接并 toast 提示。
+ * - inlineMath 无 KaTeX，等宽展示 LaTeX 源码（与块级 math 占位一致）。
  */
 
 /** 行内 code 的字号缩放（桌面端 0.9em，vscode-theme.css:1676）。 */
@@ -46,7 +47,7 @@ function annotationStyle(a: RichTextAnnotations): CSSProperties {
   if (decorations.length > 0) {
     style.textDecorationLine = decorations.join(' ')
   }
-  if (a.code) {
+  if (a.code || a.inlineMath) {
     style.fontFamily =
       "Monaco, 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace"
     style.fontSize = INLINE_CODE_FONT_SIZE

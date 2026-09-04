@@ -49,6 +49,10 @@ const SLASH_I18N_KEYS: Record<
     description: "slash.collapsibleDesc",
   },
   Formula: { title: "slash.formula", description: "slash.formulaDesc" },
+  "Inline Formula": {
+    title: "slash.inlineFormula",
+    description: "slash.inlineFormulaDesc",
+  },
 };
 
 /**

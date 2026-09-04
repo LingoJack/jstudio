@@ -11,23 +11,24 @@
  * The headless editor is created once and cached for subsequent imports.
  */
 
-import { Editor } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import Code from '@tiptap/extension-code';
-import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
-import { Table } from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableHeader from '@tiptap/extension-table-header';
-import TableCell from '@tiptap/extension-table-cell';
-import { TaskList, TaskItem } from '@tiptap/extension-list';
-import { Markdown } from '@tiptap/markdown';
-import { MathBlockExtension } from './extensions/mathBlockExtension';
-import { tiptapJSONToOurBlocks } from './tiptapAdapter';
-import { dedupeMarks, decodeMarkdownEntities } from './pasteMarkdown';
-import { upgradeTableCells } from './markdownTableCells';
-import type { Block } from '../../types';
-import type { JSONContent } from '@tiptap/core';
+import { Editor } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import Code from "@tiptap/extension-code";
+import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
+import { Table } from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
+import { TaskList, TaskItem } from "@tiptap/extension-list";
+import { Markdown } from "@tiptap/markdown";
+import { MathBlockExtension } from "./extensions/mathBlockExtension";
+import { InlineMathExtension } from "./extensions/inlineMathExtension";
+import { tiptapJSONToOurBlocks } from "./tiptapAdapter";
+import { dedupeMarks, decodeMarkdownEntities } from "./pasteMarkdown";
+import { upgradeTableCells } from "./markdownTableCells";
+import type { Block } from "../../types";
+import type { JSONContent } from "@tiptap/core";
 
 // Lazily-created headless editor used purely for Markdown parsing.
 let _headless: Editor | null = null;
@@ -46,7 +47,7 @@ function getHeadlessEditor(): Editor {
         // link (we add our own below). Underline is left to StarterKit.
         link: false,
       }),
-      Code.extend({ excludes: '' }),
+      Code.extend({ excludes: "" }),
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({
         openOnClick: false,
@@ -62,11 +63,12 @@ function getHeadlessEditor(): Editor {
       TaskList,
       TaskItem.configure({ nested: true }),
       MathBlockExtension,
+      InlineMathExtension,
       Markdown.configure({
         markedOptions: { gfm: true, breaks: true },
       }),
     ],
-    content: '',
+    content: "",
   });
 
   return _headless;
@@ -82,7 +84,7 @@ function getHeadlessEditor(): Editor {
  */
 export function markdownToBlocks(md: string): Block[] {
   if (!md || !md.trim()) {
-    return [{ id: `block-${Date.now()}`, type: 'text', content: [] }];
+    return [{ id: `block-${Date.now()}`, type: "text", content: [] }];
   }
 
   const editor = getHeadlessEditor();

@@ -13,10 +13,11 @@
  *   code              →   code
  *   color (≠ default) →   textStyle (attrs.color)
  *   href              →   link (attrs.href)
+ *   inlineMath        →   inlineMath node (attrs.latex = segment text)
  */
 
-import type { JSONContent } from '@tiptap/react';
-import type { RichText, RichTextAnnotations } from '../../../types/richText';
+import type { JSONContent } from "@tiptap/react";
+import type { RichText, RichTextAnnotations } from "../../../types/richText";
 
 /** A TipTap mark with a concrete type and attrs. */
 interface TiptapMark {
@@ -34,18 +35,18 @@ interface TiptapMark {
 function annotationsToMarks(ann: RichTextAnnotations): TiptapMark[] {
   const marks: TiptapMark[] = [];
 
-  if (ann.bold) marks.push({ type: 'bold' });
-  if (ann.italic) marks.push({ type: 'italic' });
-  if (ann.underline) marks.push({ type: 'underline' });
-  if (ann.strikethrough) marks.push({ type: 'strike' });
-  if (ann.code) marks.push({ type: 'code' });
+  if (ann.bold) marks.push({ type: "bold" });
+  if (ann.italic) marks.push({ type: "italic" });
+  if (ann.underline) marks.push({ type: "underline" });
+  if (ann.strikethrough) marks.push({ type: "strike" });
+  if (ann.code) marks.push({ type: "code" });
 
-  if (ann.color && ann.color !== 'default') {
-    marks.push({ type: 'textStyle', attrs: { color: ann.color } });
+  if (ann.color && ann.color !== "default") {
+    marks.push({ type: "textStyle", attrs: { color: ann.color } });
   }
 
   if (ann.href) {
-    marks.push({ type: 'link', attrs: { href: ann.href } });
+    marks.push({ type: "link", attrs: { href: ann.href } });
   }
 
   return marks;
@@ -67,7 +68,7 @@ export function splitRichTextByLines(rich: RichText[]): RichText[][] {
   const lines: RichText[][] = [[]];
   for (const seg of rich ?? []) {
     if (!seg.text) continue;
-    const parts = seg.text.split('\n');
+    const parts = seg.text.split("\n");
     parts.forEach((part, i) => {
       if (i > 0) lines.push([]);
       if (part) lines[lines.length - 1].push({ ...seg, text: part });
@@ -90,15 +91,24 @@ export function richTextToTiptapInline(rich: RichText[]): JSONContent[] {
 
   for (const seg of rich) {
     if (!seg.text) continue;
+
+    // Inline LaTeX formula: an atom node, not text+marks. Its text IS the
+    // LaTeX source. Formulas are single-line by definition; an embedded \n
+    // is kept verbatim inside the latex attr (KaTeX handles newlines).
+    if (seg.annotations?.inlineMath) {
+      result.push({ type: "inlineMath", attrs: { latex: seg.text } });
+      continue;
+    }
+
     const marks = annotationsToMarks(seg.annotations ?? {});
     // A segment may contain soft line breaks (`\n`, from Shift+Enter). TipTap
     // represents these as `hardBreak` atom nodes, not as `\n` inside a text
     // node. Split on `\n` and interleave hardBreak nodes so the break
     // survives the round-trip instead of being silently dropped.
-    const parts = seg.text.split('\n');
+    const parts = seg.text.split("\n");
     parts.forEach((part, i) => {
-      if (i > 0) result.push({ type: 'hardBreak' });
-      if (part) result.push({ type: 'text', text: part, marks });
+      if (i > 0) result.push({ type: "hardBreak" });
+      if (part) result.push({ type: "text", text: part, marks });
     });
   }
 
@@ -117,13 +127,23 @@ export function tiptapInlineToRichText(nodes: JSONContent[]): RichText[] {
   const result: RichText[] = [];
 
   for (const node of nodes) {
-    if (node.type === 'text') {
+    if (node.type === "text") {
       const marks = (node.marks ?? []) as TiptapMark[];
-      result.push({ text: node.text ?? '', annotations: marksToAnnotations(marks) });
-    } else if (node.type === 'hardBreak') {
+      result.push({
+        text: node.text ?? "",
+        annotations: marksToAnnotations(marks),
+      });
+    } else if (node.type === "inlineMath") {
+      // Inline LaTeX formula atom — the latex attr becomes the segment text.
+      const latex = node.attrs?.latex;
+      result.push({
+        text: typeof latex === "string" ? latex : "",
+        annotations: { inlineMath: true },
+      });
+    } else if (node.type === "hardBreak") {
       // Soft line break (Shift+Enter). Encode as a `\n` segment so it
       // round-trips back to a hardBreak on the next load.
-      result.push({ text: '\n', annotations: {} });
+      result.push({ text: "\n", annotations: {} });
     }
     // Other inline types are ignored for now.
   }
@@ -137,31 +157,31 @@ function marksToAnnotations(marks: TiptapMark[]): RichTextAnnotations {
 
   for (const mark of marks) {
     switch (mark.type) {
-      case 'bold':
+      case "bold":
         annotations.bold = true;
         break;
-      case 'italic':
+      case "italic":
         annotations.italic = true;
         break;
-      case 'underline':
+      case "underline":
         annotations.underline = true;
         break;
-      case 'strike':
+      case "strike":
         annotations.strikethrough = true;
         break;
-      case 'code':
+      case "code":
         annotations.code = true;
         break;
-      case 'textStyle': {
+      case "textStyle": {
         const color = mark.attrs?.color;
-        if (typeof color === 'string') {
+        if (typeof color === "string") {
           annotations.color = color;
         }
         break;
       }
-      case 'link': {
+      case "link": {
         const href = mark.attrs?.href;
-        if (typeof href === 'string') {
+        if (typeof href === "string") {
           annotations.href = href;
         }
         break;

@@ -18,6 +18,11 @@ export interface RichTextAnnotations {
   color?: string
   /** 链接 URL。 */
   href?: string
+  /**
+   * 行内 LaTeX 公式。段文本即 LaTeX 源码；小程序端无 KaTeX，
+   * 以等宽排版降级展示源码（与块级 math 占位一致）。
+   */
+  inlineMath?: boolean
 }
 
 /** 单段带注解的文本。 */

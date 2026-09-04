@@ -26,23 +26,24 @@
  *   collapsible -> flattened: bold summary line + recursively exported children
  */
 
-import { Editor, type JSONContent } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import Code from '@tiptap/extension-code';
-import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
-import { TextStyle } from '@tiptap/extension-text-style';
-import Color from '@tiptap/extension-color';
-import { Table } from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableHeader from '@tiptap/extension-table-header';
-import TableCell from '@tiptap/extension-table-cell';
-import { TaskList, TaskItem } from '@tiptap/extension-list';
-import { Markdown } from '@tiptap/markdown';
+import { Editor, type JSONContent } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import Code from "@tiptap/extension-code";
+import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Color from "@tiptap/extension-color";
+import { Table } from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
+import { TaskList, TaskItem } from "@tiptap/extension-list";
+import { Markdown } from "@tiptap/markdown";
 
-import { MathBlockExtension } from './extensions/mathBlockExtension';
-import { ourBlocksToTiptapJSON, tiptapJSONToOurBlocks } from './tiptapAdapter';
-import type { Block, RichText, RichTextAnnotations } from '../../types';
+import { MathBlockExtension } from "./extensions/mathBlockExtension";
+import { InlineMathExtension } from "./extensions/inlineMathExtension";
+import { ourBlocksToTiptapJSON, tiptapJSONToOurBlocks } from "./tiptapAdapter";
+import type { Block, RichText, RichTextAnnotations } from "../../types";
 
 // ──────────────────────────────────────────────────────────────────
 // Placeholders
@@ -60,8 +61,8 @@ export interface MarkdownExportPlaceholders {
 
 /** Neutral default placeholders (used when none are supplied). */
 const defaultPlaceholders: MarkdownExportPlaceholders = {
-  file: (name) => (name ? `[附件: ${name}]` : '[附件]'),
-  diagram: '[图表]',
+  file: (name) => (name ? `[附件: ${name}]` : "[附件]"),
+  diagram: "[图表]",
 };
 
 // ──────────────────────────────────────────────────────────────────
@@ -85,7 +86,7 @@ function getHeadlessEditor(): Editor {
       // `code` (inline) and `link` are disabled here and replaced below so we
       // can configure them exactly like the import editor.
       StarterKit.configure({ code: false, link: false }),
-      Code.extend({ excludes: '' }),
+      Code.extend({ excludes: "" }),
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({ openOnClick: false, autolink: true }),
       // 与主编辑器对齐（sectionEditor/extensions.ts）：正文可能带文字颜色
@@ -101,9 +102,10 @@ function getHeadlessEditor(): Editor {
       TaskList,
       TaskItem.configure({ nested: true }),
       MathBlockExtension,
+      InlineMathExtension,
       Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
     ],
-    content: '',
+    content: "",
   });
   return _headless;
 }
@@ -120,7 +122,7 @@ function textBlock(text: string, annotations: RichTextAnnotations = {}): Block {
   const content: RichText[] = text.length > 0 ? [{ text, annotations }] : [];
   return {
     id: `md-export-${Date.now()}-${_placeholderSeq}`,
-    type: 'text',
+    type: "text",
     content,
   };
 }
@@ -138,28 +140,28 @@ function preprocessForMarkdown(
   const out: Block[] = [];
   for (const block of blocks) {
     switch (block.type) {
-      case 'file': {
-        const name = block.properties?.fileName ?? '';
+      case "file": {
+        const name = block.properties?.fileName ?? "";
         out.push(textBlock(ph.file(name)));
         break;
       }
-      case 'link': {
+      case "link": {
         // A link-card has no native Markdown form, but its title + url can be
         // rendered as an ordinary Markdown link, which is far more useful than
         // a bare placeholder.
-        const url = block.properties?.linkUrl ?? '';
-        const title = block.properties?.linkTitle ?? '';
+        const url = block.properties?.linkUrl ?? "";
+        const title = block.properties?.linkTitle ?? "";
         const label = title || url;
         out.push(textBlock(label, url ? { href: url } : {}));
         break;
       }
-      case 'diagram': {
+      case "diagram": {
         out.push(textBlock(ph.diagram));
         break;
       }
-      case 'collapsible': {
+      case "collapsible": {
         // Flatten: emit the summary as a bold line, then the children content.
-        const summary = block.properties?.collapsibleSummary ?? '';
+        const summary = block.properties?.collapsibleSummary ?? "";
         if (summary) out.push(textBlock(summary, { bold: true }));
         const children = block.properties?.collapsibleChildren;
         if (Array.isArray(children) && children.length > 0) {
@@ -195,13 +197,13 @@ export function blocksToMarkdown(
   opts?: MarkdownExportPlaceholders,
 ): string {
   const ph = opts ?? defaultPlaceholders;
-  if (!blocks || blocks.length === 0) return '';
+  if (!blocks || blocks.length === 0) return "";
 
   const sanitized = preprocessForMarkdown(blocks, ph);
-  if (sanitized.length === 0) return '';
+  if (sanitized.length === 0) return "";
 
   const json = ourBlocksToTiptapJSON(sanitized);
   const editor = getHeadlessEditor();
-  editor.commands.setContent({ type: 'doc', content: json });
+  editor.commands.setContent({ type: "doc", content: json });
   return editor.getMarkdown().trim();
 }

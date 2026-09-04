@@ -21,6 +21,12 @@ export interface RichTextAnnotations {
   color?: string;
   /** Link URL. When present the segment is rendered as an `<a>`. */
   href?: string;
+  /**
+   * Inline LaTeX formula. When present the segment's text IS the LaTeX
+   * source and is rendered with KaTeX (inline mode). Atoms — other
+   * annotations on the same segment are ignored by the editor.
+   */
+  inlineMath?: boolean;
 }
 
 /** A single run of text with optional inline annotations. */
