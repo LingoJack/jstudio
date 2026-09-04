@@ -149,6 +149,7 @@ JStudio `Block[]` 格式（`types/document.ts`）与 TipTap `JSONContent[]` 之�
 - 原生右键菜单在 `src/main.tsx` 全局禁用；需要自定义右键菜单的组件必须自行调用 `e.preventDefault()`。
 - Electron `app-region: drag` 区域会吞掉命中区域内的点击 —— 拖拽区域内的可交互浮层必须加 `.no-drag`（参见 index.css）。
 - sidecar 结构体参数命令的参数包装约定（`{ params: {...} }`）见「约定」节；漏包装会报 `missing field` 并导致功能静默空白（终端/Agent 曾中招）。
+- 新建子窗口的 URL 必须显式带 `?label=`（preload 的 windowLabel 只从 URL 读，缺省回退 `'main'`）——漏带会导致子窗口内数据中继全部落空、`windowOp` 误打主窗口（preview 曾中招）。hiddenInset 子窗口自绘顶部拖拽条时，交互浮层要么 z-index 高于 `ChildWindowDragBar`（z-10）要么带 `.no-drag`，全交互画布窗口用布局式条带而非 overlay（`DiagramWindowApp`）。
 - `src-tauri/resources/bin/` 被 gitignore —— 打包时放入的 `j` 二进制不在仓库中。
 - `jcli/` 是 submodule；Cargo workspace 通过 `path = "../jcli/j-agent"` 引用 `jcli/j-agent`。更新 `jcli` 需提交新的 submodule 指针。
 - 历史：WKWebView 时代的怪癖记录在 `docs/bug-graveyard.md`（Cmd+Arrow 拦截、Live Text、232KB 卡顿等）；Electron 下部分 workaround 已无效但保留（分节编辑器、PM patch、imeCapsLockFix），待逐项验证后再删。

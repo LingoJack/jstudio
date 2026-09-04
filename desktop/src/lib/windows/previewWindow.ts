@@ -70,9 +70,13 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
     return;
   }
 
-  // 2. Create the new webview window.
+  // 2. Create the new webview window. The label MUST ride the URL: the
+  //    preload derives windowLabel from `?label=` (falls back to 'main'),
+    //    and fetchPreviewData keys the Rust payload relay on it — without
+    //    it the window fetches with label 'main' and never finds its data
+    //    (and closePreviewWindow would close the MAIN window).
   const webviewWindow = new WebviewWindow(label, {
-    url: 'index.html?window=preview',
+    url: `index.html?window=preview&label=${encodeURIComponent(label)}`,
     title: `预览 - ${shortName}`,
     width: 1280,
     height: 860,
