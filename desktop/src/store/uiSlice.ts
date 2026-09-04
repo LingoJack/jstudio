@@ -150,6 +150,9 @@ export interface UISlice {
   isFindBarOpen: boolean;
   isOpenDocDialogOpen: boolean;
   findQuery: string;
+  /** Bumped on every app.find dispatch so an already-open FindBar can
+   *  re-focus its input (isOpen alone doesn't change on repeat Cmd+F). */
+  findFocusNonce: number;
   isLoading: boolean;
   searchQuery: string;
   fontId: string;
@@ -188,6 +191,7 @@ export interface UISlice {
   setCommandPaletteOpen: (v: boolean) => void;
   toggleFindBar: () => void;
   setFindBarOpen: (v: boolean) => void;
+  focusFindBar: () => void;
   setOpenDocDialogOpen: (v: boolean) => void;
   setFindQuery: (q: string) => void;
   setSearchQuery: (q: string) => void;
@@ -245,6 +249,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   isFindBarOpen: false,
   isOpenDocDialogOpen: false,
   findQuery: "",
+  findFocusNonce: 0,
   isLoading: true,
   searchQuery: "",
   fontId: DEFAULT_LATIN_FONT_ID,
@@ -315,6 +320,11 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   toggleFindBar: () => set((s) => ({ isFindBarOpen: !s.isFindBarOpen })),
   setFindBarOpen: (open) => set({ isFindBarOpen: open }),
+  focusFindBar: () =>
+    set((s) => ({
+      isFindBarOpen: true,
+      findFocusNonce: s.findFocusNonce + 1,
+    })),
   setOpenDocDialogOpen: (open) => set({ isOpenDocDialogOpen: open }),
   setFindQuery: (q) => set({ findQuery: q }),
   setSearchQuery: (q) => set({ searchQuery: q }),

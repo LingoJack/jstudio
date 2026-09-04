@@ -72,7 +72,7 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: "app.toggleSidebar", perform: (store) => store.toggleSidebar() },
   { id: "app.toggleOutline", perform: (store) => store.toggleOutline() },
   { id: "app.openSettings", perform: (store) => store.setSettingsOpen(true) },
-  { id: "app.find", perform: (store) => store.setFindBarOpen(true) },
+  { id: "app.find", perform: (store) => store.focusFindBar() },
   { id: "app.globalSearch", perform: (store) => store.setGlobalSearchOpen(true) },
   {
     id: "app.goToDocuments",

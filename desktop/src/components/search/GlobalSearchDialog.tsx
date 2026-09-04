@@ -118,7 +118,7 @@ export default function GlobalSearchDialog() {
         setTimeout(() => {
           const s = useStore.getState();
           s.setFindQuery(debouncedQuery);
-          s.setFindBarOpen(true);
+          s.focusFindBar();
         }, 150);
       }
     },

@@ -23,6 +23,12 @@ export interface FindBarProps {
   find: UseCrossSectionFindReturn;
 }
 
+/** How often the focus loop re-checks whether the input still holds focus. */
+const FIND_FOCUS_RETRY_INTERVAL_MS = 60;
+/** Total window during which the input re-asserts focus. Covers the native
+ *  menu's post-close focus restore, which can land ~100-300ms after Cmd+F. */
+const FIND_FOCUS_RETRY_BUDGET_MS = 500;
+
 export default function FindBar({ find }: FindBarProps) {
   const { t } = useI18n();
   const isOpen = useStore((s) => s.isFindBarOpen);
@@ -30,35 +36,42 @@ export default function FindBar({ find }: FindBarProps) {
   const findQuery = useStore((s) => s.findQuery);
   const setFindQuery = useStore((s) => s.setFindQuery);
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
+  const findFocusNonce = useStore((s) => s.findFocusNonce);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── Focus the input on open ──────────────────────────────────────────
-  // On macOS, Cmd+F is intercepted by the native menu and forwarded via
-  // Tauri IPC. The webview may not have fully regained focus from the menu
-  // bar by the time requestAnimationFrame fires, so we retry focus with a
-  // small delay as a fallback.
+  // ── Focus the input whenever app.find fires ──────────────────────────
+  // Cmd+F is claimed by the native menu, which forwards "app.find" →
+  // focusFindBar() (opens the bar + bumps findFocusNonce). Two hazards this
+  // loop defends against:
+  //   1. When the native menu closes, Chromium restores DOM focus to the
+  //      previously-focused element (usually the ProseMirror editor) — the
+  //      restore can land well after our first focus() call.
+  //   2. If the bar is already open, isOpen doesn't change on repeat Cmd+F,
+  //      so the nonce bump is the only signal the command ran again.
+  // For a short budget after the trigger we re-assert focus whenever
+  // something else (menu restore, editor) has stolen it; after the budget
+  // expires we stop so user-initiated focus moves are respected.
   useEffect(() => {
     if (!isOpen) return;
-    const raf = requestAnimationFrame(() => {
+    const focusInput = () => {
       const el = inputRef.current;
       if (!el) return;
       el.focus();
       const len = el.value.length;
       el.setSelectionRange(len, len);
-    });
-    // Retry once after a longer delay in case the initial focus was
-    // clobbered by the editor reclaiming focus after the native menu event.
-    const retry = setTimeout(() => {
-      if (document.activeElement !== inputRef.current) {
-        inputRef.current?.focus();
-      }
-    }, 100);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(retry);
     };
-  }, [isOpen]);
+    focusInput();
+    const startedAt = performance.now();
+    const timer = window.setInterval(() => {
+      if (performance.now() - startedAt >= FIND_FOCUS_RETRY_BUDGET_MS) {
+        window.clearInterval(timer);
+        return;
+      }
+      if (document.activeElement !== inputRef.current) focusInput();
+    }, FIND_FOCUS_RETRY_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [isOpen, findFocusNonce]);
 
   // ── Global Escape handler ────────────────────────────────────────────
   // When the FindBar is opened via the native menu (Cmd+F on macOS), the

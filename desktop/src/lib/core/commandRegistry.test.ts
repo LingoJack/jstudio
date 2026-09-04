@@ -6,14 +6,17 @@ import { executeShortcutAction } from './commandRegistry';
 
 test('executeShortcutAction dispatches app.find through the registry', () => {
   let open = false;
+  let focusCalls = 0;
   const store = {
-    setFindBarOpen: (next: boolean) => {
-      open = next;
+    focusFindBar: () => {
+      open = true;
+      focusCalls += 1;
     },
   } as StoreState;
 
   assert.equal(executeShortcutAction('app.find', store), true);
   assert.equal(open, true);
+  assert.equal(focusCalls, 1);
 });
 
 test('executeShortcutAction rejects unknown commands', () => {
