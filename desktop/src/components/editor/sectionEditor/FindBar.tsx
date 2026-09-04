@@ -138,7 +138,11 @@ export default function FindBar({ find }: FindBarProps) {
 
   return (
     <div
-      className={`absolute ${rightClass} top-3 z-40 flex items-center gap-1.5 px-2 py-1.5 rounded-md shadow-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] backdrop-blur transition-[right] duration-150`}
+      // z-popover + no-drag: the bar sits in the top 36px where the
+      // transparent drag-region AppTitleBar (z-toolbar=50) overlays the
+      // punched-through editor column — without these, clicks are swallowed
+      // as window-drag and the input/buttons never respond.
+      className={`absolute ${rightClass} top-3 z-popover no-drag flex items-center gap-1.5 px-2 py-1.5 rounded-md shadow-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] backdrop-blur transition-[right] duration-150`}
       role="dialog"
       aria-label={t('find.placeholder')}
     >

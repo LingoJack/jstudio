@@ -1,24 +1,25 @@
-import type { SlashCommandItem } from '../types';
+import type { SlashCommandItem } from "../types";
 
-import { heading1Command } from './heading1';
-import { heading2Command } from './heading2';
-import { heading3Command } from './heading3';
-import { heading4Command } from './heading4';
-import { heading5Command } from './heading5';
-import { heading6Command } from './heading6';
-import { bulletListCommand } from './bulletList';
-import { numberedListCommand } from './numberedList';
-import { todoListCommand } from './todoList';
-import { quoteCommand } from './quote';
-import { codeBlockCommand } from './codeBlock';
-import { imageCommand } from './image';
-import { fileCommand } from './file';
-import { linkCommand } from './link';
-import { tableCommand } from './table';
-import { dividerCommand } from './divider';
-import { diagramCommand } from './diagram';
-import { collapsibleCommand } from './collapsible';
-import { mathCommand } from './math';
+import { heading1Command } from "./heading1";
+import { heading2Command } from "./heading2";
+import { heading3Command } from "./heading3";
+import { heading4Command } from "./heading4";
+import { heading5Command } from "./heading5";
+import { heading6Command } from "./heading6";
+import { bulletListCommand } from "./bulletList";
+import { numberedListCommand } from "./numberedList";
+import { todoListCommand } from "./todoList";
+import { quoteCommand } from "./quote";
+import { codeBlockCommand } from "./codeBlock";
+import { imageCommand } from "./image";
+import { fileCommand } from "./file";
+import { linkCommand } from "./link";
+import { inlineLinkCommand } from "./inlineLink";
+import { tableCommand } from "./table";
+import { dividerCommand } from "./divider";
+import { diagramCommand } from "./diagram";
+import { collapsibleCommand } from "./collapsible";
+import { mathCommand } from "./math";
 
 /**
  * Ordered list of every slash-menu command.
@@ -41,6 +42,7 @@ export const slashCommands: SlashCommandItem[] = [
   imageCommand,
   fileCommand,
   linkCommand,
+  inlineLinkCommand,
   tableCommand,
   dividerCommand,
   diagramCommand,

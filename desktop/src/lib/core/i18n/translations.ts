@@ -145,7 +145,8 @@ export const translations = {
     "workspace.closeOthers": "关闭其他标签页",
     "workspace.detachToWindow": "分离到新窗口",
     "workspace.releaseToDetach": "松开以分离到新窗口",
-    "workspace.hiddenTabs": "还有 {count} 个标签页未显示（可用 Cmd+Option+←/→ 切换）",
+    "workspace.hiddenTabs":
+      "还有 {count} 个标签页未显示（可用 Cmd+Option+←/→ 切换）",
 
     // ── Terminal ──
     "terminal.sessions": "终端会话",
@@ -423,8 +424,7 @@ export const translations = {
     "general.tabBarPosition_top": "上方",
     "general.tabBarPosition_bottom": "下方",
     "general.confirmOnExit": "退出确认",
-    "general.confirmOnExitDesc":
-      "关闭主窗口最后一个标签页或退出应用时弹确认框",
+    "general.confirmOnExitDesc": "关闭主窗口最后一个标签页或退出应用时弹确认框",
 
     // ── Dialog ──
     "dialog.exitConfirmTitle": "退出？",
@@ -593,6 +593,12 @@ export const translations = {
     "bubble.code": "行内代码",
     "bubble.headingLevel": "标题等级",
     "bubble.paragraph": "正文",
+    "bubble.link": "链接",
+    "bubble.linkPlaceholder": "输入或粘贴链接",
+    "bubble.linkApply": "应用链接",
+    "bubble.linkRemove": "移除链接",
+    "bubble.linkCancel": "取消",
+    "bubble.linkInvalid": "链接格式无效",
 
     // ── DocumentPanel placeholder ──
     "editor.placeholder": "输入 / 唤起命令菜单…",
@@ -626,6 +632,8 @@ export const translations = {
     "slash.fileDesc": "上传文件附件",
     "slash.link": "链接",
     "slash.linkDesc": "嵌入网页链接并显示预览",
+    "slash.inlineLink": "行内链接",
+    "slash.inlineLinkDesc": "插入可点击的文字链接",
     "slash.table": "表格",
     "slash.tableDesc": "插入可编辑表格",
     "slash.divider": "分割线",
@@ -819,7 +827,8 @@ export const translations = {
     "shortcut.resetAll": "重置全部为默认值",
     "shortcut.conflictWith": "与「{name}」冲突",
     "shortcut.conflictWarning": "此快捷键已绑定到「{name}」，保存后存在冲突。",
-    "shortcut.recordingHint": "按下新的按键组合 · Esc 取消 · Backspace 清除绑定",
+    "shortcut.recordingHint":
+      "按下新的按键组合 · Esc 取消 · Backspace 清除绑定",
 
     // ── Global shortcuts (OS-level) ──
     "settings.globalShortcuts": "全局快捷键",
@@ -877,7 +886,8 @@ export const translations = {
     "shortcut.app.selectAll": "全选",
     "shortcut.app.selectAll.desc": "选中当前文档的全部内容（跨分段）",
     "shortcut.app.globalSearch": "全局搜索",
-    "shortcut.app.globalSearch.desc": "搜索所有文档的标题和内容（也可双击 Shift）",
+    "shortcut.app.globalSearch.desc":
+      "搜索所有文档的标题和内容（也可双击 Shift）",
     "shortcut.app.newTab": "新建标签页",
     "shortcut.app.newTab.desc":
       "终端视图中新建终端标签页，其他视图中打开文档选择弹窗",
@@ -919,7 +929,6 @@ export const translations = {
     "shortcut.editor.insertBlockBelow": "下方插入空行",
     "shortcut.editor.insertBlockAbove": "上方插入空行",
     "shortcut.editor.inlineCode": "行内代码",
-
   },
 
   en: {
@@ -1011,7 +1020,8 @@ export const translations = {
     "backup.charCount": "{count} chars",
     "backup.nodeCount": "{count} nodes",
     "backup.liveSnapshot": "Live editor snapshot",
-    "backup.liveSnapshotDesc": "Raw editor state bypassing serialization, for crash recovery",
+    "backup.liveSnapshotDesc":
+      "Raw editor state bypassing serialization, for crash recovery",
     "backup.liveSnapshotRestore": "Restore from snapshot",
     "backup.preview": "Preview",
     "backup.close": "Close",
@@ -1284,8 +1294,10 @@ export const translations = {
     "account.offlineHint":
       "Cannot reach the server. Your token is kept and will be re-verified on next launch.",
     "account.recheck": "Re-verify",
-    "account.expiredNotice": "Your session has expired or was revoked. Please log in again.",
-    "account.error.network": "Cannot reach the server. Check the address and your network.",
+    "account.expiredNotice":
+      "Your session has expired or was revoked. Please log in again.",
+    "account.error.network":
+      "Cannot reach the server. Check the address and your network.",
     "account.error.invalidCredentials": "Incorrect username or password.",
     "account.error.usernameTaken": "Username already taken.",
     "account.error.invalidRequest":
@@ -1532,6 +1544,12 @@ export const translations = {
     "bubble.code": "Inline code",
     "bubble.headingLevel": "Heading level",
     "bubble.paragraph": "Paragraph",
+    "bubble.link": "Link",
+    "bubble.linkPlaceholder": "Paste or type a link",
+    "bubble.linkApply": "Apply link",
+    "bubble.linkRemove": "Remove link",
+    "bubble.linkCancel": "Cancel",
+    "bubble.linkInvalid": "Invalid link",
 
     // ── DocumentPanel placeholder ──
     "editor.placeholder": "Type / for commands…",
@@ -1565,6 +1583,8 @@ export const translations = {
     "slash.fileDesc": "Upload a file attachment",
     "slash.link": "Link",
     "slash.linkDesc": "Embed a web link with preview",
+    "slash.inlineLink": "Inline link",
+    "slash.inlineLinkDesc": "Insert a clickable text link",
     "slash.table": "Table",
     "slash.tableDesc": "Insert an editable table",
     "slash.divider": "Divider",
@@ -1823,9 +1843,11 @@ export const translations = {
     "shortcut.app.find": "Find",
     "shortcut.app.find.desc": "Find in current document",
     "shortcut.app.selectAll": "Select All",
-    "shortcut.app.selectAll.desc": "Select the entire document (across sections)",
+    "shortcut.app.selectAll.desc":
+      "Select the entire document (across sections)",
     "shortcut.app.globalSearch": "Global Search",
-    "shortcut.app.globalSearch.desc": "Search all document titles and content (or double-Shift)",
+    "shortcut.app.globalSearch.desc":
+      "Search all document titles and content (or double-Shift)",
     "shortcut.app.newTab": "New Tab",
     "shortcut.app.newTab.desc":
       "New terminal tab in terminal view, open document dialog elsewhere",
@@ -1868,7 +1890,5 @@ export const translations = {
     "shortcut.editor.insertBlockBelow": "Insert block below",
     "shortcut.editor.insertBlockAbove": "Insert block above",
     "shortcut.editor.inlineCode": "Inline code",
-
   },
 } as const;
-

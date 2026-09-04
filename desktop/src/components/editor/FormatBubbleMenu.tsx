@@ -26,14 +26,21 @@
  * Code extensions). This component only renders the BubbleMenu UI.
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { type Editor } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
-import { NodeSelection } from '@tiptap/pm/state';
-import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
-import { useI18n } from '../../lib/core/i18n';
-import type { TranslationKey } from '../../lib/core/i18n';
-import { HeadingDropdown, HEADING_LEVELS } from './HeadingDropdown';
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { type Editor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import { NodeSelection } from "@tiptap/pm/state";
+import { Bold, Italic, Strikethrough, Code, Link2 } from "lucide-react";
+import { useI18n } from "../../lib/core/i18n";
+import type { TranslationKey } from "../../lib/core/i18n";
+import { HeadingDropdown, HEADING_LEVELS } from "./HeadingDropdown";
+import LinkBubbleInput from "./LinkBubbleInput";
+import { useLinkBubbleInput } from "./hooks/useLinkBubbleInput";
+import {
+  BUBBLE_MENU_PLUGIN_KEY,
+  peekInlineLinkRequest,
+  takeInlineLinkRequest,
+} from "../../lib/editor/inlineLink";
 
 /**
  * Minimal VirtualElement-compatible type (mirrors @floating-ui/dom).
@@ -62,18 +69,32 @@ interface FormatBubbleMenuProps {
 /**
  * A focusable toolbar entry. When the selection sits inside a heading, an
  * extra `heading` entry is prepended so it participates in the roving-focus
- * Tab cycle alongside the mark toggles.
+ * Tab cycle alongside the mark toggles. The `link` entry opens the inline
+ * URL input row (LinkBubbleInput) in place of the buttons.
  */
-type HeadingItem = { kind: 'heading' };
-type MarkItem = { kind: 'mark'; name: string; labelKey: TranslationKey; Icon: typeof Bold };
-type FocusItem = HeadingItem | MarkItem;
+type HeadingItem = { kind: "heading" };
+type MarkItem = {
+  kind: "mark";
+  name: string;
+  labelKey: TranslationKey;
+  Icon: typeof Bold;
+};
+type LinkItem = { kind: "link"; labelKey: TranslationKey };
+type FocusItem = HeadingItem | MarkItem | LinkItem;
 
 const MARK_ITEMS: MarkItem[] = [
-  { kind: 'mark', name: 'bold', labelKey: 'bubble.bold', Icon: Bold },
-  { kind: 'mark', name: 'italic', labelKey: 'bubble.italic', Icon: Italic },
-  { kind: 'mark', name: 'strike', labelKey: 'bubble.strike', Icon: Strikethrough },
-  { kind: 'mark', name: 'code', labelKey: 'bubble.code', Icon: Code },
+  { kind: "mark", name: "bold", labelKey: "bubble.bold", Icon: Bold },
+  { kind: "mark", name: "italic", labelKey: "bubble.italic", Icon: Italic },
+  {
+    kind: "mark",
+    name: "strike",
+    labelKey: "bubble.strike",
+    Icon: Strikethrough,
+  },
+  { kind: "mark", name: "code", labelKey: "bubble.code", Icon: Code },
 ];
+
+const LINK_ITEM: LinkItem = { kind: "link", labelKey: "bubble.link" };
 
 export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const { t } = useI18n();
@@ -83,14 +104,18 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const [headingSelIndex, setHeadingSelIndex] = useState(0);
 
   // Whether the current selection sits inside a heading (and which level).
-  const isHeading = editor.isActive('heading');
-  const currentLevel = editor.getAttributes('heading').level as number | undefined;
+  const isHeading = editor.isActive("heading");
+  const currentLevel = editor.getAttributes("heading").level as
+    | number
+    | undefined;
 
   // Build the focusable item list: the heading trigger is prepended only when
   // the selection is inside a heading, so it joins the roving-focus cycle.
-  const items: FocusItem[] = isHeading
-    ? [{ kind: 'heading' }, ...MARK_ITEMS]
-    : MARK_ITEMS;
+  const items: FocusItem[] = [
+    ...(isHeading ? [{ kind: "heading" } as HeadingItem] : []),
+    ...MARK_ITEMS,
+    LINK_ITEM,
+  ];
 
   // Keep live refs so the capture-phase keydown listener (registered once)
   // always sees the latest values without re-subscribing.
@@ -137,7 +162,10 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const applyHeadingOption = useCallback(
     (index: number, close = true) => {
       if (index >= 0 && index < HEADING_LEVELS.length) {
-        editor.chain().setNode('heading', { level: HEADING_LEVELS[index] }).run();
+        editor
+          .chain()
+          .setNode("heading", { level: HEADING_LEVELS[index] })
+          .run();
       } else {
         editor.chain().setParagraph().run();
       }
@@ -150,10 +178,28 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const openHeadingDropdown = useCallback(() => {
     const lvl = currentLevelRef.current;
     setHeadingSelIndex(
-      typeof lvl === 'number' && lvl >= 1 && lvl <= HEADING_LEVELS.length ? lvl - 1 : 0,
+      typeof lvl === "number" && lvl >= 1 && lvl <= HEADING_LEVELS.length
+        ? lvl - 1
+        : 0,
     );
     setHeadingOpen(true);
   }, []);
+
+  // ── Inline-link input controller (state + editor mutations) ──────────
+  const closeHeadingDropdown = useCallback(() => setHeadingOpen(false), []);
+  const {
+    linkInput,
+    linkInvalid,
+    linkInputRef,
+    linkRowRef,
+    cancelLinkInputRef,
+    openLinkInput,
+    openInsertInput,
+    applyLink,
+    removeLink,
+    cancelLinkInput,
+    clearLinkInput,
+  } = useLinkBubbleInput(editor, closeHeadingDropdown);
 
   // Hover handling: open on pointer enter, dismiss on pointer leave with a
   // short delay that bridges the gap between the trigger and the popover so
@@ -200,19 +246,39 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       if (e.isComposing || e.keyCode === 229) return;
 
       const key = e.key;
-      const isTab = key === 'Tab';
-      const isEnter = key === 'Enter';
-      const isSpace = key === ' ';
-      const isEscape = key === 'Escape';
-      const isArrowDown = key === 'ArrowDown';
-      const isArrowUp = key === 'ArrowUp';
+      const isTab = key === "Tab";
+      const isEnter = key === "Enter";
+      const isSpace = key === " ";
+      const isEscape = key === "Escape";
+      const isArrowDown = key === "ArrowDown";
+      const isArrowUp = key === "ArrowUp";
+
+      // ── Inline-link input open: only Escape matters ──
+      // With focus inside the portaled input this listener never fires
+      // (keydowns don't traverse editor.view.dom); this branch covers the
+      // autofocus gap and editor-refocus windows while the input is open.
+      if (linkInputRef.current) {
+        if (isEscape) {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelLinkInputRef.current();
+        }
+        return;
+      }
 
       // ── Heading dropdown open: drive its own list navigation ──
       // The popover lives outside the editor DOM subtree, so its own keydowns
       // never reach this capture listener; these keys come from the editor
       // (which retains DOM focus) while the dropdown is visually open.
       if (headingOpenRef.current) {
-        if (!isTab && !isEnter && !isSpace && !isEscape && !isArrowDown && !isArrowUp) {
+        if (
+          !isTab &&
+          !isEnter &&
+          !isSpace &&
+          !isEscape &&
+          !isArrowDown &&
+          !isArrowUp
+        ) {
           return;
         }
         e.preventDefault();
@@ -276,11 +342,13 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
         const next = current <= 0 ? itemCount - 1 : current - 1;
         setActiveIndex(next);
       } else if (isEnter || isSpace) {
-        // Enter / Space — toggle the focused item (if any)
+        // Enter / Space — activate the focused item (if any)
         if (current >= 0 && current < itemCount) {
           const item = items[current];
-          if (item.kind === 'heading') {
+          if (item.kind === "heading") {
             openHeadingDropdown();
+          } else if (item.kind === "link") {
+            openLinkInput();
           } else {
             toggleMark(item.name);
           }
@@ -288,21 +356,32 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       }
     };
 
-    editorDom.addEventListener('keydown', handleCaptureKeyDown, true);
+    editorDom.addEventListener("keydown", handleCaptureKeyDown, true);
 
     return () => {
-      editorDom.removeEventListener('keydown', handleCaptureKeyDown, true);
+      editorDom.removeEventListener("keydown", handleCaptureKeyDown, true);
     };
-  }, [menuVisible, editor, toggleMark, applyHeadingOption, openHeadingDropdown]);
+  }, [
+    menuVisible,
+    editor,
+    toggleMark,
+    applyHeadingOption,
+    openHeadingDropdown,
+    openLinkInput,
+  ]);
 
   // ------------------------------------------------------------------
   //  Resolve the actual scroll container so the toolbar repositions
   //  when the editor content scrolls (the default scrollTarget is
   //  `window`, but our editor scrolls inside a div.overflow-y-auto).
   // ------------------------------------------------------------------
-  const [scrollTarget, setScrollTarget] = useState<HTMLElement | Window>(window);
+  const [scrollTarget, setScrollTarget] = useState<HTMLElement | Window>(
+    window,
+  );
   useEffect(() => {
-    const scrollEl = editor.view.dom.closest('.overflow-y-auto') as HTMLElement | null;
+    const scrollEl = editor.view.dom.closest(
+      ".overflow-y-auto",
+    ) as HTMLElement | null;
     if (scrollEl) setScrollTarget(scrollEl);
   }, [editor]);
 
@@ -337,29 +416,51 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   // Pure visibility check — NO setState calls here.  The onShow / onHide
   // callbacks in `options` handle React state updates on actual show/hide
   // transitions, which is both cleaner and avoids re-render storms.
-  const shouldShow = useCallback(({ state }: { state: typeof editor.state }) => {
-    const { empty, from, to } = state.selection;
-    if (empty || from === to) return false;
+  const shouldShow = useCallback(
+    ({ state }: { state: typeof editor.state }) => {
+      const { empty, from, to } = state.selection;
 
-    // Don't show the text-formatting toolbar when a whole block node is
-    // selected (e.g. clicking on an image / file / linkBlock atom node).
-    if (state.selection instanceof NodeSelection) return false;
-
-    // Walk every node covered by the selection.  If the range includes
-    // any non-text block node (image / file / link-block / code-block),
-    // suppress the menu.  Text inside paragraphs, headings, and table
-    // cells is fine.
-    const blockedTypes = new Set(['image', 'fileBlock', 'codeBlock', 'linkBlock']);
-    let hasNonText = false;
-    state.doc.nodesBetween(from, to, (node) => {
-      if (blockedTypes.has(node.type.name)) {
-        hasNonText = true;
-        return false;
+      // URL input open: pin the bubble while the caret is still at the
+      // anchor where the input was opened; any selection move dismisses.
+      const pendingLinkInput = linkInputRef.current;
+      if (pendingLinkInput) {
+        return state.selection.head === pendingLinkInput.anchor;
       }
-      return true;
-    });
-    return !hasNonText;
-  }, []);
+
+      // Pending slash-insert request: the bubble must appear at an EMPTY
+      // caret (the inline-link slash command deletes its query range first).
+      // Empty selections bypass the plugin's debounce, so this peek runs
+      // synchronously on that transaction and positions the menu correctly.
+      if (empty && peekInlineLinkRequest(editor)) return true;
+
+      if (empty || from === to) return false;
+
+      // Don't show the text-formatting toolbar when a whole block node is
+      // selected (e.g. clicking on an image / file / linkBlock atom node).
+      if (state.selection instanceof NodeSelection) return false;
+
+      // Walk every node covered by the selection.  If the range includes
+      // any non-text block node (image / file / link-block / code-block),
+      // suppress the menu.  Text inside paragraphs, headings, and table
+      // cells is fine.
+      const blockedTypes = new Set([
+        "image",
+        "fileBlock",
+        "codeBlock",
+        "linkBlock",
+      ]);
+      let hasNonText = false;
+      state.doc.nodesBetween(from, to, (node) => {
+        if (blockedTypes.has(node.type.name)) {
+          hasNonText = true;
+          return false;
+        }
+        return true;
+      });
+      return !hasNonText;
+    },
+    [editor],
+  );
 
   // Build the virtual element for floating-ui positioning.
   //
@@ -369,82 +470,101 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   // (head === from) the default returns the character *outside* the
   // selection, which at a line-start boundary lands on the previous
   // visual line — causing the toolbar to appear on the wrong line.
-  const getReferencedVirtualElement = useCallback(():
-    | VirtualElementLike
-    | null => {
-    const { selection } = editor.state;
+  const getReferencedVirtualElement =
+    useCallback((): VirtualElementLike | null => {
+      const { selection } = editor.state;
 
-    // side =  1  →  rect of the character *after* pos  (use when head is
-    //               the left/start edge, i.e. backward selection)
-    // side = -1  →  rect of the character *before* pos (use when head is
-    //               the right/end edge, i.e. forward selection)
-    const headSide = selection.head === selection.from ? 1 : -1;
-    const headCoords = editor.view.coordsAtPos(selection.head, headSide);
+      // side =  1  →  rect of the character *after* pos  (use when head is
+      //               the left/start edge, i.e. backward selection)
+      // side = -1  →  rect of the character *before* pos (use when head is
+      //               the right/end edge, i.e. forward selection)
+      const headSide = selection.head === selection.from ? 1 : -1;
+      const headCoords = editor.view.coordsAtPos(selection.head, headSide);
 
-    // Create a zero-width rect at the cursor head so floating-ui
-    // positions the toolbar directly above (or below, via flip) the
-    // character the user is currently at.
-    const rect = {
-      width: 0,
-      height: 0,
-      top: headCoords.top,
-      bottom: headCoords.bottom,
-      left: headCoords.left,
-      right: headCoords.left,
-      x: headCoords.left,
-      y: headCoords.top,
-      toJSON() {
-        return {
-          width: 0,
-          height: 0,
-          top: rect.top,
-          bottom: rect.bottom,
-          left: rect.left,
-          right: rect.right,
-          x: rect.x,
-          y: rect.y,
-        };
-      },
-    };
+      // Create a zero-width rect at the cursor head so floating-ui
+      // positions the toolbar directly above (or below, via flip) the
+      // character the user is currently at.
+      const rect = {
+        width: 0,
+        height: 0,
+        top: headCoords.top,
+        bottom: headCoords.bottom,
+        left: headCoords.left,
+        right: headCoords.left,
+        x: headCoords.left,
+        y: headCoords.top,
+        toJSON() {
+          return {
+            width: 0,
+            height: 0,
+            top: rect.top,
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            x: rect.x,
+            y: rect.y,
+          };
+        },
+      };
 
-    return {
-      getBoundingClientRect: () => rect,
-      getClientRects: () => [rect],
-    };
-  }, [editor]);
+      return {
+        getBoundingClientRect: () => rect,
+        getClientRects: () => [rect],
+      };
+    }, [editor]);
 
   // onShow / onHide are called by the plugin only on actual visibility
   // transitions (hidden→visible, visible→hidden), so React state is
   // updated exactly when needed — not on every selection-change tick.
-  const handleShow = useCallback(() => setMenuVisible(true), []);
+  const handleShow = useCallback(() => {
+    setMenuVisible(true);
+    // A pending slash-insert request means this show was caused by the
+    // inline-link command — open the URL input immediately (insert mode).
+    // The hook sets its ref eagerly, so shouldShow evaluations that race
+    // the React commit still see the open input.
+    if (takeInlineLinkRequest(editor)) {
+      openInsertInput(editor.state.selection.head);
+    }
+  }, [editor, openInsertInput]);
   const handleHide = useCallback(() => {
     setMenuVisible(false);
     setActiveIndex(-1);
     setHeadingOpen(false);
-  }, []);
+    clearLinkInput();
+  }, [clearLinkInput]);
 
-  // Close the heading dropdown when clicking outside of its trigger/popover
-  // (e.g. clicking another toolbar control or elsewhere on the page).
+  // Close the heading dropdown / link input when clicking outside of their
+  // elements (e.g. clicking another toolbar control or elsewhere on the page).
   useEffect(() => {
-    if (!headingOpen) return;
+    if (!headingOpen && !linkInput) return;
     const onDocMouseDown = (e: MouseEvent) => {
       const target = e.target as Node | null;
       if (!target) return;
-      // Let the trigger handle its own toggle; only close for outside clicks.
-      if (triggerRef.current?.contains(target)) return;
-      if (popoverRef.current?.contains(target)) return;
-      setHeadingOpen(false);
+      if (headingOpen) {
+        // Let the trigger handle its own toggle; only close for outside clicks.
+        if (triggerRef.current?.contains(target)) return;
+        if (popoverRef.current?.contains(target)) return;
+        setHeadingOpen(false);
+      }
+      if (linkInput) {
+        // The portaled `.bubble-menu` element is the input row's parent;
+        // clicks anywhere inside it (input, buttons) keep the input open.
+        const menuEl = linkRowRef.current?.parentElement;
+        if (menuEl?.contains(target)) return;
+        cancelLinkInput();
+      }
     };
-    document.addEventListener('mousedown', onDocMouseDown, true);
-    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
-  }, [headingOpen]);
+    document.addEventListener("mousedown", onDocMouseDown, true);
+    return () =>
+      document.removeEventListener("mousedown", onDocMouseDown, true);
+  }, [headingOpen, linkInput, cancelLinkInput]);
 
   // Memoise the options object so it only changes when scrollTarget
   // changes, preventing unnecessary plugin re-updates.
   const options = useMemo(
     () => ({
-      placement: 'top' as const,
-      strategy: 'fixed' as const,
+      placement: "top" as const,
+      strategy: "fixed" as const,
       offset: 8,
       flip: {
         mainAxis: true,
@@ -463,6 +583,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   return (
     <BubbleMenu
       editor={editor}
+      pluginKey={BUBBLE_MENU_PLUGIN_KEY}
       shouldShow={shouldShow}
       getReferencedVirtualElement={getReferencedVirtualElement}
       options={options}
@@ -475,47 +596,84 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
       updateDelay={100}
       className="editor-toolbar bubble-menu"
     >
-      <div className="flex items-center gap-0.5">
-        {isHeading && (
-          <HeadingDropdown
-            headingOpen={headingOpen}
-            headingSelIndex={headingSelIndex}
-            currentLevel={currentLevel}
-            isFocused={activeIndex === 0}
-            triggerRef={triggerRef}
-            popoverRef={popoverRef}
-            onHoverEnter={openHeadingOnHover}
-            onHoverLeave={scheduleHeadingClose}
-            onSelectOption={applyHeadingOption}
+      {linkInput ? (
+        <div ref={linkRowRef} className="flex items-center gap-0.5">
+          <LinkBubbleInput
+            mode={linkInput.mode}
+            initialHref={linkInput.initialHref}
+            invalid={linkInvalid}
+            onConfirm={applyLink}
+            onRemove={removeLink}
+            onCancel={cancelLinkInput}
           />
-        )}
-        {MARK_ITEMS.map((item, idx) => {
-          const index = (isHeading ? 1 : 0) + idx;
-          const isActive = editor.isActive(item.name);
-          const isFocused = index === activeIndex;
-          const label = t(item.labelKey);
+        </div>
+      ) : (
+        <div className="flex items-center gap-0.5">
+          {isHeading && (
+            <HeadingDropdown
+              headingOpen={headingOpen}
+              headingSelIndex={headingSelIndex}
+              currentLevel={currentLevel}
+              isFocused={activeIndex === 0}
+              triggerRef={triggerRef}
+              popoverRef={popoverRef}
+              onHoverEnter={openHeadingOnHover}
+              onHoverLeave={scheduleHeadingClose}
+              onSelectOption={applyHeadingOption}
+            />
+          )}
+          {MARK_ITEMS.map((item, idx) => {
+            const index = (isHeading ? 1 : 0) + idx;
+            const isActive = editor.isActive(item.name);
+            const isFocused = index === activeIndex;
+            const label = t(item.labelKey);
 
-          return (
-            <button
-              key={item.name}
-              type="button"
-              title={label}
-              aria-label={label}
-              onMouseDown={(e) => {
-                // Prevent the editor from losing selection when clicking the button
-                e.preventDefault();
-                setHeadingOpen(false);
-                toggleMark(item.name);
-              }}
-              className={`editor-toolbar-btn bubble-menu-btn ${isActive ? 'is-active' : ''} ${
-                isFocused ? 'is-focused' : ''
-              }`}
-            >
-              <item.Icon className="w-3.5 h-3.5" />
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={item.name}
+                type="button"
+                title={label}
+                aria-label={label}
+                onMouseDown={(e) => {
+                  // Prevent the editor from losing selection when clicking the button
+                  e.preventDefault();
+                  setHeadingOpen(false);
+                  toggleMark(item.name);
+                }}
+                className={`editor-toolbar-btn bubble-menu-btn ${isActive ? "is-active" : ""} ${
+                  isFocused ? "is-focused" : ""
+                }`}
+              >
+                <item.Icon className="w-3.5 h-3.5" />
+              </button>
+            );
+          })}
+          {(() => {
+            const index = (isHeading ? 1 : 0) + MARK_ITEMS.length;
+            const isActive = editor.isActive("link");
+            const isFocused = index === activeIndex;
+            const label = t(LINK_ITEM.labelKey);
+
+            return (
+              <button
+                type="button"
+                title={label}
+                aria-label={label}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setHeadingOpen(false);
+                  openLinkInput();
+                }}
+                className={`editor-toolbar-btn bubble-menu-btn ${isActive ? "is-active" : ""} ${
+                  isFocused ? "is-focused" : ""
+                }`}
+              >
+                <Link2 className="w-3.5 h-3.5" />
+              </button>
+            );
+          })()}
+        </div>
+      )}
     </BubbleMenu>
   );
 }
