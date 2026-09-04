@@ -155,6 +155,11 @@ function trackWindow(label: string, win: BrowserWindow): void {
   });
   win.on('closed', () => {
     windows.delete(label);
+    // Notify remaining windows (sender included — matches Tauri's emit).
+    // The tauriShim maps this to WebviewWindow 'tauri://destroyed', which
+    // e.g. the embedded diagram block listens on to re-enable its
+    // maximize button after the detached editor closes.
+    broadcast('window-closed', undefined, { label });
   });
 }
 
@@ -252,6 +257,14 @@ async function createChildWindow(label: string, opts: WindowCreateOptions): Prom
     return;
   }
 
+  // Content child windows share the main window's chrome-less look: keep
+  // the native frame (traffic lights) but hide the title-bar strip via
+  // hiddenInset — the renderer provides the drag region instead
+  // (ChildWindowDragBar). The link-preview browser window keeps the full
+  // native title bar: its top edge is fully interactive (glass tab strip,
+  // see .link-preview-root notes in vscode-theme.css), leaving no room for
+  // a drag region.
+  const hideTitleBar = (opts.decorations ?? true) && !isLinkPreviewLabel(label);
   const win = new BrowserWindow({
     width: opts.width ?? 900,
     height: opts.height ?? 700,
@@ -261,6 +274,8 @@ async function createChildWindow(label: string, opts: WindowCreateOptions): Prom
     resizable: opts.resizable ?? true,
     // Tauri `decorations: false` ↔ Electron `frame: false`.
     frame: opts.decorations ?? true,
+    titleBarStyle: hideTitleBar ? 'hiddenInset' : undefined,
+    trafficLightPosition: hideTitleBar ? { x: 12, y: 12 } : undefined,
     transparent: opts.transparent,
     alwaysOnTop: opts.alwaysOnTop,
     skipTaskbar: opts.skipTaskbar,

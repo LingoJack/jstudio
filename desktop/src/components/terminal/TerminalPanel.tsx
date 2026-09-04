@@ -11,7 +11,15 @@ import '@xterm/xterm/css/xterm.css';
  * Always renders its own `<TerminalTabs />` tab bar.
  * NOTE: All keyboard shortcuts are now handled centrally by ShortcutManager.
  */
-export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
+export default function TerminalPanel({
+  hidden,
+  tabStripLeftInsetPx = 0,
+}: {
+  hidden?: boolean;
+  /** Left padding for the floating tab strip — used by detached terminal
+   *  windows to keep the strip clear of the macOS traffic lights. */
+  tabStripLeftInsetPx?: number;
+}) {
   const groups = useStore((s) => s.groups);
   const activeGroupId = useStore((s) => s.activeGroupId);
   const sessions = useStore((s) => s.sessions);
@@ -47,7 +55,10 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
         style={{ background: theme.ui.panelBg }}
       >
         {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置 */}
-        <div className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}>
+        <div
+          className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}
+          style={tabBarPosition === 'top' ? { paddingLeft: tabStripLeftInsetPx } : undefined}
+        >
           <div className="pointer-events-auto">
             <TerminalTabs />
           </div>
@@ -68,7 +79,10 @@ export default function TerminalPanel({ hidden }: { hidden?: boolean }) {
       style={{ background: theme.ui.panelBg }}
     >
       {/* Tab bar 悬浮在内容上方，根据 tabBarPosition 决定位置 */}
-      <div className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}>
+      <div
+        className={`absolute left-0 right-0 z-20 pointer-events-none ${tabBarPosition === 'top' ? 'top-0' : 'bottom-0'}`}
+        style={tabBarPosition === 'top' ? { paddingLeft: tabStripLeftInsetPx } : undefined}
+      >
         <div className="pointer-events-auto">
           <TerminalTabs />
         </div>

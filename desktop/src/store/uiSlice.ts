@@ -153,6 +153,9 @@ export interface UISlice {
   /** Bumped on every app.find dispatch so an already-open FindBar can
    *  re-focus its input (isOpen alone doesn't change on repeat Cmd+F). */
   findFocusNonce: number;
+  /** Doc id to reveal (scroll into view + flash) in the documents sidebar;
+   *  set by revealDocInSidebar, consumed and cleared by DocumentSidebar. */
+  sidebarRevealDocId: string | null;
   isLoading: boolean;
   searchQuery: string;
   fontId: string;
@@ -192,6 +195,8 @@ export interface UISlice {
   toggleFindBar: () => void;
   setFindBarOpen: (v: boolean) => void;
   focusFindBar: () => void;
+  revealDocInSidebar: (docId: string) => void;
+  setSidebarRevealDocId: (id: string | null) => void;
   setOpenDocDialogOpen: (v: boolean) => void;
   setFindQuery: (q: string) => void;
   setSearchQuery: (q: string) => void;
@@ -250,6 +255,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   isOpenDocDialogOpen: false,
   findQuery: "",
   findFocusNonce: 0,
+  sidebarRevealDocId: null,
   isLoading: true,
   searchQuery: "",
   fontId: DEFAULT_LATIN_FONT_ID,
@@ -325,6 +331,19 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       isFindBarOpen: true,
       findFocusNonce: s.findFocusNonce + 1,
     })),
+  revealDocInSidebar: (docId) => {
+    // Expand the doc's folder ancestor chain first, so the tree actually
+    // renders the node in the same commit the sidebar opens.
+    const doc = get().docList.find((d) => d.id === docId);
+    if (doc?.folderId) get().expandFolderAncestors(doc.folderId);
+    set({
+      isSidebarOpen: true,
+      sidebarPinMode: "open",
+      activeSidebarView: "documents",
+      sidebarRevealDocId: docId,
+    });
+  },
+  setSidebarRevealDocId: (id) => set({ sidebarRevealDocId: id }),
   setOpenDocDialogOpen: (open) => set({ isOpenDocDialogOpen: open }),
   setFindQuery: (q) => set({ findQuery: q }),
   setSearchQuery: (q) => set({ searchQuery: q }),

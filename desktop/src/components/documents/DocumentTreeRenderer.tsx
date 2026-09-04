@@ -38,6 +38,8 @@ export interface DocumentTreeRendererProps {
   // Drag state
   dragOverTarget: string | null;
   flashFolderId: string | null;
+  /** Doc id getting a temporary reveal flash ("在侧边栏中定位"). */
+  flashDocId: string | null;
   draggingDocId: string | null;
   draggingFolderId: string | null;
 
@@ -84,6 +86,7 @@ export function DocumentTreeRenderer({
   handleToggleFolder,
   dragOverTarget,
   flashFolderId,
+  flashDocId,
   draggingDocId,
   draggingFolderId,
   suppressClick,
@@ -126,6 +129,7 @@ export function DocumentTreeRenderer({
     const isDragging = draggingDocId === doc.id;
     const isRenaming = renamingId === doc.id;
     const isSelected = selectedIds.has(doc.id);
+    const isFlashing = flashDocId === doc.id;
 
     return (
       <NavRow
@@ -134,6 +138,7 @@ export function DocumentTreeRenderer({
         selected={isSelected}
         noHover
         bleed
+        data-doc-id={doc.id}
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => handleDocClick(e, doc.id)}
         onContextMenu={(e) => handleContextMenu(e, doc.id)}
@@ -142,7 +147,11 @@ export function DocumentTreeRenderer({
           startRename(doc.id, doc.title || '');
         }}
         style={{ opacity: isDragging ? 0.4 : undefined }}
-        className={isDragging ? 'cursor-grabbing' : ''}
+        className={`${isDragging ? 'cursor-grabbing' : ''} ${
+          isFlashing
+            ? 'bg-[var(--vscode-list-activeSelectionBackground)] outline outline-1 -outline-offset-1 outline-[var(--vscode-focusBorder)]'
+            : ''
+        }`}
       >
         {isRenaming ? (
           <input
@@ -341,6 +350,7 @@ export interface SearchResultsListProps {
   activeDocId: string;
   selectedIds: Set<string>;
   draggingDocId: string | null;
+  flashDocId: string | null;
   onDocPointerDown: (e: React.PointerEvent, docId: string) => void;
   handleDocClick: (e: React.MouseEvent, docId: string) => void;
   handleContextMenu: (e: React.MouseEvent, id: string, kind?: 'doc' | 'folder') => void;
@@ -352,6 +362,7 @@ export function SearchResultsList({
   activeDocId,
   selectedIds,
   draggingDocId,
+  flashDocId,
   onDocPointerDown,
   handleDocClick,
   handleContextMenu,
@@ -376,6 +387,7 @@ export function SearchResultsList({
       selected={selectedIds.has(doc.id)}
       noHover
       bleed
+      data-doc-id={doc.id}
       onPointerDown={(e) => onDocPointerDown(e, doc.id)}
       onClick={(e) => handleDocClick(e, doc.id)}
       onContextMenu={(e) => handleContextMenu(e, doc.id)}
@@ -383,9 +395,11 @@ export function SearchResultsList({
         e.stopPropagation();
         startRename(doc.id, doc.title || '');
       }}
-      className={
-        draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''
-      }
+      className={`${draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''} ${
+        flashDocId === doc.id
+          ? 'bg-[var(--vscode-list-activeSelectionBackground)] outline outline-1 -outline-offset-1 outline-[var(--vscode-focusBorder)]'
+          : ''
+      }`}
     >
       {isActive ? (
         <>

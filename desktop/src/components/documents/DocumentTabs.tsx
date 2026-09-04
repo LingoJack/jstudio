@@ -56,6 +56,7 @@ export default function DocumentTabs() {
   const sidebarPinMode = useStore((s) => s.sidebarPinMode);
   const leftPanelHovered = useStore((s) => s.leftPanelHovered);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
+  const revealDocInSidebar = useStore((s) => s.revealDocInSidebar);
 
   // ── Capsule max width: keep clear of BOTH side panels ──
   // The capsule centers on the window, so its cap is 80% minus the space
@@ -129,6 +130,7 @@ export default function DocumentTabs() {
       return (
         <DocumentTabContextMenu
           tabId={tabId}
+          docId={tab?.docId}
           x={x}
           y={y}
           canDetach={allTabs.length > 1 && !!tab?.docId}
@@ -137,12 +139,13 @@ export default function DocumentTabs() {
           onDetach={(tid) => {
             if (tab?.docId) createDocumentWindow(tab.docId, tid);
           }}
+          onRevealInSidebar={revealDocInSidebar}
           onClose={closeTab}
           onCloseOthers={closeOtherTabs}
         />
       );
     },
-    [allTabs, docTabs, closeTab, closeOtherTabs]
+    [allTabs, docTabs, closeTab, closeOtherTabs, revealDocInSidebar]
   );
 
   // Don't render if there are no document tabs.

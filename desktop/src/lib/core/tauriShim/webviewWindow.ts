@@ -10,7 +10,7 @@
 
 import { native } from './native';
 import { subscribeFocusChanged } from './window';
-import type { TauriEvent, UnlistenFn } from './event';
+import { listen, type TauriEvent, type UnlistenFn } from './event';
 
 export interface WebviewWindowOptions {
   url?: string;
@@ -55,6 +55,21 @@ export class WebviewWindow {
       void this.ready.then(() => cb({ event, payload: null }));
     } else if (event === 'tauri://error') {
       void this.ready.catch((err) => cb({ event, payload: String(err) }));
+    } else if (event === 'tauri://destroyed') {
+      // Main broadcasts 'window-closed' from trackWindow's 'closed' handler
+      // (delete-then-broadcast, so the dying window itself never receives
+      // it). Fire once for THIS window's label, then unsubscribe.
+      let fired = false;
+      let unlisten: UnlistenFn | null = null;
+      void listen<{ label: string }>('window-closed', (e) => {
+        if (fired || e.payload?.label !== this.label) return;
+        fired = true;
+        unlisten?.();
+        cb({ event, payload: null });
+      }).then((u) => {
+        if (fired) u();
+        else unlisten = u;
+      });
     }
     return () => {};
   }

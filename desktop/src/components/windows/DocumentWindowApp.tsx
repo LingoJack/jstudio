@@ -16,6 +16,7 @@ import { fetchDocumentDetachPayload } from '../../lib/windows/documentDetach';
 import DocumentPanel from '../editor/sectionEditor/DocumentPanel';
 import { useI18n } from '../../lib/core/i18n';
 import { shortcutManager } from '../../lib/shortcuts/ShortcutManager';
+import ChildWindowDragBar from './ChildWindowDragBar';
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -78,7 +79,8 @@ export default function DocumentWindowApp() {
   }
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-[var(--vscode-editor-background)]">
+    <div className="w-screen h-screen overflow-hidden bg-[var(--vscode-editor-background)] relative">
+      <ChildWindowDragBar />
       {/* Editor fills the entire window — no tab bar, no action bar */}
       <DocumentPanel />
     </div>

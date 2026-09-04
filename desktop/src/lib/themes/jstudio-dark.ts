@@ -15,7 +15,7 @@ export const JSTUDIO_DARK: AppTheme = {
     'activityBar-border': '#5A5A5A',
     'widget-border': '#5A5A5A',
     'block-border': '#5A5A5A', // 代码块、表格等内容块边框
-    'menu-border': '#5A5A5A',  // 浮窗菜单边框
+    'menu-border': 'var(--jstudio-block-line-strong)',  // 浮窗菜单边框，与代码块/tab 同一线条语言
     'panel-border': '#5A5A5A',
     'foreground': '#CCCCCC',
     'descriptionForeground': '#9D9D9D',

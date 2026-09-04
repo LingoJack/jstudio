@@ -31,6 +31,9 @@ interface FolderMenuState {
   folderId: string;
 }
 
+/** How long the reveal highlight stays on the located doc row. */
+const REVEAL_FLASH_DURATION_MS = 1200;
+
 export default function DocumentSidebar() {
   const { t } = useI18n();
   // Keep a ref to `t` so callbacks that use it don't need it in their deps
@@ -388,6 +391,35 @@ export default function DocumentSidebar() {
     t,
   });
 
+  // ── Reveal request (tab context menu "在侧边栏中定位") ─────
+  // The tab context menu sets sidebarRevealDocId via revealDocInSidebar
+  // (which also opens/expands the sidebar and the doc's folder chain).
+  // Here we scroll the row into view and flash it, then consume the id.
+  const sidebarRevealDocId = useStore((s) => s.sidebarRevealDocId);
+  const setSidebarRevealDocId = useStore((s) => s.setSidebarRevealDocId);
+  const [flashDocId, setFlashDocId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sidebarRevealDocId) return;
+    const docId = sidebarRevealDocId;
+    // One frame so the folder expansion / sidebar re-expand have painted
+    // before we measure scroll positions.
+    const raf = requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(
+        `[data-doc-id="${CSS.escape(docId)}"]`,
+      );
+      if (el) {
+        el.scrollIntoView({ block: 'center' });
+        setFlashDocId(docId);
+        window.setTimeout(
+          () => setFlashDocId(null),
+          REVEAL_FLASH_DURATION_MS,
+        );
+      }
+      setSidebarRevealDocId(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [sidebarRevealDocId, setSidebarRevealDocId]);
+
   // ── Drag-and-drop (extracted to useDocDragDrop hook) ──
   const {
     draggingDocId,
@@ -576,6 +608,7 @@ export default function DocumentSidebar() {
             activeDocId={activeDocId}
             selectedIds={selectedIds}
             draggingDocId={draggingDocId}
+            flashDocId={flashDocId}
             onDocPointerDown={onDocPointerDown}
             handleDocClick={handleDocClick}
             handleContextMenu={handleContextMenu}
@@ -589,6 +622,7 @@ export default function DocumentSidebar() {
             handleToggleFolder={handleToggleFolder}
             dragOverTarget={dragOverTarget}
             flashFolderId={flashFolderId}
+            flashDocId={flashDocId}
             draggingDocId={draggingDocId}
             draggingFolderId={draggingFolderId}
             suppressClick={suppressClick}

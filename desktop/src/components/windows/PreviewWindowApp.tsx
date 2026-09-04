@@ -19,6 +19,7 @@ import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import PdfPreview from '../editor/nodes/PdfPreview';
 import { useI18n } from '../../lib/core/i18n';
+import ChildWindowDragBar from './ChildWindowDragBar';
 
 export default function PreviewWindowApp() {
   const [data, setData] = useState<PreviewPayload | null>(null);
@@ -47,6 +48,7 @@ export default function PreviewWindowApp() {
 
   return (
     <div className="preview-root">
+      <ChildWindowDragBar />
       {/* Minimal header - only close button */}
       <button
         type="button"

@@ -16,6 +16,9 @@ export interface FoldersSlice {
   restoreFolder: (id: string) => void;
   emptyTrashFolders: () => void;
   toggleFolderCollapsed: (id: string) => void;
+  /** Un-collapse the folder and its whole ancestor chain (used by
+   *  "reveal doc in sidebar" so the tree renders the target node). */
+  expandFolderAncestors: (folderId: string | null) => void;
   /** Move a folder under a new parent (null = top level). Rejects cycles. */
   moveFolder: (id: string, parentId: string | null) => void;
   moveDocumentToFolder: (docId: string, folderId: string | null) => void;
@@ -267,6 +270,24 @@ export function createFoldersSlice(set: SetState, get: GetState) {
       );
       set({ folders: next });
       // Persist immediately — collapse state feels janky if debounced
+      scheduleFoldersSave(next);
+    },
+
+    expandFolderAncestors: (folderId: string | null) => {
+      if (!folderId) return;
+      const { folders } = get();
+      const byId = new Map(folders.map((f) => [f.id, f]));
+      const toExpand = new Set<string>();
+      let cur = byId.get(folderId) ?? null;
+      while (cur) {
+        if (cur.collapsed) toExpand.add(cur.id);
+        cur = cur.parentId ? (byId.get(cur.parentId) ?? null) : null;
+      }
+      if (toExpand.size === 0) return;
+      const next = folders.map((f) =>
+        toExpand.has(f.id) ? { ...f, collapsed: false } : f,
+      );
+      set({ folders: next });
       scheduleFoldersSave(next);
     },
 

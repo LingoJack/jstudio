@@ -133,6 +133,12 @@ export default function DiagramWindowApp() {
         flexDirection: 'column',
       }}
     >
+      {/* Dedicated drag strip ABOVE the canvas — a layout element, not an
+          overlay. The overlay variant (ChildWindowDragBar, z-10) sits in the
+          same stacking context as the floating toolbar and mxGraph canvas;
+          its hit-region overlapping the toolbar's top rows made hover/click
+          flaky in this window. A real 36px flex row can never cover them. */}
+      <div data-tauri-drag-region className="h-9 shrink-0" />
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <GraphCanvas
           initialSnapshot={payload?.snapshot ?? ''}

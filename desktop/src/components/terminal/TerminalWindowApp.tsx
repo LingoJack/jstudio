@@ -22,8 +22,13 @@ import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import type { TerminalSession } from '../../store/terminalSlice';
 import TerminalPanel from './TerminalPanel';
 import { useI18n } from '../../lib/core/i18n';
+import ChildWindowDragBar from '../windows/ChildWindowDragBar';
 
 type Status = 'loading' | 'ready' | 'error';
+
+/** Left inset for the floating tab strip: keeps it clear of the macOS
+ *  traffic lights that hiddenInset floats over the window's top-left. */
+const TRAFFIC_LIGHT_CLEARANCE_PX = 72;
 
 export default function TerminalWindowApp() {
   const [status, setStatus] = useState<Status>('loading');
@@ -116,8 +121,9 @@ export default function TerminalWindowApp() {
   }
 
   return (
-    <div className="w-screen h-screen overflow-hidden">
-      <TerminalPanel />
+    <div className="w-screen h-screen overflow-hidden relative">
+      <ChildWindowDragBar />
+      <TerminalPanel tabStripLeftInsetPx={TRAFFIC_LIGHT_CLEARANCE_PX} />
     </div>
   );
 }

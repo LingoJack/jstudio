@@ -144,6 +144,7 @@ export const translations = {
     "workspace.closeTab": "关闭标签页",
     "workspace.closeOthers": "关闭其他标签页",
     "workspace.detachToWindow": "分离到新窗口",
+    "workspace.revealInSidebar": "在侧边栏中定位",
     "workspace.releaseToDetach": "松开以分离到新窗口",
     "workspace.hiddenTabs":
       "还有 {count} 个标签页未显示（可用 Cmd+Option+←/→ 切换）",
@@ -1083,6 +1084,7 @@ export const translations = {
     "workspace.closeTab": "Close Tab",
     "workspace.closeOthers": "Close Others",
     "workspace.detachToWindow": "Detach to New Window",
+    "workspace.revealInSidebar": "Reveal in Sidebar",
     "workspace.releaseToDetach": "Release to detach to new window",
     "workspace.hiddenTabs":
       "{count} more tabs hidden (cycle with Cmd+Option+←/→)",

@@ -17,7 +17,7 @@ export const INK_LIGHT: AppTheme = {
     'activityBar-border': '#1a1612',
     'widget-border': '#1a1612',
     'block-border': '#1a1612', // 代码块、表格等内容块边框，黑色/深褐
-    'menu-border': '#1a1612',  // 浮窗菜单边框，与 block-border 一致
+    'menu-border': 'var(--jstudio-block-line-strong)',  // 浮窗菜单边框，随 block-border 软化
     'panel-border': '#1a1612',
     'foreground': '#1a1612',
     'descriptionForeground': '#6b5e52',

@@ -18,7 +18,7 @@ export const JSTUDIO_LIGHT: AppTheme = {
     'activityBar-border': '#C0C0C0',
     'widget-border': '#C0C0C0',
     'block-border': '#C0C0C0', // 代码块、表格等内容块边框，深于 widget-border 以突出
-    'menu-border': '#C0C0C0',  // 浮窗菜单边框，与 block-border 一致，深于 widget-border
+    'menu-border': 'var(--jstudio-block-line-strong)',  // 浮窗菜单边框，与代码块/tab 同一线条语言
     'panel-border': '#C0C0C0',
 
     // ── Text ──

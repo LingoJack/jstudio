@@ -18,7 +18,7 @@ export const PAPER_LIGHT: AppTheme = {
     'activityBar-border': '#05838B',
     'widget-border': '#05838B',
     'block-border': '#034F55', // 代码块、表格等内容块边框，略深以突出
-    'menu-border': '#034F55',  // 浮窗菜单边框，与 block-border 一致
+    'menu-border': 'var(--jstudio-block-line-strong)',  // 浮窗菜单边框，随 block-border 软化
     'panel-border': '#05838B',
 
     // ── Text ──

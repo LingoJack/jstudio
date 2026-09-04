@@ -15,7 +15,7 @@ export const INK_DARK: AppTheme = {
     'activityBar-border': '#5a6590',
     'widget-border': '#5a6590',
     'block-border': '#5a6590', // 代码块、表格等内容块边框，比 widget-border 略深更醒目
-    'menu-border': '#5a6590',  // 浮窗菜单边框，与 block-border 一致
+    'menu-border': 'var(--jstudio-block-line-strong)',  // 浮窗菜单边框，随 block-border 软化
     'panel-border': '#5a6590',
     'foreground': '#c8d3f5',
     'descriptionForeground': '#7f88b0',
