@@ -365,15 +365,17 @@ export default function TabBar({
           }`}
           style={{
             maxWidth,
-            /* 边框对齐编辑器块级容器（diagram/code/table figure）：
-               1px block-line-strong，随主题自动降透明度 */
-            border: '1px solid var(--jstudio-block-line-strong)',
+            /* 边框对齐编辑器块级容器（diagram/code/table figure），
+               但降到 55% 透明度——浅色主题下满强度描边会让白胶囊显得生硬 */
+            border: '1px solid color-mix(in srgb, var(--jstudio-block-line-strong) 55%, transparent)',
             /* 玻璃底色跟随主题 editor-background（ink-light 下呈米色而非白色），
                与文档底色融合；opacity 由设置驱动 */
             background: `color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 100}%, transparent)`,
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            /* 投影用前景色低透明度混合而非写死黑色：浅色主题下淡、
+               深色主题下自然变暗，胶囊不再那么"浮" */
+            boxShadow: '0 2px 10px color-mix(in srgb, var(--vscode-foreground) 9%, transparent)',
           }}
         >
           {/* Left gradient fade mask */}
