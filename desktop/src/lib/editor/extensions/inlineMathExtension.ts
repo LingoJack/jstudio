@@ -20,8 +20,18 @@
  * NodeView auto-enters edit mode for empty latex (mirrors MathBlockView).
  */
 
-import { Node, InputRule, type JSONContent } from "@tiptap/core";
+import {
+  Node,
+  InputRule,
+  nodePasteRule,
+  combineTransactionSteps,
+  findChildrenInRange,
+  getChangedRanges,
+  type JSONContent,
+} from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import type { Node as ProsemirrorNode, NodeType } from "@tiptap/pm/model";
 import InlineMathView from "../../../components/editor/nodes/InlineMathView";
 
 /**
@@ -41,6 +51,12 @@ export const INLINE_MATH_INPUT_RULE_RE = new RegExp(
   String.raw`(?<!\\)\$(?!\s|\$)((?:\\.|[^$\n])+?)(?<!\s)\$(?!\$|\d)$`,
 );
 
+/** Global variant for the paste rule (multiple spans per paste). */
+export const INLINE_MATH_PASTE_RULE_RE = new RegExp(
+  INLINE_MATH_SOURCE_RE.source,
+  "g",
+);
+
 export interface InlineMathNodeAttributes {
   latex: string;
 }
@@ -52,6 +68,13 @@ declare module "@tiptap/core" {
       insertInlineMath: (
         attrs?: Partial<InlineMathNodeAttributes>,
       ) => ReturnType;
+      /**
+       * Toggle inline math on the current selection: wrap the selected
+       * text as a formula (empty selection inserts an empty one), or —
+       * when the selection covers an existing formula — unwrap it back
+       * to its LaTeX source as plain text.
+       */
+      toggleInlineMath: () => ReturnType;
     };
   }
 }
@@ -148,6 +171,55 @@ export const InlineMathExtension = Node.create({
               .run()
           );
         },
+      toggleInlineMath:
+        () =>
+        ({ state, chain }) => {
+          const { from, to, empty } = state.selection;
+
+          // Unwrap: when the selection covers an existing formula, restore
+          // its LaTeX source as plain text (bare source — toggling again
+          // re-wraps it without double-dollar nesting).
+          const found: { pos: number; latex: string }[] = [];
+          state.doc.nodesBetween(from, to, (node, pos) => {
+            if (found.length > 0) return false;
+            if (node.type.name === "inlineMath") {
+              found.push({
+                pos,
+                latex:
+                  typeof node.attrs.latex === "string" ? node.attrs.latex : "",
+              });
+              return false;
+            }
+            return true;
+          });
+          if (found.length > 0) {
+            const { pos, latex } = found[0];
+            return chain()
+              .insertContentAt(pos, { type: "text", text: latex })
+              .setTextSelection(pos + latex.length)
+              .run();
+          }
+
+          // Wrap: the selected text becomes the LaTeX source. Empty
+          // selection inserts an empty formula and selects it (the NodeView
+          // auto-enters edit mode).
+          const latex = empty
+            ? ""
+            : state.doc.textBetween(from, to, "\n", "\ufffc").trim();
+          if (empty) {
+            return chain().insertInlineMath().run();
+          }
+          if (!latex) return false;
+          return chain()
+            .insertContentAt(
+              { from, to },
+              {
+                type: "inlineMath",
+                attrs: { latex },
+              },
+            )
+            .run();
+        },
     };
   },
 
@@ -176,6 +248,133 @@ export const InlineMathExtension = Node.create({
       }),
     ];
   },
+
+  /* ------------------------------------------------------------------ */
+  /* Paste rule - pasted text containing `$x$` converts to nodes        */
+  /* ------------------------------------------------------------------ */
+  /* Input rules only fire while TYPING; pasted plain text (a lone formula
+     line, terminal output, another note) never reaches them, and
+     PasteMarkdown deliberately parses only BLOCK-level markdown, so a
+     single-line `$A \cup B$` would land as literal text. The node paste
+     rule converts every math span in the pasted text.                        */
+
+  addPasteRules() {
+    return [
+      nodePasteRule({
+        find: INLINE_MATH_PASTE_RULE_RE,
+        type: this.type,
+        getAttributes: (match) => ({
+          latex: (match[1] || "").trim(),
+        }),
+      }),
+    ];
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* Auto-convert fallback (appendTransaction)                          */
+  /* ------------------------------------------------------------------ */
+  /* Safety net for the paths the two rules above cannot cover:
+     - IME composition typing: ProseMirror skips input rules while
+       composing, and Chinese IMEs commonly commit the whole `$...$` run
+       in one composition flush (same family of gaps that motivated
+       customLinkAutolink).
+     - Text inserted by paths that bypass both rule plugins.
+     Scans only the changed ranges of each dispatch; atom neighbours are
+     mapped per-character so positions stay exact; matches inside inline
+     code marks are skipped.                                                */
+
+  addProseMirrorPlugins() {
+    return [inlineMathAutoConvert({ type: this.type })];
+  },
 });
 
 export default InlineMathExtension;
+
+/* ---------------------------------------------------------------------- */
+/* Auto-convert plugin                                                    */
+/* ---------------------------------------------------------------------- */
+
+const INLINE_MATH_AUTO_CONVERT_KEY = new PluginKey("inlineMathAutoConvert");
+
+/**
+ * Character map for one textblock: doc position of every character, with
+ * atom children (hardBreak, existing inlineMath nodes, …) mapped to -1 and
+ * represented in the scanned string by a non-matching placeholder, so
+ * regex indices translate into exact doc positions and matches spanning
+ * atoms are rejected.
+ */
+function buildCharMap(node: ProsemirrorNode, nodeStart: number) {
+  let text = "";
+  const positions: number[] = [];
+  node.forEach((child, offset) => {
+    if (child.isText && typeof child.text === "string") {
+      for (let i = 0; i < child.text.length; i += 1) {
+        positions.push(nodeStart + 1 + offset + i);
+        text += child.text[i];
+      }
+    } else {
+      positions.push(-1);
+      text += "\ufffc";
+    }
+  });
+  return { text, positions };
+}
+
+function inlineMathAutoConvert(options: { type: NodeType }): Plugin {
+  return new Plugin({
+    key: INLINE_MATH_AUTO_CONVERT_KEY,
+    appendTransaction: (transactions, oldState, newState) => {
+      const docChanges =
+        transactions.some((tr) => tr.docChanged) &&
+        !oldState.doc.eq(newState.doc);
+      if (!docChanges) return null;
+
+      const codeMarkType = newState.schema.marks.code;
+      const { tr } = newState;
+      let converted = false;
+
+      const transform = combineTransactionSteps(oldState.doc, [
+        ...transactions,
+      ]);
+      const changes = getChangedRanges(transform);
+      for (const { newRange } of changes) {
+        const textblocks = findChildrenInRange(
+          newState.doc,
+          newRange,
+          (n) => n.isTextblock && n.type.name !== "codeBlock",
+        );
+        for (const { node, pos } of textblocks) {
+          const { text, positions } = buildCharMap(node, pos);
+          const regex = new RegExp(INLINE_MATH_SOURCE_RE.source, "g");
+          const replacements = [];
+          let match: RegExpExecArray | null;
+          while ((match = regex.exec(text)) !== null) {
+            const latex = (match[1] || "").trim();
+            if (!latex) continue;
+            const first = positions[match.index];
+            const last = positions[match.index + match[0].length - 1];
+            // Match spans an atom (hardBreak / existing node) — skip.
+            if (first < 0 || last < 0) continue;
+            if (
+              codeMarkType &&
+              newState.doc.rangeHasMark(first, last, codeMarkType)
+            ) {
+              continue;
+            }
+            replacements.push({ from: first, to: last + 1, latex });
+          }
+          // Apply right-to-left so earlier doc positions stay valid.
+          for (const r of replacements.sort((a, b) => b.from - a.from)) {
+            tr.replaceWith(
+              r.from,
+              r.to,
+              options.type.create({ latex: r.latex }),
+            );
+            converted = true;
+          }
+        }
+      }
+      return converted ? tr : null;
+    },
+  });
+}

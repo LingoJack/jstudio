@@ -599,6 +599,7 @@ export const translations = {
     "bubble.linkRemove": "移除链接",
     "bubble.linkCancel": "取消",
     "bubble.linkInvalid": "链接格式无效",
+    "bubble.inlineFormula": "行内公式",
 
     // ── DocumentPanel placeholder ──
     "editor.placeholder": "输入 / 唤起命令菜单…",
@@ -1552,6 +1553,7 @@ export const translations = {
     "bubble.linkRemove": "Remove link",
     "bubble.linkCancel": "Cancel",
     "bubble.linkInvalid": "Invalid link",
+    "bubble.inlineFormula": "Inline formula",
 
     // ── DocumentPanel placeholder ──
     "editor.placeholder": "Type / for commands…",

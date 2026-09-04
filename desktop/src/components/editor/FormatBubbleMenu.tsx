@@ -30,7 +30,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { NodeSelection } from "@tiptap/pm/state";
-import { Bold, Italic, Strikethrough, Code, Link2 } from "lucide-react";
+import { Bold, Italic, Strikethrough, Code, Link2, Sigma } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
 import type { TranslationKey } from "../../lib/core/i18n";
 import { HeadingDropdown, HEADING_LEVELS } from "./HeadingDropdown";
@@ -80,7 +80,8 @@ type MarkItem = {
   Icon: typeof Bold;
 };
 type LinkItem = { kind: "link"; labelKey: TranslationKey };
-type FocusItem = HeadingItem | MarkItem | LinkItem;
+type InlineMathItem = { kind: "inlineMath"; labelKey: TranslationKey };
+type FocusItem = HeadingItem | MarkItem | LinkItem | InlineMathItem;
 
 const MARK_ITEMS: MarkItem[] = [
   { kind: "mark", name: "bold", labelKey: "bubble.bold", Icon: Bold },
@@ -95,6 +96,11 @@ const MARK_ITEMS: MarkItem[] = [
 ];
 
 const LINK_ITEM: LinkItem = { kind: "link", labelKey: "bubble.link" };
+
+const INLINE_MATH_ITEM: InlineMathItem = {
+  kind: "inlineMath",
+  labelKey: "bubble.inlineFormula",
+};
 
 export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
   const { t } = useI18n();
@@ -115,6 +121,7 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
     ...(isHeading ? [{ kind: "heading" } as HeadingItem] : []),
     ...MARK_ITEMS,
     LINK_ITEM,
+    INLINE_MATH_ITEM,
   ];
 
   // Keep live refs so the capture-phase keydown listener (registered once)
@@ -349,6 +356,8 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
             openHeadingDropdown();
           } else if (item.kind === "link") {
             openLinkInput();
+          } else if (item.kind === "inlineMath") {
+            editor.chain().focus().toggleInlineMath().run();
           } else {
             toggleMark(item.name);
           }
@@ -669,6 +678,30 @@ export default function FormatBubbleMenu({ editor }: FormatBubbleMenuProps) {
                 }`}
               >
                 <Link2 className="w-3.5 h-3.5" />
+              </button>
+            );
+          })()}
+          {(() => {
+            const index = (isHeading ? 1 : 0) + MARK_ITEMS.length + 1;
+            const isActive = editor.isActive("inlineMath");
+            const isFocused = index === activeIndex;
+            const label = t(INLINE_MATH_ITEM.labelKey);
+
+            return (
+              <button
+                type="button"
+                title={label}
+                aria-label={label}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setHeadingOpen(false);
+                  editor.chain().focus().toggleInlineMath().run();
+                }}
+                className={`editor-toolbar-btn bubble-menu-btn ${isActive ? "is-active" : ""} ${
+                  isFocused ? "is-focused" : ""
+                }`}
+              >
+                <Sigma className="w-3.5 h-3.5" />
               </button>
             );
           })()}
