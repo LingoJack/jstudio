@@ -371,18 +371,18 @@ export default function TabBar({
             /* 玻璃底色跟随主题 editor-background（ink-light 下呈米色而非白色），
                与文档底色融合；opacity 由设置驱动 */
             background: `color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 100}%, transparent)`,
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             /* 投影用前景色低透明度混合而非写死黑色：浅色主题下淡、
                深色主题下自然变暗，胶囊不再那么"浮" */
-            boxShadow: '0 2px 10px color-mix(in srgb, var(--vscode-foreground) 9%, transparent)',
+            boxShadow: '0 2px 8px color-mix(in srgb, var(--vscode-foreground) 8%, transparent)',
           }}
         >
           {/* Left gradient fade mask */}
           <div
             className="absolute left-0 top-0 bottom-0 w-10 rounded-l-full pointer-events-none opacity-0 transition-opacity duration-250 ease-out"
             style={{
-              background: `linear-gradient(to right, color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 150}%, transparent), transparent)`,
+              background: `linear-gradient(to right, color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 100}%, transparent), transparent)`,
             }}
             data-scroll-left-fade
           />
@@ -390,7 +390,7 @@ export default function TabBar({
           <div
             className="absolute right-0 top-0 bottom-0 w-10 rounded-r-full pointer-events-none opacity-0 transition-opacity duration-250 ease-out"
             style={{
-              background: `linear-gradient(to left, color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 150}%, transparent), transparent)`,
+              background: `linear-gradient(to left, color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 100}%, transparent), transparent)`,
             }}
             data-scroll-right-fade
           />
@@ -408,7 +408,7 @@ export default function TabBar({
                 left: `${PILL_PAD_X_PX}px`,
                 width: `${TAB_WIDTH_PX}px`,
                 background: accentColor,
-                boxShadow: `0 0 12px 2px color-mix(in srgb, ${accentColor} 40%, transparent), 0 1px 2px rgba(0,0,0,0.08)`,
+                boxShadow: `0 0 12px 2px color-mix(in srgb, ${accentColor} 40%, transparent)`,
                 transform: `translateX(${indicatorLeft ?? 0}px)`,
                 // Hidden (not merely parked) when there is no active tab to
                 // highlight — otherwise it keeps tinting whatever tab slid
