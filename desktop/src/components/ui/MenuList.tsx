@@ -201,7 +201,9 @@ export function MenuList({
   return (
     <div
       ref={ref}
-      className={`z-dropdown pointer-events-auto min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${isFixed ? 'fixed' : ''} ${className}`}
+      // `no-drag`: fixed 菜单可能渲染在标题栏拖拽区内（如 tab 右键菜单），
+      // 不加 no-drag 时 Electron 的 app-region 命中测试会把点击吞掉。
+      className={`no-drag z-dropdown pointer-events-auto min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${isFixed ? 'fixed' : ''} ${className}`}
       style={isFixed ? { left: pos.left, top: pos.top } : undefined}
       onClick={onClick}
     >
