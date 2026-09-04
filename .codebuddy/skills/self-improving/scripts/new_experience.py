@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """经验条目骨架生成与格式校验。
 
-创建条目（默认写入本 skill 所在 hub 的 experiences/ 目录）:
+创建条目（默认写入当前目录下的 docs/exps/，从仓库根执行即落在仓库根
+的 docs/exps/，没有就创建）:
 
     new_experience.py --title "tab 栏关闭时底部闪白条" \
         --area desktop/ui \
@@ -10,7 +11,7 @@
 
 校验已有条目:
 
-    new_experience.py --validate experiences/desktop-ui-tab-bar-flash.md
+    new_experience.py --validate docs/exps/desktop-ui-tab-bar-flash.md
 
 退出码:
     0 成功
@@ -28,8 +29,7 @@ import re
 import sys
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_HUB = SKILL_ROOT.parent
-EXPERIENCES_DIRNAME = "experiences"
+EXPS_DIRNAME = Path("docs") / "exps"
 INDEX_FILENAME = "INDEX.md"
 ENTRIES_MARKER = "<!-- entries -->"
 INDEX_TEMPLATE_PATH = SKILL_ROOT / "assets" / "index-template.md"
@@ -184,7 +184,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--tags", default="", help="检索关键词，逗号分隔")
     parser.add_argument("--source", default="", help="来源线索，如任务描述或 commit 号")
     parser.add_argument(
-        "--hub", default=str(DEFAULT_HUB), help="经验库根目录，默认为 skill 所在 hub"
+        "--dir", help="经验库目录；默认为当前目录下的 docs/exps"
     )
     parser.add_argument("--force", action="store_true", help="目标文件已存在时覆盖重建")
     parser.add_argument(
@@ -213,12 +213,9 @@ def run_create(args: argparse.Namespace) -> int:
         print("创建条目需要 --title 与 --area")
         return 1
 
-    hub = Path(args.hub).expanduser().resolve()
-    if not hub.is_dir():
-        print(f"hub 目录不存在: {hub}")
-        return 1
-
-    experiences_dir = hub / EXPERIENCES_DIRNAME
+    experiences_dir = (
+        Path(args.dir).expanduser().resolve() if args.dir else Path.cwd() / EXPS_DIRNAME
+    )
     experiences_dir.mkdir(parents=True, exist_ok=True)
 
     duplicate = find_duplicate(experiences_dir, args.title)

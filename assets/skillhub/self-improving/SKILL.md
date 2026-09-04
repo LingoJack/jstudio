@@ -14,7 +14,7 @@ description: 把一次任务中查明的根因、验证过的做法、用户定�
 - **经验 doc**：记录一次具体问题的因果链（背景 / 表现 / 根因 / 解决 / 相关改动），供下次同类现象检索。
 - **新 skill**：记录可复用的流程或领域知识，供下次同类任务直接加载执行。
 
-默认经验库目录为 `<hub>/experiences/`（hub 指本 skill 所在的 `assets/skillhub/`），索引为 `<hub>/experiences/INDEX.md`。
+经验库固定在执行脚本时当前目录下的 `docs/exps/`（从仓库根执行即落在仓库根的 `docs/exps/`，没有就创建），条目一文件一条，索引为 `docs/exps/INDEX.md`。特殊场景可用 `new_experience.py --dir <目录>` 指到别处。
 
 ## 何时触发
 
@@ -61,7 +61,7 @@ description: 把一次任务中查明的根因、验证过的做法、用户定�
 
 | 情形 | 去向 |
 |------|------|
-| 查明根因的具体问题 | `experiences/<area>-<slug>.md` |
+| 查明根因的具体问题 | `docs/exps/<area>-<slug>.md` |
 | 已第二次用到、或需 3 步以上讲清的做法 | 新建 skill |
 | 与已有 skill 主题重合 | 增量更新该 skill，不新建 |
 | 属于"这个仓库就这样"的约定 | `CODEBUDDY.md` / `.codebuddy/rules/` |
@@ -102,7 +102,7 @@ description: 把一次任务中查明的根因、验证过的做法、用户定�
 
 ```bash
 python3 scripts/new_experience.py --title "标题" --area editor --summary "一句话摘要" --tags tiptap,css
-python3 scripts/new_experience.py --validate experiences/editor-xxx.md
+python3 scripts/new_experience.py --validate docs/exps/editor-xxx.md
 ```
 
 ### references/

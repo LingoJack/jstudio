@@ -18,12 +18,9 @@
 ## 目录与命名
 
 ```
-<hub>/                          # 默认 assets/skillhub/
-├── self-improving/             # 本 skill
-├── <skill-name>/               # 沉淀出的新 skill
-└── experiences/
-    ├── INDEX.md                # 索引，一条一行
-    └── <area>-<slug>.md        # 一条经验一个文件
+docs/exps/                      # 经验库，固定在执行脚本时当前目录下的 docs/exps/
+├── INDEX.md                    # 索引，一条一行
+└── <area>-<slug>.md            # 一条经验一个文件
 ```
 
 - `<area>`：模块标识，斜杠转连字符，如 `desktop/editor` → `desktop-editor`。
@@ -36,17 +33,16 @@
 |--------|------|------|
 | 本仓库共享 | `.codebuddy/skills/<skill-name>/` | 与仓库绑定的流程、给协作者用 |
 | 个人跨项目 | `~/.codebuddy/skills/<skill-name>/` | 个人工作流、跨仓库通用 |
-| 本地 hub（默认） | `<hub>/<skill-name>/` | 先在 hub 里孵化，验证后再决定放哪 |
 
 ## 索引规则
 
-`experiences/INDEX.md` 一行一条，格式：
+`docs/exps/INDEX.md` 一行一条，格式：
 
 ```
 - YYYY-MM-DD [标题](<file>.md) —— 一句话摘要
 ```
 
-索引位于 `experiences/` 目录内，链接写文件名即可。
+索引位于 `docs/exps/` 目录内，链接写文件名即可。
 
 - 由 `scripts/new_experience.py` 追加；手写时保持同一格式，否则后续追加会错位。
 - 摘要写"下次什么场景会用到它"，不写"解决了什么问题"（后者在条目里）。
@@ -56,7 +52,7 @@
 
 落盘前必做：
 
-1. 用标题关键词 grep `experiences/` 与 `INDEX.md`。
+1. 用标题关键词 grep `docs/exps/` 与 `INDEX.md`。
 2. 命中同主题条目 → 更新原条目（补 `## 复用提示` 或修正根因），不新建文件。
 3. 原结论被推翻 → 原条目 `status` 改为 `superseded-by: <新文件名>`，新条目独立成文，不删原文。
 4. 条目对应的代码已删除或架构已变 → `status: deprecated`，保留正文供追溯。
