@@ -1,0 +1,6 @@
+allow_all: false
+allow:
+- Shell(ls /Users/lingojack/dev_custom/jstudio/desktop/jcli/src/command/chat/:*)
+- Shell(git status:*)
+- Shell(git diff:*)
+deny: []
