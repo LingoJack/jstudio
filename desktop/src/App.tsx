@@ -244,7 +244,10 @@ export default function App() {
   // Document view: the content column punches 36px up beneath the glass
   // title bar so document text scrolls under it (soft translucent reveal
   // instead of a hard cutoff). Terminal view does the same so the terminal
-  // area gets the identical treatment (tab capsule docked in the bar).
+  // area gets the identical treatment (tab capsule docked in the bar) —
+  // but the terminal TEXT GRID insets itself below the chrome instead of
+  // flowing under it (grid rows are permanent, unlike scrolling prose);
+  // see TerminalPanel's topInsetPx/bottomInsetPx.
   // Agent/browser views keep the pt-9 offset below the bar.
   const showDocView = !isTerminalView && !isAgentView && !isBrowserView;
   const contentPunchesUp = showDocView || isTerminalView;

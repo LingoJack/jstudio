@@ -5,6 +5,18 @@ import TerminalTabs from './TerminalTabs';
 import PaneLayoutView from './PaneLayoutView';
 import '@xterm/xterm/css/xterm.css';
 
+// ── 终端网格的 chrome 避让（背景上穿、文字不上穿）──────────────────
+// 文档是流式内容，文字只在滚动瞬间掠过玻璃栏；终端是像素网格，首行/末行
+// 常驻（提示符通常就在最后一行），被红绿灯/胶囊压住就成了永久遮挡，且顶部
+// 36px 是拖拽区，落进去的行点不到选不中。因此背景照常上穿保持连续观感，
+// 网格本体让出 chrome 区域（kitty 窗口内边距的思路）。
+// 数字来源（见 TabBar.tsx 胶囊注释）：玻璃标题栏 36px；胶囊 ~46px，停靠时
+// translate-y-1/2 下垂到 ~59px；底部浮动胶囊 = pb-3.5(14px) + 胶囊 ≈ 60px。
+const DOCKED_TOP_INSET_PX = 64;   // 主窗口 'top'：胶囊停靠标题栏（与 DocumentPanel 的 pt-16 对齐）
+const DETACHED_TOP_INSET_PX = 56; // 拆离窗口 'top'：浮动胶囊 top-0 + pt-1 + ~46px
+const CHROME_TOP_INSET_PX = 40;   // 顶部无胶囊：仅玻璃栏/子窗口拖拽条 36px + 4px 余量
+const BOTTOM_INSET_PX = 64;       // 'bottom'：底部浮动胶囊 ~60px + 4px 余量
+
 /**
  * TerminalPanel — top-level container for the terminal view.
  *
@@ -14,11 +26,16 @@ import '@xterm/xterm/css/xterm.css';
 export default function TerminalPanel({
   hidden,
   tabStripLeftInsetPx = 0,
+  detached = false,
 }: {
   hidden?: boolean;
   /** Left padding for the floating tab strip — used by detached terminal
    *  windows to keep the strip clear of the macOS traffic lights. */
   tabStripLeftInsetPx?: number;
+  /** True in the torn-off child window (no AppTitleBar / title-bar slot;
+   *  the tab strip floats and the chrome to clear is only the drag bar +
+   *  traffic lights). Drives the grid inset heights. */
+  detached?: boolean;
 }) {
   const groups = useStore((s) => s.groups);
   const activeGroupId = useStore((s) => s.activeGroupId);
@@ -35,6 +52,14 @@ export default function TerminalPanel({
 
   const activeGroup = groups.find((g) => g.id === activeGroupId);
   const hasSessions = activeGroup && activeGroup.sessionIds.length > 0;
+
+  // ── 网格避让：顶部让出玻璃栏/停靠/浮动胶囊，底部让出浮动胶囊 ──
+  // 'bottom' 的胶囊永远是浮动条（只有 'top' 会停靠标题栏），压住的是
+  // 提示符所在的末行，所以底部同样要避让。
+  const topInsetPx = tabBarPosition === 'top'
+    ? (detached ? DETACHED_TOP_INSET_PX : DOCKED_TOP_INSET_PX)
+    : CHROME_TOP_INSET_PX;
+  const bottomInsetPx = tabBarPosition === 'bottom' ? BOTTOM_INSET_PX : 0;
 
   // ── Auto-create: if no sessions exist, spawn one automatically ──
   // Use a ref guard so createSession is only called once, even under
@@ -89,7 +114,8 @@ export default function TerminalPanel({
           <TerminalTabs hidden={hidden} />
         </div>
       </div>
-      {/* 内容区域：TabBar 悬浮覆盖在内容上方，无需 padding */}
+      {/* 内容区域：背景铺满（含标题栏/胶囊下方），文字网格由
+          PaneLayoutView 按 topInsetPx/bottomInsetPx 避让 chrome */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <PaneLayoutView
           groupId={activeGroup.id}
@@ -98,6 +124,8 @@ export default function TerminalPanel({
           layout={activeGroup.layout}
           resizeState={activeGroup.resizeState}
           hidden={hidden}
+          topInsetPx={topInsetPx}
+          bottomInsetPx={bottomInsetPx}
         />
       </div>
     </div>

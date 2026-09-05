@@ -123,7 +123,8 @@ export default function TerminalWindowApp() {
   return (
     <div className="w-screen h-screen overflow-hidden relative">
       <ChildWindowDragBar />
-      <TerminalPanel tabStripLeftInsetPx={TRAFFIC_LIGHT_CLEARANCE_PX} />
+      {/* detached：无 AppTitleBar/标题栏槽位，终端网格按浮动胶囊几何避让 */}
+      <TerminalPanel tabStripLeftInsetPx={TRAFFIC_LIGHT_CLEARANCE_PX} detached />
     </div>
   );
 }

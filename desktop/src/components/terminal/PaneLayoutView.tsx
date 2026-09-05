@@ -274,6 +274,14 @@ export interface PaneLayoutViewProps {
    *  When this transitions from true → false, all terminals are refitted
    *  because their container had zero size while hidden. */
   hidden?: boolean;
+  /** Chrome clearance insets for the text grid (glass title bar / docked or
+   *  floating tab capsule). The terminal BACKGROUND still fills the whole
+   *  area — only the grid is inset, so live rows never sit under the traffic
+   *  lights / capsule and every row stays clickable (kitty-style window
+   *  padding). Container resizes flow into the per-terminal ResizeObserver,
+   *  which refits and resizes the PTY on its own. */
+  topInsetPx?: number;
+  bottomInsetPx?: number;
 }
 
 export default function PaneLayoutView({
@@ -283,6 +291,8 @@ export default function PaneLayoutView({
   layout,
   resizeState,
   hidden = false,
+  topInsetPx = 0,
+  bottomInsetPx = 0,
 }: PaneLayoutViewProps) {
   const appThemeIdDark = useStore((s) => s.appThemeIdDark);
   const appThemeIdLight = useStore((s) => s.appThemeIdLight);
@@ -758,7 +768,18 @@ export default function PaneLayoutView({
     : undefined;
 
   return (
-    <div className="relative w-full h-full">
+    <div
+      className="relative w-full h-full"
+      style={{
+        // Only the GRID is inset; the root paints the terminal's own
+        // background over the full area, so the punched-through glass bar /
+        // floating capsule sit on terminal-colored padding instead of live
+        // rows (the pane cells use the same theme.background — seamless).
+        paddingTop: topInsetPx,
+        paddingBottom: bottomInsetPx,
+        background: theme.background,
+      }}
+    >
       {/* Pane grid */}
       <div
         ref={gridRef}
@@ -794,7 +815,13 @@ export default function PaneLayoutView({
       </div>
 
       {n > 1 && (
-        <div className="absolute inset-0" style={{ pointerEvents: 'none', zIndex: 6 }}>
+        // Absolute children position against the padding box, so the handle
+        // overlay must be shrunk back to the grid's content box to keep the
+        // dividers aligned.
+        <div
+          className="absolute left-0 right-0"
+          style={{ pointerEvents: 'none', zIndex: 6, top: topInsetPx, bottom: bottomInsetPx }}
+        >
           {columnBoundaries.map((left, index) => (
             <div
               key={`col-${index}`}
