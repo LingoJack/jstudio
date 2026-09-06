@@ -382,6 +382,18 @@ export class EditorCursorTrail extends BaseCursorTrail {
    * returns to full 60fps for the comet animation (shouldThrottle goes false
    * the moment the corners are no longer settled).
    */
+  /**
+   * Trail physics：与 TerminalCursorTrail 保持一致——拖尾保留、时长取
+   * kitty 默认的一半，彗星形状清晰但整体收敛更快（详见终端侧注释）。
+   */
+  protected override decayFast(): number {
+    return 0.05;
+  }
+
+  protected override decaySlow(): number {
+    return 0.2;
+  }
+
   protected shouldThrottle(): boolean {
     return this.cursorVisible && this.opacity >= 0.999 && this.cornersSettled();
   }

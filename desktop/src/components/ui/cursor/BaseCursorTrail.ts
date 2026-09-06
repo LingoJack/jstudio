@@ -300,6 +300,23 @@ export abstract class BaseCursorTrail {
 
   // ── Protected helpers for subclasses ──
 
+  /**
+   * Ease-out time constant (seconds) for the comet's LEADING corners.
+   * Kitty default 0.1s. Subclasses may override for a snappier feel —
+   * smaller = the cursor lands sooner after a jump.
+   */
+  protected decayFast(): number {
+    return DECAY_FAST;
+  }
+
+  /**
+   * Ease-out time constant (seconds) for the comet's TRAILING corners and
+   * the opacity ramp. Kitty default 0.4s. Smaller = shorter tail, less smear.
+   */
+  protected decaySlow(): number {
+    return DECAY_SLOW;
+  }
+
   /** Snap all 4 corners to the current cursor target (e.g. first frame). */
   protected snapCorners() {
     for (let i = 0; i < 4; i++) {
@@ -389,9 +406,9 @@ export abstract class BaseCursorTrail {
 
       const decay =
         minDot === maxDot
-          ? DECAY_SLOW
-          : DECAY_SLOW +
-            (DECAY_FAST - DECAY_SLOW) *
+          ? this.decaySlow()
+          : this.decaySlow() +
+            (this.decayFast() - this.decaySlow()) *
               ((dot[i] - minDot) / (maxDot - minDot));
 
       const step = 1.0 - Math.pow(2, (-10.0 * dt) / decay);
@@ -403,10 +420,10 @@ export abstract class BaseCursorTrail {
   private updateOpacity(dt: number) {
     // Faithful port of kitty's update_cursor_trail_opacity().
     if (this.cursorVisible) {
-      this.opacity += dt / DECAY_SLOW;
+      this.opacity += dt / this.decaySlow();
       if (this.opacity > 1) this.opacity = 1;
     } else {
-      this.opacity -= dt / DECAY_SLOW;
+      this.opacity -= dt / this.decaySlow();
       if (this.opacity < 0) this.opacity = 0;
     }
   }

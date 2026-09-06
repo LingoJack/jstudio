@@ -28,11 +28,11 @@ import {
 const UNDERLINE_THICKNESS_RATIO = 0.15;
 const BAR_THICKNESS_RATIO = 0.12;
 
-// ── Blink animation timing (ms) — kept in sync with EditorCursorTrail. ──
+// ── Blink animation timing (ms) ──
 /** Stay fully solid for this long after the cursor moves/appears. */
-const BLINK_SOLID_MS = 400;
+const BLINK_SOLID_MS = 300;
 /** Full blink cycle (fade out + back in) once blinking begins. */
-const BLINK_PERIOD_MS = 700;
+const BLINK_PERIOD_MS = 530;
 /** Reduced frame rate once the cursor is stationary and only blink remains. */
 const THROTTLE_FPS = 20;
 
@@ -82,6 +82,19 @@ export default class TerminalCursorTrail extends BaseCursorTrail {
   }
 
   // ── Public API ──
+
+  /**
+   * Trail physics：拖尾保留、节奏加快。kitty 默认（前缘 0.1s / 尾部 0.4s）
+   * 在快速输入时拖尾糊成一长条；这里取 kitty 的一半时长——彗星形状依然
+   * 清晰可见，但整体收敛快一倍，跨 pane 的 poke 飞行共用这套衰减。
+   */
+  protected override decayFast(): number {
+    return 0.05;
+  }
+
+  protected override decaySlow(): number {
+    return 0.2;
+  }
 
   /**
    * Point the trail at a new terminal.  Called when the active pane
