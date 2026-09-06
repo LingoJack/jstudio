@@ -87,6 +87,11 @@ export function setupMenu(route: NativeCommandRouter): void {
         { role: 'front' },
       ],
     },
+    // ── View menu (DevTools; F12 is wired per-webContents in main.ts) ──
+    {
+      label: 'View',
+      submenu: [item('app.devtools', 'Toggle Developer Tools', 'Alt+Cmd+I')],
+    },
   ];
 
   rebuild = () => Menu.setApplicationMenu(Menu.buildFromTemplate(template));

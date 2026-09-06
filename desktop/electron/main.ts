@@ -26,6 +26,13 @@ import { importChromeLoginState } from './chromeLogin';
 // the Tauri shell's `make dev` (which owns 1420 with strictPort).
 const DEV_URL = process.env.JSTUDIO_DEV_URL ?? 'http://127.0.0.1:1420';
 
+// Electron's dev-only security audit warns on every page without a meta CSP
+// — including every third-party site the embedded browser opens (most sites
+// set CSP via response headers, which the audit doesn't inspect). Pure
+// console spam for this app; packaged builds never show these warnings.
+// Renderers inherit the env, so set it before any window exists.
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+
 // ── Window registry (label → BrowserWindow) ─────────────────────────────────
 const windows = new Map<string, BrowserWindow>();
 /** Currently-focused window label (menu commands route here). */
@@ -137,6 +144,18 @@ function routeNativeCommand(command: string) {
       void win.webContents
         .executeJavaScript('window.__setPlainTextPaste && window.__setPlainTextPaste();')
         .then(() => win.webContents.paste());
+    }
+    return;
+  }
+
+  // Toggle DevTools on the focused window (View menu, ⌥⌘I). F12 is wired
+  // separately per-webContents below.
+  if (command === 'app.devtools') {
+    const win = windows.get(focusedLabel) ?? windows.get('main');
+    if (win) {
+      const wc = win.webContents;
+      if (wc.isDevToolsOpened()) wc.closeDevTools();
+      else wc.openDevTools({ mode: 'detach' });
     }
     return;
   }
@@ -466,6 +485,19 @@ function wireSidecar(): void {
 }
 
 // ── ipc handlers ────────────────────────────────────────────────────────────
+
+// F12: toggle DevTools on whichever surface the key landed on (main renderer
+// or a browser-panel tab view). Not a menu accelerator — macOS swallows F12
+// as a media key unless "use F1/F2 as standard function keys" is enabled.
+app.on('web-contents-created', (_event, wc) => {
+  wc.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      event.preventDefault();
+      if (wc.isDevToolsOpened()) wc.closeDevTools();
+      else wc.openDevTools({ mode: 'detach' });
+    }
+  });
+});
 
 function wireIpc(): void {
   ipcMain.on('renderer-broadcast', (_e, event: string, payload: unknown) => {
