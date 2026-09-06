@@ -159,6 +159,13 @@ export function useTerminalInstances(deps: TerminalManagerDeps): UseTerminalInst
         vtExtensions: {
           kittyKeyboard: true,
         },
+        // macOS Option 键作为 Meta：Option+<可打印键> 向 PTY 发送经典
+        // Esc 前缀序列（Option+T → "\x1bt"），tmux/emacs/htop 等程序才能
+        // 收到完整组合键。xterm 在 macOS 默认把 Option 当三级移位（输入
+        // †、™ 等特殊字符），组合键到不了终端应用，还会经 beforeinput
+        // 桥接重复落入 shell（裸 "t"）。代价是 Option 特殊字符输入让位于
+        // Meta 组合（与 kitty/alacritty 的 mac 默认一致）。仅 macOS 生效。
+        macOptionIsMeta: true,
         // VS Code 终端对齐：出厂默认的最低对比度补偿。任何前景色与背景的
         // 对比度不足 4.5:1 时自动加深/提亮（dim 元素目标减半，触发时还会
         // 跳过 50% 透明化）——这是 VS Code 终端里低对比度内容不糊的核心
