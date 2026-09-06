@@ -110,6 +110,15 @@ function chromeSafeStorageKey(): Buffer {
   return Buffer.from(raw, "utf8");
 }
 
+/**
+ * Derive the AES-128 key: PBKDF2-HMAC-SHA1("saltysalt", 1003 rounds, 16
+ * bytes) — parity with derive_aes_key in link.rs. The Keychain secret is a
+ * password, NOT the key itself.
+ */
+function deriveAesKey(password: Buffer): Buffer {
+  return crypto.pbkdf2Sync(password, "saltysalt", 1003, 16, "sha1");
+}
+
 // ── Decryption (parity with decrypt_cookie_value in link.rs) ────────────────
 
 function decryptCookieValue(blob: Buffer, plaintextFallback: string, key: Buffer): string {
@@ -156,7 +165,7 @@ function chromeCookieDbs(): string[] {
 }
 
 function readChromeCookies(): ChromeCookie[] {
-  const key = chromeSafeStorageKey();
+  const key = deriveAesKey(chromeSafeStorageKey());
   const best = new Map<string, ChromeCookie>();
   let hadDbError = false;
   let lastDbError = "";
