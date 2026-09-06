@@ -128,6 +128,40 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
     return () => observer.disconnect();
   }, [hidden, browserTabs.length]);
 
+  // -- TEMP DEBUG (remove after diagnosis): capture-phase click/mousedown
+  //    logger — prints the hit target AND the full element stack under the
+  //    cursor, so a transparent overlay / drag-region swallow is visible. --
+  useEffect(() => {
+    if (hidden) return;
+    const dump = (label: string) => (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      const stack = document
+        .elementsFromPoint(e.clientX, e.clientY)
+        .map(
+          (el) =>
+            el.tagName +
+            (el.className ? "." + String(el.className).split(" ")[0] : ""),
+        )
+        .join(" <- ");
+      console.log(
+        `[BrowserPanelDebug] ${label}:`,
+        t.tagName,
+        String(t.className).slice(0, 40),
+        `@${e.clientX},${e.clientY}`,
+        "| stack:",
+        stack,
+      );
+    };
+    const md = dump("mousedown");
+    const ck = dump("click");
+    window.addEventListener("mousedown", md, true);
+    window.addEventListener("click", ck, true);
+    return () => {
+      window.removeEventListener("mousedown", md, true);
+      window.removeEventListener("click", ck, true);
+    };
+  }, [hidden]);
+
   // -- Keyboard: Cmd+R refreshes the active tab --
   // Cmd+T / Cmd+W are routed main-side. Cmd+L (focus address bar) is
   // handled by BrowserToolbar's input autoFocus-free flow.

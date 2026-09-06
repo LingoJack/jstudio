@@ -41,14 +41,14 @@ export default function BrowserTabStrip() {
   const addBrowserTab = useStore((s) => s.addBrowserTab);
 
   const switchTab = (tabId: string) => {
-    import("../../lib/core/ipc").then(({ ipc }) =>
-      ipc.switchLinkPreviewTab("main", tabId).catch(console.error),
-    );
+    console.log("[BrowserTabStrip] switch", tabId);
+    ipc
+      .switchLinkPreviewTab("main", tabId)
+      .then(() => console.log("[BrowserTabStrip] switch resolved"))
+      .catch((err) => console.error("[BrowserTabStrip] switch failed", err));
   };
   const closeTab = (tabId: string) => {
-    import("../../lib/core/ipc").then(({ ipc }) =>
-      ipc.closeLinkPreviewTab("main", tabId).catch(console.error),
-    );
+    ipc.closeLinkPreviewTab("main", tabId).catch(console.error);
   };
 
   return (
