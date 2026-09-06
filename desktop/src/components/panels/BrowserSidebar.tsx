@@ -33,7 +33,8 @@
  */
 
 import { forwardRef, useCallback, useEffect, useState } from "react";
-import { Loader2, Globe, Plus, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
+import { GlobeIcon } from "../ui/icons";
 import { useI18n } from "../../lib/core/i18n";
 import { ipc } from "../../lib/core/ipc";
 import type { LinkPreviewTabInfo } from "../../types/browser";
@@ -182,10 +183,10 @@ const BrowserSidebar = forwardRef<HTMLDivElement, BrowserSidebarProps>(
                             el.nextElementSibling?.classList.remove("hidden");
                           }}
                         />
-                        <Globe size={14} className="hidden opacity-60" />
+                        <GlobeIcon size={14} className="hidden opacity-60" />
                       </>
                     ) : (
-                      <Globe size={14} className="opacity-60" />
+                      <GlobeIcon size={14} className="opacity-60" />
                     )}
                   </span>
 

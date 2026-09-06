@@ -26,6 +26,43 @@ export function UploadIcon({ size = 28 }: { size?: number }) {
   );
 }
 
+/**
+ * Globe icon — 线框地球（圆 + 经线椭圆 + 赤道 + 两条弧形纬线）。
+ *
+ * lucide 的 Globe 只有一条经线加一条赤道，在活动栏 20px 下过于空旷；
+ * 这里的经纬网格更立体，strokeWidth 1.8 在 20px 时约 1.5px，
+ * 比旁边 lucide 图标（1.67px）略细，抵消多线条带来的视觉变重。
+ * 同时兼容 className（tailwind 定尺寸）与 size（固定像素）两种用法。
+ */
+export function GlobeIcon({
+  size,
+  className,
+}: {
+  size?: number | string;
+  className?: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <ellipse cx="12" cy="12" rx="4" ry="9" />
+      <path d="M3 12h18" />
+      <path d="M4.6 7.2c1.9 1.5 4.6 2.3 7.4 2.3s5.5-.8 7.4-2.3" />
+      <path d="M4.6 16.8c1.9-1.5 4.6-2.3 7.4-2.3s5.5.8 7.4 2.3" />
+    </svg>
+  );
+}
+
 /** Align-left icon — used by the Image floating toolbar. */
 export function AlignLeftIcon() {
   return (
