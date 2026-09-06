@@ -34,10 +34,10 @@ fn block_text_preview(blocks: &Value) -> String {
     };
     for b in arr {
         // content: "..."
-        if let Some(s) = b["content"].as_str() {
-            if !s.trim().is_empty() {
-                return s.trim().to_string();
-            }
+        if let Some(s) = b["content"].as_str()
+            && !s.trim().is_empty()
+        {
+            return s.trim().to_string();
         }
         // content: [{ text: "..." }, ...]
         if let Some(spans) = b["content"].as_array() {
@@ -50,10 +50,10 @@ fn block_text_preview(blocks: &Value) -> String {
             }
         }
         // properties.text: "..."
-        if let Some(s) = b["properties"]["text"].as_str() {
-            if !s.trim().is_empty() {
-                return s.trim().to_string();
-            }
+        if let Some(s) = b["properties"]["text"].as_str()
+            && !s.trim().is_empty()
+        {
+            return s.trim().to_string();
         }
     }
     String::new()
@@ -77,14 +77,14 @@ pub fn reconcile_orphan_documents(conn: &mut Connection) {
     // a document the user already permanently deleted.
     let tombstones: std::collections::HashSet<String> = {
         let mut set = std::collections::HashSet::new();
-        if let Ok(mut stmt) = conn.prepare("SELECT id FROM deleted_documents") {
-            if let Ok(rows) = stmt.query_map([], |row| {
+        if let Ok(mut stmt) = conn.prepare("SELECT id FROM deleted_documents")
+            && let Ok(rows) = stmt.query_map([], |row| {
                 let id: String = row.get(0)?;
                 Ok(id)
-            }) {
-                for row in rows.flatten() {
-                    set.insert(row);
-                }
+            })
+        {
+            for row in rows.flatten() {
+                set.insert(row);
             }
         }
         set

@@ -1,6 +1,6 @@
 use serde::Serialize;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 // ────────────────────────────────────────────────
@@ -170,19 +170,19 @@ fn strip_ansi_escapes(s: &str) -> String {
     while let Some((_, ch)) = chars.next() {
         if ch == '\x1b' {
             // Check for CSI sequence: ESC [ ... (m | letter)
-            if let Some(&(_, next)) = chars.peek() {
-                if next == '[' {
-                    // Skip ESC and '['
+            if let Some(&(_, next)) = chars.peek()
+                && next == '['
+            {
+                // Skip ESC and '['
+                chars.next();
+                // Skip until we find the terminating byte (0x40..=0x7E)
+                while let Some(&(_, c)) = chars.peek() {
                     chars.next();
-                    // Skip until we find the terminating byte (0x40..=0x7E)
-                    while let Some(&(_, c)) = chars.peek() {
-                        chars.next();
-                        if ('\x40'..='\x7e').contains(&c) {
-                            break;
-                        }
+                    if ('\x40'..='\x7e').contains(&c) {
+                        break;
                     }
-                    continue;
                 }
+                continue;
             }
         }
         result.push(ch);
@@ -263,7 +263,7 @@ fn check_j_at_known_locations() -> (bool, Option<String>, Option<String>) {
 
 /// Try to resolve the absolute path of `j` on the current system.
 fn which_j() -> Option<String> {
-    let cmd = if cfg!(windows) {
+    if cfg!(windows) {
         let out = Command::new("where").args(["j"]).output().ok()?;
         String::from_utf8_lossy(&out.stdout)
             .lines()
@@ -276,8 +276,7 @@ fn which_j() -> Option<String> {
         } else {
             None
         }
-    };
-    cmd
+    }
 }
 
 // ────────────────────────────────────────────────
@@ -438,7 +437,7 @@ pub fn uninstall_jcli() -> Result<(), String> {
 // ────────────────────────────────────────────────
 
 #[cfg(target_os = "macos")]
-fn run_osascript_unlink(link: &PathBuf) -> Result<(), String> {
+fn run_osascript_unlink(link: &Path) -> Result<(), String> {
     let script = format!(
         "do shell script \"rm -f '{}'\" with administrator privileges",
         link.display()
@@ -464,7 +463,7 @@ fn run_osascript_unlink(link: &PathBuf) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-fn run_osascript_symlink(dest: &PathBuf, link: &PathBuf) -> Result<(), String> {
+fn run_osascript_symlink(dest: &Path, link: &Path) -> Result<(), String> {
     let script = format!(
         "do shell script \"mkdir -p /usr/local/bin && ln -sf '{}' '{}'\" \
          with administrator privileges",

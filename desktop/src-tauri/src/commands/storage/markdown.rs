@@ -50,10 +50,10 @@ fn collect_markdown(
         let entry = entry.map_err(|e| format!("dir entry error: {e}"))?;
         let path = entry.path();
         // Skip hidden files/directories (dotfiles like .git, .DS_Store, …)
-        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name.starts_with('.') {
-                continue;
-            }
+        if let Some(name) = path.file_name().and_then(|n| n.to_str())
+            && name.starts_with('.')
+        {
+            continue;
         }
 
         let rel = path
@@ -82,13 +82,11 @@ fn collect_markdown(
 
 /// Returns `true` if the file extension looks like Markdown.
 fn is_markdown(path: &Path) -> bool {
-    match path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase())
-        .as_deref()
-    {
-        Some("md") | Some("markdown") | Some("mdown") => true,
-        _ => false,
-    }
+    matches!(
+        path.extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_lowercase())
+            .as_deref(),
+        Some("md") | Some("markdown") | Some("mdown")
+    )
 }

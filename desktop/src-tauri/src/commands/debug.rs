@@ -100,7 +100,7 @@ pub fn append_log_line(line: String) -> Result<(), String> {
         .map_err(|e| format!("open log file: {e}"))?;
     // Always end with a newline so the file is tail-able and each flush is
     // a complete line.
-    write!(file, "{line}\n").map_err(|e| format!("write log line: {e}"))
+    writeln!(file, "{line}").map_err(|e| format!("write log line: {e}"))
 }
 
 /// Return the absolute path of today's log file (for display in the Debug
@@ -130,10 +130,8 @@ pub fn clear_logs() -> Result<usize, String> {
     let entries = fs::read_dir(&dir).map_err(|e| format!("read logs dir: {e}"))?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() {
-            if fs::remove_file(&path).is_ok() {
-                removed += 1;
-            }
+        if path.is_file() && fs::remove_file(&path).is_ok() {
+            removed += 1;
         }
     }
     Ok(removed)

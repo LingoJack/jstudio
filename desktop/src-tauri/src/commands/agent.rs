@@ -790,6 +790,7 @@ pub fn agent_submit_ask_answer(
 /// at session start (see `ensure_session_started`) and persists across rounds,
 /// because `ask_rx` is a non-cloneable receiver that cannot be re-extracted
 /// from a consumed listener.
+#[allow(clippy::too_many_arguments)]
 fn spawn_event_listener(
     session_id: String,
     events: Arc<dyn EventSink>,
@@ -821,48 +822,40 @@ fn listen_ask_requests(
     ask_rx: mpsc::Receiver<j_agent::message_types::AskRequest>,
     ask_response_rx: mpsc::Receiver<String>,
 ) {
-    loop {
-        // Wait for Ask request
-        match ask_rx.recv() {
-            Ok(ask_request) => {
-                // Emit ask-request event
-                let questions: Vec<AskQuestionPayload> = ask_request
-                    .questions
+    // Wait for Ask request; the loop exits when the channel closes.
+    while let Ok(ask_request) = ask_rx.recv() {
+        // Emit ask-request event
+        let questions: Vec<AskQuestionPayload> = ask_request
+            .questions
+            .iter()
+            .map(|q| AskQuestionPayload {
+                question: q.question.clone(),
+                header: q.header.clone(),
+                options: q
+                    .options
                     .iter()
-                    .map(|q| AskQuestionPayload {
-                        question: q.question.clone(),
-                        header: q.header.clone(),
-                        options: q
-                            .options
-                            .iter()
-                            .map(|o| AskOptionPayload {
-                                label: o.label.clone(),
-                                description: o.description.clone(),
-                            })
-                            .collect(),
-                        multi_select: q.multi_select,
+                    .map(|o| AskOptionPayload {
+                        label: o.label.clone(),
+                        description: o.description.clone(),
                     })
-                    .collect();
+                    .collect(),
+                multi_select: q.multi_select,
+            })
+            .collect();
 
-                let _ = events.emit(
-                    "agent:ask-request",
-                    AskRequestPayload {
-                        session_id: session_id.clone(),
-                        questions,
-                    },
-                );
+        events.emit(
+            "agent:ask-request",
+            AskRequestPayload {
+                session_id: session_id.clone(),
+                questions,
+            },
+        );
 
-                // Wait for answer from frontend
-                match ask_response_rx.recv() {
-                    Ok(_answer) => {
-                        // Answer was already sent via agent_submit_ask_answer
-                        // The ask_response_tx channel is used to signal that we got an answer
-                    }
-                    Err(mpsc::RecvError) => {
-                        // Channel closed
-                        break;
-                    }
-                }
+        // Wait for answer from frontend
+        match ask_response_rx.recv() {
+            Ok(_answer) => {
+                // Answer was already sent via agent_submit_ask_answer
+                // The ask_response_tx channel is used to signal that we got an answer
             }
             Err(mpsc::RecvError) => {
                 // Channel closed
@@ -873,6 +866,7 @@ fn listen_ask_requests(
 }
 
 /// Listen to StreamMsg only (for sessions without Ask or after Ask thread spawned).
+#[allow(clippy::too_many_arguments)]
 fn listen_stream_only(
     session_id: String,
     events: Arc<dyn EventSink>,
@@ -885,7 +879,7 @@ fn listen_stream_only(
 ) {
     loop {
         if cancel_token.is_cancelled() {
-            let _ = events.emit(
+            events.emit(
                 "agent:cancelled",
                 CancelledPayload {
                     session_id: session_id.clone(),
@@ -902,7 +896,7 @@ fn listen_stream_only(
                         .lock()
                         .map(|s| s.clone())
                         .unwrap_or_default();
-                    let _ = events.emit(
+                    events.emit(
                         "agent:chunk",
                         ChunkPayload {
                             session_id: session_id.clone(),
@@ -915,7 +909,7 @@ fn listen_stream_only(
                         .map(|s| s.clone())
                         .unwrap_or_default();
                     if !reasoning.is_empty() {
-                        let _ = events.emit(
+                        events.emit(
                             "agent:reasoning",
                             ReasoningPayload {
                                 session_id: session_id.clone(),
@@ -956,7 +950,7 @@ fn listen_stream_only(
                             .iter()
                             .find(|c| c.name == "ExitPlanMode");
                         if let Some(plan) = plan_call {
-                            let _ = events.emit(
+                            events.emit(
                                 "agent:plan-request",
                                 PlanRequestPayload {
                                     session_id: session_id.clone(),
@@ -965,7 +959,7 @@ fn listen_stream_only(
                             );
                         }
                     } else {
-                        let _ = events.emit(
+                        events.emit(
                             "agent:tool-request",
                             ToolRequestPayload {
                                 session_id: session_id.clone(),
@@ -996,7 +990,7 @@ fn listen_stream_only(
                                 .collect(),
                         )
                     };
-                    let _ = events.emit(
+                    events.emit(
                         "agent:tool-result",
                         ToolResultPayload {
                             session_id: session_id.clone(),
@@ -1010,7 +1004,7 @@ fn listen_stream_only(
                     );
                 }
                 StreamMsg::Done => {
-                    let _ = events.emit(
+                    events.emit(
                         "agent:done",
                         DonePayload {
                             session_id: session_id.clone(),
@@ -1020,7 +1014,7 @@ fn listen_stream_only(
                     break;
                 }
                 StreamMsg::Error(e) => {
-                    let _ = events.emit(
+                    events.emit(
                         "agent:error",
                         ErrorPayload {
                             session_id: session_id.clone(),
@@ -1031,7 +1025,7 @@ fn listen_stream_only(
                     break;
                 }
                 StreamMsg::Cancelled => {
-                    let _ = events.emit(
+                    events.emit(
                         "agent:cancelled",
                         CancelledPayload {
                             session_id: session_id.clone(),
@@ -1046,7 +1040,7 @@ fn listen_stream_only(
                     delay_ms,
                     error,
                 } => {
-                    let _ = events.emit(
+                    events.emit(
                         "agent:retrying",
                         RetryingPayload {
                             session_id: session_id.clone(),
@@ -1058,7 +1052,7 @@ fn listen_stream_only(
                     );
                 }
                 StreamMsg::Compacting => {
-                    let _ = events.emit(
+                    events.emit(
                         "agent:compacting",
                         CompactingPayload {
                             session_id: session_id.clone(),
@@ -1066,7 +1060,7 @@ fn listen_stream_only(
                     );
                 }
                 StreamMsg::Compacted { messages_before } => {
-                    let _ = events.emit(
+                    events.emit(
                         "agent:compacted",
                         CompactedPayload {
                             session_id: session_id.clone(),
@@ -1235,7 +1229,7 @@ fn spawn_agent_loop(session_id: String, events: Arc<dyn EventSink>) -> Result<()
 
     // System prompt loader
     let system_prompt_fn: Arc<dyn Fn() -> Option<String> + Send + Sync> =
-        Arc::new(|| load_system_prompt());
+        Arc::new(load_system_prompt);
 
     // Spawn the agent loop on a dedicated OS thread with a single-threaded
     // tokio runtime. We can't use `tauri::async_runtime::spawn` here because

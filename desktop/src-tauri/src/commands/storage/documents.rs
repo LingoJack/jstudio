@@ -148,11 +148,11 @@ pub fn read_document(doc_id: String) -> Result<Value, String> {
             .map_err(|e| format!("failed to read document body {doc_id}: {e}"))?
             .flatten();
 
-        if let Some(s) = body {
-            if !s.trim().is_empty() {
-                return serde_json::from_str(&s)
-                    .map_err(|e| format!("failed to parse document {doc_id}: {e}"));
-            }
+        if let Some(s) = body
+            && !s.trim().is_empty()
+        {
+            return serde_json::from_str(&s)
+                .map_err(|e| format!("failed to parse document {doc_id}: {e}"));
         }
     }
 

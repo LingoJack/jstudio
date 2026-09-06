@@ -306,7 +306,7 @@ pub fn list_doc_backups(doc_id: String) -> Result<Vec<BackupMeta>, String> {
     }
 
     // Newest first.
-    out.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
+    out.sort_by_key(|b| std::cmp::Reverse(b.timestamp_ms));
     Ok(out)
 }
 

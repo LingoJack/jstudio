@@ -37,7 +37,7 @@ fn format_error_chain(e: &dyn std::error::Error) -> String {
 /// 日志文件路径：`<app_data_dir>/jstudio/ai_graph.log`
 /// macOS  上是 `~/Library/Application Support/jstudio/ai_graph.log`
 fn log_path() -> std::path::PathBuf {
-    let base = dirs::data_dir().unwrap_or_else(|| std::env::temp_dir());
+    let base = dirs::data_dir().unwrap_or_else(std::env::temp_dir);
     base.join("jstudio").join("ai_graph.log")
 }
 

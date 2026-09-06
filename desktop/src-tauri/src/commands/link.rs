@@ -225,10 +225,11 @@ pub fn read_chrome_cookies_cached(url: &str) -> Vec<(String, String)> {
 
     {
         let cache = COOKIE_CACHE.lock().unwrap();
-        if let Some(ref entry) = *cache {
-            if entry.domain == domain && entry.timestamp.elapsed() < COOKIE_CACHE_TTL {
-                return entry.cookies.clone();
-            }
+        if let Some(ref entry) = *cache
+            && entry.domain == domain
+            && entry.timestamp.elapsed() < COOKIE_CACHE_TTL
+        {
+            return entry.cookies.clone();
         }
     }
 
@@ -338,23 +339,23 @@ fn extract_meta_content(html: &str, attr: &str, key: &str) -> Option<String> {
     // attr="key" ... content="value"
     let pattern =
         format!(r#"(?is)<meta[^>]*{attr}=["']{attr_escaped}["'][^>]*content=["']([^"']*)["']"#);
-    if let Some(c) = regex::Regex::new(&pattern).ok()?.captures(html) {
-        if let Some(m) = c.get(1) {
-            let v = m.as_str();
-            if !v.is_empty() {
-                return Some(decode_html_entities(v));
-            }
+    if let Some(c) = regex::Regex::new(&pattern).ok()?.captures(html)
+        && let Some(m) = c.get(1)
+    {
+        let v = m.as_str();
+        if !v.is_empty() {
+            return Some(decode_html_entities(v));
         }
     }
     // content="value" ... attr="key"
     let pattern2 =
         format!(r#"(?is)<meta[^>]*content=["']([^"']*)["'][^>]*{attr}=["']{attr_escaped}["']"#);
-    if let Some(c) = regex::Regex::new(&pattern2).ok()?.captures(html) {
-        if let Some(m) = c.get(1) {
-            let v = m.as_str();
-            if !v.is_empty() {
-                return Some(decode_html_entities(v));
-            }
+    if let Some(c) = regex::Regex::new(&pattern2).ok()?.captures(html)
+        && let Some(m) = c.get(1)
+    {
+        let v = m.as_str();
+        if !v.is_empty() {
+            return Some(decode_html_entities(v));
         }
     }
     None
@@ -366,49 +367,47 @@ fn extract_favicon_url(html: &str, base_url: &str) -> String {
         if let Some(c) = regex::Regex::new(&pattern)
             .ok()
             .and_then(|re| re.captures(html))
+            && let Some(m) = c.get(1)
         {
-            if let Some(m) = c.get(1) {
-                let href = m.as_str();
-                if !href.is_empty() {
-                    return resolve_url(href, base_url);
-                }
+            let href = m.as_str();
+            if !href.is_empty() {
+                return resolve_url(href, base_url);
             }
         }
         let pattern2 = format!(r#"(?is)<link[^>]*href=["']([^"']*)["'][^>]*rel=["']{rel}["']"#);
         if let Some(c) = regex::Regex::new(&pattern2)
             .ok()
             .and_then(|re| re.captures(html))
+            && let Some(m) = c.get(1)
         {
-            if let Some(m) = c.get(1) {
-                let href = m.as_str();
-                if !href.is_empty() {
-                    return resolve_url(href, base_url);
-                }
+            let href = m.as_str();
+            if !href.is_empty() {
+                return resolve_url(href, base_url);
             }
         }
     }
 
-    if let Ok(parsed) = url::Url::parse(base_url) {
-        if let Some(host) = parsed.host_str() {
-            return format!("{}://{}/favicon.ico", parsed.scheme(), host);
-        }
+    if let Ok(parsed) = url::Url::parse(base_url)
+        && let Some(host) = parsed.host_str()
+    {
+        return format!("{}://{}/favicon.ico", parsed.scheme(), host);
     }
     String::new()
 }
 
 fn resolve_url(href: &str, base: &str) -> String {
     if href.starts_with("http://") || href.starts_with("https://") || href.starts_with("//") {
-        if href.starts_with("//") {
-            if let Ok(parsed) = url::Url::parse(base) {
-                return format!("{}:{}", parsed.scheme(), href);
-            }
+        if href.starts_with("//")
+            && let Ok(parsed) = url::Url::parse(base)
+        {
+            return format!("{}:{}", parsed.scheme(), href);
         }
         return href.to_string();
     }
-    if let Ok(base_url) = url::Url::parse(base) {
-        if let Ok(resolved) = base_url.join(href) {
-            return resolved.to_string();
-        }
+    if let Ok(base_url) = url::Url::parse(base)
+        && let Ok(resolved) = base_url.join(href)
+    {
+        return resolved.to_string();
     }
     href.to_string()
 }
@@ -425,7 +424,7 @@ fn decode_html_entities(s: &str) -> String {
 
 fn decode_hex(hex: &str) -> Result<Vec<u8>, String> {
     let hex = hex.trim();
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return Err("hex string has odd length".into());
     }
     (0..hex.len())

@@ -5,7 +5,7 @@
 use rusqlite::OptionalExtension;
 use serde_json::Value;
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::UNIX_EPOCH;
 
 use super::paths::{doc_assets_dir, doc_trash_dir, studio_dir};
@@ -251,7 +251,7 @@ pub fn delete_trashed_asset(id: i64) -> Result<(), String> {
 ///
 /// If `file_name` already exists, inserts a numeric suffix before the extension:
 /// `photo.png` → `photo-1.png` → `photo-2.png` …
-fn resolve_unique_name(dir: &PathBuf, file_name: &str) -> String {
+fn resolve_unique_name(dir: &Path, file_name: &str) -> String {
     let target = dir.join(file_name);
     if !target.exists() {
         return file_name.to_string();
