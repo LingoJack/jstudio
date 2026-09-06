@@ -1,38 +1,31 @@
 /**
- * BrowserChromeWindowApp — the native chrome overlay for the inline browser
- * panel (window=browser-chrome, hosted in the MAIN window).
+ * BrowserSmartIsland — the browser panel's address bar in the title bar,
+ * following the document sidebar's hover-expand design language.
  *
- * The panel's page views are native WebContentsView children that cover ALL
- * React DOM of the main window, so once a page is loaded the React title bar
- * (and its address capsule) is invisible under them. This component instead
- * lives in a transparent WebContentsView stacked ABOVE the page views,
- * covering only the 36px title-bar strip (DocumentPanel-style full-bleed:
- * the page rect starts at the window top — see BrowserPanel's reported rect).
+ * Layout: the title bar strip takes REAL space (the page view starts below
+ * it — see BrowserPanel's reported rect), so the bar never collides with a
+ * site's own header.
  *
- * Design — mirrors the document sidebar's hover-expand language
- * (useSidebarHover): flat theme tokens, hover expands immediately, collapse
- * after a 180ms grace delay, focus/pin holds it open, 180ms ease-out reveal.
- * New-tab / blank keeps the full bar — the input is the primary affordance
- * there.
+ * States:
+ *   - Collapsed: favicon + domain pill, centered.
+ *   - Expanded (hover / focused input / pinned / new-tab): full address bar
+ *     (BrowserDynamicIsland) + a Pin toggle at the right edge.
  *
- * Hover source: the strip is an app-region drag area, which swallows DOM
+ * Hover source: the title bar is an app-region drag area, which swallows DOM
  * mouse events, so hover state comes from main.ts's cursor poll
- * (`browser-chrome:strip-hover`) instead of onMouseEnter.
- *
- * Feeds: the store's browserSlice is driven by `link-preview:tabs-updated`
- * events for label "main" (the overlay is not a BrowserWindow, so main.ts
- * forwards those to it directly) + one initial state fetch on mount.
+ * (`browser-panel:strip-hover`) instead of onMouseEnter. Timing mirrors
+ * useSidebarHover: expand immediately, collapse after a 180ms grace delay,
+ * collapse on window blur.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { Globe, Pin } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import BrowserDynamicIsland from "../layout/BrowserDynamicIsland";
+import BrowserDynamicIsland from "./BrowserDynamicIsland";
 import { useI18n } from "../../lib/core/i18n";
-import { ipc } from "../../lib/core/ipc";
 import { useStore } from "../../store/useStore";
 import { getFaviconUrl } from "../../store/browserSlice";
-import type { LinkPreviewTabInfo, LinkPreviewTabsState } from "../../types/browser";
+import type { LinkPreviewTabInfo } from "../../types/browser";
 
 function isBlankUrl(url: string): boolean {
   const u = url.trim().toLowerCase();
@@ -54,7 +47,7 @@ function CollapsedCapsule({ tab }: { tab: LinkPreviewTabInfo }) {
     <div
       data-tauri-drag-region={false}
       title={tab.url}
-      className="no-drag h-7 px-2.5 rounded-md flex items-center gap-1.5 border border-[var(--vscode-input-border)] bg-[color-mix(in_srgb,var(--vscode-editor-background)_78%,transparent)] backdrop-blur-sm"
+      className="no-drag h-7 px-2.5 rounded-md flex items-center gap-1.5 border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)]"
     >
       {fav && !favFailed ? (
         <img
@@ -74,9 +67,8 @@ function CollapsedCapsule({ tab }: { tab: LinkPreviewTabInfo }) {
   );
 }
 
-export default function BrowserChromeWindowApp() {
+export default function BrowserSmartIsland() {
   const { t } = useI18n();
-  const setBrowserTabsState = useStore((s) => s.setBrowserTabsState);
   const browserTabs = useStore((s) => s.browserTabs);
   const browserActiveTabId = useStore((s) => s.browserActiveTabId);
   const [stripHover, setStripHover] = useState(false);
@@ -90,13 +82,14 @@ export default function BrowserChromeWindowApp() {
   const immersive = !!activeTab && !isBlankUrl(activeTab.url);
   const expanded = pinned || inputFocused || stripHover || !immersive;
 
-  // Hover from the main-process cursor poll. Enter expands immediately;
-  // leave collapses after the sidebar's 180ms grace delay (crossing between
-  // the strip and the pill must not flicker).
+  // Hover from the main-process cursor poll (drag regions swallow DOM mouse
+  // events). Enter expands immediately; leave collapses after the sidebar's
+  // 180ms grace delay (crossing between the strip and the pill must not
+  // flicker). Window blur collapses immediately.
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let disposed = false;
-    listen<boolean>("browser-chrome:strip-hover", (e) => {
+    listen<boolean>("browser-panel:strip-hover", (e) => {
       if (e.payload) {
         if (collapseTimer.current) {
           clearTimeout(collapseTimer.current);
@@ -120,50 +113,24 @@ export default function BrowserChromeWindowApp() {
     };
   }, []);
 
-  // Only the inline panel's tab state drives this bar — standalone
-  // link-preview windows broadcast with their own labels and are ignored.
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let disposed = false;
-    listen<LinkPreviewTabsState>("link-preview:tabs-updated", (e) => {
-      if (e.label !== "main") return;
-      setBrowserTabsState(e.payload);
-    }).then((f) => {
-      if (disposed) f();
-      else unlisten = f;
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [setBrowserTabsState]);
-
-  // Initial state (the panel may already have tabs from a previous show).
-  useEffect(() => {
-    ipc
-      .getBrowserPanelTabsState()
-      .then((state) => setBrowserTabsState(state))
-      .catch(() => {});
-  }, [setBrowserTabsState]);
+    const collapseNow = () => setStripHover(false);
+    window.addEventListener("blur", collapseNow);
+    return () => window.removeEventListener("blur", collapseNow);
+  }, []);
 
   return (
-    <div
-      className="relative h-9 w-full flex items-center justify-center select-none"
-      data-tauri-drag-region
-      style={{ background: "transparent" }}
-    >
+    <div className="relative h-9 w-full flex items-center justify-center">
       {expanded ? (
         <div
           className="jstudio-chromebar-in w-full flex items-center justify-between px-3"
           data-tauri-drag-region
         >
-          {/* Left: surrendered to the native traffic lights (drawn above this
-              view by the OS) — keep the drag region clear of them. */}
+          {/* Left: surrendered to the native traffic lights. */}
           <div className="w-[72px]" data-tauri-drag-region />
 
-          {/* Center: the floating address bar + refresh / external icons.
-              The pill itself opts out of the drag region (island root sets
-              data-tauri-drag-region={false}). */}
+          {/* Center: address bar + refresh / external buttons. The island
+              root opts out of the drag region itself. */}
           <div className="flex-1 flex items-center" data-tauri-drag-region>
             <BrowserDynamicIsland onInputFocusChange={setInputFocused} />
           </div>
@@ -178,8 +145,7 @@ export default function BrowserChromeWindowApp() {
         )
       )}
 
-      {/* Pin — same accent story as the outline pin: locks the bar open.
-          Only meaningful while expanded. */}
+      {/* Pin — same accent story as the outline pin: locks the bar open. */}
       {expanded && immersive && (
         <button
           type="button"

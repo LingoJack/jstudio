@@ -8,7 +8,6 @@ import TerminalWindowApp from "./components/terminal/TerminalWindowApp";
 import DocumentWindowApp from "./components/windows/DocumentWindowApp";
 import CommandPaletteWindowApp from "./components/windows/CommandPaletteWindowApp";
 import LinkPreviewTabsWindowApp from "./components/windows/LinkPreviewTabsWindowApp";
-import BrowserChromeWindowApp from "./components/windows/BrowserChromeWindowApp";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { logger } from "./lib/core/logger";
 import { useWindowFocusTracking } from "./lib/windows/useWindowFocusTracking";
@@ -85,7 +84,6 @@ const isTerminalWindow = windowType === "terminal";
 const isDocumentWindow = windowType === "document";
 const isCommandPaletteWindow = windowType === "command-palette";
 const isLinkPreviewTabsWindow = windowType === "link-preview-tabs";
-const isBrowserChromeWindow = windowType === "browser-chrome";
 
 // Command palette window is transparent & frameless — the body must not
 // paint an opaque background, otherwise it fills the whole window rect
@@ -94,7 +92,7 @@ const isBrowserChromeWindow = windowType === "browser-chrome";
 // We inject a <style> with !important to override vscode-theme.css's
 // `body { background-color: var(--vscode-editor-background) }` rule.
 // This must happen BEFORE React renders, so there's no white flash.
-if (isCommandPaletteWindow || isBrowserChromeWindow) {
+if (isCommandPaletteWindow) {
   const s = document.createElement("style");
   s.id = "cpw-transparent";
   s.textContent = `
@@ -121,8 +119,6 @@ const rootElement = (
         <DiagramWindowApp />
       ) : isLinkPreviewTabsWindow ? (
         <LinkPreviewTabsWindowApp />
-      ) : isBrowserChromeWindow ? (
-        <BrowserChromeWindowApp />
       ) : (
         <App />
       )}
