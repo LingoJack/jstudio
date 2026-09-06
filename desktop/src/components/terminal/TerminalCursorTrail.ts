@@ -34,7 +34,13 @@ const BLINK_SOLID_MS = 300;
 /** Full blink cycle (fade out + back in) once blinking begins. */
 const BLINK_PERIOD_MS = 530;
 /** Reduced frame rate once the cursor is stationary and only blink remains. */
-const THROTTLE_FPS = 20;
+const THROTTLE_FPS = 30;
+
+// ── Target smoothing（丝滑）──
+// 光标目标按格离散跳变，快速打字时每格一次"急拉"，读起来发涩。给目标
+// 中心加一个 ~40ms 的指数插值，quad 中心改为连续滑行——打字时彗星流动
+// 而非逐格跳变，彗星物理（decayFast/decaySlow）本身不变。
+const TARGET_TAU_MS = 40;
 
 export default class TerminalCursorTrail extends BaseCursorTrail {
   /** The terminal currently being tracked. */
@@ -59,6 +65,12 @@ export default class TerminalCursorTrail extends BaseCursorTrail {
   private cellH = 16;
   private gridLeft = 0;
   private gridTop = 0;
+
+  // ── Smoothed target center (see TARGET_TAU_MS) ──
+  private smoothCX = 0;
+  private smoothCY = 0;
+  private smoothInit = false;
+  private lastSmoothT = 0;
 
   // Poke state (cross-pane fly animation)
   private _poked = false;
@@ -278,10 +290,28 @@ export default class TerminalCursorTrail extends BaseCursorTrail {
     // Trail quad edges follow the cursor shape.
     const thickX = this.cursorThicknessX();
     const thickY = this.cursorThicknessY();
-    this.cursorEdgeX[0] = cellLeft;
-    this.cursorEdgeX[1] = cellLeft + this.cellW * thickX;
-    this.cursorEdgeY[0] = cellBottom - this.cellH * thickY;
-    this.cursorEdgeY[1] = cellBottom;
+    const w = this.cellW * thickX;
+    const h = this.cellH * thickY;
+
+    // 目标中心连续插值（TARGET_TAU_MS）：把逐格跳变转成连续滑行。
+    const centerX = cellLeft + w / 2;
+    const centerY = cellBottom - h / 2;
+    const now = performance.now();
+    const dtMs = this.lastSmoothT ? Math.min(100, now - this.lastSmoothT) : 16;
+    this.lastSmoothT = now;
+    if (!this.smoothInit) {
+      this.smoothCX = centerX;
+      this.smoothCY = centerY;
+      this.smoothInit = true;
+    } else {
+      const k = 1 - Math.exp(-dtMs / TARGET_TAU_MS);
+      this.smoothCX += (centerX - this.smoothCX) * k;
+      this.smoothCY += (centerY - this.smoothCY) * k;
+    }
+    this.cursorEdgeX[0] = this.smoothCX - w / 2;
+    this.cursorEdgeX[1] = this.smoothCX + w / 2;
+    this.cursorEdgeY[0] = this.smoothCY - h / 2;
+    this.cursorEdgeY[1] = this.smoothCY + h / 2;
 
     this.cursorVisible = true;
 
@@ -310,9 +340,16 @@ export default class TerminalCursorTrail extends BaseCursorTrail {
       this._poked = false;
       this._pokeFromX = null;
       this._pokeFromY = null;
+      // 飞行结束后从目标中心重新起算平滑，避免残留旧位置的拖拽。
+      this.smoothCX = centerX;
+      this.smoothCY = centerY;
+      this.smoothInit = true;
       this.firstFrame = false;
     } else if (this.firstFrame) {
       this.snapCorners();
+      this.smoothCX = centerX;
+      this.smoothCY = centerY;
+      this.smoothInit = true;
       this.firstFrame = false;
     }
 
