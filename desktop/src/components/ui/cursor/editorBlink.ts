@@ -14,7 +14,7 @@ export const BLINK_PERIOD_MS = 700;
  * for a sine-fade blink yet cuts the WebView compositor cost to ~1/3 of the
  * 60fps spent during comet motion.
  */
-export const THROTTLE_FPS = 20;
+export const THROTTLE_FPS = 30;
 
 /**
  * Blink phase in 0..1 for the current cursor style.

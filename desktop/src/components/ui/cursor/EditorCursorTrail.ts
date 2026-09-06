@@ -35,6 +35,9 @@ import {
 } from './editorCaretUtils';
 import { measureNativeCaretRect } from './nativeCaretMirror';
 
+/** 目标中心插值时间常数（ms）：插入符逐字符跳变 → 连续滑行。 */
+const TARGET_TAU_MS = 40;
+
 export class EditorCursorTrail extends BaseCursorTrail {
   /** The ProseMirror editor DOM element (for focus detection). */
   private editorEl: HTMLElement | null = null;
@@ -61,6 +64,12 @@ export class EditorCursorTrail extends BaseCursorTrail {
   private cursorVisibleStartTime = 0;
   /** Whether the caret position has changed since last frame. */
   private prevCaretKey = '';
+
+  // ── Smoothed target center（丝滑，与 TerminalCursorTrail 同款）──
+  private smoothCX = 0;
+  private smoothCY = 0;
+  private smoothInit = false;
+  private lastSmoothT = 0;
 
   /**
    * Whether the caret geometry needs to be re-measured from the DOM.
@@ -429,10 +438,37 @@ export class EditorCursorTrail extends BaseCursorTrail {
       const key = `${caretRect.left.toFixed(1)}|${caretRect.top.toFixed(1)}`;
       const wasHidden = !this.cursorVisible;
       this.cursorVisible = true;
-      this.cursorEdgeX[0] = caretRect.left;
-      this.cursorEdgeX[1] = caretRect.right;
-      this.cursorEdgeY[0] = caretRect.top;
-      this.cursorEdgeY[1] = caretRect.bottom;
+
+      // 目标中心连续插值（与 TerminalCursorTrail 同款）：逐字符跳动的
+      // 插入符目标被转成 ~40ms 的连续滑行；隐藏后重现时直接吸附，避免
+      // 从陈旧位置远距离滑来。
+      const w = caretRect.right - caretRect.left;
+      const h = caretRect.bottom - caretRect.top;
+      const centerX = caretRect.left + w / 2;
+      const centerY = caretRect.top + h / 2;
+      if (wasHidden) {
+        this.smoothCX = centerX;
+        this.smoothCY = centerY;
+        this.smoothInit = true;
+        this.lastSmoothT = performance.now();
+      } else {
+        const now = performance.now();
+        const dtMs = this.lastSmoothT ? Math.min(100, now - this.lastSmoothT) : 16;
+        this.lastSmoothT = now;
+        if (!this.smoothInit) {
+          this.smoothCX = centerX;
+          this.smoothCY = centerY;
+          this.smoothInit = true;
+        } else {
+          const k = 1 - Math.exp(-dtMs / TARGET_TAU_MS);
+          this.smoothCX += (centerX - this.smoothCX) * k;
+          this.smoothCY += (centerY - this.smoothCY) * k;
+        }
+      }
+      this.cursorEdgeX[0] = this.smoothCX - w / 2;
+      this.cursorEdgeX[1] = this.smoothCX + w / 2;
+      this.cursorEdgeY[0] = this.smoothCY - h / 2;
+      this.cursorEdgeY[1] = this.smoothCY + h / 2;
       if (key !== this.prevCaretKey || wasHidden) {
         this.cursorVisibleStartTime = performance.now();
         this.prevCaretKey = key;
@@ -492,8 +528,10 @@ export class EditorCursorTrail extends BaseCursorTrail {
 
     const el = this.glyphEl;
     el.style.display = 'block';
-    el.style.left = `${g.left}px`;
-    el.style.top = `${g.top}px`;
+    // 覆盖层跟随平滑后的滑行中心（而非静态测量位置），block 滑行期间
+    // 反色字符与 WebGL 块始终重合。
+    el.style.left = `${this.smoothCX - g.width / 2}px`;
+    el.style.top = `${this.smoothCY - g.height / 2}px`;
     el.style.width = `${g.width}px`;
     el.style.height = `${g.height}px`;
     // Apply font as LONGHAND props (the `font` shorthand silently fails on
