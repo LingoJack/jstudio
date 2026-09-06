@@ -54,7 +54,7 @@ export default function ExitConfirmDialog() {
       onClick={() => resolveExitConfirm(false)}
     >
       <div
-        className={`w-[min(360px,92vw)] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl ${
+        className={`w-[min(360px,92vw)] flex flex-col rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-2xl dark:shadow-none ${
           transition === 'exit'
             ? 'animate-dialog-panel-out'
             : 'animate-dialog-panel-in'
