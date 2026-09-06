@@ -38,6 +38,10 @@ export interface PanelRect {
 /** Height of the React chrome (tab strip + address bar) in standalone windows. */
 const UI_HEIGHT = 90;
 
+/** Height of the native chrome overlay (address capsule strip) for the
+ *  inline panel — matches the `h-9` title-bar row in AppTitleBar. */
+const STRIP_HEIGHT = 36;
+
 /** Tabs still on the new-tab placeholder — their native webview stays parked. */
 function isBlankUrl(url: string): boolean {
   const u = url.trim().toLowerCase();
@@ -63,6 +67,14 @@ export class TabsManager {
   /** Inline panel only: last rect reported by React; visibility flag. */
   private rect: PanelRect | null = null;
   private visible = false;
+  /**
+   * Inline panel only: transparent chrome overlay (address capsule strip).
+   * The page views cover ALL React DOM (native children stack above the
+   * window's own webContents), so the title-bar capsule can't stay in React
+   * once a page is loaded — it lives in this always-on-top transparent view
+   * instead, floating over the full-bleed page content.
+   */
+  private chromeView: WebContentsView | null = null;
   private onChanged: (label: string, state: TabsState) => void;
   private onEmpty: (label: string) => void;
 
@@ -72,12 +84,14 @@ export class TabsManager {
     isInline: boolean,
     onChanged: (label: string, state: TabsState) => void,
     onEmpty: (label: string) => void,
+    chromeView?: WebContentsView,
   ) {
     this.label = label;
     this.host = host;
     this.isInline = isInline;
     this.onChanged = onChanged;
     this.onEmpty = onEmpty;
+    this.chromeView = chromeView ?? null;
     if (!isInline) {
       host.on('resize', () => this.layout());
     }
@@ -135,6 +149,28 @@ export class TabsManager {
         // both the inactive-tab and the hidden-panel case.
         this.host.contentView.removeChildView(tab.view);
       }
+    }
+    this.layoutChrome();
+  }
+
+  /**
+   * Position the chrome overlay and keep it the TOP-most child — page views
+   * are appended on addTab and would otherwise bury it.
+   */
+  private layoutChrome(): void {
+    const chrome = this.chromeView;
+    if (!chrome || this.host.isDestroyed()) return;
+    const children = this.host.contentView.children;
+    const child = children.includes(chrome);
+    if (this.isVisible()) {
+      if (!child || children[children.length - 1] !== chrome) {
+        if (child) this.host.contentView.removeChildView(chrome);
+        this.host.contentView.addChildView(chrome);
+      }
+      const [w] = this.host.getContentSize();
+      chrome.setBounds({ x: 0, y: 0, width: Math.max(1, w), height: STRIP_HEIGHT });
+    } else if (child) {
+      this.host.contentView.removeChildView(chrome);
     }
   }
 
@@ -255,5 +291,17 @@ export class TabsManager {
 
   destroy(): void {
     for (const tab of [...this.tabs]) this.closeTab(tab.id);
+    if (this.chromeView) {
+      if (
+        !this.host.isDestroyed() &&
+        this.host.contentView.children.includes(this.chromeView)
+      ) {
+        this.host.contentView.removeChildView(this.chromeView);
+      }
+      if (!this.chromeView.webContents.isDestroyed()) {
+        this.chromeView.webContents.close();
+      }
+      this.chromeView = null;
+    }
   }
 }

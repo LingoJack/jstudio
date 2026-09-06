@@ -12,9 +12,10 @@
  * the `sidecar-invoke` handler (they never reach the Rust sidecar).
  */
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, WebContentsView } from 'electron';
 import * as path from 'node:path';
 import * as http from 'node:http';
+import * as url from 'node:url';
 import { Sidecar } from './sidecar';
 import { setupMenu, setMenuAccelerator } from './menu';
 import { registerAssetProtocol, handleAssetRequests } from './protocol';
@@ -50,6 +51,47 @@ let linkPreviewCounter = 1;
 function emitTabsChanged(label: string, state: unknown): void {
   const win = windows.get(label);
   if (win) sendTo(win, 'link-preview:tabs-updated', label, state);
+  if (label === 'main') sendToBrowserChrome('link-preview:tabs-updated', label, state);
+}
+
+/**
+ * The inline browser panel's native chrome overlay (address capsule strip).
+ * A transparent WebContentsView stacked above the page views, covering only
+ * the title-bar strip — the page's native view covers all React DOM, so the
+ * capsule must be native to stay visible/full-bleed. Receives the tab-state
+ * events for label "main" directly (it is not a BrowserWindow, so the
+ * windows-map broadcast doesn't reach it).
+ */
+let browserChromeWC: Electron.WebContents | null = null;
+
+function sendToBrowserChrome(event: string, label: string | undefined, payload: unknown): void {
+  if (browserChromeWC && !browserChromeWC.isDestroyed()) {
+    browserChromeWC.send('jstudio-event', event, label, payload);
+  }
+}
+
+/** App page URL for WebContentsViews (dev server probe, else built dist). */
+async function appPageUrl(query: string): Promise<string> {
+  if (await devServerUp(DEV_URL)) {
+    return query ? `${DEV_URL}/?${query}` : DEV_URL;
+  }
+  const fileUrl = url.pathToFileURL(path.join(__dirname, '..', 'dist', 'index.html')).toString();
+  return query ? `${fileUrl}?${query}` : fileUrl;
+}
+
+function createChromeOverlayView(): WebContentsView {
+  const view = new WebContentsView({
+    webPreferences: { ...webPrefs(), transparent: true },
+  });
+  view.setBackgroundColor('#00000000');
+  browserChromeWC = view.webContents;
+  view.webContents.on('destroyed', () => {
+    if (browserChromeWC === view.webContents) browserChromeWC = null;
+  });
+  void appPageUrl('window=browser-chrome&label=main')
+    .then((u) => view.webContents.loadURL(u))
+    .catch(console.error);
+  return view;
 }
 
 function getTabsManager(label: string): TabsManager | null {
@@ -65,7 +107,7 @@ function getOrCreateInlineManager(): TabsManager {
     m = new TabsManager('main', host, true, emitTabsChanged, (label) => {
       const win = windows.get(label);
       if (win) sendTo(win, 'browser-panel:empty', label, null);
-    });
+    }, createChromeOverlayView());
     tabsManagers.set('main', m);
   }
   return m;
@@ -106,6 +148,9 @@ function sendTo(win: BrowserWindow, event: string, label: string | undefined, pa
 /** Broadcast to every window (sender included — matches Tauri's emit). */
 function broadcast(event: string, label: string | undefined, payload: unknown) {
   for (const win of windows.values()) sendTo(win, event, label, payload);
+  // The chrome overlay isn't a BrowserWindow — forward manually so theme /
+  // settings broadcasts keep it in sync with the main window.
+  sendToBrowserChrome(event, label, payload);
 }
 
 /** Route a native menu command to the focused window (Tauri on_menu_event). */

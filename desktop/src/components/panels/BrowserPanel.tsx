@@ -163,11 +163,16 @@ export default function BrowserPanel({ hidden }: { hidden?: boolean }) {
 
       const browserRect: BrowserPanelRect = {
         x: rootRect.x + sidebarWidth,
-        y: rootRect.y,
+        // Full-bleed: the page view starts at the window top so content
+        // scrolls under the transparent title bar, with the native chrome
+        // overlay (address capsule) floating above it — mirrors how the
+        // document content extends under AppTitleBar in doc view. The
+        // bottom edge stays where the React panel ends.
+        y: 0,
         // Constant width: webview always thinks it has the collapsed-
         // sidebar space.  Content never reflows; only x shifts.
         width: rootRect.width - COLLAPSED_WIDTH,
-        height: rootRect.height,
+        height: rootRect.y + rootRect.height,
       };
       ipc.updateBrowserPanelRect(browserRect).catch(console.error);
     };

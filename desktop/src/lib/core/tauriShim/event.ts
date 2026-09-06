@@ -13,6 +13,8 @@ import { native } from './native';
 export interface TauriEvent<T> {
   event: string;
   payload: T;
+  /** Emitting manager/window label, when the main process supplied one. */
+  label?: string;
 }
 
 type Callback<T> = (event: TauriEvent<T>) => void;
@@ -24,12 +26,12 @@ let busWired = false;
 function ensureBus(): void {
   if (busWired) return;
   busWired = true;
-  native().onEvent((event, _label, payload) => {
+  native().onEvent((event, label, payload) => {
     const set = listeners.get(event);
     if (!set) return;
     for (const cb of [...set]) {
       try {
-        cb({ event, payload });
+        cb({ event, payload, label });
       } catch (err) {
         console.error(`[tauriShim/event] listener for "${event}" threw:`, err);
       }

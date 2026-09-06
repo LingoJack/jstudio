@@ -1,5 +1,3 @@
-import { useStore } from '../../store/useStore';
-import BrowserDynamicIsland from './BrowserDynamicIsland';
 import { setTitlebarSlot } from './titlebarSlot';
 
 /** DOM id of the title-bar center slot. DocumentTabs portals the floating
@@ -13,40 +11,33 @@ export const TITLEBAR_CENTER_SLOT_ID = 'app-titlebar-center-slot';
  * - Left: traffic-light buttons (native, rendered by the OS in Overlay mode).
  *   We reserve horizontal space with `pl-[72px]` so the buttons sit inside this
  *   bar and never overlap the Activity Bar below.
- * - Center: **Dynamic Island** – a context-sensitive zone. When the browser
- *   sidebar view is active, the centre renders a compact address bar
- *   (`BrowserDynamicIsland`). Otherwise it is an empty drag region, with an
- *   absolute center slot (`TITLEBAR_CENTER_SLOT_ID`) for the document tab
- *   capsule.
+ * - Center: **Dynamic Island** zone. When the browser panel is active, the
+ *   address capsule does NOT render here — the panel's page view is a native
+ *   WebContentsView that covers all React DOM, so the capsule lives in a
+ *   transparent native overlay above it (BrowserChromeWindowApp, wired in
+ *   main.ts's TabsManager chromeView). This row stays an empty drag region.
  *
  * The whole bar is a Tauri drag region (except interactive elements), so the
  * user can grab anywhere to move the window.
  */
 export default function AppTitleBar() {
-  const activeSidebarView = useStore((s) => s.activeSidebarView);
-  const isBrowserView = activeSidebarView === 'browser';
-
   return (
     <div
       data-tauri-drag-region
       className="absolute top-0 inset-x-0 h-9 flex items-center justify-between px-3 select-none z-toolbar"
       // Fully transparent, no blur/tint: the document scroll area extends
       // beneath this bar (App.tsx punches the content column through in doc
-      // view) and the text stays crisp under it.
+      // view) and the browser page view starts at y=0 under it too.
       style={{ background: 'transparent' }}
     >
       {/* Left: placeholder for traffic lights space — the whole left zone is
           surrendered to the native traffic lights; no app UI lives here. */}
       <div className="w-[72px]" data-tauri-drag-region />
 
-      {/* Center: Dynamic Island (browser address bar) or empty drag region.
-          Always a drag region - when the browser is active, the pill itself
-          (BrowserDynamicIsland root) has `data-tauri-drag-region={false}` to
-          exclude itself, so the empty space around the pill remains draggable
-          (needed for double-click-to-maximize on macOS). */}
-      <div className="flex-1 flex items-center" data-tauri-drag-region>
-        {isBrowserView ? <BrowserDynamicIsland /> : null}
-      </div>
+      {/* Center: empty drag region — the browser capsule is the native
+          overlay (see header note); the doc tab capsule portals into the
+          absolute slot below. */}
+      <div className="flex-1 flex items-center" data-tauri-drag-region />
 
       {/* Center slot for the document tab capsule (portaled by DocumentTabs
           when position is 'top'). items-end + the capsule's own
