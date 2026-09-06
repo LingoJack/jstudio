@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import {
   FilePlus2,
   FileText,
@@ -19,7 +20,7 @@ import {
 } from "lucide-react";
 import type { StoreState } from "../../store/storeHelpers";
 import { ipc } from "./ipc";
-import { ACTIVITY_ITEM_META, type ActivityBarIcon } from "./activityMeta";
+import { ACTIVITY_ITEM_META } from "./activityMeta";
 import { createTerminalWindow } from "../windows/terminalDetach";
 import { getFocusedEditor } from "../editor/focusedEditorRegistry";
 import { getSelectAllHandler } from "../editor/selectAllRegistry";
@@ -314,7 +315,7 @@ export function executeShortcutAction(id: string, store: StoreState): boolean {
 
 export interface PaletteCommand {
   id: string;
-  icon: ActivityBarIcon;
+  icon: LucideIcon;
   /** Command name (without category prefix) */
   titleZh: string;
   titleEn: string;

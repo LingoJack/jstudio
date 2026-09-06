@@ -1,23 +1,13 @@
-import type { ComponentType } from "react";
 import {
   PenLine,
   Terminal,
   Bot,
+  Compass,
   Settings,
+  type LucideIcon,
 } from "lucide-react";
-import { GlobeIcon } from "../../components/ui/icons";
 import type { ActivityItemId } from "../../types/settings";
 import type { TranslationKey } from "./i18n";
-
-/**
- * Activity Bar 图标的公共类型 —— lucide 图标与 ui/icons.tsx 的自定义
- * SVG 图标（用 className 或 size 定尺寸）都能赋值，消费方一律
- * `<Icon className="..." />` 或 `<Icon size={n} />` 渲染。
- */
-export type ActivityBarIcon = ComponentType<{
-  className?: string;
-  size?: number | string;
-}>;
 
 /**
  * Activity Bar item metadata — single source of truth.
@@ -36,7 +26,7 @@ export type ActivityBarIcon = ComponentType<{
  */
 export const ACTIVITY_ITEM_META: Record<
   ActivityItemId,
-  { icon: ActivityBarIcon; labelKey: TranslationKey }
+  { icon: LucideIcon; labelKey: TranslationKey }
 > = {
   /** 文档 — 笔形图标，点击进入笔记编辑器 */
   documents: { icon: PenLine, labelKey: "app.documents" },
@@ -44,8 +34,8 @@ export const ACTIVITY_ITEM_META: Record<
   terminal: { icon: Terminal, labelKey: "app.terminal" },
   /** 智能体 — Bot 图标，点击进入智能体聊天 */
   agent: { icon: Bot, labelKey: "app.agent" },
-  /** 浏览器 — 线框地球图标（GlobeIcon），点击打开/聚焦内置浏览器窗口 */
-  browser: { icon: GlobeIcon, labelKey: "app.browser" },
+  /** 浏览器 — 指南针图标（Safari 式浏览器隐喻），点击打开/聚焦内置浏览器窗口 */
+  browser: { icon: Compass, labelKey: "app.browser" },
   /** 设置 — 齿轮图标，点击进入设置页 */
   settings: { icon: Settings, labelKey: "app.settings" },
 };
