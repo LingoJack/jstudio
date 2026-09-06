@@ -38,6 +38,12 @@ export interface PanelRect {
 /** Height of the React chrome (tab strip + address bar) in standalone windows. */
 const UI_HEIGHT = 90;
 
+/** Tabs still on the new-tab placeholder — their native webview stays parked. */
+function isBlankUrl(url: string): boolean {
+  const u = url.trim().toLowerCase();
+  return u === '' || u === 'about:blank';
+}
+
 let tabCounter = 1;
 
 interface Tab {
@@ -108,8 +114,13 @@ export class TabsManager {
     if (this.host.isDestroyed()) return;
     const rect = this.contentRect();
     const active = this.tabs.find((t) => t.id === this.activeTabId);
+    // A blank active tab parks its webview (detached) so the React start
+    // page underneath stays visible — BrowserPanel renders BrowserStartPage
+    // for exactly this state (parity with the old Tauri link_tabs.rs).
+    const activeIsBlank = !!active && isBlankUrl(active.url);
     for (const tab of this.tabs) {
-      const shouldShow = tab === active && rect !== null && this.isVisible();
+      const shouldShow =
+        tab === active && rect !== null && this.isVisible() && !activeIsBlank;
       const child = this.host.contentView.children.includes(tab.view);
       if (shouldShow && rect) {
         if (!child) this.host.contentView.addChildView(tab.view);
@@ -223,6 +234,8 @@ export class TabsManager {
     if (!tab) return;
     tab.url = url;
     void tab.view.webContents.loadURL(url).catch(() => {});
+    // A parked blank tab must re-attach its webview on first navigation.
+    this.layout();
     this.emitChanged();
   }
 
