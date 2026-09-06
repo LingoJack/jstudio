@@ -115,6 +115,14 @@ pub fn pty_create(events: Arc<dyn EventSink>, params: CreateParams) -> Result<Se
     cmd.env("COLORTERM", "truecolor");
     cmd.env("LANG", "en_US.UTF-8");
     cmd.env("LC_ALL", "en_US.UTF-8");
+    // Declare VS Code terminal identity to TUI apps. CodeBuddy / Claude Code
+    // et al. adapt their styling to TERM_PROGRAM: under "vscode" they skip
+    // SGR 2 (dim) entirely (verified by PTY capture: 16 dim sequences without
+    // it, 0 with it), so separators/hints render at full color instead of
+    // washing out on light themes. If a tool ever misbehaves under this
+    // identity, removing these two lines reverts it.
+    cmd.env("TERM_PROGRAM", "vscode");
+    cmd.env("TERM_PROGRAM_VERSION", "1.99.0");
 
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
 

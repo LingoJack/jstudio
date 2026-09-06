@@ -1,6 +1,7 @@
 import {
   useRef,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useCallback,
   type CSSProperties,
@@ -299,6 +300,7 @@ export default function PaneLayoutView({
   const isDarkMode = useStore((s) => s.isDarkMode);
   const terminalFontId = useStore((s) => s.terminalFontId);
   const terminalFontSize = useStore((s) => s.terminalFontSize);
+  const terminalFontWeight = useStore((s) => s.terminalFontWeight);
   const terminalCursorStyle = useStore((s) => s.terminalCursorStyle);
   const setActivePane = useStore((s) => s.setActivePane);
   const setPaneResizeState = useStore((s) => s.setPaneResizeState);
@@ -314,8 +316,18 @@ export default function PaneLayoutView({
     [isDarkMode, appThemeId],
   );
 
+  // Publish the theme's dim policy for the patched WebGL addon. The addon
+  // reads `globalThis.__jstudioDimOpacity` when rasterizing dim glyphs
+  // (stock xterm hardcodes 0.5); a layout effect guarantees the value is
+  // in place before any terminal mounts or the atlas rebuilds on a theme
+  // switch. See patches/@xterm+addon-webgl*.patch.
+  useLayoutEffect(() => {
+    (globalThis as unknown as { __jstudioDimOpacity?: number }).__jstudioDimOpacity =
+      theme.dimOpacity;
+  }, [theme.dimOpacity]);
+
   const { terminalsRef, setupTerminal, destroyTerminal, destroyAll, tryEnableWebgl } =
-    useTerminalManager(terminalFontId, terminalFontSize, terminalCursorStyle);
+    useTerminalManager(terminalFontId, terminalFontSize, terminalCursorStyle, terminalFontWeight);
 
   /** Map: sessionId → pane DOM element. */
   const paneElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -647,6 +659,7 @@ export default function PaneLayoutView({
     terminalsRef.current.forEach(({ term, fit }) => {
       term.options.fontFamily = resolveMonospaceFont(terminalFontId);
       term.options.fontSize = terminalFontSize;
+      term.options.fontWeight = terminalFontWeight;
       requestAnimationFrame(() => {
         try {
           fit.fit();
@@ -661,7 +674,7 @@ export default function PaneLayoutView({
         }
       });
     });
-  }, [terminalFontId, terminalFontSize, terminalsRef]);
+  }, [terminalFontId, terminalFontSize, terminalFontWeight, terminalsRef]);
 
   // ── Live cursor style update ─────────────────────────────────────
   // Push the new cursor style into every live xterm instance and the

@@ -13,6 +13,12 @@ const CURSOR_STYLES: { id: TerminalCursorStyle; glyph: string }[] = [
   { id: 'bar', glyph: '|' },
 ];
 
+/** Font weight options for the terminal. */
+const FONT_WEIGHTS: { id: 'normal' | 'bold' }[] = [
+  { id: 'normal' },
+  { id: 'bold' },
+];
+
 /**
  * TerminalSection — all terminal-related settings in one place.
  *
@@ -25,6 +31,7 @@ const CURSOR_STYLES: { id: TerminalCursorStyle; glyph: string }[] = [
  *   1. Monospace font family
  *   2. Cursor style
  *   3. Font size
+ *   4. Font weight (normal / bold — bold reads closer to native terminals)
  */
 export default function TerminalSection() {
   const { t } = useI18n();
@@ -35,6 +42,8 @@ export default function TerminalSection() {
   const setTerminalFontSize = useStore((s) => s.setTerminalFontSize);
   const terminalCursorStyle = useStore((s) => s.terminalCursorStyle);
   const setTerminalCursorStyle = useStore((s) => s.setTerminalCursorStyle);
+  const terminalFontWeight = useStore((s) => s.terminalFontWeight);
+  const setTerminalFontWeight = useStore((s) => s.setTerminalFontWeight);
 
   // Installed system fonts, appended as a second group in the picker.
   const systemFonts = useSystemFonts();
@@ -139,6 +148,45 @@ export default function TerminalSection() {
           <span className="text-sm text-[var(--vscode-foreground)] tabular-nums w-16 text-center shrink-0 font-medium">
             {terminalFontSize} px
           </span>
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ── Font Weight ── */}
+      <div>
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('terminal.fontWeight')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('terminal.fontWeightDesc')}
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          {FONT_WEIGHTS.map((fw) => {
+            const selected = terminalFontWeight === fw.id;
+            return (
+              <button
+                key={fw.id}
+                onClick={() => setTerminalFontWeight(fw.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all duration-150 cursor-pointer ${
+                  selected
+                    ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-activeSelectionBackground)]'
+                    : 'border-[var(--vscode-widget-border)] hover:border-[var(--vscode-focusBorder)]'
+                }`}
+              >
+                <span
+                  className="text-lg leading-none font-mono text-[var(--vscode-foreground)]"
+                  style={{ fontWeight: fw.id === 'bold' ? 700 : 400 }}
+                >
+                  A
+                </span>
+                <span className="text-sm text-[var(--vscode-foreground)]">
+                  {t(`terminal.fontWeight_${fw.id}` as const)}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

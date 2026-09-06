@@ -170,6 +170,7 @@ export interface UISlice {
   terminalFontSize: number;
   terminalFontId: string;
   terminalCursorStyle: TerminalCursorStyle;
+  terminalFontWeight: 'normal' | 'bold';
   tabBarGlassOpacity: number;
   tabBarPosition: 'top' | 'bottom';
   keyboardShortcuts: ShortcutOverrides;
@@ -217,6 +218,7 @@ export interface UISlice {
   setTerminalFontSize: (n: number) => void;
   setTerminalFontId: (id: string) => void;
   setTerminalCursorStyle: (s: TerminalCursorStyle) => void;
+  setTerminalFontWeight: (w: 'normal' | 'bold') => void;
   setTabBarGlassOpacity: (n: number) => void;
   setTabBarPosition: (p: 'top' | 'bottom') => void;
   setKeyboardShortcut: (id: string, keys: string) => void;
@@ -270,6 +272,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontId: DEFAULT_MONOSPACE_FONT_ID,
   terminalCursorStyle: DEFAULT_TERMINAL_CURSOR_STYLE,
+  terminalFontWeight: 'normal',
   tabBarGlassOpacity: DEFAULT_TAB_BAR_GLASS_OPACITY,
   tabBarPosition: DEFAULT_TAB_BAR_POSITION,
   keyboardShortcuts: {} as ShortcutOverrides,
@@ -461,6 +464,14 @@ export const createUiSlice: SliceCreator = (set, get) => ({
       .saveSettings({ terminalCursorStyle: style })
       .catch(onSaveError("设置"));
   },
+
+  setTerminalFontWeight: (weight) => {
+    set({ terminalFontWeight: weight });
+    ipc
+      .saveSettings({ terminalFontWeight: weight })
+      .catch(onSaveError("设置"));
+  },
+
 
   setTabBarGlassOpacity: (opacity) => {
     const clamped = Math.min(

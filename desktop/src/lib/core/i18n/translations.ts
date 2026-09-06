@@ -161,6 +161,10 @@ export const translations = {
     "terminal.cursorStyle_block": "块状",
     "terminal.cursorStyle_underline": "下划线",
     "terminal.cursorStyle_bar": "竖线",
+    "terminal.fontWeight": "字重",
+    "terminal.fontWeightDesc": "加粗笔画让终端文字更接近 kitty 等原生终端的观感",
+    "terminal.fontWeight_normal": "常规",
+    "terminal.fontWeight_bold": "加粗",
     // Template
     "terminal.templates": "模板",
     "terminal.newTemplate": "新建模板",
@@ -1102,6 +1106,11 @@ export const translations = {
     "terminal.cursorStyle_block": "Block",
     "terminal.cursorStyle_underline": "Underline",
     "terminal.cursorStyle_bar": "Bar",
+    "terminal.fontWeight": "Font Weight",
+    "terminal.fontWeightDesc":
+      "Bold strokes read closer to native terminals like kitty",
+    "terminal.fontWeight_normal": "Normal",
+    "terminal.fontWeight_bold": "Bold",
     // Template
     "terminal.templates": "Templates",
     "terminal.newTemplate": "New Template",

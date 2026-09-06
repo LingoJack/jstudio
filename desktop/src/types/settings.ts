@@ -153,6 +153,12 @@ export interface AppSettings {
   terminalFontId?: string;
   /** Terminal cursor shape - also drives the cursor trail shape */
   terminalCursorStyle?: TerminalCursorStyle;
+  /**
+   * Terminal font weight - 'normal' (default) or 'bold'. Bold thickens the
+   * glyph strokes so light-background terminals read closer to native
+   * terminals like kitty, whose rasterizer lays down more ink.
+   */
+  terminalFontWeight?: 'normal' | 'bold';
   /** Tab bar position - 'top' or 'bottom' (default: 'bottom') */
   tabBarPosition?: 'top' | 'bottom';
   /** User-customized keyboard shortcut overrides - see lib/shortcuts.ts */

@@ -50,6 +50,7 @@ export function useTerminalManager(
   fontId: string,
   terminalFontSize: number,
   cursorStyle: TerminalCursorStyle,
+  fontWeight: 'normal' | 'bold',
 ) {
   const resolvedFontFamily = resolveMonospaceFont(fontId);
 
@@ -65,6 +66,7 @@ export function useTerminalManager(
       resolvedFontFamily,
       terminalFontSize,
       cursorStyle,
+      fontWeight,
       ptySessions,
       terminalInput,
     });

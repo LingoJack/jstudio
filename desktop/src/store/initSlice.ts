@@ -80,6 +80,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       let terminalFontSize: number | undefined;
       let terminalFontId: string | undefined;
       let terminalCursorStyle: TerminalCursorStyle | undefined;
+      let terminalFontWeight: "normal" | "bold" | undefined;
       let editorCursorStyle: EditorCursorStyle | undefined;
       let editorCursorAnimationEnabled: boolean | undefined;
       let tabBarGlassOpacity: number | undefined;
@@ -166,6 +167,12 @@ export const createInitSlice: SliceCreator = (set, get) => ({
           settings.terminalCursorStyle === "bar"
         ) {
           terminalCursorStyle = settings.terminalCursorStyle;
+        }
+        if (
+          settings.terminalFontWeight === "normal" ||
+          settings.terminalFontWeight === "bold"
+        ) {
+          terminalFontWeight = settings.terminalFontWeight;
         }
         if (
           settings.editorCursorStyle === "bar" ||
@@ -342,6 +349,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
         ...(terminalFontSize !== undefined ? { terminalFontSize } : {}),
         ...(terminalFontId !== undefined ? { terminalFontId } : {}),
         ...(terminalCursorStyle !== undefined ? { terminalCursorStyle } : {}),
+        ...(terminalFontWeight !== undefined ? { terminalFontWeight } : {}),
         ...(editorCursorStyle !== undefined ? { editorCursorStyle } : {}),
         ...(editorCursorAnimationEnabled !== undefined
           ? { editorCursorAnimationEnabled }

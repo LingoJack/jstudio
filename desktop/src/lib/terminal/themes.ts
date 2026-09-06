@@ -14,6 +14,14 @@ export interface TerminalTheme {
   id: string;
   /** Whether this is a dark theme (affects light/dirty auto-selection). */
   isDark: boolean;
+  /**
+   * Opacity for SGR 2 (dim/faint) text — kitty's `dim_opacity`, ported.
+   * xterm hardcodes 0.5 with no option; we patch the WebGL addon to read
+   * this per theme. Light themes use 1.0: dim was designed against a dark
+   * canvas, and a 50%-opacity wash is unreadable on light backgrounds
+   * (CodeBuddy/Claude Code separators, hints). Dark themes keep 0.5.
+   */
+  dimOpacity: number;
   // xterm.js palette
   background: string;
   foreground: string;
@@ -83,6 +91,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
   {
     id: 'ink-dark',
     isDark: true,
+    dimOpacity: 0.5,
     background: '#222436',
     foreground: '#c8d3f5',
     cursor: '#00aaff',
@@ -121,6 +130,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
   {
     id: 'ink-light',
     isDark: false,
+    dimOpacity: 1,
     background: '#faf6f1',
     foreground: '#1a1612',
     cursor: '#0052D9',
@@ -159,6 +169,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
   {
     id: 'jstudio-dark',
     isDark: true,
+    dimOpacity: 0.5,
     background: '#181818',
     foreground: '#CCCCCC',
     cursor: '#0078D4',
@@ -197,6 +208,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
   {
     id: 'jstudio-light',
     isDark: false,
+    dimOpacity: 1,
     background: '#F8F8F8',
     foreground: '#3B3B3B',
     cursor: '#005FB8',

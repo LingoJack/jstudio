@@ -108,6 +108,7 @@ interface TerminalManagerDeps {
   resolvedFontFamily: string;
   terminalFontSize: number;
   cursorStyle: TerminalCursorStyle;
+  fontWeight: 'normal' | 'bold';
   ptySessions: UsePtySessionsReturn;
   terminalInput: UseTerminalInputReturn;
 }
@@ -119,7 +120,7 @@ interface TerminalManagerDeps {
  * and manages the instance cache.
  */
 export function useTerminalInstances(deps: TerminalManagerDeps): UseTerminalInstancesReturn {
-  const { resolvedFontFamily, terminalFontSize, cursorStyle, ptySessions, terminalInput } = deps;
+  const { resolvedFontFamily, terminalFontSize, cursorStyle, fontWeight, ptySessions, terminalInput } = deps;
 
   const terminalsRef = useRef<Map<string, SessionTerminal>>(new Map());
   /** Map: sessionId → cleanup function for input handlers. */
@@ -146,6 +147,7 @@ export function useTerminalInstances(deps: TerminalManagerDeps): UseTerminalInst
       const term = new Terminal({
         fontFamily: `${resolvedFontFamily}, monospace`,
         fontSize: terminalFontSize,
+        fontWeight: fontWeight,
         cursorStyle,
         cursorBlink: true,
         cursorWidth: 2,
@@ -157,9 +159,14 @@ export function useTerminalInstances(deps: TerminalManagerDeps): UseTerminalInst
         vtExtensions: {
           kittyKeyboard: true,
         },
-        // Let the browser figure out the true advance width of each
-        // glyph — prevents narrow/wide mismatches on mixed scripts.
-        allowTransparency: true,
+        // VS Code 终端对齐：出厂默认的最低对比度补偿。任何前景色与背景的
+        // 对比度不足 4.5:1 时自动加深/提亮（dim 元素目标减半，触发时还会
+        // 跳过 50% 透明化）——这是 VS Code 终端里低对比度内容不糊的核心
+        // 机制，jstudio 此前完全没开这层。
+        minimumContrastRatio: 4.5,
+        // VS Code 终端对齐：不透明背景。主题背景本身是不透明色，关闭透明
+        // 支持后背景解析与图集缓存走 VS Code 同款的不透明路径。
+        allowTransparency: false,
         theme: {
           background: theme.background,
           foreground: theme.foreground,
@@ -269,7 +276,7 @@ export function useTerminalInstances(deps: TerminalManagerDeps): UseTerminalInst
 
       return entry;
     },
-    [resolvedFontFamily, terminalFontSize, cursorStyle], // ← 只依赖稳定的值，ptySessions/terminalInput 通过 ref 访问
+    [resolvedFontFamily, terminalFontSize, cursorStyle, fontWeight], // ← 只依赖稳定的值，ptySessions/terminalInput 通过 ref 访问
   );
 
   /** Fully destroy a terminal instance + clean up. */
