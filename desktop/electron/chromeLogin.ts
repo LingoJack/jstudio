@@ -106,7 +106,17 @@ function chromeSafeStorageKey(): Buffer {
   const m = /^password:\s*(.+?)\s*$/m.exec(res.stderr.toString());
   if (!m) throw new Error("could not parse 'Chrome Safe Storage' Keychain output");
   const raw = m[1];
-  if (raw.startsWith("0x")) return Buffer.from(raw.slice(2).replace(/\s+/g, ""), "hex");
+  if (raw.startsWith("0x")) {
+    // Not valid UTF-8: `security` prints hex (space-grouped) after `0x`.
+    return Buffer.from(raw.slice(2).replace(/\s+/g, ""), "hex");
+  }
+  // `security` wraps literals containing non-alphanumerics in double quotes;
+  // the quotes are display framing, NOT part of the password. A base64
+  // password read with quotes included derives a completely different (wrong)
+  // AES key — every cookie then silently fails to decrypt.
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    return Buffer.from(raw.slice(1, -1), "utf8");
+  }
   return Buffer.from(raw, "utf8");
 }
 
@@ -119,7 +129,27 @@ function deriveAesKey(password: Buffer): Buffer {
   return crypto.pbkdf2Sync(password, "saltysalt", 1003, 16, "sha1");
 }
 
-// ── Decryption (parity with decrypt_cookie_value in link.rs) ────────────────
+// ── Decryption (parity with os_crypt v10 on macOS) ──────────────────────────
+
+// Chromium's "empty key" fallback (crbug.com/40055416): rows written while
+// Keychain access was denied use PBKDF2-HMAC-SHA1("", "saltysalt", 1 iter).
+const EMPTY_KEY = Buffer.from([
+  0xd0, 0xd0, 0xec, 0x9c, 0x7d, 0x77, 0xd4, 0x3a, 0xc5, 0x41, 0x87, 0xfa, 0x48,
+  0x18, 0xd1, 0x7f,
+]);
+
+function aesCbcDecrypt(blob: Buffer, key: Buffer): string | null {
+  try {
+    const decipher = crypto.createDecipheriv("aes-128-cbc", key, AES_IV);
+    let out = Buffer.concat([decipher.update(blob.subarray(3)), decipher.final()]);
+    // macOS app-bound layer: plaintext is `[32-byte hash][cookie value]`
+    // (verified on Chrome 152: 100% of rows carry the hash prefix).
+    if (out.length > 32) out = out.subarray(32);
+    return out.toString("utf8");
+  } catch {
+    return null; // wrong key / bad padding
+  }
+}
 
 function decryptCookieValue(blob: Buffer, plaintextFallback: string, key: Buffer): string {
   if (blob.length === 0) return plaintextFallback;
@@ -131,16 +161,9 @@ function decryptCookieValue(blob: Buffer, plaintextFallback: string, key: Buffer
     return raw || plaintextFallback;
   }
 
-  try {
-    const decipher = crypto.createDecipheriv("aes-128-cbc", key, AES_IV);
-    let out = Buffer.concat([decipher.update(blob.subarray(3)), decipher.final()]);
-    // Chrome 127+ app-bound encryption: the AES plaintext is
-    // `[32-byte app-bound hash][actual cookie value]`.
-    if (out.length > 32) out = out.subarray(32);
-    return out.toString("utf8");
-  } catch {
-    return ""; // padding/UTF-8 failure → caller skips the cookie
-  }
+  return (
+    aesCbcDecrypt(blob, key) ?? aesCbcDecrypt(blob, EMPTY_KEY) ?? ""
+  );
 }
 
 // ── Reading Chrome's Cookies DB ─────────────────────────────────────────────
