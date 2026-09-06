@@ -15,8 +15,15 @@ import { RefreshCw, ExternalLink, Loader2, X, Search } from 'lucide-react';
  *
  * The whole pill is **not** a drag region so the input and buttons receive
  * pointer events normally.
+ *
+ * `onInputFocusChange` lets a host (the native chrome overlay's smart
+ * capsule) keep itself expanded while the address input is focused.
  */
-export default function BrowserDynamicIsland() {
+export default function BrowserDynamicIsland({
+  onInputFocusChange,
+}: {
+  onInputFocusChange?: (focused: boolean) => void;
+} = {}) {
   const { t } = useI18n();
 
   // ── Store state ──
@@ -65,6 +72,11 @@ export default function BrowserDynamicIsland() {
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     e.target.select();
+    onInputFocusChange?.(true);
+  };
+
+  const handleBlur = () => {
+    onInputFocusChange?.(false);
   };
 
   return (
@@ -82,6 +94,7 @@ export default function BrowserDynamicIsland() {
           onChange={(e) => setBrowserAddressUrl(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
+          onBlur={handleBlur}
           spellCheck={false}
           placeholder={t('browser.addressPlaceholder')}
           className="w-full bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] rounded-full pl-7 pr-7 py-[3px] text-[12px] text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] focus:outline-none focus:border-[var(--vscode-focusBorder)] transition-colors"
