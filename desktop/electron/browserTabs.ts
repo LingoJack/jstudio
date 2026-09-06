@@ -39,8 +39,10 @@ export interface PanelRect {
 const UI_HEIGHT = 90;
 
 /** Height of the native chrome overlay (address capsule strip) for the
- *  inline panel — matches the `h-9` title-bar row in AppTitleBar. */
-const STRIP_HEIGHT = 36;
+ *  inline panel — matches the `h-9` title-bar row in AppTitleBar. main.ts
+ *  also uses it for cursor-hover polling (drag regions swallow DOM mouse
+ *  events, so the overlay can't detect the cursor itself). */
+export const STRIP_HEIGHT = 36;
 
 /** Tabs still on the new-tab placeholder — their native webview stays parked. */
 function isBlankUrl(url: string): boolean {

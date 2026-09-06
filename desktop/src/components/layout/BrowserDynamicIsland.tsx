@@ -97,7 +97,7 @@ export default function BrowserDynamicIsland({
           onBlur={handleBlur}
           spellCheck={false}
           placeholder={t('browser.addressPlaceholder')}
-          className="w-full bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] rounded-full pl-7 pr-7 py-[3px] text-[12px] text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] focus:outline-none focus:border-[var(--vscode-focusBorder)] transition-colors"
+          className="w-full h-7 bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] rounded-sm pl-7 pr-7 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] focus:outline-none focus:ring-1 focus:ring-[var(--vscode-focusBorder)] transition-colors"
         />
         {/* Clear button */}
         {browserAddressUrl && (

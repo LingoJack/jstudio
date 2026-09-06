@@ -12,6 +12,8 @@ export const translations = {
     "browser.addressPlaceholder": "输入网址或搜索内容…",
     "browser.refresh": "刷新",
     "browser.openExternal": "在外部浏览器打开",
+    "browser.pinBar": "固定地址栏",
+    "browser.unpinBar": "取消固定地址栏",
 
     // ── Common ──
     "common.moveUp": "上移",
@@ -963,6 +965,8 @@ export const translations = {
     "browser.addressPlaceholder": "Enter URL or search…",
     "browser.refresh": "Refresh",
     "browser.openExternal": "Open in external browser",
+    "browser.pinBar": "Pin address bar",
+    "browser.unpinBar": "Unpin address bar",
 
     // ── Common ──
     "common.moveUp": "Move Up",
