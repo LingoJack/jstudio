@@ -159,6 +159,7 @@ function readChromeCookies(): ChromeCookie[] {
   const key = chromeSafeStorageKey();
   const best = new Map<string, ChromeCookie>();
   let hadDbError = false;
+  let lastDbError = "";
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jstudio-chrome-"));
   try {
@@ -170,11 +171,14 @@ function readChromeCookies(): ChromeCookie[] {
         const db = new DatabaseSync(tmp);
         let rows: ChromeCookieRow[];
         try {
-          rows = db
-            .prepare(
-              "SELECT name, value, encrypted_value, host_key, path, is_secure, is_httponly, expires_utc, creation_utc, samesite FROM cookies",
-            )
-            .all() as ChromeCookieRow[];
+          const stmt = db.prepare(
+            "SELECT name, value, encrypted_value, host_key, path, is_secure, is_httponly, expires_utc, creation_utc, samesite FROM cookies",
+          );
+          // creation_utc / expires_utc are WebKit micros (~1.3e16) — beyond
+          // Number.MAX_SAFE_INTEGER, which node:sqlite refuses to return as
+          // a number (it throws). Read them as bigint; asNumber() converts.
+          stmt.setReadBigInts(true);
+          rows = stmt.all() as ChromeCookieRow[];
         } finally {
           db.close();
         }
@@ -211,8 +215,9 @@ function readChromeCookies(): ChromeCookie[] {
           const prev = best.get(k);
           if (!prev || prev.creationSec <= cookie.creationSec) best.set(k, cookie);
         }
-      } catch {
+      } catch (e) {
         hadDbError = true; // unreadable profile → try the remaining ones
+        lastDbError = (e as Error)?.message ?? String(e);
       }
     });
   } finally {
@@ -220,7 +225,9 @@ function readChromeCookies(): ChromeCookie[] {
   }
 
   if (best.size === 0 && hadDbError) {
-    throw new Error("no cookies could be read from Chrome's profile database");
+    throw new Error(
+      `no cookies could be read from Chrome's profile database: ${lastDbError}`,
+    );
   }
   return [...best.values()];
 }
