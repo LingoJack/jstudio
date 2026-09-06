@@ -86,7 +86,7 @@ fn stage_bundled_j() -> Result<(), String> {
 
     for candidate in &ws_candidates {
         if candidate.exists() {
-            copy_binary(&candidate, &dest)?;
+            copy_binary(candidate, &dest)?;
             println!(
                 "cargo:warning=[jcli-bundle] Staged j from jcli workspace {} → {}",
                 candidate.display(),
