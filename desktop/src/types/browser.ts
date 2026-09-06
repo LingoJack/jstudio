@@ -78,6 +78,16 @@ export interface BrowserPanelRect {
 }
 
 /**
+ * Result of the one-time Chrome login-state import: how many cookies were
+ * injected into the built-in browser session and how many were skipped
+ * (undecryptable / rejected by the cookie store).
+ */
+export interface ChromeLoginImportResult {
+  imported: number;
+  failed: number;
+}
+
+/**
  * A single entry returned by `list_markdown_files` - mirrors the Rust
  * `MarkdownEntry` struct. Directories (`is_dir: true`) are included so the
  * frontend can recreate the folder hierarchy.

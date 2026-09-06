@@ -749,6 +749,17 @@ export const translations = {
     "linkPreview.startPage.nameLabel": "名称",
     "linkPreview.startPage.urlLabel": "网址",
     "linkPreview.startPage.save": "保存",
+    "linkPreview.startPage.importChrome": "导入",
+    "linkPreview.startPage.importChrome.again": "重新导入",
+    "linkPreview.startPage.importChrome.title": "导入 Chrome 登录状态",
+    "linkPreview.startPage.importChrome.desc":
+      "一次性把 Chrome 登录状态带到内置浏览器，AI 就能直接打开你已经登录的网站，操作更流畅。",
+    "linkPreview.startPage.importChrome.busy": "正在读取 Chrome Cookie…",
+    "linkPreview.startPage.importChrome.done": "已导入 {imported} 条 Cookie",
+    "linkPreview.startPage.importChrome.doneFailed":
+      "已导入 {imported} 条 Cookie，{failed} 条失败",
+    "linkPreview.startPage.importChrome.failed": "导入失败：{message}",
+    "linkPreview.startPage.importChrome.lastImported": "上次已导入 {imported} 条 Cookie",
 
     // ── Command Palette Window ──
     "paletteWindow.loading": "加载中…",
@@ -1711,6 +1722,18 @@ export const translations = {
     "linkPreview.startPage.nameLabel": "Name",
     "linkPreview.startPage.urlLabel": "URL",
     "linkPreview.startPage.save": "Save",
+    "linkPreview.startPage.importChrome": "Import",
+    "linkPreview.startPage.importChrome.again": "Re-import",
+    "linkPreview.startPage.importChrome.title": "Import Chrome login state",
+    "linkPreview.startPage.importChrome.desc":
+      "Bring your Chrome logins into the built-in browser in one go, so AI can open the sites you're already signed in to — much smoother.",
+    "linkPreview.startPage.importChrome.busy": "Reading Chrome cookies…",
+    "linkPreview.startPage.importChrome.done": "Imported {imported} cookies",
+    "linkPreview.startPage.importChrome.doneFailed":
+      "Imported {imported} cookies, {failed} failed",
+    "linkPreview.startPage.importChrome.failed": "Import failed: {message}",
+    "linkPreview.startPage.importChrome.lastImported":
+      "Imported {imported} cookies previously",
 
     // ── Command Palette Window ──
     "paletteWindow.loading": "Loading…",

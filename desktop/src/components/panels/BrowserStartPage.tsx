@@ -6,6 +6,8 @@
  *   - Large search box with a search-engine selector (favicon + dropdown)
  *   - Shortcuts grid (quick links) with an "add" tile and a right-click
  *     context menu (edit / delete) per shortcut
+ *   - Chrome login-state import card: one-time copy of Chrome's login
+ *     cookies into the built-in browser session (AI opens signed-in sites)
  *
  * All navigation goes through `browserSlice.navigateBrowserUrl`, which
  * resolves raw input (URL vs search query) and creates the first tab.
@@ -13,8 +15,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { AlertCircle, Check, Cookie, Loader2, Plus, Search } from "lucide-react";
 import { useI18n } from "../../lib/core/i18n";
+import { ipc } from "../../lib/core/ipc";
 import { useStore } from "../../store/useStore";
 import {
   SEARCH_ENGINES,
@@ -75,6 +78,89 @@ export default function BrowserStartPage() {
     mode: "add" | "edit";
     shortcut?: BrowserShortcut;
   } | null>(null);
+
+  // ── Chrome login-state import ──
+  // One-time copy of Chrome's cookies into the built-in browser session
+  // (runs Electron-side). The last result is persisted so the card shows
+  // it on later visits; importing again is always allowed (re-merge).
+  type ChromeImportPhase = "idle" | "busy" | "done" | "error";
+  interface PersistedChromeImport {
+    imported: number;
+    failed: number;
+    at: number;
+  }
+  const CHROME_IMPORT_KEY = "jstudio.chromeLoginImport";
+
+  const [chromePhase, setChromePhase] = useState<ChromeImportPhase>("idle");
+  const [chromeResult, setChromeResult] = useState<{
+    imported: number;
+    failed: number;
+  } | null>(null);
+  const [chromeError, setChromeError] = useState("");
+  const [lastImport, setLastImport] = useState<PersistedChromeImport | null>(
+    () => {
+      try {
+        const raw = localStorage.getItem(CHROME_IMPORT_KEY);
+        return raw ? (JSON.parse(raw) as PersistedChromeImport) : null;
+      } catch {
+        return null;
+      }
+    },
+  );
+
+  const handleImportChrome = async () => {
+    if (chromePhase === "busy") return;
+    setChromePhase("busy");
+    setChromeError("");
+    try {
+      const res = await ipc.importChromeLoginState();
+      if ("error" in res) {
+        setChromeError(res.error);
+        setChromePhase("error");
+        return;
+      }
+      setChromeResult(res);
+      setChromePhase("done");
+      const persisted: PersistedChromeImport = { ...res, at: Date.now() };
+      setLastImport(persisted);
+      try {
+        localStorage.setItem(CHROME_IMPORT_KEY, JSON.stringify(persisted));
+      } catch {
+        // storage unavailable → result just won't persist
+      }
+    } catch (e) {
+      setChromeError(String((e as Error)?.message ?? e));
+      setChromePhase("error");
+    }
+  };
+
+  // Card subtitle per phase; `idle` shows the pitch plus the persisted
+  // last-import count when there is one.
+  const chromeSubtitle = (() => {
+    switch (chromePhase) {
+      case "busy":
+        return t("linkPreview.startPage.importChrome.busy");
+      case "done": {
+        const r = chromeResult!;
+        return r.failed > 0
+          ? t("linkPreview.startPage.importChrome.doneFailed", r)
+          : t("linkPreview.startPage.importChrome.done", {
+              imported: r.imported,
+            });
+      }
+      case "error":
+        return t("linkPreview.startPage.importChrome.failed", {
+          message: chromeError,
+        });
+      default:
+        return lastImport
+          ? `${t("linkPreview.startPage.importChrome.desc")} · ${t(
+              "linkPreview.startPage.importChrome.lastImported",
+              { imported: lastImport.imported },
+            )}`
+          : t("linkPreview.startPage.importChrome.desc");
+    }
+  })();
 
   const navigateBrowserUrl = useStore((s) => s.navigateBrowserUrl);
   const searchEngine = useStore((s) => s.browserSearchEngine);
@@ -265,6 +351,50 @@ export default function BrowserStartPage() {
             <span className="text-xs text-[var(--vscode-foreground)] opacity-60 group-hover:opacity-90 truncate w-full text-center">
               {t("linkPreview.startPage.addShortcut")}
             </span>
+          </button>
+        </div>
+
+        {/* ── Chrome login-state import ── */}
+        <div className="w-full max-w-2xl mt-10">
+          <button
+            type="button"
+            onClick={handleImportChrome}
+            disabled={chromePhase === "busy"}
+            className="group w-full flex items-center gap-4 px-5 py-4 rounded-2xl border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] hover:border-[var(--vscode-focusBorder)] transition-colors text-left disabled:opacity-70"
+          >
+            <span className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-[var(--vscode-button-background)]/10">
+              <Cookie className="w-5 h-5 text-[var(--vscode-button-background)]" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium text-[var(--vscode-foreground)]">
+                {t("linkPreview.startPage.importChrome.title")}
+              </span>
+              <span
+                className={`block text-xs mt-1 ${
+                  chromePhase === "error"
+                    ? "text-[var(--vscode-errorForeground)]"
+                    : "text-[var(--vscode-foreground)] opacity-60"
+                }`}
+              >
+                {chromeSubtitle}
+              </span>
+            </span>
+            {chromePhase === "busy" && (
+              <Loader2 className="w-4 h-4 shrink-0 animate-spin opacity-70" />
+            )}
+            {chromePhase === "done" && (
+              <Check className="w-4 h-4 shrink-0 text-[var(--vscode-testing-iconPassed, #73c998)]" />
+            )}
+            {chromePhase === "error" && (
+              <AlertCircle className="w-4 h-4 shrink-0 text-[var(--vscode-errorForeground)]" />
+            )}
+            {chromePhase === "idle" && (
+              <span className="shrink-0 text-xs px-3 py-1 rounded-full bg-[var(--vscode-button-background)]/10 text-[var(--vscode-button-background)] group-hover:bg-[var(--vscode-button-background)]/20 transition-colors">
+                {lastImport
+                  ? t("linkPreview.startPage.importChrome.again")
+                  : t("linkPreview.startPage.importChrome")}
+              </span>
+            )}
           </button>
         </div>
       </div>

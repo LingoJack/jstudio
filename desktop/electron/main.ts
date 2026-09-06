@@ -20,6 +20,7 @@ import { setupMenu, setMenuAccelerator } from './menu';
 import { registerAssetProtocol, handleAssetRequests } from './protocol';
 import { registerOne, unregisterOne, unregisterAll, SHORTCUT_EVENT } from './globalShortcuts';
 import { TabsManager, type PanelRect } from './browserTabs';
+import { importChromeLoginState } from './chromeLogin';
 
 // Vite dev server; overridable so a second dev instance can coexist with
 // the Tauri shell's `make dev` (which owns 1420 with strictPort).
@@ -431,6 +432,17 @@ function handleMainOnly(
     case 'select_all_in_active_browser_tab':
       getTabsManager('main')?.selectAllInActive();
       return { handled: true, result: null };
+    case 'import_chrome_login_state':
+      // One-time Chrome login-state import into the default session, so the
+      // inline browser (and AI navigation) reuses the user's Chrome logins.
+      // Electron-side (Keychain + node:sqlite + crypto, see chromeLogin.ts);
+      // resolves {imported, failed} or {error} with a readable message.
+      return {
+        handled: true,
+        result: importChromeLoginState().catch((e) => ({
+          error: String((e as Error)?.message ?? e),
+        })),
+      };
 
     default:
       return { handled: false };

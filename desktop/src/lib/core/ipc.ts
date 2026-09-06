@@ -33,6 +33,7 @@ import type {
   LinkPreviewTabInfo,
   LinkPreviewTabsState,
   BrowserPanelRect,
+  ChromeLoginImportResult,
   MarkdownEntry,
 } from "../../types/browser";
 
@@ -398,6 +399,16 @@ export const ipc = {
    */
   getBrowserPanelTabsState: () =>
     invoke<LinkPreviewTabsState>("get_browser_panel_tabs_state"),
+
+  /**
+   * One-time import of Chrome's login cookies into the built-in browser
+   * session, so already-signed-in sites open without a re-login. Runs
+   * entirely in the Electron main process (Keychain + node:sqlite + crypto).
+   * Resolves `{ imported, failed }`, or `{ error }` with a human-readable
+   * message when Chrome cannot be read (not installed / keychain denied).
+   */
+  importChromeLoginState: () =>
+    invoke<ChromeLoginImportResult | { error: string }>("import_chrome_login_state"),
 
   // ---- window control ----
 
