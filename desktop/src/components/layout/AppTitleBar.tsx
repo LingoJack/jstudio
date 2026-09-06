@@ -1,5 +1,5 @@
 import { useStore } from '../../store/useStore';
-import BrowserSmartIsland from './BrowserSmartIsland';
+import BrowserTabStrip from '../panels/BrowserTabStrip';
 import { setTitlebarSlot } from './titlebarSlot';
 
 /** DOM id of the title-bar center slot. DocumentTabs portals the floating
@@ -13,9 +13,9 @@ export const TITLEBAR_CENTER_SLOT_ID = 'app-titlebar-center-slot';
  * - Left: traffic-light buttons (native, rendered by the OS in Overlay mode).
  *   We reserve horizontal space with `pl-[72px]` so the buttons sit inside this
  *   bar and never overlap the Activity Bar below.
- * - Center: **Dynamic Island** – a context-sensitive zone. When the browser
- *   sidebar view is active, the centre renders the smart address bar
- *   (`BrowserSmartIsland` — hover-expand + pin, sidebar design language).
+ * - Center: a context-sensitive zone. When the browser sidebar view is
+ *   active, the centre renders the Chrome-style tab strip
+ *   (`BrowserTabStrip` — tabs + new-tab, then trailing drag region).
  *   Otherwise it is an empty drag region, with an absolute center slot
  *   (`TITLEBAR_CENTER_SLOT_ID`) for the document tab capsule.
  *
@@ -39,12 +39,12 @@ export default function AppTitleBar() {
           surrendered to the native traffic lights; no app UI lives here. */}
       <div className="w-[72px]" data-tauri-drag-region />
 
-      {/* Center: Dynamic Island (browser smart address bar) or empty drag
-          region. Always a drag region - when the browser is active, the bar
-          itself opts out (`data-tauri-drag-region={false}`), so the empty
-          space remains draggable (double-click-to-maximize on macOS). */}
+      {/* Center: browser tab strip (browser view) or empty drag region.
+          Always a drag region - interactive children opt out explicitly
+          (`data-tauri-drag-region={false}`), so empty space remains
+          draggable (double-click-to-maximize on macOS). */}
       <div className="flex-1 flex items-center" data-tauri-drag-region>
-        {isBrowserView ? <BrowserSmartIsland /> : null}
+        {isBrowserView ? <BrowserTabStrip /> : null}
       </div>
 
       {/* Center slot for the document tab capsule (portaled by DocumentTabs

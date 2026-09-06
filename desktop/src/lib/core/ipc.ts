@@ -410,6 +410,10 @@ export const ipc = {
   importChromeLoginState: () =>
     invoke<ChromeLoginImportResult | { error: string }>("import_chrome_login_state"),
 
+  /** Navigate the active browser tab back / forward in its history. */
+  browserGoBack: () => invoke<void>("browser_go_back"),
+  browserGoForward: () => invoke<void>("browser_go_forward"),
+
   // ---- window control ----
 
   /** Quit the entire application (called after exit-confirmation gate). */

@@ -92,9 +92,18 @@ export class TabsManager {
   // ── state ──
 
   state(): TabsState {
+    const active = this.tabs.find((t) => t.id === this.activeTabId);
+    let canGoBack = false;
+    let canGoForward = false;
+    if (active && !active.view.webContents.isDestroyed()) {
+      canGoBack = active.view.webContents.navigationHistory.canGoBack();
+      canGoForward = active.view.webContents.navigationHistory.canGoForward();
+    }
     return {
       tabs: this.tabs.map(({ id, url, title, loading }) => ({ id, url, title, loading })),
       activeTabId: this.activeTabId,
+      canGoBack,
+      canGoForward,
     };
   }
 
@@ -248,6 +257,22 @@ export class TabsManager {
   refresh(tabId: string): void {
     const tab = this.tabs.find((t) => t.id === tabId);
     tab?.view.webContents.reload();
+  }
+
+  goBack(): void {
+    const tab = this.tabs.find((t) => t.id === this.activeTabId);
+    if (tab && !tab.view.webContents.isDestroyed() &&
+        tab.view.webContents.navigationHistory.canGoBack()) {
+      tab.view.webContents.navigationHistory.goBack();
+    }
+  }
+
+  goForward(): void {
+    const tab = this.tabs.find((t) => t.id === this.activeTabId);
+    if (tab && !tab.view.webContents.isDestroyed() &&
+        tab.view.webContents.navigationHistory.canGoForward()) {
+      tab.view.webContents.navigationHistory.goForward();
+    }
   }
 
   selectAllInActive(): void {

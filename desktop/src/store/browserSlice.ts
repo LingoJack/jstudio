@@ -116,6 +116,8 @@ export function getFaviconUrl(url: string): string | undefined {
 export interface BrowserSlice {
   browserTabs: LinkPreviewTabInfo[];
   browserActiveTabId: string | null;
+  browserCanGoBack: boolean;
+  browserCanGoForward: boolean;
   browserAddressUrl: string;
   browserSearchEngine: string;
   browserShortcuts: BrowserShortcut[];
@@ -123,6 +125,8 @@ export interface BrowserSlice {
   setBrowserAddressUrl: (url: string) => void;
   setBrowserSearchEngine: (id: string) => void;
   navigateBrowserUrl: (url: string) => void;
+  goBackBrowserTab: () => void;
+  goForwardBrowserTab: () => void;
   refreshBrowserTab: () => void;
   openInExternalBrowser: () => void;
   addBrowserTab: (url?: string) => void;
@@ -134,6 +138,8 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
     // ── State ──
     browserTabs: [],
     browserActiveTabId: null,
+    browserCanGoBack: false,
+    browserCanGoForward: false,
     browserAddressUrl: '',
     browserSearchEngine: DEFAULT_SEARCH_ENGINE_ID,
     browserShortcuts: DEFAULT_BROWSER_SHORTCUTS,
@@ -146,6 +152,8 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
       set({
         browserTabs: state.tabs,
         browserActiveTabId: state.activeTabId,
+        browserCanGoBack: state.canGoBack ?? false,
+        browserCanGoForward: state.canGoForward ?? false,
         // Sync the address bar to the active tab's URL
         browserAddressUrl: activeTab?.url ?? '',
       });
@@ -175,6 +183,20 @@ export const createBrowserSlice: SliceCreator = (set, get) => {
           .catch(console.error);
       } else {
         ipc.addLinkPreviewTab(BROWSER_WINDOW_LABEL, url).catch(console.error);
+      }
+    },
+
+    /** Navigate the active tab back in its history. */
+    goBackBrowserTab: () => {
+      if (get().browserCanGoBack) {
+        ipc.browserGoBack().catch(console.error);
+      }
+    },
+
+    /** Navigate the active tab forward in its history. */
+    goForwardBrowserTab: () => {
+      if (get().browserCanGoForward) {
+        ipc.browserGoForward().catch(console.error);
       }
     },
 

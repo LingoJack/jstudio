@@ -61,6 +61,9 @@ export interface LinkPreviewTabInfo {
 export interface LinkPreviewTabsState {
   tabs: LinkPreviewTabInfo[];
   activeTabId: string | null;
+  /** Active tab back/forward availability (inline panel only). */
+  canGoBack?: boolean;
+  canGoForward?: boolean;
 }
 
 /**

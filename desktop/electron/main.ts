@@ -12,14 +12,14 @@
  * the `sidecar-invoke` handler (they never reach the Rust sidecar).
  */
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, screen, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import * as path from 'node:path';
 import * as http from 'node:http';
 import { Sidecar } from './sidecar';
 import { setupMenu, setMenuAccelerator } from './menu';
 import { registerAssetProtocol, handleAssetRequests } from './protocol';
 import { registerOne, unregisterOne, unregisterAll, SHORTCUT_EVENT } from './globalShortcuts';
-import { TabsManager, STRIP_HEIGHT, type PanelRect } from './browserTabs';
+import { TabsManager, type PanelRect } from './browserTabs';
 import { importChromeLoginState } from './chromeLogin';
 
 // Vite dev server; overridable so a second dev instance can coexist with
@@ -451,6 +451,12 @@ function handleMainOnly(
     case 'select_all_in_active_browser_tab':
       getTabsManager('main')?.selectAllInActive();
       return { handled: true, result: null };
+    case 'browser_go_back':
+      getTabsManager('main')?.goBack();
+      return { handled: true, result: null };
+    case 'browser_go_forward':
+      getTabsManager('main')?.goForward();
+      return { handled: true, result: null };
     case 'import_chrome_login_state':
       // One-time Chrome login-state import into the default session, so the
       // inline browser (and AI navigation) reuses the user's Chrome logins.
@@ -586,27 +592,6 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
   });
 
-  // Smart-capsule hover: the title bar is an app-region drag area, which
-  // swallows DOM mouse events — the address bar can't use onMouseEnter. Poll
-  // the cursor against the strip bounds here and push hover state changes to
-  // the main window instead (cheap: one bounds compare per tick).
-  let lastStripHover: boolean | null = null;
-  setInterval(() => {
-    const host = windows.get('main');
-    if (!host || host.isDestroyed()) return;
-    let inStrip = false;
-    if (tabsManagers.get('main')?.isVisible()) {
-      const p = screen.getCursorScreenPoint();
-      const b = host.getContentBounds();
-      inStrip =
-        p.x >= b.x && p.x <= b.x + b.width &&
-        p.y >= b.y && p.y <= b.y + STRIP_HEIGHT;
-    }
-    if (inStrip !== lastStripHover) {
-      lastStripHover = inStrip;
-      sendTo(host, 'browser-panel:strip-hover', undefined, inStrip);
-    }
-  }, 100);
 });
 
 app.on('window-all-closed', () => {
