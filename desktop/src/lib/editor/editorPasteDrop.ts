@@ -12,6 +12,7 @@ import { uploadImage, uploadAttachment } from './upload';
 import { getClipboardImageAsFile } from './clipboardImage';
 import { looksLikeMarkdown, dedupeMarks, decodeMarkdownEntities } from './pasteMarkdown';
 import { upgradeTableCells } from './markdownTableCells';
+import { fitTiptapJSON } from './schemaFit';
 import { consumePlainTextPaste } from './plainTextPaste';
 
 /**
@@ -331,7 +332,9 @@ export function createPasteHandler(
         dedupeMarks(json);
         decodeMarkdownEntities(json);
         upgradeTableCells(json, (md) => editor.markdown!.parse(md));
-        insertClipboardContent(editor, view, json);
+        // Parsed Markdown can hold nodes the schema rejects; `insertContent`
+        // validates the whole tree and throws on the first one.
+        insertClipboardContent(editor, view, fitTiptapJSON(json, editor.schema));
         return true;
       }
 

@@ -27,6 +27,7 @@ import { InlineMathExtension } from "./extensions/inlineMathExtension";
 import { tiptapJSONToOurBlocks } from "./tiptapAdapter";
 import { dedupeMarks, decodeMarkdownEntities } from "./pasteMarkdown";
 import { upgradeTableCells } from "./markdownTableCells";
+import { fitTiptapJSON } from "./schemaFit";
 import type { Block } from "../../types";
 import type { JSONContent } from "@tiptap/core";
 
@@ -94,7 +95,10 @@ export function markdownToBlocks(md: string): Block[] {
   dedupeMarks(parsed);
   decodeMarkdownEntities(parsed);
   upgradeTableCells(parsed, (m) => editor.markdown!.parse(m));
-  editor.commands.setContent(parsed);
+  // Parsed Markdown can contain nodes the schema rejects (a `paragraph` inside
+  // a `paragraph`, an `image` inside a `paragraph`, …); `setContent` drops the
+  // whole document when it does. Refit it to the schema first.
+  editor.commands.setContent(fitTiptapJSON(parsed, editor.schema));
   const json = editor.getJSON();
 
   // Tiptap JSON → our native Block[]

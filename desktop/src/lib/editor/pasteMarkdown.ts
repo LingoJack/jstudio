@@ -30,6 +30,7 @@ import type { JSONContent } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { isPlainTextPaste } from './plainTextPaste';
 import { upgradeTableCells } from './markdownTableCells';
+import { fitTiptapJSON } from './schemaFit';
 
 /**
  * Remove duplicate marks from text nodes in Tiptap JSON (in-place).
@@ -227,7 +228,16 @@ export const PasteMarkdown = Extension.create<PasteMarkdownOptions>({
             const json = editor.markdown.parse(plainText);
             dedupeMarks(json);
             upgradeTableCells(json, (md) => editor.markdown!.parse(md));
-            editor.commands.insertContent(json);
+            // `insertContent` validates the tree with `node.check()`, which
+            // throws on any node the schema rejects — one bad node would drop
+            // the whole paste. Refit first, and keep the raw text as a last
+            // resort so a paste can never silently disappear.
+            const safe = fitTiptapJSON(json, editor.schema);
+            try {
+              editor.commands.insertContent(safe);
+            } catch {
+              editor.commands.insertContent({ type: 'text', text: plainText });
+            }
             return true;
           },
         },
