@@ -13,6 +13,7 @@ directories:
   output: dist-electron-builder
 files:
   - dist/**
+  - dist-viewer/**
   - dist-electron/**
   - package.json
 extraResources:

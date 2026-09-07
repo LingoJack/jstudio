@@ -1,0 +1,18 @@
+<!doctype html>
+<!--
+  Entry point of the standalone document viewer bundle (see
+  vite.viewer.config.ts). It is never opened directly: the HTML export
+  inlines the built `viewer.js` / `viewer.css` and the document payload into
+  a single self-contained file, which then boots this same React app.
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JStudio</title>
+  </head>
+  <body>
+    <div id="viewer-root"></div>
+    <script type="module" src="/src/viewer/main.tsx"></script>
+  </body>
+</html>

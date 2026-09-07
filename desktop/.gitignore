@@ -29,3 +29,4 @@ src-tauri/resources/bin/
 src/**/*.js
 src/**/*.js.map
 !src/**/*.config.js
+dist-viewer/

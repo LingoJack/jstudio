@@ -6,6 +6,7 @@ import { ipc } from "../lib/core/ipc";
 import { toMeta, type DocumentMeta, type FolderMeta } from "../types/storage";
 import type { Document } from "../types";
 import { markdownToBlocks } from "../lib/editor/markdownImport";
+import { saveBlob } from "../lib/export/fileExport";
 import type { GetState, SetState, SliceCreator } from "./storeHelpers";
 
 /** Extensions recognised as Markdown. */
@@ -214,6 +215,21 @@ export interface ImportExportSlice {
   ) => Promise<number>;
   exportDocumentBundle: (docId: string) => Promise<boolean>;
   importDocumentBundle: (folderId?: string) => Promise<string | null>;
+  exportDocumentHtml: (docId: string) => Promise<boolean>;
+}
+
+/** Load a document for export, whether or not it is currently open. */
+async function loadDocumentForExport(
+  docId: string,
+  get: GetState,
+): Promise<Document | null> {
+  const inMemory = get().documents.find((d) => d.id === docId);
+  if (inMemory && Array.isArray(inMemory.blocks)) return inMemory;
+  try {
+    return await ipc.loadDocument(docId);
+  } catch {
+    return null;
+  }
 }
 
 export const createImportExportSlice: SliceCreator = (set, get) => ({
@@ -353,5 +369,37 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
     set({ activeSidebarView: "documents" });
 
     return newDoc.id;
+  },
+
+  // ── single-file HTML ──────────────────────────────────
+
+  /**
+   * Export a document as one self-contained `.html` file.
+   *
+   * Images, attachments, webfonts, the theme and the full stylesheet are all
+   * embedded, so the file renders identically with no network and no sibling
+   * asset folder. Returns `true` if a file was written, `false` if the user
+   * cancelled the save dialog or the document could not be read.
+   */
+  exportDocumentHtml: async (docId) => {
+    const doc = await loadDocumentForExport(docId, get);
+    if (!doc) return false;
+
+    const baseName =
+      (doc.title || "Untitled").replace(/[/\\:*?"<>|]/g, "_").trim() || "Untitled";
+
+    const { buildDocumentHtml } = await import("../lib/export/htmlExport");
+    const html = await buildDocumentHtml(doc, {
+      studioRoot: get().studioRoot,
+      dark: get().isDarkMode,
+      language: get().language,
+    });
+    await saveBlob(
+      new Blob([html], { type: "text/html;charset=utf-8" }),
+      `${baseName}.html`,
+      "HTML",
+      ["html"],
+    );
+    return true;
   },
 });

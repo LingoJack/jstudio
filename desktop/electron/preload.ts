@@ -14,6 +14,7 @@
  *   - clipboardReadText/Image       → native clipboard
  *   - shellOpen(url)                → open external URL
  *   - openDevtools()                → open Chromium devtools
+ *   - appFileBase64(url)            → bundled app file (webfont) as base64
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
@@ -57,6 +58,9 @@ contextBridge.exposeInMainWorld('jstudioNative', {
   clipboardReadImage: (): Promise<unknown> => ipcRenderer.invoke('clipboard-read-image'),
   shellOpen: (url: string): Promise<void> => ipcRenderer.invoke('shell-open', url),
   openDevtools: (): Promise<void> => ipcRenderer.invoke('open-devtools'),
+  // Bundled app file (webfont, …) as base64 — needed for asar-only resources.
+  appFileBase64: (url: string): Promise<string> =>
+    ipcRenderer.invoke('app-file-base64', url),
 });
 
 export type JstudioNative = {

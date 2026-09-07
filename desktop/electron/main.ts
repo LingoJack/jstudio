@@ -15,6 +15,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import * as path from 'node:path';
 import * as http from 'node:http';
+import * as fs from 'node:fs';
 import { Sidecar } from './sidecar';
 import { setupMenu, setMenuAccelerator } from './menu';
 import { registerAssetProtocol, handleAssetRequests } from './protocol';
@@ -570,6 +571,34 @@ function wireIpc(): void {
   ipcMain.handle('open-devtools', (e) => {
     e.sender.openDevTools({ mode: 'detach' });
   });
+
+  // Read a file bundled with the app (dist/assets — webfonts, …) as base64.
+  // The Rust sidecar cannot read these: in a packaged build they live inside
+  // app.asar, and only Electron's patched fs can open that. The HTML export
+  // uses it to inline webfonts as data URLs.
+  ipcMain.handle('app-file-base64', (_e, url: string) => {
+    const filePath = appFilePathFromUrl(url);
+    return fs.readFileSync(filePath).toString('base64');
+  });
+}
+
+/**
+ * Resolve a renderer request to a filesystem path: either a `file://` URL or
+ * a path relative to the app root (`dist-viewer/viewer.js`). Anything outside
+ * the app bundle is refused — this IPC is reachable from the renderer.
+ *
+ * Dev: `app.getAppPath()` is the project directory, so the same relative path
+ * works for the local `dist-viewer/` build.
+ */
+function appFilePathFromUrl(url: string): string {
+  const filePath = url.startsWith('file://')
+    ? decodeURIComponent(url.slice('file://'.length))
+    : path.join(app.getAppPath(), url);
+  const appRoot = app.getAppPath();
+  if (!filePath.startsWith(appRoot)) {
+    throw new Error(`app-file-base64: path outside app bundle: ${filePath}`);
+  }
+  return filePath;
 }
 
 // ── lifecycle ───────────────────────────────────────────────────────────────

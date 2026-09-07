@@ -24,6 +24,8 @@ export interface JstudioNative {
   clipboardReadImage: () => Promise<{ width: number; height: number; rgba: Uint8Array } | null>;
   shellOpen: (url: string) => Promise<void>;
   openDevtools: () => Promise<void>;
+  /** Bundled app file (webfont inside app.asar) as a base64 string. */
+  appFileBase64: (url: string) => Promise<string>;
 }
 
 declare global {

@@ -51,6 +51,7 @@ export default function DocumentSidebar() {
   const syncMarkdownDirectory = useStore((s) => s.syncMarkdownDirectory);
   const exportDocumentBundle = useStore((s) => s.exportDocumentBundle);
   const importDocumentBundle = useStore((s) => s.importDocumentBundle);
+  const exportDocumentHtml = useStore((s) => s.exportDocumentHtml);
   const addToast = useStore((s) => s.addToast);
   const renameDocument = useStore((s) => s.renameDocument);
   const searchQuery = useStore((s) => s.searchQuery);
@@ -344,6 +345,7 @@ export default function DocumentSidebar() {
     handleSyncMarkdownDirectory,
     handleExportBundle,
     handleImportBundle,
+    handleExportHtml,
     handleCopyAsMarkdown,
   } = useDocSidebarActions({
     importDocumentFromMarkdown,
@@ -351,6 +353,7 @@ export default function DocumentSidebar() {
     syncMarkdownDirectory,
     exportDocumentBundle,
     importDocumentBundle,
+    exportDocumentHtml,
     addToast,
     setContextMenu,
     t,
@@ -701,6 +704,7 @@ export default function DocumentSidebar() {
           onCopyPath={() => handleCopyPath(contextMenu.docId)}
           onCopyRelativePath={() => handleCopyRelativePath(contextMenu.docId)}
           onExportBundle={() => handleExportBundle(contextMenu.docId)}
+          onExportHtml={() => handleExportHtml(contextMenu.docId)}
           onCopyAsMarkdown={() => handleCopyAsMarkdown(contextMenu.docId)}
           onBackupRestore={() => {
             const doc = useStore.getState().documents.find((d) => d.id === contextMenu.docId);

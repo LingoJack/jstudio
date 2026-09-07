@@ -1,5 +1,5 @@
 import { useI18n } from '../../lib/core/i18n';
-import { Pencil, Trash2, FolderOpen, Copy, CopyPlus, PackageOpen, History, FileCode2 } from 'lucide-react';
+import { Pencil, Trash2, FolderOpen, Copy, CopyPlus, PackageOpen, History, FileCode2, FileType2 } from 'lucide-react';
 import { MenuList, MenuItem, MenuDivider } from '../ui/MenuList';
 
 export interface DocumentContextMenuProps {
@@ -18,6 +18,8 @@ export interface DocumentContextMenuProps {
   onCopyRelativePath: () => void;
   /** Callback when the user picks "Export Backup (.jnote)" */
   onExportBundle: () => void;
+  /** Callback when the user picks "Export HTML (.html)" */
+  onExportHtml: () => void;
   /** Callback when the user picks "Copy as Markdown" */
   onCopyAsMarkdown: () => void;
   /** Callback when the user picks "Backup & Restore" */
@@ -40,6 +42,7 @@ export default function DocumentContextMenu({
   onCopyPath,
   onCopyRelativePath,
   onExportBundle,
+  onExportHtml,
   onCopyAsMarkdown,
   onBackupRestore,
 }: DocumentContextMenuProps) {
@@ -55,6 +58,9 @@ export default function DocumentContextMenu({
 
       <MenuItem icon={<PackageOpen />} onClick={onExportBundle}>
         {t('doclist.exportBundle')}
+      </MenuItem>
+      <MenuItem icon={<FileType2 />} onClick={onExportHtml}>
+        {t('doclist.exportHtml')}
       </MenuItem>
       <MenuItem icon={<FileCode2 />} onClick={onCopyAsMarkdown}>
         {t('doclist.copyAsMarkdown')}

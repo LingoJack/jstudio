@@ -263,6 +263,8 @@ export default function CollapsibleView({
               className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm collapsible-copy-btn"
               title={t('collapsible.copy')}
               aria-label={t('collapsible.copy')}
+              // Re-wired by the HTML export's inline script (no React there).
+              data-code-action="copy"
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>

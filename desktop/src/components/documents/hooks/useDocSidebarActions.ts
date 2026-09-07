@@ -6,6 +6,7 @@
  *   - handleImportMarkdown / handleImportMarkdownDirectory
  *   - handleSyncMarkdownDirectory
  *   - handleExportBundle / handleImportBundle
+ *   - handleExportHtml
  *   - handleCopyAsMarkdown
  *
  * 这些 handler 涉及文件 I/O（ipc、dialog 插件、剪贴板）以及 store 的
@@ -35,6 +36,7 @@ export interface UseDocSidebarActionsParams {
   ) => Promise<number>;
   exportDocumentBundle: (docId: string) => Promise<boolean>;
   importDocumentBundle: (folderId?: string) => Promise<string | null>;
+  exportDocumentHtml: (docId: string) => Promise<boolean>;
   addToast: (type: ToastType, message: string, duration?: number) => void;
   setContextMenu: React.Dispatch<React.SetStateAction<{ x: number; y: number; docId: string } | null>>;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
@@ -46,6 +48,7 @@ export function useDocSidebarActions({
   syncMarkdownDirectory,
   exportDocumentBundle,
   importDocumentBundle,
+  exportDocumentHtml,
   addToast,
   setContextMenu,
   t,
@@ -169,6 +172,18 @@ export function useDocSidebarActions({
     }
   }, [importDocumentBundle, addToast]);
 
+  // ── Handler: single-file HTML export ───────────────────────
+  const handleExportHtml = useCallback(async (docId: string) => {
+    setContextMenu(null);
+    try {
+      const ok = await exportDocumentHtml(docId);
+      if (ok) addToast('success', tRef.current('doclist.exportHtmlSuccess'));
+    } catch (e) {
+      console.error('Failed to export HTML:', e);
+      addToast('error', tRef.current('doclist.exportHtmlFailed'));
+    }
+  }, [exportDocumentHtml, addToast, setContextMenu]);
+
   // ── Handler: copy document body as Markdown ────────────────
   const handleCopyAsMarkdown = useCallback(async (docId: string) => {
     setContextMenu(null);
@@ -199,6 +214,7 @@ export function useDocSidebarActions({
     handleSyncMarkdownDirectory,
     handleExportBundle,
     handleImportBundle,
+    handleExportHtml,
     handleCopyAsMarkdown,
   };
 }

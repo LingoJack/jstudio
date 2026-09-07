@@ -141,6 +141,9 @@ export function CodeBlockActions({
           className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
           title={t("code.copy")}
           aria-label={t("code.copy")}
+          // The HTML export ships without React; its inline script finds the
+          // copy button by this attribute and wires the same behaviour.
+          data-code-action="copy"
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>
