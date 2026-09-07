@@ -29,6 +29,7 @@ import type { ViewerPayload } from '../../viewer/viewerPayload';
 import { createSectionExtensions } from '../../components/editor/sectionEditor/extensions';
 import { logger } from '../core/logger';
 import { fitTiptapJSON } from '../editor/schemaFit';
+import { splitIntoSections } from '../editor/sectioning';
 import { ourBlocksToTiptapJSON } from '../editor/tiptapAdapter';
 import { bytesToBase64, bytesToDataUrl } from './base64';
 import { escapeHtml, renderDiagramSvg } from './htmlExportBlocks';
@@ -314,6 +315,18 @@ async function buildStyleSheet(): Promise<string> {
  * canvases and KaTeX live.
  */
 async function renderBody(doc: Document, studioRoot: string): Promise<string> {
+  // One editor per section, mirroring the app: a single editor holding a very
+  // long document has to build every node view at once and can hang the
+  // export (and the browser opening the result) outright.
+  const sections = splitIntoSections(doc.blocks ?? []);
+  const parts: string[] = [];
+  for (const section of sections) {
+    parts.push(await renderSection(section.blocks, studioRoot, doc.id));
+  }
+  return parts.join('\n');
+}
+
+async function renderSection(blocks: Block[], studioRoot: string, docId: string): Promise<string> {
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:-10000px;top:0;width:${OFFSCREEN_WIDTH}px;visibility:hidden;`;
   document.body.appendChild(host);
@@ -326,12 +339,12 @@ async function renderBody(doc: Document, studioRoot: string): Promise<string> {
   });
 
   try {
-    const json = ourBlocksToTiptapJSON(doc.blocks ?? []);
+    const json = ourBlocksToTiptapJSON(blocks);
     editor.commands.setContent(fitTiptapJSON({ type: 'doc', content: json }, editor.schema));
     await waitForNodeViews(editor.view.dom);
 
     const clone = editor.view.dom.cloneNode(true) as HTMLElement;
-    await inlineAssets(clone, studioRoot, doc.id);
+    await inlineAssets(clone, studioRoot, docId);
     cleanClone(clone);
     await fillUnrenderedDiagrams(clone);
     return clone.innerHTML;
