@@ -55,8 +55,11 @@ const VIEWER_DIRECTORY = 'dist-viewer';
 const VIEWER_JS_PATH = `${VIEWER_DIRECTORY}/viewer.js`;
 const VIEWER_CSS_PATH = `${VIEWER_DIRECTORY}/viewer.css`;
 
-/** Dev-server artifact that must never reach an exported file. */
-const VITE_CLIENT_MARKER = '/@vite/client';
+/** Dev-server artifact that must never reach an exported file.
+ *  Matched as an *import* on purpose: the marker string also appears in this
+ *  module itself, which rollup inlines into the viewer bundle — a plain
+ *  `includes` would make the guard permanently trip on its own constant. */
+const VITE_CLIENT_IMPORT_RE = /import\s*\(?\s*["']\/@vite\/client/;
 
 /** Build a data URL from an app-relative file (webfonts of the viewer CSS). */
 async function readAsDataUrlFromApp(relativePath: string, mime: string): Promise<string> {
@@ -215,7 +218,7 @@ async function loadViewerBundle(): Promise<{ js: string; css: string } | null> {
     // A dev-server-transformed bundle would drag `/@vite/client` into the
     // export (blocked by CORS in a file:// page). Refuse it and let the
     // caller fall back to the frozen-DOM export.
-    if (js.includes(VITE_CLIENT_MARKER)) return null;
+    if (VITE_CLIENT_IMPORT_RE.test(js)) return null;
     return { js, css };
   } catch {
     return null;
