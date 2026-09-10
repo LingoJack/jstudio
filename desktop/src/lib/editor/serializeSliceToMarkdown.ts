@@ -27,6 +27,36 @@ const LIST_ITEM_TYPE = "listItem";
 const LIST_NODE_TYPES = new Set(["bulletList", "orderedList"]);
 const DEFAULT_LIST_TYPE = "bulletList";
 
+/**
+ * Characters the markdown serializer backslash-escapes on the way out
+ * (`@tiptap/markdown` 3.27 escapes them so the output survives a round-trip
+ * through a markdown parser). Must stay in sync with its escape set.
+ */
+const ESCAPED_MARKDOWN_CHARS = "\\`*_[]~";
+
+/** Matches one backslash escape the serializer added: `\*`, `\_`, `\\`, ... */
+const MARKDOWN_ESCAPE_PATTERN = new RegExp(
+  `\\\\([${ESCAPED_MARKDOWN_CHARS.replace(/[\\\]^-]/g, "\\$&")}])`,
+  "g",
+);
+
+/**
+ * Strip the backslash escapes the serializer added to literal text.
+ *
+ * Why this exists: copied text is meant to be read as-is, not re-parsed as
+ * markdown, so carrying `\*` / `\_` / `\\` into the clipboard shows up as
+ * stray backslashes when pasted anywhere else. Block-level structure
+ * (`## `, `- `, `**bold**`) is emitted by the serializer itself, not via
+ * escapes, so it survives untouched.
+ *
+ * Applied at the serialization boundary only — text inside code marks and
+ * code blocks is never escaped by the serializer in the first place, so
+ * there is nothing for this to undo there.
+ */
+export function unescapeMarkdownSyntax(markdown: string): string {
+  return markdown.replace(MARKDOWN_ESCAPE_PATTERN, "$1");
+}
+
 /** One clipped text node as JSONContent, marks preserved. */
 function textNodeJson(node: Node, clipFrom: number, clipTo: number): JSONContent | null {
   const text = node.text?.slice(clipFrom, clipTo) ?? "";
@@ -136,7 +166,9 @@ export function serializeRangeToMarkdown(
     }
   });
 
-  return manager.serialize({ type: "doc", content: blocks }).trim();
+  return unescapeMarkdownSyntax(
+    manager.serialize({ type: "doc", content: blocks }).trim(),
+  );
 }
 
 /** Immediate list type around `pos` ('bulletList' | 'orderedList'). */
@@ -177,7 +209,9 @@ export function serializeSelectionToMarkdown(editor: Editor): string {
     } else {
       content = [json];
     }
-    return manager.serialize({ type: "doc", content }).trim();
+    return unescapeMarkdownSyntax(
+      manager.serialize({ type: "doc", content }).trim(),
+    );
   }
 
   return serializeRangeToMarkdown(editor, selection.from, selection.to);
