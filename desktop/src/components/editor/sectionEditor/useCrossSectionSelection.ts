@@ -93,6 +93,12 @@ function sectionIdFromTarget(target: EventTarget | null): string | null {
   return el?.getAttribute('data-section-id') ?? null;
 }
 
+/** Clamp a doc position into [0, max] (max == doc.content.size). */
+function clamp(pos: number, max: number): number {
+  if (!Number.isFinite(pos)) return 0;
+  return Math.max(0, Math.min(pos, max));
+}
+
 export function useCrossSectionSelection(
   ctx: CrossSelectionContext,
   /** When this changes (e.g. active document id), the selection is cleared. */
@@ -165,7 +171,14 @@ export function useCrossSectionSelection(
         from = 0;
         to = size;
       }
-      ranges.push({ id, from, to });
+      // `posAtCoords` reports positions from a live layout, so a drag that
+      // ends past the last glyph (or a stale size after an edit) can land
+      // outside the doc. Clamping matters beyond avoiding an invalid range:
+      // `to` one past the end makes the markdown serializer treat the last
+      // block as FULLY covered (its coverage test is `to >= blockEnd - 1`),
+      // so a partial selection came back with `## `/`- ` prefixes the user
+      // never selected.
+      ranges.push({ id, from: clamp(from, size), to: clamp(to, size) });
     }
     return ranges;
   }, []);

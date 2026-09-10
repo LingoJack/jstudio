@@ -69,7 +69,14 @@ export interface SectionFocusHandle {
   getHTML: (from: number, to: number) => string;
   /** Delete the range [from, to] from this section's doc. */
   deleteRange: (from: number, to: number) => void;
-  /** Total doc size (== max valid position) for this section. */
+  /**
+   * Max valid doc position for this section — i.e. `doc.content.size`, the
+   * end of the last block's content (NOT `doc.nodeSize`, which also counts
+   * the doc's own open/close tokens). Range maths must clamp `to` to this
+   * value: one position too far makes a partially selected last block look
+   * fully covered to the markdown serializer, which then prefixes it with
+   * block-level syntax (`## `, `- `) the user never selected.
+   */
   getDocSize: () => number;
 }
 
@@ -426,7 +433,7 @@ export default function SectionEditor({
         return div.innerHTML;
       },
       deleteRange: (from, to) => editor.chain().deleteRange({ from, to }).run(),
-      getDocSize: () => editor.state.doc.content.size,
+      getDocSize: () => editor.state.doc.content.size, // max valid pos, not nodeSize
     };
     registerFocus(sectionId, handle);
     return () => registerFocus(sectionId, null);
