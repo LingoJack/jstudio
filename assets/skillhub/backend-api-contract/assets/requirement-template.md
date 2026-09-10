@@ -45,13 +45,13 @@ status: developing（在做） / delivered（已交付） / dropped（不做了�
 ## 接口清单
 
 <!--
-契约定稿后填。每行一个接口，id 对应 contract.jsonl 里的条目，状态与条目保持一致。
-详细入参出参不写在这里，看 docs/apis/API.md。
+契约定稿后填。每行一个接口，id 对应 docs/apis/openapi.yaml 里的 operationId，状态与条目的 x-status 保持一致。
+详细入参出参不写在这里，看 openapi.yaml（契约是唯一事实源，这里复制一份就会漂移）。
 -->
 
-| 条目 id | 接口 | 状态 |
-|---------|------|------|
-| | `METHOD /api/v1/...` | draft |
+| operationId | 接口 | 状态 |
+|-------------|------|------|
+| | `METHOD /documents/{docId}` | draft |
 
 ## 数据与配置
 
