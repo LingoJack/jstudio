@@ -65,6 +65,62 @@ return policies, nil
 }
 ```
 
+逻辑段开头可以简洁注释说明意图
+good case
+```go
+// CreateThirdAuthToken POST /sts/third/auth-token：为第三方服务账号签发 authToken。
+func CreateThirdAuthToken(c *gin.Context, dep Dependency) {
+	var req createThirdAuthTokenReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpclient.HandleErrResp(c, pkgerrors.Wrapf(err, code.ParameterInvalid, "invalid request body"))
+		return
+	}
+
+	// unionId 校验
+	if req.UnionID == "" {
+		httpclient.HandleParamErrMsgResp(c, "unionId is required")
+		return
+	}
+
+	// policy 校验
+	if len(req.Policy) == 0 {
+		httpclient.HandleParamErrMsgResp(c, "policy is required")
+		return
+	}
+
+	// 解析策略
+	policies, err := token.ParseEncodedPolicies(req.Policy, dep.Config().Sts.PolicyMaxBytes)
+	if err != nil {
+		errCode := int32(code.IamStsPolicyInvalid)
+		if errors.Is(err, token.ErrOverLimit) {
+			errCode = int32(code.IamStsPolicyOverLimit)
+		}
+		httpclient.HandleErrResp(c, pkgerrors.Wrap(err, errCode))
+		return
+	}
+
+	// 签发 auth token
+	authToken, err := dep.TokenIssuer().IssueThirdParty(req.UnionID, policies)
+	if err != nil {
+		errCode := int32(code.InternalServerError)
+		if errors.Is(err, token.ErrOverLimit) {
+			errCode = int32(code.IamStsPolicyOverLimit)
+		}
+		httpclient.HandleErrResp(c, pkgerrors.Wrap(err, errCode))
+		return
+	}
+
+	log.Infof(c.Request.Context(),
+		"[iam-sts] third auth-token issued: unionId=%s policies=%d tokenLen=%d",
+		req.UnionID, len(policies), len(authToken),
+	)
+
+	httpclient.HandleSuccessRespWithData(c, createThirdAuthTokenData{
+		AuthToken: authToken,
+	})
+}
+```
+
 ## 禁止过度注释
 
 一些简洁的 const 可以有注释...但是不必在方法签名处写大段方法内部逻辑注释，可以在方法体内适当的时机写
