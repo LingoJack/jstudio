@@ -1,8 +1,3 @@
----
-alwaysApply: false
-paths: "**/*.go"
----
-
 # Go 代码规范手册
 
 务必严格遵守！！！
