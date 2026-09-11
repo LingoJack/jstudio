@@ -65,6 +65,52 @@ return policies, nil
 }
 ```
 
+bad case：这里揉在一起，没空行
+```go
+// ParsePolicy 解析并校验一份策略 JSON：statement 非空、effect 仅 allow / deny、action / resource 非空（兼容 string 与 []string）、condition 仅归一化。
+func ParsePolicy(raw string) (*Policy, error) {
+	var rp rawPolicy
+	if err := json.Unmarshal([]byte(raw), &rp); err != nil {
+		return nil, fmt.Errorf("policy is not valid JSON: %w", err)
+	}
+	if len(rp.Statement) == 0 {
+		return nil, fmt.Errorf("policy statement is empty")
+	}
+	p := &Policy{Version: rp.Version}
+	for i, rs := range rp.Statement {
+		eff, err := parseEffect(rs.Effect)
+		if err != nil {
+			return nil, fmt.Errorf("statement[%d]: %w", i, err)
+		}
+		actions, err := decodeStringOrArray(rs.Action)
+		if err != nil {
+			return nil, fmt.Errorf("statement[%d] action: %w", i, err)
+		}
+		resources, err := decodeStringOrArray(rs.Resource)
+		if err != nil {
+			return nil, fmt.Errorf("statement[%d] resource: %w", i, err)
+		}
+		if len(actions) == 0 {
+			return nil, fmt.Errorf("statement[%d]: action is empty", i)
+		}
+		if len(resources) == 0 {
+			return nil, fmt.Errorf("statement[%d]: resource is empty", i)
+		}
+		condition, err := normalizeCondition(rs.Condition)
+		if err != nil {
+			return nil, fmt.Errorf("statement[%d] condition: %w", i, err)
+		}
+		p.Statement = append(p.Statement, Statement{
+			Effect:    eff,
+			Action:    actions,
+			Resource:  resources,
+			Condition: condition,
+		})
+	}
+	return p, nil
+}
+```
+
 逻辑段开头可以简洁注释说明意图
 good case
 ```go
