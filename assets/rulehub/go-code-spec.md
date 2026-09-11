@@ -193,6 +193,7 @@ var 应该在文件的上部分定义
 3. pub func 定义
 4. 该 pub func 用到的 private func
 
+
 ## 禁止难以阅读的短变量命名
 
 字段名要见名知义，例如下面 extensionCount 就不建议叫做 n
@@ -202,5 +203,39 @@ good case
 if extensionCount := countExtensions(policies); i.limits.MaxExtensions > 0 && extensionCount > i.limits.MaxExtensions {
 return "", fmt.Errorf("%w: expanded extensions %d exceed limit %d",
 errOverLimit, extensionCount, i.limits.MaxExtensions)
+}
+```
+
+
+## 禁止使用非命名变量返回值风格 （不允许 return 跟东西）
+bad case：
+```go
+func Register(engine *gin.Engine, dep Dependency) error {
+	// 启用 trace 时挂 otel span，并把 TraceID 同步进 context。
+	traceCfg := dep.Config().TraceConfigs
+	if traceCfg.TraceEnabled {
+		engine.Use(traceotel.Register(traceCfg.TraceName, traceCfg.TraceEndpoint))
+		engine.Use(middleware.TraceIDSyncMiddleware())
+	}
+
+	engine.GET("/status/health", health)
+	engine.POST("/sts/third/auth-token", func(c *gin.Context) { api.CreateThirdAuthToken(c, dep) })
+	return nil
+}
+```
+
+good case
+```go
+func Register(engine *gin.Engine, dep Dependency) (err error) {
+	// 启用 trace 时挂 otel span，并把 TraceID 同步进 context。
+	traceCfg := dep.Config().TraceConfigs
+	if traceCfg.TraceEnabled {
+		engine.Use(traceotel.Register(traceCfg.TraceName, traceCfg.TraceEndpoint))
+		engine.Use(middleware.TraceIDSyncMiddleware())
+	}
+
+	engine.GET("/status/health", health)
+	engine.POST("/sts/third/auth-token", func(c *gin.Context) { api.CreateThirdAuthToken(c, dep) })
+	return
 }
 ```
