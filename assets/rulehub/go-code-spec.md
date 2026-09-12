@@ -336,3 +336,101 @@ func Register(engine *gin.Engine, dep Dependency) (err error) {
 	return
 }
 ```
+
+## 接口定义在使用方
+
+1. 接口定义在第一个使用方所在的包，实现方返回具体类型
+2. 接口只包含使用方实际调用的方法，来新需求时再扩接口，不预留
+3. 依赖方向：使用方只认识接口签名，不 import 实现方；实现方挪包、改名不影响使用方编译
+4. 禁止接口定义在实现方（会把所有方法塞进去，使用方的 mock 被迫实现用不到的方法，最终滚向 gomock 代码生成）
+
+优秀示例（authz 使用 token 的验签能力，接口定义在 authz，单方法最小接口）
+
+```go
+// TokenParser 验签 + 取 claims 的最小抽象；实现方负责验签与时效校验。
+type TokenParser interface {
+	ParseToken(ctx context.Context, token string) (map[string]any, error)
+}
+```
+
+## error 必须带上下文包装，一条错误只处理一次
+
+fmt.Errorf 包装必须带定位上下文（参数序号、字段名、关键值），末尾 %w 上抛
+判断错误一律 errors.Is / errors.As，禁止 err.Error() 字符串比较
+log 与上抛二选一：中间层只上抛，处理终点（handler 层）记一次日志，禁止 log 完再 return
+哨兵 error 命名 errXxx，定义在文件头 var 区（与 const/var 层级规则一致）
+
+优秀示例
+
+```go
+if maxBytes > 0 && len(decoded) > maxBytes {
+	return nil, fmt.Errorf(
+		"%w: policy[%d] size %d bytes exceeds limit %d",
+		errOverLimit, i, len(decoded), maxBytes,
+	)
+}
+```
+
+bad case
+
+```go
+// 字符串比较脆弱，改错误文案就假红/假绿；log 后又 return，错误被记两次
+if !strings.Contains(err.Error(), "over limit") {
+	errCode = int32(code.IamStsPolicyOverLimit)
+}
+log.Errorf(ctx, "parse policy failed: %v", err)
+return err
+```
+
+## context 一律第一个参数透传
+
+1. ctx 是函数第一个参数，命名 ctx
+2. 不允许存进 struct 字段或全局变量
+3. 逐层透传原始 ctx，禁止中途换成 context.Background()（会丢掉上游的超时和取消）
+4. gin handler 里取 c.Request.Context()；需要超时/取消时在入口 WithTimeout 派生
+5. 业务数据用显式参数传递，context.Value 只允许 trace/meta 类 middleware 元数据
+
+bad case
+
+```go
+func (s *Store) GetDoc(ctx context.Context, docID string) (*Doc, error) {
+	ctx = context.Background()
+	...
+}
+```
+
+## 日志必须带模块 tag 和 kv 字段
+
+1. 一律走项目 log 包并传 ctx（log.Infof(c.Request.Context(), ...)），禁止 fmt.Println
+2. 行首带模块 tag（如 [iam-sts]），方便 grep 定位
+3. 关键字段 kv 平铺（unionId=%s policies=%d），禁止拼成自然语言长句
+4. Infof 记关键成功操作，Warnf 记可恢复异常，Errorf 记处理终点的失败
+
+优秀示例
+
+```go
+log.Infof(c.Request.Context(),
+	"[iam-sts] third auth-token issued: unionId=%s policies=%d tokenLen=%d",
+	req.UnionID, len(policies), len(authToken),
+)
+```
+
+## 测试用标准库编写，函数上方注释场景
+
+1. 测试文件与被测文件同目录同包，命名 xxx_test.go
+2. 同构输入输出用表驱动；场景间 setup 或断言维度不同则独立函数
+3. 测试函数名上方 // 单行注释，简洁说明场景与预期
+4. 断言错误一律 errors.Is，禁止字符串比较
+5. 断言信息用 got %v, want %v 格式，带必要上下文
+6. 不引入 testify / gomock，标准库足够
+7. 依赖外部环境的用例必须可 skip（如 JS_TEST_MYSQL_DSN 未设时 t.Skipf）
+8. HTTP handler 测试用 httptest，禁止起真端口
+
+优秀示例
+
+```go
+// TestCORSPreflightWildcard 通配 allowlist：preflight 的 ACAO 原样返回 *。
+func TestCORSPreflightWildcard(t *testing.T) {
+	...
+}
+```
