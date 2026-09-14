@@ -312,6 +312,8 @@ export const translations = {
     // ── SectionOutline ──
     "outline.title": "大纲",
     "outline.empty": "文档中暂无标题",
+    "outline.expand": "展开",
+    "outline.collapse": "折叠",
     "outline.show": "显示大纲",
     "outline.hide": "隐藏大纲",
     "outline.pin": "固定大纲",
@@ -1278,6 +1280,8 @@ export const translations = {
     // ── SectionOutline ──
     "outline.title": "Outline",
     "outline.empty": "No headings in this document",
+    "outline.expand": "Expand",
+    "outline.collapse": "Collapse",
     "outline.show": "Show outline",
     "outline.hide": "Hide outline",
     "outline.pin": "Pin Outline",

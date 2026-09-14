@@ -350,10 +350,13 @@ export default function SectionOutline({
           // the borders form one continuous vertical line that doubles
           // as a page progress bar (consumed portion is tinted, the
           // current heading gets the "->" cursor).
-          renderRows(headings, collapsed, activeId, (row) => {
-            if (row.hasChildren) toggle(row.item);
-            handleClick(row.item);
-          })
+          renderRows(
+            headings,
+            collapsed,
+            activeId,
+            (row) => handleClick(row.item),
+            (row) => toggle(row.item),
+          )
         )}
       </div>
     </div>
@@ -432,7 +435,8 @@ function renderRows(
   headings: HeadingItem[],
   collapsed: Set<string>,
   activeId: string | null,
-  onRowClick: (row: OutlineRowData) => void,
+  onNavigate: (row: OutlineRowData) => void,
+  onToggle: (row: OutlineRowData) => void,
 ): React.ReactNode {
   const rows = flattenOutline(headings, collapsed);
   const activeIndex = rows.findIndex((r) => r.item.id === activeId);
@@ -442,7 +446,8 @@ function renderRows(
       row={row}
       active={idx === activeIndex}
       consumed={activeIndex >= 0 && idx <= activeIndex}
-      onClick={() => onRowClick(row)}
+      onClick={() => onNavigate(row)}
+      onToggleClick={() => onToggle(row)}
     />
   ));
 }
@@ -452,12 +457,15 @@ function OutlineRow({
   active,
   consumed,
   onClick,
+  onToggleClick,
 }: {
   row: OutlineRowData;
   active: boolean;
   consumed: boolean;
   onClick: () => void;
+  onToggleClick: () => void;
 }) {
+  const { t } = useI18n();
   const { item, depth, hasChildren, expanded } = row;
   const isTop = depth === 0;
   return (
@@ -492,11 +500,22 @@ function OutlineRow({
         {item.text}
       </span>
       {hasChildren && (
-        <ChevronRight
-          className={`w-3.5 h-3.5 shrink-0 opacity-0 group-hover:opacity-50 transition-all duration-150 ${
-            expanded ? 'rotate-90' : ''
-          }`}
-        />
+        <span
+          onClick={(e) => {
+            // Chevron is the sole expand/collapse control — clicking it
+            // must not also trigger the row's jump-to-heading navigation.
+            e.stopPropagation();
+            onToggleClick();
+          }}
+          title={expanded ? t('outline.collapse') : t('outline.expand')}
+          className="shrink-0 -m-1 p-1 cursor-pointer text-[var(--vscode-descriptionForeground)] opacity-60 hover:opacity-100"
+        >
+          <ChevronRight
+            className={`w-3.5 h-3.5 transition-transform duration-150 ${
+              expanded ? 'rotate-90' : ''
+            }`}
+          />
+        </span>
       )}
     </div>
   );
