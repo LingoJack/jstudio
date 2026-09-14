@@ -142,6 +142,15 @@ export default function SectionOutline({
   const activeDocId = isStatic ? '__static__' : storeActiveDocId;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Wrapper around the rows whose height the fold animation changes; watched
+  // by a ResizeObserver (see fold ballast effect below).
+  const outlineContentRef = useRef<HTMLDivElement | null>(null);
+  // Bottom spacer that grows in lockstep with the fold shrink, keeping the
+  // total scroll height constant while a fold animates (see fold ballast
+  // effect below).
+  const ballastRef = useRef<HTMLDivElement | null>(null);
+  // Content height when the running fold started; null when no fold runs.
+  const foldBaseRef = useRef<{ base: number } | null>(null);
   // Bumped by section-editor event listeners to force re-extraction from
   // the editors' live ProseMirror docs. This catches content loaded via
   // setContent({ emitUpdate: false }) which doesn't sync back to the store.
@@ -178,6 +187,8 @@ export default function SectionOutline({
     }
     return merged;
   }, [storeHeadings, editorHeadings]);
+
+  const hasOutlineContent = headings.length > 0;
 
   // ── Subscribe to editor events to trigger re-extraction ──
   // Sections mount progressively (requestIdleCallback batches), so we
@@ -322,6 +333,14 @@ export default function SectionOutline({
   );
 
   const toggle = useCallback((item: HeadingItem) => {
+    // Start tracking the fold. The baseline includes any ballast left over
+    // from previous folds, so content + ballast stays constant throughout.
+    const content = outlineContentRef.current;
+    if (content) {
+      foldBaseRef.current = {
+        base: content.offsetHeight + (ballastRef.current?.offsetHeight ?? 0),
+      };
+    }
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(item.id)) next.delete(item.id);
@@ -329,6 +348,76 @@ export default function SectionOutline({
       return next;
     });
   }, []);
+
+  // ── Fold ballast ──
+  // A running fold shrinks the outline content frame by frame. If the total
+  // scroll height shrank with it, a scrolled (especially bottom-clamped)
+  // panel would clamp scrollTop every frame — upper headings slide down and
+  // the fold never reads as "folding up". Instead, the ballast spacer below
+  // the list grows in lockstep with the shrink (total height constant,
+  // scrollTop untouched, fold plays in place) and then simply STAYS — there
+  // is no post-fold settle glide. While idle, the ballast is opportunistically
+  // trimmed to the blank stretch the viewport actually reaches into: that
+  // part sits entirely below the viewport bottom, so removing it provably
+  // never moves the view, and the phantom padding evaporates as the user
+  // scrolls away from the bottom.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const content = outlineContentRef.current;
+    if (!container || !content) return;
+
+    const trimBallast = () => {
+      const ballast = ballastRef.current;
+      if (!ballast || foldBaseRef.current) return;
+      const current = ballast.offsetHeight;
+      if (current === 0) return;
+      // Blank stretch between the real content end and the viewport bottom.
+      const visibleBlank =
+        container.clientHeight -
+        (content.getBoundingClientRect().bottom -
+          container.getBoundingClientRect().top);
+      const next = Math.max(0, Math.min(current, visibleBlank));
+      if (next !== current) ballast.style.height = `${next}px`;
+    };
+
+    let releaseTimer = 0;
+    const ro = new ResizeObserver(() => {
+      const ballast = ballastRef.current;
+      if (!ballast) return;
+      const fold = foldBaseRef.current;
+      if (!fold) {
+        trimBallast();
+        return;
+      }
+      // Track the fold frame by frame: keep content + ballast constant.
+      ballast.style.height = `${Math.max(
+        0,
+        fold.base - content.offsetHeight,
+      )}px`;
+      // Release shortly after the fold stops resizing content: stop
+      // tracking and trim whatever is already below the viewport. No
+      // transition, no settle glide.
+      window.clearTimeout(releaseTimer);
+      releaseTimer = window.setTimeout(() => {
+        foldBaseRef.current = null;
+        trimBallast();
+      }, FOLD_RELEASE_DELAY_MS);
+    });
+    ro.observe(content);
+    container.addEventListener('scroll', trimBallast, { passive: true });
+    return () => {
+      ro.disconnect();
+      container.removeEventListener('scroll', trimBallast);
+      window.clearTimeout(releaseTimer);
+      foldBaseRef.current = null;
+    };
+  }, [scrollContainerRef, hasOutlineContent]);
+
+  // A document switch invalidates any running fold baseline.
+  useEffect(() => {
+    foldBaseRef.current = null;
+    if (ballastRef.current) ballastRef.current.style.height = '0px';
+  }, [activeDocId]);
 
   return (
     <div
@@ -346,17 +435,29 @@ export default function SectionOutline({
             {t('outline.empty')}
           </p>
         ) : (
-          // Rows carry the rail as their left border — stacked gapless,
-          // the borders form one continuous vertical line that doubles
-          // as a page progress bar (consumed portion is tinted, the
-          // current heading gets the "->" cursor).
-          renderRows(
-            headings,
-            collapsed,
-            activeId,
-            (row) => handleClick(row.item),
-            (row) => toggle(row.item),
-          )
+          <>
+            {/* Rows carry the rail as their left border — stacked gapless,
+            the borders form one continuous vertical line that doubles
+            as a page progress bar (consumed portion is tinted, the
+            current heading gets the "->" cursor). */}
+            <div ref={outlineContentRef}>
+              {renderOutline(
+                headings,
+                collapsed,
+                activeId,
+                (item) => handleClick(item),
+                (item) => toggle(item),
+              )}
+            </div>
+            {/* Fold ballast: lives OUTSIDE the observed wrapper so its own
+            resize doesn't re-trigger the observer. */}
+            <div
+              ref={ballastRef}
+              aria-hidden
+              className="shrink-0"
+              style={{ height: 0 }}
+            />
+          </>
         )}
       </div>
     </div>
@@ -371,31 +472,49 @@ export default function SectionOutline({
 // is marked by a "->" cursor straddling the rail. Hierarchy is expressed
 // by indentation plus weight (top-level rows are medium-weight).
 
-interface OutlineRowData {
+interface OutlineNode {
   item: HeadingItem;
   depth: number;
   hasChildren: boolean;
   expanded: boolean;
+  children: OutlineNode[];
 }
 
 /** Text distance (px) from the rail (row's left border) at depth 0. */
 const ROW_BASE_INDENT = 12;
 /** Extra indent (px) per hierarchy depth. */
 const ROW_DEPTH_INDENT = 14;
+/** Duration (ms) of the expand/collapse fold animation. */
+const FOLD_DURATION_MS = 200;
+/** Delay after the last fold-driven content resize before fold tracking is
+ *  released (must cover FOLD_DURATION_MS frame gaps). */
+const FOLD_RELEASE_DELAY_MS = 150;
 
-/** Flatten the heading hierarchy into rows, skipping collapsed subtrees. */
-function flattenOutline(
+/**
+ * Build the outline tree. Unlike a flat "skip collapsed subtrees" walk,
+ * children are ALWAYS kept in the tree (even under a collapsed node) so
+ * they stay mounted inside an animated 0fr/1fr grid wrapper and the
+ * fold-up/down plays smoothly instead of snapping.
+ */
+function buildOutlineTree(
   headings: HeadingItem[],
   collapsed: Set<string>,
-): OutlineRowData[] {
+): OutlineNode[] {
   if (headings.length === 0) return [];
-  const rows: OutlineRowData[] = [];
 
-  const walk = (items: HeadingItem[], level: number, depth: number) => {
+  const build = (
+    items: HeadingItem[],
+    level: number,
+    depth: number,
+  ): OutlineNode[] => {
+    const nodes: OutlineNode[] = [];
     let i = 0;
     while (i < items.length) {
       const item = items[i];
-      if (item.level !== level) {
+      if (item.level < level) break;
+      if (item.level > level) {
+        // Skipped-level heading without a parent at this level — skip it
+        // (same edge-case behavior as the previous flat walk).
         i++;
         continue;
       }
@@ -403,53 +522,88 @@ function flattenOutline(
         i + 1 < items.length && items[i + 1].level > item.level
           ? items[i + 1].level
           : 0;
-      const children: HeadingItem[] = [];
-      if (childLevel > 0) {
-        let j = i + 1;
-        while (
-          j < items.length &&
-          items[j].level >= childLevel &&
-          items[j].level > item.level
-        ) {
-          children.push(items[j]);
-          j++;
-        }
+      let j = i + 1;
+      while (
+        j < items.length &&
+        items[j].level >= childLevel &&
+        items[j].level > item.level
+      ) {
+        j++;
       }
-      const hasChildren = children.length > 0;
-      const isCollapsed = collapsed.has(item.id);
-      rows.push({ item, depth, hasChildren, expanded: hasChildren && !isCollapsed });
-      if (hasChildren && !isCollapsed) {
-        walk(children, Math.min(...children.map((c) => c.level)), depth + 1);
-      }
-      i += 1 + children.length;
+      const childrenItems = items.slice(i + 1, j);
+      const children =
+        childrenItems.length > 0
+          ? build(childrenItems, childLevel, depth + 1)
+          : [];
+      nodes.push({
+        item,
+        depth,
+        hasChildren: children.length > 0,
+        expanded: children.length > 0 && !collapsed.has(item.id),
+        children,
+      });
+      i = j;
     }
+    return nodes;
   };
 
-  walk(headings, Math.min(...headings.map((h) => h.level)), 0);
-  return rows;
+  return build(headings, Math.min(...headings.map((h) => h.level)), 0);
 }
 
-/** Render the flattened rows; rows up to the active one are "consumed"
- *  (their rail segment is tinted), forming a vertical page-progress bar. */
-function renderRows(
+/**
+ * Render the outline tree; rows up to the active one are "consumed"
+ * (their rail segment is tinted), forming a vertical page-progress bar.
+ *
+ * Children render inside a 0fr/1fr grid wrapper whose height animates,
+ * so collapsing folds the lower rows upward smoothly.
+ */
+function renderOutline(
   headings: HeadingItem[],
   collapsed: Set<string>,
   activeId: string | null,
-  onNavigate: (row: OutlineRowData) => void,
-  onToggle: (row: OutlineRowData) => void,
+  onNavigate: (item: HeadingItem) => void,
+  onToggle: (item: HeadingItem) => void,
 ): React.ReactNode {
-  const rows = flattenOutline(headings, collapsed);
-  const activeIndex = rows.findIndex((r) => r.item.id === activeId);
-  return rows.map((row, idx) => (
-    <OutlineRow
-      key={row.item.id}
-      row={row}
-      active={idx === activeIndex}
-      consumed={activeIndex >= 0 && idx <= activeIndex}
-      onClick={() => onNavigate(row)}
-      onToggleClick={() => onToggle(row)}
-    />
-  ));
+  const tree = buildOutlineTree(headings, collapsed);
+  // Document-order index per heading: drives the "consumed" progress tint.
+  const orderIndex = new Map(headings.map((h, i) => [h.id, i]));
+  const activeIdx = activeId != null ? (orderIndex.get(activeId) ?? -1) : -1;
+
+  const renderNodes = (nodes: OutlineNode[]): React.ReactNode[] =>
+    nodes.map((node) => {
+      const idx = orderIndex.get(node.item.id) ?? -1;
+      return (
+        <div key={node.item.id}>
+          <OutlineRow
+            row={node}
+            active={idx === activeIdx}
+            consumed={activeIdx >= 0 && idx <= activeIdx}
+            onClick={() => onNavigate(node.item)}
+            onToggleClick={() => onToggle(node.item)}
+          />
+          {node.hasChildren && (
+            <div
+              aria-hidden={!node.expanded}
+              className="grid transition-[grid-template-rows] ease-out"
+              style={{
+                gridTemplateRows: node.expanded ? '1fr' : '0fr',
+                transitionDuration: `${FOLD_DURATION_MS}ms`,
+              }}
+            >
+              {/* -ml-2 pl-2 pushes the clip edge 8px left of the rows so the
+                  active row's rail cursor (left-[-7px], straddling the rail)
+                  isn't clipped by overflow-hidden; vertical clipping is what
+                  folds the rows and stays untouched. */}
+              <div className="min-h-0 overflow-hidden -ml-2 pl-2">
+                {renderNodes(node.children)}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    });
+
+  return renderNodes(tree);
 }
 
 function OutlineRow({
@@ -459,7 +613,7 @@ function OutlineRow({
   onClick,
   onToggleClick,
 }: {
-  row: OutlineRowData;
+  row: OutlineNode;
   active: boolean;
   consumed: boolean;
   onClick: () => void;
