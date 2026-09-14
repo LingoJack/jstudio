@@ -53,28 +53,41 @@ const highlightKey = new PluginKey<HighlightState>(
 
 /**
  * Build the highlight decorations for [from, to]:
- *   - one `inline` decoration for the text range,
- *   - one `node` decoration per selectable block atom inside it, so blocks
- *     covered by a drag/selection are visibly selected too.
+ *   - a block-level band (`.block-in-selection`, Decoration.node) for every
+ *     block FULLY covered by the range — one flat rectangle per block, far
+ *     more even than per-line glyph boxes (gaps between blocks are bridged
+ *     in CSS by the band's bottom box-shadow);
+ *   - glyph-hugging `inline` decorations only for the partially covered
+ *     stretches between/around those bands;
+ *   - `node` decorations for covered selectable block atoms
+ *     (`.node-in-selection`) and partially covered list-item gutters
+ *     (`.list-item-lead-selected`).
+ *
+ * Fully covered blocks must NOT also receive the inline decoration — the
+ * two would stack (translucent theme colors would double-darken).
  */
 function buildDecorations(
   doc: ProseMirrorNode,
   from: number,
   to: number,
 ): DecorationSet {
-  const decorations = [
-    Decoration.inline(from, to, { class: 'cross-section-selected' }),
-  ];
+  const decorations: Decoration[] = [];
+  // Ranges of fully covered blocks (disjoint, document order). The inline
+  // highlight is only painted for the gaps between them.
+  const covered: { from: number; to: number }[] = [];
+
   doc.descendants((node, pos) => {
-    // List items whose text is covered from its very start also get their
-    // marker gutter lit (li.list-item-lead-selected) — without it the text
-    // highlight visually "breaks" at every bullet/number, because the
-    // native ::selection paint is suppressed app-wide and the inline
-    // decoration only covers the text itself. Visual extension only:
-    // copy semantics stay with the serializer (a text selection still
-    // copies without the '- ' marker).
+    if (!node.isBlock) return true;
+
+    // List items: full coverage → band (covers the marker gutter too);
+    // partial coverage from the text start → keep the gutter lit only.
     if (node.type.name === 'listItem') {
       const contentStart = pos + 1;
+      const innerTo = pos + node.nodeSize - 1;
+      if (from <= contentStart && to > contentStart && to >= innerTo) {
+        covered.push({ from: pos, to: pos + node.nodeSize });
+        return false; // the band covers the whole subtree
+      }
       if (from <= contentStart && to > contentStart) {
         decorations.push(
           Decoration.node(pos, pos + node.nodeSize, {
@@ -84,21 +97,52 @@ function buildDecorations(
       }
       return true;
     }
-    // Only leaf-ish block nodes: an inline decoration already covers text and
-    // inline content, and non-selectable nodes must not look selectable.
-    if (!node.isAtom || !node.isBlock || node.type.spec.selectable === false) {
+
+    // Leaf-ish block atoms → .node-in-selection overlay (an inline
+    // decoration cannot paint a block-level atom).
+    if (node.isAtom) {
+      if (node.isBlock && node.type.spec.selectable !== false) {
+        if (pos + node.nodeSize > from && pos < to) {
+          decorations.push(
+            Decoration.node(pos, pos + node.nodeSize, {
+              class: 'node-in-selection',
+            }),
+          );
+        }
+      }
       return true;
     }
-    const covered = pos + node.nodeSize > from && pos < to;
-    if (covered) {
-      decorations.push(
-        Decoration.node(pos, pos + node.nodeSize, {
-          class: 'node-in-selection',
-        }),
-      );
+
+    // Simple content blocks (paragraph / heading): fully covered → one flat
+    // band. Other structured blocks (codeBlock, table, …) keep the
+    // glyph-hugging inline paint so their own chrome stays untouched.
+    if (node.type.name === 'paragraph' || node.type.name === 'heading') {
+      const innerFrom = pos + 1;
+      const innerTo = pos + node.nodeSize - 1;
+      if (from <= innerFrom && to > innerFrom && to >= innerTo) {
+        covered.push({ from: pos, to: pos + node.nodeSize });
+        return false;
+      }
     }
     return true;
   });
+
+  // Inline highlight for everything the bands don't cover.
+  covered.sort((a, b) => a.from - b.from);
+  let cursor = from;
+  for (const range of covered) {
+    if (range.from > cursor) {
+      decorations.push(
+        Decoration.inline(cursor, range.from, { class: 'cross-section-selected' }),
+      );
+    }
+    cursor = Math.max(cursor, range.to);
+  }
+  if (cursor < to) {
+    decorations.push(
+      Decoration.inline(cursor, to, { class: 'cross-section-selected' }),
+    );
+  }
   return DecorationSet.create(doc, decorations);
 }
 

@@ -869,6 +869,25 @@ pre[class*="language-"] {
   background: var(--vscode-editor-selectionBackground);
 }
 
+/* Fully covered text blocks (paragraph / heading / list item) — painted by
+   sectionHighlightSelection as a Decoration.node band: one flat rectangle
+   per block instead of per-line glyph boxes (框中框 / 断条 fix). The bottom
+   box-shadow bleeds into the block's own margin, bridging the gap to the
+   next band; single-layer paint everywhere, so translucent theme selection
+   colors never stack. */
+.block-in-selection {
+  background: var(--vscode-editor-selectionBackground);
+  box-shadow: 0 6px 0 var(--vscode-editor-selectionBackground);
+}
+
+/* Inline code chips inside a selection lose their own background — the
+   chip box over the band/span read as a darker 框中框. Text color keeps
+   the preformat tint. */
+.cross-section-selected code,
+.block-in-selection code {
+  background: transparent;
+}
+
 /* ============================================
    Search Match Highlights (FindBar)
    ============================================
