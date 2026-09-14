@@ -68,7 +68,6 @@ export interface DocumentTreeRendererProps {
   setRenameValue: React.Dispatch<React.SetStateAction<string>>;
   commitRename: () => void;
   setRenamingId: React.Dispatch<React.SetStateAction<string | null>>;
-  startRename: (docId: string, title: string) => void;
 
   // Folder rename
   renamingFolderId: string | null;
@@ -77,7 +76,6 @@ export interface DocumentTreeRendererProps {
   setFolderRenameValue: React.Dispatch<React.SetStateAction<string>>;
   commitFolderRename: () => void;
   setRenamingFolderId: React.Dispatch<React.SetStateAction<string | null>>;
-  startFolderRename: (folderId: string, name: string) => void;
 }
 
 export function DocumentTreeRenderer({
@@ -107,14 +105,12 @@ export function DocumentTreeRenderer({
   setRenameValue,
   commitRename,
   setRenamingId,
-  startRename,
   renamingFolderId,
   folderRenameRef,
   folderRenameValue,
   setFolderRenameValue,
   commitFolderRename,
   setRenamingFolderId,
-  startFolderRename,
 }: DocumentTreeRendererProps) {
   const { t } = useI18n();
 
@@ -143,10 +139,6 @@ export function DocumentTreeRenderer({
         onPointerDown={(e) => onDocPointerDown(e, doc.id)}
         onClick={(e) => handleDocClick(e, doc.id)}
         onContextMenu={(e) => handleContextMenu(e, doc.id)}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          startRename(doc.id, doc.title || '');
-        }}
         style={{ opacity: isDragging ? 0.4 : undefined }}
         className={`${isDragging ? 'cursor-grabbing' : ''} ${
           isFlashing
@@ -257,10 +249,6 @@ export function DocumentTreeRenderer({
             }
           }}
           onContextMenu={(e) => handleContextMenu(e, f.id, 'folder')}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            startFolderRename(f.id, f.name);
-          }}
           expandable={!isRenaming}
           expanded={open}
         >
@@ -335,10 +323,6 @@ export function DocumentTreeRenderer({
             onPointerDown={(e) => onDocPointerDown(e, doc.id)}
             onClick={(e) => handleDocClick(e, doc.id)}
             onContextMenu={(e) => handleContextMenu(e, doc.id)}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              startRename(doc.id, doc.title || '');
-            }}
             className={
               draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''
             }
@@ -369,7 +353,6 @@ export interface SearchResultsListProps {
   onDocPointerDown: (e: React.PointerEvent, docId: string) => void;
   handleDocClick: (e: React.MouseEvent, docId: string) => void;
   handleContextMenu: (e: React.MouseEvent, id: string, kind?: 'doc' | 'folder') => void;
-  startRename: (docId: string, title: string) => void;
 }
 
 export function SearchResultsList({
@@ -381,7 +364,6 @@ export function SearchResultsList({
   onDocPointerDown,
   handleDocClick,
   handleContextMenu,
-  startRename,
 }: SearchResultsListProps) {
   const { t } = useI18n();
 
@@ -406,10 +388,6 @@ export function SearchResultsList({
       onPointerDown={(e) => onDocPointerDown(e, doc.id)}
       onClick={(e) => handleDocClick(e, doc.id)}
       onContextMenu={(e) => handleContextMenu(e, doc.id)}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        startRename(doc.id, doc.title || '');
-      }}
       className={`${draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''} ${
         flashDocId === doc.id
           ? 'bg-[var(--vscode-list-activeSelectionBackground)] outline outline-1 -outline-offset-1 outline-[var(--vscode-focusBorder)]'

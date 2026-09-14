@@ -634,7 +634,6 @@ export default function DocumentSidebar() {
             onDocPointerDown={onDocPointerDown}
             handleDocClick={handleDocClick}
             handleContextMenu={handleContextMenu}
-            startRename={startRename}
           />
         ) : (
           <>
@@ -666,14 +665,12 @@ export default function DocumentSidebar() {
             setRenameValue={setRenameValue}
             commitRename={commitRename}
             setRenamingId={setRenamingId}
-            startRename={startRename}
             renamingFolderId={renamingFolderId}
             folderRenameRef={folderRenameRef}
             folderRenameValue={folderRenameValue}
             setFolderRenameValue={setFolderRenameValue}
             commitFolderRename={commitFolderRename}
             setRenamingFolderId={setRenamingFolderId}
-            startFolderRename={startFolderRename}
           />
             </div>
             {/* Fold ballast: see useFoldBallast. Outside the observed wrapper
