@@ -880,6 +880,17 @@ pre[class*="language-"] {
   box-shadow: 0 6px 0 var(--vscode-editor-selectionBackground);
 }
 
+/* List-item bands: the outside marker hangs in the ul's 2em padding LEFT of
+   the li box — the -2em shadow covers the gutter (same geometry as
+   li.ProseMirror-selectednode), so the band reads as one stripe from the
+   bullet through the text. */
+li.block-in-selection {
+  box-shadow:
+    -2em 0 0 var(--vscode-editor-selectionBackground),
+    0 6px 0 var(--vscode-editor-selectionBackground),
+    -2em 6px 0 var(--vscode-editor-selectionBackground);
+}
+
 /* Inline code chips inside a selection lose their own background — the
    chip box over the band/span read as a darker 框中框. Text color keeps
    the preformat tint. */

@@ -129,6 +129,11 @@ function buildDecorations(
 
   // Inline highlight for everything the bands don't cover.
   covered.sort((a, b) => a.from - b.from);
+  for (const range of covered) {
+    decorations.push(
+      Decoration.node(range.from, range.to, { class: 'block-in-selection' }),
+    );
+  }
   let cursor = from;
   for (const range of covered) {
     if (range.from > cursor) {
