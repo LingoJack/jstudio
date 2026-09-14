@@ -17,6 +17,7 @@ import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { FolderTreeNode } from '../../lib/documents/folderTree';
 import type { DocumentMeta, FolderMeta } from '../../types/storage';
 import { useI18n } from '../../lib/core/i18n';
+import { FOLD_DURATION_MS } from '../hooks/useFoldBallast';
 
 // ── Active-document marker: branch guide line + "->" cursor ──
 // The ONLY vertical line in the tree is the tree-guide that hangs from an
@@ -286,12 +287,26 @@ export function DocumentTreeRenderer({
 
         {/* Children – the tree-guide line (NavBranch's left border) hangs
             from the parent's text indent down this whole subtree, exactly
-            like the Aliyun docs nav. The active child's arrow straddles it. */}
-        {open && (
-          <NavBranch className="mt-0.5 mb-1 ml-[12px]">
-            {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
-            {node.documents.map((doc) => renderDoc(doc))}
-          </NavBranch>
+            like the Aliyun docs nav. The active child's arrow straddles it.
+            The branch stays mounted inside a 0fr/1fr grid wrapper so
+            collapse/expand animates as a smooth fold (scroll-neutral via
+            useFoldBallast in DocumentSidebar). */}
+        {(node.subFolders.length > 0 || node.documents.length > 0) && (
+          <div
+            aria-hidden={!open}
+            className="grid transition-[grid-template-rows] ease-out"
+            style={{
+              gridTemplateRows: open ? '1fr' : '0fr',
+              transitionDuration: `${FOLD_DURATION_MS}ms`,
+            }}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <NavBranch className="mt-0.5 mb-1 ml-[12px]">
+                {node.subFolders.map((sub) => renderNode(sub, depth + 1))}
+                {node.documents.map((doc) => renderDoc(doc))}
+              </NavBranch>
+            </div>
+          </div>
         )}
       </div>
     );

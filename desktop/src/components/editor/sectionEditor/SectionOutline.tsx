@@ -34,6 +34,7 @@ import type { Editor } from '@tiptap/react';
 
 import { useStore } from '../../../store/useStore';
 import { useI18n } from '../../../lib/core/i18n';
+import { useFoldBallast, FOLD_DURATION_MS } from '../../hooks/useFoldBallast';
 import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import type { Block } from '../../../types';
@@ -143,14 +144,11 @@ export default function SectionOutline({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Wrapper around the rows whose height the fold animation changes; watched
-  // by a ResizeObserver (see fold ballast effect below).
+  // by the fold ballast hook's ResizeObserver.
   const outlineContentRef = useRef<HTMLDivElement | null>(null);
   // Bottom spacer that grows in lockstep with the fold shrink, keeping the
-  // total scroll height constant while a fold animates (see fold ballast
-  // effect below).
-  const ballastRef = useRef<HTMLDivElement | null>(null);
-  // Content height when the running fold started; null when no fold runs.
-  const foldBaseRef = useRef<{ base: number } | null>(null);
+  // total scroll height constant while a fold animates (see useFoldBallast).
+  const outlineBallastRef = useRef<HTMLDivElement | null>(null);
   // Bumped by section-editor event listeners to force re-extraction from
   // the editors' live ProseMirror docs. This catches content loaded via
   // setContent({ emitUpdate: false }) which doesn't sync back to the store.
@@ -189,6 +187,19 @@ export default function SectionOutline({
   }, [storeHeadings, editorHeadings]);
 
   const hasOutlineContent = headings.length > 0;
+
+  // ── Fold ballast (shared with DocumentSidebar's folder tree) ──
+  const { beginFold, resetFold } = useFoldBallast({
+    containerRef: scrollContainerRef,
+    contentRef: outlineContentRef,
+    ballastRef: outlineBallastRef,
+    active: hasOutlineContent,
+  });
+
+  // A document switch invalidates any running fold baseline.
+  useEffect(() => {
+    resetFold();
+  }, [activeDocId, resetFold]);
 
   // ── Subscribe to editor events to trigger re-extraction ──
   // Sections mount progressively (requestIdleCallback batches), so we
@@ -332,92 +343,18 @@ export default function SectionOutline({
     [scrollContainerRef, sectionEditorsRef],
   );
 
-  const toggle = useCallback((item: HeadingItem) => {
-    // Start tracking the fold. The baseline includes any ballast left over
-    // from previous folds, so content + ballast stays constant throughout.
-    const content = outlineContentRef.current;
-    if (content) {
-      foldBaseRef.current = {
-        base: content.offsetHeight + (ballastRef.current?.offsetHeight ?? 0),
-      };
-    }
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(item.id)) next.delete(item.id);
-      else next.add(item.id);
-      return next;
-    });
-  }, []);
-
-  // ── Fold ballast ──
-  // A running fold shrinks the outline content frame by frame. If the total
-  // scroll height shrank with it, a scrolled (especially bottom-clamped)
-  // panel would clamp scrollTop every frame — upper headings slide down and
-  // the fold never reads as "folding up". Instead, the ballast spacer below
-  // the list grows in lockstep with the shrink (total height constant,
-  // scrollTop untouched, fold plays in place) and then simply STAYS — there
-  // is no post-fold settle glide. While idle, the ballast is opportunistically
-  // trimmed to the blank stretch the viewport actually reaches into: that
-  // part sits entirely below the viewport bottom, so removing it provably
-  // never moves the view, and the phantom padding evaporates as the user
-  // scrolls away from the bottom.
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    const content = outlineContentRef.current;
-    if (!container || !content) return;
-
-    const trimBallast = () => {
-      const ballast = ballastRef.current;
-      if (!ballast || foldBaseRef.current) return;
-      const current = ballast.offsetHeight;
-      if (current === 0) return;
-      // Blank stretch between the real content end and the viewport bottom.
-      const visibleBlank =
-        container.clientHeight -
-        (content.getBoundingClientRect().bottom -
-          container.getBoundingClientRect().top);
-      const next = Math.max(0, Math.min(current, visibleBlank));
-      if (next !== current) ballast.style.height = `${next}px`;
-    };
-
-    let releaseTimer = 0;
-    const ro = new ResizeObserver(() => {
-      const ballast = ballastRef.current;
-      if (!ballast) return;
-      const fold = foldBaseRef.current;
-      if (!fold) {
-        trimBallast();
-        return;
-      }
-      // Track the fold frame by frame: keep content + ballast constant.
-      ballast.style.height = `${Math.max(
-        0,
-        fold.base - content.offsetHeight,
-      )}px`;
-      // Release shortly after the fold stops resizing content: stop
-      // tracking and trim whatever is already below the viewport. No
-      // transition, no settle glide.
-      window.clearTimeout(releaseTimer);
-      releaseTimer = window.setTimeout(() => {
-        foldBaseRef.current = null;
-        trimBallast();
-      }, FOLD_RELEASE_DELAY_MS);
-    });
-    ro.observe(content);
-    container.addEventListener('scroll', trimBallast, { passive: true });
-    return () => {
-      ro.disconnect();
-      container.removeEventListener('scroll', trimBallast);
-      window.clearTimeout(releaseTimer);
-      foldBaseRef.current = null;
-    };
-  }, [scrollContainerRef, hasOutlineContent]);
-
-  // A document switch invalidates any running fold baseline.
-  useEffect(() => {
-    foldBaseRef.current = null;
-    if (ballastRef.current) ballastRef.current.style.height = '0px';
-  }, [activeDocId]);
+  const toggle = useCallback(
+    (item: HeadingItem) => {
+      beginFold();
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.add(item.id);
+        return next;
+      });
+    },
+    [beginFold],
+  );
 
   return (
     <div
@@ -429,7 +366,10 @@ export default function SectionOutline({
       className="shrink-0 h-full bg-[var(--vscode-editor-background)] flex flex-col select-none z-30 relative overflow-hidden"
       style={{ width: OUTLINE_WIDTH }}
     >
-      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-9">
+      {/* scrollbar-gutter:stable — folds change the content height, which
+          would otherwise toggle the vertical scrollbar and flash a
+          scrollbar-width jump on every fold near the size boundary. */}
+      <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] px-4 pb-4 pt-9">
         {headings.length === 0 ? (
           <p className="text-xs text-[var(--vscode-descriptionForeground)] py-2">
             {t('outline.empty')}
@@ -452,7 +392,7 @@ export default function SectionOutline({
             {/* Fold ballast: lives OUTSIDE the observed wrapper so its own
             resize doesn't re-trigger the observer. */}
             <div
-              ref={ballastRef}
+              ref={outlineBallastRef}
               aria-hidden
               className="shrink-0"
               style={{ height: 0 }}
@@ -484,11 +424,6 @@ interface OutlineNode {
 const ROW_BASE_INDENT = 12;
 /** Extra indent (px) per hierarchy depth. */
 const ROW_DEPTH_INDENT = 14;
-/** Duration (ms) of the expand/collapse fold animation. */
-const FOLD_DURATION_MS = 200;
-/** Delay after the last fold-driven content resize before fold tracking is
- *  released (must cover FOLD_DURATION_MS frame gaps). */
-const FOLD_RELEASE_DELAY_MS = 150;
 
 /**
  * Build the outline tree. Unlike a flat "skip collapsed subtrees" walk,

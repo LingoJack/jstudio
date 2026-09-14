@@ -5,6 +5,7 @@ import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { SIDEBAR } from '../../lib/constants';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { useSidebarHover } from '../hooks/useSidebarHover';
+import { useFoldBallast } from '../hooks/useFoldBallast';
 import { useBatchSelection } from './hooks/useBatchSelection';
 import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
@@ -181,6 +182,19 @@ export default function DocumentSidebar() {
     [folders, filteredDocs, docSortKey, docSortDirection],
   );
 
+  // ── Folder fold ballast (same mechanism as SectionOutline) ──
+  // Keeps folder collapse/expand scroll-neutral: the animated fold plays in
+  // place even when the list is scrolled (see useFoldBallast).
+  const sidebarScrollRef = useRef<HTMLDivElement | null>(null);
+  const sidebarContentRef = useRef<HTMLDivElement | null>(null);
+  const sidebarBallastRef = useRef<HTMLDivElement | null>(null);
+  const { beginFold: beginFolderFold } = useFoldBallast({
+    containerRef: sidebarScrollRef,
+    contentRef: sidebarContentRef,
+    ballastRef: sidebarBallastRef,
+    active: !isSearching,
+  });
+
   // ── Derived: mini-rail items for the collapsed strip (top-level entries,
   //    folders first then root docs — same order as the expanded tree) ──
   const railItems = useMemo(() => {
@@ -292,9 +306,10 @@ export default function DocumentSidebar() {
   // ── Handlers: folder actions ──────────────────────────────
   const handleToggleFolder = useCallback(
     (folderId: string) => {
+      beginFolderFold();
       toggleFolderCollapsed(folderId);
     },
-    [toggleFolderCollapsed],
+    [beginFolderFold, toggleFolderCollapsed],
   );
 
   const handleCreateFolder = useCallback(() => {
@@ -600,8 +615,12 @@ export default function DocumentSidebar() {
           border-transparent reserved: avoids WKWebView inset box-shadow
           paint glitches that ring-inset exhibits (see bug-graveyard #003). */}
       <div
+        ref={sidebarScrollRef}
         data-drop-target={ROOT_DROP_ID}
-        className={`flex-1 overflow-y-auto rounded-md border pl-2 transition-colors duration-150 ${
+        // scrollbar-gutter:stable — folds change the content height, which
+        // would otherwise toggle the vertical scrollbar and flash a
+        // scrollbar-width jump on every fold near the size boundary.
+        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] rounded-md border pl-2 transition-colors duration-150 ${
           isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >
@@ -618,7 +637,9 @@ export default function DocumentSidebar() {
             startRename={startRename}
           />
         ) : (
-          <DocumentTreeRenderer
+          <>
+            <div ref={sidebarContentRef}>
+              <DocumentTreeRenderer
             tree={tree}
             folders={folders}
             isFolderExpanded={isFolderExpanded}
@@ -654,6 +675,16 @@ export default function DocumentSidebar() {
             setRenamingFolderId={setRenamingFolderId}
             startFolderRename={startFolderRename}
           />
+            </div>
+            {/* Fold ballast: see useFoldBallast. Outside the observed wrapper
+                so its own resize doesn't re-trigger the observer. */}
+            <div
+              ref={sidebarBallastRef}
+              aria-hidden
+              className="shrink-0"
+              style={{ height: 0 }}
+            />
+          </>
         )}
       </div>
 
