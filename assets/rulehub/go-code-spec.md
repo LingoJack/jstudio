@@ -23,7 +23,7 @@ xxx
 ```go
 // ParseEncodedPolicies 解析 policy 数组
 func ParseEncodedPolicies(encoded []string, maxBytes int) ([]*Policy, error) {
-return nil, nil
+    return nil, nil
 }
 ```
 
@@ -35,33 +35,33 @@ return nil, nil
 ```go
 // ParseEncodedPolicies 解析 policy 数组
 func ParseEncodedPolicies(encoded []string, maxBytes int) ([]*Policy, error) {
-policies := make([]*Policy, 0, len(encoded))
-for i, raw := range encoded {
-decoded, err := url.QueryUnescape(raw)
-if err != nil {
-return nil, fmt.Errorf("policy[%d] is not a valid url_encode string: %w", i, err)
-}
+    policies := make([]*Policy, 0, len(encoded))
+    for i, raw := range encoded {
+        decoded, err := url.QueryUnescape(raw)
+        if err != nil {
+            return nil, fmt.Errorf("policy[%d] is not a valid url_encode string: %w", i, err)
+        }
 
-// 解码前后一致说明未做 url_encode，直接拒绝
-if decoded == raw {
-return nil, fmt.Errorf("policy[%d] is not url_encoded", i)
-}
+        // 解码前后一致说明未做 url_encode，直接拒绝
+        if decoded == raw {
+            return nil, fmt.Errorf("policy[%d] is not url_encoded", i)
+        }
 
-if maxBytes > 0 && len(decoded) > maxBytes {
-return nil, fmt.Errorf(
-"%w: policy[%d] size %d bytes exceeds limit %d",
-errOverLimit, i, len(decoded), maxBytes,
-)
-}
+        if maxBytes > 0 && len(decoded) > maxBytes {
+            return nil, fmt.Errorf(
+               "%w: policy[%d] size %d bytes exceeds limit %d",
+               errOverLimit, i, len(decoded), maxBytes,
+            )
+        }
 
-p, err := ParsePolicy(decoded)
-if err != nil {
-return nil, fmt.Errorf("policy[%d]: %w", i, err)
-}
+        p, err := ParsePolicy(decoded)
+        if err != nil {
+            return nil, fmt.Errorf("policy[%d]: %w", i, err)
+        }
 
-policies = append(policies, p)
-}
-return policies, nil
+        policies = append(policies, p)
+    }
+    return policies, nil
 }
 ```
 
@@ -69,45 +69,45 @@ bad case：这里揉在一起，没空行
 ```go
 // ParsePolicy 解析并校验一份策略 JSON：statement 非空、effect 仅 allow / deny、action / resource 非空（兼容 string 与 []string）、condition 仅归一化。
 func ParsePolicy(raw string) (*Policy, error) {
-var rp rawPolicy
-if err := json.Unmarshal([]byte(raw), &rp); err != nil {
-return nil, fmt.Errorf("policy is not valid JSON: %w", err)
-}
-if len(rp.Statement) == 0 {
-return nil, fmt.Errorf("policy statement is empty")
-}
-p := &Policy{Version: rp.Version}
-for i, rs := range rp.Statement {
-eff, err := parseEffect(rs.Effect)
-if err != nil {
-return nil, fmt.Errorf("statement[%d]: %w", i, err)
-}
-actions, err := decodeStringOrArray(rs.Action)
-if err != nil {
-return nil, fmt.Errorf("statement[%d] action: %w", i, err)
-}
-resources, err := decodeStringOrArray(rs.Resource)
-if err != nil {
-return nil, fmt.Errorf("statement[%d] resource: %w", i, err)
-}
-if len(actions) == 0 {
-return nil, fmt.Errorf("statement[%d]: action is empty", i)
-}
-if len(resources) == 0 {
-return nil, fmt.Errorf("statement[%d]: resource is empty", i)
-}
-condition, err := normalizeCondition(rs.Condition)
-if err != nil {
-return nil, fmt.Errorf("statement[%d] condition: %w", i, err)
-}
-p.Statement = append(p.Statement, Statement{
-Effect:    eff,
-Action:    actions,
-Resource:  resources,
-Condition: condition,
-})
-}
-return p, nil
+    var rp rawPolicy
+    if err := json.Unmarshal([]byte(raw), &rp); err != nil {
+       return nil, fmt.Errorf("policy is not valid JSON: %w", err)
+    }
+    if len(rp.Statement) == 0 {
+       return nil, fmt.Errorf("policy statement is empty")
+    }
+    p := &Policy{Version: rp.Version}
+    for i, rs := range rp.Statement {
+       eff, err := parseEffect(rs.Effect)
+       if err != nil {
+          return nil, fmt.Errorf("statement[%d]: %w", i, err)
+       }
+       actions, err := decodeStringOrArray(rs.Action)
+       if err != nil {
+          return nil, fmt.Errorf("statement[%d] action: %w", i, err)
+       }
+       resources, err := decodeStringOrArray(rs.Resource)
+       if err != nil {
+          return nil, fmt.Errorf("statement[%d] resource: %w", i, err)
+       }
+       if len(actions) == 0 {
+          return nil, fmt.Errorf("statement[%d]: action is empty", i)
+       }
+       if len(resources) == 0 {
+          return nil, fmt.Errorf("statement[%d]: resource is empty", i)
+       }
+       condition, err := normalizeCondition(rs.Condition)
+       if err != nil {
+          return nil, fmt.Errorf("statement[%d] condition: %w", i, err)
+       }
+       p.Statement = append(p.Statement, Statement{
+          Effect:    eff,
+          Action:    actions,
+          Resource:  resources,
+          Condition: condition,
+       })
+    }
+    return p, nil
 }
 ```
 
@@ -116,54 +116,54 @@ good case
 ```go
 // CreateThirdAuthToken POST /sts/third/auth-token：为第三方服务账号签发 authToken。
 func CreateThirdAuthToken(c *gin.Context, dep Dependency) {
-var req createThirdAuthTokenReq
-if err := c.ShouldBindJSON(&req); err != nil {
-httpclient.HandleErrResp(c, pkgerrors.Wrapf(err, code.ParameterInvalid, "invalid request body"))
-return
-}
+    var req createThirdAuthTokenReq
+    if err := c.ShouldBindJSON(&req); err != nil {
+       httpclient.HandleErrResp(c, pkgerrors.Wrapf(err, code.ParameterInvalid, "invalid request body"))
+       return
+    }
 
-// unionId 校验
-if req.UnionID == "" {
-httpclient.HandleParamErrMsgResp(c, "unionId is required")
-return
-}
+    // unionId 校验
+    if req.UnionID == "" {
+       httpclient.HandleParamErrMsgResp(c, "unionId is required")
+       return
+    }
 
-// policy 校验
-if len(req.Policy) == 0 {
-httpclient.HandleParamErrMsgResp(c, "policy is required")
-return
-}
+    // policy 校验
+    if len(req.Policy) == 0 {
+       httpclient.HandleParamErrMsgResp(c, "policy is required")
+       return
+    }
 
-// 解析策略
-policies, err := token.ParseEncodedPolicies(req.Policy, dep.Config().Sts.PolicyMaxBytes)
-if err != nil {
-errCode := int32(code.IamStsPolicyInvalid)
-if errors.Is(err, token.ErrOverLimit) {
-errCode = int32(code.IamStsPolicyOverLimit)
-}
-httpclient.HandleErrResp(c, pkgerrors.Wrap(err, errCode))
-return
-}
+    // 解析策略
+    policies, err := token.ParseEncodedPolicies(req.Policy, dep.Config().Sts.PolicyMaxBytes)
+    if err != nil {
+       errCode := int32(code.IamStsPolicyInvalid)
+       if errors.Is(err, token.ErrOverLimit) {
+          errCode = int32(code.IamStsPolicyOverLimit)
+       }
+       httpclient.HandleErrResp(c, pkgerrors.Wrap(err, errCode))
+       return
+    }
 
-// 签发 auth token
-authToken, err := dep.TokenIssuer().IssueThirdParty(req.UnionID, policies)
-if err != nil {
-errCode := int32(code.InternalServerError)
-if errors.Is(err, token.ErrOverLimit) {
-errCode = int32(code.IamStsPolicyOverLimit)
-}
-httpclient.HandleErrResp(c, pkgerrors.Wrap(err, errCode))
-return
-}
+    // 签发 auth token
+    authToken, err := dep.TokenIssuer().IssueThirdParty(req.UnionID, policies)
+    if err != nil {
+       errCode := int32(code.InternalServerError)
+       if errors.Is(err, token.ErrOverLimit) {
+          errCode = int32(code.IamStsPolicyOverLimit)
+       }
+       httpclient.HandleErrResp(c, pkgerrors.Wrap(err, errCode))
+       return
+    }
 
-log.Infof(c.Request.Context(),
-"[iam-sts] third auth-token issued: unionId=%s policies=%d tokenLen=%d",
-req.UnionID, len(policies), len(authToken),
-)
+    log.Infof(c.Request.Context(),
+       "[iam-sts] third auth-token issued: unionId=%s policies=%d tokenLen=%d",
+       req.UnionID, len(policies), len(authToken),
+    )
 
-httpclient.HandleSuccessRespWithData(c, createThirdAuthTokenData{
-AuthToken: authToken,
-})
+    httpclient.HandleSuccessRespWithData(c, createThirdAuthTokenData{
+       AuthToken: authToken,
+    })
 }
 ```
 
@@ -176,8 +176,8 @@ bad case：
 package authz
 
 import (
-	"context"
-	"strings"
+    "context"
+    "strings"
 )
 
 // ClaimAuthToken JWT payload 中承载权限载荷的 claim 名。
@@ -185,7 +185,7 @@ const ClaimAuthToken = "auth_token"
 
 // TokenParser 验签 + 取 claims 的最小抽象；实现方负责验签与时效校验。
 type TokenParser interface {
-	ParseToken(ctx context.Context, token string) (map[string]any, error)
+    ParseToken(ctx context.Context, token string) (map[string]any, error)
 }
 
 // bearerPrefix Authorization 头的固定前缀（大小写不敏感）。
@@ -193,25 +193,25 @@ const bearerPrefix = "bearer "
 
 // TrimBearer 去掉 Authorization 头的 Bearer 前缀，兼容裸 JWT。
 func TrimBearer(authorization string) string {
-	v := strings.TrimSpace(authorization)
-	if len(v) > len(bearerPrefix) && strings.EqualFold(v[:len(bearerPrefix)], bearerPrefix) {
-		return strings.TrimSpace(v[len(bearerPrefix):])
-	}
-	return v
+    v := strings.TrimSpace(authorization)
+    if len(v) > len(bearerPrefix) && strings.EqualFold(v[:len(bearerPrefix)], bearerPrefix) {
+       return strings.TrimSpace(v[len(bearerPrefix):])
+    }
+    return v
 }
 
 // authTokenFromClaims 取出 payload 中的 auth_token：claim 缺失或非字符串时 ok=false
 // （按第一方登录态放行），空串由调用方按 token 错误处理。
 func authTokenFromClaims(claims map[string]any) (string, bool) {
-	v, exists := claims[ClaimAuthToken]
-	if !exists {
-		return "", false
-	}
-	s, ok := v.(string)
-	if !ok {
-		return "", false
-	}
-	return s, true
+    v, exists := claims[ClaimAuthToken]
+    if !exists {
+       return "", false
+    }
+    s, ok := v.(string)
+    if !ok {
+       return "", false
+    }
+    return s, true
 }
 ```
 
@@ -221,10 +221,10 @@ good case：
 
 ```go
 if size := proto.Size(info); i.limits.MaxTokenBytes > 0 && size > i.limits.MaxTokenBytes {
-return "", fmt.Errorf(
-"%w: token size %d bytes exceeds limit %d",
-errOverLimit, size, i.limits.MaxTokenBytes,
-)
+    return "", fmt.Errorf(
+       "%w: token size %d bytes exceeds limit %d",
+       errOverLimit, size, i.limits.MaxTokenBytes,
+    )
 }
 ```
 
@@ -235,11 +235,11 @@ good case
 ```go
 // randUint32 生成随机数（AuthTokenInfo.randNum）；读取失败时返回错误，由调用方处理。
 func randUint32() (uint32, error) {
-var b [4]byte
-if _, err := rand.Read(b[:]); err != nil {
-return 0, fmt.Errorf("read crypto/rand: %w", err)
-}
-return binary.BigEndian.Uint32(b[:]), nil
+    var b [4]byte
+    if _, err := rand.Read(b[:]); err != nil {
+       return 0, fmt.Errorf("read crypto/rand: %w", err)
+    }
+    return binary.BigEndian.Uint32(b[:]), nil
 }
 ```
 
@@ -252,21 +252,22 @@ bad case
 var errOverLimit = errors.New("policy over limit")
 
 func IsOverLimit(err error) bool {
-return errors.Is(err, errOverLimit)
+    return errors.Is(err, errOverLimit)
 }
 ```
 
 ## 禁止结构体字段不空行分隔
 
-good case,字段之间必须有空行隔开，不包括注释
+good case,字段之间必须有空行隔开，不包括注释。且首行空行
 
 ```go
 type createThirdAuthTokenReq struct {
-// UnionID 第三方应用的服务账号 ID，标识签发归属方。
-UnionID string `json:"unionId"`
 
-// Policy 策略 JSON 的 url_encode 结果数组。
-Policy []string `json:"policy"`
+    // UnionID 第三方应用的服务账号 ID，标识签发归属方。
+    UnionID string `json:"unionId"`
+
+    // Policy 策略 JSON 的 url_encode 结果数组。
+    Policy []string `json:"policy"`
 }
 ```
 
@@ -298,67 +299,42 @@ good case
 
 ```go
 if extensionCount := countExtensions(policies); i.limits.MaxExtensions > 0 && extensionCount > i.limits.MaxExtensions {
-return "", fmt.Errorf("%w: expanded extensions %d exceed limit %d",
-errOverLimit, extensionCount, i.limits.MaxExtensions)
+    return "", fmt.Errorf("%w: expanded extensions %d exceed limit %d",
+       errOverLimit, extensionCount, i.limits.MaxExtensions)
 }
 ```
-
-
-## 接口契约类型必须带接口名前缀
-
-请求 / 回包等契约类型不带接口名前缀，包外引用（如 `authz.Request`）看不出属于哪个接口，多接口并存后还会撞名
-bad case：
-
-```go
-// evaluate 接口的请求契约
-type Request struct { ... }
-
-type Result struct { ... }
-```
-
-good case（iam-auth /auth/v1/evaluate）
-
-```go
-// EvaluateRequest 是 evaluate 接口的请求契约（统一信封 PARC-C）。
-type EvaluateRequest struct { ... }
-
-// EvaluateResult 是一次 evaluate 的结果。
-type EvaluateResult struct { ... }
-```
-
-协议名词类型（Decision / Statement 等）不受此约束。
 
 
 ## 禁止使用非命名变量返回值风格 （不允许 return 跟东西）
 bad case：
 ```go
 func Register(engine *gin.Engine, dep Dependency) error {
-// 启用 trace 时挂 otel span，并把 TraceID 同步进 context。
-traceCfg := dep.Config().TraceConfigs
-if traceCfg.TraceEnabled {
-engine.Use(traceotel.Register(traceCfg.TraceName, traceCfg.TraceEndpoint))
-engine.Use(middleware.TraceIDSyncMiddleware())
-}
-na
-engine.GET("/status/health", health)
-engine.POST("/sts/third/auth-token", func(c *gin.Context) { api.CreateThirdAuthToken(c, dep) })
-return nil
+    // 启用 trace 时挂 otel span，并把 TraceID 同步进 context。
+    traceCfg := dep.Config().TraceConfigs
+    if traceCfg.TraceEnabled {
+       engine.Use(traceotel.Register(traceCfg.TraceName, traceCfg.TraceEndpoint))
+       engine.Use(middleware.TraceIDSyncMiddleware())
+    }
+
+    engine.GET("/status/health", health)
+    engine.POST("/sts/third/auth-token", func(c *gin.Context) { api.CreateThirdAuthToken(c, dep) })
+    return nil
 }
 ```
 
 good case
 ```go
 func Register(engine *gin.Engine, dep Dependency) (err error) {
-// 启用 trace 时挂 otel span，并把 TraceID 同步进 context。
-traceCfg := dep.Config().TraceConfigs
-if traceCfg.TraceEnabled {
-engine.Use(traceotel.Register(traceCfg.TraceName, traceCfg.TraceEndpoint))
-engine.Use(middleware.TraceIDSyncMiddleware())
-}
+    // 启用 trace 时挂 otel span，并把 TraceID 同步进 context。
+    traceCfg := dep.Config().TraceConfigs
+    if traceCfg.TraceEnabled {
+       engine.Use(traceotel.Register(traceCfg.TraceName, traceCfg.TraceEndpoint))
+       engine.Use(middleware.TraceIDSyncMiddleware())
+    }
 
-engine.GET("/status/health", health)
-engine.POST("/sts/third/auth-token", func(c *gin.Context) { api.CreateThirdAuthToken(c, dep) })
-return
+    engine.GET("/status/health", health)
+    engine.POST("/sts/third/auth-token", func(c *gin.Context) { api.CreateThirdAuthToken(c, dep) })
+    return
 }
 ```
 
@@ -374,7 +350,7 @@ return
 ```go
 // TokenParser 验签 + 取 claims 的最小抽象；实现方负责验签与时效校验。
 type TokenParser interface {
-ParseToken(ctx context.Context, token string) (map[string]any, error)
+    ParseToken(ctx context.Context, token string) (map[string]any, error)
 }
 ```
 
@@ -389,10 +365,10 @@ log 与上抛二选一：中间层只上抛，处理终点（handler 层）记�
 
 ```go
 if maxBytes > 0 && len(decoded) > maxBytes {
-return nil, fmt.Errorf(
-"%w: policy[%d] size %d bytes exceeds limit %d",
-errOverLimit, i, len(decoded), maxBytes,
-)
+    return nil, fmt.Errorf(
+       "%w: policy[%d] size %d bytes exceeds limit %d",
+       errOverLimit, i, len(decoded), maxBytes,
+    )
 }
 ```
 
@@ -401,7 +377,7 @@ bad case
 ```go
 // 字符串比较脆弱，改错误文案就假红/假绿；log 后又 return，错误被记两次
 if !strings.Contains(err.Error(), "over limit") {
-errCode = int32(code.IamStsPolicyOverLimit)
+    errCode = int32(code.IamStsPolicyOverLimit)
 }
 log.Errorf(ctx, "parse policy failed: %v", err)
 return err
@@ -419,8 +395,8 @@ bad case
 
 ```go
 func (s *Store) GetDoc(ctx context.Context, docID string) (*Doc, error) {
-ctx = context.Background()
-...
+    ctx = context.Background()
+    ...
 }
 ```
 
@@ -435,8 +411,8 @@ ctx = context.Background()
 
 ```go
 log.Infof(c.Request.Context(),
-"[iam-sts] third auth-token issued: unionId=%s policies=%d tokenLen=%d",
-req.UnionID, len(policies), len(authToken),
+    "[iam-sts] third auth-token issued: unionId=%s policies=%d tokenLen=%d",
+    req.UnionID, len(policies), len(authToken),
 )
 ```
 
@@ -456,6 +432,6 @@ req.UnionID, len(policies), len(authToken),
 ```go
 // TestCORSPreflightWildcard 通配 allowlist：preflight 的 ACAO 原样返回 *。
 func TestCORSPreflightWildcard(t *testing.T) {
-...
+    ...
 }
 ```
