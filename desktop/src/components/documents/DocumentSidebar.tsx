@@ -35,7 +35,17 @@ interface FolderMenuState {
 /** How long the reveal highlight stays on the located doc row. */
 const REVEAL_FLASH_DURATION_MS = 1200;
 
-export default function DocumentSidebar() {
+export default function DocumentSidebar({
+  embedded = false,
+  onCollapsedChange,
+}: {
+  /** Embedded in LeftPanelColumn: the wrapper provides the title-bar
+   *  punch-up (-mt-9), so the sidebar fills the wrapper height instead. */
+  embedded?: boolean;
+  /** Reports the collapsed/expanded state so the embedding column can swap
+   *  its toggle row for a compact one while the rail is collapsed. */
+  onCollapsedChange?: (collapsed: boolean) => void;
+} = {}) {
   const { t } = useI18n();
   // Keep a ref to `t` so callbacks that use it don't need it in their deps
   // (useI18n returns a new `t` function on every render).
@@ -145,6 +155,11 @@ export default function DocumentSidebar() {
 
   const isCollapsed = !isExpanded;
   const effectiveWidth = isCollapsed ? SIDEBAR.COLLAPSED : sidebarWidth;
+
+  // Report the collapsed state to an embedding column (LeftPanelColumn).
+  useEffect(() => {
+    onCollapsedChange?.(isCollapsed);
+  }, [isCollapsed, onCollapsedChange]);
   /** Locked = pin holds the current state; hover neither expands nor collapses. */
   const isPinLocked = sidebarPinMode !== 'hover';
 
@@ -468,7 +483,7 @@ export default function DocumentSidebar() {
   // outline crowding); it sits at y=36, flush under the transparent title
   // bar, because the sidebar root punches up to the window top (-mt-9).
   const sidebarHeader = (
-    <div className="h-9 shrink-0 flex items-center gap-1.5 px-3 mt-9">
+    <div className={`h-9 shrink-0 flex items-center gap-1.5 px-3 ${embedded ? '' : 'mt-9'}`}>
       {/* Search — Aliyun "在目录中筛选" style: list-filter icon, slightly
           taller soft-fill box with a faint input-border edge, no visible
           border until focus (accent ring) */}
@@ -562,7 +577,11 @@ export default function DocumentSidebar() {
       // -mt-9 + height compensation: the sidebar surface punches up to the
       // window top (filling the former dead strip under the transparent
       // title bar); the header row / pin row carry mt-9 to stay BELOW it.
-      className="shrink-0 flex flex-col select-none z-30 relative overflow-hidden -mt-9 h-[calc(100%+2.25rem)] bg-[var(--vscode-sideBar-background)]"
+      // Embedded (LeftPanelColumn): the wrapper provides the punch-up, so
+      // the sidebar just fills the wrapper height (h-full, no mt-9 rows).
+      className={`shrink-0 flex flex-col select-none z-30 relative overflow-hidden bg-[var(--vscode-sideBar-background)] ${
+        embedded ? 'h-full' : '-mt-9 h-[calc(100%+2.25rem)]'
+      }`}
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
@@ -579,7 +598,7 @@ export default function DocumentSidebar() {
               this height, instead of triggering the expand that would move
               the pin to the far right of the expanded header. The visible
               pill stays small — only the clickable box is row-wide. */}
-          <div className="h-9 shrink-0 flex items-center mt-9">
+          <div className={`h-9 shrink-0 flex items-center ${embedded ? '' : 'mt-9'}`}>
             <button
               onClick={handleTogglePin}
               onMouseEnter={handlePinZoneEnter}

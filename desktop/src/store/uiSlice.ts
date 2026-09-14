@@ -7,6 +7,7 @@ import {
   type ActivityBarItemConfig,
   type ActivityItemId,
   type SidebarPinMode,
+  type OutlineSide,
   DEFAULT_ACTIVITY_BAR_ITEMS,
   normalizeActivityBarItems,
 } from "../types/settings";
@@ -64,6 +65,13 @@ const DEFAULT_TAB_BAR_GLASS_OPACITY = 0.06;
 
 /** Default tab bar position. */
 const DEFAULT_TAB_BAR_POSITION: "top" | "bottom" = "bottom";
+
+/** Default outline panel side. */
+const DEFAULT_OUTLINE_SIDE: OutlineSide = "right";
+
+/** Which panel the left column shows when the outline docks left
+ *  (transient — never persisted; defaults back to the folder tree). */
+export type LeftPanelTab = "tree" | "outline";
 
 /**
  * Resolve a theme preference to the actual dark/light value.
@@ -145,6 +153,10 @@ export interface UISlice {
   leftPanelHovered: boolean;
   isOutlineOpen: boolean;
   outlinePinned: boolean;
+  /** Which side of the editor the outline panel docks to (persisted). */
+  outlineSide: OutlineSide;
+  /** Left column panel when outlineSide is 'left' (transient). */
+  leftPanelTab: LeftPanelTab;
   isSettingsOpen: boolean;
   isCommandPaletteOpen: boolean;
   isFindBarOpen: boolean;
@@ -189,6 +201,8 @@ export interface UISlice {
   toggleOutline: () => void;
   setOutlineOpen: (v: boolean) => void;
   toggleOutlinePinned: () => void;
+  setOutlineSide: (side: OutlineSide) => void;
+  setLeftPanelTab: (tab: LeftPanelTab) => void;
   toggleSettings: () => void;
   setSettingsOpen: (v: boolean) => void;
   toggleCommandPalette: () => void;
@@ -251,6 +265,8 @@ export const createUiSlice: SliceCreator = (set, get) => ({
    *  into the ActivityBar (they are visually one "left panel" zone). */
   leftPanelHovered: false,
   isOutlineOpen: false,
+  outlineSide: DEFAULT_OUTLINE_SIDE,
+  leftPanelTab: "tree" as LeftPanelTab,
   isSettingsOpen: false,
   isCommandPaletteOpen: false,
   isFindBarOpen: false,
@@ -322,6 +338,20 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     set({ outlinePinned: next });
     ipc.saveSettings({ outlinePinned: next }).catch(onSaveError("设置"));
   },
+  setOutlineSide: (side) => {
+    if (get().outlineSide === side) return;
+    // Continuity: keep the outline visible across the side switch — the
+    // left dock uses leftPanelTab as its visibility, the right dock uses
+    // isOutlineOpen, so mirror whichever is currently "showing".
+    if (side === "left" && get().isOutlineOpen) {
+      set({ leftPanelTab: "outline" });
+    } else if (side === "right" && get().leftPanelTab === "outline") {
+      set({ isOutlineOpen: true, leftPanelTab: "tree" });
+    }
+    set({ outlineSide: side });
+    ipc.saveSettings({ outlineSide: side }).catch(onSaveError("设置"));
+  },
+  setLeftPanelTab: (tab) => set({ leftPanelTab: tab }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
   toggleCommandPalette: () =>

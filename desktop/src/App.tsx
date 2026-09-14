@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
@@ -28,14 +28,22 @@ import CommandPalette from './components/editor/CommandPalette';
 import GlobalSearchDialog from './components/search/GlobalSearchDialog';
 import ExitConfirmDialog from './components/ui/ExitConfirmDialog';
 import { ToastContainer } from './components/ui/Toast';
+import LeftPanelColumn from './components/layout/LeftPanelColumn';
+import { LeftOutlineSlotContext } from './components/layout/leftOutlineSlotContext';
 
 export default function App() {
   const { t } = useI18n();
   const init = useStore((s) => s.init);
   const isLoading = useStore((s) => s.isLoading);
   const isSidebarOpen = useStore((s) => s.isSidebarOpen);
+  const outlineSide = useStore((s) => s.outlineSide);
   const activeSidebarView = useStore((s) => s.activeSidebarView);
   const keyboardShortcuts = useStore((s) => s.keyboardShortcuts);
+  // DOM element of the left column's outline slot (non-null only while the
+  // left column is mounted in outline mode). Provided via context so
+  // DocumentPanel can portal its SectionOutline into the left column.
+  const [leftOutlineSlotEl, setLeftOutlineSlotEl] =
+    useState<HTMLDivElement | null>(null);
 
   // Subscribe to a boolean only — NOT the tabs array reference.
   // Must be called BEFORE any early return to satisfy the Rules of Hooks.
@@ -269,13 +277,22 @@ export default function App() {
           content column punches back up (-mt-9) so the editor scrolls under
           the glass bar.
          ============================== */}
+      {/* Outline slot provider: lets DocumentPanel portal its outline into
+          the left column (LeftPanelColumn) when the outline docks left. */}
+      <LeftOutlineSlotContext.Provider value={leftOutlineSlotEl}>
       <div className="flex-1 min-h-0 flex pt-9">
         {/* Activity Bar (left-most) */}
         <ActivityBar />
 
-        {/* Document sidebar: shown when sidebar is open and not in terminal/agent/browser view */}
+        {/* Left column: folder tree (DocumentSidebar) — or, when the outline
+            docks left (settings), LeftPanelColumn with a tree/outline toggle
+            at its top. Same visibility conditions as the sidebar today. */}
         {isSidebarOpen && !isTerminalView && !isAgentView && !isBrowserView && (
-          <DocumentSidebar />
+          outlineSide === 'left' ? (
+            <LeftPanelColumn onSlotElChange={setLeftOutlineSlotEl} />
+          ) : (
+            <DocumentSidebar />
+          )
         )}
 
         {/* Agent sidebar: shown when in agent view */}
@@ -328,6 +345,7 @@ export default function App() {
           />
         </div>
       </div>
+      </LeftOutlineSlotContext.Provider>
 
       {/* ==============================
           Global Toast Notifications (top-right, above everything)

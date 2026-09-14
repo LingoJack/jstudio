@@ -10,6 +10,7 @@ import { LanguageDropdown } from './LanguageDropdown';
 import { JcliSection } from './JcliSection';
 import { ActivityBarItemsSection } from './ActivityBarItemsSection';
 import { TabBarGlassOpacitySlider, TabBarPositionSelector } from './TabBarControls';
+import { OutlineSideSelector } from './OutlineSideSelector';
 
 /**
  * GeneralSection - app-wide settings.
@@ -124,6 +125,19 @@ export default function GeneralSection() {
         <p className="text-sm text-[var(--vscode-descriptionForeground)] mt-4">
           {themeOptions.find((o) => o.value === themeMode)?.desc}
         </p>
+      </div>
+
+      <div className="border-t border-[var(--vscode-widget-border)]" />
+
+      {/* ---- Outline Panel Side ---- */}
+      <div id="settings-general-outlineSide">
+        <label className="block text-sm font-medium text-[var(--vscode-foreground)] mb-1.5">
+          {t('general.outlineSide')}
+        </label>
+        <p className="text-sm text-[var(--vscode-descriptionForeground)] mb-4">
+          {t('general.outlineSideDesc')}
+        </p>
+        <OutlineSideSelector />
       </div>
 
       <div className="border-t border-[var(--vscode-widget-border)]" />

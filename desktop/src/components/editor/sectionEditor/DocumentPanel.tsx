@@ -28,12 +28,14 @@
  *   - Sections are recomputed only on document switch, not live re-balanced
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { Clock, Pin } from 'lucide-react';
 
 import { useStore } from '../../../store/useStore';
+import { LeftOutlineSlotContext } from '../../layout/leftOutlineSlotContext';
 import { useI18n, type Language, type TranslationKey } from '../../../lib/core/i18n';
 import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import {
@@ -110,6 +112,19 @@ export default function DocumentPanel({
   const editorCursorAnimationEnabled = useStore((s) => s.editorCursorAnimationEnabled);
   const isOutlineOpen = useStore((s) => s.isOutlineOpen);
   const toggleOutline = useStore((s) => s.toggleOutline);
+  // Outline side (settings): 'left' portals the outline into the left
+  // column's slot (LeftPanelColumn); 'right' keeps the classic in-place
+  // panel with the pin toggle. The slot is non-null only while the left
+  // column is mounted AND its 文档大纲 tab is active — so dockedLeft also
+  // encodes "the left outline is actually being shown".
+  const outlineSide = useStore((s) => s.outlineSide);
+  const leftPanelTab = useStore((s) => s.leftPanelTab);
+  const leftOutlineSlot = useContext(LeftOutlineSlotContext);
+  const dockedLeft = outlineSide === 'left' && !!leftOutlineSlot;
+  const outlineTarget = dockedLeft ? leftOutlineSlot : null;
+  const outlineVisible = dockedLeft
+    ? leftPanelTab === 'outline'
+    : isOutlineOpen;
 
   // Sections are built once per document load. We hold them in a ref-backed
   // state so section edits mutate the slice in place without re-rendering
@@ -570,29 +585,45 @@ export default function DocumentPanel({
 
         {/* Outline panel (conditional) — same as editing mode, but sourced
             from the static doc's blocks (not the store's activeDoc, which is
-            unrelated while viewing a static document like the help guide). */}
-        {isOutlineOpen && (
-          <SectionOutline
-            scrollContainerRef={scrollContainerRef}
-            sectionEditorsRef={sectionEditorsRef}
-            staticBlocks={doc.blocks}
-          />
-        )}
+            unrelated while viewing a static document like the help guide).
+            Left-dock: portaled into the left column's slot. */}
+        {outlineVisible &&
+          (outlineTarget ? (
+            createPortal(
+              <SectionOutline
+                scrollContainerRef={scrollContainerRef}
+                sectionEditorsRef={sectionEditorsRef}
+                staticBlocks={doc.blocks}
+                embedded
+              />,
+              outlineTarget,
+            )
+          ) : (
+            <SectionOutline
+              scrollContainerRef={scrollContainerRef}
+              sectionEditorsRef={sectionEditorsRef}
+              staticBlocks={doc.blocks}
+            />
+          ))}
 
         {/* The single outline pin — always visible, toggles the panel
             open/closed (no collapsed-strip state anymore). Open = accent
-            icon, no background pill (ActivityBar accent color story). */}
-        <button
-          onClick={toggleOutline}
-          title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
-          className={`absolute top-3 right-3 z-popover no-drag p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
-            isOutlineOpen
-              ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
-              : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-          }`}
-        >
-          <Pin className="w-4 h-4" />
-        </button>
+            icon, no background pill (ActivityBar accent color story).
+            Hidden while the outline docks left — visibility there is the
+            left column's tree/outline toggle. */}
+        {!dockedLeft && (
+          <button
+            onClick={toggleOutline}
+            title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
+            className={`absolute top-3 right-3 z-popover no-drag p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+              isOutlineOpen
+                ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
+                : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+            }`}
+          >
+            <Pin className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Floating find-in-document bar (toggled by Cmd/Ctrl+F) */}
         <FindBar find={find} />
@@ -708,28 +739,43 @@ export default function DocumentPanel({
       {/* Table hover controls + context menu */}
       {focusedEditor && !crossSel.active && <TableControls editor={focusedEditor} />}
 
-      {/* Outline panel (conditional) */}
-      {isOutlineOpen && (
-        <SectionOutline
-          scrollContainerRef={scrollContainerRef}
-          sectionEditorsRef={sectionEditorsRef}
-        />
-      )}
+      {/* Outline panel (conditional). Left-dock: portaled into the left
+          column's slot. */}
+      {outlineVisible &&
+        (outlineTarget ? (
+          createPortal(
+            <SectionOutline
+              scrollContainerRef={scrollContainerRef}
+              sectionEditorsRef={sectionEditorsRef}
+              embedded
+            />,
+            outlineTarget,
+          )
+        ) : (
+          <SectionOutline
+            scrollContainerRef={scrollContainerRef}
+            sectionEditorsRef={sectionEditorsRef}
+          />
+        ))}
 
       {/* The single outline pin — always visible, toggles the panel
           open/closed (no collapsed-strip state anymore). Open = accent
-          icon, no background pill (ActivityBar accent color story). */}
-      <button
-        onClick={toggleOutline}
-        title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
-        className={`absolute top-3 right-3 z-popover no-drag p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
-          isOutlineOpen
-            ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
-            : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-        }`}
-      >
-        <Pin className="w-4 h-4" />
-      </button>
+          icon, no background pill (ActivityBar accent color story).
+          Hidden while the outline docks left — visibility there is the
+          left column's tree/outline toggle. */}
+      {!dockedLeft && (
+        <button
+          onClick={toggleOutline}
+          title={isOutlineOpen ? t('outline.hide') : t('outline.show')}
+          className={`absolute top-3 right-3 z-popover no-drag p-1.5 rounded-md transition-colors duration-150 cursor-pointer ${
+            isOutlineOpen
+              ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
+              : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
+          }`}
+        >
+          <Pin className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Floating find-in-document bar (toggled by Cmd/Ctrl+F) */}
       <FindBar find={find} />

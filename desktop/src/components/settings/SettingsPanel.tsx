@@ -46,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
     subItems: [
       { anchorId: 'settings-general-language', labelKey: 'general.language' },
       { anchorId: 'settings-general-theme', labelKey: 'appearance.theme' },
+      { anchorId: 'settings-general-outlineSide', labelKey: 'general.outlineSide' },
       
       { anchorId: 'settings-general-activityBarItems', labelKey: 'appearance.activityBarItems' },
       { anchorId: 'settings-general-dataLocation', labelKey: 'general.dataLocation' },

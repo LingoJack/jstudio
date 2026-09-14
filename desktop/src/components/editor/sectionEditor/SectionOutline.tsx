@@ -122,12 +122,18 @@ interface SectionOutlineProps {
    * be open in the background instead of the static document being shown.
    */
   staticBlocks?: Block[];
+  /**
+   * Portaled into LeftPanelColumn's outline slot: the column's toggle row
+   * already clears the glass title bar, so the inner top padding shrinks.
+   */
+  embedded?: boolean;
 }
 
 export default function SectionOutline({
   scrollContainerRef,
   sectionEditorsRef,
   staticBlocks,
+  embedded = false,
 }: SectionOutlineProps) {
   const { t } = useI18n();
   const isStatic = staticBlocks != null;
@@ -368,8 +374,14 @@ export default function SectionOutline({
     >
       {/* scrollbar-gutter:stable — folds change the content height, which
           would otherwise toggle the vertical scrollbar and flash a
-          scrollbar-width jump on every fold near the size boundary. */}
-      <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] px-4 pb-4 pt-9">
+          scrollbar-width jump on every fold near the size boundary. pt-9
+          clears the glass title bar; embedded (left dock) the column's
+          toggle row already did, so only a small pad remains. */}
+      <div
+        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] px-4 pb-4 ${
+          embedded ? 'pt-3' : 'pt-9'
+        }`}
+      >
         {headings.length === 0 ? (
           <p className="text-xs text-[var(--vscode-descriptionForeground)] py-2">
             {t('outline.empty')}

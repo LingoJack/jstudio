@@ -13,6 +13,7 @@ import {
   type EditorCursorStyle,
   type ActivityBarItemConfig,
   type SidebarPinMode,
+  type OutlineSide,
 } from "../types/settings";
 import { migrateFromLocalStorage } from "../lib/documents/migrateLegacyStore";
 import { resolveDark, applyFont, applyLineHeight } from "./uiSlice";
@@ -85,6 +86,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       let editorCursorAnimationEnabled: boolean | undefined;
       let tabBarGlassOpacity: number | undefined;
       let tabBarPosition: "top" | "bottom" | undefined;
+      let outlineSide: OutlineSide | undefined;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
       let keyboardShortcuts: Record<string, string> | undefined;
@@ -214,6 +216,13 @@ export const createInitSlice: SliceCreator = (set, get) => ({
           settings.tabBarPosition === "bottom"
         ) {
           tabBarPosition = settings.tabBarPosition;
+        }
+        // Load outline panel side
+        if (
+          settings.outlineSide === "left" ||
+          settings.outlineSide === "right"
+        ) {
+          outlineSide = settings.outlineSide;
         }
         // Load document list sort settings
         docSortKey = coerceDocSortKey(settings.docSortKey);
@@ -356,6 +365,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
           : {}),
         ...(tabBarGlassOpacity !== undefined ? { tabBarGlassOpacity } : {}),
         ...(tabBarPosition !== undefined ? { tabBarPosition } : {}),
+        ...(outlineSide !== undefined ? { outlineSide } : {}),
         ...(keyboardShortcuts !== undefined ? { keyboardShortcuts } : {}),
         ...(globalShortcuts !== undefined ? { globalShortcuts } : {}),
         ...(browserSearchEngine !== undefined ? { browserSearchEngine } : {}),

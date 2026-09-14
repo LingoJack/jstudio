@@ -314,6 +314,8 @@ export const translations = {
     "outline.empty": "文档中暂无标题",
     "outline.expand": "展开",
     "outline.collapse": "折叠",
+    "outline.tabTree": "目录树",
+    "outline.tabOutline": "文档大纲",
     "outline.show": "显示大纲",
     "outline.hide": "隐藏大纲",
     "outline.pin": "固定大纲",
@@ -453,6 +455,12 @@ export const translations = {
     "appearance.darkDesc": "始终使用深色主题",
     "appearance.system": "跟随系统",
     "appearance.systemDesc": "自动匹配操作系统外观",
+
+    "general.outlineSide": "文档大纲位置",
+    "general.outlineSideDesc":
+      "选择文档大纲面板位于编辑器哪一侧；置于左侧时，左栏顶部可在目录树与文档大纲之间切换",
+    "general.outlineSide_left": "左侧",
+    "general.outlineSide_right": "右侧",
 
     "appearance.activityBarBorder": "图标边框",
     "appearance.activityBarBorderDesc": "在选中的侧边栏图标上显示彩色边框",
@@ -1282,6 +1290,8 @@ export const translations = {
     "outline.empty": "No headings in this document",
     "outline.expand": "Expand",
     "outline.collapse": "Collapse",
+    "outline.tabTree": "Folder Tree",
+    "outline.tabOutline": "Outline",
     "outline.show": "Show outline",
     "outline.hide": "Hide outline",
     "outline.pin": "Pin Outline",
@@ -1428,6 +1438,12 @@ export const translations = {
     "appearance.darkDesc": "Always use the dark theme",
     "appearance.system": "System",
     "appearance.systemDesc": "Automatically match the OS appearance",
+
+    "general.outlineSide": "Outline Panel Side",
+    "general.outlineSideDesc":
+      "Choose which side of the editor the outline panel docks to; when left, the left column top toggles between folder tree and outline",
+    "general.outlineSide_left": "Left",
+    "general.outlineSide_right": "Right",
     "appearance.activityBarBorder": "Icon Border",
     "appearance.activityBarBorderDesc":
       "Show a colored border on the selected sidebar icon",

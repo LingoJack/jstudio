@@ -37,6 +37,14 @@ export type EditorCursorStyle = 'bar' | 'block' | 'underline';
 export type SidebarPinMode = 'hover' | 'open' | 'collapsed';
 
 /**
+ * Which side of the editor the document outline panel docks to.
+ * - 'right' - outline sits to the right of the editor (classic, pin-toggled)
+ * - 'left'  - outline moves into the left column, where a segmented toggle
+ *             switches between the folder tree and the outline
+ */
+export type OutlineSide = 'left' | 'right';
+
+/**
  * Identifiers for items that can appear in the left Activity Bar.
  * The array order in `ActivityBarItemConfig[]` determines display order.
  */
@@ -161,6 +169,8 @@ export interface AppSettings {
   terminalFontWeight?: 'normal' | 'bold';
   /** Tab bar position - 'top' or 'bottom' (default: 'bottom') */
   tabBarPosition?: 'top' | 'bottom';
+  /** Which side of the editor the outline panel docks to (default: 'right') */
+  outlineSide?: OutlineSide;
   /** User-customized keyboard shortcut overrides - see lib/shortcuts.ts */
   keyboardShortcuts?: Record<string, string>;
   /** OS-level global shortcut configs - see lib/shortcuts/globalShortcuts.ts */
