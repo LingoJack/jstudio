@@ -1554,7 +1554,9 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   background: var(--vscode-menu-background, var(--vscode-editor-background));
   border: 1px solid var(--vscode-menu-border, rgba(0, 0, 0, 0.12));
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  /* Soft lift only — the 1px border carries the edge; a heavy shadow reads
+     out of place against the app's flat, border-led floating UI. */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   z-index: 100;
 }
 
@@ -1565,7 +1567,7 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   background: var(--vscode-menu-background, var(--vscode-editor-background));
   border: 1px solid var(--vscode-menu-border, rgba(0, 0, 0, 0.12));
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   padding: 4px;
 }
 
@@ -1573,7 +1575,7 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .dark .editor-toolbar,
 .dark .editor-toolbar-menu {
   border-color: var(--vscode-menu-border, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* ─── Editor Toolbar Button (unified) ─────────────────────────────────────
