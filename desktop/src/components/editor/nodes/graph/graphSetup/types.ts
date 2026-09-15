@@ -11,6 +11,8 @@ export interface GraphSetupContext {
   darkModeRef: RefObject<boolean>;
   autoActivationRef: RefObject<boolean>;
   applyingRef: RefObject<boolean>;
+  // true 期间程序化样式写入不进撤销历史（自动上色预览的瞬时上色/回滚）。
+  undoSuspendedRef: RefObject<boolean>;
   initialSnapshotRef: RefObject<string>;
   showGridRef: RefObject<boolean>;
   pendingShapeRef: RefObject<GraphNodeShape | null>;

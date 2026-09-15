@@ -57,6 +57,7 @@ export interface UseGraphInitParams {
   darkModeRef: RefObject<boolean>;
   autoActivationRef: RefObject<boolean>;
   applyingRef: RefObject<boolean>;
+  undoSuspendedRef: RefObject<boolean>;
   initialSnapshotRef: RefObject<string>;
   showGridRef: RefObject<boolean>;
   pendingShapeRef: RefObject<GraphNodeShape | null>;
@@ -87,6 +88,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     darkModeRef,
     autoActivationRef,
     applyingRef,
+    undoSuspendedRef,
     initialSnapshotRef,
     showGridRef,
     pendingShapeRef,
@@ -152,6 +154,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       darkModeRef,
       autoActivationRef,
       applyingRef,
+      undoSuspendedRef,
       initialSnapshotRef,
       showGridRef,
       pendingShapeRef,

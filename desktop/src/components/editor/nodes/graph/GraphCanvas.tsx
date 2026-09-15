@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Graph, UndoManager, type CellStyle } from "@maxgraph/core";
+import { Graph, UndoManager, type Cell, type CellStyle } from "@maxgraph/core";
 import "@maxgraph/core/css/common.css";
 
 import { GraphToolbar } from "./GraphToolbar";
@@ -48,6 +48,15 @@ import {
 } from "./graphHelpers";
 import MermaidImportDialog from "./MermaidImportDialog";
 import AIGraphImportDialog from "./AIGraphImportDialog";
+import GraphAutoColorDialog from "./GraphAutoColorDialog";
+import {
+  applyAutoFillColors,
+  assignAutoColors,
+  captureCellStyles,
+  collectAutoColorCells,
+  restoreCellStyles,
+} from "./graphAutoColor";
+import { toast } from "../../../../lib/core/toast";
 import {
   fontColorFor,
   DEFAULT_MINDMAP_SCHEME,
@@ -235,6 +244,8 @@ export function GraphCanvas({
   const lastEmittedRef = useRef(initialSnapshot);
   // 标记"正在以编程方式灌入快照"，避免回灌触发的 model change 又反向 emit 一次。
   const applyingRef = useRef(false);
+  // true 期间程序化样式写入不进撤销历史（自动上色预览的瞬时上色/回滚）。
+  const undoSuspendedRef = useRef(false);
   // showGrid 的 ref，供 emitSnapshot 读取最新值（无需进 emit 的依赖数组）。
   const showGridRef = useRef(showGrid);
   showGridRef.current = showGrid;
@@ -314,6 +325,7 @@ export function GraphCanvas({
     darkModeRef,
     autoActivationRef,
     applyingRef,
+    undoSuspendedRef,
     initialSnapshotRef,
     showGridRef,
     pendingShapeRef,
@@ -683,6 +695,75 @@ export function GraphCanvas({
     setMoreMenuOpen,
   });
 
+  // ── 自动上色（预览 → 应用 / 换一批 / 取消） ─────────────────────
+  const [autoColorOpen, setAutoColorOpen] = useState(false);
+  const [autoColorPreview, setAutoColorPreview] = useState<string | null>(null);
+  const [autoColorPalette, setAutoColorPalette] = useState<string[]>([]);
+  const autoColorAssignmentRef = useRef<Map<Cell, string> | null>(null);
+
+  // 生成一版上色方案并出预览：瞬时上色 → 序列化 SVG → 还原（undo 挂起 +
+  // emit 抑制，模型零残留）；"换一批"即重新洗牌色板再走一遍。
+  const runAutoColorPreview = useCallback(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const cells = collectAutoColorCells(graph);
+    if (cells.length === 0) {
+      toast.info('画布上没有可自动上色的矩形 / 圆角矩形 / 菱形');
+      return;
+    }
+    const assignment = assignAutoColors(graph, cells, darkModeRef.current);
+    if (assignment.size === 0) {
+      toast.info('画布上没有可自动上色的矩形 / 圆角矩形 / 菱形');
+      return;
+    }
+    const originals = captureCellStyles([...assignment.keys()]);
+    let preview: { svgString: string } | null = null;
+    undoSuspendedRef.current = true;
+    applyingRef.current = true;
+    try {
+      graph.batchUpdate(() => {
+        applyAutoFillColors(graph, assignment, darkModeRef.current);
+      });
+      preview = buildExportSvg();
+    } finally {
+      graph.batchUpdate(() => {
+        restoreCellStyles(graph, originals);
+      });
+      undoSuspendedRef.current = false;
+      applyingRef.current = false;
+    }
+    if (!preview) {
+      toast.error('生成上色预览失败');
+      return;
+    }
+    autoColorAssignmentRef.current = assignment;
+    setAutoColorPalette([...new Set(assignment.values())]);
+    setAutoColorPreview(preview.svgString);
+    setAutoColorOpen(true);
+  }, [buildExportSvg]);
+
+  // 应用：方案真正写回模型（单次 batchUpdate，一步可撤销），并立即回传快照。
+  const handleAutoColorApply = useCallback(() => {
+    const graph = graphRef.current;
+    const assignment = autoColorAssignmentRef.current;
+    if (!graph || !assignment || assignment.size === 0) return;
+    graph.batchUpdate(() => {
+      applyAutoFillColors(graph, assignment, darkModeRef.current);
+    });
+    autoColorAssignmentRef.current = null;
+    setAutoColorOpen(false);
+    setAutoColorPreview(null);
+    emitNowRef.current?.();
+    toast.success('自动上色已应用');
+  }, []);
+
+  // 取消：预览期间模型从未持久化（瞬时上色已还原），直接丢弃方案。
+  const handleAutoColorClose = useCallback(() => {
+    autoColorAssignmentRef.current = null;
+    setAutoColorOpen(false);
+    setAutoColorPreview(null);
+  }, []);
+
   /* -------------------------------------------------------------- */
   /* 工具栏按钮定义                                                  */
   /* -------------------------------------------------------------- */
@@ -763,8 +844,19 @@ export function GraphCanvas({
           onExportSvg={handleExportSvg}
           onCopyImage={handleCopyImage}
           onCopySvg={handleCopySvg}
+          onAutoColor={runAutoColorPreview}
         />
       )}
+
+      {/* 自动上色预览弹窗 */}
+      <GraphAutoColorDialog
+        open={autoColorOpen}
+        previewSvg={autoColorPreview}
+        palette={autoColorPalette}
+        onReroll={runAutoColorPreview}
+        onApply={handleAutoColorApply}
+        onClose={handleAutoColorClose}
+      />
 
       {/* Mermaid 导入对话框 */}
       <MermaidImportDialog

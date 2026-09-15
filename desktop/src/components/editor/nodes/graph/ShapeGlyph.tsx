@@ -1,6 +1,39 @@
 import type { GraphNodeShape } from './graphSnapshot';
 
 /* ------------------------------------------------------------------ */
+/* AutoColorGlyph — 自动上色按钮图标                                    */
+/*                                                                    */
+/* 圆角矩形 + 菱形各带一色（主题 charts 色，随明暗主题适配），直接表达  */
+/* "给矩形/菱形上不同色"；与填充色选择器的 Palette 图标区分开。         */
+/* ------------------------------------------------------------------ */
+
+export function AutoColorGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect
+        x="1"
+        y="1.5"
+        width="8"
+        height="5.5"
+        rx="1.5"
+        fill="var(--vscode-charts-blue)"
+        fillOpacity={0.7}
+        stroke="currentColor"
+        strokeWidth={1.5}
+      />
+      <path
+        d="M11.5 6.8 L15.7 11 L11.5 15.2 L7.3 11 Z"
+        fill="var(--vscode-charts-orange)"
+        fillOpacity={0.7}
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* ShapeGlyph — 工具栏按钮上的真实形状预览                             */
 /*                                                                    */
 /* 直接画出对应形状的样貌（而非 lucide 抽象图标），用 currentColor      */

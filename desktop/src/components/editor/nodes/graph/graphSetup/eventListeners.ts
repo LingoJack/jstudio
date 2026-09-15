@@ -24,6 +24,9 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
   const undoManager = new UndoManager();
   ctx.undoManagerRef.current = undoManager;
   const undoListener = (_sender: unknown, evt: EventObject) => {
+    // 自动上色预览的瞬时写入（上色→序列化→还原）不进撤销历史；
+    // 真正入栈的是用户点击"应用"后的那一次批量写入。
+    if (ctx.undoSuspendedRef.current) return;
     undoManager.undoableEditHappened(evt.getProperty('edit'));
   };
   graph.getDataModel().addListener(InternalEvent.UNDO, undoListener);

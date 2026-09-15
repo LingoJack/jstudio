@@ -23,7 +23,7 @@ import {
   Braces,
   FlipVertical2,
 } from "lucide-react";
-import { ShapeGlyph } from "./ShapeGlyph";
+import { ShapeGlyph, AutoColorGlyph } from "./ShapeGlyph";
 import { shapeTitleMap } from "./shapeMenuData";
 import { GraphShapesMenu } from "./GraphShapesMenu";
 import { GraphFillPopover } from "./GraphFillPopover";
@@ -47,6 +47,9 @@ export interface GraphToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onDelete: () => void;
+
+  // 自动上色（相邻不同色，预览后应用）
+  onAutoColor: () => void;
 
   // 花括号分组（选中 >=1 个 vertex 时显示）
   canAddBrace: boolean;
@@ -115,6 +118,7 @@ export function GraphToolbar(props: GraphToolbarProps) {
     onUndo,
     onRedo,
     onDelete,
+    onAutoColor,
     canAddBrace,
     onAddBrace,
     braceSelected,
@@ -218,6 +222,15 @@ export function GraphToolbar(props: GraphToolbarProps) {
         onClick={onDelete}
       >
         <Trash2 size={16} />
+      </button>
+      <div className="jgraph-tool-sep" />
+      <button
+        type="button"
+        className="jgraph-tool-btn"
+        title="自动上色：矩形/圆角矩形/菱形相邻且同层不同色，先预览，可换一批或应用"
+        onClick={onAutoColor}
+      >
+        <AutoColorGlyph />
       </button>
       {canAddBrace && (
         <>
