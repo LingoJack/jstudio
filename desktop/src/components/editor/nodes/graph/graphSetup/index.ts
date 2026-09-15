@@ -5,6 +5,7 @@ export { setupInteractionConfig } from './interactionConfig';
 export { setupBorderHitTest } from './borderHitTest';
 export { setupDefaultStyles } from './defaultStyles';
 export { setupEventListeners } from './eventListeners';
+export { setupLabelTextSelection } from './labelTextSelection';
 export { setupSnapshotLoad } from './snapshotLoad';
 export { setupDragDraw } from './dragDraw';
 export { setupWheelZoom } from './wheelZoom';

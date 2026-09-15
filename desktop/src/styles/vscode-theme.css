@@ -3931,6 +3931,21 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   touch-action: none;
 }
 
+/* 画板内恢复原生文字选区高亮：上方的 .ProseMirror ::selection { background:
+   transparent } 是全局恒定规则，画板嵌在编辑器内会继承到透明选区，导致
+   图形标签拖选高亮（含双击进入的内联文本编辑器）不可见。本规则更靠后、
+   同特异性，覆盖之。 */
+.jgraph-canvas-root ::selection {
+  background: var(--vscode-editor-selectionBackground);
+}
+
+/* 图形标签文字区显示文本光标，提示可拖选/编辑（标签内容由 maxGraph 以
+   内联样式渲染，无稳定 class，pointer-events: all 是其内容层的特征值；
+   容器其余部分不受影响，仍由引擎按 hover 对象设置 move/crosshair）。 */
+.jgraph-surface div[style*="pointer-events: all"] {
+  cursor: text;
+}
+
 /* 网格关闭：去掉底纹（引擎的网格吸附也一并由 setGridEnabled 关闭） */
 .jgraph-canvas-root.is-grid-off .jgraph-surface,
 .jgraph-canvas-root.is-grid-off.is-dark .jgraph-surface {
