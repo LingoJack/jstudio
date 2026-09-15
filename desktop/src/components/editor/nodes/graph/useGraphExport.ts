@@ -16,6 +16,7 @@ import { toast } from '../../../../lib/core/toast';
 import { parseGraphSnapshot } from './graphSnapshot';
 import { applySnapshotToGraph } from './graphModel';
 import { ZOOM_MIN, ZOOM_MAX } from './graphConstants';
+import { getCanvasBackgroundColor } from './graphTheme';
 
 export interface UseGraphExportParams {
   graphRef: RefObject<Graph | null>;
@@ -165,7 +166,9 @@ export function useGraphExport({
     const result = buildExportSvg();
     if (!result) return;
     try {
-      const bg = darkModeRef.current ? '#1e1e1e' : '#ffffff';
+      // 底色与标签遮线底色（labelBackgroundColor = 画布底色）保持一致，
+      // 否则画布上看不见的标签底色块会在导出图上显形，看似文字被选中。
+      const bg = getCanvasBackgroundColor(darkModeRef.current);
       const blob = await svgToPngBlob(result.svgString, result.width, result.height, bg);
       await saveBlob(blob, `diagram-${Date.now()}.png`, 'PNG', ['png']);
     } catch (err) {
@@ -178,7 +181,8 @@ export function useGraphExport({
     const result = buildExportSvg();
     if (!result) return;
     try {
-      const bg = darkModeRef.current ? '#1e1e1e' : '#ffffff';
+      // 同 handleExportPng：底色与标签遮线底色一致，避免标签底色块显形。
+      const bg = getCanvasBackgroundColor(darkModeRef.current);
       const blob = await svgToPngBlob(result.svgString, result.width, result.height, bg);
       await copyImageToClipboard(blob);
       toast.success('图片已复制到剪贴板');

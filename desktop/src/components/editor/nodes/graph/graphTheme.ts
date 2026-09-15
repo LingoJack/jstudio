@@ -586,6 +586,16 @@ export function getLabelBackgroundColor(dark: boolean): string {
   return readEditorBackground(dark);
 }
 
+/**
+ * 获取画布背景色 — 导出/复制 PNG 的底色用它，而不是硬编码 #ffffff/#1e1e1e。
+ * 标签遮线底色 = 画布底色（getLabelBackgroundColor），若导出底色与它不一致，
+ * 画布上看不见的标签底色块会在导出图上显形（浅色 #f8f8f8 块落在 #ffffff 上，
+ * 看似文字被选中）。
+ */
+export function getCanvasBackgroundColor(dark: boolean): string {
+  return readEditorBackground(dark);
+}
+
 /** 获取连线颜色 — 跟随主题连线色 --vscode-diagram-edge（动画圆点继承连线 stroke，自动跟随） */
 export function getEdgeColor(dark: boolean): string {
   return readThemeEdgeColor(dark);
