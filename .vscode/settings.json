@@ -1,0 +1,9 @@
+{
+    // 每级缩进的像素宽度，默认 8
+    "workbench.tree.indent": 16,
+    // 是否渲染缩进参考线
+    "workbench.tree.renderIndentGuides": "none",
+    "explorer.compactFolders": false,
+    "editor.smoothScrolling": true,
+    "workbench.list.smoothScrolling": true,
+}
