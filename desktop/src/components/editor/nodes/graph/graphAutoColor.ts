@@ -20,9 +20,16 @@
 import type { Cell, CellStyle, Graph } from '@maxgraph/core';
 import { fontColorFor } from './graphTheme';
 import { owningLifeline } from './sequenceInteraction';
+import { collectTextFitCells } from './graphTextFit';
 
-/** 参与自动上色的形状（maxGraph shape 名）。'rectangle' 覆盖矩形与圆角矩形；'lifeline' 只上色头部方块。 */
-const AUTO_COLOR_SHAPES = new Set(['rectangle', 'rhombus', 'lifeline']);
+/**
+ * 收集画布上参与自动上色的 cell（递归含泳道等容器的子级）。
+ * 参与集合与文字适配一致（矩形/圆角矩形/菱形/生命线，排除 topic），
+ * 直接复用 graphTextFit 的收集器。
+ */
+export function collectAutoColorCells(graph: Graph): Cell[] {
+  return collectTextFitCells(graph);
+}
 
 /** 自动上色色板（浅色 / 暗色各一套，取值均来自 FILL_COLOR_PAIRS 色对，主题切换自动互换）。 */
 const AUTO_FILL_COLORS_LIGHT = [
@@ -41,31 +48,6 @@ const AUTO_FILL_COLORS_DARK = [
   '#581c87',
   '#7c2d12',
 ];
-
-/** 判断 cell 是否参与自动上色。 */
-function isAutoColorable(cell: Cell): boolean {
-  if (!cell.isVertex()) return false;
-  const style = cell.getStyle() as CellStyle & Record<string, unknown>;
-  if (typeof style.shape !== 'string' || !AUTO_COLOR_SHAPES.has(style.shape)) {
-    return false;
-  }
-  // 思维导图 topic 有独立配色体系（mmScheme/mmDepth），不参与。
-  if (style.isTopic) return false;
-  return true;
-}
-
-/** 收集画布上参与自动上色的 cell（递归含泳道等容器的子级）。 */
-export function collectAutoColorCells(graph: Graph): Cell[] {
-  const result: Cell[] = [];
-  const walk = (parent: Cell) => {
-    for (const cell of graph.getChildCells(parent, true, false)) {
-      if (isAutoColorable(cell)) result.push(cell);
-      walk(cell);
-    }
-  };
-  walk(graph.getDefaultParent());
-  return result;
-}
 
 /** Fisher-Yates 洗牌（返回新数组）。 */
 function shuffled<T>(input: T[]): T[] {

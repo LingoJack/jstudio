@@ -45,6 +45,7 @@ import {
   setupSnapshotLoad,
   setupDragDraw,
   setupWheelZoom,
+  setupTextAutoSize,
 } from "./graphSetup";
 import type { GraphSetupContext, GraphSetupFn } from "./graphSetup";
 
@@ -188,6 +189,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       setupSnapshotLoad,
       setupDragDraw,
       setupWheelZoom,
+      setupTextAutoSize,
     ];
     const cleanups: (() => void)[] = [];
     for (const fn of setupFns) {

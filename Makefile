@@ -1,13 +1,16 @@
 # jstudio monorepo 根 Makefile
-# 仅提供仓库级操作（git / 跨子项目格式化与检查）。
-# 各子项目的专属命令（dev/build/install/test 等）仍在各自目录的 Makefile 里。
+# 提供仓库级操作（git / 跨子项目格式化与检查）、desktop 桌面应用的常用命令
+# 与制品代理（dev/build/install/版本管理等，透传到 desktop/），以及镜像与部署。
+# backend / miniprogram 等其他子项目的专属命令仍在各自目录的 Makefile 里。
 SHELL := $(shell which bash 2>/dev/null || echo /bin/bash)
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
 .PHONY: help \
         push push-non-ai commit pull status \
-        fmt lint image image-push deploy
+        fmt lint image image-push deploy \
+        dev build install test pre-commit \
+        bump-version set-version clean
 
 # ============================================
 # 帮助信息
@@ -21,8 +24,6 @@ help: ## 显示此帮助信息
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "子项目命令:"
-	@echo "  cd desktop && make dev       # Electron 开发模式"
-	@echo "  cd desktop && make build     # 构建桌面应用"
 	@echo "  cd backend && make run       # 后端本地运行"
 	@echo "  cd minio && podman-compose up -d  # 启动 MinIO"
 	@echo "  cd miniprogram && make dev   # 小程序开发模式（微信开发者工具导入 miniprogram/）"
@@ -93,3 +94,30 @@ image-push: ## 构建并推送 backend 镜像（make image-push REGISTRY_HOST=<�
 
 deploy: ## 部署到 k3s（make deploy REGISTRY_HOST=... DB_HOST=... DB_PASSWORD=...）
 	@$(MAKE) -C deploy install
+
+# ============================================
+# 桌面应用（透传到 desktop/，变量随命令行传入，如 V=1.2.3）
+# ============================================
+dev: ## 启动桌面应用开发模式（Electron + Vite 热重载）
+	@$(MAKE) -C desktop dev
+
+build: ## 构建桌面应用（.app/.dmg，产物在 desktop/dist-electron-builder/）
+	@$(MAKE) -C desktop build
+
+install: ## 安装桌面应用到系统（macOS → /Applications，含 j cli 检查）
+	@$(MAKE) -C desktop install
+
+test: ## 运行桌面应用测试（前端 + Rust）
+	@$(MAKE) -C desktop test
+
+pre-commit: ## 桌面应用提交前检查门（fmt + lint + test）
+	@$(MAKE) -C desktop pre-commit
+
+bump-version: ## 递增桌面应用 patch 版本号（同步 package.json 与 Cargo.toml）
+	@$(MAKE) -C desktop bump-version
+
+set-version: ## 设置桌面应用版本号（make set-version V=1.2.3）
+	@$(MAKE) -C desktop set-version
+
+clean: ## 清理桌面应用构建产物（前端 dist + Rust target + jcli）
+	@$(MAKE) -C desktop clean

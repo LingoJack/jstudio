@@ -17,6 +17,7 @@ import { parseGraphSnapshot } from './graphSnapshot';
 import { applySnapshotToGraph } from './graphModel';
 import { ZOOM_MIN, ZOOM_MAX } from './graphConstants';
 import { getCanvasBackgroundColor } from './graphTheme';
+import { collectTextFitCells, fitCellsToText } from './graphTextFit';
 
 export interface UseGraphExportParams {
   graphRef: RefObject<Graph | null>;
@@ -239,6 +240,9 @@ export function useGraphExport({
     try {
       graph.batchUpdate(() => {
         applySnapshotToGraph(graph, parsed, darkModeRef.current);
+        // 导入图按文字适配框体：mermaid/AI 生成端给的尺寸常小于文字需要，
+        // 在导入同一 batch 内放大贴合（同一撤销步，撤销即整次导入一起回退）。
+        fitCellsToText(graph, collectTextFitCells(graph));
       });
       // 导入后自适应显示
       const hasCells = graph.getChildVertices(graph.getDefaultParent()).length > 0;

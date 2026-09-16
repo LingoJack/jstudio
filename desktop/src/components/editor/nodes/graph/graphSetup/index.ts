@@ -9,4 +9,5 @@ export { setupLabelTextSelection } from './labelTextSelection';
 export { setupSnapshotLoad } from './snapshotLoad';
 export { setupDragDraw } from './dragDraw';
 export { setupWheelZoom } from './wheelZoom';
+export { setupTextAutoSize } from '../graphTextFit';
 export type { GraphSetupContext, GraphSetupFn } from './types';
