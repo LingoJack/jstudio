@@ -81,7 +81,7 @@ export default function GraphAutoColorDialog({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <p className="text-xs text-[var(--vscode-descriptionForeground)] mb-3">
-            相邻与同层的图形不同色。仅矩形、圆角矩形与菱形参与上色，连线与标签保持原样；不满意可换一批。
+            相邻与同层的图形不同色。仅矩形、圆角矩形、菱形与时序图生命线方块参与上色，连线、激活框与标签保持原样；不满意可换一批。
           </p>
           <div className="rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] p-3 flex items-center justify-center">
             {previewSvg ? (

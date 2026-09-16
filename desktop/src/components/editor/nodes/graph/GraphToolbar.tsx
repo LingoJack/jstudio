@@ -227,7 +227,7 @@ export function GraphToolbar(props: GraphToolbarProps) {
       <button
         type="button"
         className="jgraph-tool-btn"
-        title="自动上色：矩形/圆角矩形/菱形相邻且同层不同色，先预览，可换一批或应用"
+        title="自动上色：矩形/圆角矩形/菱形/时序图生命线相邻且同层不同色，先预览，可换一批或应用"
         onClick={onAutoColor}
       >
         <AutoColorGlyph />

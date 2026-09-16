@@ -1,10 +1,11 @@
 /**
  * graphAutoColor - 画板自动上色（用户触发，先预览再应用）。
  *
- * 规则：对画布上的矩形 / 圆角矩形 / 菱形做图着色——相邻（有连线直连）
- * 的图形不同色（硬约束），同层（连线方向上的同一深度，即流程图的同一级）
- * 的图形也不同色（软约束，色板富余时优先保证）。思维导图 topic（有自己
- * 的配色体系）、时序图生命线 / 活动块、文本 / 注释 / 泳道等其他形状不参与。
+ * 规则：对画布上的矩形 / 圆角矩形 / 菱形 / 时序图生命线方块做图着色——
+ * 相邻（有连线直连）的图形不同色（硬约束），同层（连线方向上的同一深度，
+ * 即流程图的同一级）的图形也不同色（软约束，色板富余时优先保证）。
+ * 思维导图 topic（有自己的配色体系）、激活框、文本 / 注释 / 泳道等
+ * 其他形状不参与。
  *
  * 算法：Welsh-Powell 贪心着色——按度数从高到低，候选色先排除相邻已用色
  * （硬约束），再排除同层已用色（软约束），最后取全局用量最少的颜色
@@ -18,9 +19,10 @@
 
 import type { Cell, CellStyle, Graph } from '@maxgraph/core';
 import { fontColorFor } from './graphTheme';
+import { owningLifeline } from './sequenceInteraction';
 
-/** 参与自动上色的形状（maxGraph shape 名）。'rectangle' 覆盖矩形与圆角矩形。 */
-const AUTO_COLOR_SHAPES = new Set(['rectangle', 'rhombus']);
+/** 参与自动上色的形状（maxGraph shape 名）。'rectangle' 覆盖矩形与圆角矩形；'lifeline' 只上色头部方块。 */
+const AUTO_COLOR_SHAPES = new Set(['rectangle', 'rhombus', 'lifeline']);
 
 /** 自动上色色板（浅色 / 暗色各一套，取值均来自 FILL_COLOR_PAIRS 色对，主题切换自动互换）。 */
 const AUTO_FILL_COLORS_LIGHT = [
@@ -126,8 +128,10 @@ export function assignAutoColors(
     outgoing.set(cell, []);
   }
   for (const edge of graph.getAllEdges(cells)) {
-    const src = edge.getTerminal(true);
-    const dst = edge.getTerminal(false);
+    // 时序图消息的两端常落在激活框上，先归位到所属生命线再建邻接/分层，
+    // 流程图等非时序端点原样保留（owningLifeline 对非时序形状返回 null）。
+    const src = owningLifeline(graph, edge.getTerminal(true)) ?? edge.getTerminal(true);
+    const dst = owningLifeline(graph, edge.getTerminal(false)) ?? edge.getTerminal(false);
     if (!src || !dst || src === dst) continue;
     if (!cellSet.has(src) || !cellSet.has(dst)) continue;
     adjacency.get(src)!.add(dst);

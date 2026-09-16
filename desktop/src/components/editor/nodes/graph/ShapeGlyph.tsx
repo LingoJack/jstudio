@@ -3,31 +3,59 @@ import type { GraphNodeShape } from './graphSnapshot';
 /* ------------------------------------------------------------------ */
 /* AutoColorGlyph — 自动上色按钮图标                                    */
 /*                                                                    */
-/* 圆角矩形 + 菱形各带一色（主题 charts 色，随明暗主题适配），直接表达  */
-/* "给矩形/菱形上不同色"；与填充色选择器的 Palette 图标区分开。         */
+/* 滚筒刷 + 两段彩色漆痕：滚筒表达"刷色"动作，双色漆痕表达"多色分配"，  */
+/* 语义直给；与填充色选择器的 Palette 图标、形状模具 glyph 均不混淆。   */
+/* 漆痕用主题 charts 色，随明暗主题适配。                               */
 /* ------------------------------------------------------------------ */
 
 export function AutoColorGlyph() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      {/* 滚筒筒体 */}
       <rect
-        x="1"
-        y="1.5"
-        width="8"
-        height="5.5"
-        rx="1.5"
-        fill="var(--vscode-charts-blue)"
-        fillOpacity={0.7}
+        x="1.75"
+        y="1.75"
+        width="8.5"
+        height="4.5"
+        rx="1.2"
         stroke="currentColor"
         strokeWidth={1.5}
       />
+      {/* 支架 + 手柄 */}
       <path
-        d="M11.5 6.8 L15.7 11 L11.5 15.2 L7.3 11 Z"
-        fill="var(--vscode-charts-orange)"
-        fillOpacity={0.7}
+        d="M10.25 4 H12.75 V7.5"
         stroke="currentColor"
         strokeWidth={1.5}
+        strokeLinecap="round"
         strokeLinejoin="round"
+      />
+      <line
+        x1="12.75"
+        y1="7.5"
+        x2="12.75"
+        y2="10"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      {/* 刷出的两段彩色漆痕 */}
+      <line
+        x1="1.5"
+        y1="13"
+        x2="5.25"
+        y2="13"
+        stroke="var(--vscode-charts-blue)"
+        strokeWidth={3}
+        strokeLinecap="round"
+      />
+      <line
+        x1="8.75"
+        y1="13"
+        x2="12.5"
+        y2="13"
+        stroke="var(--vscode-charts-orange)"
+        strokeWidth={3}
+        strokeLinecap="round"
       />
     </svg>
   );

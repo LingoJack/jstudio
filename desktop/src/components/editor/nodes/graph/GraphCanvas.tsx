@@ -708,12 +708,12 @@ export function GraphCanvas({
     if (!graph) return;
     const cells = collectAutoColorCells(graph);
     if (cells.length === 0) {
-      toast.info('画布上没有可自动上色的矩形 / 圆角矩形 / 菱形');
+      toast.info('画布上没有可自动上色的图形');
       return;
     }
     const assignment = assignAutoColors(graph, cells, darkModeRef.current);
     if (assignment.size === 0) {
-      toast.info('画布上没有可自动上色的矩形 / 圆角矩形 / 菱形');
+      toast.info('画布上没有可自动上色的图形');
       return;
     }
     const originals = captureCellStyles([...assignment.keys()]);
