@@ -383,6 +383,66 @@ log.Errorf(ctx, "parse policy failed: %v", err)
 return err
 ```
 
+## error 变量声明一次，后续用 = 复用
+
+函数内 err 已经声明过，就不要再用 `:=` 反复重新声明，后续赋值直接 `err =`，判错写成 `if err = xxx; err != nil`
+后续步骤需要接收新返回值时，在 var 块预先声明变量，再 `xxx, err = ...` 赋值
+
+bad case
+
+```go
+// 每一步都 err :=，反复声明 err
+verify, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
+if err != nil {
+    return nil, coerr.Wrapf(err, code.IamStsServiceTokenIdsvcFailed, "verify platform client failed")
+}
+
+claims, err := s.oneID.VerifyToken(ctx, req.OneIDToken)
+if err != nil {
+    return nil, coerr.Wrapf(err, code.IamStsServiceTokenOneIDInvalid, "oneid token verify failed")
+}
+
+enterpriseID, err := s.resolveEnterpriseID(ctx, claims.TID)
+if err != nil {
+    return nil, err
+}
+```
+
+good case
+
+```go
+var (
+    claims       *oneid.Claims
+    enterpriseID string
+)
+
+verify, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
+if err != nil {
+    return nil, coerr.Wrapf(err, code.IamStsServiceTokenIdsvcFailed, "verify platform client failed")
+}
+
+claims, err = s.oneID.VerifyToken(ctx, req.OneIDToken)
+if err != nil {
+    return nil, coerr.Wrapf(err, code.IamStsServiceTokenOneIDInvalid, "oneid token verify failed")
+}
+
+enterpriseID, err = s.resolveEnterpriseID(ctx, claims.TID)
+if err != nil {
+    return nil, err
+}
+
+// 只返回 error 的调用，直接 if err = xxx; err != nil
+if err = assertConsistency(ctx, claims); err != nil {
+    return nil, err
+}
+```
+
+例外，以下场景允许 `:=`：
+
+1. 校验逻辑自包含在 if 作用域内，err 不需要带出该块，如 `if err := json.Unmarshal(raw, &rp); err != nil`，此时 `:=` 限制作用域反而更清晰，不必 var 预声明
+2. 循环体内的 err，每轮必须用新值，禁止复用外层 err（会残留上一轮的错误状态）
+3. 复用会让代码更难读时（如两次赋值相隔很远、中间穿插其他逻辑），以可读性优先
+
 ## context 一律第一个参数透传
 
 1. ctx 是函数第一个参数，命名 ctx
