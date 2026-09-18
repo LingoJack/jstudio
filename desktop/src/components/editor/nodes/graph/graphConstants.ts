@@ -172,8 +172,12 @@ function styleForShape(
       };
     // 连线类型：统一实线 + 圆点流动（流动由 CSS 动画驱动，见 vscode-theme.css）。
     // 箭头 marker 由 ConnectorShape.setDashed(false) 渲染为实线，不受流动影响。
+    // 直线类边必须显式 edgeStyle: 'none'——样式合并时全局默认 obstacleEdgeStyle
+    // 会从缺省键漏进来把直线掰成折线（'none' 在合并时删除该键，
+    // 同 graphModel.buildEdgeStyle 的注释）。
     case "edge-line":
       return {
+        edgeStyle: "none",
         strokeColor: pal.stroke,
         strokeWidth: 1.5,
         endArrow: "classic",
@@ -189,13 +193,20 @@ function styleForShape(
       };
     case "edge-dashed":
       return {
+        edgeStyle: "none",
         strokeColor: pal.stroke,
         strokeWidth: 1.5,
+        dashed: true,
         endArrow: "classic",
         endSize: 8,
       };
     case "edge-no-arrow":
-      return { strokeColor: pal.stroke, strokeWidth: 1.5, endArrow: "none" };
+      return {
+        edgeStyle: "none",
+        strokeColor: pal.stroke,
+        strokeWidth: 1.5,
+        endArrow: "none",
+      };
     case "rectangle":
     default:
       return { ...base, shape: "rectangle" };

@@ -17,7 +17,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Graph, UndoManager, type Cell, type CellStyle } from "@maxgraph/core";
+import {
+  Graph,
+  InternalEvent,
+  UndoManager,
+  CellState,
+  type Cell,
+  type CellStyle,
+  type ConnectionHandler,
+} from "@maxgraph/core";
 import "@maxgraph/core/css/common.css";
 
 import { GraphToolbar } from "./GraphToolbar";
@@ -434,16 +442,68 @@ export function GraphCanvas({
     );
   }, []);
 
+  // ── 连线工具武装 ────────────────────────────────────────────
+  // 选中 edge-* 工具时立即覆写 ConnectionHandler.createEdgeState，让下一次
+  // 从节点拖出的连线使用所选样式；连线创建（CELL_CONNECTED）后恢复默认
+  // 正交并退出待绘制态（单次生效）。武装期间不拦截画布 mousedown
+  // （dragDraw 对 edge-* 放行），起线手势由 ConnectionHandler 正常接收。
+  const armedEdgeRef = useRef<{ restore: () => void } | null>(null);
+  const armPendingEdgeStyle = useCallback((shape: GraphNodeShape) => {
+    const graph = graphRef.current;
+    const connectionHandler = graph?.getPlugin<ConnectionHandler>(
+      "ConnectionHandler",
+    );
+    if (!graph || !connectionHandler) return;
+    // 重复选工具：先还原上一次武装，避免 restore 链式嵌套。
+    armedEdgeRef.current?.restore();
+    const edgeStyle = styleForShape(shape, darkModeRef.current);
+    const previousCreateEdgeState = connectionHandler.createEdgeState;
+    connectionHandler.createEdgeState = function () {
+      const edge = this.graph.createEdge(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        edgeStyle,
+      );
+      return new CellState(this.graph.view, edge, this.graph.getCellStyle(edge));
+    };
+    const restore = () => {
+      connectionHandler.createEdgeState = previousCreateEdgeState;
+      graph.removeListener(onConnected);
+      armedEdgeRef.current = null;
+    };
+    const onConnected = () => {
+      restore();
+      setPending(null);
+    };
+    graph.addListener(InternalEvent.CELL_CONNECTED, onConnected);
+    armedEdgeRef.current = { restore };
+  }, []);
+
   // 从下拉菜单 / LRU 选形状：记录 LRU + 设置 pending 态 + 关闭菜单。
   // metaKey=true（Cmd/Ctrl+click）且 shape 是 vertex 形状时进入批量累加模式：
   //   - 首次 Cmd+click：arm shape, count=1
   //   - 后续 Cmd+click：count++ 直至上限
   //   - plain click：保持原有 toggle 行为，并清零 count
-  // edge-* 形状走连线样式设置流程，不参与批量（无 vertex 创建）。
+  // edge-* 形状走连线样式武装流程，不参与批量（无 vertex 创建）。
   const handleSelectShape = useCallback(
     (shape: GraphNodeShape, metaKey: boolean = false) => {
       recordShapeUse(shape);
-      if (!shape.startsWith("edge-") && metaKey) {
+      // 连线工具分两类：正交折线附着式连线，选中即武装下一次连线的样式；
+      // 自由直线类（直线箭头/虚线/无箭头）走 dragDraw 拖框画 floating edge，
+      // 不附着图形，无需武装。均为单次生效。
+      if (shape.startsWith("edge-")) {
+        if (pendingBatchCountRef.current !== 0) setPendingBatchCount(0);
+        if (shape === "edge-ortho") {
+          armPendingEdgeStyle(shape);
+        }
+        setPending(shape);
+        setShapesMenuOpen(false);
+        return;
+      }
+      if (metaKey) {
         // Cmd+click 累加批量计数，保持菜单打开以便继续点击累加。
         // 菜单关闭交由 hover-leave 或拖框开始后的 focus 离开自然触发。
         if (pendingShapeRef.current === shape) {
@@ -461,7 +521,7 @@ export function GraphCanvas({
       togglePending(shape);
       setShapesMenuOpen(false);
     },
-    [recordShapeUse, setPending, setPendingBatchCount, togglePending],
+    [recordShapeUse, setPending, setPendingBatchCount, togglePending, armPendingEdgeStyle],
   );
 
   // 形状菜单 hover 展开：鼠标进入立即打开，离开延迟 200ms 关闭

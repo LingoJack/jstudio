@@ -100,9 +100,13 @@ export interface GraphNodeStyle {
 /** 一条连线。 */
 export interface GraphEdge {
   id: string;
-  /** 源 / 目标节点 id。 */
-  source: string;
-  target: string;
+  /**
+   * 源 / 目标节点 id。
+   * 自由直线箭头（floating edge，两端不附着图形）两者都缺省，
+   * 用 sourcePoint / targetPoint 定位。
+   */
+  source?: string;
+  target?: string;
   label?: string;
   /** 文字水平对齐（默认 center）。 */
   labelAlign?: LabelAlign;
@@ -131,6 +135,12 @@ export interface GraphEdge {
   /** 源端 / 目标端绝对 Y（activation resize 同步用，见 sequenceInteraction）。 */
   exitAbsY?: number;
   entryAbsY?: number;
+  /**
+   * 自由直线箭头（floating edge，两端不附着图形）的起点 / 终点（画布绝对坐标）。
+   * 与 source/target 互斥：有附着走端点 id，自由直线走这两个绝对点。
+   */
+  sourcePoint?: { x: number; y: number };
+  targetPoint?: { x: number; y: number };
 }
 
 /** 连线样式覆盖。 */

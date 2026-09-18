@@ -1,5 +1,4 @@
-import { CellState } from "@maxgraph/core";
-import type { ConnectionHandler, Cell } from "@maxgraph/core";
+import { type Cell, Point } from "@maxgraph/core";
 import {
   styleForShape,
   DEFAULT_SIZE,
@@ -12,6 +11,10 @@ import { SHAPE_ARC_SIZE, MINDMAP_ARC_SIZE } from "../graphTheme";
 import { logger } from "../../../../../lib/core/logger";
 import type { GraphNodeShape } from "../graphSnapshot";
 import type { GraphSetupFn } from "./types";
+
+/** 自由直线类连线工具：按下即起点、拖到终点松开，生成两端不附着图形的 floating edge。 */
+const isStraightEdgeShape = (shape: GraphNodeShape) =>
+  shape === "edge-line" || shape === "edge-dashed" || shape === "edge-no-arrow";
 
 export const setupDragDraw: GraphSetupFn = (ctx) => {
   const { graph, container } = ctx;
@@ -42,6 +45,15 @@ export const setupDragDraw: GraphSetupFn = (ctx) => {
         break;
       case "diamond":
         el = document.createElementNS(SVG_NS, "polygon");
+        break;
+      case "edge-line":
+      case "edge-dashed":
+      case "edge-no-arrow":
+        // 自由直线预览：直线段（虚线工具带 dash 提示），坐标由 onMouseMove 更新。
+        el = document.createElementNS(SVG_NS, "line");
+        if (shape === "edge-dashed") {
+          el.setAttribute("stroke-dasharray", "6 4");
+        }
         break;
       case "rounded":
       case "topic":
@@ -124,6 +136,9 @@ export const setupDragDraw: GraphSetupFn = (ctx) => {
   const onMouseDown = (e: MouseEvent) => {
     const shape = ctx.pendingShapeRef.current;
     if (!shape) return; // 未处于待绘制态，交给引擎正常处理
+    // 连线工具分两类：正交折线走 ConnectionHandler 附着式连线（不拦截，
+    // 从节点锚点起线）；自由直线类在此拦截，走拖框流程画 floating edge。
+    if (shape === "edge-ortho") return;
     if (e.button !== 0) return;
     // 拦截，阻止 maxGraph 的框选/平移接管本次拖拽。
     e.preventDefault();
@@ -154,6 +169,15 @@ export const setupDragDraw: GraphSetupFn = (ctx) => {
     preview.style.top = `${y}px`;
     preview.style.width = `${w}px`;
     preview.style.height = `${h}px`;
+    // 自由直线预览：起点固定、终点跟随鼠标（坐标相对预览框原点，不用归一化框）。
+    if (previewShapeEl && isStraightEdgeShape(shape)) {
+      const line = previewShapeEl as SVGLineElement;
+      line.setAttribute("x1", String(startClient.x - x));
+      line.setAttribute("y1", String(startClient.y - y));
+      line.setAttribute("x2", String(cur.x - x));
+      line.setAttribute("y2", String(cur.y - y));
+      return;
+    }
     applyPreviewSize(w, h, shape);
   };
 
@@ -172,31 +196,33 @@ export const setupDragDraw: GraphSetupFn = (ctx) => {
     const rawW = Math.abs(endPoint.x - startGraph.x);
     const rawH = Math.abs(endPoint.y - startGraph.y);
 
-    // 连线类型：不创建节点，直接退出，让用户手动从节点拖拽连线
-    // 连线工具只是改变 ConnectionHandler 的默认连线样式
-    if (shape.startsWith("edge-")) {
-      const connectionHandler =
-        graph.getPlugin<ConnectionHandler>("ConnectionHandler");
-      if (connectionHandler) {
-        // 设置默认连线样式，用户拖拽连线时会使用这个样式
-        const edgeStyle = styleForShape(shape, ctx.darkModeRef.current);
-        connectionHandler.createEdgeState = function () {
-          const edge = this.graph.createEdge(
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            edgeStyle,
-          );
-          return new CellState(
-            this.graph.view,
-            edge,
-            this.graph.getCellStyle(edge),
-          );
-        };
-      }
+    // 自由直线工具：按下为起点、拖到终点松开，生成两端不附着图形的
+    // floating edge（快照以 sourcePoint/targetPoint 持久化，见 graphModel）。
+    // 点击不拖（低于最小尺寸）不生成，仅退出待绘制态。
+    if (isStraightEdgeShape(shape)) {
       ctx.setPending(null);
+      if (rawW < MIN_DRAW_SIZE && rawH < MIN_DRAW_SIZE) return;
+      const parent = graph.getDefaultParent();
+      const id =
+        "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const p1 = new Point(snap(startGraph.x), snap(startGraph.y));
+      const p2 = new Point(snap(endPoint.x), snap(endPoint.y));
+      graph.batchUpdate(() => {
+        const edgeCell = graph.insertEdge({
+          parent,
+          id,
+          value: "",
+          style: styleForShape(shape, ctx.darkModeRef.current),
+        });
+        const geo = edgeCell.getGeometry();
+        if (geo) {
+          const newGeo = geo.clone();
+          newGeo.setTerminalPoint(p1, true);
+          newGeo.setTerminalPoint(p2, false);
+          graph.getDataModel().setGeometry(edgeCell, newGeo);
+        }
+        graph.setSelectionCell(edgeCell);
+      });
       return;
     }
 

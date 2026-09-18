@@ -325,8 +325,32 @@ export function applySnapshotToGraph(
     }
 
     for (const edge of snap.edges) {
-      const source = idToCell.get(edge.source);
-      const target = idToCell.get(edge.target);
+      // 自由直线箭头（floating edge）：两端无附着，按几何终点重建。
+      if (!edge.source && !edge.target) {
+        if (!edge.sourcePoint || !edge.targetPoint) continue;
+        const floatingCell = graph.insertEdge({
+          parent,
+          id: edge.id,
+          value: edge.label ?? '',
+          style: buildEdgeStyle(edge, dark),
+        });
+        const floatingGeo = floatingCell.getGeometry();
+        if (floatingGeo) {
+          const newGeo = floatingGeo.clone();
+          newGeo.setTerminalPoint(
+            new Point(edge.sourcePoint.x, edge.sourcePoint.y),
+            true,
+          );
+          newGeo.setTerminalPoint(
+            new Point(edge.targetPoint.x, edge.targetPoint.y),
+            false,
+          );
+          graph.getDataModel().setGeometry(floatingCell, newGeo);
+        }
+        continue;
+      }
+      const source = edge.source != null ? idToCell.get(edge.source) : undefined;
+      const target = edge.target != null ? idToCell.get(edge.target) : undefined;
       if (!source || !target) continue; // 跳过悬空连线
       const edgeCell = graph.insertEdge({
         parent,
@@ -444,8 +468,32 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
   for (const cell of edges) {
     const source = cell.getTerminal(true);
     const target = cell.getTerminal(false);
-    if (!source || !target) continue;
     const style = (cell.getStyle() as CellStyle) ?? {};
+    // 自由直线箭头（两端都无附着）：以 geometry 终点持久化，
+    // 否则会在下方 !source || !target 处被丢弃，保存后消失。
+    if (!source && !target) {
+      const geo = cell.getGeometry();
+      if (!geo?.sourcePoint || !geo.targetPoint) continue;
+      const floating: GraphEdge = {
+        id: String(cell.getId() ?? ''),
+        label: typeof cell.getValue() === 'string' ? (cell.getValue() as string) : '',
+        routing: 'straight',
+        sourcePoint: { x: geo.sourcePoint.x, y: geo.sourcePoint.y },
+        targetPoint: { x: geo.targetPoint.x, y: geo.targetPoint.y },
+      };
+      if (typeof style.endArrow === 'string') floating.endArrow = style.endArrow;
+      if (typeof style.startArrow === 'string') floating.startArrow = style.startArrow;
+      const fStyle: GraphEdge['style'] = {};
+      if (colorStr(style.strokeColor)) fStyle.stroke = colorStr(style.strokeColor);
+      if (typeof style.strokeWidth === 'number') fStyle.strokeWidth = style.strokeWidth;
+      if (typeof style.dashed === 'boolean') fStyle.dashed = style.dashed;
+      if (Object.keys(fStyle).length > 0) floating.style = fStyle;
+      const floatingLa = readLabelAlign(style);
+      if (floatingLa) floating.labelAlign = floatingLa;
+      outEdges.push(floating);
+      continue;
+    }
+    if (!source || !target) continue;
     const edge: GraphEdge = {
       id: String(cell.getId() ?? ''),
       source: String(source.getId() ?? ''),

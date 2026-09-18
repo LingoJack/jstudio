@@ -54,6 +54,7 @@ export function autoLayoutGraph(
     incoming.set(id, []);
   }
   for (const edge of edges) {
+    if (!edge.source || !edge.target) continue; // 自由直线箭头不参与布局
     if (outgoing.has(edge.source)) outgoing.get(edge.source)!.push(edge.target);
     if (incoming.has(edge.target)) incoming.get(edge.target)!.push(edge.source);
   }
@@ -175,7 +176,11 @@ export function autoLayoutSequence(
   // 2. 统计 lifeline 之间的消息数（用于计算生命线高度）
   const lifelineIds = new Set(lifelines.map((n) => n.id));
   const messageEdges = edges.filter(
-    (e) => lifelineIds.has(e.source) && lifelineIds.has(e.target),
+    (e) =>
+      e.source != null &&
+      e.target != null &&
+      lifelineIds.has(e.source) &&
+      lifelineIds.has(e.target),
   );
   const numMessages = Math.max(messageEdges.length, 1);
 
@@ -202,6 +207,7 @@ export function autoLayoutSequence(
   // 5. 构建邻接表：activation / other -> 关联的 lifeline
   const edgesByNode = new Map<string, { source: string; target: string }[]>();
   for (const e of edges) {
+    if (!e.source || !e.target) continue; // 自由直线箭头不参与时序布局
     for (const id of [e.source, e.target]) {
       if (!edgesByNode.has(id)) edgesByNode.set(id, []);
       edgesByNode.get(id)!.push({ source: e.source, target: e.target });
@@ -272,8 +278,9 @@ export function autoLayoutSequence(
       // 非消息边（如 actor->lifeline 关联线）：仅强制 straight routing
       return { ...e, routing: 'straight' as const };
     }
-    const srcX = (lifelineX.get(e.source) ?? SEQ_MARGIN) + SEQ_PARTICIPANT_W / 2;
-    const dstX = (lifelineX.get(e.target) ?? SEQ_MARGIN) + SEQ_PARTICIPANT_W / 2;
+    // AI 生成图此时都是附着式消息边，source/target 必有值
+    const srcX = (lifelineX.get(e.source ?? '') ?? SEQ_MARGIN) + SEQ_PARTICIPANT_W / 2;
+    const dstX = (lifelineX.get(e.target ?? '') ?? SEQ_MARGIN) + SEQ_PARTICIPANT_W / 2;
     const msgY = SEQ_MARGIN + SEQ_MESSAGE_START_Y + msgIndex * SEQ_MESSAGE_SPACING;
     msgIndex += 1;
 

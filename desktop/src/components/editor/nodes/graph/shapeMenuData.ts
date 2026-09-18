@@ -26,6 +26,16 @@ export const shapeGroups: ShapeGroup[] = [
     ],
   },
   {
+    // 连线工具：选中后从节点拖拽连线，样式单次生效（dragDraw 的 edge 分支）。
+    label: '连线',
+    shapes: [
+      { shape: 'edge-line', title: '直线箭头' },
+      { shape: 'edge-ortho', title: '正交折线' },
+      { shape: 'edge-dashed', title: '虚线箭头' },
+      { shape: 'edge-no-arrow', title: '无箭头直线' },
+    ],
+  },
+  {
     label: '思维导图',
     shapes: [
       { shape: 'topic', title: '主题节点' },

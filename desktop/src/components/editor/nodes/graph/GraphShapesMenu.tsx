@@ -79,7 +79,13 @@ export function GraphShapesMenu({
                   key={shape}
                   type="button"
                   className={`jgraph-dropdown-item ${pendingShape === shape ? "is-active" : ""}`}
-                  title={`${title}｜点击后在画布拖拽划定大小`}
+                  title={
+                    shape === "edge-ortho"
+                      ? "正交折线｜点击后从节点锚点拖出连线（附着图形，单次生效）"
+                      : shape.startsWith("edge-")
+                        ? `${title}｜点击拖拽画自由直线（不附着图形）`
+                        : `${title}｜点击后在画布拖拽划定大小`
+                  }
                   onClick={(e) => onSelectShape(shape, e.metaKey || e.ctrlKey)}
                 >
                   <ShapeGlyph shape={shape} />

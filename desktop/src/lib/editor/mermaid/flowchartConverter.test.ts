@@ -458,8 +458,8 @@ function edgePolyline(
   nodeById: Map<string, GraphNode>,
   isHorizontal: boolean,
 ): Pt[] {
-  const s = nodeById.get(edge.source)!;
-  const t = nodeById.get(edge.target)!;
+  const s = nodeById.get(edge.source ?? '')!;
+  const t = nodeById.get(edge.target ?? '')!;
   const exit: Pt = { x: s.x + edge.exit!.x * s.w, y: s.y + edge.exit!.y * s.h };
   const entry: Pt = { x: t.x + edge.entry!.x * t.w, y: t.y + edge.entry!.y * t.h };
   const pts: Pt[] = [exit];
