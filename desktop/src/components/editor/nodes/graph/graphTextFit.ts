@@ -14,6 +14,10 @@
  *     高度跟行数；上边、左边为锚（向下、向右生长）。
  *   - 菱形：文字可用面积是内接矩形（宽高各占一半），按 (文字尺寸 + 内距) × 2 放大。
  *   - 生命线：头部只加宽，且左右对称扩（中心线不动，激活框 / 消息端点不偏）。
+ *
+ * 导入路径最后按行重排生命线：头部加宽后与相邻参与者的固定间距（150/160）
+ * 失配会拥挤，从左到右推开放大间隙（mermaid 同款行为），居中附属节点与
+ * 消息 waypoints 跟随平移。
  */
 
 import type {
@@ -24,6 +28,8 @@ import type {
   CellEditorHandler,
 } from '@maxgraph/core';
 import type { GraphSetupFn } from './graphSetup/types';
+import { GRAPH_FONT_FAMILY } from './graphConstants';
+import { SHAPE_FONT_SIZE } from './graphTheme';
 
 /** 参与文字适配的形状（maxGraph shape 名）。'rectangle' 覆盖矩形与圆角矩形。 */
 const TEXT_FIT_SHAPES = new Set(['rectangle', 'rhombus', 'lifeline']);
@@ -42,6 +48,18 @@ const DIAMOND_INSCRIBE_FACTOR = 2;
 
 /** 生命线头部的文字水平内距。 */
 const LIFELINE_TEXT_PAD_X = 16;
+
+/** 生命线重排：相邻参与者头部框之间的最小间隙。 */
+const LIFELINE_RELAYOUT_MIN_GAP = 40;
+
+/** 生命线行归组的 y 容差（导入端同一行生命线 y 完全相等）。 */
+const LIFELINE_ROW_Y_EPSILON = 1;
+
+/** 附属节点（activation/note）中心与生命线中心的对齐容差。 */
+const LIFELINE_SATELLITE_EPSILON = 1;
+
+/** 时序图一行的参与者形状（mermaid actor 导入后映射为 umlActor）。 */
+const SEQ_ROW_SHAPES = new Set(['lifeline', 'umlActor']);
 
 /** 判断 cell 是否参与文字适配。 */
 export function isTextFitCell(cell: Cell): boolean {
@@ -105,6 +123,15 @@ function measureText(
     el.style.fontWeight = cs.fontWeight;
     el.style.lineHeight = cs.lineHeight;
     el.style.letterSpacing = cs.letterSpacing;
+  } else {
+    // 导入路径在 batchUpdate 内测量，label 尚未渲染（view 未验证，
+    // state.text 不存在）。按画布标签的既定字体兜底，避免量成 body
+    // 默认字体导致框体系统性偏大。
+    el.style.fontFamily = GRAPH_FONT_FAMILY;
+    el.style.fontSize = `${SHAPE_FONT_SIZE}px`;
+    el.style.fontWeight = 'normal';
+    el.style.lineHeight = 'normal';
+    el.style.letterSpacing = 'normal';
   }
   el.style.width = 'auto';
   el.style.whiteSpace = 'pre';
@@ -179,6 +206,136 @@ export function fitCellsToText(graph: Graph, cells: Cell[]): void {
         ? label
         : ((label as HTMLElement | null)?.textContent ?? '');
     fitCellToText(graph, cell, text);
+  }
+  // 生命线头部加宽后与相邻参与者拥挤（导入端间距固定 150/160），
+  // 按行重排拉开间距——见 relayoutLifelineRows。
+  relayoutLifelineRows(graph);
+}
+
+/* ------------------------------------------------------------------ */
+/* 生命线行重排（导入适配第二步）                                        */
+/* ------------------------------------------------------------------ */
+
+/** 判断 cell 是否是时序图一行的参与者。 */
+function isSeqRowParticipant(cell: Cell): boolean {
+  const style = cell.getStyle() as { shape?: string } | null;
+  const shape = style?.shape;
+  return typeof shape === 'string' && SEQ_ROW_SHAPES.has(shape);
+}
+
+/**
+ * 生命线行重排：fit 把头部对称加宽后，参与者间距仍是导入端的固定值，
+ * 宽头部会与相邻参与者拥挤甚至压过对方中心虚线（mermaid 自身会按头部
+ * 宽度把后续参与者向右推，这里补齐同款行为）。
+ *
+ * 按行从左到右扫一遍，保证相邻参与者头部框之间至少留 MIN_GAP 间隙，
+ * 只向右推、不压缩已有布局。被推动的生命线：
+ *   - 居中附属节点（activation / note，中心 x 对齐生命线中心）一并平移；
+ *   - 消息边的绝对坐标 waypoints（AI 布局的消息端点、mermaid 自环回路）
+ *     跟随平移，消息端点本身由 exit/entry=x0.5 钉在中心线上自动跟随。
+ */
+function relayoutLifelineRows(graph: Graph): void {
+  const vertices: Cell[] = [];
+  const edges: Cell[] = [];
+  const walk = (parent: Cell) => {
+    for (const cell of graph.getChildCells(parent, true, true)) {
+      if (cell.isEdge()) {
+        edges.push(cell);
+      } else {
+        vertices.push(cell);
+        walk(cell);
+      }
+    }
+  };
+  walk(graph.getDefaultParent());
+
+  const members = vertices.filter(isSeqRowParticipant);
+  if (members.length === 0) return;
+
+  // 按行分组（y 相差在容差内视为同一行），行内按 x 排序。
+  const sorted = [...members].sort((a, b) => {
+    const ga = a.getGeometry();
+    const gb = b.getGeometry();
+    return (ga?.y ?? 0) - (gb?.y ?? 0) || (ga?.x ?? 0) - (gb?.x ?? 0);
+  });
+  const rows: Cell[][] = [];
+  let rowY = Number.NaN;
+  for (const cell of sorted) {
+    const y = cell.getGeometry()?.y ?? 0;
+    if (Number.isNaN(rowY) || Math.abs(y - rowY) > LIFELINE_ROW_Y_EPSILON) {
+      rows.push([]);
+      rowY = y;
+    }
+    rows[rows.length - 1].push(cell);
+  }
+
+  // 行内从左到右：只向右推，保证相邻头部框间隙 >= MIN_GAP。
+  const dxByCell = new Map<Cell, number>();
+  for (const row of rows) {
+    let prevRight = Number.NEGATIVE_INFINITY;
+    for (const cell of row) {
+      const geo = cell.getGeometry();
+      if (!geo) continue;
+      const dx = Math.max(0, prevRight + LIFELINE_RELAYOUT_MIN_GAP - geo.x);
+      if (dx > 0) dxByCell.set(cell, dx);
+      prevRight = Math.max(prevRight, geo.x + dx + geo.width);
+    }
+  }
+  if (dxByCell.size === 0) return;
+
+  // 居中附属节点：中心 x 与被推动生命线的（移动前）中心对齐者跟随平移。
+  const centersByCell = new Map<Cell, number>();
+  for (const [cell] of dxByCell) {
+    const geo = cell.getGeometry();
+    if (geo) centersByCell.set(cell, geo.x + geo.width / 2);
+  }
+  const dxBySatellite = new Map<Cell, number>();
+  for (const cell of vertices) {
+    if (isSeqRowParticipant(cell) || dxByCell.has(cell)) continue;
+    const geo = cell.getGeometry();
+    if (!geo) continue;
+    const cx = geo.x + geo.width / 2;
+    for (const [ll, center] of centersByCell) {
+      if (Math.abs(cx - center) <= LIFELINE_SATELLITE_EPSILON) {
+        dxBySatellite.set(cell, dxByCell.get(ll) ?? 0);
+        break;
+      }
+    }
+  }
+
+  const model = graph.getDataModel();
+  const shift = (cell: Cell, dx: number) => {
+    const geo = cell.getGeometry();
+    if (!geo || dx === 0) return;
+    const next = geo.clone();
+    next.x += dx;
+    model.setGeometry(cell, next);
+  };
+  for (const [cell, dx] of dxByCell) shift(cell, dx);
+  for (const [cell, dx] of dxBySatellite) shift(cell, dx);
+
+  // 消息边 waypoint 跟随：AI 布局给每条消息存了绝对 x 的端点 waypoints，
+  // mermaid 自环是中心线右侧的 U 形回路，端点生命线移动后必须同步平移。
+  for (const edge of edges) {
+    const geo = edge.getGeometry();
+    const pts = geo?.points;
+    if (!geo || !pts || pts.length === 0) continue;
+    const src = edge.getTerminal(true);
+    const dst = edge.getTerminal(false);
+    const srcDx = (src != null && dxByCell.get(src)) || 0;
+    const dstDx = (dst != null && dxByCell.get(dst)) || 0;
+    if (srcDx === 0 && dstDx === 0) continue;
+    const next = geo.clone();
+    if (src != null && src === dst) {
+      // 自环回路整体随生命线平移。
+      for (const p of next.points ?? []) p.x += srcDx;
+    } else if (next.points && next.points.length > 0) {
+      next.points[0].x += srcDx;
+      if (next.points.length > 1) {
+        next.points[next.points.length - 1].x += dstDx;
+      }
+    }
+    model.setGeometry(edge, next);
   }
 }
 
