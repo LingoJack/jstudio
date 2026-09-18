@@ -12,14 +12,14 @@
 import type { RefObject } from "react";
 import { EdgeStyleGlyph } from "./ShapeGlyph";
 
-/** 可选箭头样式（type 为 maxGraph marker 名）。 */
+/** 可选箭头样式（type 为 EdgeMarkerRegistry 里注册的 marker 名，见 customShapes.ts）。 */
 const ARROW_TYPES: { type: string; label: string }[] = [
-  { type: "classic", label: "经典实心" },
-  { type: "classicThin", label: "经典细箭" },
+  { type: "classic", label: "V 形开放" },
+  { type: "sharp", label: "尖锐实心" },
   { type: "block", label: "实心块" },
-  { type: "blockThin", label: "细块" },
-  { type: "open", label: "镂空" },
+  { type: "blockThin", label: "实心细箭" },
   { type: "diamond", label: "菱形" },
+  { type: "oval", label: "圆点" },
   { type: "none", label: "无箭头" },
 ];
 
@@ -36,49 +36,32 @@ const WIDTH_TYPES: { width: number; label: string }[] = [
   { width: 2.5, label: "粗" },
 ];
 
-/** 24x12 小图示：横线 + 右端箭头样式示意（观感对齐 maxGraph marker）。 */
+/** 24x12 小图示：横线 + 右端箭头样式示意（观感对齐 customShapes 的 marker 实现）。 */
 function ArrowGlyph({ type }: { type: string }) {
   const line = (
     <line x1="1" y1="6" x2="13" y2="6" stroke="currentColor" strokeWidth={1.5} />
   );
   switch (type) {
-    case "classic":
+    case "sharp":
+      // 细长实心楔形（截图标注风格）
       return (
         <svg width={24} height={12} viewBox="0 0 24 12" fill="none" aria-hidden>
           {line}
-          <path d="M22 6 L13 1.5 L15.5 6 L13 10.5 Z" fill="currentColor" />
-        </svg>
-      );
-    case "classicThin":
-      return (
-        <svg width={24} height={12} viewBox="0 0 24 12" fill="none" aria-hidden>
-          {line}
-          <path d="M22 6 L13 3 L15.5 6 L13 9 Z" fill="currentColor" />
+          <path d="M22 6 L12 4.1 L13.9 6 L12 7.9 Z" fill="currentColor" />
         </svg>
       );
     case "block":
       return (
         <svg width={24} height={12} viewBox="0 0 24 12" fill="none" aria-hidden>
           {line}
-          <path d="M22 6 L13 1 L13 11 Z" fill="currentColor" />
+          <path d="M22 6 L13 2.2 L13 9.8 Z" fill="currentColor" />
         </svg>
       );
     case "blockThin":
       return (
         <svg width={24} height={12} viewBox="0 0 24 12" fill="none" aria-hidden>
           {line}
-          <path d="M22 6 L13 3.5 L13 8.5 Z" fill="currentColor" />
-        </svg>
-      );
-    case "open":
-      return (
-        <svg width={24} height={12} viewBox="0 0 24 12" fill="none" aria-hidden>
-          {line}
-          <path
-            d="M21 1.5 L14 6 L21 10.5"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          />
+          <path d="M22 6 L13 3.4 L13 8.6 Z" fill="currentColor" />
         </svg>
       );
     case "diamond":
@@ -88,11 +71,31 @@ function ArrowGlyph({ type }: { type: string }) {
           <path d="M17.5 1.5 L22 6 L17.5 10.5 L13 6 Z" fill="currentColor" />
         </svg>
       );
-    case "none":
-    default:
+    case "oval":
       return (
         <svg width={24} height={12} viewBox="0 0 24 12" fill="none" aria-hidden>
           {line}
+          <circle
+            cx="17.5"
+            cy="6"
+            r="3.2"
+            stroke="currentColor"
+            strokeWidth={1.2}
+            fill="none"
+          />
+        </svg>
+      );
+    case "none":
+    default:
+      // V 形开放（classic 系在本应用的统一画法）
+      return (
+        <svg width={24} height={12} viewBox="0 0 24 12" fill="none" aria-hidden>
+          {line}
+          <path
+            d="M21 1.5 L14 6 L21 10.5"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          />
         </svg>
       );
   }

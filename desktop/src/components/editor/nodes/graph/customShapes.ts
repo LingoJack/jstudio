@@ -548,6 +548,46 @@ const diamondFactory = (
   };
 };
 
+/** 实心楔形箭头工厂（block 系列 + sharp）：halfWRatio 越小头越细长（截图标注风格）。 */
+const filledWedgeFactory = (halfWRatio: number) => (
+  canvas: AbstractCanvas2D,
+  _shape: unknown,
+  _type: string,
+  pe: Point,
+  unitX: number,
+  unitY: number,
+  size: number,
+  _source: boolean,
+  sw: number,
+  _filled: boolean,
+) => {
+  const endOffsetX = unitX * sw * 1.118;
+  const endOffsetY = unitY * sw * 1.118;
+  unitX *= size + sw;
+  unitY *= size + sw;
+  const tip = pe.clone();
+  tip.x -= endOffsetX;
+  tip.y -= endOffsetY;
+  // 让线提前结束到箭头尾端（填充区域不与线重叠）
+  pe.x += -unitX - endOffsetX;
+  pe.y += -unitY - endOffsetY;
+
+  const perpX = -unitY / (size + sw);
+  const perpY = unitX / (size + sw);
+  const halfW = (size + sw) * halfWRatio;
+  const baseX = tip.x - unitX;
+  const baseY = tip.y - unitY;
+
+  return () => {
+    canvas.begin();
+    canvas.moveTo(baseX + perpX * halfW, baseY + perpY * halfW);
+    canvas.lineTo(tip.x, tip.y);
+    canvas.lineTo(baseX - perpX * halfW, baseY - perpY * halfW);
+    canvas.close();
+    canvas.fillAndStroke();
+  };
+};
+
 /**
  * 注册自定义形状和连接点到全局 Registry
  */
@@ -564,9 +604,9 @@ export function registerCustomShapes(): void {
   PerimeterRegistry.add('lifelinePerimeter', LifelinePerimeter);
   PerimeterRegistry.add('activationPerimeter', ActivationPerimeter);
 
-  // 注册自定义边箭头：全部使用 V 字形开放箭头，不再使用三角形。
-  // classic / open / openThin 等所有名称都指向同一个 V 形画法，
-  // 视觉统一简洁，同步与返回消息仅靠虚实线区分。
+  // 注册自定义边箭头。开放 V 形是默认观感（classic 系全部映射到同一画法，
+  // 同步与返回消息仅靠虚实线区分）；实心楔形系列供连线样式选择器选用，
+  // sharp 为细长尖锐（截图标注风格），block/blockThin 此前未注册（选了无箭头）。
   EdgeMarkerRegistry.add('classic', openArrowFactory);
   EdgeMarkerRegistry.add('classicThin', openArrowFactory);
   EdgeMarkerRegistry.add('open', openArrowFactory);
@@ -574,6 +614,9 @@ export function registerCustomShapes(): void {
   EdgeMarkerRegistry.add('oval', ovalFactory);
   EdgeMarkerRegistry.add('diamond', diamondFactory);
   EdgeMarkerRegistry.add('diamondThin', diamondFactory);
+  EdgeMarkerRegistry.add('block', filledWedgeFactory(0.6));
+  EdgeMarkerRegistry.add('blockThin', filledWedgeFactory(0.35));
+  EdgeMarkerRegistry.add('sharp', filledWedgeFactory(0.22));
 }
 
 export { UMLActorShape, LifelineShape, ActivationShape, NoteShape, DatabaseShape, BraceShape };
