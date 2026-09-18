@@ -24,6 +24,10 @@ export interface GraphSetupContext {
   setAutoActivation: (v: boolean) => void;
   setSelectedLabelAlign: (v: "left" | "center" | "right" | null) => void;
   setSelectedFillColor: (v: string | null) => void;
+  // 选中边线的样式快照（非边选中为 null，驱动"连线样式"按钮显隐与高亮）。
+  setSelectedEdgeStyle: (
+    v: { endArrow: string; dashed: boolean; strokeWidth: number } | null,
+  ) => void;
   setSelectedSeqEdge: (v: "call" | "return" | null) => void;
   setSelectedMindmapTopic: (v: boolean) => void;
   setSelectedVertexCount: (n: number) => void;

@@ -70,6 +70,9 @@ export interface UseGraphInitParams {
   setAutoActivation: (v: boolean) => void;
   setSelectedLabelAlign: (v: "left" | "center" | "right" | null) => void;
   setSelectedFillColor: (v: string | null) => void;
+  setSelectedEdgeStyle: (
+    v: { endArrow: string; dashed: boolean; strokeWidth: number } | null,
+  ) => void;
   setSelectedSeqEdge: (v: "call" | "return" | null) => void;
   setSelectedMindmapTopic: (v: boolean) => void;
   setSelectedVertexCount: (n: number) => void;
@@ -101,6 +104,7 @@ export function useGraphInit(params: UseGraphInitParams) {
     setAutoActivation,
     setSelectedLabelAlign,
     setSelectedFillColor,
+    setSelectedEdgeStyle,
     setSelectedSeqEdge,
     setSelectedMindmapTopic,
     setSelectedVertexCount,
@@ -167,6 +171,7 @@ export function useGraphInit(params: UseGraphInitParams) {
       setAutoActivation,
       setSelectedLabelAlign,
       setSelectedFillColor,
+      setSelectedEdgeStyle,
       setSelectedSeqEdge,
       setSelectedMindmapTopic,
       setSelectedVertexCount,

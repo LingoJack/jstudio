@@ -62,6 +62,28 @@ export function AutoColorGlyph() {
 }
 
 /* ------------------------------------------------------------------ */
+/* EdgeStyleGlyph — 连线样式按钮图标                                    */
+/*                                                                    */
+/* 上下两行短箭头：上行实心三角、下行镂空尖角，表达"可选多种箭头/      */
+/* 线型样式"；与时序图的调用/返回切换（MoveRight）、直线工具等区分开。  */
+/* ------------------------------------------------------------------ */
+
+export function EdgeStyleGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <line x1="1" y1="4.5" x2="9" y2="4.5" stroke="currentColor" strokeWidth={1.2} />
+      <path d="M14.5 4.5 L9.5 2.2 L11 4.5 L9.5 6.8 Z" fill="currentColor" />
+      <line x1="1" y1="11.5" x2="9" y2="11.5" stroke="currentColor" strokeWidth={1.2} />
+      <path
+        d="M14.5 8.3 L10 11.5 L14.5 14.7"
+        stroke="currentColor"
+        strokeWidth={1.2}
+      />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* ShapeGlyph — 工具栏按钮上的真实形状预览                             */
 /*                                                                    */
 /* 直接画出对应形状的样貌（而非 lucide 抽象图标），用 currentColor      */

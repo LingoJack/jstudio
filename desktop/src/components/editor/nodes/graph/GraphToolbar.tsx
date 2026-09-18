@@ -27,6 +27,7 @@ import { ShapeGlyph, AutoColorGlyph } from "./ShapeGlyph";
 import { shapeTitleMap } from "./shapeMenuData";
 import { GraphShapesMenu } from "./GraphShapesMenu";
 import { GraphFillPopover } from "./GraphFillPopover";
+import { GraphEdgeStylePopover } from "./GraphEdgeStylePopover";
 import { GraphMoreMenu } from "./GraphMoreMenu";
 import type { GraphNodeShape, LabelAlign } from "./graphSnapshot";
 import type { MindmapScheme } from "../../../../lib/editor/extensions/diagramExtension";
@@ -78,6 +79,21 @@ export interface GraphToolbarProps {
   onToggleFillPicker: () => void;
   onSetFillColor: (color: string) => void;
   darkMode: boolean;
+
+  // 选中连线的样式（仅边线选中时显示）：箭头 / 线型 / 粗细
+  selectedEdgeStyle: {
+    endArrow: string;
+    dashed: boolean;
+    strokeWidth: number;
+  } | null;
+  edgeStylePickerOpen: boolean;
+  edgeStylePickerRef: RefObject<HTMLDivElement | null>;
+  onToggleEdgeStylePicker: () => void;
+  onSetEdgeStyle: (patch: {
+    endArrow?: string;
+    dashed?: boolean;
+    strokeWidth?: number;
+  }) => void;
 
   // Zoom
   onZoomIn: () => void;
@@ -135,6 +151,11 @@ export function GraphToolbar(props: GraphToolbarProps) {
     fillPickerRef,
     onToggleFillPicker,
     onSetFillColor,
+    selectedEdgeStyle,
+    edgeStylePickerOpen,
+    edgeStylePickerRef,
+    onToggleEdgeStylePicker,
+    onSetEdgeStyle,
     darkMode,
     onZoomIn,
     onZoomOut,
@@ -335,6 +356,18 @@ export function GraphToolbar(props: GraphToolbarProps) {
             onToggleFillPicker={onToggleFillPicker}
             onSetFillColor={onSetFillColor}
             darkMode={darkMode}
+          />
+        </>
+      )}
+      {selectedEdgeStyle !== null && (
+        <>
+          <div className="jgraph-tool-sep" />
+          <GraphEdgeStylePopover
+            selectedStyle={selectedEdgeStyle}
+            open={edgeStylePickerOpen}
+            pickerRef={edgeStylePickerRef}
+            onToggle={onToggleEdgeStylePicker}
+            onSetStyle={onSetEdgeStyle}
           />
         </>
       )}

@@ -3758,6 +3758,60 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007fd4);
 }
 
+/* 连线样式选择 popover（选中连线时）：箭头 / 线型 / 粗细 三组，纵向分区 */
+.jgraph-edge-style-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--vscode-menu-background, #252526);
+  border: 1px solid var(--jstudio-block-line-strong);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 148px;
+}
+
+.jgraph-edge-style-label {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #999);
+  padding: 2px 8px 1px;
+  user-select: none;
+}
+
+.jgraph-edge-style-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.jgraph-edge-style-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--vscode-foreground, #ccc);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.jgraph-edge-style-item:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08));
+}
+
+.jgraph-edge-style-item.is-active {
+  background: var(--vscode-list-activeSelectionBackground, rgba(0, 82, 217, 0.35));
+}
+
 .jgraph-fill-none {
   background: var(--vscode-menu-background, #252526);
   position: relative;

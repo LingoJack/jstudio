@@ -168,6 +168,14 @@ export function GraphCanvas({
   const [selectedVertexCount, setSelectedVertexCount] = useState(0);
   // 选中 vertex 是花括号时为 true，用于显示"翻转朝向"按钮。
   const [selectedBrace, setSelectedBrace] = useState(false);
+  // 选中边线的样式快照（null = 非 edge 选中，按钮隐藏）+ 选择 popover 开关。
+  const [selectedEdgeStyle, setSelectedEdgeStyle] = useState<{
+    endArrow: string;
+    dashed: boolean;
+    strokeWidth: number;
+  } | null>(null);
+  const [edgeStylePickerOpen, setEdgeStylePickerOpen] = useState(false);
+  const edgeStylePickerRef = useRef<HTMLDivElement>(null);
   // 填充色弹出面板开关
   const [fillPickerOpen, setFillPickerOpen] = useState(false);
   const fillPickerRef = useRef<HTMLDivElement>(null);
@@ -345,6 +353,7 @@ export function GraphCanvas({
     setAutoActivation,
     setSelectedLabelAlign,
     setSelectedFillColor,
+    setSelectedEdgeStyle,
     setSelectedSeqEdge,
     setSelectedMindmapTopic,
     setSelectedVertexCount,
@@ -693,9 +702,9 @@ export function GraphCanvas({
     emitNowRef.current?.();
   }, []);
 
-  // 点击外部关闭填充色弹出面板。
+  // 点击外部关闭填充色 / 连线样式弹出面板。
   useEffect(() => {
-    if (!fillPickerOpen) return;
+    if (!fillPickerOpen && !edgeStylePickerOpen) return;
     const onDown = (e: MouseEvent) => {
       if (
         fillPickerRef.current &&
@@ -703,10 +712,46 @@ export function GraphCanvas({
       ) {
         setFillPickerOpen(false);
       }
+      if (
+        edgeStylePickerRef.current &&
+        !edgeStylePickerRef.current.contains(e.target as Node)
+      ) {
+        setEdgeStylePickerOpen(false);
+      }
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [fillPickerOpen]);
+  }, [fillPickerOpen, edgeStylePickerOpen]);
+
+  // 设置选中边线的连线样式（箭头 / 线型 / 粗细，可任选其一应用）。
+  const handleSetEdgeStyle = useCallback(
+    (patch: {
+      endArrow?: string;
+      dashed?: boolean;
+      strokeWidth?: number;
+    }) => {
+      const graph = graphRef.current;
+      if (!graph) return;
+      const cells = graph.getSelectionCells().filter((c) => c.isEdge());
+      if (cells.length === 0) return;
+      graph.batchUpdate(() => {
+        if (patch.endArrow !== undefined) {
+          graph.setCellStyles("endArrow", patch.endArrow, cells);
+        }
+        if (patch.dashed !== undefined) {
+          graph.setCellStyles("dashed", patch.dashed, cells);
+        }
+        if (patch.strokeWidth !== undefined) {
+          graph.setCellStyles("strokeWidth", patch.strokeWidth, cells);
+        }
+      });
+      setSelectedEdgeStyle((prev) => (prev ? { ...prev, ...patch } : prev));
+      setEdgeStylePickerOpen(false);
+      // 手动触发快照回传（setCellStyles 不一定触发 model change 事件）。
+      emitNowRef.current?.();
+    },
+    [],
+  );
 
   // 点击外部关闭形状 / 更多下拉菜单。
   useEffect(() => {
@@ -877,6 +922,11 @@ export function GraphCanvas({
           fillPickerRef={fillPickerRef}
           onToggleFillPicker={() => setFillPickerOpen((v) => !v)}
           onSetFillColor={handleSetFillColor}
+          selectedEdgeStyle={selectedEdgeStyle}
+          edgeStylePickerOpen={edgeStylePickerOpen}
+          edgeStylePickerRef={edgeStylePickerRef}
+          onToggleEdgeStylePicker={() => setEdgeStylePickerOpen((v) => !v)}
+          onSetEdgeStyle={handleSetEdgeStyle}
           darkMode={darkMode}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}

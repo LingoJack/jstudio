@@ -57,6 +57,18 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
           ? (typeof fc === 'string' && fc ? fc : 'none')
           : null,
       );
+      // 仅 edge 显示"连线样式"按钮；vertex 不显示。
+      ctx.setSelectedEdgeStyle(
+        cell.isEdge()
+          ? {
+              endArrow:
+                typeof style.endArrow === 'string' ? style.endArrow : 'classic',
+              dashed: style.dashed === true,
+              strokeWidth:
+                typeof style.strokeWidth === 'number' ? style.strokeWidth : 1.5,
+            }
+          : null,
+      );
       // 两端都能解析到生命线（lifeline 或贴在 lifeline 上的 ac）的边
       // 才是时序图消息，显示"调用/返回"切换按钮。
       if (
@@ -79,6 +91,7 @@ export const setupEventListeners: GraphSetupFn = (ctx) => {
     } else {
       ctx.setSelectedLabelAlign(null);
       ctx.setSelectedFillColor(null);
+      ctx.setSelectedEdgeStyle(null);
       ctx.setSelectedSeqEdge(null);
       ctx.setSelectedMindmapTopic(false);
       ctx.setSelectedBrace(false);
