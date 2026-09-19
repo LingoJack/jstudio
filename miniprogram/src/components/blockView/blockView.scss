@@ -527,3 +527,170 @@
   font-size: 13px;
   color: var(--vscode-descriptionForeground);
 }
+
+// —— mermaid 时序图（CodeBlock 的 mermaid 语言块）——
+// 配色逐值取自 mermaid 默认亮色主题（与桌面端/官网默认渲染一致）：
+// 参与者盒 #ECECFF/#9370DB、生命线 #999（svgDraw actor-line 0.5px）、
+// 消息线与编号 #333（signalColor）、注释 #fff5ad/#999。
+// 刻意不随暗色主题变化：图作为「白底图页」嵌在代码卡里。
+.bv-mermaid-body {
+  padding: 12px 16px 14px;
+  background: #ffffff;
+}
+.bv-mermaid-scroll {
+  width: 100%;
+}
+.bv-mermaid-canvas {
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.bv-mermaid-actor {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: #ECECFF;
+  border: 1px solid #9370DB;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bv-mermaid-actor-text {
+  font-size: 16px;
+  line-height: 20px;
+  color: #333333;
+  white-space: nowrap;
+}
+.bv-mermaid-lifeline {
+  position: absolute;
+  width: 1px;
+  background: #999999;
+}
+.bv-mermaid-activation {
+  position: absolute;
+  width: 10px;
+  box-sizing: border-box;
+  background: #ECECFF;
+  border: 1px solid #9370DB;
+  border-radius: 2px;
+}
+.bv-mermaid-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid #9a9a9a;
+  border-radius: 4px;
+}
+.bv-mermaid-frame-divider {
+  position: absolute;
+  height: 0;
+  box-sizing: border-box;
+  border-top: 1px dashed #9a9a9a;
+}
+.bv-mermaid-frame-label {
+  position: absolute;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 16px;
+  color: #333333;
+  background: #ffffff;
+  white-space: nowrap;
+}
+.bv-mermaid-note {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: #fff5ad;
+  border: 1px solid #999999;
+  border-radius: 3px;
+}
+.bv-mermaid-msg-line-solid {
+  position: absolute;
+  height: 1.5px;
+  background: #333333;
+}
+.bv-mermaid-msg-line-dashed {
+  position: absolute;
+  height: 0;
+  box-sizing: border-box;
+  border-top: 1.5px dashed #333333;
+}
+.bv-mermaid-msg-text {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.bv-mermaid-msg-text-left {
+  align-items: flex-start;
+}
+.bv-mermaid-msg-text-line {
+  font-size: 14px;
+  line-height: 20px;
+  color: #333333;
+  white-space: nowrap;
+}
+.bv-mermaid-seq-num {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #333333;
+}
+.bv-mermaid-seq-num-text {
+  font-size: 11px;
+  line-height: 1;
+  color: #ffffff;
+}
+.bv-mermaid-arrow-filled-right {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 9px solid #333333;
+}
+.bv-mermaid-arrow-filled-left {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 9px solid #333333;
+}
+.bv-mermaid-arrow-open-right {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border-top: 1.5px solid #333333;
+  border-right: 1.5px solid #333333;
+  transform: rotate(45deg);
+}
+.bv-mermaid-arrow-open-left {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border-bottom: 1.5px solid #333333;
+  border-left: 1.5px solid #333333;
+  transform: rotate(45deg);
+}
+.bv-mermaid-arrow-cross-bar {
+  position: absolute;
+  width: 11px;
+  height: 1.5px;
+  background: #333333;
+}
+.bv-mermaid-rotate-45 {
+  transform: rotate(45deg);
+}
+.bv-mermaid-rotate-neg-45 {
+  transform: rotate(-45deg);
+}

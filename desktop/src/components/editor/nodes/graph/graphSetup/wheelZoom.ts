@@ -6,7 +6,7 @@ export const setupWheelZoom: GraphSetupFn = (ctx) => {
   const { graph, container } = ctx;
 
   // 滚轮交互（draw.io / 飞书手感）：
-  //   - Ctrl/Cmd + 滚轮 -> 缩放
+  //   - Ctrl/Cmd/Option + 滚轮 -> 缩放
   //   - 普通滚轮 -> 平移视图（垂直滚 -> 上下平移；水平滚轮 / Shift+滚轮 -> 左右平移）
   // view.setTranslate 会触发 TRANSLATE 事件，上方已注册 listener 持久化视口。
   // 方向约定：滚轮向下 (deltaY > 0) -> 看下方内容 -> translate.y 减小
@@ -15,9 +15,9 @@ export const setupWheelZoom: GraphSetupFn = (ctx) => {
     const g = ctx.graphRef.current;
     if (!g) return;
 
-    // 缩放分支（macOS 双指捏合 / Ctrl+滚轮）
+    // 缩放分支（macOS 双指捏合 / Ctrl/Cmd/Option+滚轮）
     // 使用指数缩放 + 以光标为锚点，步进细腻连续，手感与 draw.io 一致。
-    if (e.ctrlKey || e.metaKey) {
+    if (e.ctrlKey || e.metaKey || e.altKey) {
       e.preventDefault();
       const view = g.getView();
       const oldScale = view.scale;

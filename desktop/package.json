@@ -25,7 +25,7 @@
     "test:cursor": "tsx --test src/components/editor/CursorTrailContext.test.ts",
     "test:adapter": "tsx --test src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts",
     "test:remote": "tsx --test src/lib/remote/client.test.ts",
-    "test": "tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts src/lib/core/commandRegistry.test.ts src/components/editor/CursorTrailContext.test.ts src/lib/editor/mermaid/flowchartConverter.test.ts src/components/editor/nodes/graph/sequenceInteraction.test.ts src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts src/lib/editor/pasteMarkdown.test.ts src/lib/editor/schemaFit.test.ts src/lib/remote/client.test.ts src/lib/editor/inlineLink.test.ts src/lib/editor/extensions/inlineMathExtension.test.ts",
+    "test": "tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts src/lib/core/commandRegistry.test.ts src/components/editor/CursorTrailContext.test.ts src/lib/editor/mermaid/flowchartConverter.test.ts src/components/editor/nodes/graph/sequenceInteraction.test.ts src/components/editor/nodes/code-block/mermaidLifelineFix.test.ts src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts src/lib/editor/pasteMarkdown.test.ts src/lib/editor/schemaFit.test.ts src/lib/remote/client.test.ts src/lib/editor/inlineLink.test.ts src/lib/editor/extensions/inlineMathExtension.test.ts",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -69,6 +69,7 @@
     "react-dom": "^19.0.1",
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.4.1",
+    "react-zoom-pan-pinch": "^4.2.0",
     "remark-gfm": "^4.0.1",
     "tippy.js": "^6.3.7",
     "vite": "^6.2.3",

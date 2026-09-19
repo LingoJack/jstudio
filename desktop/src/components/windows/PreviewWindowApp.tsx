@@ -18,6 +18,7 @@ import { docxToHtml } from '../../lib/editor/docxPreview';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import PdfPreview from '../editor/nodes/PdfPreview';
+import MermaidViewer from '../editor/nodes/code-block/MermaidViewer';
 import { useI18n } from '../../lib/core/i18n';
 import ChildWindowDragBar from './ChildWindowDragBar';
 
@@ -65,6 +66,7 @@ export default function PreviewWindowApp() {
         category={category}
         fileName={data.fileName}
         html={data.html}
+        mermaidSvg={data.mermaidSvg}
         docContext={data.docContext}
       />
     </div>
@@ -80,6 +82,7 @@ function PreviewContent({
   category,
   fileName,
   html,
+  mermaidSvg,
   docContext,
 }: {
   src: string;
@@ -87,6 +90,8 @@ function PreviewContent({
   fileName: string;
   /** Inline HTML source — when present, the html preview uses `srcDoc`. */
   html?: string;
+  /** Rendered mermaid SVG — rendered with the shared pan/zoom stage. */
+  mermaidSvg?: string;
   /** Document context for resolving doc-relative assets to blob URLs. */
   docContext?: PreviewPayload['docContext'];
 }) {
@@ -157,6 +162,17 @@ function PreviewContent({
   }
 
   switch (category) {
+    case 'mermaid':
+      return (
+        <div className="mermaid-window-stage">
+          <MermaidViewer
+            svg={mermaidSvg ?? null}
+            showControls
+            panOnWheel
+          />
+        </div>
+      );
+
     case 'html':
       return (
         <div ref={htmlContainerRef} className="preview-frame-wrap" />

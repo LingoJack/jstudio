@@ -31,6 +31,11 @@ export interface PreviewPayload {
    */
   html?: string;
   /**
+   * Rendered mermaid SVG (category 'mermaid'). Rendered with a pan/zoom
+   * stage (MermaidViewer) instead of an iframe.
+   */
+  mermaidSvg?: string;
+  /**
    * Document context needed to resolve a doc-relative asset path (`assets/…`)
    * to a same-origin blob URL in the preview window. `src` should be the
    * portable `assets/{name}` form when this is provided.
@@ -120,6 +125,25 @@ export async function openHtmlPreviewWindow(
     fileName: title,
     fileSize,
     category: 'html',
+  });
+}
+
+/**
+ * Preview a rendered mermaid SVG in a new OS window.
+ *
+ * The SVG is produced by `mermaid.render` in the editor and passed as-is;
+ * the preview window renders it with the shared MermaidViewer pan/zoom stage
+ * (Cmd/Ctrl+wheel zoom, drag pan, double-click reset) instead of the former
+ * hand-rolled HTML document.
+ */
+export async function openMermaidPreviewWindow(svg: string): Promise<void> {
+  const fileSize = new Blob([svg]).size;
+  await openPreviewWindow({
+    src: '',
+    mermaidSvg: svg,
+    fileName: 'Mermaid',
+    fileSize,
+    category: 'mermaid',
   });
 }
 

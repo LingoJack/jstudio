@@ -148,6 +148,16 @@ export interface GraphEdgeStyle {
   stroke?: string;
   strokeWidth?: number;
   dashed?: boolean;
+  /**
+   * 边标签向上抬升的像素数（图坐标）。
+   * 时序图消息用它让文字悬在连线上方而非压线，见 sequenceConverter.ts。
+   */
+  labelLift?: number;
+  /**
+   * 边标签水平右移的像素数（图坐标）。
+   * 时序图自环消息用它把标签整体挪到 U 形回路竖线右侧，见 sequenceConverter.ts。
+   */
+  labelShiftX?: number;
   /** 思维导图连线分支索引（neon 方案下颜色跟随分支）。 */
   mmBranch?: number;
   /** 思维导图连线深度（branch=1 / leaf=2+，决定 strokeWidth 与颜色）。 */

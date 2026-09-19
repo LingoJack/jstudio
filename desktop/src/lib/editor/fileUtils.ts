@@ -133,6 +133,7 @@ export const FILE_EXTENSIONS = [
 /** Category of a file for determining preview behaviour. */
 export type PreviewCategory =
   | 'html'
+  | 'mermaid'
   | 'pdf'
   | 'docx'
   | 'image'
@@ -188,6 +189,8 @@ export function getCategoryLabel(category: PreviewCategory): string {
   switch (category) {
     case 'html':
       return 'HTML';
+    case 'mermaid':
+      return 'MERMAID';
     case 'pdf':
       return 'PDF';
     case 'docx':

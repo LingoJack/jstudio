@@ -106,6 +106,37 @@ function getMeasureEl(): HTMLDivElement {
 }
 
 /**
+ * 测量一段标签文本在画布字体下的自然尺寸（图坐标 px）。
+ * 宽度 = 最宽一行（标签按行渲染，宽度绝不能把各行加总）；
+ * 高度 = 整块自然高（含行高，<br> / \n 换行）。
+ * 供导入端（mermaid sequenceConverter 等）在几何布局前估算标签占位，
+ * 与画布实际渲染同字体同字号，无估算误差。
+ */
+export function measureLabelSize(text: string): { w: number; h: number } {
+  const el = getMeasureEl();
+  // 导入路径在 batchUpdate 内测量，label 尚未渲染（view 未验证，
+  // state.text 不存在）。按画布标签的既定字体兜底，避免量成 body
+  // 默认字体导致宽度系统性偏差。lineHeight 不显式设置，跟随 body
+  // 继承链（与画布标签的渲染环境一致）。
+  el.style.fontFamily = GRAPH_FONT_FAMILY;
+  el.style.fontSize = `${SHAPE_FONT_SIZE}px`;
+  el.style.fontWeight = 'normal';
+  el.style.letterSpacing = 'normal';
+  el.style.width = 'auto';
+  el.style.whiteSpace = 'pre';
+  el.style.wordBreak = 'normal';
+  el.replaceChildren();
+  const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) el.appendChild(document.createElement('br'));
+    if (lines[i]) el.appendChild(document.createTextNode(lines[i]));
+  }
+  const size = { w: el.offsetWidth, h: el.offsetHeight };
+  el.replaceChildren();
+  return size;
+}
+
+/**
  * 按指定字体测量文本尺寸。
  * 先按不折行量自然宽高（\n 视为显式换行）；超上限时改按 capWidth 折行量高度。
  * fontEl 提供字体参考（取渲染中的 label 节点的计算样式，保证测量与实际一致）。

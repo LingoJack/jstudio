@@ -2222,45 +2222,86 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   background: linear-gradient(135deg, #1e1e1e 0%, #252526 100%);
 }
 
-.code-block-wrapper .code-block-mermaid-content {
+/* MermaidViewer - pan/zoom stage (react-zoom-pan-pinch). The stage is
+   viewport-sized and letterboxes the SVG, so scale 1 == fitted; the
+   transform wrapper clips panning while zoomed. */
+.mermaid-viewer .react-transform-wrapper,
+.mermaid-viewer .mermaid-viewer-viewport {
   width: 100%;
-  flex: 1;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.mermaid-viewer .react-transform-wrapper:active,
+.mermaid-viewer .mermaid-viewer-viewport:active {
+  cursor: grabbing;
+}
+
+.mermaid-viewer.is-panning .react-transform-wrapper,
+.mermaid-viewer.is-panning .mermaid-viewer-viewport {
+  cursor: grabbing;
+}
+
+.mermaid-viewer .react-transform-component,
+.mermaid-viewer .mermaid-viewer-content {
+  width: 100%;
+  height: 100%;
+}
+
+.mermaid-viewer-stage {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  overflow: auto;
-  min-height: 200px;
+  box-sizing: border-box;
 }
 
-.code-block-wrapper .code-block-mermaid-content svg {
+.mermaid-viewer-stage svg {
   display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
-  transition: transform 0.15s ease-out;
+}
+
+/* Mermaid preview window - full-bleed stage behind the zoom controls. */
+.mermaid-window-stage {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.dark .mermaid-window-stage {
+  background: linear-gradient(135deg, #1e1e1e 0%, #252526 100%);
 }
 
 /* Mermaid SVG internal styles - enhance node appearance */
-.code-block-wrapper .code-block-mermaid-content svg .node rect,
-.code-block-wrapper .code-block-mermaid-content svg .node circle,
-.code-block-wrapper .code-block-mermaid-content svg .node ellipse,
-.code-block-wrapper .code-block-mermaid-content svg .node polygon,
-.code-block-wrapper .code-block-mermaid-content svg .node path {
+.mermaid-viewer-stage svg .node rect,
+.mermaid-viewer-stage svg .node circle,
+.mermaid-viewer-stage svg .node ellipse,
+.mermaid-viewer-stage svg .node polygon,
+.mermaid-viewer-stage svg .node path {
   stroke: #4a90d9;
   stroke-width: 2px;
 }
 
-.code-block-wrapper .code-block-mermaid-content svg .edgePath path {
+.mermaid-viewer-stage svg .edgePath path {
   stroke: #5a5a5a;
   stroke-width: 2px;
 }
 
-.code-block-wrapper .code-block-mermaid-content svg .label {
+.mermaid-viewer-stage svg .label {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
 }
 
-.code-block-wrapper .code-block-mermaid-content svg .cluster rect {
+.mermaid-viewer-stage svg .cluster rect {
   fill: #f0f4f8;
   stroke: #4a90d9;
   stroke-width: 2px;

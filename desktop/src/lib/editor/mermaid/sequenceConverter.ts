@@ -15,9 +15,11 @@
  *     生命线拉长时重算相对 Y，保持连线水平。
  */
 
-import type { SequenceData, SequenceMessage } from './mermaidParser';
+import type { SequenceActor, SequenceData, SequenceMessage } from './mermaidParser';
 import type { GraphNode, GraphEdge, GraphSnapshot } from '../../../components/editor/nodes/graph/graphSnapshot';
 import { HEAD_HEIGHT } from '../../../components/editor/nodes/graph/customShapes';
+import { SHAPE_FONT_SIZE } from '../../../components/editor/nodes/graph/graphTheme';
+import { measureLabelSize } from '../../../components/editor/nodes/graph/graphTextFit';
 
 /* ------------------------------------------------------------------ */
 /* 布局参数                                                            */
@@ -26,20 +28,38 @@ import { HEAD_HEIGHT } from '../../../components/editor/nodes/graph/customShapes
 /** 生命线起始 Y 坐标 */
 const LIFELINE_BASE_Y = 50;
 
-/** 参与者（生命线）之间的水平间距 */
+/** 参与者（生命线）之间的最小水平间距 */
 const PARTICIPANT_SPACING = 160;
+
+/**
+ * 消息标签与两端生命线中心线保持的最小水平留白（px）。
+ * 相邻生命线间距按其间最长消息标签的估算宽度自适应，保证标签不压到两侧生命线。
+ */
+const LABEL_EDGE_MARGIN = 10;
 
 /** 生命线头部宽度 */
 const LIFELINE_WIDTH = 100;
 
-/** 生命线默认高度（头部 + 虚线延伸） */
-const LIFELINE_DEFAULT_HEIGHT = 200;
+/** 生命线默认高度（头部 + 虚线延伸），消息很少 / 无消息时的兜底 */
+const LIFELINE_DEFAULT_HEIGHT = 150;
 
-/** 消息之间的垂直间距 */
-const MESSAGE_SPACING = 45;
+/** 最后一条消息结束位置到生命线底端的留白 */
+const LIFELINE_BOTTOM_TAIL = 24;
 
-/** 消息起始 Y 坐标（生命线头部下方，绝对坐标） */
-const MESSAGE_START_Y = LIFELINE_BASE_Y + HEAD_HEIGHT + 25;
+/** 消息之间的最小垂直间距（相邻两条连线的间隔） */
+const MESSAGE_SPACING = 40;
+
+/** 标签底边与它自己那条连线的间距（标签整体悬在连线上方） */
+const LABEL_LINE_PAD = 4;
+
+/** 自环标签左边缘与 U 形回路竖线的间距 */
+const LABEL_LOOP_PAD = 6;
+
+/** 上一条消息的连线 / 自环回路与本条消息标签顶部之间的最小空隙 */
+const LABEL_ROW_PAD = 8;
+
+/** 无 DOM 环境（单测）兜底的标签行高 */
+const LABEL_LINE_HEIGHT_FALLBACK = 18;
 
 /** 自环消息向右伸出的偏移量 */
 const SELF_LOOP_OFFSET = 35;
@@ -128,6 +148,72 @@ function filterRealMessages(messages: SequenceMessage[]): SequenceMessage[] {
 }
 
 /**
+ * 估算标签在画布上的占位尺寸（图坐标 px）。
+ * 有 DOM 时走 measureLabelSize 实测（与画布渲染同字体同字号，零估算误差）：
+ * 宽 = 最宽一行，高 = 整块自然高。字符估算只在无 DOM 环境（单测）兜底。
+ * 多行标签绝不能把各行宽度加总——那会把间隙撑到实际需要的两倍。
+ */
+function estimateLabelSize(text: string): { w: number; h: number } {
+  if (typeof document !== 'undefined') {
+    return measureLabelSize(text);
+  }
+  // mermaid 消息的换行是 <br>（HTML 标签，画布 htmlLabels 渲染成多行），
+  // 与真实的 \n 一并切开。
+  const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n');
+  let maxUnits = 0;
+  for (const line of lines) {
+    let units = 0;
+    for (const ch of line) {
+      units += ch.charCodeAt(0) > 0xff ? 1 : 0.6;
+    }
+    maxUnits = Math.max(maxUnits, units);
+  }
+  return { w: maxUnits * SHAPE_FONT_SIZE, h: lines.length * LABEL_LINE_HEIGHT_FALLBACK };
+}
+
+/**
+ * 计算相邻生命线之间的水平间距。
+ *
+ * 相邻两条生命线间的消息标签必须完整落在两条中心线之间，否则会横向溢出、
+ * 压到旁边的生命线。因此每个间隙的间距取：
+ *   max(默认间距, 其间最长消息标签宽度 + 两侧留白)
+ * 自环消息的标签居中于向右伸出的回路竖线上，右半部分也占间隙宽度。
+ * 跨多条生命线的消息空间充裕，不参与约束。
+ */
+function computeGapSpacings(
+  actorList: [string, SequenceActor][],
+  messages: SequenceMessage[],
+  labelSizes: { w: number; h: number }[],
+): number[] {
+  const actorIndex = new Map<string, number>();
+  actorList.forEach(([id], i) => actorIndex.set(id, i));
+  const gapCount = Math.max(actorList.length - 1, 0);
+  const gapSpacing: number[] = new Array(gapCount).fill(PARTICIPANT_SPACING);
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (!msg.from || !msg.to) continue;
+    const fi = actorIndex.get(msg.from);
+    const ti = actorIndex.get(msg.to);
+    if (fi === undefined || ti === undefined) continue;
+
+    const textW = labelSizes[i].w;
+    if (fi !== ti) {
+      if (Math.abs(fi - ti) !== 1) continue;
+      const lo = Math.min(fi, ti);
+      gapSpacing[lo] = Math.max(gapSpacing[lo], textW + 2 * LABEL_EDGE_MARGIN);
+    } else if (fi < gapCount) {
+      // 自环：标签整体在回路竖线（centerX + SELF_LOOP_OFFSET）右侧，
+      // 右端到中心线的距离为 SELF_LOOP_OFFSET + LABEL_LOOP_PAD + textW。
+      const need =
+        SELF_LOOP_OFFSET + LABEL_LOOP_PAD + textW + LABEL_EDGE_MARGIN;
+      gapSpacing[fi] = Math.max(gapSpacing[fi], need);
+    }
+  }
+  return gapSpacing;
+}
+
+/**
  * 生成唯一 ID
  */
 function genId(prefix: string): string {
@@ -155,35 +241,71 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
   const actorIdToNodeId = new Map<string, string>();
   const actorPositions = new Map<string, { x: number; y: number }>();
 
-  // 预计算每条消息的 Y 坐标（自环消息占额外高度，需推高后续消息）
+  // 每条消息的标签占位尺寸：宽用于水平间隙，高用于垂直行距与抬升
+  const labelSizes = messages.map((msg) => estimateLabelSize(extractMessageText(msg.message)));
+
+  // 预计算每条消息的 Y 坐标、标签抬升量与自环回路高度。
+  // 标签整体悬在连线上方（底边距连线 LABEL_LINE_PAD），抬升量随标签高度走：
+  // 单行标签抬 ~13px，三行标签抬 ~31px，标签顶永远不高于上一条连线。
+  // 行距按相邻标签高度自适应（multi-line 标签高，固定 40px 会上下互相挤压，
+  // 首条消息的标签也会顶进生命线头部框）。
   const msgYs: number[] = [];
-  let currentY = MESSAGE_START_Y;
-  for (const msg of messages) {
-    msgYs.push(currentY);
-    if (msg.from === msg.to) {
-      const text = extractMessageText(msg.message);
-      // 自环高度：默认 40，标签文字长则适当增加
-      const loopH = Math.max(40, Math.ceil(text.length * 2.5));
-      currentY += loopH + 15; // 自环底部 + 间距
+  const lifts: number[] = [];
+  const loopHs: number[] = [];
+  let lastMsgEndY = LIFELINE_BASE_Y + HEAD_HEIGHT;
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const selfLoop = msg.from === msg.to;
+    const h = labelSizes[i].h;
+    // 自环标签水平挪到回路右侧、垂直居中于回路，不需要抬升
+    const lift = selfLoop ? 0 : h / 2 + LABEL_LINE_PAD;
+
+    let y: number;
+    if (i === 0) {
+      // 首条消息：标签（含向上抬升的部分）整体落在头部框之下；
+      // 自环标签在回路中部，顶部本来就低于回路顶端
+      y = selfLoop
+        ? LIFELINE_BASE_Y + HEAD_HEIGHT + LABEL_ROW_PAD
+        : LIFELINE_BASE_Y + HEAD_HEIGHT + lift + h + LABEL_ROW_PAD;
     } else {
-      currentY += MESSAGE_SPACING;
+      const prevMsgY = msgYs[i - 1];
+      const prevExtra = loopHs[i - 1] ?? 0; // 上一条是自环时，回路向下多占的高度
+      // 两条约束取大：默认节奏；本条标签顶部不压上一条连线 / 自环回路
+      y = Math.max(
+        prevMsgY + MESSAGE_SPACING,
+        prevMsgY + prevExtra + lift + h + LABEL_ROW_PAD,
+      );
+    }
+    msgYs.push(y);
+    lifts.push(lift);
+
+    if (selfLoop) {
+      // 自环回路高度至少容纳标签（U 形主体在连线下方）
+      const loopH = Math.max(40, h + 12);
+      loopHs[i] = loopH;
+      lastMsgEndY = y + loopH;
+    } else {
+      loopHs[i] = 0;
+      lastMsgEndY = y;
     }
   }
-  const totalMsgHeight = currentY - MESSAGE_START_Y;
 
-  // 计算生命线高度：基于消息实际占用高度
+  // 生命线高度：到最后一条消息结束为止，加一小段底部留白。
   const lifelineHeight = Math.max(
     LIFELINE_DEFAULT_HEIGHT,
-    MESSAGE_START_Y + totalMsgHeight + 50,
+    lastMsgEndY + LIFELINE_BOTTOM_TAIL,
   );
 
-  // 水平排列参与者
+  // 水平排列参与者：间距按相邻消息标签宽度自适应（见 computeGapSpacings）
+  const gapSpacing = computeGapSpacings(actorList, messages, labelSizes);
+  let cursorX = 50;
   for (let i = 0; i < actorList.length; i++) {
     const [actorId, actor] = actorList[i];
     const nodeId = genId('lifeline');
     actorIdToNodeId.set(actorId, nodeId);
 
-    const x = 50 + i * PARTICIPANT_SPACING;
+    const x = cursorX;
+    cursorX += gapSpacing[i] ?? 0;
     const y = LIFELINE_BASE_Y;
 
     actorPositions.set(actorId, { x, y });
@@ -239,6 +361,12 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
       entryAbsY: msgY,
       style: {
         dashed: style.dashed,
+        labelLift: lifts[msgIdx],
+        // 自环标签水平挪到回路竖线右侧（普通消息不偏移）
+        labelShiftX:
+          msg.from === msg.to
+            ? SELF_LOOP_OFFSET + labelSizes[msgIdx].w / 2 + LABEL_LOOP_PAD
+            : undefined,
       },
     };
 
@@ -246,10 +374,10 @@ export function convertSequenceToSnapshot(data: SequenceData): GraphSnapshot {
       edge.startArrow = style.startArrow;
     }
 
-    // 自环消息：U 形回路（参照 sequenceInteraction A2 场景）
-    // 自环消息：U 形回路，高度根据标签文字长度动态计算（最小 40）
+    // 自环消息：U 形回路（参照 sequenceInteraction A2 场景），
+    // 回路高度与垂直布局阶段一致（loopHs）
     if (msg.from === msg.to) {
-      const loopH = Math.max(40, Math.ceil(labelText.length * 2.5));
+      const loopH = loopHs[msgIdx];
       const centerX = fromPos.x + LIFELINE_WIDTH / 2;
       const wpX = centerX + SELF_LOOP_OFFSET;
       const topY = msgY;

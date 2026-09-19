@@ -95,6 +95,44 @@ export interface SequenceData {
 let initialized = false;
 
 /**
+ * 空白类 HTML 实体 → 对应 Unicode 字符。
+ * 这些实体在渲染上等价于原义空格，解码后不影响显示。
+ */
+const WHITESPACE_ENTITIES: Record<string, string> = {
+  '&emsp;': '\u2003',
+  '&ensp;': '\u2002',
+  '&thinsp;': '\u2009',
+  '&nbsp;': '\u00a0',
+};
+
+/**
+ * 预处理：把 HTML 实体还原为字面字符。
+ *
+ * mermaid 时序图的语句以 `;` 分隔，消息文本词法规则是 `[^#\n;]*`——
+ * 不允许出现 `;`。而 `&emsp;` 这类命名实体自带 `;`，会把一条消息拦腰截断：
+ * `&emsp` 被当成消息结尾、`;` 被当成语句分隔符，剩余文本被当作新语句解析，
+ * 直接报 "Expecting ARROW ... got ','"。空格类实体还原为对应 Unicode 空格
+ * （渲染等价），数值实体解码后若引入语法字符则保留原文。
+ */
+function decodeEntities(code: string): string {
+  let out = code;
+  for (const [entity, ch] of Object.entries(WHITESPACE_ENTITIES)) {
+    out = out.split(entity).join(ch);
+  }
+  // 数值实体（&#8195; / &#x2003; 形式）：解码为对应字符；
+  // 会引入 mermaid 语法字符（< > & ;）的保留原文不动。
+  out = out.replace(/&#(\d+);|&#x([0-9a-fA-F]+);/g, (entity, dec, hex) => {
+    const codePoint = dec !== undefined ? Number(dec) : parseInt(hex, 16);
+    if (!Number.isInteger(codePoint) || codePoint <= 0 || codePoint > 0x10ffff) {
+      return entity;
+    }
+    const ch = String.fromCodePoint(codePoint);
+    return /[<>&;]/.test(ch) ? entity : ch;
+  });
+  return out;
+}
+
+/**
  * 初始化 mermaid 解析器（仅需一次）
  */
 function ensureMermaidInitialized(): void {
@@ -119,7 +157,7 @@ export async function parseMermaidCode(code: string): Promise<MermaidParseResult
 
   try {
     // 使用 mermaid API 解析代码（v11: getDiagramFromText 在 mermaidAPI 下）
-    const diagram = await mermaid.mermaidAPI.getDiagramFromText(code);
+    const diagram = await mermaid.mermaidAPI.getDiagramFromText(decodeEntities(code));
     const diagramType = diagram.type as string;
     // db 是内部数据对象，包含解析后的数据
     const db = diagram.db as Record<string, unknown>;

@@ -43,18 +43,18 @@ import { ResizeHandle } from "../../ui/ResizeHandle";
 import { useNodeResize } from "../hooks/useNodeResize";
 import { useEditorWidth } from "../hooks/useEditorWidth";
 import { useNodeSelected } from "../hooks/useNodeSelected";
-import { openHtmlPreviewWindow } from "../../../lib/windows/previewWindow";
+import { openHtmlPreviewWindow, openMermaidPreviewWindow } from "../../../lib/windows/previewWindow";
 import { useI18n } from "../../../lib/core/i18n";
 import { handleNativeSelectAll } from "../../../lib/shortcuts/nativeSelectAll";
 import { useStore } from "../../../store/useStore";
 import { LANGUAGES, getLanguageLabel } from "./code-block/codeBlockLanguages";
-import { buildMermaidPreviewWindowHtml } from "./code-block/mermaidWindowHtml";
 import { useMermaidPreview } from "./code-block/useMermaidPreview";
 import { useHtmlPreview } from "./code-block/useHtmlPreview";
 import { CodeBlockActions } from "./code-block/CodeBlockActions";
 import { useCodeBlockTitle } from "./code-block/useCodeBlockTitle";
 import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
 import { LanguageDropdown } from "./code-block/LanguageDropdown";
+import MermaidViewer from "./code-block/MermaidViewer";
 
 export default function CodeBlockView({
   node,
@@ -315,7 +315,7 @@ export default function CodeBlockView({
               onToggleHtmlPreview={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
               onToggleMermaidPreview={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
               onOpenHtmlWindow={() => openHtmlPreviewWindow(htmlSource)}
-              onOpenMermaidWindow={() => { if (mermaidSvg) openHtmlPreviewWindow(buildMermaidPreviewWindowHtml(mermaidSvg, isDarkMode), "Mermaid"); }}
+              onOpenMermaidWindow={() => { if (mermaidSvg) openMermaidPreviewWindow(mermaidSvg); }}
               getCodeText={() => codeRef.current?.querySelector(".hljs")?.textContent ?? ""}
               t={t}
             />
@@ -436,35 +436,28 @@ export default function CodeBlockView({
           </div>
         )}
 
-        {/* Mermaid live preview — rendered SVG diagram.
-            When NOT selected a transparent overlay sits above the diagram so a
-            click selects the node; once selected the overlay disappears. */}
+        {/* Mermaid live preview — pan/zoom stage (MermaidViewer, built on
+            react-zoom-pan-pinch). Cmd/Ctrl+wheel zooms anchored at the
+            cursor, drag pans, double-click resets. When NOT selected a
+            transparent overlay sits above the diagram so a click selects the
+            node; once selected the overlay disappears. */}
         {isMermaid && showMermaidPreview && !collapsed && (
-          <div
-            ref={mermaidPreviewRef}
+          <MermaidViewer
             className="code-block-preview code-block-mermaid-preview"
-            contentEditable={false}
             style={previewStyle}
-          >
-            {!selected && (
-              <div
-                className="code-block-preview-overlay"
-                onMouseDown={selectNode}
-              />
-            )}
-            {mermaidError && (
-              <div className="code-block-mermaid-error">
-                <p>{t("mermaid.renderError")}</p>
-                <pre>{mermaidError}</pre>
-              </div>
-            )}
-            {mermaidSvg && (
-              <div
-                className="code-block-mermaid-content"
-                dangerouslySetInnerHTML={{ __html: mermaidSvg }}
-              />
-            )}
-          </div>
+            contentEditable={false}
+            containerRef={mermaidPreviewRef}
+            svg={mermaidSvg}
+            error={mermaidError}
+            overlay={
+              !selected ? (
+                <div
+                  className="code-block-preview-overlay"
+                  onMouseDown={selectNode}
+                />
+              ) : null
+            }
+          />
         )}
 
         {/* Resize handle — shared bottom-right circular handle (same as File /

@@ -14,7 +14,7 @@
     "build:weapp": "taro build --type weapp",
     "dev:weapp": "npm run build:weapp -- --watch",
     "lint": "tsc --noEmit && eslint src --ext .ts,.tsx",
-    "test": "tsx --test src/lib/remote/client.test.ts src/lib/blocks/snapshot.test.ts"
+    "test": "tsx --test src/lib/remote/client.test.ts src/lib/blocks/snapshot.test.ts src/lib/mermaid/sequence.test.ts"
   },
   "browserslist": {
     "development": [

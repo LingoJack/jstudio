@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 import type { MermaidConfig } from "mermaid";
 import { buildMermaidConfig } from "./mermaidConfig";
+import { fixSequenceLifelines } from "./mermaidLifelineFix";
 
 export interface UseMermaidPreviewParams {
   isDarkMode: boolean;
@@ -44,14 +45,23 @@ export function useMermaidPreview({
       return;
     }
 
+    // Out-of-order guard: fast typing can start overlapping renders.
+    let cancelled = false;
+
     const renderMermaid = async () => {
       try {
-        // Generate unique id for this diagram
-        const id = `mermaid-${Date.now()}`;
+        // Date.now() alone collides when two renders start within the same
+        // millisecond (StrictMode double-invoke, fast typing) - mermaid
+        // injects temp elements keyed by this id.
+        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { svg } = await mermaid.render(id, mermaidSource);
-        setMermaidSvg(svg);
+        if (cancelled) return;
+        // mermaid hardcodes sequence lifelines to a 2000-unit length; extend
+        // them on taller diagrams (no-op otherwise, see mermaidLifelineFix).
+        setMermaidSvg(fixSequenceLifelines(svg));
         setMermaidError(null);
       } catch (err) {
+        if (cancelled) return;
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         setMermaidError(errorMsg);
         setMermaidSvg(null);
@@ -59,6 +69,9 @@ export function useMermaidPreview({
     };
 
     renderMermaid();
+    return () => {
+      cancelled = true;
+    };
   }, [showMermaidPreview, mermaidSource, isDarkMode]);
 
   return { mermaidSvg, mermaidError, mermaidPreviewRef };

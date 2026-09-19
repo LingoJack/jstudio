@@ -53,6 +53,7 @@ curl -X PUT http://127.0.0.1:8080/api/v1/documents/doc-test \
 |------|------|
 | 表格 colspan/rowspan/colwidth 不生效 | weapp 无 display:table，用 flex 行渲染 |
 | 代码块无语法高亮 | hljs 色板不移植，源码纯等宽呈现（13px/1.6 与桌面端一致） |
+| mermaid 只渲染时序图，其余图类型显示源码 | mermaid 库依赖 DOM；时序图用自研解析 + View 绝对定位渲染（lib/mermaid/），配色为 mermaid 默认亮色主题，不做缩放、超宽横向滚动 |
 | 画板（diagram）只显示占位 | jgraph/Excalidraw 依赖 canvas 交互，不渲染 |
 | 公式（math）显示 LaTeX 源码 | KaTeX 依赖 DOM |
 | 行内 code 无左右 3px 内边距 | 小程序 Text 不支持 padding，保留底色/等宽/0.9em |

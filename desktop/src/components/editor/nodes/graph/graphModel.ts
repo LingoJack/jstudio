@@ -267,6 +267,19 @@ function buildEdgeStyle(edge: GraphEdge, dark: boolean): CellStyle {
     const styleRecord = style as Record<string, unknown>;
     if (s.mmBranch !== undefined) styleRecord.mmBranch = s.mmBranch;
     if (s.mmDepth !== undefined) styleRecord.mmDepth = s.mmDepth;
+    // 标签抬升 / 水平偏移（时序图消息）：转成 maxGraph 的 spacing 体系。
+    // 边标签渲染时文字中心相对连线点的偏移 dy = (spacingTop - spacingBottom) / 2、
+    // dx = (spacingLeft - spacingRight) / 2（TextShape.getSpacing，居中对齐时），
+    // 故 spacingTop = -2 * labelLift 即上移 labelLift 像素（标签悬在连线上方），
+    // spacingLeft = 2 * labelShiftX 即右移 labelShiftX 像素（自环标签挪到回路右侧）。
+    if (s.labelLift !== undefined) {
+      styleRecord.labelLift = s.labelLift;
+      style.spacingTop = -2 * s.labelLift;
+    }
+    if (s.labelShiftX !== undefined) {
+      styleRecord.labelShiftX = s.labelShiftX;
+      style.spacingLeft = 2 * s.labelShiftX;
+    }
   }
   // 恢复端点连接约束（时序图消息的固定端点位置）。
   // 缺省时 maxGraph 会用 perimeter 重算端点，水平消息会被吸到图形中点。
@@ -518,6 +531,13 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
     const edgeStyleRecord = style as Record<string, unknown>;
     if (typeof edgeStyleRecord.mmBranch === 'number') eStyle.mmBranch = edgeStyleRecord.mmBranch;
     if (typeof edgeStyleRecord.mmDepth === 'number') eStyle.mmDepth = edgeStyleRecord.mmDepth;
+    // 读回标签抬升 / 水平偏移（时序图消息，见 buildEdgeStyle）。
+    if (typeof edgeStyleRecord.labelLift === 'number') {
+      eStyle.labelLift = edgeStyleRecord.labelLift;
+    }
+    if (typeof edgeStyleRecord.labelShiftX === 'number') {
+      eStyle.labelShiftX = edgeStyleRecord.labelShiftX;
+    }
     if (Object.keys(eStyle).length > 0) edge.style = eStyle;
     const la = readLabelAlign(style);
     if (la) edge.labelAlign = la;

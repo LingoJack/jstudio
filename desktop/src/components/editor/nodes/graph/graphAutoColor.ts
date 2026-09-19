@@ -1,7 +1,7 @@
 /**
  * graphAutoColor - 画板自动上色（用户触发，先预览再应用）。
  *
- * 规则：对画布上的矩形 / 圆角矩形 / 菱形 / 时序图生命线方块做图着色——
+ * 规则：对画布上的矩形 / 圆角矩形 / 菱形 / 时序图生命线方块 / 数据库圆柱做图着色——
  * 相邻（有连线直连）的图形不同色（硬约束），同层（连线方向上的同一深度，
  * 即流程图的同一级）的图形也不同色（软约束，色板富余时优先保证）。
  * 思维导图 topic（有自己的配色体系）、激活框、文本 / 注释 / 泳道等
@@ -20,15 +20,42 @@
 import type { Cell, CellStyle, Graph } from '@maxgraph/core';
 import { fontColorFor } from './graphTheme';
 import { owningLifeline } from './sequenceInteraction';
-import { collectTextFitCells } from './graphTextFit';
+
+/**
+ * 参与自动上色的形状（maxGraph shape 名）。
+ * 矩形 / 圆角矩形 / 菱形 / 时序图生命线方块 / 数据库圆柱。
+ * 思维导图 topic（有自己的配色体系）、激活框、文本 / 注释 / 泳道等不参与。
+ *
+ * 注意：不能直接复用 graphTextFit 的收集器——那里的形状集合还决定尺寸适配
+ * 规则（database 没有 fit 规则，加进去会误触发文字适配），故独立维护。
+ */
+const AUTO_COLOR_SHAPES = new Set(['rectangle', 'rhombus', 'lifeline', 'database']);
+
+/** 判断 cell 是否参与自动上色。 */
+function isAutoColorCell(cell: Cell): boolean {
+  if (!cell.isVertex()) return false;
+  const style = cell.getStyle() as CellStyle & Record<string, unknown>;
+  if (typeof style.shape !== 'string' || !AUTO_COLOR_SHAPES.has(style.shape)) {
+    return false;
+  }
+  // 思维导图 topic 的配色由 mindmap 配色体系管理，不参与。
+  if (style.isTopic) return false;
+  return true;
+}
 
 /**
  * 收集画布上参与自动上色的 cell（递归含泳道等容器的子级）。
- * 参与集合与文字适配一致（矩形/圆角矩形/菱形/生命线，排除 topic），
- * 直接复用 graphTextFit 的收集器。
  */
 export function collectAutoColorCells(graph: Graph): Cell[] {
-  return collectTextFitCells(graph);
+  const result: Cell[] = [];
+  const walk = (parent: Cell) => {
+    for (const cell of graph.getChildCells(parent, true, false)) {
+      if (isAutoColorCell(cell)) result.push(cell);
+      walk(cell);
+    }
+  };
+  walk(graph.getDefaultParent());
+  return result;
 }
 
 /** 自动上色色板（浅色 / 暗色各一套，取值均来自 FILL_COLOR_PAIRS 色对，主题切换自动互换）。 */
