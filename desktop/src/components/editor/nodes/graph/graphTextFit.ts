@@ -35,16 +35,16 @@ import { SHAPE_FONT_SIZE } from './graphTheme';
 const TEXT_FIT_SHAPES = new Set(['rectangle', 'rhombus', 'lifeline']);
 
 /** 单行内宽上限：超过则折行（防止一个长 URL 把框拉成超宽条）。 */
-const TEXT_FIT_MAX_INNER_WIDTH = 240;
+export const TEXT_FIT_MAX_INNER_WIDTH = 240;
 
 /** 矩形 / 圆角矩形的文字内距（水平 / 垂直）。 */
 const RECT_TEXT_PAD_X = 12;
 const RECT_TEXT_PAD_Y = 10;
 
 /** 菱形：内接矩形换算的文字内距与系数（内接宽高 = 框体宽高的一半）。 */
-const DIAMOND_TEXT_PAD_X = 8;
-const DIAMOND_TEXT_PAD_Y = 4;
-const DIAMOND_INSCRIBE_FACTOR = 2;
+export const DIAMOND_TEXT_PAD_X = 8;
+export const DIAMOND_TEXT_PAD_Y = 4;
+export const DIAMOND_INSCRIBE_FACTOR = 2;
 
 /** 生命线头部的文字水平内距。 */
 const LIFELINE_TEXT_PAD_X = 16;
@@ -168,10 +168,13 @@ function measureText(
   el.style.whiteSpace = 'pre';
   el.style.wordBreak = 'normal';
   el.replaceChildren();
-  const lines = text.split('\n');
+  // label 值里的 <br/> 是渲染层的换行标记（mermaid / AI 导入的多行标签都带它），
+  // 量宽前必须先归一成行——否则整串连同字面 "<br/>" 被当成一行量宽，
+  // 框体被放大两三倍（与 measureLabelSize 的处理一致）。
+  const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n');
   for (let i = 0; i < lines.length; i++) {
     if (i > 0) el.appendChild(document.createElement('br'));
-    el.appendChild(document.createTextNode(lines[i]));
+    if (lines[i]) el.appendChild(document.createTextNode(lines[i]));
   }
   const naturalW = el.offsetWidth;
   const naturalH = el.offsetHeight;
@@ -181,6 +184,19 @@ function measureText(
   el.style.wordBreak = 'break-word';
   el.style.width = `${capWidth}px`;
   return { w: capWidth, h: el.offsetHeight };
+}
+
+/**
+ * 画布默认字体下的标签实测（导入端几何布局用，无渲染 state 时的测量口径）。
+ *
+ * 与 fitCellToText 的测量完全同口径：同字体（--jstudio-font-family），
+ * line-height normal，同折行上限（TEXT_FIT_MAX_INNER_WIDTH）。
+ * 导入端用它定框体尺寸，导入后的文字适配（fitCellsToText）量出的尺寸
+ * 就不会更大，框体零放大——导入时的布局几何（含按成员包络计算的分组框）
+ * 得以原样保留。无 DOM 的环境（无头测试）不可调用，调用方自行兜底。
+ */
+export function measureLabelAtCanvasFont(text: string): { w: number; h: number } {
+  return measureText(text, null, TEXT_FIT_MAX_INNER_WIDTH);
 }
 
 /* ------------------------------------------------------------------ */

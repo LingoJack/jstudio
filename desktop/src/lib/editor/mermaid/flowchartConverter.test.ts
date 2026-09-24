@@ -7,6 +7,7 @@
  *   - computeNodeSize：按内容定尺寸（菱形 > 矩形）
  *   - layoutNodes：真实尺寸布局无重叠、层级 y 递增
  *   - convertFlowchartToSnapshot：端到端，节点尺寸足以容纳 label
+ *   - subgraph 分组框（嵌套几何 / 组内相邻）、classDef 样式、linkStyle、~~~ 不可见边
  *
  * 运行：npx tsx --test src/lib/editor/mermaid/flowchartConverter.test.ts
  */
@@ -21,7 +22,13 @@ import {
   layoutNodes,
   convertFlowchartToSnapshot,
 } from './flowchartConverter';
-import type { FlowchartData, MermaidVertex, MermaidEdge } from './mermaidParser';
+import type {
+  FlowchartData,
+  MermaidClassDef,
+  MermaidEdge,
+  MermaidSubgraph,
+  MermaidVertex,
+} from './mermaidParser';
 import type { GraphEdge, GraphNode } from '../../../components/editor/nodes/graph/graphSnapshot';
 
 /* ------------------------------------------------------------------ */
@@ -690,4 +697,254 @@ test('snapshot: TB 方向回边环路同样不穿过节点', () => {
     const laneX = Math.max(...e.waypoints!.map((p) => p.x));
     assert.ok(laneX > maxRight, `回边 ${e.id} 车道应在图右侧外`);
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* 样式与分组：classDef / linkStyle / ~~~ 不可见边 / subgraph 分组框        */
+/* ------------------------------------------------------------------ */
+
+/** 极简顶点 / 边构造 */
+function vtx(id: string, text: string, extra: Partial<MermaidVertex> = {}): [string, MermaidVertex] {
+  return [id, { id, labelType: 'text', text, ...extra }];
+}
+
+function edge(start: string, end: string, extra: Partial<MermaidEdge> = {}): MermaidEdge {
+  return { start, end, text: '', type: 'arrow_point', labelType: 'text', stroke: 'normal', ...extra };
+}
+
+/** 用户那份架构图的样式骨架：classDef 四类 + 键值对 */
+function sampleClasses(): Map<string, MermaidClassDef> {
+  return new Map<string, MermaidClassDef>([
+    ['newnode', { id: 'newnode', styles: ['fill:#dbe9fb', 'stroke:#2b6cb0', 'stroke-width:2px', 'color:#1a365d'], textStyles: ['color:#1a365d'] }],
+    ['exist', { id: 'exist', styles: ['fill:#ffffff', 'stroke:#94a3b8', 'color:#334155'], textStyles: ['color:#334155'] }],
+    ['layerbox', { id: 'layerbox', styles: ['fill:#eef2f7', 'stroke:#cbd5e1', 'color:#475569'], textStyles: ['color:#475569'] }],
+    ['groupbox', { id: 'groupbox', styles: ['fill:#ffffff', 'stroke:#b6c2d2', 'stroke-dasharray:4 3', 'color:#64748b'], textStyles: ['color:#64748b'] }],
+  ]);
+}
+
+test('snapshot: ~~~ 不可见边不产出连线，但仍参与分层', () => {
+  const vertices = new Map<string, MermaidVertex>([
+    vtx('A', '入口'),
+    vtx('B', '锚点'),
+    vtx('C', '下游'),
+  ]);
+  const edges: MermaidEdge[] = [
+    edge('A', 'C'),
+    // mermaid 把 ~~~ 解析成 stroke=invisible + arrow_open，渲染时不画
+    edge('A', 'B', { type: 'arrow_open', stroke: 'invisible' }),
+  ];
+  const snap = convertFlowchartToSnapshot({
+    vertices,
+    edges,
+    subgraphs: [],
+    direction: 'TB',
+    classes: sampleClasses(),
+  });
+
+  assert.equal(snap.edges.length, 1, '不可见边不应产出连线');
+  assert.equal(snap.edges[0].target, 'node-C');
+  const a = snap.nodes.find((n) => n.id === 'node-A')!;
+  const b = snap.nodes.find((n) => n.id === 'node-B')!;
+  assert.ok(b.y > a.y, `不可见边应把 B 锚在 A 之后（A.y=${a.y}, B.y=${b.y}）`);
+});
+
+test('snapshot: classDef 样式应用到节点，行内 style 覆盖 classDef', () => {
+  const vertices = new Map<string, MermaidVertex>([
+    vtx('A', '现状', { classes: ['exist'] }),
+    vtx('B', '目标', { classes: ['newnode'], styles: ['fill:#000000'] }),
+  ]);
+  const snap = convertFlowchartToSnapshot({
+    vertices,
+    edges: [edge('A', 'B')],
+    subgraphs: [],
+    direction: 'TB',
+    classes: sampleClasses(),
+  });
+
+  const a = snap.nodes.find((n) => n.id === 'node-A')!;
+  assert.deepEqual(a.style, { fill: '#ffffff', stroke: '#94a3b8', fontColor: '#334155' });
+  const b = snap.nodes.find((n) => n.id === 'node-B')!;
+  assert.equal(b.style?.fill, '#000000', '行内 style 应覆盖 classDef');
+  assert.equal(b.style?.stroke, '#2b6cb0', '同一 classDef 的其余属性仍生效');
+  assert.equal(b.style?.strokeWidth, 2);
+});
+
+test('snapshot: linkStyle 覆盖连线颜色 / 粗细 / 虚实', () => {
+  const vertices = new Map<string, MermaidVertex>([
+    vtx('A', 'A'),
+    vtx('B', 'B'),
+  ]);
+  const edges: MermaidEdge[] = [
+    edge('A', 'B', {
+      stroke: 'thick',
+      style: ['stroke:#1d4ed8', 'stroke-width:3px', 'fill:none'],
+    }),
+  ];
+  const snap = convertFlowchartToSnapshot({
+    vertices,
+    edges,
+    subgraphs: [],
+    direction: 'TB',
+    classes: sampleClasses(),
+  });
+  assert.equal(snap.edges[0].style?.stroke, '#1d4ed8');
+  assert.equal(snap.edges[0].style?.strokeWidth, 3);
+
+  // 无 linkStyle 时按线型推断；虚线型 -> dashed
+  const dashed: MermaidEdge[] = [edge('A', 'B', { stroke: 'dotted' })];
+  const snap2 = convertFlowchartToSnapshot({
+    vertices,
+    edges: dashed,
+    subgraphs: [],
+    direction: 'TB',
+  });
+  assert.equal(snap2.edges[0].style?.dashed, true);
+  assert.equal(snap2.edges[0].style?.stroke, undefined);
+});
+
+/**
+ * 两级嵌套分组：接入层{ 身份认证{OC}, 权限认证{KA,AZ} } + 逻辑层{ IAA }
+ * AL.nodes 只列直接子项（子组 id），与 mermaid v11 的实际输出一致。
+ */
+function makeNestedGroups(): FlowchartData {
+  const vertices = new Map<string, MermaidVertex>([
+    vtx('OC', 'Openid Connect', { classes: ['exist'] }),
+    vtx('KA', 'keycloak-auth', { classes: ['exist'] }),
+    vtx('AZ', 'iam-authz', { classes: ['newnode'] }),
+    vtx('IAA', 'iam-account', { classes: ['exist'] }),
+  ]);
+  const edges: MermaidEdge[] = [edge('AZ', 'IAA', { stroke: 'thick' })];
+  const subgraphs: MermaidSubgraph[] = [
+    { id: 'G1', nodes: ['OC'], title: '身份认证', classes: ['groupbox'], labelType: 'text' },
+    { id: 'G2', nodes: ['KA', 'AZ'], title: '权限认证', classes: ['groupbox'], labelType: 'text' },
+    { id: 'AL', nodes: ['G1', 'G2'], title: '接入层', classes: ['layerbox'], labelType: 'text' },
+    { id: 'LL', nodes: ['IAA'], title: '逻辑层', classes: ['layerbox'], labelType: 'text' },
+  ];
+  return { vertices, edges, subgraphs, direction: 'TB', classes: sampleClasses() };
+}
+
+test('snapshot: subgraph 生成嵌套分组框（包裹成员 + classDef 样式 + 左上角标题）', () => {
+  const snap = convertFlowchartToSnapshot(makeNestedGroups());
+
+  assert.equal(snap.nodes.length, 4 + 4, '4 个成员 + 4 个组框');
+  const box = (id: string) => snap.nodes.find((n) => n.id === `group-${id}`)!;
+  const leaf = (id: string) => snap.nodes.find((n) => n.id === `node-${id}`)!;
+
+  for (const id of ['AL', 'LL', 'G1', 'G2']) {
+    assert.ok(box(id), `应有分组框 group-${id}`);
+    assert.ok(box(id).x >= 0 && box(id).y >= 0, '组框坐标应在正区域');
+  }
+
+  // z 序：组框全部排在成员之前（画在成员之下），外层框排在内层之前
+  const order = snap.nodes.map((n) => n.id);
+  assert.ok(order.indexOf('group-AL') < order.indexOf('group-G1'));
+  assert.ok(order.indexOf('group-G1') < order.indexOf('node-OC'));
+
+  // 几何：每个组框包住自己的直接成员
+  const wraps = (outer: GraphNode, inner: { x: number; y: number; w: number; h: number }) =>
+    outer.x <= inner.x && outer.y <= inner.y &&
+    outer.x + outer.w >= inner.x + inner.w && outer.y + outer.h >= inner.y + inner.h;
+  assert.ok(wraps(box('G1'), leaf('OC')));
+  assert.ok(wraps(box('G2'), leaf('KA')));
+  assert.ok(wraps(box('G2'), leaf('AZ')));
+  assert.ok(wraps(box('LL'), leaf('IAA')));
+  assert.ok(wraps(box('AL'), leaf('OC')) && wraps(box('AL'), leaf('AZ')));
+  // 嵌套：外层框要包住内层框（父子框不能齐边，否则两层标题会叠在一起）
+  assert.ok(wraps(box('AL'), box('G1')));
+  assert.ok(wraps(box('AL'), box('G2')));
+  assert.ok(box('AL').y < box('G1').y, '父框顶部应让出标题带');
+
+  // 样式：layerbox / groupbox + 标题左上角对齐
+  assert.deepEqual(box('AL').style, { fill: '#eef2f7', stroke: '#cbd5e1', fontColor: '#475569' });
+  assert.equal(box('G1').style?.dashed, true);
+  assert.equal(box('G1').label, '身份认证');
+  assert.equal(box('AL').labelAlign, 'left');
+  assert.equal(box('AL').labelVAlign, 'top');
+  assert.equal(box('AL').shape, 'rectangle');
+
+  // 组框之间只允许包含关系，不允许部分相交
+  const boxes = snap.nodes.filter((n) => n.id.startsWith('group-'));
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i];
+      const b = boxes[j];
+      const overlap =
+        a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      assert.ok(
+        !overlap || wraps(a, b) || wraps(b, a),
+        `组框 ${a.id} 与 ${b.id} 不应部分相交`,
+      );
+    }
+  }
+
+  // 成员之间不重叠，且不越出所属组框
+  const leaves = snap.nodes.filter((n) => n.id.startsWith('node-'));
+  for (let i = 0; i < leaves.length; i++) {
+    for (let j = i + 1; j < leaves.length; j++) {
+      const a = leaves[i];
+      const b = leaves[j];
+      const overlap =
+        a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      assert.ok(!overlap, `成员 ${a.id} 与 ${b.id} 不应重叠`);
+    }
+  }
+});
+
+test('snapshot: 组框宽度装得下长标题（窄成员 + 长 subgraph 名）', () => {
+  // 组框内边距（flowchartConverter 的 GROUP_PAD）
+  const GROUP_PAD = 16;
+  const title = '权限认证 · PEP 策略执行点（apisix 插件）';
+  const vertices = new Map<string, MermaidVertex>([vtx('A', '窄')]);
+  const subgraphs: MermaidSubgraph[] = [
+    { id: 'G', nodes: ['A'], title, classes: ['groupbox'], labelType: 'text' },
+  ];
+  const snap = convertFlowchartToSnapshot({
+    vertices,
+    edges: [],
+    subgraphs,
+    direction: 'TB',
+    classes: sampleClasses(),
+  });
+  const box = snap.nodes.find((n) => n.id === 'group-G')!;
+  const titleW = measureLabel(wrapLabel(title)).maxWidth;
+  assert.ok(
+    box.w >= titleW + GROUP_PAD * 2,
+    `组框宽 ${box.w} 应装下标题宽 ${titleW}（否则标题越出右边框、导入文字适配会把框拉大压到隔壁）`,
+  );
+  assert.ok(box.w >= snap.nodes.find((n) => n.id === 'node-A')!.w + GROUP_PAD * 2);
+});
+
+test('snapshot: 同组节点在层内相邻（跨组不交错）', () => {
+  const vertices = new Map<string, MermaidVertex>([
+    vtx('S', '源'),
+    vtx('A', 'A'),
+    vtx('B', 'B'),
+    vtx('C', 'C'),
+    vtx('D', 'D'),
+  ]);
+  const edges: MermaidEdge[] = [
+    edge('S', 'A'),
+    edge('S', 'B'),
+    edge('S', 'C'),
+    edge('S', 'D'),
+  ];
+  const subgraphs: MermaidSubgraph[] = [
+    { id: 'G1', nodes: ['A', 'C'], title: '组一', labelType: 'text' },
+    { id: 'G2', nodes: ['B', 'D'], title: '组二', labelType: 'text' },
+  ];
+  const snap = convertFlowchartToSnapshot({ vertices, edges, subgraphs, direction: 'TB' });
+
+  const groupOf = (nodeId: string) => (['A', 'C'].includes(nodeId) ? 'G1' : 'G2');
+  // 第二层（非源节点）按 x 排序后，同组节点应连续出现
+  const row = snap.nodes
+    .filter((n) => n.id.startsWith('node-') && n.id !== 'node-S')
+    .sort((a, b) => a.x - b.x)
+    .map((n) => groupOf(n.id.slice('node-'.length)));
+  assert.equal(row.length, 4);
+  const blocks = row.filter((g, i) => i === 0 || row[i - 1] !== g);
+  assert.equal(
+    new Set(blocks).size,
+    blocks.length,
+    `同组节点应在层内相邻，实际顺序 ${row.join(',')}`,
+  );
 });

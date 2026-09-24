@@ -32,7 +32,12 @@ import {
   DEFAULT_MINDMAP_SCHEME,
   type MindmapScheme,
 } from './graphTheme';
-import { braceLabelStyleFor, defaultBraceDirection } from './graphConstants';
+import {
+  braceLabelStyleFor,
+  defaultBraceDirection,
+  TOP_LABEL_INSET_X,
+  TOP_LABEL_INSET_Y,
+} from './graphConstants';
 
 /* ------------------------------------------------------------------ */
 /* 形状 ↔ CellStyle 映射                                               */
@@ -204,6 +209,7 @@ function buildNodeStyle(node: GraphNode, dark: boolean, scheme: MindmapScheme): 
     if (s.mmDepth !== undefined) baseRecord.mmDepth = s.mmDepth;
   }
   applyLabelAlign(base, node.labelAlign);
+  applyLabelVAlign(base, node.labelVAlign);
   return base;
 }
 
@@ -214,6 +220,18 @@ function applyLabelAlign(style: CellStyle, labelAlign: string | undefined): void
   } else if (labelAlign === 'center') {
     style.align = 'center';
   }
+}
+
+/**
+ * 把节点的 labelVAlign 写入 CellStyle.verticalAlign（含顶部内缩）。
+ * maxGraph 侧由 TextShape 消费：valign='top' 时文字 y = bounds.y + spacingTop，
+ * align='left' 时 x = bounds.x + spacingLeft（见 TextShape.getSpacing）。
+ */
+function applyLabelVAlign(style: CellStyle, labelVAlign: GraphNode['labelVAlign']): void {
+  if (labelVAlign !== 'top') return;
+  style.verticalAlign = 'top';
+  style.spacingTop = TOP_LABEL_INSET_Y;
+  style.spacingLeft = TOP_LABEL_INSET_X;
 }
 
 /** 从 CellStyle.align 读回 labelAlign（仅 left/right 非默认时返回）。 */
@@ -474,6 +492,15 @@ export function readSnapshotFromGraph(graph: Graph, showGrid?: boolean, autoActi
     if (Object.keys(nStyle).length > 0) node.style = nStyle;
     const la = readLabelAlign(style);
     if (la) node.labelAlign = la;
+    // 读回顶部对齐标记（见 buildNodeStyle.applyLabelVAlign）。
+    // 排除把标签放在形状外侧的样式（花括号 braceLabelStyleFor 也写 verticalAlign:'top'，
+    // 但它的 verticalLabelPosition 是 top/bottom，不属于"框内顶部"语义）。
+    if (
+      style.verticalAlign === 'top' &&
+      (style.verticalLabelPosition ?? 'middle') === 'middle'
+    ) {
+      node.labelVAlign = 'top';
+    }
     nodes.push(node);
   }
 

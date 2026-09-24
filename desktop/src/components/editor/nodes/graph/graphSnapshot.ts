@@ -65,6 +65,12 @@ export interface GraphNode {
   label?: string;
   /** 文字水平对齐（默认 center）。 */
   labelAlign?: LabelAlign;
+  /**
+   * 文字垂直对齐（默认 middle）。
+   * 分组框（mermaid subgraph 导入）用 'top' 把标题贴在框内顶部，
+   * 避免标题浮在大框的垂直中点上、与成员图形叠在一起。
+   */
+  labelVAlign?: 'top' | 'middle';
   /** 可选样式覆盖（填充/描边/字色等）。留空时由内核按 shape 给默认。 */
   style?: GraphNodeStyle;
 }

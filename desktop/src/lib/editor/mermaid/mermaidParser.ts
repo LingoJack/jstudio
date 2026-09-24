@@ -37,17 +37,39 @@ export interface MermaidEdge {
   type: string; // 箭头类型：'arrow_point', 'arrow_cross', 'arrow_open', etc.
   text: string;
   labelType: 'text' | 'markdown';
-  stroke: string; // 线型：'normal', 'dotted', 'thick'
+  /**
+   * 线型：'normal' | 'dotted' | 'thick' | 'invisible'。
+   * 'invisible' 对应 `~~~` 语句——mermaid 渲染时不给样式类（SVG 不描边，看不见），
+   * 只用于参与布局分层。
+   */
+  stroke: string;
   length?: number;
+  /** linkStyle 行内声明（如 `['stroke:#1d4ed8', 'stroke-width:3px']`）。 */
+  style?: string[];
 }
 
 /** Flowchart 子图数据 */
 export interface MermaidSubgraph {
   id: string;
+  /**
+   * 直接子项：叶子节点 id 或**嵌套子图 id**（mermaid 只列直接成员，不含孙辈）。
+   * 例：`subgraph AL` 内含 `subgraph G1` 时，AL.nodes === ['G1']。
+   */
   nodes: string[];
   title: string;
   classes?: string[];
   labelType: 'text' | 'markdown';
+  /** subgraph 内显式声明的方向（`direction LR`），未声明时缺省。 */
+  dir?: string;
+}
+
+/** classDef 定义（从 db.getClasses() 返回的映射值） */
+export interface MermaidClassDef {
+  id: string;
+  /** CSS 声明数组，如 `['fill:#dbe9fb', 'stroke:#2b6cb0', 'color:#1a365d']`。 */
+  styles?: string[];
+  /** 文字相关声明（多为 color 的重复），与 styles 合并使用。 */
+  textStyles?: string[];
 }
 
 /** Flowchart 完整数据 */
@@ -56,6 +78,8 @@ export interface FlowchartData {
   edges: MermaidEdge[];
   subgraphs: MermaidSubgraph[];
   direction?: string; // TB, BT, LR, RL
+  /** classDef 名称 -> 定义。旧调用方（测试）不传时按无样式处理。 */
+  classes?: Map<string, MermaidClassDef>;
 }
 
 /** Sequence 参与者数据 */
@@ -167,7 +191,11 @@ export async function parseMermaidCode(code: string): Promise<MermaidParseResult
       // getVertices 返回 Map<string, FlowVertex>
       const verticesMap = (db.getVertices as () => Map<string, MermaidVertex>)?.() ?? new Map();
       const edges = (db.getEdges as () => MermaidEdge[])?.() ?? [];
-      const subgraphs = (db.getSubgraphs as () => MermaidSubgraph[])?.() ?? [];
+      // 方法名注意：mermaid v11 FlowDB 上是 `getSubGraphs`（大写 G）；
+      // 写成 getSubgraphs 会拿到 undefined，再配可选调用会被静默吞成空数组。
+      const subgraphs = (db.getSubGraphs as () => MermaidSubgraph[])() ?? [];
+      // classDef 定义：节点 / 子图只带 classes 名称数组，样式在这里按名查。
+      const classes = (db.getClasses as () => Map<string, MermaidClassDef>)?.() ?? new Map();
       // 方向（TB/BT/LR/RL）
       const direction = (db.getDirection as () => string)?.() ?? 'TB';
 
@@ -178,6 +206,7 @@ export async function parseMermaidCode(code: string): Promise<MermaidParseResult
           edges,
           subgraphs,
           direction,
+          classes,
         } as FlowchartData,
       };
     }

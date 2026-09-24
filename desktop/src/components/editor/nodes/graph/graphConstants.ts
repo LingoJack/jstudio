@@ -252,6 +252,13 @@ const EVENT_TOLERANCE = 18;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
 
+/**
+ * 顶部对齐标签（labelVAlign: 'top'）的内缩：框边到文字的距离（px）。
+ * 分组框用它把标题压在框内左上角，不压住框内成员图形。
+ */
+const TOP_LABEL_INSET_X = 10;
+const TOP_LABEL_INSET_Y = 8;
+
 /** 拖拽绘制时的最小尺寸（低于此值视为"点击"，用默认尺寸落点）。 */
 const MIN_DRAW_SIZE = 12;
 
@@ -288,6 +295,8 @@ export {
   EVENT_TOLERANCE,
   ZOOM_MIN,
   ZOOM_MAX,
+  TOP_LABEL_INSET_X,
+  TOP_LABEL_INSET_Y,
   MIN_DRAW_SIZE,
   CONNECTION_POINTS,
   BATCH_MAX_COUNT,
