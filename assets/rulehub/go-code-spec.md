@@ -306,6 +306,7 @@ if extensionCount := countExtensions(policies); i.limits.MaxExtensions > 0 && ex
 
 
 ## 禁止使用非命名变量返回值风格 （不允许 return 跟东西）
+不只是 error，任何返回值都必须是具名返回值，return 不允许跟东西
 bad case：
 ```go
 func Register(engine *gin.Engine, dep Dependency) error {
