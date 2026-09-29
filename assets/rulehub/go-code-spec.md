@@ -323,6 +323,53 @@ func Register(engine *gin.Engine, dep Dependency) error {
 }
 ```
 
+
+bad case:
+```go
+// GetDetail 查询单个服务账号详情（含 service-account 用户 id）。
+func (s *Service) GetDetail(ctx context.Context, clientID string) (result *DetailResult, err error) {
+	trimmedID := strings.TrimSpace(clientID)
+	if trimmedID == "" {
+		// 这里不应该 return nil, fmt..., 应该给 err = xxxx 然后 return 不带任何东西
+		return nil, fmt.Errorf("%w: client_id is required", ErrInvalidParam)
+	}
+
+	// 精确匹配查 client；非服务账号域（含非 sa_ 前缀 / 无 sub_type 属性）一律按不存在
+	// 处理，不区分"不存在"与"非本域"，避免向调用方泄漏其他 client 的存在性
+	clients, err := s.kc.GetClients(ctx, gocloak.GetClientsParams{ClientID: gocloak.StringP(trimmedID)})
+	if err != nil {
+		return nil, fmt.Errorf("%w: get client %s: %v", ErrKeycloakUnavailable, trimmedID, err)
+	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrClientNotFound, trimmedID)
+	}
+	client := clients[0]
+
+	attributes := map[string]string{}
+	if client.Attributes != nil {
+		for name, value := range *client.Attributes {
+			attributes[name] = value
+		}
+	}
+	if attributes[attrSubType] != subTypePlatformApp {
+		return nil, fmt.Errorf("%w: %s", ErrClientNotFound, trimmedID)
+	}
+
+	saUser, err := s.kc.GetClientServiceAccount(ctx, gocloak.PString(client.ID))
+	if err != nil {
+		return nil, fmt.Errorf("%w: get service-account of %s: %v", ErrKeycloakUnavailable, trimmedID, err)
+	}
+
+	return &DetailResult{
+		Item: buildItem(
+			gocloak.PString(client.ClientID), gocloak.PString(client.Name), gocloak.PString(client.Description),
+			gocloak.PBool(client.Enabled), attributes),
+		ServiceAccountUserID: gocloak.PString(saUser.ID),
+	}, nil
+}
+
+```
+
 good case
 ```go
 func Register(engine *gin.Engine, dep Dependency) (err error) {
