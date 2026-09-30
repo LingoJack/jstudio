@@ -8,7 +8,7 @@
  * 然后全屏渲染对应类型的预览内容。
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
 
 import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../../lib/windows/previewWindow';
@@ -19,6 +19,7 @@ import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import PdfPreview from '../editor/nodes/PdfPreview';
 import MermaidViewer from '../editor/nodes/code-block/MermaidViewer';
+import PanZoomStage, { PAN_BUTTONS, type PanZoomStageHandle } from './PanZoomStage';
 import { useI18n } from '../../lib/core/i18n';
 import ChildWindowDragBar from './ChildWindowDragBar';
 
@@ -108,6 +109,11 @@ function PreviewContent({
   // ── Native DOM iframe for HTML preview (React 19 sandbox workaround) ──
   const htmlIframeRef = useRef<HTMLIFrameElement | null>(null);
   const htmlContainerRef = useRef<HTMLDivElement | null>(null);
+  // Pan/zoom stage handle. Wheel/mouse events over the iframe are captured
+  // by the iframe's own document and NEVER reach the parent window, so
+  // mirrored listeners inside the (same-origin) iframe doc forward them to
+  // the stage with coordinates converted into the parent's space.
+  const htmlStageRef = useRef<PanZoomStageHandle | null>(null);
 
   useEffect(() => {
     if (category !== 'html') return;
@@ -143,6 +149,67 @@ function PreviewContent({
         iframe.removeAttribute('srcdoc');
       }
     }
+
+    // ── Forward viewer gestures from the iframe document to the stage ──
+    // Setting srcdoc/src swaps the document (dropping any previous
+    // listeners), so re-attach on every `load`; the doc-level flag keeps
+    // re-attachment idempotent against StrictMode's double effect run.
+    const forwardPanZoom = () => {
+      if (!iframe) return;
+      const doc = iframe.contentDocument;
+      if (!doc) return;
+      const docAny = doc as Document & { __panZoomForwarded?: boolean };
+      if (docAny.__panZoomForwarded) return;
+      docAny.__panZoomForwarded = true;
+
+      // iframe-viewport coords → parent viewport coords. The iframe's rect
+      // is measured post-transform, so rect/clientWidth is the live zoom
+      // scale - recomputed per event, never cached.
+      const mapPoint = (e: MouseEvent | WheelEvent) => {
+        const rect = iframe.getBoundingClientRect();
+        const sx = iframe.clientWidth > 0 ? rect.width / iframe.clientWidth : 1;
+        const sy = iframe.clientHeight > 0 ? rect.height / iframe.clientHeight : 1;
+        return { x: rect.left + e.clientX * sx, y: rect.top + e.clientY * sy };
+      };
+
+      doc.addEventListener('wheel', (e: WheelEvent) => {
+        e.preventDefault();
+        const { x, y } = mapPoint(e);
+        htmlStageRef.current?.handleWheel({
+          clientX: x,
+          clientY: y,
+          deltaX: e.deltaX,
+          deltaY: e.deltaY,
+          deltaMode: e.deltaMode,
+          metaKey: e.metaKey,
+          ctrlKey: e.ctrlKey,
+        });
+      }, { passive: false });
+
+      doc.addEventListener('mousedown', (e: MouseEvent) => {
+        if (!PAN_BUTTONS.has(e.button)) return;
+        e.preventDefault();
+        const { x, y } = mapPoint(e);
+        htmlStageRef.current?.handlePanStart(x, y);
+      });
+      doc.addEventListener('mousemove', (e: MouseEvent) => {
+        if (!htmlStageRef.current?.isPanning()) return;
+        const { x, y } = mapPoint(e);
+        htmlStageRef.current?.handlePanMove(x, y);
+      });
+      doc.addEventListener('mouseup', () => {
+        htmlStageRef.current?.handlePanEnd();
+      });
+      // The parent window's global contextmenu suppression does not reach
+      // into the iframe document - suppress it here so right-drag pans.
+      doc.addEventListener('contextmenu', (e: Event) => e.preventDefault());
+    };
+
+    if (iframe) {
+      forwardPanZoom();
+      iframe.addEventListener('load', forwardPanZoom);
+      return () => iframe.removeEventListener('load', forwardPanZoom);
+    }
   }, [category, safeSrc, html, fileName]);
 
   if (assetLoading) {
@@ -175,7 +242,9 @@ function PreviewContent({
 
     case 'html':
       return (
-        <div ref={htmlContainerRef} className="preview-frame-wrap" />
+        <PanZoomStage ref={htmlStageRef} wheelMode="always-zoom">
+          <div ref={htmlContainerRef} className="preview-frame-wrap" />
+        </PanZoomStage>
       );
 
     case 'pdf':
@@ -240,77 +309,18 @@ function DocxPreview({ src }: { src: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Image with zoom & pan                                              */
+/* Image with zoom & pan (shared PanZoomStage — same gestures as the   */
+/* mermaid / html windows: wheel zoom, three-button drag pan, dblclick */
+/* reset, toolbar)                                                     */
 /* ------------------------------------------------------------------ */
 
 function ImageZoom({ src }: { src: string }) {
-  const [scale, setScale] = useState(1);
-  const [tx, setTx] = useState(0);
-  const [ty, setTy] = useState(0);
-  const dragRef = useRef<{ startX: number; startY: number; baseTx: number; baseTy: number } | null>(null);
-
-  // CSS object-fit:contain handles the initial fit; scale 1 = fitted.
-  const fit = useCallback(() => {
-    setScale(1);
-    setTx(0);
-    setTy(0);
-  }, []);
-
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    if (e.altKey) {
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setScale((s) => Math.min(Math.max(s * delta, 0.1), 10));
-    } else {
-      setTx((x) => x - e.deltaX);
-      setTy((y) => y - e.deltaY);
-    }
-  }, []);
-
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      dragRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        baseTx: tx,
-        baseTy: ty,
-      };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    },
-    [tx, ty],
-  );
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    setTx(dragRef.current.baseTx + (e.clientX - dragRef.current.startX));
-    setTy(dragRef.current.baseTy + (e.clientY - dragRef.current.startY));
-  }, []);
-
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
-    dragRef.current = null;
-    try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch { /* ignore */ }
-  }, []);
-
+  // object-fit:contain handles the initial fit; stage scale 1 = fitted.
   return (
     <div className="preview-image-area">
-      <img
-        src={src}
-        alt=""
-        className="preview-image"
-        style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }}
-        onWheel={onWheel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        draggable={false}
-      />
-      <div className="preview-zoom">
-        <button type="button" onClick={() => setScale((s) => Math.max(s * 0.8, 0.1))}>−</button>
-        <button type="button" onClick={() => setScale((s) => Math.min(s * 1.25, 10))}>+</button>
-        <button type="button" onClick={fit}>⊗</button>
-      </div>
+      <PanZoomStage wheelMode="always-zoom" showControls>
+        <img src={src} alt="" className="preview-image" draggable={false} />
+      </PanZoomStage>
     </div>
   );
 }

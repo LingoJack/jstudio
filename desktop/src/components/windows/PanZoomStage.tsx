@@ -49,8 +49,9 @@ const MAX_SCALE = 8;
 const WHEEL_ZOOM_SENSITIVITY = 0.0015;
 // Wheels may report line deltas (deltaMode 1); normalize them to pixels.
 const WHEEL_LINE_HEIGHT_PX = 40;
-// Mouse buttons that pan: left, middle, right.
-const PAN_BUTTONS = new Set([0, 1, 2]);
+// Mouse buttons that pan: left, middle, right. Exported for consumers that
+// forward gestures from nested documents (the preview iframe).
+export const PAN_BUTTONS = new Set([0, 1, 2]);
 
 export type PanZoomWheelMode = "always-zoom" | "ctrl-zoom";
 
