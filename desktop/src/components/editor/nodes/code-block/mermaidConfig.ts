@@ -10,10 +10,80 @@
  * in `vscode-theme.css` (#1e1e1e bg / #d4d4d4 fg).
  */
 
+/* ------------------------------------------------------------------ */
+/* 思维导图（mindmap）配色                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * mindmap 的分支填充 / 连线色取自 cScale1..11（第 n 个分支用 cScale{n+1}），
+ * 根节点填充取 git0（cScale0 兜底），文字色取 cScaleLabel1..11（根节点文字是
+ * cScaleLabel0 / gitBranchLabel0）。
+ *
+ * base 主题缺省时这组颜色由 primaryColor 旋转色相 + darken(25%) 生成，得到
+ * 一组深蓝/深紫底色，再配 #333 的缺省文字色 —— 浅色主题下深底深字不可读。
+ * 这里显式给出最终色值（theme.calculate 对用户提供的 cScale 系列与 git0
+ * 会原样保留，只有派生值按它们重算）。
+ *
+ * 分区色沿用画板自动上色同族的柔和色板（graphAutoColor / FILL_COLOR_PAIRS），
+ * 相邻分支色相错开；这些键同时被 timeline / kanban 的分区配色复用，风格一致。
+ * git0 同时是 gitgraph 的分支色，设为主题蓝无副作用。
+ */
+const MINDMAP_ROOT_FILL = "#4A90D9";
+const MINDMAP_ROOT_TEXT = "#FFFFFF";
+const MINDMAP_SECTION_TEXT_LIGHT = "#1F2937";
+const MINDMAP_SECTION_TEXT_DARK = "#E5E7EB";
+
+const MINDMAP_SECTION_FILLS_LIGHT = [
+  "#93c5fd", // 蓝
+  "#fdba74", // 橙
+  "#86efac", // 绿
+  "#f9a8d4", // 粉
+  "#d8b4fe", // 紫
+  "#7dd3fc", // 天蓝
+  "#fde68a", // 琥珀
+  "#fca5a5", // 红
+  "#6ee7b7", // 翠绿
+  "#d9f99d", // 青柠
+  "#a5b4fc", // 靛蓝
+];
+
+const MINDMAP_SECTION_FILLS_DARK = [
+  "#1e3a8a", // 蓝
+  "#7c2d12", // 橙
+  "#14532d", // 绿
+  "#831843", // 粉
+  "#581c87", // 紫
+  "#155e75", // 天蓝
+  "#713f12", // 琥珀
+  "#7f1d1d", // 红
+  "#064e3b", // 翠绿
+  "#3f6212", // 青柠
+  "#3730a3", // 靛蓝
+];
+
+/** 把分区色板展开成 themeVariables 所需的 cScale* / git0 键值。 */
+function mindmapThemeVariables(sectionFills: string[], sectionText: string) {
+  const vars: Record<string, string> = {
+    git0: MINDMAP_ROOT_FILL,
+    gitBranchLabel0: MINDMAP_ROOT_TEXT,
+    cScale0: MINDMAP_ROOT_FILL,
+    cScaleLabel0: MINDMAP_ROOT_TEXT,
+  };
+  sectionFills.forEach((fill, i) => {
+    vars[`cScale${i + 1}`] = fill;
+    vars[`cScaleLabel${i + 1}`] = sectionText;
+  });
+  return vars;
+}
+
 /**
  * Mermaid themeVariables for light mode.
  */
 export const MERMAID_THEME_LIGHT = {
+  ...mindmapThemeVariables(
+    MINDMAP_SECTION_FILLS_LIGHT,
+    MINDMAP_SECTION_TEXT_LIGHT,
+  ),
   primaryColor: "#4A90D9",
   primaryTextColor: "#333",
   primaryBorderColor: "#2B5F8E",
@@ -51,6 +121,10 @@ export const MERMAID_THEME_LIGHT = {
  * Mermaid themeVariables for dark mode.
  */
 export const MERMAID_THEME_DARK = {
+  ...mindmapThemeVariables(
+    MINDMAP_SECTION_FILLS_DARK,
+    MINDMAP_SECTION_TEXT_DARK,
+  ),
   primaryColor: "#4A90D9",
   primaryTextColor: "#d4d4d4",
   primaryBorderColor: "#5B9FE0",
