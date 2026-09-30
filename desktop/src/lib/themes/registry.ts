@@ -4,6 +4,7 @@ import { JSTUDIO_DARK } from './jstudio-dark';
 import { INK_LIGHT } from './ink-light';
 import { INK_DARK } from './ink-dark';
 import { PAPER_LIGHT } from './paper-light';
+import { EDITORIAL_LIGHT } from './editorial-light';
 
 // ──────────────────────────────────────────────────────────────────
 // Theme registry — exported themes array + lookup helpers.
@@ -16,6 +17,7 @@ export const APP_THEMES: AppTheme[] = [
   INK_LIGHT,
   INK_DARK,
   PAPER_LIGHT,
+  EDITORIAL_LIGHT,
 ];
 
 /** Default theme IDs for new users. */

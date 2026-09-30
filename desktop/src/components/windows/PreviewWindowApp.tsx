@@ -168,7 +168,7 @@ function PreviewContent({
           <MermaidViewer
             svg={mermaidSvg ?? null}
             showControls
-            panOnWheel
+            wheelMode="always-zoom"
           />
         </div>
       );

@@ -496,6 +496,7 @@ export const translations = {
     "appearance.appTheme_ink-dark": "Ink Dark",
     "appearance.appTheme_ink-light": "Ink Light",
     "appearance.appTheme_paper-light": "Paper Light",
+    "appearance.appTheme_editorial-light": "Editorial Light",
 
     // ── About section ──
     "about.contactAuthor": "联系作者",
@@ -1481,6 +1482,7 @@ export const translations = {
     "appearance.appTheme_ink-dark": "Ink Dark",
     "appearance.appTheme_ink-light": "Ink Light",
     "appearance.appTheme_paper-light": "Paper Light",
+    "appearance.appTheme_editorial-light": "Editorial Light",
 
     // ── About section ──
     "about.contactAuthor": "Contact Author",

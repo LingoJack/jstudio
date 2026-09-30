@@ -21,6 +21,13 @@ export interface AppTheme {
   colors: Record<string, string>;
   /** Syntax highlighting tokens (optional). */
   tokens?: Record<string, string>;
+  /**
+   * Extra CSS injected while this theme is active (removed on switch).
+   * For structural styling that plain color variables cannot express —
+   * border weights, radii, counters (e.g. numbered heading badges).
+   * Keep overrides scoped and reversible; colors still belong in `colors`.
+   */
+  customCss?: string;
 }
 
 /** Apply a theme's colors to <html> as inline CSS variable overrides. */
@@ -39,6 +46,22 @@ export function applyAppTheme(theme: AppTheme): void {
       const cssVarName = `--vscode-token-${key}`;
       root.style.setProperty(cssVarName, value);
     }
+  }
+
+  // Inject theme-specific CSS overrides. The element is appended last in
+  // <head> so equal-specificity rules beat the static vscode-theme.css.
+  const CUSTOM_STYLE_ID = 'app-theme-custom-css';
+  const customCss = theme.customCss ?? '';
+  if (customCss) {
+    let styleEl = document.getElementById(CUSTOM_STYLE_ID) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = CUSTOM_STYLE_ID;
+      document.head.appendChild(styleEl);
+    }
+    if (styleEl.textContent !== customCss) styleEl.textContent = customCss;
+  } else {
+    document.getElementById(CUSTOM_STYLE_ID)?.remove();
   }
 
   // Toggle .dark class for Tailwind dark mode

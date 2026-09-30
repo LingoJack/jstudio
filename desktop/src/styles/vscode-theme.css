@@ -2307,6 +2307,41 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   stroke-width: 2px;
 }
 
+/* PanZoomStage - shared pan/zoom stage for the preview windows (mermaid,
+   image, html). The editor's inline mermaid block keeps its own skin by
+   passing wrapperClass/contentClass, so only the generic classes live here. */
+.pan-zoom-stage {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.pan-zoom-stage .react-transform-wrapper,
+.pan-zoom-stage .pan-zoom-viewport {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.pan-zoom-stage .react-transform-wrapper:active,
+.pan-zoom-stage .pan-zoom-viewport:active,
+.pan-zoom-stage.is-panning .react-transform-wrapper,
+.pan-zoom-stage.is-panning .pan-zoom-viewport {
+  cursor: grabbing;
+}
+
+.pan-zoom-stage .react-transform-component,
+.pan-zoom-stage .pan-zoom-content {
+  width: 100%;
+  height: 100%;
+}
+
+.pan-zoom-controls {
+  z-index: 10;
+}
+
 .code-block-wrapper .code-block-mermaid-error {
   padding: 20px;
   color: var(--vscode-errorForeground, #d32f2f);
