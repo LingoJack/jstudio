@@ -211,7 +211,7 @@ export default function TerminalTabs({ hidden }: { hidden?: boolean }) {
   // ── Extra actions (history dropdown trigger) ──────────────────────
   const extraActions = (
     <TerminalRecentDirsDropdown
-      position={tabBarPosition}
+      position={tabBarPosition === 'bottom' ? 'bottom' : 'top'}
       buttonClassName="w-6 h-6 flex items-center justify-center rounded-full transition-colors duration-75 cursor-pointer text-[var(--vscode-descriptionForeground)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--vscode-foreground)] opacity-50 hover:opacity-100"
       buttonActiveClassName="opacity-100 bg-[rgba(255,255,255,0.1)]"
       iconClassName="w-3.5 h-3.5"
@@ -245,7 +245,8 @@ export default function TerminalTabs({ hidden }: { hidden?: boolean }) {
       renderContextMenu={renderContextMenu}
       extraActions={extraActions}
       glassOpacity={tabBarGlassOpacity}
-      position={dockedInTitlebar ? 'titlebar' : tabBarPosition}
+      // 'hidden'（文档标签胶囊隐藏）不影响终端标签条：面板内保持悬浮条。
+      position={dockedInTitlebar ? 'titlebar' : tabBarPosition === 'bottom' ? 'bottom' : 'top'}
     />
   );
 

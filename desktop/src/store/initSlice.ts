@@ -85,7 +85,7 @@ export const createInitSlice: SliceCreator = (set, get) => ({
       let editorCursorStyle: EditorCursorStyle | undefined;
       let editorCursorAnimationEnabled: boolean | undefined;
       let tabBarGlassOpacity: number | undefined;
-      let tabBarPosition: "top" | "bottom" | undefined;
+      let tabBarPosition: "top" | "bottom" | "hidden" | undefined;
       let outlineSide: OutlineSide | undefined;
       let terminalTemplatesRaw: unknown;
       let terminalRecentDirsRaw: unknown;
@@ -213,7 +213,8 @@ export const createInitSlice: SliceCreator = (set, get) => ({
         // Load tab bar position
         if (
           settings.tabBarPosition === "top" ||
-          settings.tabBarPosition === "bottom"
+          settings.tabBarPosition === "bottom" ||
+          settings.tabBarPosition === "hidden"
         ) {
           tabBarPosition = settings.tabBarPosition;
         }

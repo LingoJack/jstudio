@@ -168,7 +168,7 @@ export interface AppSettings {
    */
   terminalFontWeight?: 'normal' | 'bold';
   /** Tab bar position - 'top' or 'bottom' (default: 'bottom') */
-  tabBarPosition?: 'top' | 'bottom';
+  tabBarPosition?: 'top' | 'bottom' | 'hidden';
   /** Which side of the editor the outline panel docks to (default: 'right') */
   outlineSide?: OutlineSide;
   /** User-customized keyboard shortcut overrides - see lib/shortcuts.ts */

@@ -9,7 +9,7 @@
 import type { LucideIcon } from 'lucide-react';
 
 /** Fixed width of each segment (px) — uniform width, never content-sized. */
-const SEGMENT_WIDTH_PX = 88;
+const SEGMENT_WIDTH_PX = 112;
 /** Container padding around the thumb (matches p-0.5). */
 const SEGMENT_PAD_PX = 2;
 /** Same curve as the TabBar indicator. */
@@ -41,7 +41,7 @@ export function SegmentedToggle<T extends string>({
   return (
     <div
       role="tablist"
-      className="relative inline-flex items-center rounded-md border border-[var(--jstudio-block-line)] bg-[var(--vscode-input-background)] p-[2px]"
+      className="relative inline-flex items-center rounded-md bg-[var(--vscode-input-background)] p-[2px]"
     >
       {/* Sliding accent thumb (compositor transform, like TabBar) */}
       <div

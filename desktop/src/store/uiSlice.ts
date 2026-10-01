@@ -184,7 +184,7 @@ export interface UISlice {
   terminalCursorStyle: TerminalCursorStyle;
   terminalFontWeight: 'normal' | 'bold';
   tabBarGlassOpacity: number;
-  tabBarPosition: 'top' | 'bottom';
+  tabBarPosition: 'top' | 'bottom' | 'hidden';
   keyboardShortcuts: ShortcutOverrides;
   globalShortcuts: GlobalShortcutConfig[];
   docSortKey: DocSortKey;
@@ -234,7 +234,7 @@ export interface UISlice {
   setTerminalCursorStyle: (s: TerminalCursorStyle) => void;
   setTerminalFontWeight: (w: 'normal' | 'bold') => void;
   setTabBarGlassOpacity: (n: number) => void;
-  setTabBarPosition: (p: 'top' | 'bottom') => void;
+  setTabBarPosition: (p: 'top' | 'bottom' | 'hidden') => void;
   setKeyboardShortcut: (id: string, keys: string) => void;
   resetKeyboardShortcut: (id: string) => void;
   resetAllKeyboardShortcuts: () => void;

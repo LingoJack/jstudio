@@ -151,6 +151,9 @@ export default function DocumentTabs() {
   // Don't render if there are no document tabs.
   if (docTabs.length === 0) return null;
 
+  // 隐藏模式（设置 → 外观 → 标签栏位置）：胶囊整体不渲染。
+  if (tabBarPosition === 'hidden') return null;
+
   const tabBar = (
     <TabBar
       tabs={tabItems}

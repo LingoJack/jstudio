@@ -435,9 +435,10 @@ export const translations = {
       "控制浮动标签栏的背景透明度，数值越大越明显",
     "general.tabBarPosition": "标签栏位置",
     "general.tabBarPositionDesc":
-      "控制标签栏显示在内容区域的上方还是下方（文档、终端、浏览器面板均生效）",
+      "控制标签栏显示在内容区域的上方还是下方；选择「隐藏」可关闭文档标签胶囊（切回「上方」或「下方」即可恢复）。文档面板生效，终端/浏览器面板保持原位",
     "general.tabBarPosition_top": "上方",
     "general.tabBarPosition_bottom": "下方",
+    "general.tabBarPosition_hidden": "隐藏",
     "general.confirmOnExit": "退出确认",
     "general.confirmOnExitDesc": "关闭主窗口最后一个标签页或退出应用时弹确认框",
 
@@ -1421,9 +1422,10 @@ export const translations = {
       "Controls the background opacity of the floating tab bar; higher values make it more visible",
     "general.tabBarPosition": "Tab Bar Position",
     "general.tabBarPositionDesc":
-      "Controls whether the tab bar appears above or below the content area (applies to documents, terminal, and the browser panel)",
+      "Controls whether the tab bar appears above or below the content area. 'Hidden' turns off the document tab capsule (switch back to 'Top' or 'Bottom' to restore); applies to the document panel — terminal/browser keep their strips",
     "general.tabBarPosition_top": "Top",
     "general.tabBarPosition_bottom": "Bottom",
+    "general.tabBarPosition_hidden": "Hidden",
     "general.confirmOnExit": "Exit Confirmation",
     "general.confirmOnExitDesc":
       "Show a confirmation dialog when closing the last main-window tab or quitting the app",

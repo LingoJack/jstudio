@@ -1,4 +1,4 @@
-import { ArrowDownToLine, ArrowUpFromLine, type LucideIcon } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, EyeOff, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 
@@ -66,9 +66,13 @@ export function TabBarGlassOpacitySlider() {
   );
 }
 
-const TAB_BAR_POSITION_OPTIONS: { value: 'top' | 'bottom'; icon: LucideIcon }[] = [
-  { value: 'bottom', icon: ArrowDownToLine },
+const TAB_BAR_POSITION_OPTIONS: {
+  value: 'top' | 'bottom' | 'hidden';
+  icon: LucideIcon;
+}[] = [
   { value: 'top', icon: ArrowUpFromLine },
+  { value: 'bottom', icon: ArrowDownToLine },
+  { value: 'hidden', icon: EyeOff },
 ];
 
 /**
