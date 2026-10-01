@@ -1661,7 +1661,10 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   /* Soft lift only — the 1px border carries the edge; a heavy shadow reads
      out of place against the app's flat, border-led floating UI. */
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-  z-index: 100;
+  /* 层级：必须低于应用 chrome（标题栏/标签条 z-toolbar = 50，见
+     index.css 的 z-index hierarchy），否则 fixed 定位的表格工具条在
+     滚动到页顶时会盖住标签栏；只需压过编辑器内容（≤ 10）。 */
+  z-index: 40;
 }
 
 /* ─── 浮动操作胶囊（code-block / collapsible 共用）───────────────────
@@ -2073,6 +2076,28 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   align-items: center;
   min-height: 30px;
   padding: 4px 12px;
+}
+
+/* ---- 标题编辑子输入框 ----
+   点击铅笔/标题后在块体右上角内侧就地生成一个悬浮输入卡片
+   （.editor-toolbar-menu 同款皮肤与入场动画），不再铺满折叠条、
+   也不塞进胶囊 —— 展开与折叠两个状态共用同一套编辑 UX。
+   Enter / 失焦提交，Escape 取消。 */
+.code-block-wrapper .code-title-popover {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  width: 240px;
+}
+
+.code-block-wrapper .code-title-popover .code-block-title-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
 }
 
 /* ---- 标题输入框 ----
@@ -3464,9 +3489,41 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 
 /* Collapsed state: hide all body rows except the first one.
    Column widths are frozen by JS (freezeColumnWidths) before this CSS
-   takes effect, so the first row retains its original width. */
+   takes effect, so the first row retains its original width.
+
+   折叠/展开动画：表格行无法直接过渡高度（display:none 是瞬时切换，
+   正是之前生硬的来源），改为过渡决定行高的三个属性 —— 单元格的
+   字号 / 行高 / 上下内边距（连同上下边框与透明度）归零，行随之平滑
+   压扁；展开时反向生长。过渡声明在基础态，收起与展开双向生效。 */
+.ProseMirror .tableWrapper table tbody tr:not(:first-child) {
+  transition: opacity 0.2s ease;
+}
+.ProseMirror .tableWrapper table tbody tr:not(:first-child) > th,
+.ProseMirror .tableWrapper table tbody tr:not(:first-child) > td {
+  transition:
+    padding-top 0.2s ease,
+    padding-bottom 0.2s ease,
+    font-size 0.2s ease,
+    line-height 0.2s ease,
+    border-top-width 0.2s ease,
+    border-bottom-width 0.2s ease,
+    opacity 0.2s ease;
+}
+
 .ProseMirror .tableWrapper[data-collapsed="true"] tbody tr:not(:first-child) {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+}
+.ProseMirror .tableWrapper[data-collapsed="true"] tbody tr:not(:first-child) > th,
+.ProseMirror .tableWrapper[data-collapsed="true"] tbody tr:not(:first-child) > td {
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 0;
+  line-height: 0;
+  border-top-width: 0;
+  border-bottom-width: 0;
+  opacity: 0;
+  overflow: hidden;
 }
 
 /* When collapsed, remove the first row's bottom border since there's no

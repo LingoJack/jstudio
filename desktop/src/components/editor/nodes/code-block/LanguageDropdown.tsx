@@ -119,23 +119,55 @@ export function LanguageDropdown({
     };
   }, [dropdownOpen]);
 
-  const toggleDropdown = useCallback(() => {
+  // ── Hover 唤出 ──
+  // 悬停徽章直接展开语言面板（与 TableControls 的悬停下拉一致），
+  // 点击徽章不再充当关闭开关；离开徽章/面板延迟 150ms 收起，给
+  // "徽章 → 面板"的移动留出宽限（面板 portal 在 body 下，DOM 上与
+  // 徽章不相邻）。Escape / 点击外部关闭保持不变。
+  const hoverCloseTimerRef = useRef<number | null>(null);
+
+  const cancelHoverClose = useCallback(() => {
+    if (hoverCloseTimerRef.current !== null) {
+      clearTimeout(hoverCloseTimerRef.current);
+      hoverCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHoverClose = useCallback(() => {
+    if (hoverCloseTimerRef.current !== null) return;
+    hoverCloseTimerRef.current = window.setTimeout(() => {
+      hoverCloseTimerRef.current = null;
+      setDropdownOpen(false);
+      setSearchQuery("");
+      setHighlightedIndex(0);
+    }, 150);
+  }, []);
+
+  const openDropdown = useCallback(() => {
+    cancelHoverClose();
     setDropdownOpen((prev) => {
-      if (!prev) {
-        // Opening - save current editor selection so we can restore it later
-        savedSelectionRef.current = editor.state.selection.from;
-        // Calculate position for portal rendering
-        if (badgeRef.current) {
-          const badgeRect = badgeRef.current.getBoundingClientRect();
-          setDropdownPosition({
-            top: badgeRect.bottom + 8,
-            right: window.innerWidth - badgeRect.right,
-          });
-        }
+      if (prev) return true;
+      savedSelectionRef.current = editor.state.selection.from;
+      if (badgeRef.current) {
+        const badgeRect = badgeRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: badgeRect.bottom + 8,
+          right: window.innerWidth - badgeRect.right,
+        });
       }
-      return !prev;
+      return true;
     });
-  }, [editor]);
+  }, [editor, cancelHoverClose]);
+
+  useEffect(
+    () => () => {
+      if (hoverCloseTimerRef.current !== null) {
+        clearTimeout(hoverCloseTimerRef.current);
+        hoverCloseTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   const filteredLanguages = searchQuery
     ? LANGUAGES.filter(({ label, value }) => {
@@ -176,7 +208,9 @@ export function LanguageDropdown({
       <div
         ref={badgeRef}
         className="code-lang-badge"
-        onClick={toggleDropdown}
+        onClick={openDropdown}
+        onMouseEnter={openDropdown}
+        onMouseLeave={scheduleHoverClose}
         role="button"
         tabIndex={0}
       >
@@ -192,6 +226,8 @@ export function LanguageDropdown({
           <div
             ref={dropdownRef}
             className="editor-toolbar-menu code-lang-dropdown code-lang-dropdown-portal"
+            onMouseEnter={cancelHoverClose}
+            onMouseLeave={scheduleHoverClose}
             style={{
               position: "fixed",
               top: dropdownPosition.top,

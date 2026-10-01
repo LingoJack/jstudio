@@ -284,6 +284,9 @@ export default function CodeBlockView({
   useHeaderEventShield(headerRef);
   const collapsedBarRef = useRef<HTMLDivElement | null>(null);
   useHeaderEventShield(collapsedBarRef);
+  // Title edit popover hosts a real <input> — same shield requirement.
+  const titlePopoverRef = useRef<HTMLDivElement | null>(null);
+  useHeaderEventShield(titlePopoverRef);
 
   // ---- Inline styles driven by displayWidth / displayHeight ----
   // Source mode always grows to the exact wrapped-code height — no internal
@@ -301,44 +304,9 @@ export default function CodeBlockView({
     height: displayHeight != null ? `${displayHeight}px` : "320px",
   };
 
-  // Title slot — shared between the floating pill (expanded blocks) and the
-  // thin collapsed bar. While editing, the input renders wherever the slot
-  // lives. Collapsed + untitled renders nothing (empty bar).
-  const titleSlot = isEditingTitle ? (
-    <input
-      ref={cursorTrailTitleRef}
-      type="text"
-      value={localTitle}
-      onChange={(e) => setLocalTitle(e.target.value)}
-      onBlur={commitTitle}
-      onKeyDown={(e) => {
-        if (handleNativeSelectAll(e)) return;
-        if (e.key === "Enter") {
-          e.preventDefault();
-          commitTitle();
-        }
-        if (e.key === "Escape") {
-          e.preventDefault();
-          cancelEditingTitle();
-        }
-        e.stopPropagation();
-      }}
-      onCompositionStart={(e) => e.stopPropagation()}
-      onCompositionUpdate={(e) => e.stopPropagation()}
-      onCompositionEnd={(e) => e.stopPropagation()}
-      className="code-block-title-input"
-      spellCheck={false}
-    />
-  ) : title ? (
-    <button
-      type="button"
-      onClick={startEditingTitle}
-      className="code-block-title-display"
-      title={t("code.editTitle")}
-    >
-      <span className="code-block-title-text">{title}</span>
-    </button>
-  ) : collapsed ? null : (
+  // Pencil affordance — always visible in the pill (both states), so a
+  // collapsed block keeps its entry point for adding/editing a title.
+  const pencilButton = (
     <button
       type="button"
       onClick={startEditingTitle}
@@ -348,6 +316,22 @@ export default function CodeBlockView({
     >
       <Pencil size={14} />
     </button>
+  );
+
+  // Title slot — display-only (title text button / pencil). Clicking either
+  // spawns the floating title input popover below (single edit UX for both
+  // states — no inline input stretching the collapsed bar or the pill).
+  const titleSlot = title ? (
+    <button
+      type="button"
+      onClick={startEditingTitle}
+      className="code-block-title-display"
+      title={t("code.editTitle")}
+    >
+      <span className="code-block-title-text">{title}</span>
+    </button>
+  ) : (
+    pencilButton
   );
 
   return (
@@ -373,21 +357,6 @@ export default function CodeBlockView({
           such islands, see the useCodeBlockTitle comment). Collapsed blocks
           keep the pill in flow (see CSS). */}
         <div ref={headerRef} className="editor-toolbar block-float-pill">
-          <CodeBlockActions
-            isHtml={isHtml}
-            isMermaid={isMermaid}
-            hasContent={hasContent}
-            showHtmlPreview={showHtmlPreview}
-            showMermaidPreview={showMermaidPreview}
-            mermaidSvg={mermaidSvg}
-            onToggleHtmlPreview={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
-            onToggleMermaidPreview={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
-            onOpenHtmlWindow={() => openHtmlPreviewWindow(htmlSource)}
-            onOpenMermaidWindow={() => { if (mermaidSvg) openMermaidPreviewWindow(mermaidSvg); }}
-            getCodeText={() => codeRef.current?.querySelector(".hljs")?.textContent ?? ""}
-            t={t}
-          />
-          <span className="block-toolbar-divider" />
           {/* Collapse toggle */}
           <button
             type="button"
@@ -402,10 +371,23 @@ export default function CodeBlockView({
               className={`code-collapse-chevron ${collapsed ? "" : "is-open"}`}
             />
           </button>
-          {/* Title slot lives in the pill only on expanded blocks — collapsed
-              blocks carry it in the thin bar below (avoids double titles). */}
-          {!collapsed && titleSlot}
-          <span className="block-toolbar-divider" />
+          <CodeBlockActions
+            isHtml={isHtml}
+            isMermaid={isMermaid}
+            hasContent={hasContent}
+            showHtmlPreview={showHtmlPreview}
+            showMermaidPreview={showMermaidPreview}
+            mermaidSvg={mermaidSvg}
+            onToggleHtmlPreview={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
+            onToggleMermaidPreview={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
+            onOpenHtmlWindow={() => openHtmlPreviewWindow(htmlSource)}
+            onOpenMermaidWindow={() => { if (mermaidSvg) openMermaidPreviewWindow(mermaidSvg); }}
+            getCodeText={() => codeRef.current?.querySelector(".hljs")?.textContent ?? ""}
+            t={t}
+          />
+          {/* Collapsed blocks keep the pencil in the pill (see pencilButton);
+              expanded blocks swap it for the title slot itself. */}
+          {collapsed ? pencilButton : titleSlot}
           <LanguageDropdown
             language={language}
             onSelect={(value) => updateAttributes({ language: value })}
@@ -417,12 +399,46 @@ export default function CodeBlockView({
           />
         </div>
 
-        {/* Collapsed strip — passive identity only: the title (empty when
-            untitled). All actions, including re-expanding, live in the
-            floating pill above, revealed on hover / focus / selection. */}
+        {/* Collapsed strip — passive identity only: the title text while
+            present (click re-opens the edit popover), empty otherwise. */}
         {collapsed && (
           <div ref={collapsedBarRef} className="code-block-collapsed-bar">
-            {titleSlot}
+            {title && titleSlot}
+          </div>
+        )}
+
+        {/* Title edit popover — spawned in place by the pencil / title click,
+            anchored at the block's top-right inner edge. One floating input
+            for both states instead of stretching the collapsed bar or the
+            pill; Enter/blur commits, Escape cancels. Shielded like the pill
+            (no contentEditable={false} — WKWebView island problem). */}
+        {isEditingTitle && (
+          <div ref={titlePopoverRef} className="editor-toolbar-menu code-title-popover">
+            <input
+              ref={cursorTrailTitleRef}
+              type="text"
+              value={localTitle}
+              onChange={(e) => setLocalTitle(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (handleNativeSelectAll(e)) return;
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTitle();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelEditingTitle();
+                }
+                e.stopPropagation();
+              }}
+              onCompositionStart={(e) => e.stopPropagation()}
+              onCompositionUpdate={(e) => e.stopPropagation()}
+              onCompositionEnd={(e) => e.stopPropagation()}
+              className="code-block-title-input"
+              placeholder={t("code.addTitle")}
+              spellCheck={false}
+            />
           </div>
         )}
 
