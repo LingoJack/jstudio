@@ -41,7 +41,7 @@ export function SegmentedToggle<T extends string>({
   return (
     <div
       role="tablist"
-      className="relative inline-flex items-center rounded-md border border-[var(--vscode-widget-border)] bg-[var(--vscode-input-background)] p-[2px]"
+      className="relative inline-flex items-center rounded-md border border-[var(--jstudio-block-line)] bg-[var(--vscode-input-background)] p-[2px]"
     >
       {/* Sliding accent thumb (compositor transform, like TabBar) */}
       <div

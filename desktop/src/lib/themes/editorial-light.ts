@@ -24,7 +24,7 @@ export const EDITORIAL_LIGHT: AppTheme = {
     'activityBar-border': '#1A1A1A',
     'widget-border': '#1A1A1A',
     'block-border': '#1A1A1A', // 代码块、表格等内容块边框：黑描边
-    'menu-border': 'var(--jstudio-block-line-strong)',  // 浮窗菜单边框，随 block-border 软化
+    'menu-border': 'var(--jstudio-block-line)',  // 浮窗菜单边框，随 block-border 软化
     'panel-border': '#1A1A1A',
 
     // ── Text (墨黑 + 灰描述) ──

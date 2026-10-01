@@ -366,8 +366,8 @@ export default function TabBar({
           style={{
             maxWidth,
             /* 边框对齐编辑器块级容器（diagram/code/table figure），
-               但降到 55% 透明度——浅色主题下满强度描边会让白胶囊显得生硬 */
-            border: '1px solid color-mix(in srgb, var(--jstudio-block-line-strong) 55%, transparent)',
+               用软化后的 block-line 细框语言 */
+            border: '1px solid color-mix(in srgb, var(--jstudio-block-line) 80%, transparent)',
             /* 玻璃底色跟随主题 editor-background（ink-light 下呈米色而非白色），
                与文档底色融合；opacity 由设置驱动 */
             background: `color-mix(in srgb, var(--vscode-editor-background) ${glassOpacity * 100}%, transparent)`,
