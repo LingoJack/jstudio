@@ -25,7 +25,10 @@ function getColStyleDeclaration(
  * 装不下时按比例收缩到铺满。结果按列数缓存在表格元素上：单元格里打字
  * 不会让列宽跟着内容抖动，增删列时才重新适配。
  */
-const autoFitCache = new WeakMap<HTMLTableElement, { colCount: number; widths: number[] }>()
+const autoFitCache = new WeakMap<
+  HTMLTableElement,
+  { colCount: number; widths: number[]; containerWidth: number }
+>()
 
 const AUTO_FIT_SLACK = 36       // 每列呼吸余量（约两个中文字符宽）
 const AUTO_FIT_COLUMN_CAP = 560 // 单列上限：防止超长段落把整表拖爆
@@ -88,6 +91,50 @@ function countColumns(node: ProseMirrorNode): number {
     count += row.child(i).attrs.colspan || 1
   }
   return count
+}
+
+/** 任一列带显式 colwidth（用户拖拽过）→ 不再自动适配。 */
+function hasAnyExplicitColwidth(node: ProseMirrorNode): boolean {
+  const row = node.firstChild
+  if (!row) return false
+  for (let i = 0; i < row.childCount; i += 1) {
+    const { colspan, colwidth } = row.child(i).attrs
+    for (let j = 0; j < colspan; j += 1) {
+      if (colwidth && colwidth[j]) return true
+    }
+  }
+  return false
+}
+
+/** 用户给表格节点设置了宽度样式 → 不再自动适配。 */
+function hasUserNodeWidth(node: ProseMirrorNode): boolean {
+  return !!(
+    node.attrs.style &&
+    typeof node.attrs.style === 'string' &&
+    /\bwidth\s*:/i.test(node.attrs.style)
+  )
+}
+
+/** 把适配好的列宽写入 colgroup，并让表格拥抱内容（wrapper fit-content）。 */
+function applyFittedWidths(
+  colgroup: HTMLTableColElement,
+  table: HTMLTableElement,
+  wrapper: HTMLElement,
+  widths: number[],
+): void {
+  let total = 0
+  const cols = Array.from(colgroup.children) as HTMLTableColElement[]
+  cols.forEach((colEl, i) => {
+    const w = widths[i]
+    if (w == null) return
+    colEl.style.minWidth = ''
+    colEl.style.width = `${w}px`
+    total += w
+  })
+  table.style.width = `${total}px`
+  table.style.minWidth = ''
+  wrapper.style.width = 'fit-content'
+  wrapper.style.maxWidth = '100%'
 }
 
 /**
@@ -190,24 +237,16 @@ function updateColumns(
       const measured = measureContentColumnWidths(table)
       if (measured.length > 0) {
         widths = fitColumnWidths(measured, cellMinWidth, wrapper.clientWidth)
-        autoFitCache.set(table, { colCount, widths })
+        autoFitCache.set(table, {
+          colCount,
+          widths,
+          containerWidth: wrapper.clientWidth,
+        })
       }
     }
 
     if (widths && widths.length > 0) {
-      let fittedTotal = 0
-      const cols = Array.from(colgroup.children) as HTMLTableColElement[]
-      cols.forEach((colEl, i) => {
-        const w = widths![i]
-        if (w == null) return
-        colEl.style.minWidth = ''
-        colEl.style.width = `${w}px`
-        fittedTotal += w
-      })
-      table.style.width = `${fittedTotal}px`
-      table.style.minWidth = ''
-      wrapper.style.width = 'fit-content'
-      wrapper.style.maxWidth = '100%'
+      applyFittedWidths(colgroup, table, wrapper, widths)
     } else {
       table.style.width = '100%'
       table.style.minWidth = ''
@@ -261,6 +300,10 @@ export class ResizableTableView implements NodeView {
 
   /** 内容自适应的首次补测只做一次（见 ResizeObserver 回调）。 */
   private attemptedAutoFit = false
+  /** 已纳入 ResizeObserver 的容器元素（构造期 parent 尚未挂载，懒绑定）。 */
+  private observedParent: HTMLElement | null = null
+  /** 上一次列宽适配所用的容器宽度（变化 >1px 才重新适配，防逐帧抖动）。 */
+  private lastFitContainerWidth = 0
 
   constructor(
     node: ProseMirrorNode,
@@ -287,14 +330,6 @@ export class ResizableTableView implements NodeView {
     // first freezeColumnWidths() call in syncCollapsed() finds no <tr> and
     // bails – so we re-run it once the rows actually appear.
     this.resizeObserver = new ResizeObserver(() => {
-      if (this.node.attrs.collapsed) {
-        const needsFreeze = Array.from(this.colgroup.children).some(
-          (col) => (col as HTMLTableColElement).style.minWidth !== '',
-        )
-        if (needsFreeze) {
-          this.syncCollapsed()
-        }
-      }
       // 构造期 tbody 为空、无法做内容自适应测量 —— 行首次渲染后补做一次。
       if (
         !this.attemptedAutoFit &&
@@ -303,6 +338,23 @@ export class ResizableTableView implements NodeView {
       ) {
         this.attemptedAutoFit = true
         this.update(this.node)
+      }
+      // 编辑区容器宽度变化（展开/收起大纲、拖分隔条）时重新适配列宽，
+      // 否则按旧容器宽适配的表格会在窄容器里被裁掉一部分。父元素挂载
+      // 后才纳入观察（构造期 parentElement 为 null）。
+      const parent = this.dom.parentElement
+      if (parent && this.observedParent !== parent) {
+        this.observedParent = parent
+        this.resizeObserver?.observe(parent)
+      }
+      this.refitIfContainerChanged()
+      if (this.node.attrs.collapsed) {
+        const needsFreeze = Array.from(this.colgroup.children).some(
+          (col) => (col as HTMLTableColElement).style.minWidth !== '',
+        )
+        if (needsFreeze) {
+          this.syncCollapsed()
+        }
       }
     })
     this.resizeObserver.observe(this.contentDOM)
@@ -316,6 +368,11 @@ export class ResizableTableView implements NodeView {
     this.node = node
     updateColumns(node, this.colgroup, this.table, this.cellMinWidth, this.dom)
     this.syncCollapsed()
+    // 缓存命中路径不会重新测量，这里同步最近一次适配所用的容器宽度。
+    const cached = autoFitCache.get(this.table)
+    if (cached) {
+      this.lastFitContainerWidth = cached.containerWidth
+    }
     return true
   }
 
@@ -342,6 +399,28 @@ export class ResizableTableView implements NodeView {
     }
 
     return false
+  }
+
+  /**
+   * 编辑区容器宽度变化（展开/收起大纲、拖分隔条）后重新适配列宽 ——
+   * 缓存的适配结果按旧容器宽缩放，容器变窄时表格会被裁掉一部分
+   * （右半不可见）。重新测量内容并按新容器宽缩放；拖拽过的表格
+   * （显式列宽）与用户设置了宽度的表格不动。1px 阈值兜住逐帧触发。
+   */
+  private refitIfContainerChanged(): void {
+    const parent = this.dom.parentElement
+    if (!parent || this.node.attrs.collapsed) return
+    if (hasAnyExplicitColwidth(this.node) || hasUserNodeWidth(this.node)) return
+    const containerWidth = parent.clientWidth
+    if (Math.abs(containerWidth - this.lastFitContainerWidth) <= 1) return
+    this.lastFitContainerWidth = containerWidth
+    const colCount = countColumns(this.node)
+    if (colCount === 0 || !this.contentDOM.querySelector('td, th')) return
+    const measured = measureContentColumnWidths(this.table)
+    if (measured.length === 0) return
+    const widths = fitColumnWidths(measured, this.cellMinWidth, containerWidth)
+    autoFitCache.set(this.table, { colCount, widths, containerWidth })
+    applyFittedWidths(this.colgroup, this.table, this.dom, widths)
   }
 
   /**
