@@ -662,7 +662,7 @@ export default function DocumentPanel({
             // 原生 input 不继承 body 字体（UA 样式表给表单控件用系统字体），
             // 必须显式跟随设置页的字体配置，与 .ProseMirror 保持一致。
             style={{ fontFamily: 'var(--jstudio-font-family)' }}
-            className="text-4xl font-bold text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1 caret-[var(--vscode-editorCursor-foreground,var(--vscode-focusBorder,#007fd4))]"
+            className="text-4xl font-bold leading-[1.35] text-[var(--vscode-editor-foreground)] bg-transparent border-none focus:outline-none w-full placeholder-[var(--vscode-descriptionForeground)] placeholder-opacity-40 pb-1 caret-[var(--vscode-editorCursor-foreground,var(--vscode-focusBorder,#007fd4))]"
           />
           {activeDocUpdatedAt && (
             <div className="flex items-center gap-1.5 mt-2.5 text-xs text-[var(--vscode-descriptionForeground)]">
