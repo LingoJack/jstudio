@@ -20,13 +20,84 @@ function getColStyleDeclaration(
 }
 
 /**
+ * 未调整过列宽的表格：列宽自动适配内容 —— 每列取「恰好放下最长一行内容
+ * + 一点余量」，总宽容得下编辑区时表格拥抱内容（wrapper fit-content），
+ * 装不下时按比例收缩到铺满。结果按列数缓存在表格元素上：单元格里打字
+ * 不会让列宽跟着内容抖动，增删列时才重新适配。
+ */
+const autoFitCache = new WeakMap<HTMLTableElement, { colCount: number; widths: number[] }>()
+
+const AUTO_FIT_SLACK = 36       // 每列呼吸余量（约两个中文字符宽）
+const AUTO_FIT_COLUMN_CAP = 560 // 单列上限：防止超长段落把整表拖爆
+const CSS_CELL_MIN_WIDTH = 80   // 与 .tableWrapper td 的 CSS min-width 保持一致
+
+/**
+ * 让浏览器按 max-content 测量每列的自然宽度：同步把表格切到自动布局 +
+ * 单元格临时 nowrap（都在同一绘制帧内完成，不会产生可见的布局抖动），
+ * 读回首行各列宽度后立即还原。
+ */
+function measureContentColumnWidths(table: HTMLTableElement): number[] {
+  const widths: number[] = []
+  const firstRow = table.rows?.[0]
+  if (!firstRow || firstRow.cells.length === 0) return widths
+
+  const prevTableLayout = table.style.tableLayout
+  const prevTableWidth = table.style.width
+  const cells = Array.from(table.querySelectorAll('th, td')) as HTMLElement[]
+  const prevWhiteSpace = cells.map((c) => c.style.whiteSpace)
+
+  table.style.tableLayout = 'auto'
+  table.style.width = 'auto'
+  cells.forEach((c) => { c.style.whiteSpace = 'nowrap' })
+
+  for (const cell of firstRow.cells) {
+    const colspan = Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10))
+    const w = cell.getBoundingClientRect().width
+    for (let j = 0; j < colspan; j++) widths.push(Math.round(w / colspan))
+  }
+
+  cells.forEach((c, i) => { c.style.whiteSpace = prevWhiteSpace[i] ?? '' })
+  table.style.tableLayout = prevTableLayout
+  table.style.width = prevTableWidth
+  return widths
+}
+
+/** 内容宽 + 余量，收在单列上限内；总宽超出容器时按比例收缩到铺满。 */
+function fitColumnWidths(
+  measured: number[],
+  cellMinWidth: number,
+  containerWidth: number,
+): number[] {
+  const floor = Math.max(cellMinWidth, CSS_CELL_MIN_WIDTH)
+  let widths = measured.map((w) =>
+    Math.min(Math.max(w + AUTO_FIT_SLACK, floor), AUTO_FIT_COLUMN_CAP),
+  )
+  let total = widths.reduce((a, b) => a + b, 0)
+  if (containerWidth > 0 && total > containerWidth) {
+    const scale = containerWidth / total
+    widths = widths.map((w) => Math.max(Math.round(w * scale), floor))
+  }
+  return widths
+}
+
+function countColumns(node: ProseMirrorNode): number {
+  const row = node.firstChild
+  if (!row) return 0
+  let count = 0
+  for (let i = 0; i < row.childCount; i += 1) {
+    count += row.child(i).attrs.colspan || 1
+  }
+  return count
+}
+
+/**
  * Updates <col> elements in the colgroup and manages the table + wrapper width.
  *
  * Width strategy (the key difference from TipTap's built-in TableView):
- * - **No columns resized** -> table `width: 100%`, wrapper `width: 100%` so new
- *   tables fill the container. The wrapper is `100%` (of the editor content
- *   area, a determinate size) – NOT `fit-content` – so the table's `100%`
- *   resolves without a circular dependency.
+ * - **No columns resized** -> 列宽内容自适应：每列「max-content + 余量」，
+ *   总宽容得下容器时 table `width: <total>px` + wrapper `fit-content`
+ *   （表格拥抱内容）；装不下按比例收缩到铺满。测量结果按列数缓存，
+ *   单元格内打字不抖动。tbody 尚未渲染时退回 `width: 100%` 行为。
  * - **Some columns resized** -> table `width: auto` + `min-width: <totalWidth>`,
  *   wrapper `width: fit-content; max-width: 100%` so it hugs the table (and
  *   scrolls when the table outgrows the container). No circularity here
@@ -106,10 +177,45 @@ function updateColumns(
     // Hug the fixed-width table (scrolls if it outgrows the container).
     wrapper.style.width = 'fit-content'
     wrapper.style.maxWidth = '100%'
+  } else if (!hasAnyColwidth && !hasUserWidth) {
+    // 未调整过列宽：列宽内容自适应（策略见 autoFitCache 注释）——
+    // 每列恰好放下内容再扩一点，表格拥抱内容而不是硬拉满整行。
+    // 测不到行（构造期 tbody 尚未填充）时先退回铺满，等 ResizeObserver
+    // 在行真正渲染后触发首次适配。
+    const colCount = countColumns(node)
+    const cached = autoFitCache.get(table)
+    let widths: number[] | null =
+      cached && cached.colCount === colCount ? cached.widths : null
+    if (!widths && colCount > 0) {
+      const measured = measureContentColumnWidths(table)
+      if (measured.length > 0) {
+        widths = fitColumnWidths(measured, cellMinWidth, wrapper.clientWidth)
+        autoFitCache.set(table, { colCount, widths })
+      }
+    }
+
+    if (widths && widths.length > 0) {
+      let fittedTotal = 0
+      const cols = Array.from(colgroup.children) as HTMLTableColElement[]
+      cols.forEach((colEl, i) => {
+        const w = widths![i]
+        if (w == null) return
+        colEl.style.minWidth = ''
+        colEl.style.width = `${w}px`
+        fittedTotal += w
+      })
+      table.style.width = `${fittedTotal}px`
+      table.style.minWidth = ''
+      wrapper.style.width = 'fit-content'
+      wrapper.style.maxWidth = '100%'
+    } else {
+      table.style.width = '100%'
+      table.style.minWidth = ''
+      wrapper.style.width = '100%'
+      wrapper.style.maxWidth = ''
+    }
   } else if (!hasAnyColwidth) {
-    // No columns have been resized -> fill the container. Wrapper is `100%`
-    // (a determinate size) so the table's `width: 100%` resolves without a
-    // circular dependency on the wrapper's own shrink-to-fit width.
+    // 用户给表格节点设置了宽度样式：尊重之，保持原有铺满行为。
     table.style.width = '100%'
     table.style.minWidth = ''
     wrapper.style.width = '100%'
@@ -153,6 +259,9 @@ export class ResizableTableView implements NodeView {
    *  populated it (the constructor runs before the rows are rendered). */
   private resizeObserver: ResizeObserver | null = null
 
+  /** 内容自适应的首次补测只做一次（见 ResizeObserver 回调）。 */
+  private attemptedAutoFit = false
+
   constructor(
     node: ProseMirrorNode,
     cellMinWidth: number,
@@ -185,6 +294,15 @@ export class ResizableTableView implements NodeView {
         if (needsFreeze) {
           this.syncCollapsed()
         }
+      }
+      // 构造期 tbody 为空、无法做内容自适应测量 —— 行首次渲染后补做一次。
+      if (
+        !this.attemptedAutoFit &&
+        countColumns(this.node) > 0 &&
+        this.contentDOM.querySelector('td, th')
+      ) {
+        this.attemptedAutoFit = true
+        this.update(this.node)
       }
     })
     this.resizeObserver.observe(this.contentDOM)
