@@ -1980,18 +1980,32 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   margin: 1.25em 0;
 }
 
-/* 可缩放方框本体（对齐 file-block-figure）
-   常态: 1px 降透明度 block-border（--jstudio-block-line-strong）
-   选中(NodeSelection) / 光标在代码内(focus-within): 1px focusBorder 高亮 */
+/* 可缩放方框本体 — 内容即边界：默认无边框，用一层极淡的前景色底色
+   把代码从正文中分区出来（图表预览态则完全透明，图直接浮在纸上）；
+   hover / 光标进入 / 选中时才亮起边框作为交互反馈 —— 常态零噪音。 */
 .code-block-figure {
   position: relative;
   display: block;
   max-width: 100%;
   box-sizing: border-box;
   border-radius: 16px;
-  border: 1px solid var(--jstudio-block-line-strong);
-  background: var(--vscode-editor-background);
+  border: 1px solid transparent;
+  background: color-mix(
+    in srgb,
+    var(--vscode-editor-foreground) 3%,
+    transparent
+  );
   transition: border-color 0.15s;
+}
+
+.code-block-figure:hover,
+.code-block-figure:focus-within {
+  border-color: var(--jstudio-block-line);
+}
+
+/* 预览态（mermaid / html）：图与页面直接融合，连底色也不要。 */
+.code-block-figure.is-preview {
+  background: transparent;
 }
 
 .code-block-figure.is-selected {
@@ -2373,15 +2387,12 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   overflow: auto;
 }
 
-/* Mermaid live preview container */
+/* Mermaid live preview container — 图表直接浮在纸面上（无边框无底色，
+   与正文融为一体；选中/悬停的边界反馈由外层 figure 提供）。 */
 .code-block-wrapper .code-block-mermaid-preview {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: transparent;
   border-radius: 16px;
   position: relative;
-}
-
-.dark .code-block-wrapper .code-block-mermaid-preview {
-  background: linear-gradient(135deg, #1e1e1e 0%, #252526 100%);
 }
 
 /* MermaidViewer - pan/zoom stage (react-zoom-pan-pinch). The stage is
@@ -2505,8 +2516,8 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
    Collapsible Block NodeView Styles
    ============================================ */
 
-/* 折叠块外层方框 - 边框语言对齐 code-block-figure：
-   1px block-border + 16px 圆角，背景 editor-background。
+/* 折叠块外层方框 - 结构容器：保留弱边框（收起态只剩标题条，需要边界
+   提示可交互），但从 strong 降一档与整体噪音水平对齐。
    选中(NodeSelection) / 光标在内(focus-within) 时高亮 focusBorder。
    position:relative 是浮动胶囊 .block-float-pill 的定位基准；
    不设 overflow:hidden —— 胶囊要悬出块体外沿，且行内只剩透明的
@@ -2514,7 +2525,7 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .collapsible-block-figure {
   position: relative;
   border-radius: 16px;
-  border: 1px solid var(--jstudio-block-line-strong);
+  border: 1px solid var(--jstudio-block-line);
   background: var(--vscode-editor-background);
   transition: border-color 0.15s;
 }
@@ -3303,7 +3314,8 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
     the container for unsized tables, `fit-content` to hug resized tables. */
   max-width: 100%;
   border-radius: 16px;
-  border: 1px solid var(--jstudio-block-line-strong);
+  /* 表格需要边界来收纳密集内容 —— 但降到普通 block-line，与内容拉开半档。 */
+  border: 1px solid var(--jstudio-block-line);
 }
 
 .ProseMirror .tableWrapper table {
@@ -3750,8 +3762,14 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .diagram-block-figure {
   position: relative;
   border-radius: 16px;
-  border: 1px solid var(--jstudio-block-line-strong);
+  /* 内容即边界：画布默认无边框，hover / 编辑 / 选中时才显边。 */
+  border: 1px solid transparent;
   transition: border-color 0.15s;
+}
+
+.diagram-block-figure:hover,
+.diagram-block-figure:focus-within {
+  border-color: var(--jstudio-block-line);
 }
 
 .diagram-block-figure.is-selected {
