@@ -2009,9 +2009,11 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   border-color: var(--jstudio-block-line-strong);
 }
 
-/* 预览态（mermaid / html）：图与页面直接融合，连底色也不要。 */
+/* 预览态（mermaid / html / svg）：图直接浮在纸上，完全无边框无底色
+   （hover 也不出框；选中的 focusBorder 反馈保留）。 */
 .code-block-figure.is-preview {
   background: transparent;
+  border-color: transparent;
 }
 
 .code-block-figure.is-selected {
@@ -3779,14 +3781,9 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .diagram-block-figure {
   position: relative;
   border-radius: 16px;
-  /* 内容即边界：细框常驻，hover / 编辑 / 选中加深。 */
-  border: 1px solid var(--jstudio-block-line);
+  /* 无边框：画布即内容（与 mermaid 预览态一致）；选中的 focusBorder 保留。 */
+  border: 1px solid transparent;
   transition: border-color 0.15s;
-}
-
-.diagram-block-figure:hover,
-.diagram-block-figure:focus-within {
-  border-color: var(--jstudio-block-line-strong);
 }
 
 .diagram-block-figure.is-selected {

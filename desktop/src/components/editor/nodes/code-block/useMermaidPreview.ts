@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 import type { MermaidConfig } from "mermaid";
-import { buildMermaidConfig } from "./mermaidConfig";
+import { buildMermaidConfig, runExclusiveRender } from "./mermaidConfig";
 import { fixSequenceLifelines } from "./mermaidLifelineFix";
 
 export interface UseMermaidPreviewParams {
@@ -50,15 +50,17 @@ export function useMermaidPreview({
 
     const renderMermaid = async () => {
       try {
-        // mermaid 的全局配置是共享的，任何消费者的 initialize 都会留下
-        // 痕迹（deep-merge）。每次渲染前重新套用本应用配置，保证主题与
-        // 当前明暗模式严格一致，不受其他消费者污染。
-        mermaid.initialize(buildMermaidConfig(isDarkMode) as MermaidConfig);
         // Date.now() alone collides when two renders start within the same
         // millisecond (StrictMode double-invoke, fast typing) - mermaid
         // injects temp elements keyed by this id.
         const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const { svg } = await mermaid.render(id, mermaidSource);
+        // initialize + render 必须串行（见 runExclusiveRender 注释）：
+        // initialize 会整体重置全局配置，与在途渲染并发时会让其它图
+        // 解析失败。
+        const { svg } = await runExclusiveRender(async () => {
+          mermaid.initialize(buildMermaidConfig(isDarkMode) as MermaidConfig);
+          return mermaid.render(id, mermaidSource);
+        });
         if (cancelled) return;
         // mermaid hardcodes sequence lifelines to a 2000-unit length; extend
         // them on taller diagrams (no-op otherwise, see mermaidLifelineFix).

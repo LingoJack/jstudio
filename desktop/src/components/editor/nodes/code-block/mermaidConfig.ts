@@ -35,6 +35,9 @@ const SKILL_THEME_VARIABLES = {
 export function buildMermaidConfig(isDarkMode: boolean) {
   return {
     startOnLoad: false,
+    // 解析/渲染失败一律走 mermaid.render 的 Promise 拒绝，由调用方的
+    // 错误 UI 展示 —— 绝不让 mermaid 把错误炸弹图注入 DOM。
+    suppressErrorRendering: true,
     theme: isDarkMode ? "dark" : "default",
     securityLevel: "loose", // Allow click events / html labels in diagrams
     flowchart: {
@@ -61,4 +64,21 @@ export function buildMermaidConfig(isDarkMode: boolean) {
     },
     themeVariables: SKILL_THEME_VARIABLES,
   };
+}
+
+/**
+ * mermaid 的全局配置不可重入：并发 render（多个代码块同时进预览、
+ * 复制时的重渲染与预览渲染撞车）会互相踩踏 —— initialize 重置全局
+ * 配置会让在途渲染的解析/布局读到错乱状态，表现为成片的
+ * "Syntax error in text"。所有 mermaid.render 必须经过这条串行队列。
+ */
+let renderQueue: Promise<unknown> = Promise.resolve();
+
+export function runExclusiveRender<T>(task: () => Promise<T>): Promise<T> {
+  const result = renderQueue.then(task, task);
+  renderQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }

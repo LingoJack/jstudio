@@ -20,7 +20,7 @@
 import mermaid from "mermaid";
 import type { MermaidConfig } from "mermaid";
 import { invoke } from '@tauri-apps/api/core';
-import { buildMermaidConfig } from "./mermaidConfig";
+import { runExclusiveRender } from "./mermaidConfig";
 
 const PNG_SCALE = 2;
 
@@ -58,13 +58,20 @@ async function renderForeignObjectFree(
     "position:fixed;left:-99999px;top:0;width:1000px;height:800px;overflow:hidden;pointer-events:none;",
   );
   document.body.appendChild(offscreen);
+  // 配置快照：initialize 是整体重置（defaults + options），复制专用的
+  // htmlLabels:false 必须在结束后原样恢复，否则会污染所有后续渲染。
+  const prevConfig = mermaid.mermaidAPI.getConfig() as MermaidConfig;
   try {
-    mermaid.initialize({
-      ...buildMermaidConfig(isDarkMode),
-      htmlLabels: false,
-    } as MermaidConfig);
-    const id = `mermaid-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { svg } = await mermaid.render(id, source, offscreen);
+    const { svg } = await runExclusiveRender(async () => {
+      mermaid.initialize({
+        ...prevConfig,
+        htmlLabels: false,
+      } as MermaidConfig);
+      const id = `mermaid-copy-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+      return mermaid.render(id, source, offscreen);
+    });
     // 个别图类型可能忽略该配置 —— 结果仍含 foreignObject 就不采用。
     return svg.includes('<foreignObject') ? null : svg;
   } catch (err) {
@@ -75,8 +82,7 @@ async function renderForeignObjectFree(
     return null;
   } finally {
     offscreen.remove();
-    // 恢复全局配置（预览路径每次渲染前也会自行重新 initialize）。
-    mermaid.initialize(buildMermaidConfig(isDarkMode) as MermaidConfig);
+    mermaid.initialize(prevConfig as MermaidConfig);
   }
 }
 

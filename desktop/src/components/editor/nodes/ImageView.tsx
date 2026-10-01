@@ -18,6 +18,7 @@ import { ipc } from '../../../lib/core/ipc';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
 import { useAssetBlobUrl } from '../../../lib/editor/content/useAssetBlobUrl';
 import { resolveAssetFilePath } from '../../../lib/editor/content/assetUrl';
+import { invoke } from '@tauri-apps/api/core';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
@@ -184,18 +185,57 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   // Copy image to system clipboard
   // -----------------------------------------------------------------------
 
+  /** 扩展名 → MIME（createImageBitmap 需要 blob 类型才能解出位图）。 */
+  function imageMimeFromPath(path: string): string {
+    const ext = path.split('.').pop()?.toLowerCase() ?? '';
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'webp') return 'image/webp';
+    if (ext === 'gif') return 'image/gif';
+    if (ext === 'svg') return 'image/svg+xml';
+    if (ext === 'avif') return 'image/avif';
+    return 'image/png';
+  }
+
   const handleCopyImage = useCallback(async () => {
     if (!src || !studioRoot || !activeDocId) return;
     try {
-      // Let Rust read the file + write the clipboard image directly — this
-      // sends only a short path string over IPC instead of the full image
-      // bytes, which is what made the previous JS-side writeImage() slow.
+      // 渲染进程解码（createImageBitmap 支持 webp/avif/svg 等全部 Chromium
+      // 可解码格式，主进程 nativeImage 只认 PNG/JPEG），统一走
+      // copy_image_bytes_to_clipboard 通道写系统剪贴板。
       const filePath = resolveAssetFilePath(studioRoot, activeDocId, src);
-      await ipc.copyImageToClipboard(filePath);
+      const bytes = await ipc.readFileBytes(filePath);
+      const blob = new Blob([new Uint8Array(bytes)], {
+        type: imageMimeFromPath(filePath),
+      });
+      const bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no 2d context');
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const pngBlob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/png'),
+      );
+      if (!pngBlob) throw new Error('canvas.toBlob returned null');
+      const png = new Uint8Array(await pngBlob.arrayBuffer());
+      await invoke('copy_image_bytes_to_clipboard', {
+        data: Array.from(png),
+      });
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      addToast('error', t('image.copyFailed'));
+      // 回退：主进程按路径直接写（nativeImage 只认 PNG/JPEG，但少一次
+      // 字节往返）。
+      try {
+        const filePath = resolveAssetFilePath(studioRoot, activeDocId, src);
+        await ipc.copyImageToClipboard(filePath);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {
+        addToast('error', t('image.copyFailed'));
+      }
     }
   }, [src, studioRoot, activeDocId, addToast, t]);
 
