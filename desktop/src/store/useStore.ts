@@ -13,6 +13,8 @@ import { createWorkspaceSlice } from './workspaceSlice';
 import { createAgentSlice } from './agentSlice';
 import { createBrowserSlice } from './browserSlice';
 import { createAuthSlice } from './authSlice';
+import { getAppTheme } from '../lib/themes/registry';
+import { applyAppTheme } from '../lib/themes/types';
 
 /**
  * Composed store - merges all slices into a single Zustand store.
@@ -53,8 +55,15 @@ export const useStore = create<StoreState>((set, get) => ({
 if (typeof window !== 'undefined' && window.matchMedia) {
   const mql = window.matchMedia('(prefers-color-scheme: dark)');
   mql.addEventListener('change', (e) => {
-    if (useStore.getState().themeMode !== 'system') return;
+    const state = useStore.getState();
+    if (state.themeMode !== 'system') return;
     const isDark = e.matches;
+    // 同模式下明暗两套主题 id 不同：OS 切换时必须换用对应主题并重新
+    // 应用其 CSS 变量，只翻 documentElement 的 dark 类会让主题色留在
+    // 旧模式上，跟随 isDarkMode 的内容渲染器（mermaid / 图形画布）也会
+    // 与可见壳层脱节。
+    const theme = getAppTheme(isDark ? state.appThemeIdDark : state.appThemeIdLight, isDark);
+    applyAppTheme(theme);
     if (isDark) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
     useStore.setState({ isDarkMode: isDark });

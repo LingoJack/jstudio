@@ -24,6 +24,10 @@ interface LanguageDropdownProps {
   getPos: (() => number | undefined) | undefined;
   node: PmNode;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
+  /** Report open state upward: the dropdown menu is portaled under
+      document.body, so while it is open the figure has no :focus-within and
+      CodeBlockView must pin its drawer header open via `is-lang-open`. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function LanguageDropdown({
@@ -33,6 +37,7 @@ export function LanguageDropdown({
   getPos,
   node,
   t,
+  onOpenChange,
 }: LanguageDropdownProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,6 +146,13 @@ export function LanguageDropdown({
       })
     : LANGUAGES;
 
+  // Report open state upward (CodeBlockView pins the drawer header open while
+  // the portal menu holds focus outside the figure's :focus-within scope).
+  // Covers every close path (select / outside click / Escape) via one effect.
+  useEffect(() => {
+    onOpenChange?.(dropdownOpen);
+  }, [dropdownOpen, onOpenChange]);
+
   // Reset highlight when the filtered list changes
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -179,7 +191,7 @@ export function LanguageDropdown({
         createPortal(
           <div
             ref={dropdownRef}
-            className="code-lang-dropdown code-lang-dropdown-portal"
+            className="editor-toolbar-menu code-lang-dropdown code-lang-dropdown-portal"
             style={{
               position: "fixed",
               top: dropdownPosition.top,

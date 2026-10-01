@@ -50,6 +50,10 @@ export function useMermaidPreview({
 
     const renderMermaid = async () => {
       try {
+        // mermaid 的全局配置是共享的，任何消费者的 initialize 都会留下
+        // 痕迹（deep-merge）。每次渲染前重新套用本应用配置，保证主题与
+        // 当前明暗模式严格一致，不受其他消费者污染。
+        mermaid.initialize(buildMermaidConfig(isDarkMode) as MermaidConfig);
         // Date.now() alone collides when two renders start within the same
         // millisecond (StrictMode double-invoke, fast typing) - mermaid
         // injects temp elements keyed by this id.

@@ -1,7 +1,8 @@
 /**
  * CodeBlockActions - 从 CodeBlockView 提取的代码块操作按钮组。
  *
- * 渲染 collapse 切换、HTML/Mermaid 预览切换、新窗口打开、复制按钮。
+ * 渲染 HTML/Mermaid 预览切换、新窗口打开、复制按钮（折叠切换已移回
+ * CodeBlockView，与标题一起排在胶囊右侧的"块管理"分组）。
  * `copied` state 完全内聚于此组件，无需外部传入。
  *
  * 参照 LanguageDropdown 的 props 风格：接收 t 翻译函数。
@@ -12,7 +13,6 @@ import type { TranslationKey } from "../../../../lib/core/i18n";
 import { useStore } from "../../../../store/useStore";
 import { copyMermaidPngToClipboard } from "./mermaidImageClipboard";
 import {
-  ChevronRight,
   Code2,
   Eye,
   ExternalLink,
@@ -21,8 +21,6 @@ import {
 } from "lucide-react";
 
 export interface CodeBlockActionsProps {
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
   isHtml: boolean;
   isMermaid: boolean;
   hasContent: boolean;
@@ -38,8 +36,6 @@ export interface CodeBlockActionsProps {
 }
 
 export function CodeBlockActions({
-  collapsed,
-  onToggleCollapsed,
   isHtml,
   isMermaid,
   hasContent,
@@ -80,21 +76,6 @@ export function CodeBlockActions({
 
   return (
     <>
-      {/* Collapse toggle */}
-      <button
-        type="button"
-        onClick={onToggleCollapsed}
-        className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal code-collapse-toggle"
-        title={collapsed ? t("code.expand") : t("code.collapse")}
-        aria-label={collapsed ? t("code.expand") : t("code.collapse")}
-        aria-expanded={!collapsed}
-      >
-        <ChevronRight
-          size={14}
-          className={`code-collapse-chevron ${collapsed ? "" : "is-open"}`}
-        />
-      </button>
-
       {/* HTML preview toggle */}
       {isHtml && hasContent ? (
         <button
@@ -132,7 +113,7 @@ export function CodeBlockActions({
         <button
           type="button"
           onClick={onOpenHtmlWindow}
-          className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+          className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm"
           title={t("code.previewNewWindow")}
           aria-label={t("code.previewNewWindow")}
         >
@@ -142,7 +123,7 @@ export function CodeBlockActions({
         <button
           type="button"
           onClick={onOpenMermaidWindow}
-          className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+          className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm"
           title={t("code.previewNewWindow")}
           aria-label={t("code.previewNewWindow")}
         >
@@ -155,7 +136,7 @@ export function CodeBlockActions({
         <button
           type="button"
           onClick={handleCopy}
-          className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
+          className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm"
           title={showDiagram ? t("code.copyImage") : t("code.copy")}
           aria-label={showDiagram ? t("code.copyImage") : t("code.copy")}
           // The HTML export ships without React; its inline script finds the

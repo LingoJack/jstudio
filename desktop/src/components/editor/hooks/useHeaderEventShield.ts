@@ -10,9 +10,9 @@
  *
  * Usage
  * -----
- *   const headerRef = useRef<HTMLDivElement | null>(null);
- *   useHeaderEventShield(headerRef);
- *   return <div ref={headerRef} className="code-block-header">...</div>;
+ *   const pillRef = useRef<HTMLDivElement | null>(null);
+ *   useHeaderEventShield(pillRef);
+ *   return <div ref={pillRef} className="editor-toolbar block-float-pill">...</div>;
  */
 
 import { type RefObject, useEffect } from "react";
@@ -20,7 +20,7 @@ import { type RefObject, useEffect } from "react";
 /**
  * Tags that should be shielded from ProseMirror's event interception.
  * (Mirrors CollapsibleView - see the header comment there for why
- * contentEditable={false} is NOT used on the code-block-header.)
+ * contentEditable={false} is NOT used on the floating pill.)
  */
 const SHIELD_TAGS = new Set(["INPUT", "BUTTON", "TEXTAREA", "SELECT"]);
 

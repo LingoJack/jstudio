@@ -1563,11 +1563,85 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 /* BlockToolbar container (Image / File / Diagram / Link / Code blocks).
    Positioned at top-center of the block; all chrome comes from
    .editor-toolbar. */
+/* ─── BlockToolbar（file / image / diagram / math / link 共用）────────────
+   与 .block-float-pill 同一套交互语言：常驻渲染、默认隐藏，悬停在块体
+   右上角外沿（top:-6px + translateY(-100%)），hover / 焦点 / NodeSelection
+   （.is-active）时自上方落下浮现。::after 桥接工具条与块体边缘的 6px
+   间隙，避免穿越间隙时 hover 抖动（隐藏态 pointer-events:none 一并覆盖
+   伪元素，不会截走点击）。 */
 .block-toolbar {
   position: absolute;
-  top: -44px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: -6px;
+  right: 10px;
+  transform: translateY(calc(-100% - 4px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    visibility 0s linear 0.16s;
+}
+
+.file-block-wrapper:hover .block-toolbar,
+.file-block-wrapper:focus-within .block-toolbar,
+.image-node-wrapper:hover .block-toolbar,
+.image-node-wrapper:focus-within .block-toolbar,
+.diagram-block-wrapper:hover .block-toolbar,
+.diagram-block-wrapper:focus-within .block-toolbar,
+.math-block-wrapper:hover .block-toolbar,
+.math-block-wrapper:focus-within .block-toolbar,
+.link-block-wrapper:hover .block-toolbar,
+.link-block-wrapper:focus-within .block-toolbar,
+.block-toolbar.is-active {
+  transform: translateY(-100%);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    visibility 0s;
+}
+
+.file-block-wrapper .block-toolbar::after,
+.image-node-wrapper .block-toolbar::after,
+.diagram-block-wrapper .block-toolbar::after,
+.math-block-wrapper .block-toolbar::after,
+.link-block-wrapper .block-toolbar::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 6px;
+}
+
+/* ─── TableControls（fixed 定位变体）─────────────────────────────────
+   与胶囊 / BlockToolbar 同一套显隐动画：常驻挂载、is-visible 驱动，
+   淡入 + 自上方 4px 落下，0.16s。定位由 JS 写入 left/top（视口坐标，
+   锚在表格右上角），X 方向 translate(-100% - 10px) 与胶囊的
+   right:10px 对齐 —— 距块右缘统一内缩 10px，上方统一留 6px。 */
+.editor-toolbar[data-table-control] {
+  transform: translate(calc(-100% - 10px), calc(-100% - 10px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    visibility 0s linear 0.16s;
+}
+
+.editor-toolbar[data-table-control].is-visible {
+  transform: translate(calc(-100% - 10px), calc(-100% - 6px));
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    visibility 0s;
 }
 
 /* ─── Editor Toolbar (unified container) ──────────────────────────────────
@@ -1590,6 +1664,57 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   z-index: 100;
 }
 
+/* ─── 浮动操作胶囊（code-block / collapsible 共用）───────────────────
+   悬浮在块体右上角外沿（right:10px + top:-6px + translateY(-100%)，
+   同 TableControls 的定位语言），hover / 焦点 / 选中时自上方落下次序
+   浮现 —— 胶囊位于块体之外，完全不遮挡块内内容，也不会推挤布局。
+   默认 visibility:hidden（同时移出 Tab 焦点序，键盘 Tab 进入块内时
+   由 :focus-within 唤出）。胶囊是 figure 的 DOM 子节点，:hover 沿
+   DOM 树传播，所以光标从块内移到悬空的胶囊上时它不会消失；::after
+   桥接胶囊与块体边缘的 6px 间隙，避免穿越间隙时的 hover 抖动。
+   出现动画为自上而下：隐藏态比就位态高出 4px。 */
+.editor-toolbar.block-float-pill {
+  position: absolute;
+  top: -6px;
+  right: 10px;
+  transform: translateY(calc(-100% - 4px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    visibility 0s linear 0.16s;
+}
+
+/* 桥接间隙（胶囊在两种块体上都是悬浮态） */
+.code-block-figure .block-float-pill::after,
+.collapsible-block-figure .block-float-pill::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 6px;
+}
+
+.code-block-figure:hover .block-float-pill,
+.code-block-figure:focus-within .block-float-pill,
+.code-block-figure.is-selected .block-float-pill,
+.code-block-figure.is-lang-open .block-float-pill,
+.collapsible-block-figure:hover .block-float-pill,
+.collapsible-block-figure:focus-within .block-float-pill,
+.collapsible-block-figure.is-selected .block-float-pill {
+  transform: translateY(-100%);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    visibility 0s;
+}
+
 /* Secondary dropdown / flyout panel (e.g. TableControls row/column/align
    menus). Shares the same chrome as the toolbar itself for visual
    consistency — same border, radius, shadow, bg. */
@@ -1599,6 +1724,22 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   padding: 4px;
+  /* 入场动画 —— 与工具条同一款：淡入 + 自上方 4px 落下，0.16s。
+     浮层都是按需挂载的，动画在每次打开时重新播放。 */
+  animation: jstudio-flyout-in 0.16s ease;
+}
+
+/* 应用内所有浮层菜单共用的入场动画（工具条衍生子菜单、选择框、
+   右键菜单等），与 .block-float-pill / .block-toolbar 的出现语言一致。 */
+@keyframes jstudio-flyout-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Dark theme refinements (apply to every editor toolbar + flyout). */
@@ -1854,11 +1995,6 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   border-color: var(--vscode-focusBorder);
 }
 
-/* Collapsed: hide the header's bottom divider since there's no body below it. */
-.code-block-figure.is-collapsed .code-block-header {
-  border-bottom: none;
-}
-
 /* Collapse-toggle chevron: rotate 90° clockwise when expanded (pointing down
    would conflict with the language-badge chevron, so we use right→down). */
 .code-collapse-chevron {
@@ -1920,25 +2056,23 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   padding: 0;
 }
 
-/* ---- 顶部 header 行 (操作按钮 left + 语言徽章 right) ----
-   一个独立行，不再用 absolute 浮在代码上方，避免与第一行代码相互遮挡。
-   两端对齐：操作按钮组固定在左侧，语言徽章固定在右侧。
-   底部 border 作为与代码内容的分割线。 */
-.code-block-wrapper .code-block-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--jstudio-block-line);
-  z-index: 3;
-}
+/* ---- 浮动操作胶囊（操作按钮 + 标题 + 语言徽章）----
+   header 不再是块内的一行，而是悬浮在块体右上角外沿的胶囊
+   （.block-float-pill，规则见 .editor-toolbar 段落）：代码从块体顶部
+   padding 直接开始，工具条永不遮挡内容。折叠态同样用悬浮胶囊 ——
+   块体本身只剩一条细的标题条（见下）。 */
 
-.code-block-wrapper .code-header-actions {
+/* ---- 折叠态标题条 ----
+   折叠后块体只剩这条被动标识（无标题时是一条空的细条）；所有操作
+   —— 包括重新展开 —— 都在上方悬浮的胶囊里，hover 唤出。
+   条内承载标题控件（点击进入编辑会出现输入框），因此不用
+   contentEditable={false}（WKWebView 会屏蔽岛内键盘输入），与胶囊
+   一样靠事件 shield 隔离 ProseMirror。 */
+.code-block-figure.is-collapsed .code-block-collapsed-bar {
   display: flex;
   align-items: center;
-  gap: 2px;
+  min-height: 30px;
+  padding: 4px 12px;
 }
 
 /* ---- 标题输入框 ----
@@ -2003,6 +2137,25 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   white-space: nowrap;
 }
 
+/* 胶囊内的标题控件：原 header 行的 flex:1 撑满不再适用 —— 改为
+   固定/收缩宽度，标题过长时省略（.code-block-title-text 已带 ellipsis），
+   防止长标题把胶囊推得过宽。 */
+.block-float-pill .code-block-title-input {
+  flex: 0 1 auto;
+  width: 160px;
+  min-width: 0;
+  margin: 0 2px;
+}
+.block-float-pill .code-block-title-display {
+  flex: 0 1 auto;
+  max-width: 200px;
+  margin: 0 2px;
+}
+.block-float-pill .code-block-title-text {
+  display: block;
+  min-width: 0;
+}
+
 /* ---- 语言徽章 ---- */
 
 .code-block-wrapper .code-lang-badge {
@@ -2061,10 +2214,8 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   max-height: 320px;
   display: flex;
   flex-direction: column;
-  background: var(--vscode-menu-background);
-  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  /* 皮肤（背景/边框/圆角/阴影/入场动画）由 .editor-toolbar-menu 提供：
+     圆角从 6px 统一到 8px，阴影从重投影统一为工具条同款软投影。 */
   overflow: hidden;
 }
 
@@ -2159,23 +2310,9 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   text-align: center;
 }
 
-/* ---- 工具条内动作按钮 (复用 .editor-toolbar-btn + .block-toolbar-btn--sm) ---- */
-
-/* 复制按钮常驻低调可见，hover / 选中时加亮；不再依赖 :hover 才出现，
-   规避 WKWebView 中 contentEditable 区域内 :hover 偶发不触发的问题。
-   按钮始终位于 header 行右侧，位置稳定。 */
-.code-block-wrapper .code-toolbar-reveal {
-  opacity: 0.55;
-  transition:
-    opacity 0.15s ease,
-    color 0.12s ease,
-    background 0.12s ease;
-}
-
-.code-block-wrapper:hover .code-toolbar-reveal,
-.code-block-figure.is-selected .code-toolbar-reveal {
-  opacity: 1;
-}
+/* ---- 工具条内动作按钮 (复用 .editor-toolbar-btn + .block-toolbar-btn--sm) ----
+   按钮现已全部移入块体右上角的浮动胶囊 .block-float-pill（见
+   .editor-toolbar 段落），随胶囊整体显隐，这里不再有独立的明暗规则。 */
 
 /* HTML live preview — box + selection + interaction mirror FileView's
    preview frame. The wrapper provides the (focusBorder when selected) border;
@@ -2346,12 +2483,14 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 /* 折叠块外层方框 - 边框语言对齐 code-block-figure：
    1px block-border + 16px 圆角，背景 editor-background。
    选中(NodeSelection) / 光标在内(focus-within) 时高亮 focusBorder。
-   overflow:hidden 裁剪 header 背景以贴合外层圆角。 */
+   position:relative 是浮动胶囊 .block-float-pill 的定位基准；
+   不设 overflow:hidden —— 胶囊要悬出块体外沿，且行内只剩透明的
+   summary 输入框，没有需要裁剪进圆角的背景。 */
 .collapsible-block-figure {
+  position: relative;
   border-radius: 16px;
   border: 1px solid var(--jstudio-block-line-strong);
   background: var(--vscode-editor-background);
-  overflow: hidden;
   transition: border-color 0.15s;
 }
 
@@ -2359,9 +2498,10 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   border-color: var(--vscode-focusBorder);
 }
 
-/* header 底部分割线 - 对齐 code-block-header。
-   背景由共享常量 COLLAPSIBLE_HEADER_CLASS 控制：透明（显露 figure 的
-   editor-background，与 code-block-header 一致），无 hover 着色。 */
+/* header 行（summary 行）底部分割线 —— 对齐 code-block 视觉。
+   行内只剩 summary 输入框（图标按钮已移入右上角浮动胶囊
+   .block-float-pill）。背景由共享常量 COLLAPSIBLE_HEADER_CLASS 控制：
+   透明（显露 figure 的 editor-background），无 hover 着色。 */
 .collapsible-block-header {
   border-bottom: 1px solid var(--jstudio-block-line);
 }
@@ -2369,22 +2509,6 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 /* 收起(关闭)时隐藏 header 底部分割线，与 code-block is-collapsed 同理 */
 .collapsible-block-figure.is-collapsed .collapsible-block-header {
   border-bottom: none;
-}
-
-/* header 行内的复制按钮（纯文本 / Markdown）：默认低调，hover / 选中时加亮。
-   与 .code-toolbar-reveal 同样的克制风格，按钮始终常驻（避免 WKWebView
-   中 :hover 偶发不触发的问题），位置稳定在 header 行左侧 chevron 之后。 */
-.collapsible-block-figure .collapsible-copy-btn {
-  opacity: 0.55;
-  transition:
-    opacity 0.15s ease,
-    color 0.12s ease,
-    background 0.12s ease;
-}
-
-.collapsible-block-figure:hover .collapsible-copy-btn,
-.collapsible-block-figure.is-selected .collapsible-copy-btn {
-  opacity: 1;
 }
 
 /* 选中折叠块节点时隐藏 ProseMirror 默认的 block 级外框，

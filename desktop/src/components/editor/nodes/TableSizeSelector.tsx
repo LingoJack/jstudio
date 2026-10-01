@@ -51,9 +51,11 @@ function GridPicker({ anchorX, anchorY, onSelect, onCancel }: GridPickerProps) {
       className="fixed inset-0 z-[9999]"
       onClick={onCancel}
     >
-      {/* The actual grid card, positioned at the cursor anchor */}
+      {/* The actual grid card, positioned at the cursor anchor.
+          皮肤统一走 .editor-toolbar-menu；!p-3 覆盖其默认 4px 内边距
+          （网格选择器需要更大的呼吸空间）。 */}
       <div
-        className="absolute rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] p-3 shadow-xl"
+        className="editor-toolbar-menu absolute !p-3"
         style={{
           left: `${anchorX}px`,
           top: `${anchorY + 8}px`,

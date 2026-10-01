@@ -110,8 +110,10 @@ export function SubMenu({ label, icon, children }: SubMenuProps) {
         <ChevronRight className="w-3.5 h-3.5 opacity-70" />
       </button>
       {open && (
+        // 皮肤统一走 .editor-toolbar-menu（背景/边框/圆角/阴影/内边距 +
+        // 入场动画），这里只保留定位布局类。
         <div
-          className={`absolute top-0 z-dropdown min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg ${flip ? 'right-full mr-1' : 'left-full ml-1'}`}
+          className={`editor-toolbar-menu absolute top-0 z-dropdown min-w-menu ${flip ? 'right-full mr-1' : 'left-full ml-1'}`}
         >
           {children}
         </div>
@@ -203,7 +205,9 @@ export function MenuList({
       ref={ref}
       // `no-drag`: fixed 菜单可能渲染在标题栏拖拽区内（如 tab 右键菜单），
       // 不加 no-drag 时 Electron 的 app-region 命中测试会把点击吞掉。
-      className={`no-drag z-dropdown pointer-events-auto min-w-menu py-1 rounded-lg border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] shadow-lg text-sm ${isFixed ? 'fixed' : ''} ${className}`}
+      // 皮肤（背景/边框/圆角/阴影/内边距 + 入场动画）统一由
+      // .editor-toolbar-menu 提供，这里只保留布局与定位类。
+      className={`no-drag editor-toolbar-menu z-dropdown pointer-events-auto min-w-menu text-sm ${isFixed ? 'fixed' : ''} ${className}`}
       style={isFixed ? { left: pos.left, top: pos.top } : undefined}
       onClick={onClick}
     >

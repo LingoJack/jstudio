@@ -1,10 +1,13 @@
 /**
  * TableControls — compact floating toolbar for TipTap tables.
  *
- * When the cursor is inside a table, a minimal toolbar appears at the table's
- * top-right corner with dropdowns for row / column / alignment / merge actions,
- * a collapse/expand toggle (driven by the table node's `collapsed` attribute),
- * and a standalone trash icon to delete the entire table.
+ * When the pointer hovers a table (or the selection sits inside one — the
+ * original trigger, kept as a keyboard/no-hover fallback), a minimal toolbar
+ * appears at the table's top-right corner with dropdowns for row / column /
+ * alignment / merge actions, a collapse/expand toggle (driven by the table
+ * node's `collapsed` attribute), and a standalone trash icon to delete the
+ * entire table. Same unified interaction as every other block view's
+ * floating toolbar (hover / focus / selection).
  *
  * Hovering each dropdown icon reveals the relevant actions:
  *   行 → 上方插入行 / 下方插入行 / 设为(取消)表头行 / 删除行
@@ -16,6 +19,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { CellSelection } from '@tiptap/pm/tables';
+import { TextSelection } from '@tiptap/pm/state';
 import {
   Trash2,
   Rows3,
@@ -52,7 +56,10 @@ interface TableControlsProps {
 type DropdownKey = 'row' | 'column' | 'align' | 'merge' | null;
 
 export default function TableControls({ editor }: TableControlsProps) {
-  const [toolbar, setToolbar] = useState<{ x: number; y: number } | null>(null);
+  // 工具条常驻挂载（显隐交给 CSS 过渡，与各 blockView 的胶囊/工具条同一
+  // 套淡入落下动画）：pos 保留最后一次测量值，隐藏时元素原地淡出。
+  const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
+  const [toolbarVisible, setToolbarVisible] = useState(false);
   const [open, setOpen] = useState<DropdownKey>(null);
   const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
   const [vAlign, setVAlign] = useState<'top' | 'middle' | 'bottom'>('top');
@@ -68,6 +75,14 @@ export default function TableControls({ editor }: TableControlsProps) {
   const interactingRef = useRef(false);
   /** rAF handle so the transaction listener coalesces to one update/frame. */
   const rafRef = useRef<number | null>(null);
+  // ── Hover 追踪（统一交互：hover / 选区任一满足即显示）──
+  /** 当前悬停的表格元素；null = 指针不在任何表格上。 */
+  const hoveredTableRef = useRef<HTMLElement | null>(null);
+  /** 指针是否在工具条上 —— 工具条不在表格 DOM 内，靠它避免"从表格移向
+      工具条"的途中被 mouseout 收走。 */
+  const toolbarHoverRef = useRef(false);
+  /** 延迟收起定时器（表格 → 工具条 / 工具条 → 表格的宽限期）。 */
+  const hideTimerRef = useRef<number | null>(null);
 
   // -------------------------------------------------------------------------
   // Core: detect table + update toolbar position + alignment
@@ -79,6 +94,10 @@ export default function TableControls({ editor }: TableControlsProps) {
   // the common case (typing outside any table) from doing layout work.
   // -------------------------------------------------------------------------
   const updateAll = useCallback(() => {
+    // ── 定位基准：悬停的表格优先，其次选区所在的表格 ──
+    let tableEl: HTMLElement | null = hoveredTableRef.current;
+    if (tableEl && !tableEl.isConnected) tableEl = null;
+
     const { $from } = editor.state.selection;
     let tablePos: number | null = null;
     let tableCollapsed = false;
@@ -90,27 +109,47 @@ export default function TableControls({ editor }: TableControlsProps) {
         break;
       }
     }
+    if (!tableEl && tablePos !== null) {
+      // Resolve the DOM node for THIS specific table (the one the selection is
+      // inside), not just the first `<table>` in the document — a document can
+      // contain multiple tables.
+      tableEl = editor.view.nodeDOM(tablePos) as HTMLElement | null;
+    }
 
-    if (tablePos === null) {
+    if (!tableEl) {
       // Avoid a pointless state update (which would re-render) when the
       // toolbar is already hidden — the overwhelmingly common case while
       // typing in a large doc full of non-table blocks.
-      setToolbar((prev) => (prev === null ? prev : null));
-      return;
-    }
-
-    // Resolve the DOM node for THIS specific table (the one the selection is
-    // inside), not just the first `<table>` in the document — a document can
-    // contain multiple tables.
-    const tableEl = editor.view.nodeDOM(tablePos) as HTMLElement | null;
-    if (!tableEl) {
-      setToolbar((prev) => (prev === null ? prev : null));
+      setToolbarVisible(false);
       return;
     }
 
     const rect = tableEl.getBoundingClientRect();
-    setToolbar({ x: rect.right, y: rect.top });
-    setCollapsed(tableCollapsed);
+    setToolbarPos((prev) =>
+      prev && prev.x === rect.right && prev.y === rect.top
+        ? prev
+        : { x: rect.right, y: rect.top },
+    );
+    setToolbarVisible(true);
+
+    // collapsed：选区在本表格内时直接用节点属性；纯悬停（选区在别处）
+    // 时从 DOM 反查该表格的节点。
+    if (tablePos !== null) {
+      setCollapsed(tableCollapsed);
+    } else {
+      try {
+        const $inside = editor.state.doc.resolve(editor.view.posAtDOM(tableEl, 0));
+        for (let d = $inside.depth; d > 0; d--) {
+          const node = $inside.node(d);
+          if (node.type.name === 'table') {
+            setCollapsed(!!node.attrs.collapsed);
+            break;
+          }
+        }
+      } catch {
+        // 元素可能刚脱离文档；下一次 mouseover 会重新校正
+      }
+    }
 
     if (editor.isActive({ textAlign: 'center' })) setAlign('center');
     else if (editor.isActive({ textAlign: 'right' })) setAlign('right');
@@ -134,13 +173,19 @@ export default function TableControls({ editor }: TableControlsProps) {
     setVAlign(cellVAlign);
 
     // Detect whether the row containing the cursor is a header row.
+    // 选区所在行优先（toggleHeaderRow 作用于选区所在行）；纯悬停（选区
+    // 不在任何表格里）时退化为看 DOM 第一行是否含 th。
     let currentRowIsHeader = false;
-    for (let d = $from.depth; d > 0; d--) {
-      const node = $from.node(d);
-      if (node.type.name === 'tableRow') {
-        currentRowIsHeader = node.child(0)?.type.name === 'tableHeader';
-        break;
+    if (tablePos !== null) {
+      for (let d = $from.depth; d > 0; d--) {
+        const node = $from.node(d);
+        if (node.type.name === 'tableRow') {
+          currentRowIsHeader = node.child(0)?.type.name === 'tableHeader';
+          break;
+        }
       }
+    } else {
+      currentRowIsHeader = !!tableEl.querySelector('tr')?.querySelector('th');
     }
     setHasHeaderRow(currentRowIsHeader);
 
@@ -180,8 +225,10 @@ export default function TableControls({ editor }: TableControlsProps) {
 
     const handleBlur = () => {
       setTimeout(() => {
-        if (!interactingRef.current) {
-          setToolbar(null);
+        // 编辑器失焦不必然收起 —— 指针还悬停在表格/工具条上时保持显示
+        //（hover 触发路径），否则按原逻辑收起。
+        if (!interactingRef.current && !hoveredTableRef.current && !toolbarHoverRef.current) {
+          setToolbarVisible(false);
           setOpen(null);
         }
       }, 200);
@@ -210,50 +257,138 @@ export default function TableControls({ editor }: TableControlsProps) {
     };
   }, [editor, updateAll, scheduleUpdate]);
 
+  // ── Hover 触发：指针进入表格 → 显示；离开（且未移向工具条）→ 延迟收起。
+  //    收起时若选区仍在某张表格内，scheduleUpdate 会按原选中路径把工具条
+  //    重新锚定到那张表 —— 两条触发路径互不干扰。 ──
+  useEffect(() => {
+    const dom = editor.view.dom;
+
+    const cancelHide = () => {
+      if (hideTimerRef.current !== null) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+
+    const scheduleHide = () => {
+      if (hideTimerRef.current !== null) return;
+      hideTimerRef.current = window.setTimeout(() => {
+        hideTimerRef.current = null;
+        if (toolbarHoverRef.current) return; // 已移到工具条上，保持显示
+        hoveredTableRef.current = null;
+        scheduleUpdate();
+      }, 140);
+    };
+
+    const onMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const table = target?.closest?.('table');
+      if (!table || table === hoveredTableRef.current) return;
+      cancelHide();
+      hoveredTableRef.current = table;
+      updateAll();
+    };
+
+    const onMouseOut = (e: MouseEvent) => {
+      const from = (e.target as HTMLElement | null)?.closest?.('table');
+      if (!from) return;
+      const to = (e.relatedTarget as HTMLElement | null)?.closest?.('table');
+      if (to === from) return; // 表格内部移动（含进入子菜单/单元格）
+      scheduleHide();
+    };
+
+    dom.addEventListener('mouseover', onMouseOver);
+    dom.addEventListener('mouseout', onMouseOut);
+    return () => {
+      dom.removeEventListener('mouseover', onMouseOver);
+      dom.removeEventListener('mouseout', onMouseOut);
+      if (hideTimerRef.current !== null) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+  }, [editor, updateAll, scheduleUpdate]);
+
   // -------------------------------------------------------------------------
   // Command runner
   // -------------------------------------------------------------------------
+  // ── 命令执行前把选区放进悬停的表格 ──
+  // hover 展示时编辑器选区可能不在任何表格里，而表格命令都作用于选区
+  // 所在的表格：点击工具条时先把选区落到该表格的第一个单元格，命令才
+  // 会作用于用户看到的这张表。选区已在本表格内（含 CellSelection）时
+  // 不做任何事，避免破坏用户已选好的单元格范围。
+  const ensureSelectionInTable = useCallback(() => {
+    const tableEl = hoveredTableRef.current;
+    if (!tableEl || !tableEl.isConnected) return;
+    try {
+      const insidePos = editor.view.posAtDOM(tableEl, 0);
+      const $inside = editor.state.doc.resolve(insidePos);
+      for (let d = $inside.depth; d > 0; d--) {
+        if ($inside.node(d).type.name !== 'table') continue;
+        const before = $inside.before(d);
+        const after = $inside.after(d);
+        const { from, to } = editor.state.selection;
+        if (from >= before && to <= after) return;
+        const $start = editor.state.doc.resolve(before + 1);
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.near($start)),
+        );
+        return;
+      }
+    } catch {
+      // 元素脱离文档等异常 —— 让原命令自行空跑
+    }
+  }, [editor]);
+
   const run = useCallback(
     (fn: () => boolean) => {
+      ensureSelectionInTable();
       editor.chain().focus().run();
       fn();
       setOpen(null);
       setTimeout(updateAll, 50);
     },
-    [editor, updateAll],
+    [editor, updateAll, ensureSelectionInTable],
   );
 
   const setAlignment = useCallback(
     (value: 'left' | 'center' | 'right') => {
+      ensureSelectionInTable();
       editor.chain().focus().setTextAlign(value).run();
       setAlign(value);
       setOpen(null);
     },
-    [editor],
+    [editor, ensureSelectionInTable],
   );
 
   const setVAlignment = useCallback(
     (value: 'top' | 'middle' | 'bottom') => {
+      ensureSelectionInTable();
       editor.chain().focus().setCellAttribute('vAlign', value).run();
       setVAlign(value);
       setOpen(null);
     },
-    [editor],
+    [editor, ensureSelectionInTable],
   );
 
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
-  if (!toolbar) return null;
-
   return (
     <div
       data-table-control
-      className="editor-toolbar fixed"
+      className={`editor-toolbar fixed ${toolbarVisible ? 'is-visible' : ''}`}
       style={{
-        left: `${toolbar.x}px`,
-        top: `${toolbar.y}px`,
-        transform: 'translate(-100%, calc(-100% - 6px))',
+        left: `${toolbarPos?.x ?? 0}px`,
+        top: `${toolbarPos?.y ?? 0}px`,
+      }}
+      onMouseEnter={() => {
+        toolbarHoverRef.current = true;
+        // 从表格移向工具条：取消延迟收起
+        if (hideTimerRef.current !== null) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
       }}
       onMouseDown={(e) => {
         e.preventDefault();
@@ -264,7 +399,17 @@ export default function TableControls({ editor }: TableControlsProps) {
       }}
       onMouseLeave={() => {
         interactingRef.current = false;
+        toolbarHoverRef.current = false;
         setOpen(null);
+        // 离开工具条 → 延迟收起；期间回到表格/工具条会被取消
+        if (hideTimerRef.current === null) {
+          hideTimerRef.current = window.setTimeout(() => {
+            hideTimerRef.current = null;
+            if (toolbarHoverRef.current) return;
+            hoveredTableRef.current = null;
+            scheduleUpdate();
+          }, 140);
+        }
       }}
     >
       {/* Row dropdown */}

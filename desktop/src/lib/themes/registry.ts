@@ -26,7 +26,11 @@ export const DEFAULT_APP_THEME_ID_DARK = 'jstudio-dark';
 
 /** Find a theme by id, falling back to the appropriate default. */
 export function getAppTheme(id: string | undefined, isDark: boolean): AppTheme {
-  const resolved = APP_THEMES.find((t) => t.id === id);
+  // 只在「与目标模式匹配」的主题里解析 id —— 明暗两套主题的底色完全
+  // 不同，若跨模式解析（例如暗色模式下解析到浅色主题），会出现"壳层
+  // 是浅色、isDarkMode 却为 true"的分裂：mermaid / 图形画布等跟随
+  // isDarkMode 的内容渲染器会整体用错配色。
+  const resolved = APP_THEMES.find((t) => t.id === id && t.isDark === isDark);
   if (resolved) return resolved;
   // Fallback to default for the given mode
   return APP_THEMES.find((t) => t.id === (isDark ? DEFAULT_APP_THEME_ID_DARK : DEFAULT_APP_THEME_ID_LIGHT))!;

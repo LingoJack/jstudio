@@ -26,19 +26,26 @@ import type { NodeToolbarNav } from '../editor/hooks/useNodeToolbarNav';
 // ── BlockToolbar (container) ──────────────────────────────
 
 interface BlockToolbarProps {
-  /** When true the toolbar renders; when false it returns null. */
+  /**
+   * Whether the owning node is under a real NodeSelection. The toolbar is
+   * ALWAYS rendered — visibility is CSS-driven so it can also be revealed by
+   * hover / focus-within (the unified interaction for every block view):
+   * `is-active` pins it visible for the selection case.
+   */
   selected: boolean;
   children: React.ReactNode;
 }
 
 /**
- * Floating toolbar container, positioned at top-center of the block.
- * Renders nothing unless `selected` is true.
+ * Floating toolbar container, positioned at the block's top-right corner
+ * (same anchor language as the code-block pill / TableControls).
  */
 export function BlockToolbar({ selected, children }: BlockToolbarProps) {
-  if (!selected) return null;
   return (
-    <div className="editor-toolbar block-toolbar" contentEditable={false}>
+    <div
+      className={`editor-toolbar block-toolbar ${selected ? 'is-active' : ''}`}
+      contentEditable={false}
+    >
       {children}
     </div>
   );

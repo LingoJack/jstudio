@@ -421,7 +421,9 @@ function cleanClone(clone: HTMLElement): void {
   });
 
   makeFoldableNative(clone, '.collapsible-block-figure', '.collapsible-block-header');
-  makeFoldableNative(clone, '.code-block-figure.is-collapsed', '.code-block-header');
+  // The code block's chrome lives in the floating pill (collapsed blocks keep
+  // it in flow — it is their only content), so the summary is built from it.
+  makeFoldableNative(clone, '.code-block-figure.is-collapsed', '.block-float-pill');
 
   // Inputs can carry real content (the collapsible summary, a code block
   // title), so flatten them to text rather than dropping them.

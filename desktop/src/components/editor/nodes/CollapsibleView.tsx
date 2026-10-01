@@ -3,12 +3,18 @@
  *
  * Layout:
  *
+ *   ┌  (pill: ▶ ⧉ 📄  ← floating, above top-right, hover/focus/selected) ┐
  *   ┌───────────────────────────────────────────────┐
- *   │  ▶  [Summary title input ........................]  │  ← header
+ *   │  [Summary title input ........................]  │  ← summary row
  *   ├───────────────────────────────────────────────┤
  *   │  <NodeViewContent>                              │  ← editable body (TipTap content)
  *   │  • paragraphs, headings, images, etc.           │
  *   └───────────────────────────────────────────────┘
+ *
+ * The chevron + copy buttons live in a floating pill that hovers ABOVE the
+ * block's top-right corner (same pattern as TableControls / CodeBlockView,
+ * see .block-float-pill CSS) — the summary row stays clean and the pill
+ * never covers content.
  *
  * Key constraints:
  *   - `NodeViewContent` MUST always be in the DOM tree (ProseMirror needs the
@@ -221,68 +227,71 @@ export default function CollapsibleView({
           open ? '' : 'is-collapsed'
         }`}
       >
-        {/* ── Header row ── */}
-        {/* NO contentEditable={false} - WKWebView blocks keyboard input to
-            form controls inside contentEditable={false} islands. TipTap's
-            stopEvent + the native shields below handle ProseMirror isolation. */}
+        {/* ── Floating action pill ── */}
+        {/* Hovers ABOVE the block's top-right corner (same pattern as
+            TableControls, see .block-float-pill CSS) so it never covers the
+            body: chevron toggle + copy buttons. Revealed on hover / focus /
+            selection via CSS. The figure's native event shields below cover
+            the pill too — it lives inside the shielded figure div. */}
+        <div className="editor-toolbar block-float-pill">
+          {/* Collapse toggle - real <button> so the browser focuses it (no
+              stray caret in the contentEditable header) and ProseMirror
+              ignores the click via stopEvent. Styling/logic mirror
+              CodeBlockView. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleOpen();
+            }}
+            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
+            title={open ? t('collapsible.collapse') : t('collapsible.expand')}
+            aria-label={open ? t('collapsible.collapse') : t('collapsible.expand')}
+            aria-expanded={open}
+          >
+            <ChevronRight
+              size={14}
+              className={`code-collapse-chevron ${open ? 'is-open' : ''}`}
+            />
+          </button>
+          {/* Copy-all button — plain text copy of the body content. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopy();
+            }}
+            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm"
+            title={t('collapsible.copy')}
+            aria-label={t('collapsible.copy')}
+            // Re-wired by the HTML export's inline script (no React there).
+            data-code-action="copy"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+          {/* Copy-as-Markdown button — FileText icon to differentiate from
+              the plain-text copy. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopyMarkdown();
+            }}
+            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm"
+            title={t('collapsible.copyMarkdown')}
+            aria-label={t('collapsible.copyMarkdown')}
+          >
+            {copiedMd ? <Check size={14} /> : <FileText size={14} />}
+          </button>
+        </div>
+
+        {/* ── Summary row ── */}
+        {/* Icon buttons moved into the floating pill above; the row keeps
+            only the summary input. NO contentEditable={false} - WKWebView
+            blocks keyboard input to form controls inside contentEditable={
+            false} islands. TipTap's stopEvent + the native shields below
+            handle ProseMirror isolation. */}
         <div className={`collapsible-block-header ${COLLAPSIBLE_HEADER_CLASS} !cursor-default`}>
-          {/* Action group — chevron + copy, tight 2px gap matching
-              CodeBlockView's .code-header-actions. The outer header uses
-              gap-3 (from COLLAPSIBLE_HEADER_CLASS), which would leave too
-              much air between the two buttons. */}
-          <div className="flex items-center gap-0.5">
-            {/* Collapse toggle - real <button> so the browser focuses it (no
-                stray caret in the contentEditable header) and ProseMirror
-                ignores the click via stopEvent. Styling/logic mirror
-                CodeBlockView. */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleOpen();
-              }}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
-              title={open ? t('collapsible.collapse') : t('collapsible.expand')}
-              aria-label={open ? t('collapsible.collapse') : t('collapsible.expand')}
-              aria-expanded={open}
-            >
-              <ChevronRight
-                size={14}
-                className={`code-collapse-chevron ${open ? 'is-open' : ''}`}
-              />
-            </button>
-            {/* Copy-all button — subtle by default, brightens on
-                hover/selection (see .collapsible-copy-btn in
-                vscode-theme.css). */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCopy();
-              }}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm collapsible-copy-btn"
-              title={t('collapsible.copy')}
-              aria-label={t('collapsible.copy')}
-              // Re-wired by the HTML export's inline script (no React there).
-              data-code-action="copy"
-            >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-            {/* Copy-as-Markdown button — same skin, FileText icon to
-                differentiate from the plain-text copy. */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCopyMarkdown();
-              }}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm collapsible-copy-btn"
-              title={t('collapsible.copyMarkdown')}
-              aria-label={t('collapsible.copyMarkdown')}
-            >
-              {copiedMd ? <Check size={14} /> : <FileText size={14} />}
-            </button>
-          </div>
           <input
             ref={cursorTrailInputRef}
             type="text"

@@ -292,16 +292,44 @@ var 应该在文件的上部分定义
 4. 该 pub func 用到的 private func
 
 
-## 禁止难以阅读的短变量命名
+## 命名必须见名知义，后缀标明类别
 
-字段名要见名知义，例如下面 extensionCount 就不建议叫做 n
+字段、变量、结构体、接口命名要能脱离上下文独立读出"它是什么"；建议用后缀标明类别：`Svc`（服务组件）、`Resp`（调用响应）、`Client`（客户端/校验结果）、`Claims`（票据载荷）、`Info`（结构化载体）、`Count`（数量）等
+
+1. 禁止神秘缩写：`ir`、`info` 这类只有写代码的当下才看得懂，离开上下文无法阅读
+2. 禁止动词当变量名：返回值是结果对象就用名词命名
+3. 方法名要体现返回物的类别：返回服务组件却叫 `ServiceToken()`，读起来像返回一个 token 字符串
+4. 同一概念全仓统一拼法：idsvc 服务统一 `IDsvc`，禁止 `Idsvc` / `IDsvc` 两种拼法并存
+5. 禁止拼错或张冠李戴的名字：OneID 不写成 openId，principal 不写成 principle
+
+bad case
+
+```go
+// ir / info 是什么？verify 是动词，看不出是平台 client 的校验结果对象
+ir, err := doIntrospect(ctx, cfg, jwtToken)
+verify, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
+
+// 像返回一个 token 字符串，实际返回的是签发服务组件
+serviceTokenSvc := dep.ServiceToken()
+
+// 拼写错误：OneID 不是 OpenID；principle 是"原则"，主体是 principal
+openIdTokenClaims, err := s.oneID.VerifyToken(ctx, req.OneIDToken)
+targetPrinciple, err := s.idsvc.ConvertUserIDByAccountUnion(ctx, claims.TID, claims.Sub)
+```
+
 good case
 
 ```go
-if extensionCount := countExtensions(policies); i.limits.MaxExtensions > 0 && extensionCount > i.limits.MaxExtensions {
-    return "", fmt.Errorf("%w: expanded extensions %d exceed limit %d",
-       errOverLimit, extensionCount, i.limits.MaxExtensions)
-}
+// 后缀标明类别：Resp = introspect 响应，Client = 平台 client 校验结果，Claims = 票据载荷
+introspectResp, err := doIntrospect(ctx, cfg, jwtToken)
+platformClient, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
+oneIDClaims, err := s.oneID.VerifyToken(ctx, req.OneIDToken)
+
+// Svc 后缀点明这是服务组件，与 TokenIssuer() 返回 Issuer 的命名风格对仗
+serviceTokenSvc := dep.ServiceTokenSvc()
+
+// 名字即含义：换算出来的目标用户就叫 targetUser
+targetUser, err := s.idsvc.ConvertUserIDByAccountUnion(ctx, claims.TID, claims.Sub)
 ```
 
 
@@ -440,7 +468,7 @@ bad case
 
 ```go
 // 每一步都 err :=，反复声明 err
-verify, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
+platformClient, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
 if err != nil {
     return nil, coerr.Wrapf(err, code.IamStsServiceTokenIdsvcFailed, "verify platform client failed")
 }
@@ -464,7 +492,7 @@ var (
     enterpriseID string
 )
 
-verify, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
+platformClient, err := s.idsvc.VerifyPlatformClientSecret(ctx, req)
 if err != nil {
     return nil, coerr.Wrapf(err, code.IamStsServiceTokenIdsvcFailed, "verify platform client failed")
 }
@@ -511,9 +539,34 @@ func (s *Store) GetDoc(ctx context.Context, docID string) (*Doc, error) {
 ## 日志必须带模块 tag 和 kv 字段
 
 1. 一律走项目 log 包并传 ctx（log.Infof(c.Request.Context(), ...)），禁止 fmt.Println
-2. 行首带模块 tag（如 [iam-sts]），方便 grep 定位
-3. 关键字段 kv 平铺（unionId=%s policies=%d），禁止拼成自然语言长句
-4. Infof 记关键成功操作，Warnf 记可恢复异常，Errorf 记处理终点的失败
+2. 行首 tag 必须是服务名（如 [iam-sts]），且该服务所有文件的日志一律带（含 main.go 启动退出日志），保证按服务名一把 grep 到
+3. tag 只写服务名，禁止用功能名 / 子模块名替代（如 [OneIDIntrospect]、[iam-sts/config]）；子模块语义写在消息体里
+4. 关键字段 kv 平铺（unionId=%s policies=%d），禁止拼成自然语言长句
+5. Infof 记关键成功操作，Warnf 记可恢复异常，Errorf 记处理终点的失败
+
+bad case
+
+```go
+// tag 是功能名，grep 服务名捞不到
+log.Errorf(ctx, "[OneIDIntrospect] token expired: exp=%d, now=%d, skew=%ds", ir.Exp, now, clockSkew)
+
+// tag 混入子模块后缀，按 [iam-sts] 搜不到
+log.Errorf(context.Background(), "[iam-sts/config] marshal oneid private key failed: %v", err)
+
+// 同服务的 main.go 漏打服务名，日志前缀不统一
+log.Infof(context.Background(), "server exited")
+```
+
+good case
+
+```go
+// tag 恒为服务名，子模块语义进消息体
+log.Errorf(ctx, "[iam-sts] oneid introspect token expired: exp=%d, now=%d, skew=%ds", introspectResp.Exp, now, clockSkew)
+
+log.Errorf(context.Background(), "[iam-sts] config: marshal oneid private key failed: %v", err)
+
+log.Infof(context.Background(), "[iam-sts] server exited")
+```
 
 优秀示例
 

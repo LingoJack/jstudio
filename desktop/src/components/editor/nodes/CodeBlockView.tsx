@@ -1,19 +1,24 @@
 /**
  * CodeBlockView — React NodeView for the code block node.
  *
- * Layout — a dedicated header row sits above the code with the action
- * toolbar pinned to the top-left and the language badge pinned to the
- * top-right, so they never overlap the code:
- *   ┌────────────────────────────────────────┐
- *   │ [preview] [copy]               [lang ▾] │  ← header row
- *   │  const x = 1;                             │
- *   │  console.log(x);                       ◯  │  ← corner resize handle
- *   └────────────────────────────────────────┘
+ * Layout — all chrome (action toolbar, title slot, language badge) lives in
+ * a floating pill (`.block-float-pill`, same pattern as TableControls) that
+ * hovers ABOVE the block's top-right corner and never covers the code:
  *
- * The header is a separate strip (not absolutely positioned over the code),
- * eliminating the previous overlap between the top-right icons and the
- * first line of source. The action buttons reuse the shared
- * `block-toolbar-btn` (composed with `editor-toolbar-btn`) skin so they match Image / File / Diagram blocks.
+ *   ┌ (pill: 标题 · ▾ ↗ ⧉ │ MERMAID ∨) ┐  ← hover / focus / selected
+ *   │ const x = 1;                     │
+ *   │ console.log(x);               ◯  │  ← corner resize handle
+ *   └──────────────────────────────────┘
+ *
+ * Reveal is pure CSS on the figure: :hover / :focus-within / .is-selected /
+ * .is-lang-open (the dropdown menu is portaled under document.body, where
+ * the figure has no focus). The pill is a DOM child of the figure even
+ * though it is rendered above it, so CSS :hover — which propagates up the
+ * DOM tree — keeps it open while the cursor is on the pill. Collapsed
+ * blocks show a thin title strip only (passive identity); the pill — with
+ * the re-expand chevron — still floats above on hover.
+ * The pill buttons reuse the shared `block-toolbar-btn` skin so they match
+ * Image / File / Diagram blocks.
  *
  * Selection / resize chrome is unified with FileView:
  *   - The figure shows a focusBorder when the node is selected (NodeSelection)
@@ -36,6 +41,7 @@ import {
 } from "@tiptap/react";
 import {
   ChevronDown,
+  ChevronRight,
   Search,
   Pencil,
 } from "lucide-react";
@@ -260,17 +266,24 @@ export default function CodeBlockView({
   );
 
   // ---- Language dropdown ---- (extracted to <LanguageDropdown />)
+  // While the dropdown's portal menu is open the figure has no :focus-within
+  // (the menu lives under document.body), so the floating pill needs an
+  // explicit pin via the `is-lang-open` class.
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
 
   const toggleCollapsed = useCallback(() => {
     updateAttributes({ collapsed: !collapsed });
   }, [updateAttributes, collapsed]);
 
-  // ── Native event shields for the header ──
-  // The header no longer uses contentEditable={false} (see comment above
-  // the title state).  These bubble-phase listeners stop form-control
-  // events from reaching ProseMirror - identical pattern to CollapsibleView.
+  // ── Native event shields for the pill / collapsed bar ──
+  // Neither uses contentEditable={false} (WKWebView blocks keyboard input
+  // inside such "non-editable islands", see the useCodeBlockTitle comment).
+  // These bubble-phase listeners stop form-control events from reaching
+  // ProseMirror - identical pattern to CollapsibleView.
   const headerRef = useRef<HTMLDivElement | null>(null);
   useHeaderEventShield(headerRef);
+  const collapsedBarRef = useRef<HTMLDivElement | null>(null);
+  useHeaderEventShield(collapsedBarRef);
 
   // ---- Inline styles driven by displayWidth / displayHeight ----
   // Source mode always grows to the exact wrapped-code height — no internal
@@ -288,93 +301,130 @@ export default function CodeBlockView({
     height: displayHeight != null ? `${displayHeight}px` : "320px",
   };
 
+  // Title slot — shared between the floating pill (expanded blocks) and the
+  // thin collapsed bar. While editing, the input renders wherever the slot
+  // lives. Collapsed + untitled renders nothing (empty bar).
+  const titleSlot = isEditingTitle ? (
+    <input
+      ref={cursorTrailTitleRef}
+      type="text"
+      value={localTitle}
+      onChange={(e) => setLocalTitle(e.target.value)}
+      onBlur={commitTitle}
+      onKeyDown={(e) => {
+        if (handleNativeSelectAll(e)) return;
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commitTitle();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cancelEditingTitle();
+        }
+        e.stopPropagation();
+      }}
+      onCompositionStart={(e) => e.stopPropagation()}
+      onCompositionUpdate={(e) => e.stopPropagation()}
+      onCompositionEnd={(e) => e.stopPropagation()}
+      className="code-block-title-input"
+      spellCheck={false}
+    />
+  ) : title ? (
+    <button
+      type="button"
+      onClick={startEditingTitle}
+      className="code-block-title-display"
+      title={t("code.editTitle")}
+    >
+      <span className="code-block-title-text">{title}</span>
+    </button>
+  ) : collapsed ? null : (
+    <button
+      type="button"
+      onClick={startEditingTitle}
+      className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-title-trigger"
+      title={t("code.addTitle")}
+      aria-label={t("code.addTitle")}
+    >
+      <Pencil size={14} />
+    </button>
+  );
+
   return (
     <NodeViewWrapper as="div" className="code-block-wrapper">
       <div
         ref={setFigureRef}
         className={`code-block-figure ${selected ? "is-selected" : ""} ${
           showAnyPreview ? "is-preview" : ""
-        } ${collapsed ? "is-collapsed" : ""}`}
+        } ${collapsed ? "is-collapsed" : ""} ${
+          langDropdownOpen ? "is-lang-open" : ""
+        }`}
         style={figureStyle}
       >
-        {/* Header row — a dedicated strip above the code, separated from the
-          source by a border-bottom divider. The collapse toggle is pinned to
-          the far left, action buttons next to it, and the language badge to
-          the top-right. */}
-        <div ref={headerRef} className="code-block-header">
-          <div className="code-header-actions">
-            <CodeBlockActions
-              collapsed={collapsed}
-              onToggleCollapsed={toggleCollapsed}
-              isHtml={isHtml}
-              isMermaid={isMermaid}
-              hasContent={hasContent}
-              showHtmlPreview={showHtmlPreview}
-              showMermaidPreview={showMermaidPreview}
-              mermaidSvg={mermaidSvg}
-              onToggleHtmlPreview={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
-              onToggleMermaidPreview={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
-              onOpenHtmlWindow={() => openHtmlPreviewWindow(htmlSource)}
-              onOpenMermaidWindow={() => { if (mermaidSvg) openMermaidPreviewWindow(mermaidSvg); }}
-              getCodeText={() => codeRef.current?.querySelector(".hljs")?.textContent ?? ""}
-              t={t}
+        {/* Floating action pill — hovers ABOVE the block's top-right corner
+          (same pattern as TableControls) so it never covers the code.
+          Groups, left to right: content actions (preview / open / copy) │
+          block management (collapse toggle, title slot) │ language badge —
+          the low-frequency management icons sit on the right, next to the
+          language badge. Revealed on hover / focus / selection via the
+          shared .block-float-pill CSS. Still shielded by
+          useHeaderEventShield below — the pill must NOT use
+          contentEditable={false} (WKWebView blocks keyboard input inside
+          such islands, see the useCodeBlockTitle comment). Collapsed blocks
+          keep the pill in flow (see CSS). */}
+        <div ref={headerRef} className="editor-toolbar block-float-pill">
+          <CodeBlockActions
+            isHtml={isHtml}
+            isMermaid={isMermaid}
+            hasContent={hasContent}
+            showHtmlPreview={showHtmlPreview}
+            showMermaidPreview={showMermaidPreview}
+            mermaidSvg={mermaidSvg}
+            onToggleHtmlPreview={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
+            onToggleMermaidPreview={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
+            onOpenHtmlWindow={() => openHtmlPreviewWindow(htmlSource)}
+            onOpenMermaidWindow={() => { if (mermaidSvg) openMermaidPreviewWindow(mermaidSvg); }}
+            getCodeText={() => codeRef.current?.querySelector(".hljs")?.textContent ?? ""}
+            t={t}
+          />
+          <span className="block-toolbar-divider" />
+          {/* Collapse toggle */}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-collapse-toggle"
+            title={collapsed ? t("code.expand") : t("code.collapse")}
+            aria-label={collapsed ? t("code.expand") : t("code.collapse")}
+            aria-expanded={!collapsed}
+          >
+            <ChevronRight
+              size={14}
+              className={`code-collapse-chevron ${collapsed ? "" : "is-open"}`}
             />
-            <button
-              type="button"
-              onClick={startEditingTitle}
-              className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal code-title-trigger"
-              style={isEditingTitle ? { pointerEvents: "none" } : undefined}
-              title={title ? t("code.editTitle") : t("code.addTitle")}
-              aria-label={title ? t("code.editTitle") : t("code.addTitle")}
-              tabIndex={isEditingTitle ? -1 : 0}
-            >
-              <Pencil size={14} />
-            </button>
-          </div>
-          {isEditingTitle ? (
-            <input
-              ref={cursorTrailTitleRef}
-              type="text"
-              value={localTitle}
-              onChange={(e) => setLocalTitle(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(e) => {
-                if (handleNativeSelectAll(e)) return;
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  commitTitle();
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  cancelEditingTitle();
-                }
-                e.stopPropagation();
-              }}
-              onCompositionStart={(e) => e.stopPropagation()}
-              onCompositionUpdate={(e) => e.stopPropagation()}
-              onCompositionEnd={(e) => e.stopPropagation()}
-              className="code-block-title-input"
-              spellCheck={false}
-            />
-          ) : title ? (
-            <button
-              type="button"
-              onClick={startEditingTitle}
-              className="code-block-title-display"
-              title={t("code.editTitle")}
-            >
-              <span className="code-block-title-text">{title}</span>
-            </button>
-          ) : null}
+          </button>
+          {/* Title slot lives in the pill only on expanded blocks — collapsed
+              blocks carry it in the thin bar below (avoids double titles). */}
+          {!collapsed && titleSlot}
+          <span className="block-toolbar-divider" />
           <LanguageDropdown
             language={language}
             onSelect={(value) => updateAttributes({ language: value })}
+            onOpenChange={setLangDropdownOpen}
             editor={editor}
             getPos={getPos}
             node={node}
             t={t}
           />
         </div>
+
+        {/* Collapsed strip — passive identity only: the title (empty when
+            untitled). All actions, including re-expanding, live in the
+            floating pill above, revealed on hover / focus / selection. */}
+        {collapsed && (
+          <div ref={collapsedBarRef} className="code-block-collapsed-bar">
+            {titleSlot}
+          </div>
+        )}
 
         {/* Code content — highlighted by lowlight.
             Height is driven by the resize handle (displayHeight); when unset the
