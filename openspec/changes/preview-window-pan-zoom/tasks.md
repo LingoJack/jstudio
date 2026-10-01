@@ -24,4 +24,4 @@
 
 - [ ] 5.1 编辑器内联回归：mermaid 代码块内嵌预览——普通滚轮滚动编辑器页面、Cmd/Ctrl+滚轮缩放、三键拖拽、点击 overlay 选中节点均与改动前一致。验证：手测 + 对照 spec 场景"编辑器内联预览不受影响"
 - [ ] 5.2 文档流窗口回归：PDF 普通滚轮滚动 + Ctrl/Cmd+滚轮缩放、DOCX/文本滚轮滚动行为与改动前一致。验证：手测对照 spec 场景"文档流预览维持滚动模型"
-- [ ] 5.3 全量校验：`cd desktop && npm run lint` 与 `npm run build` 通过，无新增依赖、`PreviewPayload` 未变更。验证：命令退出码 0
+- [x] 5.3 全量校验：`cd desktop && npm run lint` 与 `npm run build` 通过，无新增依赖、`PreviewPayload` 未变更。验证：命令退出码 0

@@ -253,7 +253,11 @@ const PanZoomStage = forwardRef<PanZoomStageHandle, PanZoomStageProps>(
           ref={apiRef}
           minScale={MIN_SCALE}
           maxScale={MAX_SCALE}
-          limitToBounds
+          // Free panning: at scale 1 the content exactly fills the viewport,
+          // so the default limitToBounds clamps panBy to zero and drag feels
+          // dead until the user zooms in. Free panning matches the old
+          // hand-rolled image viewer; double-click / ⊗ resets recover.
+          limitToBounds={false}
           wheel={{ wheelDisabled: true }}
           panning={{ disabled: true }}
           doubleClick={{ disabled: true }}
