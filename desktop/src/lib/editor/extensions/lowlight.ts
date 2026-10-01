@@ -68,6 +68,8 @@ export const GRAMMAR_ALIASES: Record<string, string> = {
   bash_session: 'bash',
   // grammars absent from this trimmed install → nearest registered one
   html: 'xml',
+  // SVG markup shares the XML grammar (no dedicated hljs language exists).
+  svg: 'xml',
   jsx: 'javascript',
   tsx: 'typescript',
   toml: 'ini',

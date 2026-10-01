@@ -32,11 +32,6 @@ export async function readImage(): Promise<ClipboardImage> {
   return new ClipboardImage(img.width, img.height, img.rgba);
 }
 
-/**
- * Write PNG bytes onto the system clipboard (Electron main
- * `clipboard.writeImage`). Complements readImage for renderer-generated
- * images (canvas rasters of mermaid diagrams, …).
- */
-export async function writeImagePng(png: Uint8Array): Promise<void> {
-  await native().clipboardWriteImage(png);
-}
+// 写图片统一走 Electron 主进程命令 copy_image_bytes_to_clipboard
+// （src/lib/export/fileExport.ts 的 copyImageToClipboard 与 mermaid 图表
+// 复制都走该通道）；本 shim 只保留读取侧。

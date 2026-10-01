@@ -35,6 +35,7 @@ export const LANGUAGES: LanguageEntry[] = [
   { value: "shell", label: "Shell" },
   { value: "makefile", label: "Makefile" },
   { value: "html", label: "HTML" },
+  { value: "svg", label: "SVG" },
   { value: "css", label: "CSS" },
   { value: "scss", label: "SCSS" },
   { value: "json", label: "JSON" },

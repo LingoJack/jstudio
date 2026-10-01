@@ -62,6 +62,13 @@ import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
 import { LanguageDropdown } from "./code-block/LanguageDropdown";
 import MermaidViewer from "./code-block/MermaidViewer";
 
+/** Wrap raw SVG markup in a minimal HTML document for the sandboxed preview
+    iframe — centers it on white and scales to fit, mirroring the HTML
+    preview's presentation. */
+function wrapSvgForPreview(svg: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;display:grid;place-items:center;background:#fff}svg{max-width:100%;max-height:100vh}</style></head><body>${svg}</body></html>`;
+}
+
 export default function CodeBlockView({
   node,
   updateAttributes,
@@ -120,14 +127,35 @@ export default function CodeBlockView({
     isHtml &&
     hasContent &&
     (node.attrs?.htmlPreview as boolean | null | undefined) !== false;
+  // ---- SVG live preview ----
+  // Same mechanism as the HTML preview: the SVG source is rendered in the
+  // sandboxed iframe (wrapped in a minimal HTML document so it centers on
+  // white and scales to fit). Tri-state persisted via `svgPreview`.
+  const isSvg = language === "svg";
+  const showSvgPreview =
+    isSvg &&
+    hasContent &&
+    (node.attrs?.svgPreview as boolean | null | undefined) !== false;
+  const svgSource = node.textContent;
+
   // The current code text, used as the iframe `srcDoc`. Reading
   // `node.textContent` on every render keeps the preview in sync with edits.
   const htmlSource = node.textContent;
+  // Active preview document: HTML source as-is; SVG source wrapped in a
+  // minimal HTML document (centered on white, scaled to fit) — the sandboxed
+  // iframe treats both identically.
+  const previewDoc = isHtml
+    ? htmlSource
+    : isSvg
+      ? wrapSvgForPreview(svgSource)
+      : "";
   const { previewContainerRef } = useHtmlPreview({
-    showHtmlPreview,
-    htmlSource,
+    showHtmlPreview: showHtmlPreview || showSvgPreview,
+    htmlSource: previewDoc,
     collapsed,
   });
+
+  // ---- Mermaid live preview ----
 
   // ---- Mermaid live preview ----
   // For Mermaid code blocks we offer a toggle that renders the diagram.
@@ -145,17 +173,21 @@ export default function CodeBlockView({
     mermaidSource,
   });
 
-  // Reset the persisted preview flag when the language changes away from HTML/Mermaid.
+  // Reset the persisted preview flag when the language changes away from HTML/Mermaid/SVG.
   useEffect(() => {
     if (!isHtml && node.attrs?.htmlPreview != null)
       updateAttributes({ htmlPreview: null });
     if (!isMermaid && node.attrs?.mermaidPreview != null)
       updateAttributes({ mermaidPreview: null });
+    if (!isSvg && node.attrs?.svgPreview != null)
+      updateAttributes({ svgPreview: null });
   }, [
     isHtml,
     isMermaid,
+    isSvg,
     node.attrs?.htmlPreview,
     node.attrs?.mermaidPreview,
+    node.attrs?.svgPreview,
     updateAttributes,
   ]);
 
@@ -292,7 +324,7 @@ export default function CodeBlockView({
   // Source mode always grows to the exact wrapped-code height — no internal
   // horizontal or vertical scrolling. A persisted height still applies to
   // HTML/Mermaid preview mode, where the preview itself needs a viewport.
-  const showAnyPreview = showHtmlPreview || showMermaidPreview;
+  const showAnyPreview = showHtmlPreview || showSvgPreview || showMermaidPreview;
   const figureStyle: React.CSSProperties = {
     width: displayWidth ? `${displayWidth}px` : "100%",
   };
@@ -374,14 +406,18 @@ export default function CodeBlockView({
           <CodeBlockActions
             isHtml={isHtml}
             isMermaid={isMermaid}
+            isSvg={isSvg}
             hasContent={hasContent}
             showHtmlPreview={showHtmlPreview}
             showMermaidPreview={showMermaidPreview}
+            showSvgPreview={showSvgPreview}
             mermaidSvg={mermaidSvg}
             onToggleHtmlPreview={() => updateAttributes({ htmlPreview: !showHtmlPreview })}
             onToggleMermaidPreview={() => updateAttributes({ mermaidPreview: !showMermaidPreview })}
+            onToggleSvgPreview={() => updateAttributes({ svgPreview: !showSvgPreview })}
             onOpenHtmlWindow={() => openHtmlPreviewWindow(htmlSource)}
             onOpenMermaidWindow={() => { if (mermaidSvg) openMermaidPreviewWindow(mermaidSvg); }}
+            onOpenSvgWindow={() => openHtmlPreviewWindow(wrapSvgForPreview(svgSource), "SVG")}
             getCodeText={() => codeRef.current?.querySelector(".hljs")?.textContent ?? ""}
             t={t}
           />
@@ -470,6 +506,23 @@ export default function CodeBlockView({
             }}
           />
         </pre>
+
+        {isSvg && showSvgPreview && !collapsed && (
+          <div
+            ref={previewContainerRef}
+            className="code-block-preview"
+            contentEditable={false}
+            style={previewStyle}
+          >
+            {!selected && (
+              <div
+                className="code-block-preview-overlay"
+                onMouseDown={selectNode}
+              />
+            )}
+            {/* iframe inserted by useEffect below, not JSX */}
+          </div>
+        )}
 
         {/* HTML live preview — sandboxed iframe rendering the source.
             Wrapped in a relative container that mirrors FileView's preview box:

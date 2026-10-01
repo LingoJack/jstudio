@@ -23,14 +23,18 @@ import {
 export interface CodeBlockActionsProps {
   isHtml: boolean;
   isMermaid: boolean;
+  isSvg: boolean;
   hasContent: boolean;
   showHtmlPreview: boolean;
   showMermaidPreview: boolean;
+  showSvgPreview: boolean;
   mermaidSvg: string | null;
   onToggleHtmlPreview: () => void;
   onToggleMermaidPreview: () => void;
+  onToggleSvgPreview: () => void;
   onOpenHtmlWindow: () => void;
   onOpenMermaidWindow: () => void;
+  onOpenSvgWindow: () => void;
   getCodeText: () => string;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }
@@ -38,14 +42,18 @@ export interface CodeBlockActionsProps {
 export function CodeBlockActions({
   isHtml,
   isMermaid,
+  isSvg,
   hasContent,
   showHtmlPreview,
   showMermaidPreview,
+  showSvgPreview,
   mermaidSvg,
   onToggleHtmlPreview,
   onToggleMermaidPreview,
+  onToggleSvgPreview,
   onOpenHtmlWindow,
   onOpenMermaidWindow,
+  onOpenSvgWindow,
   getCodeText,
   t,
 }: CodeBlockActionsProps) {
@@ -59,7 +67,15 @@ export function CodeBlockActions({
 
   const handleCopy = useCallback(() => {
     if (showDiagram && mermaidSvg) {
-      copyMermaidPngToClipboard(mermaidSvg, isDarkMode ? "#1e1e1e" : "#ffffff")
+      // 复制为图片：源码一并传入 —— 内部会用 htmlLabels:false 重渲染一份
+      // 无 foreignObject 的 SVG（WebKit 画布对含 foreignObject 的 SVG 会
+      // 标记污染，toBlob 抛 SecurityError）。
+      copyMermaidPngToClipboard(
+        mermaidSvg,
+        getCodeText(),
+        isDarkMode ? "#1e1e1e" : "#ffffff",
+        isDarkMode,
+      )
         .then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
@@ -108,11 +124,34 @@ export function CodeBlockActions({
         </button>
       ) : null}
 
+      {/* SVG preview toggle */}
+      {isSvg && hasContent ? (
+        <button
+          type="button"
+          onClick={onToggleSvgPreview}
+          className={`editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm ${showSvgPreview ? "is-active" : ""}`}
+          title={showSvgPreview ? t("code.showCode") : t("code.previewSvg")}
+          aria-label={showSvgPreview ? t("code.showCode") : t("code.previewSvg")}
+        >
+          {showSvgPreview ? <Code2 size={14} /> : <Eye size={14} />}
+        </button>
+      ) : null}
+
       {/* Open in new window */}
       {isHtml && hasContent ? (
         <button
           type="button"
           onClick={onOpenHtmlWindow}
+          className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm"
+          title={t("code.previewNewWindow")}
+          aria-label={t("code.previewNewWindow")}
+        >
+          <ExternalLink size={14} />
+        </button>
+      ) : isSvg && hasContent ? (
+        <button
+          type="button"
+          onClick={onOpenSvgWindow}
           className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm"
           title={t("code.previewNewWindow")}
           aria-label={t("code.previewNewWindow")}

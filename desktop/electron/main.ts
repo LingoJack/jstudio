@@ -610,8 +610,12 @@ function wireIpc(): void {
   // Write a PNG (bytes from the renderer, e.g. a canvas raster of a mermaid
   // diagram) onto the system clipboard. Electron 44's async clipboard takes
   // ClipboardItem entries carrying Blobs; the PNG is committed atomically.
-  ipcMain.handle('clipboard-write-image', async (_e, png: Uint8Array) => {
-    const blob = new Blob([png], { type: 'image/png' });
+  // 调用方字节形态统一在此归一化：fileExport 传 Array.from(...)（旧 Tauri
+  // JSON 序列化遗留，number[] 直接进 Blob 会被字符串化成损坏 PNG），画布
+  // 栅格传 Uint8Array —— 都转成 Uint8Array 再打包。
+  ipcMain.handle('clipboard-write-image', async (_e, png: Uint8Array | number[]) => {
+    const bytes = png instanceof Uint8Array ? png : Uint8Array.from(png);
+    const blob = new Blob([bytes], { type: 'image/png' });
     await clipboard.write([new ClipboardItem({ 'image/png': blob })]);
   });
 

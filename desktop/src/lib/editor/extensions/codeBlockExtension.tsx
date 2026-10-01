@@ -54,6 +54,9 @@ export interface CodeBlockNodeAttributes {
   /** Mermaid code blocks: whether the rendered SVG diagram is shown instead of the source.
    *  Tri-state: null = default (preview), true = explicitly preview, false = explicitly source. */
   mermaidPreview?: boolean | null;
+  /** SVG code blocks: whether the rendered preview is shown instead of the source.
+   *  Tri-state: null = default (preview), true = explicitly preview, false = explicitly source. */
+  svgPreview?: boolean | null;
   /** Legacy: maximum body height as a percentage of viewport height (0-100). Parsed for backward-compat only. */
   maxHeightPct?: number | null;
   /** Legacy pixel width (kept for backward-compat migration). */
@@ -307,6 +310,19 @@ export const CodeBlockWithChrome = CodeBlockLowlight.extend({
         renderHTML: (attrs) => {
           if (attrs.mermaidPreview == null) return {};
           return { 'data-mermaid-preview': attrs.mermaidPreview ? 'true' : 'false' };
+        },
+      },
+      svgPreview: {
+        default: null,
+        parseHTML: (el) => {
+          const v = el.getAttribute('data-svg-preview');
+          if (v === 'true') return true;
+          if (v === 'false') return false;
+          return null;
+        },
+        renderHTML: (attrs) => {
+          if (attrs.svgPreview == null) return {};
+          return { 'data-svg-preview': attrs.svgPreview ? 'true' : 'false' };
         },
       },
       maxHeightPct: {
