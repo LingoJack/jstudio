@@ -9,6 +9,8 @@
 
 import { useCallback, useState } from "react";
 import type { TranslationKey } from "../../../../lib/core/i18n";
+import { useStore } from "../../../../store/useStore";
+import { copyMermaidPngToClipboard } from "./mermaidImageClipboard";
 import {
   ChevronRight,
   Code2,
@@ -52,14 +54,29 @@ export function CodeBlockActions({
   t,
 }: CodeBlockActionsProps) {
   const [copied, setCopied] = useState(false);
+  // Subscribe to the primitives (per CODEBUDDY.md gotcha — never object refs).
+  const isDarkMode = useStore((s) => s.isDarkMode);
+  const addToast = useStore((s) => s.addToast);
+
+  // Diagram rendered → the copy button hands out the picture, not the source.
+  const showDiagram = isMermaid && showMermaidPreview && !!mermaidSvg;
 
   const handleCopy = useCallback(() => {
+    if (showDiagram && mermaidSvg) {
+      copyMermaidPngToClipboard(mermaidSvg, isDarkMode ? "#1e1e1e" : "#ffffff")
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+        .catch(() => addToast("error", t("code.copyImageFailed")));
+      return;
+    }
     const text = getCodeText();
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [getCodeText]);
+  }, [showDiagram, mermaidSvg, isDarkMode, addToast, t, getCodeText]);
 
   return (
     <>
@@ -133,14 +150,14 @@ export function CodeBlockActions({
         </button>
       ) : null}
 
-      {/* Copy */}
+      {/* Copy — code by default, the rendered diagram when it is showing */}
       {hasContent ? (
         <button
           type="button"
           onClick={handleCopy}
           className="editor-toolbar-btn block-toolbar-btn block-toolbar-btn--sm code-toolbar-reveal"
-          title={t("code.copy")}
-          aria-label={t("code.copy")}
+          title={showDiagram ? t("code.copyImage") : t("code.copy")}
+          aria-label={showDiagram ? t("code.copyImage") : t("code.copy")}
           // The HTML export ships without React; its inline script finds the
           // copy button by this attribute and wires the same behaviour.
           data-code-action="copy"

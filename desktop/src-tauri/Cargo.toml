@@ -17,40 +17,12 @@ name = "jstudio-sidecar"
 path = "src/bin/sidecar.rs"
 
 [dependencies]
-# Image decode formats for the clipboard commands (and any future asset ops).
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
-# OS clipboard access (image paste/copy commands).
-arboard = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-dirs = "6"
-portable-pty = "0.8"
 
-# ── j-agent (Agent engine) ──
+# ── j-agent (Agent engine — the reason this sidecar still exists) ──
 j_agent = { path = "../jcli/j-agent", package = "j-agent" }
 
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 futures = "0.3"
-thiserror = "2"
-chrono = { version = "0.4", features = ["serde"] }
-
-# ── document backup bundle (.jnote = zip) ──
-zip = { version = "2", default-features = false, features = ["deflate"] }
-
-# ── link preview: HTTP + Chrome cookie decryption ──
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "charset", "http2"] }
-rusqlite = { version = "0.31", features = ["bundled"] }
-aes = "0.8"
-cbc = { version = "0.1", features = ["alloc"] }
-pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
-hmac = "0.12"
-sha1 = "0.10"
-cipher = { version = "0.4", features = ["block-padding"] }
-urlencoding = "2"
-url = "2"
-regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
-
-# ── system font enumeration (settings font pickers) ──
-[target.'cfg(target_os = "macos")'.dependencies]
-core-text = "20"

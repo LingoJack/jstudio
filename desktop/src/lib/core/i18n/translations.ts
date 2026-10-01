@@ -821,6 +821,8 @@ export const translations = {
 
     // ── CodeBlockView ──
     "code.copy": "复制代码",
+    "code.copyImage": "复制图片",
+    "code.copyImageFailed": "图片复制失败",
     "code.searchLang": "搜索语言…",
     "code.noLangMatch": "无匹配语言",
 
@@ -1812,6 +1814,8 @@ export const translations = {
 
     // ── CodeBlockView ──
     "code.copy": "Copy code",
+    "code.copyImage": "Copy image",
+    "code.copyImageFailed": "Failed to copy image",
     "code.searchLang": "Search language…",
     "code.noLangMatch": "No matching languages",
 

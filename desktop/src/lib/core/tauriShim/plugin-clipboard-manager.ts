@@ -31,3 +31,12 @@ export async function readImage(): Promise<ClipboardImage> {
   if (!img) throw new Error('no image on clipboard');
   return new ClipboardImage(img.width, img.height, img.rgba);
 }
+
+/**
+ * Write PNG bytes onto the system clipboard (Electron main
+ * `clipboard.writeImage`). Complements readImage for renderer-generated
+ * images (canvas rasters of mermaid diagrams, …).
+ */
+export async function writeImagePng(png: Uint8Array): Promise<void> {
+  await native().clipboardWriteImage(png);
+}

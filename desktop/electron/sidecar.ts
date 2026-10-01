@@ -38,9 +38,30 @@ export class Sidecar {
     return path.join(appPath, 'src-tauri', 'target', 'debug', name);
   }
 
-  start(binaryPath: string): void {
+  /**
+   * Path to the Node sidecar script (electron/backend.ts → backend.cjs).
+   * Packaged builds keep it OUTSIDE app.asar (extraResources) — the
+   * ELECTRON_RUN_AS_NODE runtime is plain Node and cannot read asar.
+   */
+  static nodeScriptPath(appPath: string, isPackaged: boolean, resourcesPath: string): string {
+    if (isPackaged) return path.join(resourcesPath, 'backend', 'backend.cjs');
+    return path.join(appPath, 'dist-electron', 'backend.cjs');
+  }
+
+  start(binaryPath: string, opts?: { nodeScript?: boolean; env?: Record<string, string> }): void {
     if (this.child) return;
-    const child = spawn(binaryPath, [], { stdio: ['pipe', 'pipe', 'inherit'] });
+    // JSTUDIO_RESOURCE_DIR tells both sidecars where the bundled jcli lives
+    // (dev: src-tauri/resources, packaged: resourcesPath) — jcli.rs's
+    // bundled-path probe depends on it.
+    const env = { ...process.env, ...opts?.env };
+    const child = opts?.nodeScript
+      ? // ELECTRON_RUN_AS_NODE turns the Electron binary into a plain Node
+        // runtime — no second runtime to ship, same ABI as node-pty etc.
+        spawn(process.execPath, [binaryPath], {
+          stdio: ['pipe', 'pipe', 'inherit'],
+          env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
+        })
+      : spawn(binaryPath, [], { stdio: ['pipe', 'pipe', 'inherit'], env });
     this.child = child;
 
     child.on('error', (err) => {

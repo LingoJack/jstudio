@@ -12,11 +12,11 @@
  * the `sidecar-invoke` handler (they never reach the Rust sidecar).
  */
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, nativeImage, shell } from 'electron';
 import * as path from 'node:path';
 import * as http from 'node:http';
 import * as fs from 'node:fs';
-import { Sidecar } from './sidecar';
+import { Sidecar, type SidecarEventHandler } from './sidecar';
 import { setupMenu, setMenuAccelerator } from './menu';
 import { registerAssetProtocol, handleAssetRequests } from './protocol';
 import { registerOne, unregisterOne, unregisterAll, SHORTCUT_EVENT } from './globalShortcuts';
@@ -42,7 +42,10 @@ let focusedLabel = 'main';
  *  the main window's close-button interception for that one close. */
 let mainCloseAllowed = false;
 
-let sidecar: Sidecar | null = null;
+/** Rust sidecar — agent host (j_agent engine). */
+let rustSidecar: Sidecar | null = null;
+/** Node sidecar (electron/backend.ts → backend.cjs, ELECTRON_RUN_AS_NODE). */
+let nodeSidecar: Sidecar | null = null;
 
 // ── Browser tab managers (label → TabsManager) ──────────────────────────────
 const tabsManagers = new Map<string, TabsManager>();
@@ -337,15 +340,18 @@ function gracefulQuit(): void {
   quitting = true;
   mainCloseAllowed = true;
 
+  // PTYs live on the Node sidecar (which always runs now); the bounded wait
+  // keeps a hung shell from wedging the quit.
   const finish = () => {
     unregisterAll();
-    sidecar?.stop();
+    nodeSidecar?.stop();
+    rustSidecar?.stop();
     app.exit(0);
   };
-
-  if (!sidecar) return finish();
+  const killer = nodeSidecar ?? rustSidecar;
+  if (!killer) return finish();
   Promise.race([
-    sidecar.invoke('pty_kill_all').catch(() => {}),
+    killer.invoke('pty_kill_all').catch(() => {}),
     new Promise((r) => setTimeout(r, 800)),
   ]).then(finish);
 }
@@ -476,18 +482,42 @@ function handleMainOnly(
 }
 
 function wireSidecar(): void {
-  const binary = Sidecar.binaryPath(app.getAppPath(), app.isPackaged, process.resourcesPath);
-  sidecar = new Sidecar((event, label, payload) => {
+  const onEvent: SidecarEventHandler = (event, label, payload) => {
     // P2: broadcast every notification; label-directed routing lands with
     // the detach windows in P3.
     broadcast(event, label, payload);
+  };
+
+  // Where the bundled jcli binary lives — both sidecars probe this env.
+  const resourceDir = app.isPackaged
+    ? process.resourcesPath
+    : path.join(app.getAppPath(), 'src-tauri', 'resources');
+
+  rustSidecar = new Sidecar(onEvent);
+  rustSidecar.start(Sidecar.binaryPath(app.getAppPath(), app.isPackaged, process.resourcesPath), {
+    env: { JSTUDIO_RESOURCE_DIR: resourceDir },
   });
-  sidecar.start(binary);
+
+  nodeSidecar = new Sidecar(onEvent);
+  nodeSidecar.start(
+    Sidecar.nodeScriptPath(app.getAppPath(), app.isPackaged, process.resourcesPath),
+    {
+      nodeScript: true,
+      env: {
+        JSTUDIO_RESOURCE_DIR: resourceDir,
+        // Only main knows packaging state — get_build_info's is_dev.
+        JSTUDIO_IS_DEV: app.isPackaged ? '0' : '1',
+      },
+    },
+  );
 
   ipcMain.handle('sidecar-invoke', (e, method: string, params?: unknown) => {
     const local = handleMainOnly(method, params, e.sender);
     if (local.handled) return local.result;
-    return sidecar!.invoke(method, params);
+    // Dual-backend static routing (post-migration): the agent_* nine stay on
+    // the Rust host (j_agent engine); everything else rides the Node sidecar.
+    if (method.startsWith('agent_')) return rustSidecar!.invoke(method, params);
+    return nodeSidecar!.invoke(method, params);
   });
 }
 
@@ -559,11 +589,41 @@ function wireIpc(): void {
 
   ipcMain.handle('clipboard-read-text', () => clipboard.readText());
 
-  ipcMain.handle('clipboard-read-image', () => {
-    const img = clipboard.readImage();
-    if (img.isEmpty()) return null;
-    const { width, height } = img.getSize();
-    return { width, height, rgba: img.getBitmap() };
+  // Electron 44 replaced the sync clipboard APIs with the W3C-style async
+  // ones (ClipboardItem + Blob). read-image pulls the PNG payload and
+  // decodes it to {width, height, rgba} via nativeImage for the renderer
+  // shim (clipboardImage.ts consumes that shape).
+  ipcMain.handle('clipboard-read-image', async () => {
+    const items = await clipboard.read();
+    for (const item of items) {
+      if (!item.types.includes('image/png')) continue;
+      // Bookmark mime is the only non-Blob payload; image/png is a Blob.
+      const blob = (await item.getType('image/png')) as Blob;
+      const img = nativeImage.createFromBuffer(Buffer.from(await blob.arrayBuffer()));
+      if (img.isEmpty()) continue;
+      const size = img.getSize();
+      return { width: size.width, height: size.height, rgba: img.toBitmap() };
+    }
+    return null;
+  });
+
+  // Write a PNG (bytes from the renderer, e.g. a canvas raster of a mermaid
+  // diagram) onto the system clipboard. Electron 44's async clipboard takes
+  // ClipboardItem entries carrying Blobs; the PNG is committed atomically.
+  ipcMain.handle('clipboard-write-image', async (_e, png: Uint8Array) => {
+    const blob = new Blob([png], { type: 'image/png' });
+    await clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+  });
+
+  // Write an image FILE (any format Chromium decodes: png/jpg/webp/…) onto
+  // the system clipboard — port of the Rust copy_image_to_clipboard path
+  // (ImageView copy button). Decoded + re-encoded to PNG via nativeImage.
+  ipcMain.handle('clipboard-write-image-file', async (_e, filePath: string) => {
+    const img = nativeImage.createFromPath(filePath);
+    if (img.isEmpty()) throw new Error(`failed to decode image: ${filePath}`);
+    const png = img.toPNG();
+    const blob = new Blob([png], { type: 'image/png' });
+    await clipboard.write([new ClipboardItem({ 'image/png': blob })]);
   });
 
   ipcMain.handle('shell-open', (_e, url: string) => shell.openExternal(url));
@@ -638,22 +698,33 @@ app.on('before-quit', (e) => {
 
 app.on('will-quit', () => {
   unregisterAll();
-  sidecar?.stop();
+  nodeSidecar?.stop();
+  rustSidecar?.stop();
 });
 
 // Transport self-test (dev tool): JSTUDIO_SIDECAR_SELFTEST=1 electron .
-// invokes `echo` once and quits, so CI/CLI can verify the bridge.
+// invokes `echo` once per wired backend and quits, so CI/CLI can verify
+// the bridge(s).
 if (process.env.JSTUDIO_SIDECAR_SELFTEST === '1') {
   app.whenReady().then(() => {
-    sidecar!
-      .invoke('echo', { selftest: true })
-      .then((result) => {
-        console.log('[selftest] sidecar echo ok:', JSON.stringify(result));
-        app.exit(0);
-      })
-      .catch((err) => {
-        console.error('[selftest] sidecar echo failed:', err);
-        app.exit(1);
-      });
+    const targets: Array<[string, Sidecar]> = [];
+    if (nodeSidecar) targets.push(['node', nodeSidecar]);
+    if (rustSidecar) targets.push(['rust', rustSidecar]);
+    let failed = false;
+    let done = 0;
+    const finishOne = (name: string, ok: boolean, result?: unknown, err?: unknown) => {
+      if (ok) console.log(`[selftest] ${name} sidecar echo ok:`, JSON.stringify(result));
+      else {
+        failed = true;
+        console.error(`[selftest] ${name} sidecar echo failed:`, err);
+      }
+      done += 1;
+      if (done === targets.length) app.exit(failed ? 1 : 0);
+    };
+    for (const [name, sc] of targets) {
+      sc.invoke('echo', { selftest: true })
+        .then((result) => finishOne(name, true, result))
+        .catch((err) => finishOne(name, false, undefined, err));
+    }
   });
 }

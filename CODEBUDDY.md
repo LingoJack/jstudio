@@ -4,7 +4,7 @@
 
 | 目录 | 内容 | 详细指引 |
 |------|------|---------|
-| `desktop/` | JStudio 桌面应用（Electron + React + Rust sidecar，本地笔记） | `desktop/CODEBUDDY.md` |
+| `desktop/` | JStudio 桌面应用（Electron + React + Node/Rust 双后端，本地笔记） | `desktop/CODEBUDDY.md` |
 | `miniprogram/` | 微信小程序伴读端（Taro + React 18，只读渲染远程快照） | `miniprogram/CODEBUDDY.md` |
 | `backend/` | 远程保存后台服务（Go + Gin + Viper + MySQL + MinIO SDK） | `backend/README.md` |
 | `build/` | 容器镜像构建（podman，不用 docker） | `build/Makefile` |

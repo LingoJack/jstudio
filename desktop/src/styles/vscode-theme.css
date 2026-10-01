@@ -2266,7 +2266,6 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   max-height: 100%;
   width: auto;
   height: auto;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
 }
 
 /* Mermaid preview window - full-bleed stage behind the zoom controls. */
@@ -2278,33 +2277,6 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 
 .dark .mermaid-window-stage {
   background: linear-gradient(135deg, #1e1e1e 0%, #252526 100%);
-}
-
-/* Mermaid SVG internal styles - enhance node appearance */
-.mermaid-viewer-stage svg .node rect,
-.mermaid-viewer-stage svg .node circle,
-.mermaid-viewer-stage svg .node ellipse,
-.mermaid-viewer-stage svg .node polygon,
-.mermaid-viewer-stage svg .node path {
-  stroke: #4a90d9;
-  stroke-width: 2px;
-}
-
-.mermaid-viewer-stage svg .edgePath path {
-  stroke: #5a5a5a;
-  stroke-width: 2px;
-}
-
-.mermaid-viewer-stage svg .label {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
-}
-
-.mermaid-viewer-stage svg .cluster rect {
-  fill: #f0f4f8;
-  stroke: #4a90d9;
-  stroke-width: 2px;
 }
 
 /* PanZoomStage - shared pan/zoom stage for the preview windows (mermaid,

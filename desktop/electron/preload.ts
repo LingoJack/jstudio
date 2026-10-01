@@ -19,7 +19,10 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 
-const params = new URLSearchParams(globalThis.location?.search ?? '');
+// `globalThis.location` lacks an index signature in the DOM typings; the
+// preload shares the renderer's URL (?label=…).
+const loc = (globalThis as { location?: { search?: string } }).location;
+const params = new URLSearchParams(loc?.search ?? '');
 const windowLabel = params.get('label') ?? 'main';
 
 contextBridge.exposeInMainWorld('jstudioNative', {
@@ -56,6 +59,10 @@ contextBridge.exposeInMainWorld('jstudioNative', {
   dialogSave: (options: unknown): Promise<unknown> => ipcRenderer.invoke('dialog-save', options),
   clipboardReadText: (): Promise<string> => ipcRenderer.invoke('clipboard-read-text'),
   clipboardReadImage: (): Promise<unknown> => ipcRenderer.invoke('clipboard-read-image'),
+  clipboardWriteImage: (png: Uint8Array): Promise<void> =>
+    ipcRenderer.invoke('clipboard-write-image', png),
+  clipboardWriteImageFile: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('clipboard-write-image-file', filePath),
   shellOpen: (url: string): Promise<void> => ipcRenderer.invoke('shell-open', url),
   openDevtools: (): Promise<void> => ipcRenderer.invoke('open-devtools'),
   // Bundled app file (webfont, …) as base64 — needed for asar-only resources.
@@ -77,6 +84,8 @@ export type JstudioNative = {
   dialogSave: (options: unknown) => Promise<unknown>;
   clipboardReadText: () => Promise<string>;
   clipboardReadImage: () => Promise<unknown>;
+  clipboardWriteImage: (png: Uint8Array) => Promise<void>;
+  clipboardWriteImageFile: (filePath: string) => Promise<void>;
   shellOpen: (url: string) => Promise<void>;
   openDevtools: () => Promise<void>;
 };

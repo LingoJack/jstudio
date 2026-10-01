@@ -11,7 +11,8 @@
  * selectAll registry.
  */
 
-import { app, Menu, MenuItemConstructorOptions } from 'electron';
+import { app, Menu } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 
 /** Injected by main: route a command id to the focused window. */
 export type NativeCommandRouter = (command: string) => void;

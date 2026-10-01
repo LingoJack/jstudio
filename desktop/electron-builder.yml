@@ -1,7 +1,6 @@
 # electron-builder.yml — packaging for the Electron shell (P5).
 #
-# Mirrors the Tauri bundle (src-tauri/tauri.conf.json): same appId, arm64
-# .app + .dmg. The Rust sidecar and the bundled `j` CLI ride along as
+# appId/productName kept stable across the backend migrations. arm64 .app + .dmg. The Rust sidecar and the bundled `j` CLI ride along as
 # extraResources; the sidecar binary is located by electron/sidecar.ts at
 # <resourcesPath>/sidecar/jstudio-sidecar in packaged builds.
 #
@@ -17,9 +16,20 @@ files:
   - dist-electron/**
   - package.json
 extraResources:
-  # Rust sidecar binary (built by the electron:build:sidecar:release step)
+  # Rust sidecar binary (built by the electron:build:sidecar:release step) —
+  # now only the agent host (j_agent engine); storage/terminal/etc. ride the
+  # Node sidecar below.
   - from: src-tauri/target/release/jstudio-sidecar
     to: sidecar/jstudio-sidecar
+  # Node sidecar entry — MUST live outside app.asar: the ELECTRON_RUN_AS_NODE
+  # runtime is plain Node and cannot read asar. node-pty (native module) is
+  # copied next to backend.cjs so require() resolves from this directory.
+  - from: dist-electron/backend.cjs
+    to: backend/backend.cjs
+  - from: dist-electron/build-info.json
+    to: backend/build-info.json
+  - from: node_modules/node-pty
+    to: backend/node_modules/node-pty
   # Bundled j CLI (jcli.rs expects <resource_dir>/bin/j)
   - from: src-tauri/resources/bin/j
     to: bin/j

@@ -26,6 +26,8 @@ export interface TabInfo {
 export interface TabsState {
   tabs: TabInfo[];
   activeTabId: string | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
 }
 
 export interface PanelRect {

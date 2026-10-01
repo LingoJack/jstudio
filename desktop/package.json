@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc -b",
-    "electron:build:main": "esbuild electron/main.ts electron/preload.ts electron/sidecar.ts --bundle --platform=node --format=cjs --external:electron --out-extension:.js=.cjs --outdir=dist-electron",
+    "electron:build:main": "esbuild electron/main.ts electron/preload.ts electron/sidecar.ts electron/backend.ts --bundle --platform=node --format=cjs --external:electron --external:node-pty --out-extension:.js=.cjs --outdir=dist-electron && node scripts/write-build-info.mjs",
     "electron:build:sidecar": "cargo build --manifest-path src-tauri/Cargo.toml --bin jstudio-sidecar",
     "electron:build:sidecar:release": "cargo build --release --manifest-path src-tauri/Cargo.toml --bin jstudio-sidecar",
     "electron:build": "npm run build && npm run electron:build:main && npm run electron:build:sidecar:release && electron-builder",
@@ -26,7 +26,7 @@
     "test:adapter": "tsx --test src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts",
     "test:remote": "tsx --test src/lib/remote/client.test.ts",
     "test": "tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts src/lib/core/commandRegistry.test.ts src/components/editor/CursorTrailContext.test.ts src/lib/editor/mermaid/flowchartConverter.test.ts src/components/editor/nodes/graph/sequenceInteraction.test.ts src/components/editor/nodes/code-block/mermaidLifelineFix.test.ts src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts src/lib/editor/pasteMarkdown.test.ts src/lib/editor/schemaFit.test.ts src/lib/remote/client.test.ts src/lib/editor/inlineLink.test.ts src/lib/editor/extensions/inlineMathExtension.test.ts",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package && electron-rebuild"
   },
   "dependencies": {
     "@maxgraph/core": "^0.23.0",
@@ -57,12 +57,15 @@
     "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/addon-webgl": "^0.20.0-beta.286",
     "@xterm/xterm": "^6.1.0-beta.287",
+    "better-sqlite3": "^12.11.1",
+    "fflate": "^0.8.3",
     "katex": "^0.16.47",
     "linkifyjs": "^4.3.3",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.546.0",
     "mammoth": "^1.12.0",
     "mermaid": "^11.16.0",
+    "node-pty": "^1.1.0",
     "pdfjs-dist": "^5.4.296",
     "pinyin-pro": "^3.28.2",
     "react": "^19.0.1",
@@ -76,6 +79,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "@types/hast": "^3.0.4",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
@@ -91,5 +95,9 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "wait-on": "^9.1.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "node-pty@1.1.0": true
   }
 }

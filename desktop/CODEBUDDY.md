@@ -6,7 +6,7 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 
 ## 项目概览
 
-JStudio 是一款离线优先、Notion 风格的本地笔记桌面应用，基于 **Electron（Chromium）+ Rust sidecar** 构建。所有数据存储在本地 `~/.jdata/studio/`（SQLite + 文件系统），无云端同步。
+JStudio 是一款离线优先、Notion 风格的本地笔记桌面应用，基于 **Electron（Chromium）+ Node/Rust 双后端** 构建（Node sidecar 承载绝大多数命令；Rust 仅作为 j_agent 引擎宿主保留 agent_* 九法）。所有数据存储在本地 `~/.jdata/studio/`（SQLite + 文件系统），无云端同步。
 
 `jcli/` 是 git submodule（即 `j` CLI）。JStudio 通过 `jcli/j-agent`（Rust）集成应用内 Agent 聊天功能。
 
@@ -39,10 +39,12 @@ npx tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts
 
 ## 架构
 
-### 三层进程模型（Electron 壳 + Rust sidecar）
+### 多进程模型（Electron 壳 + Node sidecar + Rust agent 宿主）
 
-- **Electron main**（`electron/*.ts`，esbuild 编译到 `dist-electron/`）— 窗口、macOS 菜单、对话框、`jstudio-asset://` 协议、globalShortcut、WebContentsView 浏览器面板、sidecar JSON-RPC 桥。`window.rs`/`menu.rs`/`link_tabs.rs` 时代替品。
-- **Rust sidecar**（`src-tauri/`，bin `jstudio-sidecar`）— 全部业务后端：SQLite、PTY 终端、j-agent 集成、链接元数据 HTTP、`.jnote` bundle。经 **stdio 换行 JSON-RPC** 与 main 通信（方法名与旧 Tauri 命令一致）。`src-tauri/src/bin/sidecar.rs` 是唯一的派发表。
+- **Electron main**（`electron/*.ts`，esbuild 编译到 `dist-electron/`）— 窗口、macOS 菜单、对话框、`jstudio-asset://` 协议、globalShortcut、WebContentsView 浏览器面板、sidecar JSON-RPC 桥 + 按方法名路由。`window.rs`/`menu.rs`/`link_tabs.rs` 时代替品。
+- **Node sidecar**（`electron/backend/`，入口 `backend.ts` → `dist-electron/backend.cjs`，main 以 `process.execPath` + `ELECTRON_RUN_AS_NODE=1` 派生）— 绝大多数业务后端：SQLite 存储（`node:sqlite` + WAL）、资产/回收站、备份/快照、`.jnote` bundle（fflate）、PTY 终端（node-pty）、jcli 管理、链接元数据 HTTP、字体枚举、日志、KV 中继。方法面清单见 `electron/backend/PORTING.md`。
+- **Rust agent 宿主**（`src-tauri/`，bin `jstudio-sidecar`）— 仅承载 `agent_*` 九法（内嵌 `j_agent` 引擎，无法迁 Node）。经 **stdio 换行 JSON-RPC** 与 main 通信（方法名与旧 Tauri 命令一致）。
+- **原生能力归 main**：剪贴板图片写入（`copy_image_to_clipboard` 文件/字节两版）等 OS 级操作由 main 的 `nativeImage` + 异步 `ClipboardItem` 直接实现，invoke shim 分流，不进 sidecar。
 - **前端**（`src/`）— React 19 + TypeScript（strict）+ Vite 6 + Tailwind v4 + Zustand。TipTap v3 / ProseMirror 编辑器是最大的子系统。
 
 **硬约束：sidecar 的 stdout 专属协议，一切日志走 stderr**（`scripts/sidecar-smoke.mjs` 有静默断言守卫）。
@@ -82,7 +84,7 @@ JStudio `Block[]` 格式（`types/document.ts`）与 TipTap `JSONContent[]` 之�
 
 ### 多窗口架构
 
-`src/main.tsx` 根据 `?window=` 查询参数分发到以下根组件之一：主窗口 `App`、`DocumentWindowApp`、`TerminalWindowApp`、`DiagramWindowApp`、`PreviewWindowApp`、`CommandPaletteWindowApp`、`LinkPreviewTabsWindowApp`。Knip 入口（`knip.json`）枚举这些 `*WindowApp.tsx` 文件。detach 载荷经 `commands/detach.rs` 的进程内邮箱命令传递（走 sidecar）。主窗口关闭按钮在 `electron/main.ts` 拦截并向 JS 发送 `window-close-requested` 事件；子窗口直接关闭。
+`src/main.tsx` 根据 `?window=` 查询参数分发到以下根组件之一：主窗口 `App`、`DocumentWindowApp`、`TerminalWindowApp`、`DiagramWindowApp`、`PreviewWindowApp`、`CommandPaletteWindowApp`、`LinkPreviewTabsWindowApp`。Knip 入口（`knip.json`）枚举这些 `*WindowApp.tsx` 文件。detach 载荷经 Node sidecar 的进程内 KV 命令传递（`set/get_terminal_detach_payload`，`electron/backend/kv.ts`）。主窗口关闭按钮在 `electron/main.ts` 拦截并向 JS 发送 `window-close-requested` 事件；子窗口直接关闭。
 
 ### macOS 菜单
 

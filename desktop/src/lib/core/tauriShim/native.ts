@@ -22,6 +22,8 @@ export interface JstudioNative {
   dialogSave: (options: unknown) => Promise<unknown>;
   clipboardReadText: () => Promise<string>;
   clipboardReadImage: () => Promise<{ width: number; height: number; rgba: Uint8Array } | null>;
+  clipboardWriteImage: (png: Uint8Array) => Promise<void>;
+  clipboardWriteImageFile: (filePath: string) => Promise<void>;
   shellOpen: (url: string) => Promise<void>;
   openDevtools: () => Promise<void>;
   /** Bundled app file (webfont inside app.asar) as a base64 string. */

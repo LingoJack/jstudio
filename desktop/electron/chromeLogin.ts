@@ -210,7 +210,7 @@ function readChromeCookies(): ChromeCookie[] {
           // Number.MAX_SAFE_INTEGER, which node:sqlite refuses to return as
           // a number (it throws). Read them as bigint; asNumber() converts.
           stmt.setReadBigInts(true);
-          rows = stmt.all() as ChromeCookieRow[];
+          rows = stmt.all() as unknown as ChromeCookieRow[];
         } finally {
           db.close();
         }

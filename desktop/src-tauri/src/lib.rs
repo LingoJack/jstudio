@@ -7,5 +7,4 @@
 //! transport and the method dispatch table.
 
 pub mod commands;
-pub mod db;
 pub mod events;
