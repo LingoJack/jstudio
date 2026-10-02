@@ -39,18 +39,12 @@ function createSlotRegistry(): SlotRegistry {
 }
 
 const centerSlot = createSlotRegistry();
-const leftSlot = createSlotRegistry();
 
 /** Callback-ref: called with the element on mount, null on unmount. */
 export const setTitlebarSlot = centerSlot.set;
-export const setTitlebarLeftSlot = leftSlot.set;
 
 /** Live element of the title-bar center slot (tab capsule). */
 export function useTitlebarCenterSlot(): HTMLElement | null {
   return centerSlot.use();
 }
 
-/** Live element of the title-bar left slot (sidebar header actions). */
-export function useTitlebarLeftSlot(): HTMLElement | null {
-  return leftSlot.use();
-}

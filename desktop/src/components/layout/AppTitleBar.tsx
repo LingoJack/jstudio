@@ -1,7 +1,6 @@
 import { useStore } from '../../store/useStore';
-import { SIDEBAR } from '../../lib/constants';
 import BrowserTabStrip from '../panels/BrowserTabStrip';
-import { setTitlebarLeftSlot, setTitlebarSlot } from './titlebarSlot';
+import { setTitlebarSlot } from './titlebarSlot';
 
 /** DOM id of the title-bar center slot. DocumentTabs portals the floating
  *  tab capsule here when the tab bar position is 'top' — the capsule then
@@ -25,7 +24,6 @@ export const TITLEBAR_CENTER_SLOT_ID = 'app-titlebar-center-slot';
  */
 export default function AppTitleBar() {
   const activeSidebarView = useStore((s) => s.activeSidebarView);
-  const sidebarWidth = useStore((s) => s.sidebarWidth);
   const isBrowserView = activeSidebarView === 'browser';
 
   return (
@@ -39,26 +37,6 @@ export default function AppTitleBar() {
       {/* Left: placeholder for traffic lights space — the whole left zone is
           surrendered to the native traffic lights; no app UI lives here. */}
       <div className="w-[72px]" />
-
-      {/* Left slot: the document sidebar portals its header actions (search /
-          pin / more) here, right-aligned to the sidebar's right edge.
-          The INITIAL right offset is rendered from the store (activity bar +
-          sidebar width) so the slot is already above the sidebar edge at
-          FIRST PAINT — Electron snapshots draggable regions from the first
-          layout, and a later JS move (DocumentSidebar's ResizeObserver,
-          which keeps tracking hover/resize animations) would leave the
-          native no-drag hole at the slot's unpositioned right-0 spot:
-          physical clicks on the icons then hit the bar's drag rect and
-          never reach the renderer. The observer's writes converge on this
-          same value, so this stays a no-op for it.
-          pointer-events-none: empty slot space falls through to the bar's
-          drag region; the portaled group re-enables pointer events.
-          NOTE: only the BAR ROOT carries .drag-region — see its comment. */}
-      <div
-        ref={setTitlebarLeftSlot}
-        style={{ right: `calc(100% - ${SIDEBAR.ACTIVITY_BAR + sidebarWidth}px)` }}
-        className="pointer-events-none absolute top-0 h-9 flex items-center"
-      />
 
       {/* Center: browser tab strip (browser view) or empty drag space — the
           bar root's drag region already covers it; interactive children opt

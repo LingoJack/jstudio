@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { SIDEBAR } from '../../lib/constants';
-import { useTitlebarLeftSlot } from '../layout/titlebarSlot';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { useSidebarHover } from '../hooks/useSidebarHover';
 import { useFoldBallast } from '../hooks/useFoldBallast';
@@ -11,14 +9,10 @@ import { useBatchSelection } from './hooks/useBatchSelection';
 import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
 import { buildFolderTree } from '../../lib/documents/folderTree';
-import {
-  bindingToDisplay,
-  resolveBinding,
-} from '../../lib/shortcuts/keyboardShortcuts';
-import { MoreHorizontal, Pin, Search } from 'lucide-react';
+import { Pin } from 'lucide-react';
 import { CollapsedRail } from '../ui/CollapsedRail';
 import DocumentContextMenu from './DocumentContextMenu';
-import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
+import SidebarHeaderButtons from './SidebarHeaderButtons';
 import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSidebarMenus';
 import { DocumentTreeRenderer } from './DocumentTreeRenderer';
 import TrashDialog from './TrashDialog';
@@ -69,8 +63,6 @@ export default function DocumentSidebar({
   const exportDocumentHtml = useStore((s) => s.exportDocumentHtml);
   const addToast = useStore((s) => s.addToast);
   const renameDocument = useStore((s) => s.renameDocument);
-  const setGlobalSearchOpen = useStore((s) => s.setGlobalSearchOpen);
-  const keyboardShortcuts = useStore((s) => s.keyboardShortcuts);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
   const sidebarPinMode = useStore((s) => s.sidebarPinMode);
   const setSidebarPinMode = useStore((s) => s.setSidebarPinMode);
@@ -99,11 +91,6 @@ export default function DocumentSidebar({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-  const [moreMenuPos, setMoreMenuPos] = useState<{ x: number; y: number } | null>(null);
-
   const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -118,13 +105,6 @@ export default function DocumentSidebar({
   //     toast can open it from anywhere) ──
   const backupDialogDoc = useStore((s) => s.backupRestoreDialogDoc);
 
-  // ── Title-bar strip (header actions portal target) ────────
-  // The slot's position is rendered by AppTitleBar straight from the store
-  // (activity bar + sidebar width). Deliberately NO ResizeObserver tracking
-  // here: the icons are title-bar citizens, not hostages of the sidebar's
-  // transient hover state — tracking the animated width made them flee the
-  // pointer whenever the hover-expanded sidebar started collapsing.
-  const titlebarLeftSlotEl = useTitlebarLeftSlot();
 
   // ── Suppress collapse while a floating menu / inline rename is active ──
   // Floating menus (context menu, folder menu, batch menus, the "more"
@@ -134,10 +114,7 @@ export default function DocumentSidebar({
   // the collapse timer and snap the sidebar shut while the user is still
   // interacting with the menu.  We therefore hold the sidebar open until
   // the menu closes, then re-evaluate on the next pointer move.
-  const anyFloatingMenuOpen = !!(
-    contextMenu || folderMenu || batchMenu || batchMoveMenu ||
-    (moreMenuOpen && moreMenuPos)
-  );
+  const anyFloatingMenuOpen = !!(contextMenu || folderMenu || batchMenu || batchMoveMenu);
   // Modal dialogs (trash / backup-restore) are portaled to document.body and
   // cover the sidebar.  Without this, opening a dialog from a context menu
   // drops `suppressCollapse` the instant the menu closes, snapping the
@@ -285,28 +262,7 @@ export default function DocumentSidebar({
     };
   }, [batchMoveMenu]);
 
-  // ── Handlers: more menu / rename ──────────────────────────
-  const captureMoreMenuPos = useCallback(() => {
-    if (moreMenuRef.current) {
-      const rect = moreMenuRef.current.getBoundingClientRect();
-      setMoreMenuPos({ x: rect.left, y: rect.bottom + 4 });
-    }
-  }, []);
-
-  const openMoreMenu = useCallback(() => {
-    if (moreMenuCloseTimer.current) {
-      clearTimeout(moreMenuCloseTimer.current);
-      moreMenuCloseTimer.current = null;
-    }
-    captureMoreMenuPos();
-    setMoreMenuOpen(true);
-  }, [captureMoreMenuPos]);
-
-  const scheduleCloseMoreMenu = useCallback(() => {
-    if (moreMenuCloseTimer.current) clearTimeout(moreMenuCloseTimer.current);
-    moreMenuCloseTimer.current = setTimeout(() => setMoreMenuOpen(false), 150);
-  }, []);
-
+  // ── Handlers: rename ─────────────────────────────────────
   const startRename = useCallback((docId: string, currentTitle: string) => {
     setRenamingId(docId);
     setRenameValue(currentTitle);
@@ -478,88 +434,6 @@ export default function DocumentSidebar({
   // ── Main render ───────────────────────────────────────────
   const isRootDropTarget = dragOverTarget === ROOT_DROP_ID;
 
-  // Header actions (search / pin / more) live in the title bar's left slot,
-  // right-aligned to the sidebar's right edge (slot tracking above). This
-  // frees the sidebar's old header row for the tree list. pointer-events
-  // are re-enabled here (the slot itself is pointer-events-none so empty
-  // title-bar space stays draggable).
-  const globalSearchBinding = bindingToDisplay(
-    resolveBinding('app.globalSearch', keyboardShortcuts),
-  );
-  const headerActions = (
-    <div
-      // .no-drag: the title bar is a drag region; without this opt-out
-      // Electron's app-region hit test turns every mousedown here into a
-      // window drag and the buttons never receive their clicks.
-      className="no-drag pointer-events-auto flex items-center gap-0.5 h-9 pl-1 pr-3"
-    >
-      {/* Search — icon entry into the global search dialog */}
-      <button
-        onClick={() => setGlobalSearchOpen(true)}
-        onPointerDown={(e) =>
-          addToast('info', `[probe] pointerdown ${e.button === 0 ? 'left' : e.button}`, 3000)
-        }
-        className="no-drag p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-        title={
-          globalSearchBinding
-            ? `${t('shortcut.app.globalSearch')} · ${globalSearchBinding}`
-            : t('shortcut.app.globalSearch')
-        }
-      >
-        <Search className="w-4 h-4" />
-      </button>
-        {/* Pin toggle */}
-        <button
-          onClick={handleTogglePin}
-          // Pinned = accent icon, no background pill (ActivityBar color
-          // story: accent = "this is where you are / this is on").
-          className={`no-drag p-1 rounded-md transition-colors duration-150 cursor-pointer ${
-            isPinLocked
-              ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
-              : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-          }`}
-          title={isPinLocked ? t('doclist.unpin') : t('doclist.pin')}
-        >
-          <Pin className="w-4 h-4" />
-        </button>
-
-        <div
-          ref={moreMenuRef}
-          onMouseEnter={openMoreMenu}
-          onMouseLeave={scheduleCloseMoreMenu}
-        >
-          <button
-            onClick={() => {
-              captureMoreMenuPos();
-              setMoreMenuOpen((v) => !v);
-            }}
-            className="no-drag cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
-            title={t('doclist.moreActions')}
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-          {moreMenuOpen && moreMenuPos && (
-            <DocumentSidebarMoreMenu
-              x={moreMenuPos.x}
-              y={moreMenuPos.y}
-              docSortKey={docSortKey}
-              docSortDirection={docSortDirection}
-              onClose={() => setMoreMenuOpen(false)}
-              onNewDocument={() => createDocument()}
-              onNewFolder={() => handleCreateFolder()}
-              onImportMarkdown={() => handleImportMarkdown()}
-              onImportMarkdownDirectory={() => handleImportMarkdownDirectory()}
-              onSyncMarkdownDirectory={() => handleSyncMarkdownDirectory()}
-              onImportBundle={() => handleImportBundle()}
-              onSetSortKey={(key) => setDocSortKey(key)}
-              onSetSortDirection={(dir) => setDocSortDirection(dir)}
-              onOpenTrash={() => setTrashDialogOpen(true)}
-            />
-          )}
-        </div>
-    </div>
-  );
-
   return (
     <div
       data-sidebar-root
@@ -579,11 +453,6 @@ export default function DocumentSidebar({
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
     >
-      {/* Header actions portal (search / pin / more in the title bar).
-          NOT gated on the sidebar's collapsed state: the icons are title-bar
-          actions and must stay put (and stay clickable) while a hover-mode
-          sidebar collapses under them — gating made them flee the pointer. */}
-      {titlebarLeftSlotEl && createPortal(headerActions, titlebarLeftSlotEl)}
 
       {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
@@ -620,22 +489,36 @@ export default function DocumentSidebar({
         </>
       ) : (
         <>
+      {/* Header row — version label + header actions (search / pin / more).
+          Lives INSIDE the sidebar, directly below the embedded toggle row:
+          the buttons are ordinary clicks here (no window drag region is
+          involved, unlike the title-bar placement this replaces).
+          mt-9 (standalone only): clears the title bar — embedded clears it
+          via the toggle row above. */}
+      <div
+        className={`h-9 shrink-0 flex items-center gap-2 pl-3 pr-2 ${embedded ? '' : 'mt-9'}`}
+      >
+        <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70 truncate">
+          JStudio v{__APP_VERSION__}
+        </span>
+        <div className="flex-1" />
+        <SidebarHeaderButtons />
+      </div>
+
       {/* Documents + folders list (root drop zone). pl-2 insets rows so the
           rail (each root row's / folder wrapper's left border) forms one
           continuous vertical line; rows are gapless (no space-y) so the rail
           never breaks. The ACTIVE document is marked by a rail-tint + "->"
           cursor instead of a background highlight (SectionOutline language).
           border-transparent reserved: avoids WKWebView inset box-shadow
-          paint glitches that ring-inset exhibits (see bug-graveyard #003).
-          mt-9 (standalone only): clears the title bar — embedded clears it
-          via the toggle row above; the header actions live in the bar. */}
+          paint glitches that ring-inset exhibits (see bug-graveyard #003). */}
       <div
         ref={sidebarScrollRef}
         data-drop-target={ROOT_DROP_ID}
         // scrollbar-gutter:stable — folds change the content height, which
         // would otherwise toggle the vertical scrollbar and flash a
         // scrollbar-width jump on every fold near the size boundary.
-        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] rounded-md border pl-2 transition-colors duration-150 ${embedded ? '' : 'mt-9'} ${
+        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] rounded-md border pl-2 transition-colors duration-150 ${
           isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >

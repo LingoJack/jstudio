@@ -71,3 +71,20 @@
 ## Open Questions
 
 （无——Rust agent 宿主去留已由既有决策锁定为保留；本变更不触及其面。）
+
+## 实施期修正：header actions 回迁侧边栏（用户拍板）
+
+标题栏 placements（slot portal / 直接 JSX）在 Electron `hiddenInset` 下被原生
+draggable-region 命中表吞掉物理点击（CDP 合成点击绕过原生表所以一直"看起来能用"），
+多轮修复（属性 opt-out / CSS 类 / 单一 drag 根 / 首帧定位 / 按钮级 no-drag）均未
+在物理点击上生效。最终按用户决定放弃标题栏 placement：
+
+- 三个图标（搜索/固定/更多）回迁**侧边栏内部**的 header 行——目录树/文档大纲切换行
+  下方（embedded）或侧边栏首行（standalone，mt-9 让位标题栏）。行首显示版本标识
+  `JStudio v{__APP_VERSION__}`。侧边栏内部无拖拽区域，点击是普通 DOM 点击。
+- 标题栏恢复为纯拖拽空间（仅 bar 根 `.drag-region`）。
+- `SidebarHeaderButtons` 组件承载三键 + 更多菜单 + TrashDialog，由 DocumentSidebar
+  直接渲染；`titlebarSlot` 的 left slot 注册器删除（center slot 保留）。
+- 教训：`hiddenInset` 窗口的标题栏内放置交互元素时，原生 draggable-region 表与
+  渲染层 computed style 可能不一致（CDP 合成点击绕过原生命中表，无法作为验证手段），
+  交互控件应优先放在非拖拽区域。
