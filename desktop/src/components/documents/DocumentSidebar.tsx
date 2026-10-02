@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { SIDEBAR } from '../../lib/constants';
+import { useTitlebarLeftSlot } from '../layout/titlebarSlot';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { useSidebarHover } from '../hooks/useSidebarHover';
 import { useFoldBallast } from '../hooks/useFoldBallast';
@@ -101,6 +103,11 @@ export default function DocumentSidebar({
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [moreMenuPos, setMoreMenuPos] = useState<{ x: number; y: number } | null>(null);
+  /** Hovering the title-bar strip (where the header actions live) keeps the
+   *  hover-expanded sidebar open — the strip is outside the sidebar root's
+   *  DOM subtree, so without this the collapse timer would fire while the
+   *  pointer travels up to the icons. */
+  const [headerHovered, setHeaderHovered] = useState(false);
 
   const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
@@ -115,6 +122,32 @@ export default function DocumentSidebar({
   // ── Backup & restore dialog state (lifted to uiSlice so the abnormal-shrink
   //     toast can open it from anywhere) ──
   const backupDialogDoc = useStore((s) => s.backupRestoreDialogDoc);
+
+  // ── Title-bar strip (header actions portal target) ────────
+  const titlebarLeftSlotEl = useTitlebarLeftSlot();
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  // Track the sidebar's right edge so the portaled header actions stay
+  // right-aligned with the sidebar through width transitions (pin toggles,
+  // hover expand, manual resize). ResizeObserver fires per animation frame
+  // during the 180ms width transition, so the strip follows smoothly.
+  useEffect(() => {
+    const root = rootRef.current;
+    const slot = titlebarLeftSlotEl;
+    if (!root || !slot) return;
+    const update = () => {
+      const right = window.innerWidth - root.getBoundingClientRect().right;
+      slot.style.right = `${Math.max(0, right)}px`;
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(root);
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+      slot.style.right = '';
+    };
+  }, [titlebarLeftSlotEl]);
 
   // ── Suppress collapse while a floating menu / inline rename is active ──
   // Floating menus (context menu, folder menu, batch menus, the "more"
@@ -136,7 +169,7 @@ export default function DocumentSidebar({
   // closes, the useSidebarHover true->false re-evaluation kicks in and
   // collapses based on the current pointer position.
   const anyDialogOpen = trashDialogOpen || backupDialogDoc !== null;
-  const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null;
+  const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null || headerHovered;
 
   // ── Hover expand/collapse (extracted to useSidebarHover hook) ──
   const {
@@ -468,32 +501,37 @@ export default function DocumentSidebar({
   // ── Main render ───────────────────────────────────────────
   const isRootDropTarget = dragOverTarget === ROOT_DROP_ID;
 
-  // The sidebar header row (search / pin / more). Lives back in the sidebar
-  // after the title-bar experiments (left = traffic-light conflict, right =
-  // outline crowding); it sits at y=36, flush under the transparent title
-  // bar, because the sidebar root punches up to the window top (-mt-9).
-  // Search is an icon entry into the global search dialog (Cmd+Shift+F) —
-  // the previous inline filter box only matched titles, a subset of what
-  // the dialog does.
+  // Header actions (search / pin / more) live in the title bar's left slot,
+  // right-aligned to the sidebar's right edge (slot tracking above). This
+  // frees the sidebar's old header row for the tree list. pointer-events
+  // are re-enabled here (the slot itself is pointer-events-none so empty
+  // title-bar space stays draggable).
   const globalSearchBinding = bindingToDisplay(
     resolveBinding('app.globalSearch', keyboardShortcuts),
   );
-  const sidebarHeader = (
-    <div className={`h-9 shrink-0 flex items-center gap-0.5 px-3 ${embedded ? '' : 'mt-9'}`}>
-      <div className="flex-1" />
-      <div className="flex items-center gap-0.5 shrink-0">
-        {/* Search — icon entry into the global search dialog */}
-        <button
-          onClick={() => setGlobalSearchOpen(true)}
-          className="p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-          title={
-            globalSearchBinding
-              ? `${t('shortcut.app.globalSearch')} · ${globalSearchBinding}`
-              : t('shortcut.app.globalSearch')
-          }
-        >
-          <Search className="w-4 h-4" />
-        </button>
+  const headerActions = (
+    <div
+      // Explicit drag-region opt-out (same idiom as the TabBar capsule):
+      // Tauri starts a window drag from the nearest ancestor carrying the
+      // attribute unless the nearest one says "false" — without this the
+      // AppTitleBar's drag region swallows every click on these buttons.
+      {...{ 'data-tauri-drag-region': false }}
+      className="pointer-events-auto flex items-center gap-0.5 h-9 pl-1 pr-3"
+      onMouseEnter={() => setHeaderHovered(true)}
+      onMouseLeave={() => setHeaderHovered(false)}
+    >
+      {/* Search — icon entry into the global search dialog */}
+      <button
+        onClick={() => setGlobalSearchOpen(true)}
+        className="p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        title={
+          globalSearchBinding
+            ? `${t('shortcut.app.globalSearch')} · ${globalSearchBinding}`
+            : t('shortcut.app.globalSearch')
+        }
+      >
+        <Search className="w-4 h-4" />
+      </button>
         {/* Pin toggle */}
         <button
           onClick={handleTogglePin}
@@ -543,7 +581,6 @@ export default function DocumentSidebar({
             />
           )}
         </div>
-      </div>
     </div>
   );
 
@@ -558,6 +595,7 @@ export default function DocumentSidebar({
       className={`shrink-0 flex flex-col select-none z-30 relative overflow-hidden bg-[var(--vscode-sideBar-background)] ${
         embedded ? 'h-full' : '-mt-9 h-[calc(100%+2.25rem)]'
       }`}
+      ref={rootRef}
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
@@ -566,6 +604,10 @@ export default function DocumentSidebar({
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
     >
+      {/* Header actions portal (search / pin / more in the title bar). */}
+      {titlebarLeftSlotEl && !isCollapsed &&
+        createPortal(headerActions, titlebarLeftSlotEl)}
+
       {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
         <>
@@ -601,21 +643,22 @@ export default function DocumentSidebar({
         </>
       ) : (
         <>
-      {sidebarHeader}
       {/* Documents + folders list (root drop zone). pl-2 insets rows so the
           rail (each root row's / folder wrapper's left border) forms one
           continuous vertical line; rows are gapless (no space-y) so the rail
           never breaks. The ACTIVE document is marked by a rail-tint + "->"
           cursor instead of a background highlight (SectionOutline language).
           border-transparent reserved: avoids WKWebView inset box-shadow
-          paint glitches that ring-inset exhibits (see bug-graveyard #003). */}
+          paint glitches that ring-inset exhibits (see bug-graveyard #003).
+          mt-9 (standalone only): clears the title bar — embedded clears it
+          via the toggle row above; the header actions live in the bar. */}
       <div
         ref={sidebarScrollRef}
         data-drop-target={ROOT_DROP_ID}
         // scrollbar-gutter:stable — folds change the content height, which
         // would otherwise toggle the vertical scrollbar and flash a
         // scrollbar-width jump on every fold near the size boundary.
-        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] rounded-md border pl-2 transition-colors duration-150 ${
+        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] rounded-md border pl-2 transition-colors duration-150 ${embedded ? '' : 'mt-9'} ${
           isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >

@@ -3,15 +3,17 @@
  *
  * The native scrollbar thumb/track are rendered transparent (see
  * `.editor-scroll-container` in vscode-theme.css); in their place this
- * component draws a 1px track line with a "<-" cursor riding it. The
- * cursor maps scroll progress onto the full track height (0% = top,
+ * component draws a "<-" cursor riding the (invisible) track. The
+ * cursor maps scroll progress onto the full scrollport height (0% = top,
  * 100% = bottom). The overlay is purely visual (pointer-events: none) —
  * the transparent native thumb underneath still handles drag scrolling.
+ * (A 1px track line used to accompany the cursor; dropped per feedback —
+ * the arrow alone keeps the edge quiet.)
  *
  * Together with the outline rail's "->" cursor it forms the app's
- * line-instrument language: two thin tracks with mirrored arrows, each
- * pointing at what it references — "<-" at the document (scroll
- * position), "->" at the outline item (current heading).
+ * line-instrument language: arrows pointing at what they reference —
+ * "<-" at the document (scroll position), "->" at the outline item
+ * (current heading).
  *
  * Positioning trick: the overlay is a zero-height `sticky` box rendered
  * as the FIRST child of the scroll container. `top: 0` keeps it pinned to
@@ -34,8 +36,6 @@ const CURSOR_HEIGHT = 18;
 interface CursorPos {
   /** Cursor center, in scrollport px (CURSOR_HEIGHT/2 .. clientHeight-CURSOR_HEIGHT/2). */
   y: number;
-  /** clientHeight at measure time — height of the track line. */
-  viewportH: number;
   visible: boolean;
 }
 
@@ -44,7 +44,7 @@ export default function EditorScrollCursor({
 }: {
   scrollContainerRef: RefObject<HTMLElement | null>;
 }) {
-  const [pos, setPos] = useState<CursorPos>({ y: 0, viewportH: 0, visible: false });
+  const [pos, setPos] = useState<CursorPos>({ y: 0, visible: false });
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -61,7 +61,7 @@ export default function EditorScrollCursor({
       const maxScroll = scrollHeight - clientHeight;
       const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
       const y = CURSOR_HEIGHT / 2 + progress * (clientHeight - CURSOR_HEIGHT);
-      setPos({ y, viewportH: clientHeight, visible: scrollable });
+      setPos({ y, visible: scrollable });
     };
     const onScroll = () => {
       cancelAnimationFrame(raf);
@@ -85,12 +85,7 @@ export default function EditorScrollCursor({
       aria-hidden
       className="sticky top-0 ml-auto w-2 h-0 z-20 pointer-events-none"
     >
-      {/* Track line spanning the visible scrollport. */}
-      <span
-        className="absolute top-0 right-[5.5px] w-px bg-[var(--vscode-sideBar-border)]"
-        style={{ height: pos.viewportH }}
-      />
-      {/* "<-" cursor straddling the track line, pointing at the document.
+      {/* "<-" cursor riding the invisible track, pointing at the document.
           Accent-colored, mirroring the outline rail's "->" cursor. */}
       <span
         className="absolute right-0 -translate-y-1/2 py-[3px] bg-[var(--vscode-editor-background)] text-[var(--vscode-focusBorder)]"

@@ -435,6 +435,16 @@ export default function CodeBlockView({
           />
         </div>
 
+        {/* Hover title badge — the block's name shown passively at its inner
+            top-right (where the title edit popover anchors) while hovering.
+            aria-hidden + CSS pointer-events:none: it never intercepts code
+            selection; the pill's title slot stays the edit entry point. */}
+        {title && !collapsed && (
+          <div aria-hidden className="code-block-hover-title">
+            {title}
+          </div>
+        )}
+
         {/* Collapsed strip — passive identity only: the title text while
             present (click re-opens the edit popover), empty otherwise. */}
         {collapsed && (

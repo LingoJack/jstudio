@@ -1,6 +1,6 @@
 import { useStore } from '../../store/useStore';
 import BrowserTabStrip from '../panels/BrowserTabStrip';
-import { setTitlebarSlot } from './titlebarSlot';
+import { setTitlebarLeftSlot, setTitlebarSlot } from './titlebarSlot';
 
 /** DOM id of the title-bar center slot. DocumentTabs portals the floating
  *  tab capsule here when the tab bar position is 'top' — the capsule then
@@ -38,6 +38,17 @@ export default function AppTitleBar() {
       {/* Left: placeholder for traffic lights space — the whole left zone is
           surrendered to the native traffic lights; no app UI lives here. */}
       <div className="w-[72px]" data-tauri-drag-region />
+
+      {/* Left slot: the document sidebar portals its header actions (search /
+          pin / more) here, right-aligned to the sidebar's right edge (the
+          sidebar itself tracks the edge and sets this slot's `right` inline —
+          see DocumentSidebar). pointer-events-none so empty slot space falls
+          through to the drag region above; the portaled group re-enables
+          pointer events on itself. */}
+      <div
+        ref={setTitlebarLeftSlot}
+        className="absolute top-0 right-0 h-9 flex items-center pointer-events-none"
+      />
 
       {/* Center: browser tab strip (browser view) or empty drag region.
           Always a drag region - interactive children opt out explicitly

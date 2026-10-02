@@ -2184,6 +2184,38 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   white-space: nowrap;
 }
 
+/* ---- 悬停标题徽章（块内右上角的被动身份标识） ----
+   hover 代码块时在块内右上角（标题编辑 popover 的锚定位置）显示标题，
+   弱化为描述性小字；不拦截指针（pointer-events:none），胶囊里的标题
+   槽仍是编辑入口。 */
+.code-block-wrapper .code-block-hover-title {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 5;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.4;
+  font-family: inherit;
+  color: var(--vscode-descriptionForeground);
+  background: color-mix(
+    in srgb,
+    var(--vscode-editor-background) 85%,
+    transparent
+  );
+  border-radius: 4px;
+  padding: 0 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.code-block-figure:hover .code-block-hover-title {
+  opacity: 1;
+}
+
 /* 胶囊内的标题控件：原 header 行的 flex:1 撑满不再适用 —— 改为
    固定/收缩宽度，标题过长时省略（.code-block-title-text 已带 ellipsis），
    防止长标题把胶囊推得过宽。 */
