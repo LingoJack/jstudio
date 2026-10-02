@@ -76,6 +76,30 @@ export default function GlobalSearchDialog() {
     return performGlobalSearch(debouncedQuery, documents, indexRef.current);
   }, [debouncedQuery, documents]);
 
+  // ── folder path per doc (disambiguates same-titled docs in the results) ──
+  const folders = useStore((s) => s.folders);
+  const folderPathByDocId = useMemo(() => {
+    const byId = new Map(folders.map((f) => [f.id, f]));
+    const pathCache = new Map<string, string>();
+    const pathOf = (folderId: string, visiting: Set<string>): string => {
+      const cached = pathCache.get(folderId);
+      if (cached !== undefined) return cached;
+      const f = byId.get(folderId);
+      if (!f || visiting.has(folderId)) return '';
+      visiting.add(folderId);
+      const parentPath = f.parentId ? pathOf(f.parentId, visiting) : '';
+      visiting.delete(folderId);
+      const path = parentPath ? `${parentPath} / ${f.name}` : f.name;
+      pathCache.set(folderId, path);
+      return path;
+    };
+    const map = new Map<string, string>();
+    for (const doc of documents) {
+      if (doc.folderId) map.set(doc.id, pathOf(doc.folderId, new Set()));
+    }
+    return map;
+  }, [documents, folders]);
+
   // ── reset selection when results change ──
   useEffect(() => {
     setSelectedIndex(0);
@@ -257,6 +281,7 @@ export default function GlobalSearchDialog() {
                 isSelected={index === selectedIndex}
                 language={lang}
                 t={t}
+                pathLabel={folderPathByDocId.get(result.docId) ?? ''}
                 onClick={() => executeResult(result)}
                 onMouseEnter={() => setSelectedIndex(index)}
               />
@@ -286,6 +311,7 @@ function SearchResultRow({
   isSelected,
   language,
   t,
+  pathLabel,
   onClick,
   onMouseEnter,
 }: {
@@ -294,6 +320,7 @@ function SearchResultRow({
   isSelected: boolean;
   language: Language;
   t: (key: TranslationKey) => string;
+  pathLabel: string;
   onClick: () => void;
   onMouseEnter: () => void;
 }) {
@@ -342,18 +369,26 @@ function SearchResultRow({
         </span>
       </div>
       {/* Second line — always rendered for uniform row height.
-          Content match: highlighted snippet; title match: plain preview. */}
-      <div className={`mt-0.5 text-[12px] truncate ${descClass}`}>
-        {result.snippetRange ? (
-          <SnippetHighlight
-            snippet={result.snippet ?? ''}
-            range={result.snippetRange}
-          />
-        ) : result.snippet ? (
-          <span className="italic opacity-80">{result.snippet}</span>
-        ) : (
-          <span className="italic opacity-40">{t('globalSearch.emptyPreview')}</span>
+          Folder path (if any) first, then the match preview:
+          content match: highlighted snippet; title match: plain preview. */}
+      <div className={`mt-0.5 text-[12px] flex items-center gap-1.5 ${descClass}`}>
+        {pathLabel && (
+          <span className="shrink-0 max-w-[45%] truncate" title={pathLabel}>
+            {pathLabel}
+          </span>
         )}
+        <span className={`min-w-0 truncate ${pathLabel ? 'flex-1' : ''}`}>
+          {result.snippetRange ? (
+            <SnippetHighlight
+              snippet={result.snippet ?? ''}
+              range={result.snippetRange}
+            />
+          ) : result.snippet ? (
+            <span className="italic opacity-80">{result.snippet}</span>
+          ) : (
+            <span className="italic opacity-40">{t('globalSearch.emptyPreview')}</span>
+          )}
+        </span>
       </div>
     </div>
   );

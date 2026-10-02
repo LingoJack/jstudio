@@ -23,9 +23,6 @@ export const translations = {
     "common.hide": "隐藏",
     "common.cancel": "取消",
 
-    // ── SearchBar ──
-    "search.placeholder": "搜索文档...",
-
     // ── TitleBar ──
     "titlebar.collapseSidebar": "收起侧边栏",
     "titlebar.expandSidebar": "展开侧边栏",
@@ -38,7 +35,6 @@ export const translations = {
     "doclist.pinCollapsed": "固定为折叠（悬停不展开）",
     "doclist.unpin": "取消固定",
     "doclist.noMatch": "暂无匹配文档",
-    "doclist.clearSearch": "清除搜索",
     "doclist.untitled": "无标题",
     "doclist.new": "新建",
     "doclist.newDocument": "新建文档",
@@ -995,9 +991,6 @@ export const translations = {
     "common.hide": "Hide",
     "common.cancel": "Cancel",
 
-    // ── SearchBar ──
-    "search.placeholder": "Search documents...",
-
     // ── TitleBar ──
     "titlebar.collapseSidebar": "Collapse Sidebar",
     "titlebar.expandSidebar": "Expand Sidebar",
@@ -1010,7 +1003,6 @@ export const translations = {
     "doclist.pinCollapsed": "Pin Collapsed (no hover expand)",
     "doclist.unpin": "Unpin Sidebar",
     "doclist.noMatch": "No matching documents",
-    "doclist.clearSearch": "Clear search",
     "doclist.untitled": "Untitled",
     "doclist.new": "New",
     "doclist.newDocument": "New Document",

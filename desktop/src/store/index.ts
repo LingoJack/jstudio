@@ -10,7 +10,6 @@ export {
   selectDocuments,
   selectDocList,
   selectTrashedDocList,
-  selectFilteredDocs,
   selectDocsByFolder,
   // Folder selectors
   selectFolders,
@@ -24,7 +23,6 @@ export {
   selectIsLoading,
   selectThemeMode,
   selectIsDarkMode,
-  selectSearchQuery,
   selectActiveSidebarView,
   selectFontConfig,
   // Terminal selectors

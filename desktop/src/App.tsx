@@ -177,7 +177,6 @@ export default function App() {
         const store = useStore.getState();
         if (kind === 'document') {
           store.openDocumentTab(id);
-          store.setSearchQuery('');
         } else if (kind === 'session') {
           store.setActiveSession(id);
         } else if (kind === 'settings') {

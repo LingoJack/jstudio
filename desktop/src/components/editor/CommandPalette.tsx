@@ -199,7 +199,6 @@ export default function CommandPalette() {
         setCommandPaletteOpen(false);
       } else if (item.kind === 'document') {
         useStore.getState().openDocumentTab(item.doc.id);
-        useStore.getState().setSearchQuery('');
         setCommandPaletteOpen(false);
       } else if (item.kind === 'session') {
         const store = useStore.getState();

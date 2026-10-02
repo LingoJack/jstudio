@@ -19,7 +19,6 @@
  *
  * Usage:
  *   const range = pinyinMatchRange('linshi', '临时笔记'); // [0, 2]
- *   pinyinIncludes('临时笔记', 'linshi');                   // true
  */
 
 import { pinyin } from 'pinyin-pro';
@@ -292,9 +291,3 @@ export function pinyinMatchAllRanges(
   return flRanges;
 }
 
-/**
- * Boolean wrapper around {@link pinyinMatchRange} for simple filtering.
- */
-export function pinyinIncludes(target: string, query: string): boolean {
-  return pinyinMatchRange(query, target) !== null;
-}

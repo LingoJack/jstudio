@@ -62,16 +62,6 @@ export const selectTrashedDocList = (state: StoreState): DocumentMeta[] =>
   state.trashedDocList;
 
 /**
- * Select documents filtered by search query.
- * Returns full documents if query is empty, otherwise filters by title match.
- */
-export const selectFilteredDocs = (state: StoreState): DocumentMeta[] => {
-  const query = state.searchQuery.trim().toLowerCase();
-  if (!query) return state.docList;
-  return state.docList.filter((d) => d.title.toLowerCase().includes(query));
-};
-
-/**
  * Select documents belonging to a specific folder.
  * Pass `null` for root-level documents (no folder).
  */
@@ -137,10 +127,6 @@ export const selectThemeMode = (state: StoreState) => state.themeMode;
 /** Check if dark mode is active. */
 export const selectIsDarkMode = (state: StoreState): boolean =>
   state.isDarkMode;
-
-/** Select current search query. */
-export const selectSearchQuery = (state: StoreState): string =>
-  state.searchQuery;
 
 /** Select active sidebar view. */
 export const selectActiveSidebarView = (state: StoreState) =>

@@ -5,9 +5,7 @@
  *   - 文件夹节点（递归，含子文件夹和文档）
  *   - 根级文档（或空状态提示）
  *
- * SearchResultsList - 搜索结果列表组件（flat 列表，无缩进）。
- *
- * 两个组件只负责渲染；所有状态和回调由父组件通过 props 传入。
+ * 只负责渲染；所有状态和回调由父组件通过 props 传入。
  */
 
 import type React from 'react';
@@ -340,69 +338,4 @@ export function DocumentTreeRenderer({
       )}
     </>
   );
-}
-
-// ── SearchResultsList ────────────────────────────────────
-
-export interface SearchResultsListProps {
-  filteredDocs: DocumentMeta[];
-  activeDocId: string;
-  selectedIds: Set<string>;
-  draggingDocId: string | null;
-  flashDocId: string | null;
-  onDocPointerDown: (e: React.PointerEvent, docId: string) => void;
-  handleDocClick: (e: React.MouseEvent, docId: string) => void;
-  handleContextMenu: (e: React.MouseEvent, id: string, kind?: 'doc' | 'folder') => void;
-}
-
-export function SearchResultsList({
-  filteredDocs,
-  activeDocId,
-  selectedIds,
-  draggingDocId,
-  flashDocId,
-  onDocPointerDown,
-  handleDocClick,
-  handleContextMenu,
-}: SearchResultsListProps) {
-  const { t } = useI18n();
-
-  if (filteredDocs.length === 0) {
-    return (
-      <p className="text-xs text-[var(--vscode-descriptionForeground)] px-2 py-2">
-        {t('doclist.noMatch')}
-      </p>
-    );
-  }
-  return filteredDocs.map((doc) => {
-    const isActive = doc.id === activeDocId;
-    return (
-    <NavRow
-      key={doc.id}
-      level="primary"
-      plainActive
-      selected={selectedIds.has(doc.id)}
-      noHover
-      bleed
-      data-doc-id={doc.id}
-      onPointerDown={(e) => onDocPointerDown(e, doc.id)}
-      onClick={(e) => handleDocClick(e, doc.id)}
-      onContextMenu={(e) => handleContextMenu(e, doc.id)}
-      className={`${draggingDocId === doc.id ? 'opacity-40 cursor-grabbing' : ''} ${
-        flashDocId === doc.id
-          ? 'bg-[var(--vscode-list-activeSelectionBackground)] outline outline-1 -outline-offset-1 outline-[var(--vscode-focusBorder)]'
-          : ''
-      }`}
-    >
-      {isActive ? (
-        <>
-          <RailArrow />
-          <ActiveTitle text={doc.title || t('doclist.untitled')} />
-        </>
-      ) : (
-        doc.title || t('doclist.untitled')
-      )}
-    </NavRow>
-    );
-  });
 }

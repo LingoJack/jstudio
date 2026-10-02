@@ -20,8 +20,6 @@ import type { TranslationKey } from '../../../lib/core/i18n';
 export interface UseBatchSelectionParams {
   folders: Array<{ id: string; name: string }>;
   tree: { subFolders: FolderTreeNode[]; documents: Array<{ id: string }> };
-  filteredDocs: Array<{ id: string }>;
-  isSearching: boolean;
   trashDocuments: (ids: string[]) => void;
   trashFolder: (id: string) => void;
   moveDocumentsToFolder: (docIds: string[], folderId: string | null) => void;
@@ -38,8 +36,6 @@ export function useBatchSelection(params: UseBatchSelectionParams) {
   const {
     folders,
     tree,
-    filteredDocs,
-    isSearching,
     trashDocuments,
     trashFolder,
     moveDocumentsToFolder,
@@ -72,13 +68,10 @@ export function useBatchSelection(params: UseBatchSelectionParams) {
         if (node.folder && !node.folder.collapsed) collect(node.subFolders);
       }
     };
-    if (isSearching) {
-      return filteredDocs.map((d) => d.id);
-    }
     collect(tree.subFolders);
     for (const doc of tree.documents) ids.push(doc.id);
     return ids;
-  }, [tree, isSearching, filteredDocs]);
+  }, [tree]);
 
   const splitSelection = useCallback(() => {
     const folderIdSet = new Set(folders.map((f) => f.id));

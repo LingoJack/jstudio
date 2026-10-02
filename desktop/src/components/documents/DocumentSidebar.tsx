@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
-import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import { SIDEBAR } from '../../lib/constants';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { useSidebarHover } from '../hooks/useSidebarHover';
@@ -10,13 +9,16 @@ import { useBatchSelection } from './hooks/useBatchSelection';
 import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
 import { buildFolderTree } from '../../lib/documents/folderTree';
-import { pinyinIncludes } from '../../lib/documents/pinyinMatch';
-import { MoreHorizontal, X, Pin, ListFilter } from 'lucide-react';
+import {
+  bindingToDisplay,
+  resolveBinding,
+} from '../../lib/shortcuts/keyboardShortcuts';
+import { MoreHorizontal, Pin, Search } from 'lucide-react';
 import { CollapsedRail } from '../ui/CollapsedRail';
 import DocumentContextMenu from './DocumentContextMenu';
 import DocumentSidebarMoreMenu from './DocumentSidebarMoreMenu';
 import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSidebarMenus';
-import { DocumentTreeRenderer, SearchResultsList } from './DocumentTreeRenderer';
+import { DocumentTreeRenderer } from './DocumentTreeRenderer';
 import TrashDialog from './TrashDialog';
 import BackupRestoreDialog from './BackupRestoreDialog';
 
@@ -65,8 +67,8 @@ export default function DocumentSidebar({
   const exportDocumentHtml = useStore((s) => s.exportDocumentHtml);
   const addToast = useStore((s) => s.addToast);
   const renameDocument = useStore((s) => s.renameDocument);
-  const searchQuery = useStore((s) => s.searchQuery);
-  const setSearchQuery = useStore((s) => s.setSearchQuery);
+  const setGlobalSearchOpen = useStore((s) => s.setGlobalSearchOpen);
+  const keyboardShortcuts = useStore((s) => s.keyboardShortcuts);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
   const sidebarPinMode = useStore((s) => s.sidebarPinMode);
   const setSidebarPinMode = useStore((s) => s.setSidebarPinMode);
@@ -99,8 +101,6 @@ export default function DocumentSidebar({
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [moreMenuPos, setMoreMenuPos] = useState<{ x: number; y: number } | null>(null);
-  /** Keeps the hover-expanded sidebar open while the search input is focused. */
-  const [searchFocused, setSearchFocused] = useState(false);
 
   const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
@@ -136,7 +136,7 @@ export default function DocumentSidebar({
   // closes, the useSidebarHover true->false re-evaluation kicks in and
   // collapses based on the current pointer position.
   const anyDialogOpen = trashDialogOpen || backupDialogDoc !== null;
-  const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null || searchFocused;
+  const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null;
 
   // ── Hover expand/collapse (extracted to useSidebarHover hook) ──
   const {
@@ -183,18 +183,10 @@ export default function DocumentSidebar({
     [folders],
   );
 
-  // ── Derived: tree + search ────────────────────────────────
-  const isSearching = searchQuery.trim().length > 0;
-  const filteredDocs = useMemo(
-    () =>
-      isSearching
-        ? docList.filter((d) => pinyinIncludes(d.title || '', searchQuery))
-        : docList,
-    [docList, searchQuery, isSearching],
-  );
+  // ── Derived: tree ─────────────────────────────────────────
   const tree = useMemo(
-    () => buildFolderTree(folders, filteredDocs, { sortKey: docSortKey, direction: docSortDirection }),
-    [folders, filteredDocs, docSortKey, docSortDirection],
+    () => buildFolderTree(folders, docList, { sortKey: docSortKey, direction: docSortDirection }),
+    [folders, docList, docSortKey, docSortDirection],
   );
 
   // ── Folder fold ballast (same mechanism as SectionOutline) ──
@@ -207,7 +199,7 @@ export default function DocumentSidebar({
     containerRef: sidebarScrollRef,
     contentRef: sidebarContentRef,
     ballastRef: sidebarBallastRef,
-    active: !isSearching,
+    active: true,
   });
 
   // ── Derived: mini-rail items for the collapsed strip (top-level entries,
@@ -410,8 +402,6 @@ export default function DocumentSidebar({
   } = useBatchSelection({
     folders,
     tree,
-    filteredDocs,
-    isSearching,
     trashDocuments,
     trashFolder,
     moveDocumentsToFolder,
@@ -482,41 +472,27 @@ export default function DocumentSidebar({
   // after the title-bar experiments (left = traffic-light conflict, right =
   // outline crowding); it sits at y=36, flush under the transparent title
   // bar, because the sidebar root punches up to the window top (-mt-9).
+  // Search is an icon entry into the global search dialog (Cmd+Shift+F) —
+  // the previous inline filter box only matched titles, a subset of what
+  // the dialog does.
+  const globalSearchBinding = bindingToDisplay(
+    resolveBinding('app.globalSearch', keyboardShortcuts),
+  );
   const sidebarHeader = (
-    <div className={`h-9 shrink-0 flex items-center gap-1.5 px-3 ${embedded ? '' : 'mt-9'}`}>
-      {/* Search — Aliyun "在目录中筛选" style: list-filter icon, slightly
-          taller soft-fill box with a faint input-border edge, no visible
-          border until focus (accent ring) */}
-      <div
-        className="flex-1 min-w-0 flex items-center gap-1.5 h-7 px-2 rounded-sm transition-colors duration-150 border border-[var(--vscode-input-border)] bg-[color-mix(in_srgb,var(--vscode-foreground)_5%,transparent)] focus-within:ring-1 focus-within:ring-[var(--vscode-focusBorder)]"
+    <div className={`h-9 shrink-0 flex items-center gap-0.5 px-3 ${embedded ? '' : 'mt-9'}`}>
+      {/* Search — icon entry into the global search dialog */}
+      <button
+        onClick={() => setGlobalSearchOpen(true)}
+        className="p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        title={
+          globalSearchBinding
+            ? `${t('shortcut.app.globalSearch')} · ${globalSearchBinding}`
+            : t('shortcut.app.globalSearch')
+        }
       >
-        <ListFilter className="w-3.5 h-3.5 opacity-50 shrink-0" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-          onKeyDown={(e) => {
-            if (handleNativeSelectAll(e)) return;
-            if (e.key === 'Escape') {
-              if (searchQuery) setSearchQuery('');
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          placeholder={t('search.placeholder')}
-          className="w-full min-w-0 bg-transparent text-body text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] focus:outline-none"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="shrink-0 p-0.5 rounded text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] transition-colors duration-150 cursor-pointer"
-            title={t('doclist.clearSearch')}
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
+        <Search className="w-4 h-4" />
+      </button>
+      <div className="flex-1" />
       <div className="flex items-center gap-0.5 shrink-0">
         {/* Pin toggle */}
         <button
@@ -643,21 +619,8 @@ export default function DocumentSidebar({
           isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >
-        {isSearching ? (
-          <SearchResultsList
-            filteredDocs={filteredDocs}
-            activeDocId={activeDocId}
-            selectedIds={selectedIds}
-            draggingDocId={draggingDocId}
-            flashDocId={flashDocId}
-            onDocPointerDown={onDocPointerDown}
-            handleDocClick={handleDocClick}
-            handleContextMenu={handleContextMenu}
-          />
-        ) : (
-          <>
-            <div ref={sidebarContentRef}>
-              <DocumentTreeRenderer
+        <div ref={sidebarContentRef}>
+          <DocumentTreeRenderer
             tree={tree}
             folders={folders}
             isFolderExpanded={isFolderExpanded}
@@ -691,17 +654,15 @@ export default function DocumentSidebar({
             commitFolderRename={commitFolderRename}
             setRenamingFolderId={setRenamingFolderId}
           />
-            </div>
-            {/* Fold ballast: see useFoldBallast. Outside the observed wrapper
-                so its own resize doesn't re-trigger the observer. */}
-            <div
-              ref={sidebarBallastRef}
-              aria-hidden
-              className="shrink-0"
-              style={{ height: 0 }}
-            />
-          </>
-        )}
+        </div>
+        {/* Fold ballast: see useFoldBallast. Outside the observed wrapper
+            so its own resize doesn't re-trigger the observer. */}
+        <div
+          ref={sidebarBallastRef}
+          aria-hidden
+          className="shrink-0"
+          style={{ height: 0 }}
+        />
       </div>
 
       <TrashDialog open={trashDialogOpen} onClose={() => setTrashDialogOpen(false)} />
