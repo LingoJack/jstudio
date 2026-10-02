@@ -7,6 +7,7 @@
 
 import {
   Plus,
+  NotebookPen,
   FolderPlus,
   FileDown,
   FolderDown,
@@ -34,6 +35,8 @@ export interface DocumentSidebarMoreMenuProps {
   onClose: () => void;
   /** Create a new document */
   onNewDocument: () => void;
+  /** Open an in-memory scratch doc (never persisted; gone on restart) */
+  onOpenScratch: () => void;
   /** Create a new folder */
   onNewFolder: () => void;
   /** Import a single Markdown file */
@@ -59,6 +62,7 @@ export default function DocumentSidebarMoreMenu({
   docSortDirection,
   onClose,
   onNewDocument,
+  onOpenScratch,
   onNewFolder,
   onImportMarkdown,
   onImportMarkdownDirectory,
@@ -81,6 +85,15 @@ export default function DocumentSidebarMoreMenu({
           }}
         >
           {t('doclist.newDocument')}
+        </MenuItem>
+        <MenuItem
+          icon={<NotebookPen />}
+          onClick={() => {
+            onClose();
+            onOpenScratch();
+          }}
+        >
+          {t('doclist.newScratch')}
         </MenuItem>
         <MenuItem
           icon={<FolderPlus />}

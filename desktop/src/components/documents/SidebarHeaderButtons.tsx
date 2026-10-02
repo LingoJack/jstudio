@@ -26,6 +26,7 @@ export default function SidebarHeaderButtons() {
   const setDocSortKey      = useStore((s) => s.setDocSortKey);
   const setDocSortDirection = useStore((s) => s.setDocSortDirection);
   const createDocument     = useStore((s) => s.createDocument);
+  const openScratchDoc     = useStore((s) => s.openScratchDoc);
   const createFolder       = useStore((s) => s.createFolder);
   const addToast           = useStore((s) => s.addToast);
   const importDocumentFromMarkdown  = useStore((s) => s.importDocumentFromMarkdown);
@@ -115,6 +116,7 @@ export default function SidebarHeaderButtons() {
             docSortDirection={docSortDirection}
             onClose={() => setMoreMenuOpen(false)}
             onNewDocument={() => createDocument()}
+            onOpenScratch={() => openScratchDoc()}
             onNewFolder={() => createFolder(t('doclist.untitledFolder'), null)}
             onImportMarkdown={handleImportMarkdown}
             onImportMarkdownDirectory={handleImportMarkdownDirectory}

@@ -22,6 +22,9 @@ export interface DocumentsSlice {
   activeDocReloadNonce: number;
   studioRoot: string;
   createDocument: (folderId?: string) => Promise<void>;
+  /** Open the in-memory scratch doc (临时草稿): never persisted, not in the
+   *  docList/tree, evaporates when the app exits. */
+  openScratchDoc: () => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   deleteDocuments: (ids: string[]) => Promise<void>;
   renameDocument: (id: string, title: string) => void;
@@ -29,6 +32,10 @@ export interface DocumentsSlice {
   reloadDoc: (docId: string) => Promise<void>;
   updateDocumentMeta: (fields: Partial<Document>) => void;
 }
+
+/** Reserved id for the in-memory scratch doc (临时草稿): never persisted,
+ *  never in the docList/tree, evaporates when the app exits. */
+export const SCRATCH_DOC_ID = "__scratch__";
 
 export const createDocumentsSlice: SliceCreator = (set, get) => ({
   // ── state ─────────────────────────────────────────────
@@ -42,6 +49,38 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
   // ================================================================
   // document CRUD
   // ================================================================
+
+  // Reserved id for the in-memory scratch doc (临时草稿): never persisted,
+  // never in the docList/tree, evaporates when the app exits.
+  openScratchDoc: async () => {
+    // Fresh blank scratch on every invocation — closing its tab discards it.
+    const scratch: Document = {
+      id: SCRATCH_DOC_ID,
+      title: "临时草稿",
+      emoji: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      blocks: [
+        {
+          id: `block-${Date.now()}-initial`,
+          type: "text",
+          content: [],
+          properties: {},
+        },
+      ],
+    };
+    set({
+      documents: [
+        scratch,
+        ...get().documents.filter((d) => d.id !== SCRATCH_DOC_ID),
+      ],
+      activeDoc: scratch,
+      activeDocId: SCRATCH_DOC_ID,
+    });
+    get().openDocumentTab(SCRATCH_DOC_ID);
+    set({ activeSidebarView: "documents" });
+  },
+
   createDocument: async (folderId?: string) => {
     const newDoc: Document = {
       id: `doc-${Date.now()}`,
@@ -190,13 +229,14 @@ export const createDocumentsSlice: SliceCreator = (set, get) => ({
       // GC the document we just navigated away from. Its editor instance is
       // being torn down, so its undo history is no longer reachable - moving
       // any now-orphaned assets into the recycle bin is safe here.
-      if (prevDoc && prevDoc.id !== id) {
+      if (prevDoc && prevDoc.id !== id && prevDoc.id !== SCRATCH_DOC_ID) {
         void get().gcDocAssets(prevDoc);
       }
     }
   },
 
   reloadDoc: async (docId) => {
+    if (docId === SCRATCH_DOC_ID) return; // nothing on disk to reload
     try {
       const doc = await ipc.loadDocument(docId);
       const { documents, activeDocId, activeDocReloadNonce } = get();

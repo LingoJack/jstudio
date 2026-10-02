@@ -8,6 +8,7 @@ import type { UnifiedTab } from '../../store/workspaceSlice';
 import OpenDocumentDialog from './OpenDocumentDialog';
 import { DocumentTabContextMenu } from './DocumentTabContextMenu';
 import { useTitlebarCenterSlot } from '../layout/titlebarSlot';
+import { SCRATCH_DOC_ID } from '../../store/documentsSlice';
 import { OUTLINE_WIDTH } from '../editor/sectionEditor/SectionOutline';
 import { SIDEBAR } from '../../lib/constants';
 
@@ -102,6 +103,8 @@ export default function DocumentTabs() {
   // ── Resolve document title ───────────────────────────────────────
   const getDocTitle = useCallback(
     (tab: UnifiedTab): string => {
+      // The in-memory scratch doc is not in docList (never persisted).
+      if (tab.docId === SCRATCH_DOC_ID) return '临时草稿';
       const meta = docList.find((d) => d.id === tab.docId);
       return meta?.title || t('doclist.untitled');
     },

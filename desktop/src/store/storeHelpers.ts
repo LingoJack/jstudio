@@ -92,11 +92,15 @@ export function onSaveError(label: string) {
  */
 const docSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** The latest document snapshot pending a flush, keyed by id. */
+import { SCRATCH_DOC_ID } from "./documentsSlice";
+
 const pendingDocs = new Map<string, Document>();
 let indexTimer: ReturnType<typeof setTimeout> | null = null;
 let foldersTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function scheduleDocumentSave(doc: Document) {
+  // The in-memory scratch doc is never persisted (gone on restart by design).
+  if (doc.id === SCRATCH_DOC_ID) return;
   const existing = docSaveTimers.get(doc.id);
   if (existing) clearTimeout(existing);
   pendingDocs.set(doc.id, doc);
