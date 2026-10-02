@@ -38,7 +38,7 @@ import { useFoldBallast, FOLD_DURATION_MS } from '../../hooks/useFoldBallast';
 import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import type { Block } from '../../../types';
-import { ChevronRight, ArrowRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 /** Width of the outline panel. */
 export const OUTLINE_WIDTH = 240;
@@ -580,13 +580,13 @@ function OutlineRow({
       }`}
       style={{ paddingLeft: ROW_BASE_INDENT + depth * ROW_DEPTH_INDENT }}
     >
-      {/* "->" cursor straddling the rail at the current heading, pointing
-          at the outline item; the editor scrollbar carries a mirrored
-          "<-" cursor (EditorScrollCursor). The bg patch masks the rail
-          underneath so the arrow reads as embedded. */}
+      {/* Read-head cursor (❯) straddling the rail at the current heading —
+          the same language as the editor scrollbar's read head
+          (EditorScrollCursor). The bg patch masks the rail underneath so
+          the glyph reads as embedded. */}
       {active && (
-        <span className="absolute left-[-7px] top-1/2 -translate-y-1/2 py-[3px] bg-[var(--vscode-editor-background)] text-[var(--vscode-focusBorder)]">
-          <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
+        <span className="absolute left-[-7px] top-1/2 -translate-y-1/2 px-[3px] bg-[var(--vscode-editor-background)] font-mono text-[12px] leading-[18px] text-[#00b8d9]">
+          {"❯"}
         </span>
       )}
       <span

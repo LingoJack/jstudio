@@ -8,8 +8,9 @@
 
 import type { LucideIcon } from 'lucide-react';
 
-/** Fixed width of each segment (px) — uniform width, never content-sized. */
+/** Segment width (px) per mode — uniform width, never content-sized. */
 const SEGMENT_WIDTH_PX = 112;
+const SEGMENT_WIDTH_COMPACT_PX = 64;
 /** Container padding around the thumb (matches p-0.5). */
 const SEGMENT_PAD_PX = 2;
 /** Same curve as the TabBar indicator. */
@@ -26,13 +27,18 @@ interface SegmentedToggleProps<T extends string> {
   options: SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** Tighter segments (smaller icon/type) for narrow rails — e.g. sharing
+   *  a 247px sidebar row with the header action buttons. */
+  compact?: boolean;
 }
 
 export function SegmentedToggle<T extends string>({
   options,
   value,
   onChange,
+  compact = false,
 }: SegmentedToggleProps<T>) {
+  const segmentWidth = compact ? SEGMENT_WIDTH_COMPACT_PX : SEGMENT_WIDTH_PX;
   const activeIndex = Math.max(
     0,
     options.findIndex((opt) => opt.value === value),
@@ -41,7 +47,7 @@ export function SegmentedToggle<T extends string>({
   return (
     <div
       role="tablist"
-      className="relative inline-flex items-center rounded-md bg-[var(--vscode-input-background)] p-[2px]"
+      className="relative inline-flex shrink-0 items-center rounded-md bg-[var(--vscode-input-background)] p-[2px]"
     >
       {/* Sliding accent thumb (compositor transform, like TabBar) */}
       <div
@@ -50,9 +56,9 @@ export function SegmentedToggle<T extends string>({
           top: SEGMENT_PAD_PX,
           bottom: SEGMENT_PAD_PX,
           left: SEGMENT_PAD_PX,
-          width: SEGMENT_WIDTH_PX,
+          width: segmentWidth,
           background: 'var(--vscode-list-activeSelectionBackground)',
-          transform: `translateX(${activeIndex * SEGMENT_WIDTH_PX}px)`,
+          transform: `translateX(${activeIndex * segmentWidth}px)`,
           transition: SEGMENT_INDICATOR_TRANSITION,
           willChange: 'transform',
         }}
@@ -67,18 +73,24 @@ export function SegmentedToggle<T extends string>({
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             title={opt.label}
-            className="relative z-10 flex items-center justify-center gap-1.5 h-6 rounded-[4px] cursor-pointer transition-colors duration-150"
-            style={{ width: SEGMENT_WIDTH_PX }}
+            className={`relative z-10 flex items-center justify-center h-6 rounded-[4px] cursor-pointer transition-colors duration-150 ${
+              compact ? 'gap-1' : 'gap-1.5'
+            }`}
+            style={{ width: segmentWidth }}
           >
-            <Icon
-              className={`w-3.5 h-3.5 shrink-0 ${
-                active
-                  ? 'text-[var(--vscode-foreground)]'
-                  : 'text-[var(--vscode-descriptionForeground)]'
-              }`}
-            />
+            {/* Compact mode drops the icon: the 4-char CJK labels need the
+                full segment width in the app's CJK font (~13px/char). */}
+            {!compact && (
+              <Icon
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  active
+                    ? 'text-[var(--vscode-foreground)]'
+                    : 'text-[var(--vscode-descriptionForeground)]'
+                }`}
+              />
+            )}
             <span
-              className={`text-xs truncate ${
+              className={`${compact ? 'text-[11px]' : 'text-xs'} truncate ${
                 active
                   ? 'text-[var(--vscode-foreground)] font-medium'
                   : 'text-[var(--vscode-sideBar-foreground)]'

@@ -23,6 +23,7 @@ import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { SegmentedToggle } from '../ui/SegmentedToggle';
 import DocumentSidebar from '../documents/DocumentSidebar';
+import SidebarHeaderButtons from '../documents/SidebarHeaderButtons';
 import { OUTLINE_WIDTH } from '../editor/sectionEditor/SectionOutline';
 
 export default function LeftPanelColumn({
@@ -44,20 +45,34 @@ export default function LeftPanelColumn({
 
   return (
     <div className="shrink-0 flex flex-col relative z-30 -mt-9 h-[calc(100%+2.25rem)] bg-[var(--vscode-sideBar-background)]">
-      {/* Top row: below the glass title bar (same mt-9 as the sidebar header). */}
+      {/* Version row — topmost, below the glass title bar. Identity up here,
+          functionality in the row below (user's layout call). Hidden while
+          the tree is collapsed (the column is a 48px rail then). */}
+      {!showCompactRow && (
+        <div className="mt-9 h-9 shrink-0 flex items-center px-3">
+          <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70 truncate">
+            JStudio v{__APP_VERSION__}
+          </span>
+        </div>
+      )}
+
+      {/* Toggle row — 目录树/文档大纲 switch; when the tree tab is active the
+          sidebar header actions (search / collapse / more) share this row so
+          all functionality sits together below the version. */}
       {showCompactRow ? (
-        <div className="mt-9 h-9 shrink-0 flex items-center px-2">
+        <div className="mt-[52px] h-9 shrink-0 flex items-center px-2">
           <button
             onClick={() => setSidebarPinMode(sidebarPinModeBeforeCollapse)}
-            title={t('doclist.pin')}
+            title={t('titlebar.expandSidebar')}
             className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
           >
             <PanelLeftOpen className="w-4 h-4" />
           </button>
         </div>
       ) : (
-        <div className="mt-9 h-9 shrink-0 flex items-center px-3">
+        <div className="h-9 shrink-0 flex items-center px-3 gap-2">
           <SegmentedToggle
+            compact
             options={[
               { value: 'tree', label: t('outline.tabTree'), icon: FolderTree },
               {
@@ -69,6 +84,8 @@ export default function LeftPanelColumn({
             value={leftPanelTab}
             onChange={setLeftPanelTab}
           />
+          <div className="flex-1" />
+          {leftPanelTab === 'tree' && <SidebarHeaderButtons />}
         </div>
       )}
 

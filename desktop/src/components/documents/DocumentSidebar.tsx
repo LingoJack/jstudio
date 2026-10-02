@@ -459,7 +459,7 @@ export default function DocumentSidebar({
               two identical buttons; standalone has no compact row, so it
               needs this (mt-9 clears the title bar). */}
           {!embedded && (
-            <div className="h-9 shrink-0 flex items-center mt-9">
+            <div className="h-9 shrink-0 flex items-center mt-[52px]">
               <button
                 onClick={() => setSidebarPinMode(sidebarPinModeBeforeCollapse)}
                 className="group w-full h-full flex items-center justify-center cursor-pointer"
@@ -479,21 +479,19 @@ export default function DocumentSidebar({
         </>
       ) : (
         <>
-      {/* Header row — version label + header actions (search / pin / more).
-          Lives INSIDE the sidebar, directly below the embedded toggle row:
-          the buttons are ordinary clicks here (no window drag region is
-          involved, unlike the title-bar placement this replaces).
-          mt-9 (standalone only): clears the title bar — embedded clears it
-          via the toggle row above. */}
-      <div
-        className={`h-9 shrink-0 flex items-center gap-2 pl-3 pr-2 ${embedded ? '' : 'mt-9'}`}
-      >
-        <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70 truncate">
-          JStudio v{__APP_VERSION__}
-        </span>
-        <div className="flex-1" />
-        <SidebarHeaderButtons />
-      </div>
+      {/* Header row — version label + header actions (search / collapse /
+          more). STANDALONE only (outline docks right): embedded renders the
+          version row and the actions row in LeftPanelColumn above this
+          sidebar. Ordinary clicks either way (no drag region involved). */}
+      {!embedded && (
+        <div className="h-9 shrink-0 flex items-center gap-2 pl-3 pr-2 mt-9">
+          <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70 truncate">
+            JStudio v{__APP_VERSION__}
+          </span>
+          <div className="flex-1" />
+          <SidebarHeaderButtons />
+        </div>
+      )}
 
       {/* Documents + folders list (root drop zone). pl-2 insets rows so the
           rail (each root row's / folder wrapper's left border) forms one
