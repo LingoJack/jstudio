@@ -34,6 +34,7 @@ export default function LeftPanelColumn({
   const leftPanelTab = useStore((s) => s.leftPanelTab);
   const setLeftPanelTab = useStore((s) => s.setLeftPanelTab);
   const setSidebarPinMode = useStore((s) => s.setSidebarPinMode);
+  const sidebarPinModeBeforeCollapse = useStore((s) => s.sidebarPinModeBeforeCollapse);
   // Reported by the embedded DocumentSidebar (all pin modes): while the
   // tree is collapsed to its rail, the toggle row shrinks to one icon so
   // the column keeps the rail's 48px width instead of a wide empty strip.
@@ -47,7 +48,7 @@ export default function LeftPanelColumn({
       {showCompactRow ? (
         <div className="mt-9 h-9 shrink-0 flex items-center px-2">
           <button
-            onClick={() => setSidebarPinMode('open')}
+            onClick={() => setSidebarPinMode(sidebarPinModeBeforeCollapse)}
             title={t('doclist.pin')}
             className="p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"
           >

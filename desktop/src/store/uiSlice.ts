@@ -150,6 +150,8 @@ export interface UISlice {
    * 'open' = locked expanded, 'collapsed' = locked collapsed.
    */
   sidebarPinMode: SidebarPinMode;
+  /** Mode to restore when expanding from a manual collapse ('open' | 'hover'). */
+  sidebarPinModeBeforeCollapse: "open" | "hover";
   leftPanelHovered: boolean;
   isOutlineOpen: boolean;
   outlinePinned: boolean;
@@ -258,6 +260,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
   activityBarItems: DEFAULT_ACTIVITY_BAR_ITEMS,
   isSidebarOpen: true,
   sidebarPinMode: "open",
+  sidebarPinModeBeforeCollapse: "open",
   /** Transient flag: true while the pointer is over the ActivityBar. Sidebars
    *  watch this to stay expanded when the user overshoots from the sidebar
    *  into the ActivityBar (they are visually one "left panel" zone). */
@@ -324,7 +327,13 @@ export const createUiSlice: SliceCreator = (set, get) => ({
 
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
   setSidebarPinMode: (mode) => {
-    set({ sidebarPinMode: mode });
+    set((s) => ({
+      sidebarPinMode: mode,
+      // Remember the last non-collapsed mode so expanding from a manual
+      // collapse restores what the user had (open lock vs hover auto).
+      sidebarPinModeBeforeCollapse:
+        mode === "collapsed" ? s.sidebarPinModeBeforeCollapse : mode,
+    }));
     ipc.saveSettings({ sidebarPinMode: mode }).catch(onSaveError("设置"));
   },
   setLeftPanelHovered: (hovered) => set({ leftPanelHovered: hovered }),
@@ -369,6 +378,7 @@ export const createUiSlice: SliceCreator = (set, get) => ({
     set({
       isSidebarOpen: true,
       sidebarPinMode: "open",
+  sidebarPinModeBeforeCollapse: "open",
       activeSidebarView: "documents",
       sidebarRevealDocId: docId,
     });

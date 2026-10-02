@@ -9,7 +9,7 @@ import { useBatchSelection } from './hooks/useBatchSelection';
 import { useDocDragDrop, ROOT_DROP_ID } from './hooks/useDocDragDrop';
 import { useDocSidebarActions } from './hooks/useDocSidebarActions';
 import { buildFolderTree } from '../../lib/documents/folderTree';
-import { Pin } from 'lucide-react';
+import { PanelLeftOpen } from 'lucide-react';
 import { CollapsedRail } from '../ui/CollapsedRail';
 import DocumentContextMenu from './DocumentContextMenu';
 import SidebarHeaderButtons from './SidebarHeaderButtons';
@@ -65,6 +65,7 @@ export default function DocumentSidebar({
   const renameDocument = useStore((s) => s.renameDocument);
   const sidebarWidth = useStore((s) => s.sidebarWidth);
   const sidebarPinMode = useStore((s) => s.sidebarPinMode);
+  const sidebarPinModeBeforeCollapse = useStore((s) => s.sidebarPinModeBeforeCollapse);
   const setSidebarPinMode = useStore((s) => s.setSidebarPinMode);
   const leftPanelHovered = useStore((s) => s.leftPanelHovered);
 
@@ -130,9 +131,6 @@ export default function DocumentSidebar({
     isExpanded,
     handleHoverEnter,
     handleHoverLeave,
-    handlePinZoneEnter,
-    handlePinZoneLeave,
-    handleTogglePin,
   } = useSidebarHover({
     pinMode: sidebarPinMode,
     leftPanelHovered,
@@ -148,7 +146,6 @@ export default function DocumentSidebar({
     onCollapsedChange?.(isCollapsed);
   }, [isCollapsed, onCollapsedChange]);
   /** Locked = pin holds the current state; hover neither expands nor collapses. */
-  const isPinLocked = sidebarPinMode !== 'hover';
 
   // ── Overlay mode (hover-expand without pinning) ────────────
   // When the sidebar expands on hover (unpinned), it overlays the content
@@ -457,30 +454,23 @@ export default function DocumentSidebar({
       {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (
         <>
-          {/* Hit area = the whole top row of the rail (48x36): the pointer
-              lands in the no-expand zone the moment it enters the sidebar at
-              this height, instead of triggering the expand that would move
-              the pin to the far right of the expanded header. The visible
-              pill stays small — only the clickable box is row-wide. */}
-          <div className={`h-9 shrink-0 flex items-center ${embedded ? '' : 'mt-9'}`}>
-            <button
-              onClick={handleTogglePin}
-              onMouseEnter={handlePinZoneEnter}
-              onMouseLeave={handlePinZoneLeave}
-              className="group w-full h-full flex items-center justify-center cursor-pointer"
-              title={isPinLocked ? t('doclist.unpin') : t('doclist.pinCollapsed')}
-            >
-              <span
-                className={`p-1.5 rounded-md transition-colors duration-150 ${
-                  isPinLocked
-                    ? 'text-[var(--vscode-focusBorder)] group-hover:bg-[var(--vscode-list-hoverBackground)]'
-                    : 'text-[var(--vscode-icon-foreground)] group-hover:text-[var(--vscode-foreground)] group-hover:bg-[var(--vscode-list-hoverBackground)]'
-                }`}
+          {/* Expand button. Embedded (LeftPanelColumn) renders its own compact
+              expand row above the rail — rendering this one too would stack
+              two identical buttons; standalone has no compact row, so it
+              needs this (mt-9 clears the title bar). */}
+          {!embedded && (
+            <div className="h-9 shrink-0 flex items-center mt-9">
+              <button
+                onClick={() => setSidebarPinMode(sidebarPinModeBeforeCollapse)}
+                className="group w-full h-full flex items-center justify-center cursor-pointer"
+                title={t('titlebar.expandSidebar')}
               >
-                <Pin className="w-4 h-4" />
-              </span>
-            </button>
-          </div>
+                <span className="p-1.5 rounded-md transition-colors duration-150 text-[var(--vscode-icon-foreground)] group-hover:text-[var(--vscode-foreground)] group-hover:bg-[var(--vscode-list-hoverBackground)]">
+                  <PanelLeftOpen className="w-4 h-4" />
+                </span>
+              </button>
+            </div>
+          )}
           <CollapsedRail
             items={railItems}
             activeDocId={activeDocId}
@@ -515,10 +505,10 @@ export default function DocumentSidebar({
       <div
         ref={sidebarScrollRef}
         data-drop-target={ROOT_DROP_ID}
-        // scrollbar-gutter:stable — folds change the content height, which
-        // would otherwise toggle the vertical scrollbar and flash a
-        // scrollbar-width jump on every fold near the size boundary.
-        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] rounded-md border pl-2 transition-colors duration-150 ${
+        // scrollbar-none — the scrollbar is hidden by design (wheel /
+        // keyboard scrolling still work); with the scrollbar gone the
+        // width never changes, so no scrollbar-gutter is needed either.
+        className={`flex-1 overflow-y-auto scrollbar-none rounded-md border pl-2 transition-colors duration-150 ${
           isRootDropTarget ? 'border-[var(--vscode-focusBorder)]' : 'border-transparent'
         }`}
       >

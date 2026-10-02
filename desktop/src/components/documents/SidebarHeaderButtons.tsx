@@ -7,7 +7,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-import { MoreHorizontal, Pin, Search } from 'lucide-react';
+import { MoreHorizontal, PanelLeftClose, Search } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
 import { bindingToDisplay, resolveBinding } from '../../lib/shortcuts/keyboardShortcuts';
@@ -20,7 +20,6 @@ export default function SidebarHeaderButtons() {
 
   const setGlobalSearchOpen = useStore((s) => s.setGlobalSearchOpen);
   const keyboardShortcuts  = useStore((s) => s.keyboardShortcuts);
-  const sidebarPinMode     = useStore((s) => s.sidebarPinMode);
   const setSidebarPinMode  = useStore((s) => s.setSidebarPinMode);
   const docSortKey         = useStore((s) => s.docSortKey);
   const docSortDirection   = useStore((s) => s.docSortDirection);
@@ -42,15 +41,9 @@ export default function SidebarHeaderButtons() {
   const moreMenuRef  = useRef<HTMLDivElement>(null);
   const closeTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isPinLocked = sidebarPinMode !== 'hover';
-
-  const handleTogglePin = useCallback(() => {
-    if (isPinLocked) {
-      setSidebarPinMode('hover');
-    } else {
-      setSidebarPinMode('open');
-    }
-  }, [isPinLocked, setSidebarPinMode]);
+  const collapseSidebar = useCallback(() => {
+    setSidebarPinMode('collapsed');
+  }, [setSidebarPinMode]);
 
   const capturePos = useCallback(() => {
     if (moreMenuRef.current) {
@@ -96,17 +89,13 @@ export default function SidebarHeaderButtons() {
         <Search className="w-4 h-4" />
       </button>
 
-      {/* Pin */}
+      {/* Collapse — manual collapse; the rail's button expands again */}
       <button
-        onClick={handleTogglePin}
-        className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
-          isPinLocked
-            ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
-            : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
-        }`}
-        title={isPinLocked ? t('doclist.unpin') : t('doclist.pin')}
+        onClick={collapseSidebar}
+        className="p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        title={t('titlebar.collapseSidebar')}
       >
-        <Pin className="w-4 h-4" />
+        <PanelLeftClose className="w-4 h-4" />
       </button>
 
       {/* More */}
