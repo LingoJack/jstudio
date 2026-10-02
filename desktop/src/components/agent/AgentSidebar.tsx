@@ -150,7 +150,7 @@ export default function AgentSidebar() {
 
   const handleOpenDirectory = useCallback(async () => {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import('../../lib/platform');
       const selected = await open({
         directory: true,
         multiple: false,

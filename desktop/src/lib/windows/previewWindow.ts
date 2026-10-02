@@ -1,17 +1,15 @@
 /**
- * previewWindow.ts — Tauri 新窗口预览工具。
+ * previewWindow.ts — 独立预览窗口工具（Electron BrowserWindow）。
  *
  * 主窗口调用 `openPreviewWindow()` 创建一个独立的 OS 窗口，
- * 数据通过 Rust 内存命令（set/get_preview_data）传递，
- * 避免 Tauri event IPC 对大数据的限制。
+ * 数据通过 sidecar KV 中继（set/get_preview_data）传递，
+ * 避免事件通道对大 payload 的限制。
  *
  * 新窗口加载同一个前端 bundle，通过 URL 参数 `?window=preview`
  * 来区分渲染逻辑（见 main.tsx → PreviewWindowApp）。
  */
 
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
+import { WebviewWindow, getCurrentWindow, invoke } from '../../lib/platform';
 
 import { logger } from '../core/logger';
 
@@ -97,11 +95,11 @@ export async function openPreviewWindow(payload: PreviewPayload): Promise<void> 
     center: true,
   });
 
-  webviewWindow.once('tauri://created', () => {
+  webviewWindow.once('jstudio://window-created', () => {
     logger.debug('PreviewWindow', 'Window created successfully: ' + label);
   });
 
-  webviewWindow.once('tauri://error', (e) => {
+  webviewWindow.once('jstudio://window-error', (e) => {
     console.error('[PreviewWindow] Failed to create window:', e);
   });
 }

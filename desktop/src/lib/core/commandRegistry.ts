@@ -24,8 +24,8 @@ import { ACTIVITY_ITEM_META } from "./activityMeta";
 import { createTerminalWindow } from "../windows/terminalDetach";
 import { getFocusedEditor } from "../editor/focusedEditorRegistry";
 import { getSelectAllHandler } from "../editor/selectAllRegistry";
-import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "../../lib/platform";
+import { getCurrentWindow } from "../../lib/platform";
 import { tSync } from "./i18n";
 import { confirmExitIfEnabled } from "./exitConfirm";
 
@@ -335,7 +335,7 @@ export interface PaletteCommand {
 
 /** Triggers the markdown import file picker (same logic as DocumentSidebar). */
 async function importMarkdown(store: StoreState) {
-  const { open } = await import("@tauri-apps/plugin-dialog");
+  const { open } = await import("../../lib/platform");
   const filePath = await open({
     multiple: false,
     filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown"] }],
@@ -349,7 +349,7 @@ async function importMarkdown(store: StoreState) {
 
 /** Triggers the directory import picker and imports all Markdown files. */
 async function importMarkdownDirectory(store: StoreState) {
-  const { open } = await import("@tauri-apps/plugin-dialog");
+  const { open } = await import("../../lib/platform");
   const dirPath = await open({ directory: true, multiple: false });
   if (!dirPath || typeof dirPath !== "string") return;
   await store.importMarkdownDirectory(dirPath);
@@ -358,7 +358,7 @@ async function importMarkdownDirectory(store: StoreState) {
 /** Triggers the directory picker and imports only the Markdown files whose
  *  name (minus extension) is not already used by an existing document. */
 async function syncMarkdownDirectory(store: StoreState) {
-  const { open } = await import("@tauri-apps/plugin-dialog");
+  const { open } = await import("../../lib/platform");
   const dirPath = await open({ directory: true, multiple: false });
   if (!dirPath || typeof dirPath !== "string") return;
   await store.syncMarkdownDirectory(dirPath);

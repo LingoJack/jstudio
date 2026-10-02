@@ -10,7 +10,7 @@
  * disk, with no base64 round-trip or in-memory bloat.
  */
 
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc } from '../../../lib/platform';
 
 /** True when `src` is a doc-relative asset reference (`assets/…`). */
 export function isAssetPath(src: string): boolean {

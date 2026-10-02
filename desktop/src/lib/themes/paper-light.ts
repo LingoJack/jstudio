@@ -103,8 +103,8 @@ export const PAPER_LIGHT: AppTheme = {
     'textBlockQuote-background': '#f6f8fa',
     'textBlockQuote-border': '#05838B',
     'textCodeBlock-background': '#f6f8fa',
-    'textPreformat-foreground': '#1a1a1a',
-    'textPreformat-background': '#f6f8fa',
+    'textPreformat-foreground': '#44519E', // 行内代码·靛墨同色微染：纯白纸上的一层淡靛（7%）
+    'textPreformat-background': '#44519E12', // 同色相 6% 淡染
 
     // ── Editor line numbers / guides ──
     'editorLineNumber-foreground': '#8c8c8c',

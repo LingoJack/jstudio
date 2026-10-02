@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '../../lib/platform';
 
 import { GraphCanvas } from '../editor/nodes/graph/GraphCanvas';
 
@@ -138,7 +138,7 @@ export default function DiagramWindowApp() {
           same stacking context as the floating toolbar and mxGraph canvas;
           its hit-region overlapping the toolbar's top rows made hover/click
           flaky in this window. A real 36px flex row can never cover them. */}
-      <div data-tauri-drag-region className="h-9 shrink-0" />
+      <div className="drag-region h-9 shrink-0" />
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <GraphCanvas
           initialSnapshot={payload?.snapshot ?? ''}

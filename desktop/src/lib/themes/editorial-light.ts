@@ -109,8 +109,8 @@ export const EDITORIAL_LIGHT: AppTheme = {
     'textBlockQuote-background': '#F4F3F0',
     'textBlockQuote-border': '#2B4BD7',
     'textCodeBlock-background': '#F4F3F0',
-    'textPreformat-foreground': '#1A1A1A',
-    'textPreformat-background': '#ECEAE4',
+    'textPreformat-foreground': '#2B3252', // 行内代码·铁胆墨水：墨字 + 冷灰染（新闻纸格子；宝蓝仍只给眉标/链接）
+    'textPreformat-background': '#57606A1A', // 同色相 7% 淡染
 
     // ── Editor line numbers / guides ──
     'editorLineNumber-foreground': '#9A968E',

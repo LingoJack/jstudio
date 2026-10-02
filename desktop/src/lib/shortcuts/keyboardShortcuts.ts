@@ -638,7 +638,7 @@ export function checkBindingConflict(
 // ────────────────────────────────────────────────────────────────────────────
 
 /** Convert an internal binding to a Tauri menu accelerator. */
-export function toTauriAccelerator(binding: ShortcutBinding): string | null {
+export function toElectronAccelerator(binding: ShortcutBinding): string | null {
   if (!binding) return null;
 
   const keyMap: Record<string, string> = {

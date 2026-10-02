@@ -94,7 +94,7 @@ export function useDocSidebarActions({
 
   const handleImportMarkdown = useCallback(async (folderId?: string) => {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import('../../../lib/platform');
       const filePath = await open({
         multiple: false,
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown'] }],
@@ -111,7 +111,7 @@ export function useDocSidebarActions({
 
   const handleImportMarkdownDirectory = useCallback(async (folderId?: string) => {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import('../../../lib/platform');
       const dirPath = await open({ directory: true, multiple: false });
       if (!dirPath || typeof dirPath !== 'string') return;
       const count = await importMarkdownDirectory(dirPath, folderId);
@@ -134,7 +134,7 @@ export function useDocSidebarActions({
    */
   const handleSyncMarkdownDirectory = useCallback(async (folderId?: string) => {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import('../../../lib/platform');
       const dirPath = await open({ directory: true, multiple: false });
       if (!dirPath || typeof dirPath !== 'string') return;
       const count = await syncMarkdownDirectory(dirPath, folderId);

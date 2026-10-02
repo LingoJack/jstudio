@@ -23,8 +23,7 @@ import type {
 } from '../types/agent';
 import { ipc } from '../lib/core/ipc';
 import type { StoreState } from './storeHelpers';
-import type { UnlistenFn } from '@tauri-apps/api/event';
-import { listen } from '@tauri-apps/api/event';
+import { type UnlistenFn, listen } from '../lib/platform';
 
 /**
  * Create the agent slice.

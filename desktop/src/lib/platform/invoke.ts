@@ -1,5 +1,5 @@
 /**
- * Shim for `@tauri-apps/api/core` (Electron shell, via vite alias).
+ * Platform invoke — the renderer's single command gateway.
  *
  *   invoke('read_settings', …)        → sidecar JSON-RPC (same method names)
  *   convertFileSrc('/abs/path.png')   → jstudio-asset://localhost/…
@@ -32,9 +32,9 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
 }
 
 /**
- * Tauri format: `asset://localhost/<percent-encoded-path>` (macOS/Linux).
- * Each path segment is encoded separately so slashes survive; the main-side
- * protocol handler (electron/protocol.ts) decodes them symmetrically.
+ * Asset protocol URL builder. Each path segment is encoded separately so
+ * slashes survive; the main-side protocol handler (electron/protocol.ts)
+ * decodes them symmetrically.
  */
 export function convertFileSrc(filePath: string): string {
   const encoded = filePath.split('/').map(encodeURIComponent).join('/');

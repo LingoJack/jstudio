@@ -1,13 +1,13 @@
 /**
  * Asset URL → blob URL resolver.
  *
- * Tauri's default `convertFileSrc` produces `asset://localhost/...` URLs. In
- * recent WebKit builds those are treated as cross-origin to the `tauri://localhost`
- * page, so `<img>`, `<audio>`, `<video>`, `fetch()`, and `<iframe>` are blocked
- * with "Domains, protocols and ports must match".
+ * The `jstudio-asset://` protocol is registered with standard (secure) flag
+ * off, so media elements and `fetch()` can treat those URLs as untrusted
+ * origins in some contexts — media loading through the protocol is not
+ * guaranteed across webview versions.
  *
  * This hook reads the on-disk asset via `ipc.readFileBytes` and creates a
- * same-origin `blob:tauri://localhost/...` URL that WebKit allows to load.
+ * same-origin `blob:` URL, which always loads.
  *
  * Non-asset sources (`data:`, `http(s):`, `blob:`, absolute file URLs) pass
  * through unchanged.

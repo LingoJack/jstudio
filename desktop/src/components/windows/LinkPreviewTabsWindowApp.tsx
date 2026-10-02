@@ -23,7 +23,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Loader2, ExternalLink, RefreshCw, Globe } from "lucide-react";
-import { listen } from "@tauri-apps/api/event";
+import { listen } from "../../lib/platform";
 import { useWindowThemeSync } from "../../lib/windows/useWindowThemeSync";
 import { useI18n } from "../../lib/core/i18n";
 import { ipc } from "../../lib/core/ipc";

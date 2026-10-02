@@ -19,7 +19,7 @@
 
 import mermaid from "mermaid";
 import type { MermaidConfig } from "mermaid";
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../../../../lib/platform';
 import { runExclusiveRender } from "./mermaidConfig";
 
 const PNG_SCALE = 2;

@@ -103,8 +103,8 @@ export const JSTUDIO_LIGHT: AppTheme = {
     'textBlockQuote-background': '#F8F8F8',
     'textBlockQuote-border': '#C0C0C0',
     'textCodeBlock-background': '#F8F8F8',
-    'textPreformat-foreground': '#3B3B3B',
-    'textPreformat-background': '#0000001F',
+    'textPreformat-foreground': '#2B3252', // 行内代码·铁胆墨水：蓝黑近墨 + 冷灰染（默认主题定基调）
+    'textPreformat-background': '#57606A1A', // 同色相 8% 淡染
 
     // ── Editor line numbers / guides ──
     'editorLineNumber-foreground': '#6E7681',

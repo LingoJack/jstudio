@@ -1,23 +1,23 @@
 /**
- * Shim for `@tauri-apps/api/event` (Electron shell, via vite alias).
+ * Platform events — the renderer's single event gateway.
  *
  * Backed by the unified main→renderer bus ('jstudio-event'): sidecar
  * notifications (pty-data, agent:*) and main-originated events
  * (native-command, window-close-requested) arrive on the same channel.
  * `emit` round-trips through main and is broadcast to ALL windows —
- * including the sender — matching Tauri's frontend-emit semantics.
+ * including the sender.
  */
 
 import { native } from './native';
 
-export interface TauriEvent<T> {
+export interface PlatformEvent<T> {
   event: string;
   payload: T;
   /** Emitting manager/window label, when the main process supplied one. */
   label?: string;
 }
 
-type Callback<T> = (event: TauriEvent<T>) => void;
+type Callback<T> = (event: PlatformEvent<T>) => void;
 export type UnlistenFn = () => void;
 
 const listeners = new Map<string, Set<Callback<unknown>>>();
@@ -33,7 +33,7 @@ function ensureBus(): void {
       try {
         cb({ event, payload, label });
       } catch (err) {
-        console.error(`[tauriShim/event] listener for "${event}" threw:`, err);
+        console.error(`[platform/events] listener for "${event}" threw:`, err);
       }
     }
   });

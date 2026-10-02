@@ -13,7 +13,7 @@
  *   - editor: handled by TipTap, ShortcutManager skips
  */
 
-import { listen } from '@tauri-apps/api/event';
+import { listen } from '../../lib/platform';
 import { useStore } from '../../store/useStore';
 import {
   eventToBinding,

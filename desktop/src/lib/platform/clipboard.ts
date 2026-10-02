@@ -1,7 +1,6 @@
 /**
- * Shim for `@tauri-apps/plugin-clipboard-manager` (Electron shell).
- * Maps to Electron's clipboard in main; `readImage` mirrors the plugin's
- * Image interface (size() + rgba()) used by clipboardImage.ts.
+ * Platform clipboard (read side) — maps to Electron's clipboard in main;
+ * `readImage` exposes size() + rgba() accessors used by clipboardImage.ts.
  */
 
 import { native } from './native';
@@ -34,4 +33,4 @@ export async function readImage(): Promise<ClipboardImage> {
 
 // 写图片统一走 Electron 主进程命令 copy_image_bytes_to_clipboard
 // （src/lib/export/fileExport.ts 的 copyImageToClipboard 与 mermaid 图表
-// 复制都走该通道）；本 shim 只保留读取侧。
+// 复制都走该通道）；本模块只保留读取侧。

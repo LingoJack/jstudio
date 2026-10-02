@@ -21,7 +21,7 @@ import {
   type Geometry,
   type InternalMouseEvent,
 } from '@maxgraph/core';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../../../../lib/platform';
 import { HEAD_HEIGHT } from './customShapes';
 
 /* ------------------------------------------------------------------ */

@@ -13,7 +13,7 @@
 
 import { useCallback, useRef } from 'react';
 import type { Terminal } from '@xterm/xterm';
-import { readText } from '@tauri-apps/plugin-clipboard-manager';
+import { readText } from '../../lib/platform';
 import { preparePasteText } from '../../lib/terminal/pasteSanitize';
 import { isRawPinyinCommit, stripPinyinSpaces } from '../../lib/ime/pinyinStrip';
 

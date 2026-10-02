@@ -18,7 +18,7 @@ import { ipc } from '../../../lib/core/ipc';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
 import { useAssetBlobUrl } from '../../../lib/editor/content/useAssetBlobUrl';
 import { resolveAssetFilePath } from '../../../lib/editor/content/assetUrl';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../../../lib/platform';
 import { useNodeResize } from '../hooks/useNodeResize';
 import { useEditorWidth } from '../hooks/useEditorWidth';
 import { useNodeToolbarNav } from '../hooks/useNodeToolbarNav';
@@ -54,10 +54,9 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
   const { src, alt, title, width, widthPct, height, heightPct, align } = node.attrs as ImageNodeAttrs;
   const { t } = useI18n();
 
-  // Resolve doc-relative asset paths (`assets/…`) to a same-origin blob URL.
-  // Tauri's `asset://localhost` URLs are treated as cross-origin to the page's
-  // `tauri://localhost` origin, so <img> requests are blocked. We read the file
-  // bytes and create a blob: URL instead.
+  // Resolve doc-relative asset paths (`assets/…`) to a same-origin blob URL:
+  // media elements don't reliably load custom-protocol URLs across webview
+  // versions, so we read the file bytes and create a blob: URL instead.
   const studioRoot = useStore((s) => s.studioRoot);
   const activeDocId = useStore((s) => s.activeDocId);
   const addToast = useStore((s) => s.addToast);
@@ -93,7 +92,7 @@ export default function ImageView({ node, updateAttributes, editor, getPos }: No
     if (src) return; // already has an image
     setLoading(true);
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import('../../../lib/platform');
       const filePath = await open({
         multiple: false,
         filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }],

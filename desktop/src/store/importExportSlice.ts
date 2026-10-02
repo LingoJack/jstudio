@@ -319,7 +319,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
       (doc?.title || "Untitled").replace(/[/\\:*?"<>|]/g, "_").trim() ||
       "Untitled";
 
-    const { save } = await import("@tauri-apps/plugin-dialog");
+    const { save } = await import("../lib/platform");
     const destPath = await save({
       defaultPath: `${baseName}.jnote`,
       filters: [{ name: "JStudio Backup", extensions: ["jnote"] }],
@@ -339,7 +339,7 @@ export const createImportExportSlice: SliceCreator = (set, get) => ({
    * document id, or `null` if the user cancelled.
    */
   importDocumentBundle: async (folderId) => {
-    const { open } = await import("@tauri-apps/plugin-dialog");
+    const { open } = await import("../lib/platform");
     const srcPath = await open({
       multiple: false,
       filters: [{ name: "JStudio Backup", extensions: ["jnote"] }],

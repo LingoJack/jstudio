@@ -347,9 +347,9 @@ export default function TabBar({
       >
         <div
           // Only the capsule itself is interactive in titlebar mode; it is
-          // excluded from the window drag region so grabbing it doesn't move
-          // the window (and its own drag-to-detach keeps working).
-          {...(position === 'titlebar' ? { 'data-tauri-drag-region': false } : {})}
+          // excluded from the window drag region (.no-drag) so grabbing it
+          // doesn't move the window (and its own drag-to-detach keeps
+          // working).
           // `scrollbar-none`: hide the native scrollbar WITHOUT disabling
           // scrolling — both this capsule and the inner strip below are
           // horizontal scroll containers, and the global
@@ -361,7 +361,7 @@ export default function TabBar({
             // Docked mode: straddle the title bar's bottom edge — the capsule
             // (~46px) is taller than the 36px bar, so it hangs below it
             // instead of being clipped by the window frame.
-            position === 'titlebar' ? 'translate-y-1/2 pointer-events-auto' : ''
+            position === 'titlebar' ? 'no-drag translate-y-1/2 pointer-events-auto' : ''
           }`}
           style={{
             maxWidth,

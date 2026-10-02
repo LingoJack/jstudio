@@ -6,8 +6,7 @@
  * - 复制文本：navigator.clipboard.writeText（Tauri webview 兼容）
  */
 
-import { save } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { save, invoke } from '../../lib/platform';
 
 /* ── 保存到文件 ────────────────────────────────────────────── */
 

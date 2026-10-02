@@ -78,8 +78,8 @@ export const INK_DARK: AppTheme = {
     'textBlockQuote-background': '#1e2030',
     'textBlockQuote-border': '#5a6590',
     'textCodeBlock-background': '#1e2030',
-    'textPreformat-foreground': '#c8d3f5',
-    'textPreformat-background': '#2f334d',
+    'textPreformat-foreground': '#97A5E8', // 行内代码·靛墨极微染：靛夜主题只需同族耳语（8%）
+    'textPreformat-background': '#97A5E814', // 同色相 12% 淡染
     'editorLineNumber-foreground': '#7f88b0',
     'editorLineNumber-activeForeground': '#c8d3f5',
     'editorIndentGuide-background1': '#2f334d',

@@ -1,11 +1,7 @@
 /**
  * native.ts — typed accessor for the Electron preload bridge
- * (`window.jstudioNative`, see electron/preload.ts). Every `@tauri-apps/*`
- * shim module in this directory builds on top of this single object.
- *
- * When the renderer runs inside the legacy Tauri shell this object is
- * absent — but the vite alias (vite.config.ts, JSTUDIO_SHELL=electron) only
- * rewires imports in the Electron build, so shim modules never load there.
+ * (`window.jstudioNative`, see electron/preload.ts). Every platform module
+ * in this directory builds on top of this single object.
  */
 
 export interface JstudioNative {
@@ -39,8 +35,8 @@ declare global {
 export function native(): JstudioNative {
   if (!window.jstudioNative) {
     throw new Error(
-      '[tauriShim] window.jstudioNative missing — the Electron preload did not inject it. ' +
-        'These shim modules only work inside the Electron shell.',
+      '[platform] window.jstudioNative missing — the Electron preload did not inject it. ' +
+        'These platform modules only work inside the Electron shell.',
     );
   }
   return window.jstudioNative;

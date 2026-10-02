@@ -103,11 +103,6 @@ export default function DocumentSidebar({
   const moreMenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [moreMenuPos, setMoreMenuPos] = useState<{ x: number; y: number } | null>(null);
-  /** Hovering the title-bar strip (where the header actions live) keeps the
-   *  hover-expanded sidebar open — the strip is outside the sidebar root's
-   *  DOM subtree, so without this the collapse timer would fire while the
-   *  pointer travels up to the icons. */
-  const [headerHovered, setHeaderHovered] = useState(false);
 
   const [batchMenu, setBatchMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchMoveMenu, setBatchMoveMenu] = useState<{ x: number; y: number } | null>(null);
@@ -124,30 +119,12 @@ export default function DocumentSidebar({
   const backupDialogDoc = useStore((s) => s.backupRestoreDialogDoc);
 
   // ── Title-bar strip (header actions portal target) ────────
+  // The slot's position is rendered by AppTitleBar straight from the store
+  // (activity bar + sidebar width). Deliberately NO ResizeObserver tracking
+  // here: the icons are title-bar citizens, not hostages of the sidebar's
+  // transient hover state — tracking the animated width made them flee the
+  // pointer whenever the hover-expanded sidebar started collapsing.
   const titlebarLeftSlotEl = useTitlebarLeftSlot();
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  // Track the sidebar's right edge so the portaled header actions stay
-  // right-aligned with the sidebar through width transitions (pin toggles,
-  // hover expand, manual resize). ResizeObserver fires per animation frame
-  // during the 180ms width transition, so the strip follows smoothly.
-  useEffect(() => {
-    const root = rootRef.current;
-    const slot = titlebarLeftSlotEl;
-    if (!root || !slot) return;
-    const update = () => {
-      const right = window.innerWidth - root.getBoundingClientRect().right;
-      slot.style.right = `${Math.max(0, right)}px`;
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(root);
-    window.addEventListener('resize', update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', update);
-      slot.style.right = '';
-    };
-  }, [titlebarLeftSlotEl]);
 
   // ── Suppress collapse while a floating menu / inline rename is active ──
   // Floating menus (context menu, folder menu, batch menus, the "more"
@@ -169,7 +146,7 @@ export default function DocumentSidebar({
   // closes, the useSidebarHover true->false re-evaluation kicks in and
   // collapses based on the current pointer position.
   const anyDialogOpen = trashDialogOpen || backupDialogDoc !== null;
-  const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null || headerHovered;
+  const suppressCollapse = anyFloatingMenuOpen || anyDialogOpen || renamingId !== null || renamingFolderId !== null;
 
   // ── Hover expand/collapse (extracted to useSidebarHover hook) ──
   const {
@@ -511,19 +488,18 @@ export default function DocumentSidebar({
   );
   const headerActions = (
     <div
-      // Explicit drag-region opt-out (same idiom as the TabBar capsule):
-      // Tauri starts a window drag from the nearest ancestor carrying the
-      // attribute unless the nearest one says "false" — without this the
-      // AppTitleBar's drag region swallows every click on these buttons.
-      {...{ 'data-tauri-drag-region': false }}
-      className="pointer-events-auto flex items-center gap-0.5 h-9 pl-1 pr-3"
-      onMouseEnter={() => setHeaderHovered(true)}
-      onMouseLeave={() => setHeaderHovered(false)}
+      // .no-drag: the title bar is a drag region; without this opt-out
+      // Electron's app-region hit test turns every mousedown here into a
+      // window drag and the buttons never receive their clicks.
+      className="no-drag pointer-events-auto flex items-center gap-0.5 h-9 pl-1 pr-3"
     >
       {/* Search — icon entry into the global search dialog */}
       <button
         onClick={() => setGlobalSearchOpen(true)}
-        className="p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        onPointerDown={(e) =>
+          addToast('info', `[probe] pointerdown ${e.button === 0 ? 'left' : e.button}`, 3000)
+        }
+        className="no-drag p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
         title={
           globalSearchBinding
             ? `${t('shortcut.app.globalSearch')} · ${globalSearchBinding}`
@@ -537,7 +513,7 @@ export default function DocumentSidebar({
           onClick={handleTogglePin}
           // Pinned = accent icon, no background pill (ActivityBar color
           // story: accent = "this is where you are / this is on").
-          className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
+          className={`no-drag p-1 rounded-md transition-colors duration-150 cursor-pointer ${
             isPinLocked
               ? 'text-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]'
               : 'text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]'
@@ -557,7 +533,7 @@ export default function DocumentSidebar({
               captureMoreMenuPos();
               setMoreMenuOpen((v) => !v);
             }}
-            className="cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
+            className="no-drag cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] p-1 rounded-md transition-colors duration-150"
             title={t('doclist.moreActions')}
           >
             <MoreHorizontal className="w-4 h-4" />
@@ -595,7 +571,6 @@ export default function DocumentSidebar({
       className={`shrink-0 flex flex-col select-none z-30 relative overflow-hidden bg-[var(--vscode-sideBar-background)] ${
         embedded ? 'h-full' : '-mt-9 h-[calc(100%+2.25rem)]'
       }`}
-      ref={rootRef}
       style={{
         width: effectiveWidth,
         marginRight: -overlayShift,
@@ -604,9 +579,11 @@ export default function DocumentSidebar({
       onMouseEnter={handleHoverEnter}
       onMouseLeave={handleHoverLeave}
     >
-      {/* Header actions portal (search / pin / more in the title bar). */}
-      {titlebarLeftSlotEl && !isCollapsed &&
-        createPortal(headerActions, titlebarLeftSlotEl)}
+      {/* Header actions portal (search / pin / more in the title bar).
+          NOT gated on the sidebar's collapsed state: the icons are title-bar
+          actions and must stay put (and stay clickable) while a hover-mode
+          sidebar collapses under them — gating made them flee the pointer. */}
+      {titlebarLeftSlotEl && createPortal(headerActions, titlebarLeftSlotEl)}
 
       {/* ── Collapsed mode: pin button + mini rail instrument ── */}
       {isCollapsed ? (

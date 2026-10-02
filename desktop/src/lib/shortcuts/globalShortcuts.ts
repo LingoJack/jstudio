@@ -36,7 +36,7 @@
  * No changes to the core engine, settings UI, or Rust backend are needed.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../../lib/platform';
 import type { LucideIcon } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -108,9 +108,8 @@ export interface GlobalShortcutConfig {
 
 /** Execution context passed to action handlers. */
 export interface ActionContext {
-  /** The Tauri Window instance of the main window. */
-  // Window type from @tauri-apps/api is available at runtime; we use a
-  // minimal interface here to avoid a hard import dependency in this file.
+  /** The platform Window instance of the main window. We use a minimal
+   *  interface here to avoid a hard import dependency in this file. */
   emit: (event: string, payload?: unknown) => Promise<void>;
 }
 

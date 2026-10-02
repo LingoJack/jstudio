@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -9,10 +8,7 @@ import pkg from './package.json' with { type: 'json' }
 // 要点：
 // - `base: './'`     —— production asset 使用相对路径
 // - `outDir: 'dist'` —— 与 electron-builder.yml 的 files 对齐
-// - `@tauri-apps/*` 全部 alias 到 src/lib/core/tauriShim/（Electron 桥），
-//   前端调用点零改动 —— 历史遗留的导入名，仅此而已。
-const shim = (name: string) =>
-  fileURLToPath(new URL(`./src/lib/core/tauriShim/${name}`, import.meta.url))
+// - 平台调用统一走 src/lib/platform/（普通相对导入，无需 alias）。
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -22,15 +18,6 @@ export default defineConfig({
     // gitignored), and Vite's default order resolves `.js` before `.ts` —
     // so the app would silently run the stale copy instead of the source.
     extensions: ['.mjs', '.mts', '.ts', '.tsx', '.jsx', '.js', '.json'],
-    alias: {
-      '@tauri-apps/api/core': shim('core.ts'),
-      '@tauri-apps/api/event': shim('event.ts'),
-      '@tauri-apps/api/window': shim('window.ts'),
-      '@tauri-apps/api/webviewWindow': shim('webviewWindow.ts'),
-      '@tauri-apps/plugin-dialog': shim('plugin-dialog.ts'),
-      '@tauri-apps/plugin-clipboard-manager': shim('plugin-clipboard-manager.ts'),
-      '@tauri-apps/plugin-opener': shim('plugin-opener.ts'),
-    },
   },
   base: './',
   publicDir: false,

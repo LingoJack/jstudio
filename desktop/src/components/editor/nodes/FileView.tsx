@@ -91,9 +91,8 @@ export default function FileView({
   const studioRoot = useStore((s) => s.studioRoot);
   const activeDocId = useStore((s) => s.activeDocId);
 
-  // Inline previews use a same-origin blob URL because Tauri's
-  // `asset://localhost` origin is treated as cross-origin to the page's
-  // `tauri://localhost` origin and gets blocked by WebKit.
+  // Inline previews use a same-origin blob URL because media elements don't
+  // reliably load custom-protocol URLs across webview versions.
   const {
     url: blobSrc,
     loading: assetLoading,
@@ -231,7 +230,7 @@ export default function FileView({
     if (src) return;
     setLoading(true);
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import('../../../lib/platform');
       const filePath = await open({
         multiple: false,
         filters: [{ name: 'Files', extensions: FILE_EXTENSIONS }],

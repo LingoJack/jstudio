@@ -14,7 +14,7 @@
  *      and everything falls back to a default face)
  */
 
-import { native } from '../core/tauriShim/native';
+import { native } from '../platform/native';
 import { base64ToText, bytesToBase64 } from './base64';
 
 /** Matches `url(...)` inside a CSS declaration. */

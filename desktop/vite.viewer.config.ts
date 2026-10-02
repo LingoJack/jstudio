@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -12,24 +11,14 @@ import pkg from './package.json' with { type: 'json' }
 //   - emitted under fixed names (`viewer.js` / `viewer.css`) into
 //     `dist-viewer/`, so the exporter can find them without a manifest
 //
-// Everything else (React plugin, Tailwind, the `@tauri-apps/*` shims) mirrors
-// vite.config.ts: the viewer renders the app's real components.
-const shim = (name: string) =>
-  fileURLToPath(new URL(`./src/lib/core/tauriShim/${name}`, import.meta.url))
+// Everything else (React plugin, Tailwind) mirrors vite.config.ts: the
+// viewer renders the app's real components. 平台调用统一走
+// src/lib/platform/（普通相对导入，无需 alias）。
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     extensions: ['.mjs', '.mts', '.ts', '.tsx', '.jsx', '.js', '.json'],
-    alias: {
-      '@tauri-apps/api/core': shim('core.ts'),
-      '@tauri-apps/api/event': shim('event.ts'),
-      '@tauri-apps/api/window': shim('window.ts'),
-      '@tauri-apps/api/webviewWindow': shim('webviewWindow.ts'),
-      '@tauri-apps/plugin-dialog': shim('plugin-dialog.ts'),
-      '@tauri-apps/plugin-clipboard-manager': shim('plugin-clipboard-manager.ts'),
-      '@tauri-apps/plugin-opener': shim('plugin-opener.ts'),
-    },
   },
   base: './',
   publicDir: false,

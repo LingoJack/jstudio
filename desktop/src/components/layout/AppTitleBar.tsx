@@ -1,4 +1,5 @@
 import { useStore } from '../../store/useStore';
+import { SIDEBAR } from '../../lib/constants';
 import BrowserTabStrip from '../panels/BrowserTabStrip';
 import { setTitlebarLeftSlot, setTitlebarSlot } from './titlebarSlot';
 
@@ -24,12 +25,12 @@ export const TITLEBAR_CENTER_SLOT_ID = 'app-titlebar-center-slot';
  */
 export default function AppTitleBar() {
   const activeSidebarView = useStore((s) => s.activeSidebarView);
+  const sidebarWidth = useStore((s) => s.sidebarWidth);
   const isBrowserView = activeSidebarView === 'browser';
 
   return (
     <div
-      data-tauri-drag-region
-      className="absolute top-0 inset-x-0 h-9 flex items-center justify-between px-3 select-none z-toolbar"
+      className="drag-region absolute top-0 inset-x-0 h-9 flex items-center justify-between px-3 select-none z-toolbar"
       // Fully transparent, no blur/tint: the document scroll area extends
       // beneath this bar (App.tsx punches the content column through in doc
       // view) and the text stays crisp under it.
@@ -37,24 +38,32 @@ export default function AppTitleBar() {
     >
       {/* Left: placeholder for traffic lights space — the whole left zone is
           surrendered to the native traffic lights; no app UI lives here. */}
-      <div className="w-[72px]" data-tauri-drag-region />
+      <div className="w-[72px]" />
 
       {/* Left slot: the document sidebar portals its header actions (search /
-          pin / more) here, right-aligned to the sidebar's right edge (the
-          sidebar itself tracks the edge and sets this slot's `right` inline —
-          see DocumentSidebar). pointer-events-none so empty slot space falls
-          through to the drag region above; the portaled group re-enables
-          pointer events on itself. */}
+          pin / more) here, right-aligned to the sidebar's right edge.
+          The INITIAL right offset is rendered from the store (activity bar +
+          sidebar width) so the slot is already above the sidebar edge at
+          FIRST PAINT — Electron snapshots draggable regions from the first
+          layout, and a later JS move (DocumentSidebar's ResizeObserver,
+          which keeps tracking hover/resize animations) would leave the
+          native no-drag hole at the slot's unpositioned right-0 spot:
+          physical clicks on the icons then hit the bar's drag rect and
+          never reach the renderer. The observer's writes converge on this
+          same value, so this stays a no-op for it.
+          pointer-events-none: empty slot space falls through to the bar's
+          drag region; the portaled group re-enables pointer events.
+          NOTE: only the BAR ROOT carries .drag-region — see its comment. */}
       <div
         ref={setTitlebarLeftSlot}
-        className="absolute top-0 right-0 h-9 flex items-center pointer-events-none"
+        style={{ right: `calc(100% - ${SIDEBAR.ACTIVITY_BAR + sidebarWidth}px)` }}
+        className="pointer-events-none absolute top-0 h-9 flex items-center"
       />
 
-      {/* Center: browser tab strip (browser view) or empty drag region.
-          Always a drag region - interactive children opt out explicitly
-          (`data-tauri-drag-region={false}`), so empty space remains
-          draggable (double-click-to-maximize on macOS). */}
-      <div className="flex-1 flex items-center" data-tauri-drag-region>
+      {/* Center: browser tab strip (browser view) or empty drag space — the
+          bar root's drag region already covers it; interactive children opt
+          out with .no-drag (double-click-to-maximize works on the bar). */}
+      <div className="flex-1 flex items-center">
         {isBrowserView ? <BrowserTabStrip /> : null}
       </div>
 
@@ -62,17 +71,16 @@ export default function AppTitleBar() {
           when position is 'top'). items-end + the capsule's own
           translate-y-1/2 make the capsule straddle the title bar's bottom
           edge (chrome-tab style): taller than the 36px bar without getting
-          its top clipped by the window frame. Empty + pointer-events-none
-          so it never blocks window dragging. */}
+          its top clipped by the window frame. Empty + pointer-events-none;
+          deliberately NO .drag-region here — see the left-slot note above. */}
       <div
         id={TITLEBAR_CENTER_SLOT_ID}
         ref={setTitlebarSlot}
-        data-tauri-drag-region
         className="absolute inset-x-0 top-0 bottom-0 flex items-end justify-center pointer-events-none"
       />
 
       {/* Right: spacer (sidebar toggle moved into DocumentSidebar as a pin) */}
-      <div className="w-4" data-tauri-drag-region />
+      <div className="w-4" />
     </div>
   );
 }

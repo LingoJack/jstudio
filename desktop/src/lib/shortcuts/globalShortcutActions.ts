@@ -14,8 +14,7 @@
  * in this file (or any side-effect module) and add i18n keys.
  */
 
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { WebviewWindow, getCurrentWindow } from '../../lib/platform';
 import { LayoutGrid, TerminalSquare, Eye } from 'lucide-react';
 import { ipc } from '../core/ipc';
 import { registerActionDef } from './globalShortcuts';
@@ -52,7 +51,7 @@ registerActionDef({
     const label = `cp-${panelId}`;
 
     // Close any existing panel window of this type to avoid duplicates.
-    const { WebviewWindow: WV } = await import('@tauri-apps/api/webviewWindow');
+    const { WebviewWindow: WV } = await import('../../lib/platform');
     const existing = await WV.getByLabel(label);
     if (existing) {
       await existing.close();
@@ -86,7 +85,7 @@ registerActionDef({
         // skipTaskbar: true, // Not available in all platforms
       });
 
-      w.once('tauri://error', (e) => {
+      w.once('jstudio://window-error', (e) => {
         console.error('[globalShortcuts] Command palette window error:', e);
       });
     }
@@ -163,7 +162,7 @@ registerActionDef({
     //
     // We use the same detach payload mechanism but with a synthetic payload
     // that indicates "new session" mode.
-    const { invoke } = await import('@tauri-apps/api/core');
+    const { invoke } = await import('../../lib/platform');
 
     const payload = {
       groupId: `gs-group-${label}`,

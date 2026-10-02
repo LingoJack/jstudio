@@ -6,14 +6,14 @@
  * Following the link is a deliberate mod-click gesture, matching VSCode /
  * Typora.
  *
- * Opening goes through the `@tauri-apps/plugin-opener` shim → Electron main
- * `shell.openExternal`, i.e. the system default browser — the app window
- * itself never navigates away from the document.
+ * Opening goes through the platform opener module (`lib/platform/opener`) →
+ * Electron main `shell.openExternal`, i.e. the system default browser — the
+ * app window itself never navigates away from the document.
  */
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openUrl } from '../../../lib/platform';
 import { logger } from '../../core/logger';
 
 const LOG_SOURCE = 'linkClickOpen';

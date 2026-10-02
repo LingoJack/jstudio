@@ -1,6 +1,6 @@
 /**
- * Shim for `@tauri-apps/plugin-dialog` (Electron shell, via vite alias).
- * Maps to Electron's dialog.showOpenDialog / showSaveDialog in main.
+ * Platform dialogs — maps to Electron's dialog.showOpenDialog /
+ * showSaveDialog in main.
  */
 
 import { native } from './native';

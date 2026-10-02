@@ -348,7 +348,7 @@ export default function LinkView({
 
   const handleOpenExternal = useCallback(() => {
     if (!url) return;
-    import('@tauri-apps/plugin-opener').then(({ openUrl }) => openUrl(url));
+    import('../../../lib/platform').then(({ openUrl }) => openUrl(url));
   }, [url]);
 
   const handleStartEdit = useCallback(() => {

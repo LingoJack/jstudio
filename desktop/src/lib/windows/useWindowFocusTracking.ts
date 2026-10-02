@@ -1,23 +1,23 @@
 /**
  * useWindowFocusTracking — proactively report this window's label to the
- * Rust-side `FocusedWindow` state whenever the OS window gains focus.
+ * main-process `FocusedWindow` state whenever the OS window gains focus.
  *
- * Why: Tauri's `WindowEvent::Focused` is unreliable for child webview
- * windows (see menu.rs `on_menu_event` comment). Native menu commands
- * (Cmd+W, Cmd+T, etc.) route to whichever window `FocusedWindow`
- * currently names; if the event never fires for a child window, the
- * state stays on "main" and Cmd+W pressed inside a diagram/preview/
- * terminal child window gets misrouted to the main window.
+ * Why: passive focus notifications have historically been unreliable for
+ * child windows. Native menu commands (Cmd+W, Cmd+T, etc.) route to
+ * whichever window `FocusedWindow` currently names; if the focus event
+ * never fires for a child window, the state stays on "main" and Cmd+W
+ * pressed inside a diagram/preview/terminal child window gets misrouted
+ * to the main window.
  *
  * How: each window (main + all child window types) mounts this hook
  * once at the root. On `window` `focus` we call `ipc.reportWindowFocus`
  * with `getCurrentWindow().label`. The browser engine fires `focus`
- * reliably when the OS window becomes key, bypassing the Tauri bug.
+ * reliably when the OS window becomes key.
  *
- * First-report robustness: a freshly created child webview may fire its
+ * First-report robustness: a freshly created child window may fire its
  * initial `focus` event *before* React mounts and registers the
  * listener. We therefore attempt the first report in a `useEffect`
- * (post-mount) and retry a couple of times in case the Tauri runtime
+ * (post-mount) and retry a couple of times in case the preload bridge
  * isn't ready to dispatch the IPC yet. Subsequent focus changes are
  * picked up by the `focus` event listener.
  *
@@ -28,7 +28,7 @@
  * already reported itself).
  */
 import { useEffect } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '../../lib/platform';
 import { ipc } from '../core/ipc';
 
 export function useWindowFocusTracking(): void {
@@ -41,8 +41,8 @@ export function useWindowFocusTracking(): void {
       });
     };
 
-    // First-report retry loop. The Tauri runtime inside a freshly
-    // created webview can take a few ticks to be ready to dispatch
+    // First-report retry loop. The preload bridge inside a freshly
+    // created window can take a few ticks to be ready to dispatch
     // IPC; if the very first report fails, retry a couple of times.
     let attempts = 0;
     const maxAttempts = 3;
@@ -60,7 +60,7 @@ export function useWindowFocusTracking(): void {
         });
     };
     // setTimeout(0) ensures we run after the current synchronous batch,
-    // giving the Tauri runtime a chance to finish wiring up the webview.
+    // giving the preload bridge a chance to finish wiring up the window.
     const timer = setTimeout(firstReport, 0);
 
     window.addEventListener('focus', report);

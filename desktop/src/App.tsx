@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
+import { listen, getCurrentWindow, invoke } from './lib/platform';
 import { useStore } from './store/useStore';
 import { useI18n } from './lib/core/i18n';
 import { ipc } from './lib/core/ipc';
@@ -9,7 +7,7 @@ import { toast } from './lib/core/toast';
 import { confirmExitIfEnabled } from './lib/core/exitConfirm';
 import { syncGlobalShortcuts, executeAction, type GlobalShortcutConfig } from './lib/shortcuts/globalShortcuts';
 import { shortcutManager } from './lib/shortcuts/ShortcutManager';
-import { resolveBinding, toTauriAccelerator } from './lib/shortcuts/keyboardShortcuts';
+import { resolveBinding, toElectronAccelerator } from './lib/shortcuts/keyboardShortcuts';
 
 // Side-effect import: registers built-in action handlers for global shortcuts.
 import './lib/shortcuts/globalShortcutActions';
@@ -68,7 +66,7 @@ export default function App() {
   useEffect(() => {
     if (isLoading) return;
     const binding = resolveBinding('app.find', keyboardShortcuts);
-    const accelerator = toTauriAccelerator(binding);
+    const accelerator = toElectronAccelerator(binding);
     invoke('set_native_menu_accelerator', {
       commandId: 'app.find',
       accelerator,
@@ -85,7 +83,7 @@ export default function App() {
   useEffect(() => {
     if (isLoading) return;
     const binding = resolveBinding('editor.inlineCode', keyboardShortcuts);
-    const accelerator = toTauriAccelerator(binding);
+    const accelerator = toElectronAccelerator(binding);
     invoke('set_native_menu_accelerator', {
       commandId: 'editor.inlineCode',
       accelerator,
@@ -158,7 +156,7 @@ export default function App() {
           const config = event.payload;
           executeAction(config, {
             emit: async (eventName, payload) => {
-              const { emit } = await import('@tauri-apps/api/event');
+              const { emit } = await import('./lib/platform');
               await emit(eventName, payload);
             },
           });

@@ -1,17 +1,15 @@
 /**
- * diagramWindow.ts — Tauri 独立窗口管理（画板放大编辑）。
+ * diagramWindow.ts — 独立图表编辑窗口（画板放大编辑，Electron BrowserWindow）。
  *
  * 主窗口调用 `openDiagramWindow()` 创建一个独立的 OS 窗口，
- * 数据通过 Rust 内存命令（set/get_preview_data）传递初始快照，
- * 编辑期间通过 Rust 内存命令（set/get_diagram_update）轮询回传更新的快照到主窗口。
+ * 数据通过 sidecar KV 中继（set/get_preview_data）传递初始快照，
+ * 编辑期间通过 KV 中继（set/get_diagram_update）轮询回传更新的快照到主窗口。
  *
  * 新窗口加载同一个前端 bundle，通过 URL 参数 `?window=diagram&label=xxx`
  * 来区分渲染逻辑并传递窗口标签（见 main.tsx → DiagramWindowApp）。
  */
 
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
+import { WebviewWindow, getCurrentWindow, invoke } from '../../lib/platform';
 
 import { logger } from '../core/logger';
 import type { MindmapScheme } from '../editor/extensions/diagramExtension';
@@ -120,16 +118,16 @@ export async function openDiagramWindow(
     center: true,
   });
 
-  webviewWindow.once('tauri://created', () => {
+  webviewWindow.once('jstudio://window-created', () => {
     logger.debug('DiagramWindow', 'Window created: ' + label);
   });
 
-  webviewWindow.once('tauri://error', (e) => {
+  webviewWindow.once('jstudio://window-error', (e) => {
     console.error('[DiagramWindow] Error:', e);
     onClosed?.();
   });
 
-  webviewWindow.once('tauri://destroyed', () => {
+  webviewWindow.once('jstudio://window-destroyed', () => {
     logger.debug('DiagramWindow', 'Window destroyed: ' + label);
     stopped = true;
     onClosed?.();
@@ -147,14 +145,14 @@ export async function openDiagramWindow(
 /* Receiver side (diagram window — runs inside the new OS window)     */
 /* ------------------------------------------------------------------ */
 
-/** Resolve this window's label — prefer URL param, fallback to Tauri API. */
+/** Resolve this window's label — prefer URL param, fallback to the platform window API. */
 function resolveLabel(): string {
-  // Primary: URL query param (most reliable across Tauri v2 versions).
+  // Primary: URL query param (most reliable across window managers).
   const params = new URLSearchParams(window.location.search);
   const fromUrl = params.get('label');
   if (fromUrl) return fromUrl;
 
-  // Fallback: Tauri window label.
+  // Fallback: platform window label.
   try {
     return getCurrentWindow().label;
   } catch {
@@ -209,9 +207,8 @@ export function fetchDiagramData(): Promise<DiagramPayload | null> {
  * Send an updated snapshot back to the main window.
  * Called from within the diagram window.
  *
- * Uses a Rust in-memory command (`set_diagram_update`) rather than Tauri
- * events, because cross-window `emitTo` may be blocked by capabilities
- * permissions.  The main window polls `get_diagram_update` periodically.
+ * Uses the sidecar KV relay (`set_diagram_update`) rather than cross-window
+ * events. The main window polls `get_diagram_update` periodically.
  *
  * @param snapshot      Updated diagram snapshot JSON.
  * @param mindmapScheme Optional latest mindmap scheme; relayed back to the

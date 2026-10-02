@@ -13,8 +13,7 @@
  * window cares about them.
  */
 import { useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen, getCurrentWindow } from '../../lib/platform';
 
 export function useCloseOnCmdW(): void {
   useEffect(() => {

@@ -6,7 +6,7 @@
  * Frontend 代码禁止直接调用 `invoke()`，必须通过此模块。
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../lib/platform";
 import type { JSONContent } from "@tiptap/react";
 import type { Document } from "../../types";
 import type {

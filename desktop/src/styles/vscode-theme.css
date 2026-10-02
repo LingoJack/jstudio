@@ -55,8 +55,11 @@
   --vscode-textBlockQuote-background: #f8f8f8;
   --vscode-textBlockQuote-border: #e5e5e5;
   --vscode-textCodeBlock-background: #f8f8f8;
-  --vscode-textPreformat-foreground: #3b3b3b;
-  --vscode-textPreformat-background: #0000001f;
+  /* 行内代码（品牌靛墨系统）— 静态默认对应 jstudio-light 的「铁胆墨水」：
+     蓝黑近墨的文字 + 10% 冷灰淡染。其余主题在 themes/*.ts 按性格分配
+     三种处理（铁胆墨水 / 靛墨极微染 / 铁胆无染）。 */
+  --vscode-textPreformat-foreground: #2b3252;
+  --vscode-textPreformat-background: #57606a1a;
   --vscode-menu-background: #ffffff;
   --vscode-menu-border: var(--jstudio-block-line);
   --vscode-menu-hoverBackground: #f2f2f2;
@@ -182,8 +185,10 @@
   --vscode-textBlockQuote-background: #2b2b2b;
   --vscode-textBlockQuote-border: #616161;
   --vscode-textCodeBlock-background: #2b2b2b;
-  --vscode-textPreformat-foreground: #d0d0d0;
-  --vscode-textPreformat-background: #3c3c3c;
+  /* 行内代码（品牌靛墨系统）— 静态默认对应 jstudio-dark 的「铁胆墨水」：
+     淡靛墨文字 + 15% 灰染（暗色下需更高 alpha）。 */
+  --vscode-textPreformat-foreground: #d9def2;
+  --vscode-textPreformat-background: #8b949e26;
   --vscode-menu-background: #1f1f1f;
   --vscode-menu-border: var(--jstudio-block-line);
   --vscode-menu-hoverBackground: #2a2d2e;
@@ -1847,17 +1852,18 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 
 /* ─── End Image NodeView ────────────────────────────────────────────────── */
 
-/* 行内代码 — 克制风格：无描边、零纵向 padding（不撑行高）。
-   高密度 code 文档里描边小盒会把一行切成锯齿，只保留淡底+等宽字体。 */
+/* 行内代码 — 品牌靛墨系统：六主题各认领一版处理，不做全局统一
+   （见 themes/*.ts 的 textPreformat-*）：铁胆墨水（蓝黑+中性灰染）、
+   靛墨同色微染（品牌靛+7% 同色染）、靛墨极微染（品牌靛+8% 同色染，
+   暗色）、铁胆无染（蓝黑+无底）。统一规则：零纵向 padding（不撑
+   行高）、3px 小圆角、0.9em，字体跟随编辑器字体设置。 */
 .ProseMirror code {
   background: var(--vscode-textPreformat-background);
   color: var(--vscode-textPreformat-foreground);
-  border-radius: 3px;
   padding: 0 3px;
+  border-radius: 3px;
   font-size: 0.9em;
-  font-family:
-    Monaco, "SF Mono", "Cascadia Code", "Fira Code", Consolas, "Courier New",
-    monospace;
+  font-family: inherit;
 }
 
 /* ─── BubbleMenu (selection formatting toolbar) ────────────────────────── */
@@ -1899,7 +1905,7 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 
 /* ─── Inline math (KaTeX inline atom, InlineMathView) ──────────────────── */
 /* Inline element, NOT a block container: 3px radius per the inline-scale
-   rounding language (inline code is 3px too). */
+   rounding language. */
 .inline-math-wrapper {
   display: inline;
 }
@@ -4569,20 +4575,6 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 /* ============================================
    Link Preview Tabs (Multi-webview browser)
    ============================================ */
-
-/* ── Window drag regions (Electron) ─────────────────────────────────────
- * Tauri 的窗口拖拽读 `data-tauri-drag-region` 属性；Electron 只认 CSS
- * `-webkit-app-region`。这里把既有属性语义映射成 CSS —— 双壳共用，
- * WKWebView 忽略未知属性，Electron 忽略 data 属性。
- * 只作用于显式标注的元素（标题栏）；link-preview 窗等交互区未标注，
- * 不受影响。Electron 下 drag 区域双击自动触发 macOS 最大化。
- */
-[data-tauri-drag-region]:not([data-tauri-drag-region="false"]) {
-  -webkit-app-region: drag;
-}
-[data-tauri-drag-region="false"] {
-  -webkit-app-region: no-drag;
-}
 
 /* ── Link Preview Window ────────────────────────────────────────────────
  * 浮动 glassmorphism TabBar 在顶部，地址栏在底部。

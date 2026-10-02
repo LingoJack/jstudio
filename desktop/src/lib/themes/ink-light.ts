@@ -80,8 +80,8 @@ export const INK_LIGHT: AppTheme = {
     'textBlockQuote-background': '#f5f0e8',
     'textBlockQuote-border': '#1a1612',
     'textCodeBlock-background': '#f5f0e8',
-    'textPreformat-foreground': '#1a1612',
-    'textPreformat-background': '#e8ddd0',
+    'textPreformat-foreground': '#2B3252', // 行内代码·铁胆墨水：蓝黑墨注 + 暖灰染（灰温随暖米纸）
+    'textPreformat-background': '#6E6A6317', // 同色相 8% 淡染，暖米纸上的一层腮红
     'editorLineNumber-foreground': '#8a7e72',
     'editorLineNumber-activeForeground': '#1a1612',
     'editorIndentGuide-background1': '#ddd4c8',

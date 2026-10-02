@@ -1,14 +1,13 @@
 /**
- * Shim for `@tauri-apps/api/window` (Electron shell, via vite alias).
+ * Platform window — operations target THIS window's label (injected by the
+ * preload from the `?label=` URL param).
  *
  * The surface the frontend actually uses: `.label` plus
  * close/destroy/show/hide/setFocus/isFocused/isVisible/onFocusChanged.
- * Operations target THIS window's label (injected by the preload from the
- * `?label=` URL param).
  */
 
 import { native } from './native';
-import { listen, type UnlistenFn } from './event';
+import { listen, type UnlistenFn } from './events';
 
 /** Shared focus subscription (also used by webviewWindow.ts). */
 export async function subscribeFocusChanged(

@@ -25,8 +25,7 @@ import {
   Settings2,
   ChevronRight,
 } from 'lucide-react';
-import { emit } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { emit, getCurrentWindow } from '../../lib/platform';
 import { ipc } from '../../lib/core/ipc';
 import type { DocumentMeta } from '../../types/storage';
 import type { TerminalSessionInfo } from '../../types/terminal';

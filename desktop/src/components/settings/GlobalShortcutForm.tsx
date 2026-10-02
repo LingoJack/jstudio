@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { AlertTriangle, Folder } from 'lucide-react';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open } from '../../lib/platform';
 import { useI18n, type TranslationKey } from '../../lib/core/i18n';
 import { eventToBinding, bindingToDisplay } from '../../lib/shortcuts/keyboardShortcuts';
 import { SelectDropdown } from '../ui/SelectDropdown';

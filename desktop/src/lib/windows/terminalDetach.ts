@@ -7,7 +7,7 @@
  *
  * 工作原理：
  *   1. 序列化 group 内每个 session 的 xterm buffer（scrollback + 光标状态）。
- *   2. 通过 Rust 内存命令 `set_terminal_detach_payload` 暂存 payload。
+ *   2. 通过 sidecar KV 中继 `set_terminal_detach_payload` 暂存 payload。
  *   3. 用 `new WebviewWindow('terminal-*', { url: '...?window=terminal&label=...' })`
  *      打开新窗口，加载同一前端 bundle（见 main.tsx → TerminalWindowApp）。
  *   4. 从当前窗口 store 移除该 group（`detachGroup`），但 **不杀 PTY**。
@@ -18,9 +18,7 @@
  * 因此用 SerializeAddon 序列化后通过 Rust 邮箱传递、在子窗口重放。
  */
 
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
+import { WebviewWindow, getCurrentWindow, invoke } from '../../lib/platform';
 import { useStore } from '../../store/useStore';
 import { serializeSession } from '../../components/terminal/terminalRegistry';
 import type { PaneLayoutType } from '../../components/terminal/types';
@@ -136,20 +134,20 @@ export async function createTerminalWindow(
   const w = new WebviewWindow(label, options);
 
   let created = false;
-  w.once('tauri://created', () => {
+  w.once('jstudio://window-created', () => {
     created = true;
     // 4. Remove the group from THIS window's store (PTYs survive).
     store.detachGroup(groupId);
   });
-  w.once('tauri://error', (e) => {
+  w.once('jstudio://window-error', (e) => {
     console.error('[TerminalDetach] Window creation error:', e);
     // Roll back the stashed payload so it doesn't leak.
     invoke('clear_terminal_detach_payload', { label }).catch(() => {});
   });
 
-  // Safety net: if neither event fires within a short window (older Tauri
-  // builds occasionally swallow `tauri://created`), assume success so the
-  // parent tab still goes away and we don't leak the payload.
+  // Safety net: if neither event fires within a short window (older builds
+  // occasionally swallowed the created event), assume success so the parent
+  // tab still goes away and we don't leak the payload.
   setTimeout(() => {
     if (!created) {
       store.detachGroup(groupId);

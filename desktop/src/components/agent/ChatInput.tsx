@@ -69,7 +69,7 @@ export function ChatInput({ session, onSend, onCancel }: InputAreaProps) {
 
   const handleFileSelect = useCallback(async () => {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import('../../lib/platform');
       const selected = await open({
         multiple: true,
         filters: [

@@ -5,8 +5,8 @@
  *
  * Tabs live here instead of a vertical sidebar (the old BrowserSidebar) so
  * the layout matches a real browser: tabs on top, toolbar below, page under
- * the toolbar. Interactive elements opt out of the drag region explicitly
- * (`data-tauri-drag-region={false}`); empty space stays draggable.
+ * the toolbar. The bar root carries the drag region; interactive elements
+ * opt out explicitly (`.no-drag`); empty space stays draggable.
  */
 
 import { useState } from "react";
@@ -54,7 +54,6 @@ export default function BrowserTabStrip() {
   return (
     <div
       className="flex-1 min-w-0 flex items-center gap-0.5 px-1 overflow-hidden"
-      data-tauri-drag-region
     >
       {browserTabs.map((tab) => {
         const isActive = tab.id === browserActiveTabId;
@@ -65,7 +64,6 @@ export default function BrowserTabStrip() {
         return (
           <div
             key={tab.id}
-            data-tauri-drag-region={false}
             onClick={() => switchTab(tab.id)}
             title={tab.url}
             className={`no-drag group min-w-0 max-w-[180px] flex items-center gap-1.5 h-7 px-2 rounded-md cursor-pointer transition-colors duration-150 ${
@@ -98,7 +96,6 @@ export default function BrowserTabStrip() {
       {/* New tab */}
       <button
         type="button"
-        data-tauri-drag-region={false}
         title={t("linkPreview.newTab")}
         onClick={() => addBrowserTab()}
         className="no-drag shrink-0 p-1.5 rounded-md text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-150 cursor-pointer"

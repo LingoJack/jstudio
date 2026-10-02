@@ -11,7 +11,7 @@
     "build:viewer": "vite build --config vite.viewer.config.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc -b",
+    "lint": "npm run guard:no-tauri && tsc -b",
     "electron:build:main": "esbuild electron/main.ts electron/preload.ts electron/sidecar.ts electron/backend.ts --bundle --platform=node --format=cjs --external:electron --external:node-pty --out-extension:.js=.cjs --outdir=dist-electron && node scripts/write-build-info.mjs",
     "electron:build:sidecar": "cargo build --manifest-path src-tauri/Cargo.toml --bin jstudio-sidecar",
     "electron:build:sidecar:release": "cargo build --release --manifest-path src-tauri/Cargo.toml --bin jstudio-sidecar",
@@ -26,7 +26,8 @@
     "test:adapter": "tsx --test src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts",
     "test:remote": "tsx --test src/lib/remote/client.test.ts",
     "test": "tsx --test src/lib/shortcuts/keyboardShortcuts.test.ts src/lib/core/commandRegistry.test.ts src/components/editor/CursorTrailContext.test.ts src/lib/editor/mermaid/flowchartConverter.test.ts src/components/editor/nodes/graph/sequenceInteraction.test.ts src/components/editor/nodes/code-block/mermaidLifelineFix.test.ts src/lib/editor/tiptapAdapter/tiptapAdapter.roundtrip.test.ts src/lib/editor/pasteMarkdown.test.ts src/lib/editor/schemaFit.test.ts src/lib/remote/client.test.ts src/lib/editor/inlineLink.test.ts src/lib/editor/extensions/inlineMathExtension.test.ts",
-    "postinstall": "patch-package && electron-rebuild"
+    "postinstall": "patch-package && electron-rebuild",
+    "guard:no-tauri": "node scripts/guard-no-tauri.mjs"
   },
   "dependencies": {
     "@maxgraph/core": "^0.23.0",

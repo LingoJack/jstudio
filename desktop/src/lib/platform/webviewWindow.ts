@@ -1,16 +1,15 @@
 /**
- * Shim for `@tauri-apps/api/webviewWindow` (Electron shell, via vite alias).
- *
- * `new WebviewWindow(label, options)` asks main to open a BrowserWindow
- * (see electron/main.ts `window-create`). The `tauri://created` /
- * `tauri://error` lifecycle events the detach flows rely on are mapped onto
- * the create promise's settle. Instances obtained via `getByLabel` /
- * `getCurrentWebviewWindow` wrap a label only — ops are label-targeted.
+ * Platform child windows — `new WebviewWindow(label, options)` asks main to
+ * open a BrowserWindow (see electron/main.ts `window-create`). The window
+ * lifecycle events the detach flows rely on (`jstudio://created` /
+ * `jstudio://error`) are mapped onto the create promise's settle. Instances
+ * obtained via `getByLabel` / `getCurrentWebviewWindow` wrap a label only —
+ * ops are label-targeted.
  */
 
 import { native } from './native';
 import { subscribeFocusChanged } from './window';
-import { listen, type TauriEvent, type UnlistenFn } from './event';
+import { listen, type PlatformEvent, type UnlistenFn } from './events';
 
 export interface WebviewWindowOptions {
   url?: string;
@@ -39,7 +38,7 @@ export class WebviewWindow {
     this.label = label;
     this.ready = native().windowCreate(label, options as Record<string, unknown>);
     // Avoid unhandled-rejection noise when no error listener is attached;
-    // the rejection is still delivered to 'tauri://error' listeners below.
+    // the rejection is still delivered to 'jstudio://error' listeners below.
     this.ready.catch(() => {});
   }
 
@@ -50,12 +49,12 @@ export class WebviewWindow {
     return w;
   }
 
-  async once(event: string, cb: (e: TauriEvent<unknown>) => void): Promise<UnlistenFn> {
-    if (event === 'tauri://created') {
+  async once(event: string, cb: (e: PlatformEvent<unknown>) => void): Promise<UnlistenFn> {
+    if (event === 'jstudio://window-created') {
       void this.ready.then(() => cb({ event, payload: null }));
-    } else if (event === 'tauri://error') {
+    } else if (event === 'jstudio://window-error') {
       void this.ready.catch((err) => cb({ event, payload: String(err) }));
-    } else if (event === 'tauri://destroyed') {
+    } else if (event === 'jstudio://window-destroyed') {
       // Main broadcasts 'window-closed' from trackWindow's 'closed' handler
       // (delete-then-broadcast, so the dying window itself never receives
       // it). Fire once for THIS window's label, then unsubscribe.
@@ -74,7 +73,7 @@ export class WebviewWindow {
     return () => {};
   }
 
-  async listen(event: string, cb: (e: TauriEvent<unknown>) => void): Promise<UnlistenFn> {
+  async listen(event: string, cb: (e: PlatformEvent<unknown>) => void): Promise<UnlistenFn> {
     return this.once(event, cb);
   }
 

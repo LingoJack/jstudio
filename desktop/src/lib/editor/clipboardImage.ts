@@ -11,7 +11,7 @@
  * the same upload pipeline as regular File-based pastes.
  */
 
-import { readImage } from '@tauri-apps/plugin-clipboard-manager';
+import { readImage } from '../../lib/platform';
 
 /**
  * Check whether the native clipboard currently holds an image.

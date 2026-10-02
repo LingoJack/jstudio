@@ -14,7 +14,7 @@
  */
 
 import { useRef, useCallback } from 'react';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '../../lib/platform';
 import { ipc } from '../../lib/core/ipc';
 import { useStore } from '../../store/useStore';
 import type { Terminal } from '@xterm/xterm';

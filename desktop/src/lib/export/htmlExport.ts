@@ -33,7 +33,7 @@ import { splitIntoSections } from '../editor/sectioning';
 import { ourBlocksToTiptapJSON } from '../editor/tiptapAdapter';
 import { bytesToBase64, bytesToDataUrl } from './base64';
 import { escapeHtml, renderDiagramSvg } from './htmlExportBlocks';
-import { native } from '../core/tauriShim/native';
+import { native } from '../platform/native';
 import {
   collectAppCss,
   collectComputedThemeVariables,

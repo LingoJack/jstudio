@@ -17,9 +17,7 @@
  *   4. Remove the document tab from the parent window's workspace.
  */
 
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
+import { WebviewWindow, getCurrentWindow, invoke } from '../../lib/platform';
 import { useStore } from '../../store/useStore';
 
 /* ------------------------------------------------------------------ */
@@ -95,7 +93,7 @@ export async function createDocumentWindow(
   const w = new WebviewWindow(label, options);
 
   let created = false;
-  w.once('tauri://created', () => {
+  w.once('jstudio://window-created', () => {
     created = true;
     // Remove the tab from the parent window.
     const id =
@@ -103,7 +101,7 @@ export async function createDocumentWindow(
       store.tabs.find((t) => t.kind === 'document' && t.docId === docId)?.id;
     if (id) store.closeTab(id);
   });
-  w.once('tauri://error', (e) => {
+  w.once('jstudio://window-error', (e) => {
     console.error('[DocumentDetach] Window creation error:', e);
     invoke('clear_terminal_detach_payload', { label }).catch(() => {});
   });

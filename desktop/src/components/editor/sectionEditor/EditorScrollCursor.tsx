@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useState, type RefObject } from 'react';
-import { ArrowLeft } from 'lucide-react';
 
 /** Re-measure delays (ms) to catch progressive section mounting, which
  *  changes scrollHeight without firing scroll events. */
@@ -85,13 +84,15 @@ export default function EditorScrollCursor({
       aria-hidden
       className="sticky top-0 ml-auto w-2 h-0 z-20 pointer-events-none"
     >
-      {/* "<-" cursor riding the invisible track, pointing at the document.
-          Accent-colored, mirroring the outline rail's "->" cursor. */}
+      {/* "❯" cursor riding the invisible track — terminal-prompt style glyph.
+          Fixed cyan per feedback — deliberately NOT the theme accent, which
+          changes per theme (the ask was "cyan" explicitly). The 18px line box
+          matches CURSOR_HEIGHT so the position math stays exact. */}
       <span
-        className="absolute right-0 -translate-y-1/2 py-[3px] bg-[var(--vscode-editor-background)] text-[var(--vscode-focusBorder)]"
+        className="absolute right-0 -translate-y-1/2 px-[3px] bg-[var(--vscode-editor-background)] font-mono text-[12px] leading-[18px] text-[#00b8d9]"
         style={{ top: pos.y }}
       >
-        <ArrowLeft className="w-3 h-3" strokeWidth={2.5} />
+        {"❯"}
       </span>
     </div>
   );

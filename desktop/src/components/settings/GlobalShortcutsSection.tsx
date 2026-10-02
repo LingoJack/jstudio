@@ -90,7 +90,7 @@ function GlobalShortcutRow({
     try {
       await executeAction(config, {
         emit: async (event, payload) => {
-          const { emit } = await import('@tauri-apps/api/event');
+          const { emit } = await import('../../lib/platform');
           await emit(event, payload);
         },
       });

@@ -78,8 +78,8 @@ export const JSTUDIO_DARK: AppTheme = {
     'textBlockQuote-background': '#2B2B2B',
     'textBlockQuote-border': '#5A5A5A',
     'textCodeBlock-background': '#2B2B2B',
-    'textPreformat-foreground': '#D0D0D0',
-    'textPreformat-background': '#3C3C3C',
+    'textPreformat-foreground': '#D9DEF2', // 行内代码·铁胆墨水（暗色）：淡靛墨 + 灰染
+    'textPreformat-background': '#8B949E26', // 同色相 14% 淡染（暗色需更高 alpha）
     'editorLineNumber-foreground': '#6E7681',
     'editorLineNumber-activeForeground': '#CCCCCC',
     'editorIndentGuide-background1': '#404040',

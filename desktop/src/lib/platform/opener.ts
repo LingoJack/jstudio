@@ -1,6 +1,5 @@
 /**
- * Shim for `@tauri-apps/plugin-opener` (Electron shell, via vite alias).
- * Maps to shell.openExternal in main.
+ * Platform shell-open — maps to shell.openExternal in main.
  */
 
 import { native } from './native';
