@@ -480,20 +480,20 @@ export default function DocumentSidebar({
   );
   const sidebarHeader = (
     <div className={`h-9 shrink-0 flex items-center gap-0.5 px-3 ${embedded ? '' : 'mt-9'}`}>
-      {/* Search — icon entry into the global search dialog */}
-      <button
-        onClick={() => setGlobalSearchOpen(true)}
-        className="p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-        title={
-          globalSearchBinding
-            ? `${t('shortcut.app.globalSearch')} · ${globalSearchBinding}`
-            : t('shortcut.app.globalSearch')
-        }
-      >
-        <Search className="w-4 h-4" />
-      </button>
       <div className="flex-1" />
       <div className="flex items-center gap-0.5 shrink-0">
+        {/* Search — icon entry into the global search dialog */}
+        <button
+          onClick={() => setGlobalSearchOpen(true)}
+          className="p-1 rounded-md transition-colors duration-150 cursor-pointer text-[var(--vscode-icon-foreground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+          title={
+            globalSearchBinding
+              ? `${t('shortcut.app.globalSearch')} · ${globalSearchBinding}`
+              : t('shortcut.app.globalSearch')
+          }
+        >
+          <Search className="w-4 h-4" />
+        </button>
         {/* Pin toggle */}
         <button
           onClick={handleTogglePin}
