@@ -4,11 +4,16 @@ import { JSTUDIO_DARK } from './jstudio-dark';
 import { INK_LIGHT } from './ink-light';
 import { INK_DARK } from './ink-dark';
 import { PAPER_LIGHT } from './paper-light';
+import { PAPER_DARK } from './paper-dark';
 import { EDITORIAL_LIGHT } from './editorial-light';
+import { EDITORIAL_DARK } from './editorial-dark';
 
 // ──────────────────────────────────────────────────────────────────
 // Theme registry — exported themes array + lookup helpers.
 // Add a new theme: create themes/<id>.ts, then append it to APP_THEMES.
+// NOTE: every app theme needs a same-ID terminal theme in
+// lib/terminal/themes.ts, otherwise the terminal falls back to
+// jstudio-light and its background clashes with the app chrome.
 // ──────────────────────────────────────────────────────────────────
 
 export const APP_THEMES: AppTheme[] = [
@@ -17,7 +22,9 @@ export const APP_THEMES: AppTheme[] = [
   INK_LIGHT,
   INK_DARK,
   PAPER_LIGHT,
+  PAPER_DARK,
   EDITORIAL_LIGHT,
+  EDITORIAL_DARK,
 ];
 
 /** Default theme IDs for new users. */

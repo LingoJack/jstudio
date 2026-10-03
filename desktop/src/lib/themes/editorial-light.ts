@@ -3,11 +3,14 @@ import type { AppTheme } from './types';
 // ──────────────────────────────────────────────────────────────────
 // Editorial Light (杂志印刷风 — 纯白纸面 + 黑描边卡片 + 宝蓝点缀)
 // 灵感来自 Jev-as-a-Judge 专题页：整体纯白，栏背景与内容区统一；
-// 卡片感由编辑器内容块（表格/代码块/引用块）的近黑实线描边承担；
-// 宝蓝只用于编号、眉标、链接等强调；奶油色做小面积点缀（次级按钮）。
+// 墨线分两阶：内容块（表格/代码块/引用块）用近黑实线 2px 描边卡片
+// （主题签名），chrome（侧栏/标题栏/tab 底线）降为 45% 淡墨弱线，
+// 与浮窗菜单弱线同阶——黑描边只属于「内容」。
+// 宝蓝只用于编号、眉标、链接等强调；奶油色做小面积点缀（次级按钮、
+// 非激活 tab、侧栏分组头、引用块底），与宝蓝构成「宝蓝 × 奶油」配色对。
 // 除色板外，还通过 customCss 注入结构覆盖：
 //   - 内容块（代码块/表格/文件块/引用块）改为 2px 墨黑实线圆角卡片
-//   - H2 前渲染蓝色圆形章节编号徽章（对应文章的 01/02 圆形序号）
+//   - H2 前渲染蓝色圆形章节编号徽章（对应文章的 01/02 圆形序号)
 // ──────────────────────────────────────────────────────────────────
 
 export const EDITORIAL_LIGHT: AppTheme = {
@@ -19,13 +22,13 @@ export const EDITORIAL_LIGHT: AppTheme = {
     'sideBar-background': '#ffffff',
     'activityBar-background': '#ffffff',
 
-    // ── Borders (近黑描边，卡片的勾勒线) ──
-    'sideBar-border': '#1A1A1A',
-    'activityBar-border': '#1A1A1A',
-    'widget-border': '#1A1A1A',
-    'block-border': '#1A1A1A', // 代码块、表格等内容块边框：黑描边
-    'menu-border': 'var(--jstudio-block-line)',  // 浮窗菜单边框，随 block-border 软化
-    'panel-border': '#1A1A1A',
+    // ── Borders (墨线分阶：chrome 走 45% 淡墨弱线，实黑只留给内容卡片) ──
+    'sideBar-border': 'var(--jstudio-block-line)',
+    'activityBar-border': 'var(--jstudio-block-line)',
+    'widget-border': 'var(--jstudio-block-line)',
+    'block-border': '#1A1A1A', // 代码块、表格等内容块边框：黑描边（签名，勿弱化）
+    'menu-border': 'var(--jstudio-block-line)',  // 浮窗菜单边框，随 block-line 软化
+    'panel-border': 'var(--jstudio-block-line)',
 
     // ── Text (墨黑 + 灰描述) ──
     'foreground': '#1A1A1A',
@@ -44,19 +47,19 @@ export const EDITORIAL_LIGHT: AppTheme = {
 
     // ── Inputs ──
     'input-background': '#ffffff',
-    'input-border': '#1A1A1A',
+    'input-border': 'var(--jstudio-block-line)',
     'input-foreground': '#1A1A1A',
     'input-placeholderForeground': '#9A968E',
     'dropdown-background': '#ffffff',
-    'dropdown-border': '#1A1A1A',
+    'dropdown-border': 'var(--jstudio-block-line)',
 
-    // ── Tabs ──
+    // ── Tabs (非激活 tab 染奶油：宝蓝 × 奶油配色对的第二声部) ──
     'tab-activeBackground': '#ffffff',
     'tab-activeBorderTop': '#2B4BD7',
     'tab-activeForeground': '#1A1A1A',
-    'tab-inactiveBackground': '#F1F0EB',
+    'tab-inactiveBackground': '#F6F2E6',
     'tab-inactiveForeground': '#9A968E',
-    'tab-border': '#1A1A1A',
+    'tab-border': 'var(--jstudio-block-line)',
 
     // ── Menu / List ──
     'menu-background': '#ffffff',
@@ -72,16 +75,16 @@ export const EDITORIAL_LIGHT: AppTheme = {
 
     // ── Title / Status bars ──
     'titleBar-background': '#ffffff',
-    'titleBar-border': '#1A1A1A',
+    'titleBar-border': 'var(--jstudio-block-line)',
     'titleBar-foreground': '#1A1A1A',
     'statusBar-background': '#ffffff',
-    'statusBar-border': '#1A1A1A',
+    'statusBar-border': 'var(--jstudio-block-line)',
     'statusBar-foreground': '#5C5A55',
     'sideBar-foreground': '#1A1A1A',
     'sideBarTitle-foreground': '#1A1A1A',
-    'sideBarSectionHeader-background': '#ECEAE4',
+    'sideBarSectionHeader-background': '#F3EFE2',
     'sideBarSectionHeader-foreground': '#5C5A55',
-    'sideBarSectionHeader-border': '#1A1A1A',
+    'sideBarSectionHeader-border': 'var(--jstudio-block-line)',
     'activityBar-foreground': '#5C5A55',
 
     // ── Selection ──
@@ -106,7 +109,7 @@ export const EDITORIAL_LIGHT: AppTheme = {
     // ── Links / Quotes / Code ──
     'textLink-foreground': '#2B4BD7',
     'textLink-activeForeground': '#1F38B2',
-    'textBlockQuote-background': '#F4F3F0',
+    'textBlockQuote-background': '#F6F2E6', // 引用块染奶油：与宝蓝描边成对（同次级按钮）
     'textBlockQuote-border': '#2B4BD7',
     'textCodeBlock-background': '#F4F3F0',
     'textPreformat-foreground': '#2B3252', // 行内代码·铁胆墨水：墨字 + 冷灰染（新闻纸格子；宝蓝仍只给眉标/链接）

@@ -322,6 +322,84 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
       panelBg: '#ffffff',
     },
   },
+  // ──────────────────────────────────────────────
+  // Paper Dark  (matches app's paper-dark 墨夜青调)
+  //   青调墨夜底与 app chrome 无缝；ANSI 以亮青 #3FB6BF 为主色相，
+  //   绿/黄/紫/橙锚定 app 主题 token；亮色变体比 normal 更亮（暗色惯例）。
+  // ──────────────────────────────────────────────
+  {
+    id: 'paper-dark',
+    isDark: true,
+    dimOpacity: 0.5,
+    background: '#0F1516',
+    foreground: '#D7E2E0',
+    cursor: '#3FB6BF',
+    cursorAccent: '#0F1516',
+    selectionBackground: '#12494F',
+    selectionInactiveBackground: '#12494F',
+    selectionForeground: '#D7E2E0',
+    black: '#1A2424',
+    red: '#E5766A',
+    green: '#57C579',
+    yellow: '#D9A44A',
+    blue: '#3FB6BF',
+    magenta: '#B79BE0',
+    cyan: '#4FC3CC',
+    white: '#8CA39F',
+    brightBlack: '#5F7572',
+    brightRed: '#EF8A7E',
+    brightGreen: '#6FD289',
+    brightYellow: '#E5B862',
+    brightBlue: '#5CC4CC',
+    brightMagenta: '#C7ACE8',
+    brightCyan: '#6FD4DB',
+    brightWhite: '#EAF2F0',
+    ui: {
+      barBg: '#131B1B',
+      barBorder: '#1F565B',
+      barFg: '#8CA39F',
+      panelBg: '#0F1516',
+    },
+  },
+  // ──────────────────────────────────────────────
+  // Editorial Dark  (matches app's editorial-dark 夜间印刷)
+  //   墨夜底与 app chrome 无缝；ANSI 锚定 app 主题 token：蓝=浅宝蓝、
+  //   绿/黄/紫同源，灰阶用主题暖灰系；亮色变体比 normal 更亮。
+  // ──────────────────────────────────────────────
+  {
+    id: 'editorial-dark',
+    isDark: true,
+    dimOpacity: 0.5,
+    background: '#1A1A1C',
+    foreground: '#E8E6E1',
+    cursor: '#8CA2F8',
+    cursorAccent: '#1A1A1C',
+    selectionBackground: '#33427E',
+    selectionInactiveBackground: '#33427E',
+    selectionForeground: '#E8E6E1',
+    black: '#222225',
+    red: '#E0705F',
+    green: '#5CB868',
+    yellow: '#D9A94E',
+    blue: '#8CA2F8',
+    magenta: '#B79BE0',
+    cyan: '#6FB5AB',
+    white: '#A5A29A',
+    brightBlack: '#6E6B64',
+    brightRed: '#EA8A7E',
+    brightGreen: '#74CC80',
+    brightYellow: '#E5BC66',
+    brightBlue: '#A3B4FA',
+    brightMagenta: '#C7ACE8',
+    brightCyan: '#84C6BC',
+    brightWhite: '#F2F0EB',
+    ui: {
+      barBg: '#202023',
+      barBorder: '#333336',
+      barFg: '#A5A29A',
+      panelBg: '#1A1A1C',
+    },
+  },
 ];
 
 /** Default terminal theme for dark mode. */

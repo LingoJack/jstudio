@@ -481,6 +481,8 @@ export const translations = {
     "appearance.terminalTheme_ink-light": "Ink Light",
     "appearance.terminalTheme_jstudio-dark": "JStudio Dark",
     "appearance.terminalTheme_jstudio-light": "JStudio Light",
+    "appearance.terminalTheme_paper-dark": "Paper Dark",
+    "appearance.terminalTheme_editorial-dark": "Editorial Dark",
 
     // ── App color theme ──
     "appearance.appThemeDark": "深色配色主题",
@@ -494,7 +496,9 @@ export const translations = {
     "appearance.appTheme_ink-dark": "Ink Dark",
     "appearance.appTheme_ink-light": "Ink Light",
     "appearance.appTheme_paper-light": "Paper Light",
+    "appearance.appTheme_paper-dark": "Paper Dark",
     "appearance.appTheme_editorial-light": "Editorial Light",
+    "appearance.appTheme_editorial-dark": "Editorial Dark",
 
     // ── About section ──
     "about.contactAuthor": "联系作者",
@@ -1468,6 +1472,8 @@ export const translations = {
     "appearance.terminalTheme_ink-light": "Ink Light",
     "appearance.terminalTheme_jstudio-dark": "JStudio Dark",
     "appearance.terminalTheme_jstudio-light": "JStudio Light",
+    "appearance.terminalTheme_paper-dark": "Paper Dark",
+    "appearance.terminalTheme_editorial-dark": "Editorial Dark",
 
     // ── App color theme ──
     "appearance.appThemeDark": "Dark Color Theme",
@@ -1481,7 +1487,9 @@ export const translations = {
     "appearance.appTheme_ink-dark": "Ink Dark",
     "appearance.appTheme_ink-light": "Ink Light",
     "appearance.appTheme_paper-light": "Paper Light",
+    "appearance.appTheme_paper-dark": "Paper Dark",
     "appearance.appTheme_editorial-light": "Editorial Light",
+    "appearance.appTheme_editorial-dark": "Editorial Dark",
 
     // ── About section ──
     "about.contactAuthor": "Contact Author",
