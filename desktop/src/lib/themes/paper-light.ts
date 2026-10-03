@@ -49,7 +49,7 @@ export const PAPER_LIGHT: AppTheme = {
     'tab-activeBorderTop': '#05838B',
     'tab-activeForeground': '#1a1a1a',
     'tab-inactiveBackground': '#fafafa',
-    'tab-inactiveForeground': '#8c8c8c',
+    'tab-inactiveForeground': '#717171',
     'tab-border': '#05838B',
 
     // ── Menu / List ──
@@ -94,7 +94,7 @@ export const PAPER_LIGHT: AppTheme = {
 
     // ── Badges / Progress ──
     'badge-background': '#B8ECE8',
-    'badge-foreground': '#05838B',
+    'badge-foreground': '#03565C',
     'progressBar-background': '#05838B',
 
     // ── Links / Quotes / Code ──
@@ -119,7 +119,7 @@ export const PAPER_LIGHT: AppTheme = {
 
     // ── Errors / Warnings / Info ──
     'errorForeground': '#cf1322',
-    'editorWarning-foreground': '#ad6800',
+    'editorWarning-foreground': '#9C5D00',
     'editorInfo-foreground': '#05838B',
 
     // ── Symbol icons ──
@@ -136,7 +136,7 @@ export const PAPER_LIGHT: AppTheme = {
     'editorCursor-foreground': '#1a1a1a',
 
     // ── Edit glow (RGB tuple) ──
-    'editGlow': '5 131 139', // Teal #05838B
+    'editGlow': '68 81 158', // Indigo #44519E — 编辑态与青 focus 异色（品牌靛）
 
     // ── Table header background (matches sideBarSectionHeader) ──
     'tableHeader-background': '#fafafa',

@@ -140,7 +140,7 @@ export const PAPER_DARK: AppTheme = {
     'editorCursor-foreground': '#3FB6BF',
 
     // ── Edit glow (RGB tuple) ──
-    'editGlow': '63 182 191', // Teal #3FB6BF
+    'editGlow': '151 165 232', // Indigo #97A5E8 — 与 focus 异色（品牌靛暗版）
 
     // ── Table header background ──
     'tableHeader-background': '#16201F',

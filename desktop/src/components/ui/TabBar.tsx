@@ -546,7 +546,7 @@ export default function TabBar({
                           tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className="tab-title-span absolute inset-x-0 inset-y-0 flex items-center justify-center text-[12px] font-medium truncate text-center">
+                      <span className="tab-title-span absolute inset-x-0 inset-y-0 flex items-center text-[12px] font-medium truncate text-left">
                         <span className="tab-title-track">
                           <span className="tab-title-text">{tab.title}</span>
                           <span className="tab-title-text" aria-hidden>{tab.title}</span>

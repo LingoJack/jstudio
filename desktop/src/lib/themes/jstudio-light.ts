@@ -14,12 +14,12 @@ export const JSTUDIO_LIGHT: AppTheme = {
     'activityBar-background': '#F8F8F8',
 
     // ── Borders ──
-    'sideBar-border': '#C0C0C0',
-    'activityBar-border': '#C0C0C0',
-    'widget-border': '#C0C0C0',
+    'sideBar-border': '#D9D9D9',
+    'activityBar-border': '#D9D9D9',
+    'widget-border': '#D9D9D9',
     'block-border': '#C0C0C0', // 代码块、表格等内容块边框，深于 widget-border 以突出
     'menu-border': 'var(--jstudio-block-line)',  // 浮窗菜单边框，与代码块/tab 同一线条语言
-    'panel-border': '#C0C0C0',
+    'panel-border': '#D9D9D9',
 
     // ── Text ──
     'foreground': '#3B3B3B',
@@ -38,18 +38,18 @@ export const JSTUDIO_LIGHT: AppTheme = {
 
     // ── Inputs ──
     'input-background': '#F8F8F8',
-    'input-border': '#C0C0C0',
+    'input-border': '#D9D9D9',
     'input-foreground': '#3B3B3B',
     'input-placeholderForeground': '#868686',
     'dropdown-background': '#FFFFFF',
-    'dropdown-border': '#C0C0C0',
+    'dropdown-border': '#D9D9D9',
 
     // ── Tabs ──
     'tab-activeBackground': '#F8F8F8',
     'tab-activeBorderTop': '#0052D9',
     'tab-activeForeground': '#3B3B3B',
     'tab-inactiveBackground': '#FFFFFF',
-    'tab-inactiveForeground': '#868686',
+    'tab-inactiveForeground': '#767676',
     'tab-border': '#E5E5E5',
 
     // ── Menu / List ──
@@ -66,16 +66,16 @@ export const JSTUDIO_LIGHT: AppTheme = {
 
     // ── Title / Status bars ──
     'titleBar-background': '#F8F8F8',
-    'titleBar-border': '#C0C0C0',
+    'titleBar-border': '#D9D9D9',
     'titleBar-foreground': '#1E1E1E',
     'statusBar-background': '#F8F8F8',
-    'statusBar-border': '#C0C0C0',
+    'statusBar-border': '#D9D9D9',
     'statusBar-foreground': '#3B3B3B',
     'sideBar-foreground': '#3B3B3B',
     'sideBarTitle-foreground': '#3B3B3B',
     'sideBarSectionHeader-background': '#F0F0F0',
     'sideBarSectionHeader-foreground': '#3B3B3B',
-    'sideBarSectionHeader-border': '#C0C0C0',
+    'sideBarSectionHeader-border': '#D9D9D9',
     'activityBar-foreground': '#1F1F1F',
 
     // ── Selection ──
@@ -118,7 +118,7 @@ export const JSTUDIO_LIGHT: AppTheme = {
     'editorGutter-modifiedBackground': '#0052D9',
 
     // ── Errors / Warnings / Info ──
-    'errorForeground': '#F85149',
+    'errorForeground': '#D13438',
     'editorWarning-foreground': '#855A00',
     'editorInfo-foreground': '#05838B',
 

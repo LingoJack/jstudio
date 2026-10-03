@@ -48,7 +48,7 @@ export const EDITORIAL_DARK: AppTheme = {
     'input-background': '#222225',
     'input-border': 'var(--jstudio-block-line)',
     'input-foreground': '#E8E6E1',
-    'input-placeholderForeground': '#6E6B64',
+    'input-placeholderForeground': '#7B7871',
     'dropdown-background': '#222225',
     'dropdown-border': 'var(--jstudio-block-line)',
 
@@ -144,7 +144,7 @@ export const EDITORIAL_DARK: AppTheme = {
     'editorCursor-foreground': '#8CA2F8', // 浅宝蓝，呼应编号徽章
 
     // ── Edit glow (RGB tuple) ──
-    'editGlow': '140 162 248', // Light royal #8CA2F8
+    'editGlow': '232 137 111', // Vermilion #E8896F — 朱批暗版
 
     // ── Table header background ──
     'tableHeader-background': '#232326',

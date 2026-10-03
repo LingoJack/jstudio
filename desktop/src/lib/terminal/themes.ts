@@ -59,29 +59,6 @@ export interface TerminalTheme {
   };
 }
 
-/** App-wide semantic cursor colors: dark mode uses green, light mode uses black. */
-export const TERMINAL_CURSOR_DARK = '#07C160';
-export const TERMINAL_CURSOR_LIGHT = '#1a1612'; // 深褐/黑色，与 ink-light 文字一致
-
-export function getSemanticTerminalCursor(isDarkMode: boolean): string {
-  return isDarkMode ? TERMINAL_CURSOR_DARK : TERMINAL_CURSOR_LIGHT;
-}
-
-/**
- * Keep the selected terminal palette, but make cursor color follow the
- * app's black/green/blue/white design language instead of per-theme accents.
- */
-export function withSemanticTerminalCursor(
-  theme: TerminalTheme,
-  isDarkMode: boolean,
-): TerminalTheme {
-  return {
-    ...theme,
-    cursor: getSemanticTerminalCursor(isDarkMode),
-    cursorAccent: theme.background,
-  };
-}
-
 export const TERMINAL_THEMES: TerminalTheme[] = [
   // ──────────────────────────────────────────────
   // Ink Dark  (theme-anthropic-dark.conf — Tokyo Night Storm palette)
@@ -94,7 +71,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     dimOpacity: 0.5,
     background: '#222436',
     foreground: '#c8d3f5',
-    cursor: '#00aaff',
+    cursor: '#82aaff',
     cursorAccent: '#222436',
     selectionBackground: '#2d3f76',
     selectionInactiveBackground: '#2d3f76',
@@ -172,7 +149,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     dimOpacity: 0.5,
     background: '#181818',
     foreground: '#CCCCCC',
-    cursor: '#0078D4',
+    cursor: '#07C160',
     cursorAccent: '#181818',
     selectionBackground: '#264F78',
     selectionInactiveBackground: '#264F78',
@@ -211,7 +188,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     dimOpacity: 1,
     background: '#F8F8F8',
     foreground: '#3B3B3B',
-    cursor: '#005FB8',
+    cursor: '#0052D9',
     cursorAccent: '#F8F8F8',
     selectionBackground: '#ADD6FF',
     selectionInactiveBackground: '#ADD6FF',
@@ -253,7 +230,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     dimOpacity: 1,
     background: '#ffffff',
     foreground: '#1a1a1a',
-    cursor: '#1a1612',
+    cursor: '#05838B',
     cursorAccent: '#ffffff',
     selectionBackground: '#B8ECE8',
     selectionInactiveBackground: '#B8ECE8',
@@ -294,7 +271,7 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
     dimOpacity: 1,
     background: '#ffffff',
     foreground: '#1A1A1A',
-    cursor: '#1A1A1A',
+    cursor: '#2B4BD7',
     cursorAccent: '#ffffff',
     selectionBackground: '#D6DEF9',
     selectionInactiveBackground: '#D6DEF9',

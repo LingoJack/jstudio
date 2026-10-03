@@ -487,7 +487,7 @@ export default function DocumentSidebar({
       {!embedded && (
         <div className="h-9 shrink-0 flex items-center gap-2 pl-3 pr-2 mt-9">
           <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70 truncate">
-            JStudio v{__APP_VERSION__}
+            JStudio v{__APP_VERSION__}{import.meta.env.DEV ? " · dev" : ""}
           </span>
           <div className="flex-1" />
           <SidebarHeaderButtons />

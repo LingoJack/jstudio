@@ -18,8 +18,8 @@ export const INK_DARK: AppTheme = {
     'menu-border': 'var(--jstudio-block-line)',  // 浮窗菜单边框，随 block-border 软化
     'panel-border': '#5a6590',
     'foreground': '#c8d3f5',
-    'descriptionForeground': '#7f88b0',
-    'iconForeground': '#7f88b0',
+    'descriptionForeground': '#8B95BB',
+    'iconForeground': '#8B95BB',
     'focusBorder': '#82aaff',
     'diagram-edge': '#82aaff', // 时序图/画板连线色：Tokyo Night 浅蓝
     'button-background': '#82aaff',
@@ -100,7 +100,7 @@ export const INK_DARK: AppTheme = {
     // ── Editor cursor ──
     'editorCursor-foreground': '#82aaff',
 
-    'editGlow': '130 170 255', // Bright blue #82aaff
+    'editGlow': '192 153 255', // Tokyo Night purple #c099ff — 与 focus 浅蓝异色
 
     // ── Table header background (neutral gray, matches sideBarSectionHeader) ──
     'tableHeader-background': '#1e2030',

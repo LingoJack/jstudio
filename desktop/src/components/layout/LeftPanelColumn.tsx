@@ -51,7 +51,7 @@ export default function LeftPanelColumn({
       {!showCompactRow && (
         <div className="mt-9 h-9 shrink-0 flex items-center px-3">
           <span className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70 truncate">
-            JStudio v{__APP_VERSION__}
+            JStudio v{__APP_VERSION__}{import.meta.env.DEV ? " · dev" : ""}
           </span>
         </div>
       )}

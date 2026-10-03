@@ -265,9 +265,9 @@
   --vscode-terminal-ansiGreen: #4ec9b0;
   --vscode-terminal-ansiBlue: #6796e6;
 
-  /* Block editing glow — hot pink/magenta contrasts strongly with the green
+  /* Block editing glow — violet contrasts strongly with the green
      selection color and naturally glows on dark backgrounds. */
-  --jstudio-editGlow: 236 72 153; /* Pink #EC4899 */
+  --jstudio-editGlow: 167 139 250; /* Violet #A78BFA */
 
   /* Table header background - neutral gray fallback (matches textCodeBlock).
      Overridden at runtime by --vscode-tableHeader-background from the active theme. */
@@ -2150,13 +2150,12 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .collapsible-body-clip {
   display: grid;
   grid-template-rows: 0fr;
-  /* 收起用匀速 linear + 独立更慢的速率（--collapse-out-ms 由
-     useCollapseDuration 按 300px/s 折算）：匀速下"固定速率"的直觉
-     完全成立，也没有 S 曲线中段 1.5× 的速度峰值；此前用 S 曲线
-     （两端速度为零）中段爆发，两轮被反馈"还是太快"。展开保持
-     S 曲线的生长落定感，两个方向不再强行对称。 */
+  /* 收起与展开同速率同曲线 —— 同一条 S 形（smoothstep 族，两端速度
+     为零），收起是展开的时间镜像。曾用 linear 匀速（"固定速率"直觉），
+     但 S 曲线中段 1.5× 均速的速度峰值正是"快"的观感来源：同均速下
+     linear 无峰值，收起反而显得慢（用户实测确认）。 */
   transition: grid-template-rows calc(var(--collapse-out-ms, 240) * 1ms)
-    linear;
+    cubic-bezier(0.2, 0, 0, 1);
 }
 
 .code-block-figure:not(.is-collapsed) .code-block-body-clip,
@@ -2189,8 +2188,8 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .code-block-bar-clip {
   display: grid;
   grid-template-rows: 1fr;
-  /* 收起：条长出 —— 与内容收回同为匀速 linear，同节奏 */
-  transition: grid-template-rows 0.24s linear;
+  /* 收起：条长出 —— 与内容收回同一条 S 曲线，同节奏 */
+  transition: grid-template-rows 0.24s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .code-block-figure:not(.is-collapsed) .code-block-bar-clip {
@@ -2737,12 +2736,12 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   background: var(--jstudio-block-line);
   transform: scaleX(0);
   transform-origin: left;
-  /* 收起（展开的镜像）：横线保持到竖直线收回 85% 时才开始缩，内容
-     收完的同一刻缩完 —— 时长 = 0.15 × 收起时长，与展开时"竖线画到
-     1/3 处（约 15% 时长）线开始画出"对偶；匀速 linear 与内容收回
-     同一速率语言。线不是抢先消失，而是被内容收回的过程同步带走。 */
-  transition: transform calc(var(--collapse-out-ms, 240) * 1ms * 0.15)
-    linear calc(var(--collapse-out-ms, 240) * 1ms * 0.85);
+  /* 收起：立即从右往左缩回（transform-origin:left 的 scaleX 1→0，右端
+     向左扫回），固定 0.28s，与内容收回并行。曾试过"保持到内容收回
+     85% 再缩"的严格镜像时序 —— 但收起的前 85% 时间线纹丝不动、最后
+     0.15×时长才快速缩掉，观感是"横线没有收回动画"（用户实测反馈）；
+     线的缩回应该是收起的开场动作，而不是压轴动作。 */
+  transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .collapsible-block-figure:not(.is-collapsed) .collapsible-block-header::after {

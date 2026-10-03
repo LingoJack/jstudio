@@ -87,8 +87,6 @@
   white-space: nowrap;
 }
 .tab-title-track > .tab-title-text:not(:first-child) {
-  position: absolute;
-  left: calc(100% + 16px);
   visibility: hidden;
 }
 .marquee-title-track > .marquee-copy:not(:first-child) {
@@ -108,7 +106,7 @@
 }
 @keyframes tab-marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-100% - 16px)); }
+  to { transform: translateX(calc(-50% - 4px)); }
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }

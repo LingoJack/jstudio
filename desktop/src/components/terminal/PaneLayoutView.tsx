@@ -11,7 +11,6 @@ import { useStore } from '../../store/useStore';
 import { ipc } from '../../lib/core/ipc';
 import {
   getTerminalThemeFromAppTheme,
-  withSemanticTerminalCursor,
 } from '../../lib/terminal/themes';
 import { useTerminalManager } from './useTerminalManager';
 import { resolveMonospaceFont } from '../../lib/editor/fonts';
@@ -308,11 +307,7 @@ export default function PaneLayoutView({
   // Terminal theme follows app theme (same IDs: jstudio-dark, jstudio-light, etc.)
   const appThemeId = isDarkMode ? appThemeIdDark : appThemeIdLight;
   const theme = useMemo(
-    () =>
-      withSemanticTerminalCursor(
-        getTerminalThemeFromAppTheme(appThemeId, isDarkMode),
-        isDarkMode,
-      ),
+    () => getTerminalThemeFromAppTheme(appThemeId, isDarkMode),
     [isDarkMode, appThemeId],
   );
 

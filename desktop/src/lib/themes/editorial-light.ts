@@ -49,7 +49,7 @@ export const EDITORIAL_LIGHT: AppTheme = {
     'input-background': '#ffffff',
     'input-border': 'var(--jstudio-block-line)',
     'input-foreground': '#1A1A1A',
-    'input-placeholderForeground': '#9A968E',
+    'input-placeholderForeground': '#8A867A',
     'dropdown-background': '#ffffff',
     'dropdown-border': 'var(--jstudio-block-line)',
 
@@ -58,7 +58,7 @@ export const EDITORIAL_LIGHT: AppTheme = {
     'tab-activeBorderTop': '#2B4BD7',
     'tab-activeForeground': '#1A1A1A',
     'tab-inactiveBackground': '#F6F2E6',
-    'tab-inactiveForeground': '#9A968E',
+    'tab-inactiveForeground': '#716D62',
     'tab-border': 'var(--jstudio-block-line)',
 
     // ── Menu / List ──
@@ -116,7 +116,7 @@ export const EDITORIAL_LIGHT: AppTheme = {
     'textPreformat-background': '#57606A1A', // 同色相 7% 淡染
 
     // ── Editor line numbers / guides ──
-    'editorLineNumber-foreground': '#9A968E',
+    'editorLineNumber-foreground': '#8A867A',
     'editorLineNumber-activeForeground': '#1A1A1A',
     'editorIndentGuide-background1': '#DDDBD4',
     'editorIndentGuide-activeBackground1': '#8FA3F0',
@@ -145,7 +145,7 @@ export const EDITORIAL_LIGHT: AppTheme = {
     'editorCursor-foreground': '#2B4BD7', // 宝蓝光标，呼应编号与链接
 
     // ── Edit glow (RGB tuple) ──
-    'editGlow': '43 75 215', // Royal blue #2B4BD7
+    'editGlow': '192 57 43', // Vermilion #C0392B — 朱批红：编辑态与宝蓝 focus 异色
 
     // ── Table header background (page gray) ──
     'tableHeader-background': '#F4F3F0',

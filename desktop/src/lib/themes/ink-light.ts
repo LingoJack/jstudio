@@ -40,7 +40,7 @@ export const INK_LIGHT: AppTheme = {
     'tab-activeBorderTop': '#1a1612', // 深褐/黑色，与 focusBorder 一致
     'tab-activeForeground': '#1a1612',
     'tab-inactiveBackground': '#f5f0e8',
-    'tab-inactiveForeground': '#8a7e72',
+    'tab-inactiveForeground': '#6F6557',
     'tab-border': '#1a1612',
     'menu-background': '#faf6f1',
     'menu-hoverBackground': '#f0ebe3',
@@ -90,7 +90,7 @@ export const INK_LIGHT: AppTheme = {
     'editorGutter-deletedBackground': '#b14040',
     'editorGutter-modifiedBackground': '#0052D9',
     'errorForeground': '#b14040',
-    'editorWarning-foreground': '#a07830',
+    'editorWarning-foreground': '#8A6520',
     'editorInfo-foreground': '#3a7870',
     'symbolIcon-eventForeground': '#a07830',
     'symbolIcon-namespaceForeground': '#7a5ea0',

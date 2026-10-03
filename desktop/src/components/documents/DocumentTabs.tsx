@@ -110,16 +110,6 @@ export default function DocumentTabs() {
   );
   const hiddenTabCount = docTabs.length - visibleDocTabs.length;
 
-  // TEMP DEBUG (remove after tab-strip wheel verification)
-  if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__jtabs = {
-      userStart: windowStartUser,
-      len: docTabs.length,
-      idx: activeDocTabIndex,
-      start: windowStart,
-      maxStart: Math.max(0, docTabs.length - MAX_VISIBLE_DOC_TABS),
-    };
-  }
 
   // Mouse wheel / trackpad pan over the strip: one tab per ~120px of
   // scroll, both axes (mouse wheel = deltaY, macOS trackpad swipe =

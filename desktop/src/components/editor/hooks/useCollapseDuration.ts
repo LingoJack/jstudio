@@ -30,31 +30,30 @@
  *
  * 内容不做 opacity 淡入 —— 显现完全由高度裁切驱动（从上到下逐渐
  * 露出，图片 likewise 一点一点展开），visibility 的 discrete 延迟等于
- * 收起主时长（焦点管理）。收起与展开是两套速率参数（收起更慢，见
- * COLLAPSE_SPEED_PX_PER_MS 的说明）；收起曲线为匀速 linear（见 CSS
- * 共用段）。收起条塌陷层（.code-block-bar-clip）保持固定短时长 ——
- * 30px 的距离用短时长本身就是高速率，且条不该在长块延伸时拖泥带水。
+ * 收起主时长（焦点管理）。收起与展开同一条 S 曲线；收起速率 ×1.25
+ * 补偿"失去"的等待感（见 COLLAPSE_SPEED_PX_PER_MS）。收起条塌陷层
+ * （.code-block-bar-clip）保持固定短时长 —— 30px 的距离用短时长本身
+ * 就是高速率，且条不该在长块延伸时拖泥带水。
  */
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
 
-/** 展开速率基准：0.5 px/ms ≈ 500px/s —— 固定时长版约 940px/s 的一半。 */
-const EXPAND_SPEED_PX_PER_MS = 0.5;
-/**
- * 收起速率基准：0.3 px/ms ≈ 300px/s —— 故意比展开慢。内容"消失"的
- * 过程人眼对速度更敏感（同样速率下收起总显得比展开快，实测多轮用户
- * 反馈"收起太快"），收起放慢后往返观感才均衡；收起曲线同时改为匀速
- * （linear），S 曲线中段 1.5× 的速度峰值也是"偏快"感的来源。
- */
-const COLLAPSE_SPEED_PX_PER_MS = 0.3;
+/** 展开速率基准：0.3 px/ms ≈ 300px/s（用户定档）。 */
+const EXPAND_SPEED_PX_PER_MS = 0.3;
+/** 收起速率基准：展开的 1.25×（0.375 px/ms）。"失去"的等待感比
+ * "获得"长 —— 同速同曲线下收起主观仍偏慢（用户实测），按动效惯例
+ * 给退出方向提速一档（material 等规范里 exit 时长 ≈ 0.75–0.8 × enter，
+ * 即速率 ×1.25–1.33）。600px 块：展开 ≈2s / 收起 ≈1.6s。
+ * 若仍不对称，在 1.2–1.33 间微调此值。 */
+const COLLAPSE_SPEED_PX_PER_MS = 0.375;
 /**
  * 时长钳制（各方向独立）。下限防小块瞬间弹开；上限只防极端超长块拖沓，
- * 钳内严格固定速率 —— 上限曾是 1200ms，导致 600px 以上的块全部被钳、
- * 实际速率远超基准（"固定速率"名存实亡，收起显得快），已放宽。
+ * 钳内严格固定速率。300px/s 档位下 1500px 的块约 5s，上限放宽到 5000
+ * 保证常规尺寸的块不被钳。
  */
 const MIN_MS = 150;
-const EXPAND_MAX_MS = 3000;
-const COLLAPSE_MAX_MS = 4500;
+const EXPAND_MAX_MS = 5000;
+const COLLAPSE_MAX_MS = 5000;
 
 function clampDuration(distancePx: number, speed: number, maxMs: number): string {
   return Math.min(maxMs, Math.max(MIN_MS, distancePx / speed)).toFixed(0);
