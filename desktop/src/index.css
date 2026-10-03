@@ -71,16 +71,19 @@
    moves. Duration is set inline by TabBar (proportional to overflow).
    Gated on the row's :hover — never a JS-toggled class (React
    re-renders don't clear JS-added classes). Honours reduced-motion. */
-/* Marked (overflowing) titles anchor LEFT at rest: a centered track would
-   show copy1's end + gap + copy2's start simultaneously (the "peek") —
-   left-anchoring shows only copy1's head until the hover loop runs. */
-.tab-title-marquee {
-  text-align: left;
+/* Marked (overflowing) titles loop on hover; the seamless wrap is
+   alignment-agnostic (the centering offset cancels across one loop), so
+   resting titles stay CENTERED — fitting ones and overflowing ones alike. */
+/* Dual-edge fade mask: the marquee text dissolves naturally at the pill's
+   rounded ends instead of hitting a hard vertical cut. */
+.tab-title-span {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 3px, #000 calc(100% - 3px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 3px, #000 calc(100% - 3px), transparent 100%);
 }
 .tab-title-track,
 .marquee-title-track {
   display: inline-flex;
-  gap: 16px;
+  gap: var(--marquee-gap, 8px);
   white-space: nowrap;
 }
 .tab-title-track > .tab-title-text:not(:first-child),
@@ -101,11 +104,11 @@
 }
 @keyframes tab-marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - 8px)); }
+  to { transform: translateX(calc(-50% - var(--marquee-gap, 8px) / 2)); }
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - 8px)); }
+  to { transform: translateX(calc(-50% - var(--marquee-gap, 16px) / 2)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .group:hover .tab-title-marquee .tab-title-track,

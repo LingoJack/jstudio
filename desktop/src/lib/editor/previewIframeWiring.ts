@@ -48,9 +48,11 @@ function containOverscroll(iframe: HTMLIFrameElement): void {
 }
 
 /**
- * 委托拦截 iframe 内的链接点击：
+ * 委托拦截 iframe 内的链接点击（捕获阶段 —— 预览页自己的脚本即使
+ * stopPropagation 也无法绕过）：
  *   `#…`      → 保留默认的页内锚点滚动
- *   绝对链接  → preventDefault + 系统浏览器打开
+ *   左键      → preventDefault + 系统浏览器打开（绝对链接）
+ *   中键等    → 仅 preventDefault，拦掉"在新窗口打开"的默认行为
  *   其余      → 仅 preventDefault（相对链接解析到宿主 base URL 上毫无意义）
  */
 function guardLinkClicks(iframe: HTMLIFrameElement): void {
@@ -61,7 +63,7 @@ function guardLinkClicks(iframe: HTMLIFrameElement): void {
     return;
   }
   if (!doc) return;
-  doc.addEventListener('click', (event) => {
+  const guard = (event: MouseEvent) => {
     if (event.defaultPrevented) return;
     const target = event.target as HTMLElement | null;
     const link = target?.closest?.('a');
@@ -71,9 +73,12 @@ function guardLinkClicks(iframe: HTMLIFrameElement): void {
     if (href && href.startsWith('#')) return;
     // 其余一律不允许 iframe 导航（见文件头第 2 点）。
     event.preventDefault();
+    if (event.type !== 'click') return;
     const scheme = href?.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
     if (scheme && !BLOCKED_SCHEMES.has(scheme)) {
       openUrl(href!).catch(() => {});
     }
-  });
+  };
+  doc.addEventListener('click', guard, true);
+  doc.addEventListener('auxclick', guard, true);
 }

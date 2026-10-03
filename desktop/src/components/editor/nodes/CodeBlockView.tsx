@@ -59,6 +59,7 @@ import { useHtmlPreview } from "./code-block/useHtmlPreview";
 import { CodeBlockActions } from "./code-block/CodeBlockActions";
 import { useCodeBlockTitle } from "./code-block/useCodeBlockTitle";
 import { useHeaderEventShield } from "../hooks/useHeaderEventShield";
+import { useCollapseDuration } from "../hooks/useCollapseDuration";
 import { LanguageDropdown } from "./code-block/LanguageDropdown";
 import MermaidViewer from "./code-block/MermaidViewer";
 
@@ -325,21 +326,58 @@ export default function CodeBlockView({
   // horizontal or vertical scrolling. A persisted height still applies to
   // HTML/Mermaid preview mode, where the preview itself needs a viewport.
   const showAnyPreview = showHtmlPreview || showSvgPreview || showMermaidPreview;
+
+  // ── Collapsed-width memory ──
+  // 展开态宽度是 fit-content(按最长代码行求值);收起后 body 被高度动画
+  // 层裁为 0,内容参照消失,若仍交给布局收缩,收起条会从代码宽度跳变成
+  // 全宽/细条。展开期间用 ResizeObserver 把 figure 的实际渲染宽度记进
+  // ref(覆盖编辑器宽度变化、内容编辑后的再求值;收起态的回调直接跳过,
+  // 不记录动画过程中的中间值),收起时以记录值为显式宽度 —— 收起条与
+  // 展开态等宽。读 ref 而非 state:只在收起/展开切换的那次渲染读取,
+  // 无需为每次布局变化重渲染。文档加载即收起的块没有记录值,回退全宽,
+  // 展开一次后即有正确宽度。
+  const expandedWidthRef = useRef<number | null>(null);
+
+  // 收起/展开动画时长 —— 按固定速率折算（见 useCollapseDuration）。
+  // 变量挂在 figure 上：折叠块分割线的过渡延迟也要继承同一变量。
+  const bodyClipRef = useRef<HTMLDivElement | null>(null);
+  const bodyInnerRef = useRef<HTMLDivElement | null>(null);
+  useCollapseDuration(figureRefInternal, bodyClipRef, bodyInnerRef, collapsed);
+
+  useEffect(() => {
+    const el = figureRefInternal.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      if (!el.classList.contains("is-collapsed")) {
+        expandedWidthRef.current = el.offsetWidth;
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Width: explicit (user resized) wins; otherwise the block shrinks to fit
   // its content (capped by .code-block-figure's max-width: 100%, floored by
   // its min-width) instead of always stretching to the full editor width —
-  // short snippets keep breathing room aligned with the text. Previews and
-  // the collapsed strip keep full width (their content isn't line-fit).
+  // short snippets keep breathing room aligned with the text. Previews keep
+  // full width (their content isn't line-fit); the collapsed strip inherits
+  // the last expanded width so it doesn't snap away from the code's width.
   const figureStyle: React.CSSProperties = {
     width: displayWidth
       ? `${displayWidth}px`
-      : showAnyPreview || collapsed
+      : showAnyPreview
         ? "100%"
-        : "fit-content",
+        : collapsed
+          ? expandedWidthRef.current != null
+            ? `${expandedWidthRef.current}px`
+            : "100%"
+          : "fit-content",
   };
+  // 收起不走 display:none(瞬间消失)——由 .code-block-body-clip 的
+  // 0fr↔1fr 高度动画接管(见 CSS);预览态仍直接隐藏 pre。
   const bodyStyle: React.CSSProperties = {
     overflow: "visible",
-    ...(showAnyPreview || collapsed ? { display: "none" } : null),
+    ...(showAnyPreview ? { display: "none" } : null),
   };
   const previewStyle: React.CSSProperties = {
     height: displayHeight != null ? `${displayHeight}px` : "320px",
@@ -455,12 +493,19 @@ export default function CodeBlockView({
         )}
 
         {/* Collapsed strip — passive identity only: the title text while
-            present (click re-opens the edit popover), empty otherwise. */}
-        {collapsed && (
-          <div ref={collapsedBarRef} className="code-block-collapsed-bar">
-            {title && titleSlot}
+            present (click re-opens the edit popover), empty otherwise.
+            常驻渲染（不再随 collapsed 卸载）：展开时经 grid 0fr 塌陷收为
+            0 高（内容同步淡出、visibility 移出焦点序），收起时再从 0 长出
+            —— 与下方内容延伸层衔接，figure 总高全程连续，收起条不会在
+            展开瞬间闪没。contain:inline-size 让收起条不参与展开态
+            fit-content 的宽度求值（长标题不会撑宽展开的代码块）。 */}
+        <div className="code-block-bar-clip">
+          <div className="code-block-bar-inner">
+            <div ref={collapsedBarRef} className="code-block-collapsed-bar">
+              {title && titleSlot}
+            </div>
           </div>
-        )}
+        </div>
 
         {/* Title edit popover — spawned in place by the pencil / title click,
             anchored at the block's top-right inner edge. One floating input
@@ -497,106 +542,115 @@ export default function CodeBlockView({
           </div>
         )}
 
-        {/* Code content — highlighted by lowlight.
-            Height is driven by the resize handle (displayHeight); when unset the
-            body is content-driven and scrolls past 60vh.
+        {/* Code content + previews — wrapped in the height-animation clip
+            layer (see .code-block-body-clip CSS): grid-template-rows 0fr↔1fr
+            interpolates continuously, so expanding reads as the bottom edge
+            naturally growing downward (border included), retracting as it
+            shrinks back; the inner row child (min-height:0 + overflow:hidden)
+            clips what's beyond the track and fades the content in sync.
             NodeViewContent must stay mounted for ProseMirror, so in preview
-            mode we hide the <pre> instead of unmounting it. */}
+            mode we hide the <pre> instead of unmounting it. When collapsed
+            React still unmounts the previews (useHtmlPreview drops the
+            iframe) — the fade-out masks the unmount inside the retract. */}
         {/* Keep NodeViewContent in the root ProseMirror editing host. A nested
             contenteditable=false → true island makes WKWebView focus the inner
             host, which breaks ProseMirror's DOM selection synchronization. */}
-        <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
-          <NodeViewContent
-            as="div"
-            className={`hljs language-${language || "plaintext"}`}
-            // `overflow-wrap: anywhere` alone lets WebKit pick either visual
-            // line's rect for the caret at a forced (space-less) wrap point,
-            // which is what causes the "needs an extra arrow-key press, then
-            // lands too far right" symptom on long unbroken runs (tokens,
-            // base64, hashes). `word-break: break-all` reclassifies every
-            // character boundary as a real line-break opportunity instead of
-            // an ambiguous last-resort one, which WebKit's caret/rect hit
-            // -testing handles deterministically. Keep `overflowWrap` as a
-            // fallback for engines where `word-break` isn't applied.
-            style={{
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-all",
-              overflowWrap: "anywhere",
-            }}
-          />
-        </pre>
+        <div ref={bodyClipRef} className="code-block-body-clip">
+          <div ref={bodyInnerRef} className="code-block-body-inner">
+            <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
+              <NodeViewContent
+                as="div"
+                className={`hljs language-${language || "plaintext"}`}
+                // `overflow-wrap: anywhere` alone lets WebKit pick either visual
+                // line's rect for the caret at a forced (space-less) wrap point,
+                // which is what causes the "needs an extra arrow-key press, then
+                // lands too far right" symptom on long unbroken runs (tokens,
+                // base64, hashes). `word-break: break-all` reclassifies every
+                // character boundary as a real line-break opportunity instead of
+                // an ambiguous last-resort one, which WebKit's caret/rect hit
+                // -testing handles deterministically. Keep `overflowWrap` as a
+                // fallback for engines where `word-break` isn't applied.
+                style={{
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-all",
+                  overflowWrap: "anywhere",
+                }}
+              />
+            </pre>
 
-        {isSvg && showSvgPreview && !collapsed && (
-          <div
-            ref={previewContainerRef}
-            className="code-block-preview"
-            contentEditable={false}
-            style={previewStyle}
-          >
-            {!selected && (
+            {isSvg && showSvgPreview && !collapsed && (
               <div
-                className="code-block-preview-overlay"
-                onMouseDown={selectNode}
+                ref={previewContainerRef}
+                className="code-block-preview"
+                contentEditable={false}
+                style={previewStyle}
+              >
+                {!selected && (
+                  <div
+                    className="code-block-preview-overlay"
+                    onMouseDown={selectNode}
+                  />
+                )}
+                {/* iframe inserted by useEffect below, not JSX */}
+              </div>
+            )}
+
+            {/* HTML live preview — sandboxed iframe rendering the source.
+                Wrapped in a relative container that mirrors FileView's preview box:
+                when NOT selected a transparent overlay sits above the iframe so a
+                click selects the node; once selected the overlay disappears and the
+                iframe becomes interactive.
+                `sandbox` without `allow-same-origin` isolates it from the app.
+
+                IMPORTANT: The iframe is rendered via native DOM (useEffect below),
+                NOT via React JSX. React 19's development-mode reconciliation traverses
+                the DOM tree including sandboxed iframes, triggering:
+                  SecurityError: Sandbox access violation
+                This crashes the entire reconciliation loop and blocks ALL user
+                interactions. By using native DOM, React never sees the iframe's
+                internal structure. */}
+            {isHtml && showHtmlPreview && !collapsed && (
+              <div
+                ref={previewContainerRef}
+                className="code-block-preview"
+                contentEditable={false}
+                style={previewStyle}
+              >
+                {!selected && (
+                  <div
+                    className="code-block-preview-overlay"
+                    onMouseDown={selectNode}
+                  />
+                )}
+                {/* iframe inserted by useEffect below, not JSX */}
+              </div>
+            )}
+
+            {/* Mermaid live preview — pan/zoom stage (MermaidViewer, built on
+                react-zoom-pan-pinch). Cmd/Ctrl+wheel zooms anchored at the
+                cursor, drag pans, double-click resets. When NOT selected a
+                transparent overlay sits above the diagram so a click selects the
+                node; once selected the overlay disappears. */}
+            {isMermaid && showMermaidPreview && !collapsed && (
+              <MermaidViewer
+                className="code-block-preview code-block-mermaid-preview"
+                style={previewStyle}
+                contentEditable={false}
+                containerRef={mermaidPreviewRef}
+                svg={mermaidSvg}
+                error={mermaidError}
+                overlay={
+                  !selected ? (
+                    <div
+                      className="code-block-preview-overlay"
+                      onMouseDown={selectNode}
+                    />
+                  ) : null
+                }
               />
             )}
-            {/* iframe inserted by useEffect below, not JSX */}
           </div>
-        )}
-
-        {/* HTML live preview — sandboxed iframe rendering the source.
-            Wrapped in a relative container that mirrors FileView's preview box:
-            when NOT selected a transparent overlay sits above the iframe so a
-            click selects the node; once selected the overlay disappears and the
-            iframe becomes interactive.
-            `sandbox` without `allow-same-origin` isolates it from the app.
-            
-            IMPORTANT: The iframe is rendered via native DOM (useEffect below),
-            NOT via React JSX. React 19's development-mode reconciliation traverses
-            the DOM tree including sandboxed iframes, triggering:
-              SecurityError: Sandbox access violation
-            This crashes the entire reconciliation loop and blocks ALL user
-            interactions. By using native DOM, React never sees the iframe's
-            internal structure. */}
-        {isHtml && showHtmlPreview && !collapsed && (
-          <div
-            ref={previewContainerRef}
-            className="code-block-preview"
-            contentEditable={false}
-            style={previewStyle}
-          >
-            {!selected && (
-              <div
-                className="code-block-preview-overlay"
-                onMouseDown={selectNode}
-              />
-            )}
-            {/* iframe inserted by useEffect below, not JSX */}
-          </div>
-        )}
-
-        {/* Mermaid live preview — pan/zoom stage (MermaidViewer, built on
-            react-zoom-pan-pinch). Cmd/Ctrl+wheel zooms anchored at the
-            cursor, drag pans, double-click resets. When NOT selected a
-            transparent overlay sits above the diagram so a click selects the
-            node; once selected the overlay disappears. */}
-        {isMermaid && showMermaidPreview && !collapsed && (
-          <MermaidViewer
-            className="code-block-preview code-block-mermaid-preview"
-            style={previewStyle}
-            contentEditable={false}
-            containerRef={mermaidPreviewRef}
-            svg={mermaidSvg}
-            error={mermaidError}
-            overlay={
-              !selected ? (
-                <div
-                  className="code-block-preview-overlay"
-                  onMouseDown={selectNode}
-                />
-              ) : null
-            }
-          />
-        )}
+        </div>
 
         {/* Resize handle — shared bottom-right circular handle (same as File /
             Image / Diagram). Drag to resize width + height, double-click to

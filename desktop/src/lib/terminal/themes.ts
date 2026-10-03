@@ -239,6 +239,89 @@ export const TERMINAL_THEMES: TerminalTheme[] = [
       panelBg: '#F8F8F8',
     },
   },
+  // ──────────────────────────────────────────────
+  // Paper Light  (matches app's paper-light 纯白文档风)
+  //   背景 #ffffff 与 app chrome 无缝（activityBar/editor 均 #ffffff），
+  //   若回退 jstudio-light 的 #F8F8F8 会与白色活动栏形成色差。
+  //   ANSI 以主题青色 (teal #05838B) 为主色相，绿/红/黄取自主题既有
+  //   token（terminal-ansi*、gutter、error/warning），亮色按 VSCode
+  //   Light 惯例仅在绿/黄/灰阶上提亮。
+  // ──────────────────────────────────────────────
+  {
+    id: 'paper-light',
+    isDark: false,
+    dimOpacity: 1,
+    background: '#ffffff',
+    foreground: '#1a1a1a',
+    cursor: '#1a1612',
+    cursorAccent: '#ffffff',
+    selectionBackground: '#B8ECE8',
+    selectionInactiveBackground: '#B8ECE8',
+    selectionForeground: '#1a1a1a',
+    black: '#1a1a1a',
+    red: '#cf1322',
+    green: '#389e0d',
+    yellow: '#ad6800',
+    blue: '#034F55',
+    magenta: '#531dab',
+    cyan: '#05838B',
+    white: '#595959',
+    brightBlack: '#8c8c8c',
+    brightRed: '#e2574b',
+    brightGreen: '#52b522',
+    brightYellow: '#cf9a00',
+    brightBlue: '#05838B',
+    brightMagenta: '#7a45d6',
+    brightCyan: '#0a9aa4',
+    brightWhite: '#a5a5a5',
+    ui: {
+      barBg: '#ffffff',
+      barBorder: '#D9D9D9',
+      barFg: '#595959',
+      panelBg: '#ffffff',
+    },
+  },
+  // ──────────────────────────────────────────────
+  // Editorial Light  (matches app's editorial-light 杂志印刷风)
+  //   纯白底与 app chrome 无缝（同 paper-light 的理由）；ANSI 锚定主题
+  //   既有 token：蓝=宝蓝 terminal-ansiBlue、绿=terminal-ansiGreen、
+  //   红=error/deleted、黄=warning/number、紫=function、青=type，
+  //   灰阶用主题的暖灰系；亮色提亮一档（同 VSCode Light 惯例）。
+  // ──────────────────────────────────────────────
+  {
+    id: 'editorial-light',
+    isDark: false,
+    dimOpacity: 1,
+    background: '#ffffff',
+    foreground: '#1A1A1A',
+    cursor: '#1A1A1A',
+    cursorAccent: '#ffffff',
+    selectionBackground: '#D6DEF9',
+    selectionInactiveBackground: '#D6DEF9',
+    selectionForeground: '#1A1A1A',
+    black: '#1A1A1A',
+    red: '#C0392B',
+    green: '#2E7D32',
+    yellow: '#9A6B15',
+    blue: '#2B4BD7',
+    magenta: '#7E5AA6',
+    cyan: '#38746A',
+    white: '#5C5A55',
+    brightBlack: '#9A968E',
+    brightRed: '#D95A4C',
+    brightGreen: '#48A34C',
+    brightYellow: '#C08A2A',
+    brightBlue: '#556EE0',
+    brightMagenta: '#9878C8',
+    brightCyan: '#4E968C',
+    brightWhite: '#B3AFA7',
+    ui: {
+      barBg: '#ffffff',
+      barBorder: '#E2E0DA',
+      barFg: '#5C5A55',
+      panelBg: '#ffffff',
+    },
+  },
 ];
 
 /** Default terminal theme for dark mode. */

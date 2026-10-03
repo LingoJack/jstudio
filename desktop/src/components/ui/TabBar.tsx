@@ -252,7 +252,7 @@ export default function TabBar({
         : 0;
       if (overflow > 2) {
         span.classList.add('tab-title-marquee');
-        span.style.setProperty('--marquee-dur', `${Math.max(1.2, overflow / 45)}s`);
+        span.style.setProperty('--marquee-dur', `${Math.max(1, overflow / 60)}s`);
       } else {
         span.classList.remove('tab-title-marquee');
       }
@@ -546,7 +546,7 @@ export default function TabBar({
                           tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className="tab-title-span text-[12px] font-medium flex-1 min-w-0 truncate text-center">
+                      <span className="tab-title-span absolute inset-x-0 inset-y-0 flex items-center justify-center text-[12px] font-medium truncate text-center">
                         <span className="tab-title-track">
                           <span className="tab-title-text">{tab.title}</span>
                           <span className="tab-title-text" aria-hidden>{tab.title}</span>

@@ -526,6 +526,34 @@ function wireSidecar(): void {
 // F12: toggle DevTools on whichever surface the key landed on (main renderer
 // or a browser-panel tab view). Not a menu accelerator — macOS swallows F12
 // as a media key unless "use F1/F2 as standard function keys" is enabled.
+//
+// Also: navigation containment (process-level backstop). The app bundle must
+// never be loaded into a sub-frame or a child window — those don't get the
+// preload bridge, so the booted copy throws "[platform] window.jstudioNative
+// missing". This happens for real: a srcdoc preview iframe inherits the HOST
+// page's base URL, so any relative link inside an HTML preview resolves to
+// the app bundle and boots a second, broken copy of the app inside the frame.
+// The renderer-side wiring (src/lib/editor/previewIframeWiring.ts) already
+// routes plain link clicks to the system browser; this guard covers every
+// other trigger (JS location assignment, form submit, middle-click, popups).
+
+/** True when `url` would load the app's own renderer bundle. */
+function isAppBundleUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.origin === new URL(DEV_URL).origin) return true;
+    if (u.protocol === 'file:') {
+      // Only the dist directory (the packaged app bundle), not user files.
+      const decoded = decodeURIComponent(u.pathname);
+      const distDir = path.join(__dirname, '..', 'dist');
+      return decoded === distDir || decoded.startsWith(distDir + path.sep);
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 app.on('web-contents-created', (_event, wc) => {
   wc.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && input.key === 'F12') {
@@ -534,6 +562,19 @@ app.on('web-contents-created', (_event, wc) => {
       else wc.openDevTools({ mode: 'detach' });
     }
   });
+  // Sub-frame navigation into the app bundle → deny. Main-frame loads are the
+  // app's own lifecycle (boot/reload) and stay untouched; so are preview
+  // pages navigating anywhere else (about:srcdoc, jstudio-asset://, …).
+  wc.on('will-frame-navigate', (details) => {
+    if (!details.isMainFrame && isAppBundleUrl(details.url)) details.preventDefault();
+  });
+  // window.open / target=_blank into the app bundle → deny (a child window
+  // boots the same preload-less copy). Other URLs keep default behavior;
+  // per-webContents handlers set later (e.g. the browser tabs manager)
+  // replace this one for their own surfaces.
+  wc.setWindowOpenHandler(({ url }) =>
+    isAppBundleUrl(url) ? { action: 'deny' } : { action: 'allow' },
+  );
 });
 
 function wireIpc(): void {

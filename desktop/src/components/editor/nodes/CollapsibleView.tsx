@@ -69,6 +69,7 @@ import { handleNativeSelectAll } from '../../../lib/shortcuts/nativeSelectAll';
 import { useI18n } from '../../../lib/core/i18n';
 import { COLLAPSIBLE_HEADER_CLASS } from '../../ui/Collapsible';
 import { useNodeSelected } from '../hooks/useNodeSelected';
+import { useCollapseDuration } from '../hooks/useCollapseDuration';
 import { useCursorTrailHostRef } from '../CursorTrailContext';
 import { tiptapJSONToOurBlocks } from '../../../lib/editor/tiptapAdapter';
 import { blocksToMarkdown } from '../../../lib/editor/markdownExport';
@@ -102,6 +103,12 @@ export default function CollapsibleView({
   }, [summary]);
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  // 收起/展开动画时长 —— 按固定速率折算（见 useCollapseDuration）。
+  // 变量挂在 figure（wrapper）上：分割线 ::after 的过渡延迟要继承它。
+  const bodyClipRef = useRef<HTMLDivElement | null>(null);
+  const bodyInnerRef = useRef<HTMLDivElement | null>(null);
+  useCollapseDuration(wrapperRef, bodyClipRef, bodyInnerRef, !open);
 
   const toggleOpen = () => updateAttributes({ open: !open });
 
@@ -310,10 +317,20 @@ export default function CollapsibleView({
           />
         </div>
 
-        {/* ── Editable body (always rendered, visibility toggled by CSS) ── */}
-        {/* NodeViewContent provides the contentDOM that ProseMirror manages. */}
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <NodeViewContent as="div" className={`px-4 py-3 ${open ? '' : 'hidden'}`} />
+        {/* ── Editable body (always rendered; collapse animated by CSS) ── */}
+        {/* NodeViewContent provides the contentDOM that ProseMirror manages.
+            包在高度延伸动画层里(见 .collapsible-body-clip CSS):grid
+            0fr↔1fr 连续插值让展开读作底部自然向下延伸、收起反向收回,
+            inner 行子项(min-height:0 + overflow:hidden)负责裁切并让
+            内容淡入淡出与延伸同步 —— 替代原来的 Tailwind hidden 瞬间
+            切换。px-4 py-3 padding 留在 NodeViewContent 上由 inner 裁掉
+            (行子项自身不能有 padding,否则 0fr 时残留)。 */}
+        <div ref={bodyClipRef} className="collapsible-body-clip">
+          <div ref={bodyInnerRef} className="collapsible-body-inner">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <NodeViewContent as="div" className="px-4 py-3" />
+          </div>
+        </div>
       </div>
     </NodeViewWrapper>
   );
