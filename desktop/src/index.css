@@ -69,9 +69,12 @@
    loop could freeze mid-scroll on a tab the pointer has already left).
    Honours prefers-reduced-motion (title stays truncated, as before). */
 .tab-title-marquee {
-  text-align: left;
+  /* marker only — alignment + animation activate on row hover, so nothing
+     leaks onto a tab after the pointer leaves (React never clears
+     JS-added classes) */
 }
 .group:hover .tab-title-marquee {
+  text-align: left;
   animation: tab-marquee var(--marquee-dur, 3s) ease-in-out 0.3s infinite alternate;
 }
 @keyframes tab-marquee {

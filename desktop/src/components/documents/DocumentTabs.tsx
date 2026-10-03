@@ -108,15 +108,41 @@ export default function DocumentTabs() {
   // notch). Capture phase on the wrapper so it wins over inner scroll
   // handling; stopped after handling so nothing double-moves.
   const tabBarWheelRef = useRef<HTMLDivElement>(null);
+  /** Latest docTabs length / active index for the wheel handler (deps-free
+   *  effect reads them via refs). */
+  const docTabsLenRef = useRef(0);
+  docTabsLenRef.current = docTabs.length;
+  const activeIdxRef = useRef(0);
+  activeIdxRef.current = activeDocTabIndex;
+  const wheelAccumRef = useRef(0);
   useEffect(() => {
     const el = tabBarWheelRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      const dir = e.deltaY > 0 ? 1 : -1;
-      const next = windowOffsetRef.current + dir;
-      windowOffsetRef.current = next;
-      setWindowOffset(next);
+      // Both axes shift the visible window: mouse wheel (deltaY) and macOS
+      // trackpad horizontal swipe (deltaX) — one tab per ~120px of scroll,
+      // accumulated so smooth trackpad panning shifts smoothly.
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (Math.abs(delta) < 2) return;
+      wheelAccumRef.current += delta;
+      const STEP = 120;
+      let steps = Math.trunc(wheelAccumRef.current / STEP);
+      if (steps === 0) { e.preventDefault(); return; } // swallow sub-step jitter
+
+      // Clamp against the real window bounds; at an edge, hand the event
+      // back (no preventDefault) instead of banking unreachable deltas.
+      const centered = activeIdxRef.current - Math.floor((MAX_VISIBLE_DOC_TABS - 1) / 2);
+      const maxStart = Math.max(0, docTabsLenRef.current - MAX_VISIBLE_DOC_TABS);
+      const cur = Math.max(0, Math.min(centered + windowOffsetRef.current, maxStart));
+      const nextOffset = windowOffsetRef.current + steps;
+      const next = Math.max(0, Math.min(centered + nextOffset, maxStart));
+      if (next === cur) {
+        wheelAccumRef.current = 0;
+        return; // at an edge — let the event fall through untouched
+      }
+      wheelAccumRef.current -= steps * STEP;
+      windowOffsetRef.current = nextOffset;
+      setWindowOffset(nextOffset);
       e.preventDefault();
       e.stopPropagation();
     };
