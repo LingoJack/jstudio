@@ -47,7 +47,7 @@ import {
   type PreviewCategory,
 } from '../../../lib/editor/fileUtils';
 import { docxToHtml } from '../../../lib/editor/docxPreview';
-import { preventIframeScrollChaining } from '../../../lib/editor/iframeOverscroll';
+import { wirePreviewIframe } from '../../../lib/editor/previewIframeWiring';
 import { saveBytesAsAsset, genStoredName } from '../../../lib/editor/upload';
 import { useAssetBlobUrl } from '../../../lib/editor/content/useAssetBlobUrl';
 import { useNodeResize } from '../hooks/useNodeResize';
@@ -187,8 +187,8 @@ export default function FileView({
       iframe.title = fileName;
       iframe.sandbox.add('allow-same-origin');
       iframe.src = safeSrc;
-      // 预览滚到底后继续滚动时,不要把滚动链到编辑器页面
-      preventIframeScrollChaining(iframe);
+      // 滚动截断在预览内 + 链接点击不导航 iframe(交系统浏览器)
+      wirePreviewIframe(iframe);
       container.appendChild(iframe);
       htmlIframeRef.current = iframe;
     }

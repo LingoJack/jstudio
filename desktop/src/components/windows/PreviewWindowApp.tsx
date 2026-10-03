@@ -15,6 +15,7 @@ import { fetchPreviewData, closePreviewWindow, type PreviewPayload } from '../..
 import { ensureUtf8Charset, formatFileSize, getCategoryLabel, type PreviewCategory } from '../../lib/editor/fileUtils';
 import { useAssetBlobUrl } from '../../lib/editor/content/useAssetBlobUrl';
 import { docxToHtml } from '../../lib/editor/docxPreview';
+import { wirePreviewIframe } from '../../lib/editor/previewIframeWiring';
 import { useWindowThemeSync } from '../../lib/windows/useWindowThemeSync';
 import { useCloseOnCmdW } from '../../lib/windows/useCloseOnCmdW';
 import PdfPreview from '../editor/nodes/PdfPreview';
@@ -135,6 +136,8 @@ function PreviewContent({
       } else {
         iframe.src = safeSrc;
       }
+      // 滚动截断在预览内 + 链接点击不导航 iframe(交系统浏览器)
+      wirePreviewIframe(iframe);
       container.appendChild(iframe);
       htmlIframeRef.current = iframe;
     }

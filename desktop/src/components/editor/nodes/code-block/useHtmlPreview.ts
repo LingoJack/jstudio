@@ -12,7 +12,7 @@
 
 import { useEffect, useRef } from "react";
 import { useI18n } from "../../../../lib/core/i18n";
-import { preventIframeScrollChaining } from "../../../../lib/editor/iframeOverscroll";
+import { wirePreviewIframe } from "../../../../lib/editor/previewIframeWiring";
 
 export interface UseHtmlPreviewParams {
   showHtmlPreview: boolean;
@@ -66,8 +66,8 @@ export function useHtmlPreview({
         "allow-same-origin",
       );
       iframe.srcdoc = htmlSource;
-      // 预览滚到底后继续滚动时,不要把滚动链到编辑器页面
-      preventIframeScrollChaining(iframe);
+      // 滚动截断在预览内 + 链接点击不导航 iframe(交系统浏览器)
+      wirePreviewIframe(iframe);
       container.appendChild(iframe);
       iframeRef.current = iframe;
     }

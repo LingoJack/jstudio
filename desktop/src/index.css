@@ -63,24 +63,28 @@
 .no-drag { -webkit-app-region: no-drag; }
 
 /* Tab title marquee — hovering a truncated tab scrolls the title
-   SEAMLESSLY in a loop. Structure: the title is rendered twice on a
-   translating track; the DUPLICATE is absolutely positioned after the
-   first copy (out of flow — the tab's width stays at one copy, no blank
-   stretch, no peek at rest) and hidden at rest. On :hover the track
-   travels exactly one copy + gap, so the duplicate lands where the
-   original was — the end flows into the start with no jump. Gated on the
-   row's :hover — never a JS-toggled class (React re-renders don't clear
-   JS-added classes). Honours prefers-reduced-motion. */
+   SEAMLESSLY in a loop: the title is rendered TWICE, side by side on an
+   inline-flex track (gap 16px); the loop travels exactly one copy + gap,
+   so at the wrap the second copy sits exactly where the first was — the
+   end flows into the start with no jump (same mechanics as MarqueeTitle,
+   the tree/outline shared component). The span clips; only the track
+   moves. Duration is set inline by TabBar (proportional to overflow).
+   Gated on the row's :hover — never a JS-toggled class (React
+   re-renders don't clear JS-added classes). Honours reduced-motion. */
+/* Marked (overflowing) titles anchor LEFT at rest: a centered track would
+   show copy1's end + gap + copy2's start simultaneously (the "peek") —
+   left-anchoring shows only copy1's head until the hover loop runs. */
+.tab-title-marquee {
+  text-align: left;
+}
 .tab-title-track,
 .marquee-title-track {
   display: inline-flex;
-  position: relative;
+  gap: 16px;
   white-space: nowrap;
 }
 .tab-title-track > .tab-title-text:not(:first-child),
 .marquee-title-track > .marquee-copy:not(:first-child) {
-  position: absolute;
-  left: calc(100% + 16px);
   visibility: hidden;
 }
 .group:hover .tab-title-marquee > .tab-title-text:not(:first-child) {
@@ -97,11 +101,11 @@
 }
 @keyframes tab-marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-100% - 16px)); }
+  to { transform: translateX(calc(-50% - 8px)); }
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-100% - 16px)); }
+  to { transform: translateX(calc(-50% - 8px)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .group:hover .tab-title-marquee .tab-title-track,

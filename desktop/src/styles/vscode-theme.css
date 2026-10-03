@@ -1722,9 +1722,17 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .code-block-figure:focus-within .block-float-pill,
 .code-block-figure.is-selected .block-float-pill,
 .code-block-figure.is-lang-open .block-float-pill,
-.collapsible-block-figure:hover .block-float-pill,
-.collapsible-block-figure:focus-within .block-float-pill,
-.collapsible-block-figure.is-selected .block-float-pill {
+/* 折叠块的三条只作用于自己的胶囊（>）：内部代码块的胶囊也是折叠块的
+   DOM 后代，后代选择器会让 hover 折叠块时内部所有块的胶囊一起点亮。
+   :hover / :focus-within 还会沿 DOM 树向上冒泡到祖先，所以再用
+   :not(:has(...)) 把"嵌套块自身正处于 hover / focus-within"的情况排除
+   ——光标落在内部代码块上时只点亮该代码块的胶囊，折叠块的胶囊不亮。
+   注意参数写作 ":hover .block-float-pill"（存在一个处于 hover 的后代、
+   其下有胶囊）而非 ".block-float-pill:hover"：后者会把折叠块胶囊自身
+   的 hover 也算进去，光标一移上胶囊它就消失，造成闪烁死循环。 */
+.collapsible-block-figure:hover:not(:has(:hover .block-float-pill)) > .block-float-pill,
+.collapsible-block-figure:focus-within:not(:has(:focus-within .block-float-pill)) > .block-float-pill,
+.collapsible-block-figure.is-selected > .block-float-pill {
   transform: translateY(-100%);
   opacity: 1;
   visibility: visible;
