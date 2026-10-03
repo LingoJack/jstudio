@@ -473,14 +473,13 @@ export default function TabBar({
                   }}
                   draggable={canDrag && !tab.isRenaming}
                   onPointerEnter={(e) => {
-                    // Truncated title → marquee it so the full text is
+                    // Truncated title → seamless marquee so the full text is
                     // readable without any click (overflow measured live).
                     const span = e.currentTarget.querySelector<HTMLElement>('.tab-title-span');
                     if (!span) return;
                     const overflow = span.scrollWidth - span.clientWidth;
                     if (overflow > 2) {
-                      span.style.setProperty('--marquee-shift', `${-overflow - 8}px`);
-                      span.style.setProperty('--marquee-dur', `${Math.max(1.6, overflow / 16)}s`);
+                      span.style.setProperty('--marquee-dur', `${Math.max(2, overflow / 20)}s`);
                       span.classList.add('tab-title-marquee');
                     }
                   }}
@@ -535,8 +534,11 @@ export default function TabBar({
                           tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className="tab-title-span text-[12px] font-medium flex-1 min-w-0 truncate text-center">
-                        {tab.title}
+                      <span className="tab-title-span text-[12px] font-medium flex-1 min-w-0 truncate text-left">
+                        <span className="tab-title-track">
+                          <span className="tab-title-text">{tab.title}</span>
+                          <span className="tab-title-text" aria-hidden>{tab.title}</span>
+                        </span>
                       </span>
 
                       {tab.paneCount && tab.paneCount > 1 && (

@@ -85,70 +85,84 @@ export default function DocumentTabs() {
   const activeDocTabIndex = docTabs.findIndex((tab) => tab.id === activeTabId);
 
   // ── User-shiftable visible window ────────────────────────────
-  // The window auto-centers on the active tab; the mouse wheel shifts it
-  // left/right to reveal tabs outside the rendered slice (the +N badge
-  // counts them). Any doc-tab switch re-centers (offset resets).
-  const [windowOffset, setWindowOffset] = useState(0);
-  const windowOffsetRef = useRef(0);
+  // Auto-centers on the active tab (windowStartUser = null). The mouse
+  // wheel / trackpad pan moves it tab-by-tab — revealing tabs outside the
+  // rendered slice (+N badge counts them). Re-centers on doc-tab switch;
+  // the +N badge click resets too. The user's position is ABSOLUTE (not an
+  // offset from the centered anchor): an anchor-relative shift gets clamped
+  // away whenever the active tab sits near the list's end, eating the
+  // shift — the bug this model replaces.
+  const [windowStartUser, setWindowStartUser] = useState<number | null>(null);
   useEffect(() => {
-    windowOffsetRef.current = 0;
-    setWindowOffset(0);
+    userStartRef.current = null;
+    setWindowStartUser(null);
   }, [activeDocTabIndex]);
 
   const centeredStart = activeDocTabIndex - Math.floor((MAX_VISIBLE_DOC_TABS - 1) / 2);
   const maxStart = Math.max(0, docTabs.length - MAX_VISIBLE_DOC_TABS);
-  const windowStart = Math.max(0, Math.min(centeredStart + windowOffset, maxStart));
+  const windowStart = Math.max(
+    0,
+    Math.min(windowStartUser ?? centeredStart, maxStart),
+  );
   const visibleDocTabs = docTabs.slice(
     windowStart,
     windowStart + MAX_VISIBLE_DOC_TABS,
   );
   const hiddenTabCount = docTabs.length - visibleDocTabs.length;
 
-  // Mouse wheel over the strip shifts the visible window (one tab per
-  // notch). Capture phase on the wrapper so it wins over inner scroll
-  // handling; stopped after handling so nothing double-moves.
+  // TEMP DEBUG (remove after tab-strip wheel verification)
+  if (typeof window !== 'undefined') {
+    (window as unknown as Record<string, unknown>).__jtabs = {
+      userStart: windowStartUser,
+      len: docTabs.length,
+      idx: activeDocTabIndex,
+      start: windowStart,
+      maxStart: Math.max(0, docTabs.length - MAX_VISIBLE_DOC_TABS),
+    };
+  }
+
+  // Mouse wheel / trackpad pan over the strip: one tab per ~120px of
+  // scroll, both axes (mouse wheel = deltaY, macOS trackpad swipe =
+  // deltaX). Capture phase on the wrapper; stopped after handling so
+  // nothing double-moves.
   const tabBarWheelRef = useRef<HTMLDivElement>(null);
-  /** Latest docTabs length / active index for the wheel handler (deps-free
-   *  effect reads them via refs). */
+  /** Latest lengths/indices for the deps-free handler (refs mirror render). */
   const docTabsLenRef = useRef(0);
   docTabsLenRef.current = docTabs.length;
   const activeIdxRef = useRef(0);
   activeIdxRef.current = activeDocTabIndex;
+  const userStartRef = useRef<number | null>(null);
+  userStartRef.current = windowStartUser;
   const wheelAccumRef = useRef(0);
   useEffect(() => {
     const el = tabBarWheelRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      // Both axes shift the visible window: mouse wheel (deltaY) and macOS
-      // trackpad horizontal swipe (deltaX) — one tab per ~120px of scroll,
-      // accumulated so smooth trackpad panning shifts smoothly.
       const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       if (Math.abs(delta) < 2) return;
       wheelAccumRef.current += delta;
       const STEP = 120;
-      let steps = Math.trunc(wheelAccumRef.current / STEP);
+      const steps = Math.trunc(wheelAccumRef.current / STEP);
       if (steps === 0) { e.preventDefault(); return; } // swallow sub-step jitter
 
-      // Clamp against the real window bounds; at an edge, hand the event
-      // back (no preventDefault) instead of banking unreachable deltas.
-      const centered = activeIdxRef.current - Math.floor((MAX_VISIBLE_DOC_TABS - 1) / 2);
       const maxStart = Math.max(0, docTabsLenRef.current - MAX_VISIBLE_DOC_TABS);
-      const cur = Math.max(0, Math.min(centered + windowOffsetRef.current, maxStart));
-      const nextOffset = windowOffsetRef.current + steps;
-      const next = Math.max(0, Math.min(centered + nextOffset, maxStart));
+      const centered = activeIdxRef.current - Math.floor((MAX_VISIBLE_DOC_TABS - 1) / 2);
+      const cur = Math.max(0, Math.min(userStartRef.current ?? centered, maxStart));
+      const next = Math.max(0, Math.min(cur + steps, maxStart));
       if (next === cur) {
         wheelAccumRef.current = 0;
-        return; // at an edge — let the event fall through untouched
+        return; // at an edge — nothing left to reveal in that direction
       }
-      wheelAccumRef.current -= steps * STEP;
-      windowOffsetRef.current = nextOffset;
-      setWindowOffset(nextOffset);
       e.preventDefault();
       e.stopPropagation();
+      wheelAccumRef.current -= steps * STEP;
+      userStartRef.current = next;
+      setWindowStartUser(next);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, []);
+  }); // no deps — re-attach per render: an HMR-recreated wrapper element
+      // must always carry the listener (same rule as TabBar's effects)
 
   // Title-bar center slot (live element from the registry — survives
   // AppTitleBar remounts / HMR, unlike a state-cached reference).
@@ -229,7 +243,7 @@ export default function DocumentTabs() {
           <span
             className="shrink-0 px-1 text-[11px] font-medium text-[var(--vscode-descriptionForeground)] opacity-70"
             title={t('workspace.hiddenTabs', { count: hiddenTabCount })}
-          onClick={() => { windowOffsetRef.current = 0; setWindowOffset(0); }}
+          onClick={() => { userStartRef.current = null; setWindowStartUser(null); }}
           >
             +{hiddenTabCount}
           </span>

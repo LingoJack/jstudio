@@ -62,27 +62,30 @@
 .drag-region { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
 
-/* Tab title marquee — reveals a truncated tab title while hovered. TabBar
-   measures the overflow and sets --marquee-shift / --marquee-dur inline;
-   the ANIMATION itself is gated on the row's :hover — never a JS-toggled
-   class (React re-renders don't clear JS-added classes, so a class-driven
-   loop could freeze mid-scroll on a tab the pointer has already left).
-   Honours prefers-reduced-motion (title stays truncated, as before). */
+/* Tab title marquee — hovering a truncated tab scrolls the title
+   SEAMLESSLY in a loop: the title is rendered twice on a translating
+   track; one loop = exactly one copy + gap, so the end flows into the
+   start with no jump. The outer span clips; only the track moves.
+   Duration is set inline by TabBar (proportional to overflow). Gated on
+   the row's :hover — never a JS-toggled class (React re-renders don't
+   clear JS-added classes). Honours prefers-reduced-motion. */
 .tab-title-marquee {
-  /* marker only — alignment + animation activate on row hover, so nothing
-     leaks onto a tab after the pointer leaves (React never clears
-     JS-added classes) */
-}
-.group:hover .tab-title-marquee {
   text-align: left;
-  animation: tab-marquee var(--marquee-dur, 3s) ease-in-out 0.3s infinite alternate;
+}
+.tab-title-track {
+  display: inline-flex;
+  gap: var(--marquee-gap, 16px);
+  white-space: nowrap;
+}
+.group:hover .tab-title-marquee .tab-title-track {
+  animation: tab-marquee var(--marquee-dur, 5s) linear infinite;
 }
 @keyframes tab-marquee {
-  0%, 25% { transform: translateX(0); }
-  75%, 100% { transform: translateX(var(--marquee-shift, 0px)); }
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - var(--marquee-gap, 16px) / 2)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .group:hover .tab-title-marquee { animation: none; }
+  .group:hover .tab-title-marquee .tab-title-track { animation: none; }
 }
 
 /* width utilities */
