@@ -340,9 +340,8 @@ export default function CodeBlockView({
 
   // 收起/展开动画时长 —— 按固定速率折算（见 useCollapseDuration）。
   // 变量挂在 figure 上：折叠块分割线的过渡延迟也要继承同一变量。
-  const bodyClipRef = useRef<HTMLDivElement | null>(null);
   const bodyInnerRef = useRef<HTMLDivElement | null>(null);
-  useCollapseDuration(figureRefInternal, bodyClipRef, bodyInnerRef, collapsed);
+  useCollapseDuration(figureRefInternal, bodyInnerRef, collapsed);
 
   useEffect(() => {
     const el = figureRefInternal.current;
@@ -555,7 +554,7 @@ export default function CodeBlockView({
         {/* Keep NodeViewContent in the root ProseMirror editing host. A nested
             contenteditable=false → true island makes WKWebView focus the inner
             host, which breaks ProseMirror's DOM selection synchronization. */}
-        <div ref={bodyClipRef} className="code-block-body-clip">
+        <div className="code-block-body-clip">
           <div ref={bodyInnerRef} className="code-block-body-inner">
             <pre ref={codeRef} className="code-block-body" style={bodyStyle}>
               <NodeViewContent

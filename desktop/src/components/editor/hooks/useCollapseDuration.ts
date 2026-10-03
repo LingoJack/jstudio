@@ -65,7 +65,6 @@ export function useCollapseDuration(
   hostRef: RefObject<HTMLDivElement | null>,
   /** 内容容器的测量点：inner（行子项），其 scrollHeight 恒等于内容
       自然高（两个方向、过渡动画的任意时刻都成立）。 */
-  clipRef: RefObject<HTMLDivElement | null>,
   innerRef: RefObject<HTMLDivElement | null>,
   collapsed: boolean,
 ): void {
@@ -76,8 +75,7 @@ export function useCollapseDuration(
   useLayoutEffect(() => {
     const host = hostRef.current;
     const inner = innerRef.current;
-    const clip = clipRef.current;
-    if (!host || !inner || !clip) return;
+    if (!host || !inner) return;
 
     // 1. 先写：绝不能让下面第 2 步的读取成为本次切换后第一次样式
     //    计算 —— 那会让过渡以上一次的变量值（或 fallback）定格。
@@ -96,5 +94,5 @@ export function useCollapseDuration(
     // 2. 后读：这次强制样式计算会以刚写入的变量启动过渡；读到的
     //    内容自然高（布局值，不受过渡插值影响）记给下一次切换。
     lastDistanceRef.current = inner.scrollHeight;
-  }, [hostRef, clipRef, innerRef, collapsed]);
+  }, [hostRef, innerRef, collapsed]);
 }

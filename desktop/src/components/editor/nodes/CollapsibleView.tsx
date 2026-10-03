@@ -106,9 +106,8 @@ export default function CollapsibleView({
 
   // 收起/展开动画时长 —— 按固定速率折算（见 useCollapseDuration）。
   // 变量挂在 figure（wrapper）上：分割线 ::after 的过渡延迟要继承它。
-  const bodyClipRef = useRef<HTMLDivElement | null>(null);
   const bodyInnerRef = useRef<HTMLDivElement | null>(null);
-  useCollapseDuration(wrapperRef, bodyClipRef, bodyInnerRef, !open);
+  useCollapseDuration(wrapperRef, bodyInnerRef, !open);
 
   const toggleOpen = () => updateAttributes({ open: !open });
 
@@ -325,7 +324,7 @@ export default function CollapsibleView({
             内容淡入淡出与延伸同步 —— 替代原来的 Tailwind hidden 瞬间
             切换。px-4 py-3 padding 留在 NodeViewContent 上由 inner 裁掉
             (行子项自身不能有 padding,否则 0fr 时残留)。 */}
-        <div ref={bodyClipRef} className="collapsible-body-clip">
+        <div className="collapsible-body-clip">
           <div ref={bodyInnerRef} className="collapsible-body-inner">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <NodeViewContent as="div" className="px-4 py-3" />
