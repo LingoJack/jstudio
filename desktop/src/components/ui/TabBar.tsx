@@ -516,7 +516,7 @@ export default function TabBar({
                     e.stopPropagation();
                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                   }}
-                  className={`group relative flex items-center gap-1.5 w-[130px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
+                  className={`group relative flex items-center gap-1.5 w-[130px] h-7 px-3 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
                       : `text-[${textColor}] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] hover:text-[var(--vscode-foreground)]`
