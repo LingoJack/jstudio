@@ -39,6 +39,7 @@ import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import type { Block } from '../../../types';
 import { ChevronRight } from 'lucide-react';
+import { ScrollEdgeCues } from '../../ui/ScrollEdgeCues';
 import { MarqueeTitle } from '../../../components/ui/MarqueeTitle';
 
 /** Width of the outline panel. */
@@ -160,6 +161,8 @@ export default function SectionOutline({
   // the editors' live ProseMirror docs. This catches content loaded via
   // setContent({ emitUpdate: false }) which doesn't sync back to the store.
   const [editorVersion, setEditorVersion] = useState(0);
+  // Edge-cue target: the outline list's own scroll container.
+  const outlineListRef = useRef<HTMLDivElement | null>(null);
 
   // ── Source 1: store blocks ──
   const storeHeadings = useMemo(
@@ -378,8 +381,10 @@ export default function SectionOutline({
           scrollbar-width jump on every fold near the size boundary. pt-9
           clears the glass title bar; embedded (left dock) the column's
           toggle row already did, so only a small pad remains. */}
+      <ScrollEdgeCues scrollRef={outlineListRef} fadeFrom="var(--vscode-editor-background)" />
       <div
-        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] px-4 pb-4 ${
+        ref={outlineListRef}
+        className={`flex-1 overflow-y-auto scrollbar-none px-4 pb-4 ${
           embedded ? 'pt-3' : 'pt-9'
         }`}
       >

@@ -13,6 +13,7 @@ import { PanelLeftOpen } from 'lucide-react';
 import { CollapsedRail } from '../ui/CollapsedRail';
 import DocumentContextMenu from './DocumentContextMenu';
 import SidebarHeaderButtons from './SidebarHeaderButtons';
+import { ScrollEdgeCues } from '../ui/ScrollEdgeCues';
 import { FolderContextMenu, BatchContextMenu, BatchMoveMenu } from './DocumentSidebarMenus';
 import { DocumentTreeRenderer } from './DocumentTreeRenderer';
 import TrashDialog from './TrashDialog';
@@ -492,6 +493,10 @@ export default function DocumentSidebar({
           <SidebarHeaderButtons />
         </div>
       )}
+
+      {/* Edge cues — content above / below the viewport (scrollbar-free
+          by design; the fade + chevron 表意 instead). */}
+      <ScrollEdgeCues scrollRef={sidebarScrollRef} fadeFrom="var(--vscode-sideBar-background)" />
 
       {/* Documents + folders list (root drop zone). pl-2 insets rows so the
           rail (each root row's / folder wrapper's left border) forms one

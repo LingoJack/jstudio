@@ -151,6 +151,7 @@ export default function TabBar({
    *  the caller hides it) — the indicator is then hidden instead of being
    *  left stranded at a stale offset, which reads as a stray light pill. */
   const [indicatorLeft, setIndicatorLeft] = useState<number | null>(null);
+  const [indicatorWidth, setIndicatorWidth] = useState<number | null>(null);
   // Stable signature of tab order/identity — avoids re-running the layout
   // effect on every parent render (tabs is a fresh array each render).
   const tabSignature = tabs.map((t) => t.id).join('|');
@@ -167,7 +168,9 @@ export default function TabBar({
       const tabRect = activeEl.getBoundingClientRect();
       const scrollRect = scroller.getBoundingClientRect();
       const left = tabRect.left - scrollRect.left;
+      const width = tabRect.width;
       setIndicatorLeft((prev) => (prev === left ? prev : left));
+      setIndicatorWidth((prev) => (prev === width ? prev : width));
     };
 
     updatePos();
@@ -471,7 +474,7 @@ export default function TabBar({
               className="absolute top-1.5 bottom-1.5 rounded-full pointer-events-none"
               style={{
                 left: `${PILL_PAD_X_PX}px`,
-                width: `${TAB_WIDTH_PX}px`,
+                width: `${indicatorWidth ?? TAB_WIDTH_PX}px`,
                 background: accentColor,
                 boxShadow: `0 0 12px 2px color-mix(in srgb, ${accentColor} 40%, transparent)`,
                 transform: `translateX(${indicatorLeft ?? 0}px)`,
@@ -513,7 +516,7 @@ export default function TabBar({
                     e.stopPropagation();
                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                   }}
-                  className={`group relative flex items-center gap-1.5 w-[130px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
+                  className={`group relative flex items-center gap-1.5 w-auto min-w-[72px] max-w-[240px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
                       : `text-[${textColor}] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] hover:text-[var(--vscode-foreground)]`
@@ -559,15 +562,16 @@ export default function TabBar({
                       )}
 
                       {canClose && onTabClose && (
+                        // Overlay close: zero layout footprint (the title
+                        // uses the full tab width); surfaces on hover over a
+                        // small chip so it stays readable over the text.
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onTabClose(tab.id);
                           }}
-                          className={`shrink-0 w-4 h-4 flex items-center justify-center rounded-full transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_15%,transparent)] hover:scale-110 ${
-                            tab.isActive
-                              ? 'opacity-70'
-                              : 'opacity-0 group-hover:opacity-70'
+                          className={`no-drag absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--vscode-editor-background)_75%,transparent)] transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_15%,transparent)] hover:scale-110 ${
+                            tab.isActive ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'
                           }`}
                         >
                           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
