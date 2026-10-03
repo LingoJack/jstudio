@@ -479,7 +479,7 @@ export default function TabBar({
                     if (!span) return;
                     const overflow = span.scrollWidth - span.clientWidth;
                     if (overflow > 2) {
-                      span.style.setProperty('--marquee-dur', `${Math.max(2, overflow / 20)}s`);
+                      span.style.setProperty('--marquee-dur', `${Math.max(1.2, overflow / 45)}s`);
                       span.classList.add('tab-title-marquee');
                     }
                   }}
