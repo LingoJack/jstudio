@@ -11,6 +11,7 @@
 import type React from 'react';
 import type { MutableRefObject } from 'react';
 import { NavRow, NavBranch, RailArrow, ActiveTitle } from '../ui/NavTree';
+import { MarqueeTitle } from '../ui/MarqueeTitle';
 import { handleNativeSelectAll } from '../../lib/shortcuts/nativeSelectAll';
 import type { FolderTreeNode } from '../../lib/documents/folderTree';
 import type { DocumentMeta, FolderMeta } from '../../types/storage';
@@ -166,7 +167,7 @@ export function DocumentTreeRenderer({
             <ActiveTitle text={doc.title || t('doclist.untitled')} />
           </>
         ) : (
-          doc.title || t('doclist.untitled')
+          <MarqueeTitle text={doc.title || t('doclist.untitled')} />
         )}
       </NavRow>
     );
@@ -267,7 +268,7 @@ export function DocumentTreeRenderer({
               placeholder={t('doclist.folderNamePlaceholder')}
             />
           ) : (
-            f.name
+            <MarqueeTitle text={f.name} />
           )}
         </NavRow>
 
@@ -330,7 +331,7 @@ export function DocumentTreeRenderer({
             {isActive ? (
               <ActiveTitle text={doc.title || t('doclist.untitled')} />
             ) : (
-              doc.title || t('doclist.untitled')
+              <MarqueeTitle text={doc.title || t('doclist.untitled')} />
             )}
           </NavRow>
           );

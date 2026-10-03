@@ -39,6 +39,7 @@ import { contentToString } from '../../../lib/editor/content/blockContent';
 import { headingLevel } from '../../../lib/editor/tiptapAdapter/blocks';
 import type { Block } from '../../../types';
 import { ChevronRight } from 'lucide-react';
+import { MarqueeTitle } from '../../../components/ui/MarqueeTitle';
 
 /** Width of the outline panel. */
 export const OUTLINE_WIDTH = 240;
@@ -599,7 +600,7 @@ function OutlineRow({
               : 'text-[var(--vscode-descriptionForeground)] group-hover:text-[var(--vscode-foreground)]'
         }`}
       >
-        {item.text}
+        <MarqueeTitle text={item.text} />
       </span>
       {hasChildren && (
         <span

@@ -231,6 +231,31 @@ export default function TabBar({
   }); // no deps — see the scroll-into-view effect: re-created elements must
       // always carry the listener
 
+  // ── Marquee markers: only truncated titles loop ─────────────────
+  // Measured per render — never on hover: only titles whose text actually
+  // overflows the cell carry the marker, so fitting titles stay centered
+  // and never animate; hovering a marked tab starts the seamless loop with
+  // zero JS latency (the CSS :hover rule does all the work).
+  useEffect(() => {
+    for (const span of Array.from(
+      scrollRef.current?.querySelectorAll<HTMLElement>('.tab-title-span') ?? [],
+    )) {
+      // Measure the FIRST copy only — the span's scrollWidth includes the
+      // duplicate copy + gap of the marquee track, which would mark every
+      // title (even fitting ones) as truncated.
+      const copy = span.querySelector<HTMLElement>('.tab-title-text');
+      const overflow = copy
+        ? Math.round(copy.getBoundingClientRect().width) - span.clientWidth
+        : 0;
+      if (overflow > 2) {
+        span.classList.add('tab-title-marquee');
+        span.style.setProperty('--marquee-dur', `${Math.max(1.2, overflow / 45)}s`);
+      } else {
+        span.classList.remove('tab-title-marquee');
+      }
+    }
+  }); // no deps — re-measure per render (window shifts change the clip)
+
   // ── Scroll active tab into view ──────────────────────────────────
   // Manual horizontal scrolling on the INNER scroller only. Deliberately not
   // `scrollIntoView()`: that walks up every scrollable ancestor, and the
@@ -472,22 +497,6 @@ export default function TabBar({
                     else tabRefsRef.current.delete(tab.id);
                   }}
                   draggable={canDrag && !tab.isRenaming}
-                  onPointerEnter={(e) => {
-                    // Truncated title → seamless marquee so the full text is
-                    // readable without any click (overflow measured live).
-                    const span = e.currentTarget.querySelector<HTMLElement>('.tab-title-span');
-                    if (!span) return;
-                    const overflow = span.scrollWidth - span.clientWidth;
-                    if (overflow > 2) {
-                      span.style.setProperty('--marquee-dur', `${Math.max(1.2, overflow / 45)}s`);
-                      span.classList.add('tab-title-marquee');
-                    }
-                  }}
-                  onPointerLeave={(e) => {
-                    e.currentTarget
-                      .querySelector<HTMLElement>('.tab-title-span')
-                      ?.classList.remove('tab-title-marquee');
-                  }}
                   onDragStart={(e) => handleDragStart(e, tab.id, tab.title)}
                   onDrag={handleDrag}
                   onDragEnd={handleDragEnd}
@@ -534,7 +543,7 @@ export default function TabBar({
                           tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className="tab-title-span text-[12px] font-medium flex-1 min-w-0 truncate text-left">
+                      <span className="tab-title-span text-[12px] font-medium flex-1 min-w-0 truncate text-center">
                         <span className="tab-title-track">
                           <span className="tab-title-text">{tab.title}</span>
                           <span className="tab-title-text" aria-hidden>{tab.title}</span>
