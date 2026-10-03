@@ -243,16 +243,21 @@ export default function TabBar({
     for (const span of Array.from(
       scrollRef.current?.querySelectorAll<HTMLElement>('.tab-title-span') ?? [],
     )) {
-      // Measure the FIRST copy only — the span's scrollWidth includes the
-      // duplicate copy + gap of the marquee track, which would mark every
-      // title (even fitting ones) as truncated.
+      // Measure the FIRST copy only — the second copy is display:none at
+      // rest and the track's own width includes it, so either would
+      // misreport the title's true width.
       const copy = span.querySelector<HTMLElement>('.tab-title-text');
       const overflow = copy
         ? Math.round(copy.getBoundingClientRect().width) - span.clientWidth
         : 0;
       if (overflow > 2) {
         span.classList.add('tab-title-marquee');
-        span.style.setProperty('--marquee-dur', `${Math.max(1, overflow / 60)}s`);
+        // Ring travel: one copy + gap — copy2 lands exactly where copy1
+        // started, so the wrap is seamless. Duration mirrors MarqueeTitle
+        // (overflow / 45, 1.2s floor) so tab and sidebar marquees share
+        // one speed law.
+        span.style.setProperty('--marquee-travel', `${-(span.clientWidth + overflow + 8)}px`);
+        span.style.setProperty('--marquee-dur', `${Math.max(1.2, overflow / 45)}s`);
       } else {
         span.classList.remove('tab-title-marquee');
       }
@@ -546,7 +551,12 @@ export default function TabBar({
                           tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className="tab-title-span absolute inset-x-0 inset-y-0 flex items-center text-[12px] font-medium truncate text-left">
+                      {/* Second copy = the marquee's ring half. It is
+                          display:none at rest (index.css) so it occupies no
+                          width — resting titles center on copy1 alone — and
+                          materializes past the clip edge when a truncated
+                          title is hovered. */}
+                      <span className="tab-title-span absolute inset-x-0 inset-y-0 flex items-center text-[12px] font-medium truncate text-center">
                         <span className="tab-title-track">
                           <span className="tab-title-text">{tab.title}</span>
                           <span className="tab-title-text" aria-hidden>{tab.title}</span>

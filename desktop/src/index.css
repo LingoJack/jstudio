@@ -63,17 +63,19 @@
 .no-drag { -webkit-app-region: no-drag; }
 
 /* Tab title marquee — hovering a truncated tab scrolls the title
-   SEAMLESSLY in a loop: the title is rendered TWICE, side by side on an
-   inline-flex track (gap 16px); the loop travels exactly one copy + gap,
-   so at the wrap the second copy sits exactly where the first was — the
-   end flows into the start with no jump (same mechanics as MarqueeTitle,
-   the tree/outline shared component). The span clips; only the track
-   moves. Duration is set inline by TabBar (proportional to overflow).
-   Gated on the row's :hover — never a JS-toggled class (React
-   re-renders don't clear JS-added classes). Honours reduced-motion. */
-/* Marked (overflowing) titles loop on hover; the seamless wrap is
-   alignment-agnostic (the centering offset cancels across one loop), so
-   resting titles stay CENTERED — fitting ones and overflowing ones alike. */
+   SEAMLESSLY in a ring: the title is rendered TWICE on the track; one
+   lap travels exactly one copy + gap, so at the wrap the second copy
+   sits exactly where the first was — the end flows into the start with
+   no jump (same mechanics as MarqueeTitle, the tree/outline shared
+   component). The span clips; only the track moves.
+   At rest the second copy is display:none — NOT visibility:hidden — so
+   it occupies no width and the resting title centers on the single
+   visible copy; it only materializes (past the clip edge, invisible)
+   when a MARKED tab is hovered. Marking (.tab-title-marquee) is done by
+   TabBar's measurement effect — overflowing titles only — so fitting
+   titles never animate. Gated on the row's :hover, never a JS-toggled
+   class (React re-renders don't clear JS-added classes). Travel and
+   duration are set inline by TabBar. Honours reduced-motion. */
 /* Dual-edge fade mask: the marquee text dissolves naturally at the pill's
    rounded ends instead of hitting a hard vertical cut. */
 .tab-title-span {
@@ -86,14 +88,22 @@
   gap: var(--marquee-gap, 8px);
   white-space: nowrap;
 }
+/* Resting alignment: auto margins center the track while it fits and
+   collapse to zero once it overflows, so an overflowing title hugs the
+   start edge — the clip always shows the title's start, and the track
+   holds the same start position across rest and hover (both states
+   overflow alike), so entering the marquee never jumps. */
+.tab-title-track {
+  margin: 0 auto;
+}
 .tab-title-track > .tab-title-text:not(:first-child) {
-  visibility: hidden;
+  display: none;
 }
 .marquee-title-track > .marquee-copy:not(:first-child) {
   visibility: hidden;
 }
-.group:hover .tab-title-marquee > .tab-title-text:not(:first-child) {
-  visibility: visible;
+.group:hover .tab-title-marquee .tab-title-track > .tab-title-text:not(:first-child) {
+  display: block;
 }
 .marquee-title-track.marquee-active > .marquee-copy:not(:first-child) {
   visibility: visible;
@@ -106,11 +116,11 @@
 }
 @keyframes tab-marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - 4px)); }
+  to { transform: translateX(var(--marquee-travel, 0px)); }
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - var(--marquee-gap, 16px) / 2)); }
+  to { transform: translateX(calc(-50% - var(--marquee-gap, 8px) / 2)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .group:hover .tab-title-marquee .tab-title-track,
