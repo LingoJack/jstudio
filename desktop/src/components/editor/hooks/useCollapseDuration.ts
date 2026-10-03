@@ -21,29 +21,31 @@
  *
  * 内容不做 opacity 淡入 —— 显现完全由高度裁切驱动（从上到下逐渐
  * 露出，图片 likewise 一点一点展开），visibility 的 discrete 延迟等于
- * 收起主时长（焦点管理）。收起与展开同速（COLLAPSE_SPEEDUP = 1，
- * 逆着展开路径对称收回）；收起条塌陷层（.code-block-bar-clip）保持
- * 固定短时长 —— 30px 的距离用短时长本身就是高速率，且条不该在长块
- * 延伸时拖泥带水。
+ * 收起主时长（焦点管理）。收起与展开是两套速率参数（收起更慢，见
+ * COLLAPSE_SPEED_PX_PER_MS 的说明）；收起曲线为匀速 linear（见 CSS
+ * 共用段）。收起条塌陷层（.code-block-bar-clip）保持固定短时长 ——
+ * 30px 的距离用短时长本身就是高速率，且条不该在长块延伸时拖泥带水。
  */
 
 import { useLayoutEffect, type RefObject } from "react";
 
-/** 延伸速率基准：0.5 px/ms ≈ 500px/s —— 固定时长版约 940px/s 的一半。 */
-const SPEED_PX_PER_MS = 0.5;
+/** 展开速率基准：0.5 px/ms ≈ 500px/s —— 固定时长版约 940px/s 的一半。 */
+const EXPAND_SPEED_PX_PER_MS = 0.5;
 /**
- * 时长钳制。下限防小块瞬间弹开；上限只防极端超长块（>1500px）拖沓，
+ * 收起速率基准：0.3 px/ms ≈ 300px/s —— 故意比展开慢。内容"消失"的
+ * 过程人眼对速度更敏感（同样速率下收起总显得比展开快，实测两轮用户
+ * 反馈"收起太快"），收起放慢后往返观感才均衡；收起曲线同时改为匀速
+ * （linear），S 曲线中段 1.5× 的速度峰值也是"偏快"感的来源。
+ */
+const COLLAPSE_SPEED_PX_PER_MS = 0.3;
+/**
+ * 时长钳制（各方向独立）。下限防小块瞬间弹开；上限只防极端超长块拖沓，
  * 钳内严格固定速率 —— 上限曾是 1200ms，导致 600px 以上的块全部被钳、
  * 实际速率远超基准（"固定速率"名存实亡，收起显得快），已放宽。
  */
 const MIN_MS = 150;
-const MAX_MS = 3000;
-/**
- * 收起相对展开的速率倍数。1.0 = 往返同速、真正逆着展开路径收回
- * （丝滑对称）；历史上曾用 1.33 让收起更利落，用户反馈生硬后改回
- * 同速。想恢复"收起更快"只需调大此值。
- */
-const COLLAPSE_SPEEDUP = 1.0;
+const EXPAND_MAX_MS = 3000;
+const COLLAPSE_MAX_MS = 4500;
 
 export function useCollapseDuration(
   /** CSS 变量的挂载点（块 figure）—— clip 与 header 的共同祖先。 */
@@ -60,14 +62,15 @@ export function useCollapseDuration(
     if (!host || !clip || !inner) return;
     const distancePx = collapsed ? inner.scrollHeight : clip.clientHeight;
     const expandMs = Math.min(
-      MAX_MS,
-      Math.max(MIN_MS, distancePx / SPEED_PX_PER_MS),
+      EXPAND_MAX_MS,
+      Math.max(MIN_MS, distancePx / EXPAND_SPEED_PX_PER_MS),
+    );
+    const collapseMs = Math.min(
+      COLLAPSE_MAX_MS,
+      Math.max(MIN_MS, distancePx / COLLAPSE_SPEED_PX_PER_MS),
     );
     host.style.setProperty("--collapse-ms", expandMs.toFixed(0));
-    host.style.setProperty(
-      "--collapse-out-ms",
-      (expandMs / COLLAPSE_SPEEDUP).toFixed(0),
-    );
+    host.style.setProperty("--collapse-out-ms", collapseMs.toFixed(0));
   }, [hostRef, clipRef, innerRef, collapsed]);
 }
 

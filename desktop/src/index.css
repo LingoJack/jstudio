@@ -86,7 +86,11 @@
   gap: var(--marquee-gap, 8px);
   white-space: nowrap;
 }
-.tab-title-track > .tab-title-text:not(:first-child),
+.tab-title-track > .tab-title-text:not(:first-child) {
+  position: absolute;
+  left: calc(100% + 16px);
+  visibility: hidden;
+}
 .marquee-title-track > .marquee-copy:not(:first-child) {
   visibility: hidden;
 }
@@ -104,7 +108,7 @@
 }
 @keyframes tab-marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - var(--marquee-gap, 8px) / 2)); }
+  to { transform: translateX(calc(-100% - 16px)); }
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }

@@ -2150,10 +2150,13 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .collapsible-body-clip {
   display: grid;
   grid-template-rows: 0fr;
-  /* 收起与展开同速（--collapse-out-ms = --collapse-ms），曲线缓起缓停
-     （两端速度为零）—— 逆着展开路径对称收回，无骤起骤停。 */
+  /* 收起用匀速 linear + 独立更慢的速率（--collapse-out-ms 由
+     useCollapseDuration 按 300px/s 折算）：匀速下"固定速率"的直觉
+     完全成立，也没有 S 曲线中段 1.5× 的速度峰值；此前用 S 曲线
+     （两端速度为零）中段爆发，两轮被反馈"还是太快"。展开保持
+     S 曲线的生长落定感，两个方向不再强行对称。 */
   transition: grid-template-rows calc(var(--collapse-out-ms, 240) * 1ms)
-    cubic-bezier(0.4, 0, 0.2, 1);
+    linear;
 }
 
 .code-block-figure:not(.is-collapsed) .code-block-body-clip,
@@ -2186,8 +2189,8 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
 .code-block-bar-clip {
   display: grid;
   grid-template-rows: 1fr;
-  /* 收起：条长出 —— 与内容收回同节奏，缓起缓停 */
-  transition: grid-template-rows 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 收起：条长出 —— 与内容收回同为匀速 linear，同节奏 */
+  transition: grid-template-rows 0.24s linear;
 }
 
 .code-block-figure:not(.is-collapsed) .code-block-bar-clip {
@@ -2734,8 +2737,12 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   background: var(--jstudio-block-line);
   transform: scaleX(0);
   transform-origin: left;
-  /* 收起：与展开对称的 0.22s，缓起缓停地从右向左缩回 */
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 收起（展开的镜像）：横线保持到竖直线收回 85% 时才开始缩，内容
+     收完的同一刻缩完 —— 时长 = 0.15 × 收起时长，与展开时"竖线画到
+     1/3 处（约 15% 时长）线开始画出"对偶；匀速 linear 与内容收回
+     同一速率语言。线不是抢先消失，而是被内容收回的过程同步带走。 */
+  transition: transform calc(var(--collapse-out-ms, 240) * 1ms * 0.15)
+    linear calc(var(--collapse-out-ms, 240) * 1ms * 0.85);
 }
 
 .collapsible-block-figure:not(.is-collapsed) .collapsible-block-header::after {
