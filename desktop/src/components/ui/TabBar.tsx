@@ -570,9 +570,7 @@ export default function TabBar({
                             e.stopPropagation();
                             onTabClose(tab.id);
                           }}
-                          className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full transition-opacity duration-150 hover:opacity-100 ${
-                            tab.isActive ? 'opacity-40' : 'opacity-0 group-hover:opacity-40'
-                          }`}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full opacity-0 transition-opacity duration-150 group-hover:opacity-40 hover:opacity-100"
                         >
                           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 6L6 18M6 6l12 12" />
