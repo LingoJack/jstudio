@@ -85,7 +85,7 @@ export default function LeftPanelColumn({
             onChange={setLeftPanelTab}
           />
           <div className="flex-1" />
-          {leftPanelTab === 'tree' && <SidebarHeaderButtons />}
+          <SidebarHeaderButtons />
         </div>
       )}
 

@@ -516,7 +516,7 @@ export default function TabBar({
                     e.stopPropagation();
                     setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
                   }}
-                  className={`group relative flex items-center gap-1.5 w-auto min-w-[72px] max-w-[240px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
+                  className={`group relative flex items-center gap-1.5 w-[130px] px-3 py-1.5 rounded-full cursor-pointer shrink-0 transition-colors duration-150 ${
                     tab.isActive
                       ? 'text-[var(--vscode-foreground)]'
                       : `text-[${textColor}] hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_8%,transparent)] hover:text-[var(--vscode-foreground)]`
@@ -570,8 +570,8 @@ export default function TabBar({
                             e.stopPropagation();
                             onTabClose(tab.id);
                           }}
-                          className={`no-drag absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--vscode-editor-background)_75%,transparent)] transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--vscode-foreground)_15%,transparent)] hover:scale-110 ${
-                            tab.isActive ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'
+                          className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full transition-opacity duration-150 hover:opacity-100 ${
+                            tab.isActive ? 'opacity-40' : 'opacity-0 group-hover:opacity-40'
                           }`}
                         >
                           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -63,59 +63,48 @@
 .no-drag { -webkit-app-region: no-drag; }
 
 /* Tab title marquee — hovering a truncated tab scrolls the title
-   SEAMLESSLY in a loop: the title is rendered twice on a translating
-   track; one loop = exactly one copy + gap, so the end flows into the
-   start with no jump. The outer span clips; only the track moves.
-   Duration is set inline by TabBar (proportional to overflow). Gated on
-   the row's :hover — never a JS-toggled class (React re-renders don't
-   clear JS-added classes). Honours prefers-reduced-motion. */
-.tab-title-track {
+   SEAMLESSLY in a loop. Structure: the title is rendered twice on a
+   translating track; the DUPLICATE is absolutely positioned after the
+   first copy (out of flow — the tab's width stays at one copy, no blank
+   stretch, no peek at rest) and hidden at rest. On :hover the track
+   travels exactly one copy + gap, so the duplicate lands where the
+   original was — the end flows into the start with no jump. Gated on the
+   row's :hover — never a JS-toggled class (React re-renders don't clear
+   JS-added classes). Honours prefers-reduced-motion. */
+.tab-title-track,
+.marquee-title-track {
   display: inline-flex;
-  gap: var(--marquee-gap, 16px);
+  position: relative;
   white-space: nowrap;
 }
-.group:hover .tab-title-marquee {
-  text-align: left;
+.tab-title-track > .tab-title-text:not(:first-child),
+.marquee-title-track > .marquee-copy:not(:first-child) {
+  position: absolute;
+  left: calc(100% + 16px);
+  visibility: hidden;
+}
+.group:hover .tab-title-marquee > .tab-title-text:not(:first-child) {
+  visibility: visible;
+}
+.marquee-title-track.marquee-active > .marquee-copy:not(:first-child) {
+  visibility: visible;
 }
 .group:hover .tab-title-marquee .tab-title-track {
   animation: tab-marquee var(--marquee-dur, 5s) linear infinite;
 }
-@keyframes tab-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - var(--marquee-gap, 16px) / 2)); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .group:hover .tab-title-marquee .tab-title-track { animation: none; }
-}
-/* The second copy is only meaningful while the loop is running — hide it at
-   rest, or its leading characters peek into the cell after short CJK titles
-   (copy + gap can be narrower than the clip box). */
-.tab-title-track > .tab-title-text:not(:first-child) { visibility: hidden; }
-.group:hover .tab-title-marquee > .tab-title-text:not(:first-child) {
-  visibility: visible;
-}
-
-/* ── Shared marquee title (tree rows / outline rows) ──────────────────
-   Same seamless dual-copy mechanics as the tab strip, self-contained: the
-   component adds .marquee-active on its own hover (measuring overflow
-   against the parent clip box). */
-.marquee-title-track {
-  display: inline-flex;
-  gap: 16px;
-  white-space: nowrap;
-}
-.marquee-title-track > .marquee-copy:not(:first-child) { visibility: hidden; }
-.marquee-title-track.marquee-active > .marquee-copy:not(:first-child) {
-  visibility: visible;
-}
 .marquee-title-track.marquee-active {
   animation: marquee-scroll var(--marquee-dur, 4s) linear infinite;
 }
+@keyframes tab-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-100% - 16px)); }
+}
 @keyframes marquee-scroll {
   from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - 8px)); }
+  to { transform: translateX(calc(-100% - 16px)); }
 }
 @media (prefers-reduced-motion: reduce) {
+  .group:hover .tab-title-marquee .tab-title-track,
   .marquee-title-track.marquee-active { animation: none; }
 }
 
