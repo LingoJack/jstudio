@@ -189,7 +189,47 @@ export default function TabBar({
       scroller.removeEventListener('scroll', handleScroll);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [activeTabId, tabSignature]);
+  }); // no deps — re-attach per render: a re-created scroller element must
+      // always carry the listener (HMR replaces the DOM node in dev)
+
+  // ── Vertical wheel → horizontal strip scroll ─────────────────────
+  // A mouse wheel has no horizontal axis. The capsule is technically
+  // scrollable on BOTH axes (overflow-x:auto forces overflow-y to auto,
+  // and a sub-pixel height difference makes it vertically scrollable), so
+  // a plain vertical wheel latches to the vertical axis and scrolls
+  // nothing visible. Route the vertical delta to scrollLeft explicitly —
+  // the same affordance Chrome's own tab strip has. Trackpad users keep
+  // native horizontal panning (deltaX dominates → untouched).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      // Vertical wheel → horizontal tab-strip scroll (Chrome's own tab strip
+      // has this affordance). Skip when the user is already panning
+      // horizontally (trackpad), so we don't fight native behaviour.
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      // The inner strip and the outer capsule are BOTH overflow-x containers;
+      // which one is actually clipped depends on the window width. Walk up
+      // from the event target to the first one that really overflows —
+      // scrolling the wrong one is a silent no-op.
+      let node = (e.target as HTMLElement | null) ?? null;
+      let scroller: HTMLElement | null = null;
+      while (node) {
+        if (node.scrollWidth > node.clientWidth + 1) { scroller = node; break; }
+        node = node.parentElement;
+      }
+      if (!scroller) return;
+      e.preventDefault();
+      // scrollBy in a rAF: React's active-tab scroll sync runs in an effect
+      // and resets scrollLeft after render, so a synchronous write here is
+      // clobbered. Deferring lets the delta land after that settles.
+      const dy = e.deltaY;
+      requestAnimationFrame(() => scroller?.scrollBy({ left: dy }));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }); // no deps — see the scroll-into-view effect: re-created elements must
+      // always carry the listener
 
   // ── Scroll active tab into view ──────────────────────────────────
   // Manual horizontal scrolling on the INNER scroller only. Deliberately not
@@ -432,6 +472,23 @@ export default function TabBar({
                     else tabRefsRef.current.delete(tab.id);
                   }}
                   draggable={canDrag && !tab.isRenaming}
+                  onPointerEnter={(e) => {
+                    // Truncated title → marquee it so the full text is
+                    // readable without any click (overflow measured live).
+                    const span = e.currentTarget.querySelector<HTMLElement>('.tab-title-span');
+                    if (!span) return;
+                    const overflow = span.scrollWidth - span.clientWidth;
+                    if (overflow > 2) {
+                      span.style.setProperty('--marquee-shift', `${-overflow - 8}px`);
+                      span.style.setProperty('--marquee-dur', `${Math.max(1.6, overflow / 16)}s`);
+                      span.classList.add('tab-title-marquee');
+                    }
+                  }}
+                  onPointerLeave={(e) => {
+                    e.currentTarget
+                      .querySelector<HTMLElement>('.tab-title-span')
+                      ?.classList.remove('tab-title-marquee');
+                  }}
                   onDragStart={(e) => handleDragStart(e, tab.id, tab.title)}
                   onDrag={handleDrag}
                   onDragEnd={handleDragEnd}
@@ -478,7 +535,7 @@ export default function TabBar({
                           tab.isActive ? 'opacity-90' : 'opacity-70 group-hover:opacity-80'
                         }`}>{tab.icon}</span>
                       )}
-                      <span className="text-[12px] font-medium flex-1 min-w-0 truncate text-center">
+                      <span className="tab-title-span text-[12px] font-medium flex-1 min-w-0 truncate text-center">
                         {tab.title}
                       </span>
 

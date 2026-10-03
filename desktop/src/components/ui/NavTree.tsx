@@ -196,7 +196,7 @@ export function NavRow({
       )}
       {expandable && (
         <ChevronRight
-          className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 shrink-0 ${
+          className={`w-3.5 h-3.5 shrink-0 text-[var(--vscode-descriptionForeground)] opacity-60 hover:opacity-100 transition-all duration-150 ${
             expanded ? 'rotate-90' : ''
           }`}
         />

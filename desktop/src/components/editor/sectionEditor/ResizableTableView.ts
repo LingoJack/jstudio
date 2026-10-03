@@ -285,11 +285,18 @@ function updateColumns(
  * The built-in TipTap `TableView` is not exported, so this is a standalone
  * implementation that follows the same structure but with modified width
  * management in `updateColumns`.
+ *
+ * DOM structure: `.tableWrapper`（不滚动的框：边框/圆角/边缘指示的定位基准）
+ * > `.table-scroll`（真正的横向滚动层，滚动条与滚轮横滚都在这里）> table。
+ * 溢出示能（右缘渐隐 + 墨色 ❯ + 首列钉住）由 wrapper 上的
+ * `data-overflow-start/end` 驱动（updateOverflowState）。
  */
 export class ResizableTableView implements NodeView {
   node: ProseMirrorNode
   cellMinWidth: number
   dom: HTMLDivElement
+  /** 横向滚动层：滚动事件、滚轮纵转横、溢出测量都发生在这里。 */
+  scrollEl: HTMLDivElement
   table: HTMLTableElement
   colgroup: HTMLTableColElement
   contentDOM: HTMLTableSectionElement
@@ -305,6 +312,14 @@ export class ResizableTableView implements NodeView {
   /** 上一次列宽适配所用的容器宽度（变化 >1px 才重新适配，防逐帧抖动）。 */
   private lastFitContainerWidth = 0
 
+  /** scroll 事件的 rAF 句柄（updateOverflowState 节流用）。 */
+  private overflowRaf = 0
+  /** 滚轮纵→横映射（与 TabBar 同一处理），destroy 时移除。 */
+  private wheelHandler: ((e: WheelEvent) => void) | null = null
+  /** 上一次溢出状态（仅在变化时写 data 属性，避免滚动期间样式失效）。 */
+  private lastCanStart = false
+  private lastCanEnd = false
+
   constructor(
     node: ProseMirrorNode,
     cellMinWidth: number,
@@ -316,7 +331,20 @@ export class ResizableTableView implements NodeView {
     this.dom = document.createElement('div')
     this.dom.className = 'tableWrapper'
 
-    this.table = this.dom.appendChild(document.createElement('table'))
+    // 内层滚动层：wrapper 只当不滚动的框（边框/圆角/指示定位基准），
+    // 滚动条、滚轮、渐隐指示的显隐测量都在这一层。
+    this.scrollEl = this.dom.appendChild(document.createElement('div'))
+    this.scrollEl.className = 'table-scroll'
+
+    // 右缘指示（渐隐 + 墨色 ❯），absolute 定位在 wrapper 上所以不随内容
+    // 滚动，默认 opacity:0，由 data-overflow-end 驱动显隐。左缘不设箭头：
+    // 首列钉住后左缘永远是可读的钉住列，滚动态由其缘线示意（CSS）。
+    const edgeEnd = document.createElement('span')
+    edgeEnd.className = 'table-edge-end'
+    edgeEnd.setAttribute('aria-hidden', 'true')
+    this.dom.appendChild(edgeEnd)
+
+    this.table = this.scrollEl.appendChild(document.createElement('table'))
 
     this.colgroup = this.table.appendChild(document.createElement('colgroup'))
     updateColumns(node, this.colgroup, this.table, cellMinWidth, this.dom)
@@ -324,6 +352,24 @@ export class ResizableTableView implements NodeView {
     this.contentDOM = this.table.appendChild(document.createElement('tbody'))
 
     this.syncCollapsed()
+
+    // 滚轮纵向增量 → 横向滚动（mouse wheel 无横轴；与 TabBar 的处理一致，
+    // 触控板 deltaX 占优时走原生横滚不受影响）。非 passive 以便 preventDefault。
+    // 表已滚到目标方向尽头时把事件还给文档 —— 滚轮可以继续滚动页面，
+    // 光标停在宽表上不会把页面滚动"劫持"住。
+    this.wheelHandler = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+      const el = this.scrollEl
+      const maxScroll = el.scrollWidth - el.clientWidth
+      if (maxScroll <= 0) return
+      const atStart = el.scrollLeft <= 0
+      const atEnd = el.scrollLeft >= maxScroll - 1
+      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+    this.scrollEl.addEventListener('wheel', this.wheelHandler, { passive: false })
+    this.scrollEl.addEventListener('scroll', this.handleScroll, { passive: true })
 
     // ProseMirror populates `contentDOM` (the <tbody>) only AFTER the
     // constructor returns.  When a table is loaded already collapsed, the
@@ -348,6 +394,7 @@ export class ResizableTableView implements NodeView {
         this.resizeObserver?.observe(parent)
       }
       this.refitIfContainerChanged()
+      this.updateOverflowState()
       if (this.node.attrs.collapsed) {
         const needsFreeze = Array.from(this.colgroup.children).some(
           (col) => (col as HTMLTableColElement).style.minWidth !== '',
@@ -360,6 +407,35 @@ export class ResizableTableView implements NodeView {
     this.resizeObserver.observe(this.contentDOM)
   }
 
+  /** scroll 事件 → rAF 节流的溢出状态刷新。 */
+  private handleScroll = (): void => {
+    cancelAnimationFrame(this.overflowRaf)
+    this.overflowRaf = requestAnimationFrame(() => this.updateOverflowState())
+  }
+
+  /**
+   * 测量横向溢出并写 wrapper 的 data-overflow-start/end —— 驱动 CSS：
+   * 边缘渐隐 + ❯ 指示的显隐（滚到头自动隐去）与首列 sticky 的启用。
+   * 不溢出时两个属性都移除，表格回到零示能的纯账本外观。
+   * 仅在状态变化时写属性（滚动期间每帧 setAttribute 会触发样式失效）。
+   */
+  private updateOverflowState(): void {
+    const el = this.scrollEl
+    const maxScroll = el.scrollWidth - el.clientWidth
+    const canStart = maxScroll > 1 && el.scrollLeft > 1
+    const canEnd = maxScroll > 1 && el.scrollLeft < maxScroll - 1
+    if (canStart !== this.lastCanStart) {
+      this.lastCanStart = canStart
+      if (canStart) this.dom.setAttribute('data-overflow-start', 'true')
+      else this.dom.removeAttribute('data-overflow-start')
+    }
+    if (canEnd !== this.lastCanEnd) {
+      this.lastCanEnd = canEnd
+      if (canEnd) this.dom.setAttribute('data-overflow-end', 'true')
+      else this.dom.removeAttribute('data-overflow-end')
+    }
+  }
+
   update(node: ProseMirrorNode): boolean {
     if (node.type !== this.node.type) {
       return false
@@ -368,6 +444,7 @@ export class ResizableTableView implements NodeView {
     this.node = node
     updateColumns(node, this.colgroup, this.table, this.cellMinWidth, this.dom)
     this.syncCollapsed()
+    this.updateOverflowState()
     // 缓存命中路径不会重新测量，这里同步最近一次适配所用的容器宽度。
     const cached = autoFitCache.get(this.table)
     if (cached) {
@@ -379,6 +456,12 @@ export class ResizableTableView implements NodeView {
   destroy(): void {
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
+    cancelAnimationFrame(this.overflowRaf)
+    if (this.wheelHandler) {
+      this.scrollEl.removeEventListener('wheel', this.wheelHandler)
+      this.wheelHandler = null
+    }
+    this.scrollEl.removeEventListener('scroll', this.handleScroll)
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
@@ -440,6 +523,8 @@ export class ResizableTableView implements NodeView {
     }
 
     this.dom.setAttribute('data-collapsed', String(collapsed))
+    // 折叠/展开改变行数与列宽冻结状态，溢出与否要重算。
+    this.updateOverflowState()
   }
 
   /**

@@ -130,4 +130,10 @@ export const INK_DARK: AppTheme = {
     'markupRaw': '#ffc777',
     'controlKeyword': '#c099ff',
   },
+  customCss: `
+/* ── 指示器墨色：读头（大纲/滚动）与表格边缘箭头等"位置指示"的统一墨色（月墨（本主题的冷调墨白）） ── */
+:root {
+  --jstudio-indicator-ink: #c8d3f5;
+}
+`,
 };

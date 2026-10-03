@@ -710,6 +710,9 @@ pre[class*="language-"] {
 .hljs-sh-operator {
   color: var(--vscode-token-operator);
 }
+.hljs-sh-command {
+  color: var(--vscode-token-function);
+}
 .hljs-sh-flag {
   color: var(--vscode-token-keyword);
 }
@@ -1115,6 +1118,10 @@ button {
     var(--vscode-block-border, var(--vscode-widget-border, #e5e5e5)) 55%,
     transparent
   );
+  /* 指示器墨色：读头（大纲/滚动）与表格边缘箭头的统一墨色。
+     兜底跟随 editor-foreground 翻转；各主题在 themes/*.ts 的
+     customCss 里覆写为自己的最强墨色。 */
+  --jstudio-indicator-ink: var(--vscode-editor-foreground, #3b3b3b);
 }
 
 /* 编辑器主体：字体大小由设置驱动（var(--jstudio-font-size)），
@@ -1998,6 +2005,10 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   position: relative;
   display: block;
   max-width: 100%;
+  /* Content-fit default (CodeBlockView passes width: fit-content when the
+     user hasn't resized): shrink to the longest line with breathing room,
+     capped at full editor width. 240px keeps tiny snippets presentable. */
+  min-width: 240px;
   box-sizing: border-box;
   border-radius: 16px;
   border: 1px solid var(--jstudio-block-line);
@@ -3353,16 +3364,13 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
    — 账本式阅读：横线承载节奏，表头是家具，竖线只在调整列宽时出现。
    ============================================ */
 
-/* Wrapper around the table — horizontal scroll for wide tables.
-   Minimal frame: only a subtle border, no heavy outline. */
+/* Wrapper around the table — 不滚动的框：边框/圆角/边缘指示的定位基准。
+   Width is driven by JS (ResizableTableView.updateColumns): `100%` to fill
+   the container for unsized tables, `fit-content` to hug resized tables. */
 .ProseMirror .tableWrapper {
   margin: 1.5em 0;
-  overflow-x: auto;
-  position: relative; /* containing block for the column-resize handle */
-  /* Border + radius live on the wrapper (the scroll container) so the
-    horizontal scrollbar sits INSIDE the frame when a wide table overflows.
-    Width is driven by JS (ResizableTableView.updateColumns): `100%` to fill
-    the container for unsized tables, `fit-content` to hug resized tables. */
+  overflow: hidden; /* 把内层滚动层裁进圆角框 */
+  position: relative; /* containing block for the column-resize handle + edge indicator */
   max-width: 100%;
   border-radius: 16px;
   /* 表格需要边界来收纳密集内容 —— 但降到普通 block-line，与内容拉开半档。
@@ -3375,18 +3383,133 @@ li.ProseMirror-selectednode .list-marker-hitbox:hover {
   border-color: var(--jstudio-block-line-strong);
 }
 
+/* 横向滚动层（wrapper > .table-scroll > table）。折行优先、比例收缩，
+   只有列宽撞到 80px 下限仍装不下时才进入滚动态 —— 滚动态必须有示能：
+   常显细滚动条（自绘 8px；macOS overlay 滚动条平时不可见，溢出会被
+   静默裁切）+ 右缘渐隐 + 墨色 ❯ 指示 + 首列钉住。不溢出时 WebKit 不
+   渲染滚动条、指示 opacity:0，表格回到零示能的纯账本外观。 */
+.ProseMirror .tableWrapper .table-scroll {
+  overflow-x: auto;
+  /* 显式 hidden：overflow-x:auto 会把 overflow-y 升格为 auto，亚像素
+     高度差会冒出一条竖滚动条（TabBar 修过的同类问题）。 */
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin; /* Firefox 兜底 */
+  scrollbar-color: var(--jstudio-block-line) transparent;
+}
+
+.ProseMirror .tableWrapper .table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.ProseMirror .tableWrapper .table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ProseMirror .tableWrapper .table-scroll::-webkit-scrollbar-thumb {
+  background: var(--jstudio-block-line);
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background-clip: padding-box;
+}
+
+.ProseMirror .tableWrapper .table-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--jstudio-block-line-strong);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* 右缘指示：渐隐 + 墨色 ❯（indicator-ink，与读头同一语言）。
+   absolute 定位在 wrapper 上所以不随内容滚动；由 data-overflow-end 控制
+   显隐（滚到头自动隐去）。左缘不设 ❮ —— 首列钉住后左缘永远是可读的
+   钉住列，箭头只会盖在它上面；滚动态由钉住列的缘线示意（见下）。
+   bottom 让出 8px 滚动条高度。 */
+.ProseMirror .tableWrapper .table-edge-end {
+  position: absolute;
+  top: 0;
+  bottom: 8px;
+  right: 0;
+  width: 64px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 3;
+}
+
+.ProseMirror .tableWrapper .table-edge-end::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to left,
+    var(--vscode-editor-background),
+    transparent
+  );
+}
+
+.ProseMirror .tableWrapper .table-edge-end::after {
+  content: "❯";
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--jstudio-indicator-ink);
+}
+
+.ProseMirror .tableWrapper[data-overflow-end="true"] .table-edge-end {
+  opacity: 1;
+}
+
+/* 溢出时的首列钉住：横向滚动时保留每行的行首上下文（如「阶段」列）。
+   只在真溢出时启用（不透明的垫底背景只在滚动场景有意义）；表头单元格
+   保持 tableHeader 底色，表体单元格垫 editor 背景。 */
+.ProseMirror .tableWrapper[data-overflow-start="true"] td:first-child,
+.ProseMirror .tableWrapper[data-overflow-start="true"] th:first-child,
+.ProseMirror .tableWrapper[data-overflow-end="true"] td:first-child,
+.ProseMirror .tableWrapper[data-overflow-end="true"] th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--vscode-editor-background);
+}
+
+.ProseMirror
+  .tableWrapper[data-overflow-start="true"]
+  th:first-child,
+.ProseMirror
+  .tableWrapper[data-overflow-end="true"]
+  th:first-child {
+  background: var(
+    --vscode-tableHeader-background,
+    color-mix(in srgb, var(--vscode-editor-foreground) 4%, transparent)
+  );
+}
+
+/* 真正滚动过（左缘内容被裁）后，钉住列右缘亮起一条细线划出"冻结区"。
+   用 inset box-shadow 而非 ::after —— 伪元素已被 .selectedCell:after
+   （选中高亮）占用，同一伪元素两条规则会互相覆盖。 */
+.ProseMirror .tableWrapper[data-overflow-start="true"] td:first-child,
+.ProseMirror .tableWrapper[data-overflow-start="true"] th:first-child {
+  box-shadow: inset -1px 0 0 var(--jstudio-block-line);
+}
+
 .ProseMirror .tableWrapper table {
   /* separate + spacing 0 instead of collapse: WKWebView fails to repaint
-     collapsed borders once the table overflows the wrapper's overflow-x:auto
-     scroll layer (grid lines vanish until the table fits again). Cells only
-     paint bottom borders, so adjacent edges don't double up. */
+     collapsed borders once the table overflows the .table-scroll
+     overflow-x:auto scroll layer (grid lines vanish until the table fits
+     again). Cells only paint bottom borders, so adjacent edges don't
+     double up. */
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
   margin: 0;
-  overflow: hidden;
-  /* Border + radius moved to the wrapper (.tableWrapper); the wrapper's
-     overflow clips cell backgrounds to the rounded corners. */
+  /* 不要在 table 上设 overflow —— 首列钉住（td position:sticky）要求
+     sticky 元素与 .table-scroll 之间没有 overflow≠visible 的祖先，
+     否则 table 会成为 sticky 的参照容器，钉住失效。圆角裁切由
+     wrapper 的 overflow:hidden 完成。 */
 }
 
 /* Header row — 家具而非内容：用每个主题自带的 tableHeader-background

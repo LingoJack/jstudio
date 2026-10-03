@@ -132,4 +132,10 @@ export const INK_LIGHT: AppTheme = {
     'markupRaw': '#a07830',
     'controlKeyword': '#7a5ea0',
   },
+  customCss: `
+/* ── 指示器墨色：读头（大纲/滚动）与表格边缘箭头等"位置指示"的统一墨色 ── */
+:root {
+  --jstudio-indicator-ink: #1a1612;
+}
+`,
 };

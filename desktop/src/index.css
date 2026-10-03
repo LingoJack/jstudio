@@ -62,6 +62,26 @@
 .drag-region { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
 
+/* Tab title marquee — reveals a truncated tab title while hovered. TabBar
+   measures the overflow and sets --marquee-shift / --marquee-dur inline;
+   the ANIMATION itself is gated on the row's :hover — never a JS-toggled
+   class (React re-renders don't clear JS-added classes, so a class-driven
+   loop could freeze mid-scroll on a tab the pointer has already left).
+   Honours prefers-reduced-motion (title stays truncated, as before). */
+.tab-title-marquee {
+  text-align: left;
+}
+.group:hover .tab-title-marquee {
+  animation: tab-marquee var(--marquee-dur, 3s) ease-in-out 0.3s infinite alternate;
+}
+@keyframes tab-marquee {
+  0%, 25% { transform: translateX(0); }
+  75%, 100% { transform: translateX(var(--marquee-shift, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .tab-title-marquee { animation: none; }
+}
+
 /* width utilities */
 .w-sidebar-list { width: var(--w-sidebar-list); }
 .w-tab-document { width: var(--w-tab-document); }

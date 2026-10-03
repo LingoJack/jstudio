@@ -583,9 +583,10 @@ function OutlineRow({
       {/* Read-head cursor (❯) straddling the rail at the current heading —
           the same language as the editor scrollbar's read head
           (EditorScrollCursor). The bg patch masks the rail underneath so
-          the glyph reads as embedded. */}
+          the glyph reads as embedded. Ink per theme (indicator-ink), not
+          the accent — 位置指示统一走墨色，选择态才用强调色。 */}
       {active && (
-        <span className="absolute left-[-7px] top-1/2 -translate-y-1/2 px-[3px] bg-[var(--vscode-editor-background)] font-mono text-[12px] leading-[18px] text-[#00b8d9]">
+        <span className="absolute left-[-7px] top-1/2 -translate-y-1/2 px-[3px] bg-[var(--vscode-editor-background)] font-mono text-[12px] leading-[18px] text-[var(--jstudio-indicator-ink)]">
           {"❯"}
         </span>
       )}

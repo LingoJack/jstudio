@@ -130,4 +130,10 @@ export const JSTUDIO_DARK: AppTheme = {
     'markupRaw': '#CE9178',
     'controlKeyword': '#C586C0',
   },
+  customCss: `
+/* ── 指示器墨色：读头（大纲/滚动）与表格边缘箭头等"位置指示"的统一墨色（深色下的"黑"= 墨白，否则不可见） ── */
+:root {
+  --jstudio-indicator-ink: #CCCCCC;
+}
+`,
 };

@@ -79,15 +79,19 @@ export default function EditorScrollCursor({
       const h = TRAIL_MIN + energy * (TRAIL_MAX - TRAIL_MIN);
       trail.style.height = `${h}px`;
       trail.style.opacity = String(energy * 0.6);
-      // The trail streams BEHIND the direction of travel.
+      // The trail streams BEHIND the direction of travel. Ink from the
+      // shared indicator token — the read-head language is theme ink, not
+      // an accent color (unified with the outline rail's cursor).
+      const trailInk =
+        'color-mix(in srgb, var(--jstudio-indicator-ink) 85%, transparent)';
       if (motion.v >= 0) {
         trail.style.top = `${-h + 6}px`;
         trail.style.background =
-          'linear-gradient(to bottom, transparent, rgba(0,184,217,0.85))';
+          `linear-gradient(to bottom, transparent, ${trailInk})`;
       } else {
         trail.style.top = '10px';
         trail.style.background =
-          'linear-gradient(to bottom, rgba(0,184,217,0.85), transparent)';
+          `linear-gradient(to bottom, ${trailInk}, transparent)`;
       }
     };
 
@@ -149,13 +153,14 @@ export default function EditorScrollCursor({
       aria-hidden
       className="sticky top-0 ml-auto w-2 h-0 z-20 pointer-events-none"
     >
-      {/* "❯" read head — terminal-prompt style glyph, fixed cyan per feedback
-          (deliberately NOT the theme accent, which changes per theme).
+      {/* "❯" read head — terminal-prompt style glyph. Ink per theme via the
+          shared indicator token (unified with the outline rail's cursor) —
+          deliberately NOT the theme accent, which changes per theme.
           The 18px line box matches CURSOR_HEIGHT so the position math stays
           exact; opacity + comet trail are velocity-painted via refs. */}
       <span
         ref={headRef}
-        className="absolute right-0 -translate-y-1/2 px-[3px] bg-[var(--vscode-editor-background)] font-mono text-[12px] leading-[18px] text-[#00b8d9]"
+        className="absolute right-0 -translate-y-1/2 px-[3px] bg-[var(--vscode-editor-background)] font-mono text-[12px] leading-[18px] text-[var(--jstudio-indicator-ink)]"
         style={{ top: pos.y, opacity: OPACITY_REST }}
       >
         <span

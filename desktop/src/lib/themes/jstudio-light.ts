@@ -166,4 +166,10 @@ export const JSTUDIO_LIGHT: AppTheme = {
     'markupRaw': '#800000',
     'controlKeyword': '#AF00DB',
   },
+  customCss: `
+/* ── 指示器墨色：读头（大纲/滚动）与表格边缘箭头等"位置指示"的统一墨色（标准灰墨） ── */
+:root {
+  --jstudio-indicator-ink: #3B3B3B;
+}
+`,
 };

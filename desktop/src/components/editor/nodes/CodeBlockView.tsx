@@ -225,7 +225,7 @@ export default function CodeBlockView({
     updateAttributes,
     minWidth: 240,
     minHeight: 80,
-    fallbackWidth: editorWidth,
+    fallbackWidth: 240,
     fallbackHeight: 200,
     maxWidth: () => {
       const el = figureRefInternal.current;
@@ -325,8 +325,17 @@ export default function CodeBlockView({
   // horizontal or vertical scrolling. A persisted height still applies to
   // HTML/Mermaid preview mode, where the preview itself needs a viewport.
   const showAnyPreview = showHtmlPreview || showSvgPreview || showMermaidPreview;
+  // Width: explicit (user resized) wins; otherwise the block shrinks to fit
+  // its content (capped by .code-block-figure's max-width: 100%, floored by
+  // its min-width) instead of always stretching to the full editor width —
+  // short snippets keep breathing room aligned with the text. Previews and
+  // the collapsed strip keep full width (their content isn't line-fit).
   const figureStyle: React.CSSProperties = {
-    width: displayWidth ? `${displayWidth}px` : "100%",
+    width: displayWidth
+      ? `${displayWidth}px`
+      : showAnyPreview || collapsed
+        ? "100%"
+        : "fit-content",
   };
   const bodyStyle: React.CSSProperties = {
     overflow: "visible",

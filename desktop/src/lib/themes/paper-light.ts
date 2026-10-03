@@ -166,4 +166,10 @@ export const PAPER_LIGHT: AppTheme = {
     'markupRaw': '#d4380d',
     'controlKeyword': '#531dab',
   },
+  customCss: `
+/* ── 指示器墨色：读头（大纲/滚动）与表格边缘箭头等"位置指示"的统一墨色（纸白墨黑） ── */
+:root {
+  --jstudio-indicator-ink: #1a1a1a;
+}
+`,
 };

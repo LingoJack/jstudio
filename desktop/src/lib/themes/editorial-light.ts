@@ -180,6 +180,7 @@ export const EDITORIAL_LIGHT: AppTheme = {
 :root {
   --jstudio-block-line-strong: #1a1a1a;
   --jstudio-block-line: color-mix(in srgb, #1a1a1a 45%, transparent);
+  --jstudio-indicator-ink: #1a1a1a; /* 读头/表格边缘箭头的统一墨色 */
 }
 
 /* 代码块 / 文件块 / 表格：2px 墨黑描边圆角卡片（对齐文章卡片风格） */

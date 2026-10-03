@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useI18n } from '../../lib/core/i18n';
@@ -83,18 +83,46 @@ export default function DocumentTabs() {
   // capsule never overflows. `activeDocTabIndex` is -1 while a terminal tab
   // is active — the window then just stays anchored at the first tab.
   const activeDocTabIndex = docTabs.findIndex((tab) => tab.id === activeTabId);
-  const windowStart = Math.max(
-    0,
-    Math.min(
-      activeDocTabIndex - Math.floor((MAX_VISIBLE_DOC_TABS - 1) / 2),
-      docTabs.length - MAX_VISIBLE_DOC_TABS,
-    ),
-  );
+
+  // ── User-shiftable visible window ────────────────────────────
+  // The window auto-centers on the active tab; the mouse wheel shifts it
+  // left/right to reveal tabs outside the rendered slice (the +N badge
+  // counts them). Any doc-tab switch re-centers (offset resets).
+  const [windowOffset, setWindowOffset] = useState(0);
+  const windowOffsetRef = useRef(0);
+  useEffect(() => {
+    windowOffsetRef.current = 0;
+    setWindowOffset(0);
+  }, [activeDocTabIndex]);
+
+  const centeredStart = activeDocTabIndex - Math.floor((MAX_VISIBLE_DOC_TABS - 1) / 2);
+  const maxStart = Math.max(0, docTabs.length - MAX_VISIBLE_DOC_TABS);
+  const windowStart = Math.max(0, Math.min(centeredStart + windowOffset, maxStart));
   const visibleDocTabs = docTabs.slice(
     windowStart,
     windowStart + MAX_VISIBLE_DOC_TABS,
   );
   const hiddenTabCount = docTabs.length - visibleDocTabs.length;
+
+  // Mouse wheel over the strip shifts the visible window (one tab per
+  // notch). Capture phase on the wrapper so it wins over inner scroll
+  // handling; stopped after handling so nothing double-moves.
+  const tabBarWheelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = tabBarWheelRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const next = windowOffsetRef.current + dir;
+      windowOffsetRef.current = next;
+      setWindowOffset(next);
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   // Title-bar center slot (live element from the registry — survives
   // AppTitleBar remounts / HMR, unlike a state-cached reference).
@@ -158,6 +186,7 @@ export default function DocumentTabs() {
   if (tabBarPosition === 'hidden') return null;
 
   const tabBar = (
+    <div ref={tabBarWheelRef} data-tab-strip-window="1">
     <TabBar
       tabs={tabItems}
       activeTabId={activeTabId}
@@ -174,12 +203,14 @@ export default function DocumentTabs() {
           <span
             className="shrink-0 px-1 text-[11px] font-medium text-[var(--vscode-descriptionForeground)] opacity-70"
             title={t('workspace.hiddenTabs', { count: hiddenTabCount })}
+          onClick={() => { windowOffsetRef.current = 0; setWindowOffset(0); }}
           >
             +{hiddenTabCount}
           </span>
         ) : null
       }
     />
+    </div>
   );
 
   return (
